@@ -5,7 +5,7 @@ use crate::{PlayerWindow, platform};
 use effects::PluginEffects;
 use slint::{ComponentHandle, Model, winit_030::WinitWindowAccessor};
 use std::{
-    cell::{Cell, RefCell},
+    cell::Cell,
     collections::BTreeMap,
     rc::Rc,
     sync::Arc,
@@ -13,12 +13,8 @@ use std::{
 };
 
 pub(super) struct InstalledPluginUi {
-    #[cfg(target_os = "windows")]
-    pub(super) plugin_overlay_presenter: Rc<RefCell<platform::PluginOverlayPresenter>>,
-    #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
-    pub(super) plugin_sidebar_presenter: Rc<RefCell<platform::PluginSidebarPresenter>>,
-    #[cfg(target_os = "macos")]
-    pub(super) mac_plugin_menu_observer: Option<platform::MacPluginMenuObserver>,
+    presenters: platform::PluginPresenters,
+    menu_observation: platform::PluginMenuObservation,
     pub(super) plugin_host_timer: Option<Rc<slint::Timer>>,
     pub(super) plugin_osd_timer: Option<Rc<slint::Timer>>,
     pub(super) plugin_command_sender: Arc<std::sync::Mutex<Option<riina_mpv::CommandSender>>>,
@@ -36,22 +32,16 @@ impl InstalledPluginUi {
         host: Option<crate::plugin_host::PluginHost>,
         system_media: platform::SystemMediaSession,
         picture_in_picture: platform::PictureInPictureSession,
-        #[cfg(target_os = "macos")] mac_scroll_event_monitor: Option<
-            platform::MacScrollEventMonitor,
-        >,
+        scroll_monitor: platform::PlayerScrollMonitor,
     ) -> (platform::SessionExtras, RuntimeSession) {
         (
-            platform::SessionExtras {
-                #[cfg(target_os = "windows")]
-                _plugin_overlay_presenter: self.plugin_overlay_presenter,
-                _plugin_sidebar_presenter: self.plugin_sidebar_presenter,
-                _system_media: system_media,
-                _picture_in_picture: picture_in_picture,
-                #[cfg(target_os = "macos")]
-                _mac_scroll_event_monitor: mac_scroll_event_monitor,
-                #[cfg(target_os = "macos")]
-                _mac_plugin_menu_observer: self.mac_plugin_menu_observer,
-            },
+            platform::SessionExtras::new(
+                self.presenters,
+                system_media,
+                picture_in_picture,
+                self.menu_observation,
+                scroll_monitor,
+            ),
             RuntimeSession {
                 _host: host,
                 _host_timer: self.plugin_host_timer,
@@ -66,31 +56,15 @@ pub(super) fn install(
     native: Option<&platform::NativePresentation>,
     plugin_host_handle: Option<crate::plugin_host::PluginHostHandle>,
 ) -> InstalledPluginUi {
-    #[cfg(target_os = "macos")]
-    let mac_plugin_menu_observer = plugin_host_handle.as_ref().and_then(|host| {
-        match platform::MacPluginMenuObserver::new(app, host.clone()) {
-            Ok(observer) => Some(observer),
-            Err(error) => {
-                app.set_status(format!("Could not observe the Plugin menu: {error}").into());
-                None
-            }
-        }
-    });
+    let menu_observation =
+        platform::PluginMenuObservation::install(app, plugin_host_handle.as_ref());
     bind_lifecycle(app, plugin_host_handle.as_ref());
     let plugin_window_host = native.map(platform::NativePresentation::host);
     let plugin_command_sender = Arc::new(std::sync::Mutex::new(None::<riina_mpv::CommandSender>));
-    #[cfg(target_os = "windows")]
-    let plugin_overlay_presenter =
-        Rc::new(RefCell::new(platform::PluginOverlayPresenter::default()));
-    #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
-    let plugin_sidebar_presenter =
-        Rc::new(RefCell::new(platform::PluginSidebarPresenter::default()));
-    #[cfg(target_os = "windows")]
-    let plugin_overlay_parent = native.map(platform::NativePresentation::webview_parent_window);
-    #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
+    let presenters = platform::PluginPresenters::default();
     {
         let weak = app.as_weak();
-        let presenter = plugin_sidebar_presenter.clone();
+        let presenter = presenters.sidebar.clone();
         app.on_select_plugin_sidebar_tab(move |identifier| {
             let Some(app) = weak.upgrade() else { return };
             let identifier = identifier.to_string();
@@ -106,7 +80,6 @@ pub(super) fn install(
     let plugin_host_timer = plugin_host_handle.as_ref().map(|handle| {
         let timer = Rc::new(slint::Timer::default());
         let messages = handle.clone();
-        #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
         let sidebar_host = handle.clone();
         let window_host = plugin_window_host.clone();
         let mut window_events = WindowEvents::new(handle.clone(), window_host.clone());
@@ -116,13 +89,8 @@ pub(super) fn install(
             window_host,
             osd_timer: plugin_osd_timer_weak.clone(),
             osd_generation: plugin_osd_generation.clone(),
-            #[cfg(target_os = "windows")]
-            overlay: plugin_overlay_presenter.clone(),
-            #[cfg(target_os = "windows")]
-            overlay_host: handle.clone(),
-            #[cfg(target_os = "windows")]
-            overlay_parent: plugin_overlay_parent.clone(),
-            sidebar: plugin_sidebar_presenter.clone(),
+            overlay: presenters.overlay_delivery(native, handle),
+            sidebar: presenters.sidebar.clone(),
             sidebar_host,
         };
         timer.start(
@@ -130,8 +98,7 @@ pub(super) fn install(
             Duration::from_millis(25),
             move || {
                 let Some(app) = weak.upgrade() else { return };
-                #[cfg(target_os = "linux")]
-                platform::pump_linux_webview_events();
+                platform::pump_plugin_webviews();
                 window_events.observe(&app);
                 let Ok(messages) = messages.drain_messages() else {
                     return;
@@ -145,12 +112,8 @@ pub(super) fn install(
         timer
     });
     InstalledPluginUi {
-        #[cfg(target_os = "windows")]
-        plugin_overlay_presenter,
-        #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
-        plugin_sidebar_presenter,
-        #[cfg(target_os = "macos")]
-        mac_plugin_menu_observer,
+        presenters,
+        menu_observation,
         plugin_host_timer,
         plugin_osd_timer,
         plugin_command_sender,

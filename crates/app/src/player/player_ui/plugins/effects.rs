@@ -23,12 +23,7 @@ pub(super) struct PluginEffects {
     pub(super) window_host: Option<slint::Weak<NativeVideoHost>>,
     pub(super) osd_timer: Option<Weak<Timer>>,
     pub(super) osd_generation: Rc<Cell<u64>>,
-    #[cfg(target_os = "windows")]
-    pub(super) overlay: Rc<RefCell<platform::PluginOverlayPresenter>>,
-    #[cfg(target_os = "windows")]
-    pub(super) overlay_host: PluginHostHandle,
-    #[cfg(target_os = "windows")]
-    pub(super) overlay_parent: Option<Arc<slint::winit_030::winit::window::Window>>,
+    pub(super) overlay: platform::PluginOverlayDelivery,
     pub(super) sidebar: Rc<RefCell<platform::PluginSidebarPresenter>>,
     pub(super) sidebar_host: PluginHostHandle,
 }
@@ -78,19 +73,13 @@ impl PluginEffects {
             PluginHostMessage::RemovePluginMenu(identifier) => {
                 remove_plugin_menu_rows(app, &identifier)
             }
-            #[cfg(target_os = "windows")]
-            message @ PluginHostMessage::Overlay { .. } => self.present_overlay(app, message),
-            #[cfg(target_os = "windows")]
-            PluginHostMessage::RemoveOverlay(identifier) => {
-                self.overlay.borrow_mut().remove(&identifier)
+            message @ PluginHostMessage::Overlay { .. } => {
+                if let Err(error) = self.overlay.apply(message) {
+                    app.set_status(error.into());
+                }
             }
+            PluginHostMessage::RemoveOverlay(identifier) => self.overlay.remove(&identifier),
             message @ PluginHostMessage::Sidebar { .. } => self.present_sidebar(app, message),
-            #[cfg(not(target_os = "windows"))]
-            PluginHostMessage::Overlay { .. } => {
-                app.set_status("Plugin video overlays are unavailable on this platform".into());
-            }
-            #[cfg(not(target_os = "windows"))]
-            PluginHostMessage::RemoveOverlay(_) => {}
             PluginHostMessage::RemoveSidebar(identifier) => {
                 self.sidebar.borrow_mut().remove(&identifier);
                 plugin_sidebar_tab_removed(app, &identifier);
@@ -121,20 +110,6 @@ impl PluginEffects {
                     app.set_plugin_osd_message("".into());
                 }
             });
-        }
-    }
-
-    #[cfg(target_os = "windows")]
-    fn present_overlay(&self, app: &PlayerWindow, message: PluginHostMessage) {
-        let result = if let Some(parent) = self.overlay_parent.as_ref() {
-            self.overlay
-                .borrow_mut()
-                .apply_host_message(parent, &self.overlay_host, message)
-        } else {
-            Err("Plugin video overlays require native video presentation".into())
-        };
-        if let Err(error) = result {
-            app.set_status(error.into());
         }
     }
 
@@ -169,12 +144,7 @@ impl PluginEffects {
     }
 
     pub(super) fn update_presenters(&self, app: &PlayerWindow) {
-        #[cfg(target_os = "windows")]
-        self.overlay.borrow_mut().update(
-            app.get_window_width(),
-            app.get_window_height(),
-            f64::from(app.window().scale_factor()),
-        );
+        self.overlay.update(app);
         let selected = if app.get_sidebar() == 7 || app.get_leading_sidebar() == 7 {
             let identifier = app.get_plugin_sidebar_selected_identifier();
             (!identifier.is_empty()).then(|| identifier.to_string())

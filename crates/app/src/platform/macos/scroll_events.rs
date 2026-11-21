@@ -1,19 +1,8 @@
+use crate::platform::player_input::NativeScrollEvent;
 use block2::RcBlock;
 use objc2::{MainThreadMarker, rc::Retained, runtime::AnyObject};
 use objc2_app_kit::{NSEvent, NSEventMask};
 use std::{ptr::NonNull, rc::Rc};
-
-#[derive(Clone, Copy, Debug)]
-pub(crate) struct NativeScrollEvent {
-    pub(crate) delta_x: f64,
-    pub(crate) delta_y: f64,
-    pub(crate) precise: bool,
-    pub(crate) natural_direction: bool,
-    pub(crate) phase_empty: bool,
-    pub(crate) phase_began: bool,
-    pub(crate) phase_ended: bool,
-    pub(crate) momentum_phase_empty: bool,
-}
 
 pub(crate) struct MacScrollEventMonitor {
     token: Retained<AnyObject>,

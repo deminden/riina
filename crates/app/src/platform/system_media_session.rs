@@ -18,8 +18,8 @@ impl SystemMediaSession {
 mod macos {
     use super::*;
     use crate::{
-        platform,
-        player_ui::{input::some_player_window_is_focused, lifecycle::AutomaticPause},
+        platform, platform::player_input::some_player_window_is_focused,
+        player_ui::lifecycle::AutomaticPause,
     };
     use riina_core::{Command, Phase};
     use slint::{ComponentHandle, winit_030::WinitWindowAccessor};

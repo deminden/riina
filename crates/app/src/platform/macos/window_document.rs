@@ -5,7 +5,7 @@ use slint::winit_030::winit::raw_window_handle::{HasWindowHandle, RawWindowHandl
 use std::path::Path;
 
 /// Use Finder's localized display name and extension-visibility rules.
-pub(crate) fn display_name_for_path(path: &Path) -> Option<String> {
+fn display_name_for_path(path: &Path) -> Option<String> {
     let path = path.to_str().filter(|path| Path::new(path).is_absolute())?;
     let path = NSString::from_str(path);
     Some(
@@ -16,7 +16,7 @@ pub(crate) fn display_name_for_path(path: &Path) -> Option<String> {
 }
 
 /// Let AppKit display the current local media as the window's represented document.
-pub(crate) fn set_represented_file(window: &slint::Window, file: Option<&Path>) {
+fn set_represented_file(window: &slint::Window, file: Option<&Path>) {
     let represented_path = file
         .filter(|path| path.is_absolute())
         .and_then(Path::to_str);
@@ -47,4 +47,22 @@ pub(crate) fn set_represented_file(window: &slint::Window, file: Option<&Path>) 
             native_window.setRepresentedURL(represented_url.as_deref());
         }
     });
+}
+
+pub(crate) fn playback_title(window: &slint::Window, state: &riina_core::Playback) -> String {
+    use crate::key_binding_preferences::{CurrentMediaLocation, current_media_location};
+    let path = match current_media_location(state) {
+        CurrentMediaLocation::Local(path) => std::path::absolute(path).ok(),
+        CurrentMediaLocation::NoMedia | CurrentMediaLocation::NonLocal => None,
+    };
+    set_represented_file(window, path.as_deref());
+    let title = path
+        .as_deref()
+        .and_then(display_name_for_path)
+        .unwrap_or_else(|| state.title.clone());
+    if title.is_empty() {
+        "Riina".to_owned()
+    } else {
+        title
+    }
 }

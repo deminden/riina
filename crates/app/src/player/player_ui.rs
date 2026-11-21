@@ -284,8 +284,7 @@ fn configure_with_engine(
         guards,
         live_text_timer,
         pending_navigation,
-        #[cfg(target_os = "macos")]
-        mac_scroll_event_monitor,
+        scroll_monitor,
     } = features::install(
         app,
         features::Inputs {
@@ -362,8 +361,7 @@ fn configure_with_engine(
         session.plugin_host,
         session.projection.system_media,
         session.picture_in_picture,
-        #[cfg(target_os = "macos")]
-        mac_scroll_event_monitor,
+        scroll_monitor,
     );
     Ok(UiSession {
         player: player.map(SessionResource::Live),

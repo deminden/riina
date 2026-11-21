@@ -31,8 +31,7 @@ pub(super) struct Installed {
     pub(super) guards: PlaybackFeatures,
     pub(super) live_text_timer: Option<Rc<slint::Timer>>,
     pub(super) pending_navigation: PendingNavigation,
-    #[cfg(target_os = "macos")]
-    pub(super) mac_scroll_event_monitor: Option<platform::MacScrollEventMonitor>,
+    pub(super) scroll_monitor: platform::PlayerScrollMonitor,
 }
 
 pub(super) struct Inputs<'a> {
@@ -101,8 +100,7 @@ pub(super) fn install(app: &PlayerWindow, inputs: Inputs<'_>) -> Installed {
     let input::InstalledInput {
         file_drop_timer,
         player_window_focus,
-        #[cfg(target_os = "macos")]
-        mac_scroll_event_monitor,
+        scroll_monitor,
     } = input::install(app, commands, playback.clone());
     let thumbnail_preview_timer = thumbnail_actions::install(app, playback, plugin_host.cloned());
     let pending_navigation: PendingNavigation = Rc::new(RefCell::new(None));
@@ -134,7 +132,6 @@ pub(super) fn install(app: &PlayerWindow, inputs: Inputs<'_>) -> Installed {
         },
         live_text_timer,
         pending_navigation,
-        #[cfg(target_os = "macos")]
-        mac_scroll_event_monitor,
+        scroll_monitor,
     }
 }

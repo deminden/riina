@@ -21,4 +21,4 @@ pub(crate) use pip::MacPictureInPicture;
 pub(crate) use plugin_menu::MacPluginMenuObserver;
 pub(crate) use scroll_events::MacScrollEventMonitor;
 pub(crate) use system_media::{RemoteMediaAction, SystemMediaControls};
-pub(crate) use window_document::{display_name_for_path, set_represented_file};
+pub(crate) use window_document::playback_title;

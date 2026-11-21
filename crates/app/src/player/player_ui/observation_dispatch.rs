@@ -67,7 +67,6 @@ pub(super) fn prepare_observation(app: &PlayerWindow, inputs: Inputs<'_>) -> Pre
     let transition_overlay = Arc::new(AtomicU64::new(u64::MAX));
     let transition_release_generation = Arc::new(AtomicU64::new(u64::MAX));
     let notify_transition_overlay = transition_overlay.clone();
-    #[cfg(target_os = "windows")]
     let notify_transition_release_generation = transition_release_generation.clone();
     let music_mode_state = Arc::new(std::sync::Mutex::new(music_mode::State::new(
         prefs.auto_switch_to_music_mode,
@@ -101,7 +100,6 @@ pub(super) fn prepare_observation(app: &PlayerWindow, inputs: Inputs<'_>) -> Pre
             opening_fullscreen,
             music_mode_state: music_mode_state.clone(),
             transition_overlay: notify_transition_overlay,
-            #[cfg(target_os = "windows")]
             transition_release_generation: notify_transition_release_generation,
         },
         picture_in_picture_state_dirty,
@@ -197,7 +195,6 @@ pub(super) struct WindowDelivery {
     pub(super) opening_fullscreen: Arc<Mutex<OpeningFullscreen>>,
     pub(super) music_mode_state: Arc<Mutex<music_mode::State>>,
     pub(super) transition_overlay: Arc<AtomicU64>,
-    #[cfg(target_os = "windows")]
     pub(super) transition_release_generation: Arc<AtomicU64>,
 }
 
@@ -231,7 +228,6 @@ impl WindowDelivery {
                     saved_video_filters: &self.saved_video_filters,
                     saved_audio_filters: &self.saved_audio_filters,
                     transition_overlay: self.transition_overlay.as_ref(),
-                    #[cfg(target_os = "windows")]
                     transition_release_generation: self.transition_release_generation.as_ref(),
                 },
                 &mut observer.borrow_mut(),

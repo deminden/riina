@@ -5,16 +5,12 @@ use super::{
     observer_state::UiObserverState,
     window_video_geometry,
 };
-#[cfg(target_os = "macos")]
-use crate::platform;
 use crate::{
-    PlayerWindow,
+    PlayerWindow, platform,
     seek_osd::{self, Change},
 };
 use riina_core::{Command, LoopMode, Phase, Playback, TrackKind, time_label};
 use slint::ComponentHandle;
-#[cfg(not(target_os = "macos"))]
-use std::path::Path;
 use std::{
     path::PathBuf,
     sync::{
@@ -28,7 +24,6 @@ pub(super) struct UiUpdateResources<'a> {
     pub(super) saved_video_filters: &'a Arc<std::sync::Mutex<riina_core::video_filters::Settings>>,
     pub(super) saved_audio_filters: &'a Arc<std::sync::Mutex<riina_core::video_filters::Settings>>,
     pub(super) transition_overlay: &'a AtomicU64,
-    #[cfg(target_os = "windows")]
     pub(super) transition_release_generation: &'a AtomicU64,
 }
 
@@ -48,7 +43,8 @@ pub(super) fn update_ui(
     update_transition_cover(app, &state, &resources);
     let previous_generation = media_geometry.observe(state.generation);
     update_filter_menu_rows(app, &state, &resources);
-    update_window_title(app, &state);
+    let title = platform::window_document::playback_title(app.window(), &state);
+    app.set_window_title(title.into());
     update_media_actions(app, &state);
     update_feedback(
         app,
@@ -121,26 +117,11 @@ fn update_transition_cover(
     resources: &UiUpdateResources<'_>,
 ) {
     if app.get_native_video() {
-        let show_transition = {
-            #[cfg(target_os = "windows")]
-            {
-                crate::transition_frame::should_display_until_incoming_stable(
-                    state,
-                    app.get_playlist_auto_play_next(),
-                    match resources
-                        .transition_release_generation
-                        .load(Ordering::Acquire)
-                    {
-                        u64::MAX => None,
-                        generation => Some(generation),
-                    },
-                )
-            }
-            #[cfg(not(target_os = "windows"))]
-            {
-                crate::transition_frame::should_display(state, app.get_playlist_auto_play_next())
-            }
-        };
+        let show_transition = platform::transition_cover::should_display(
+            state,
+            app.get_playlist_auto_play_next(),
+            resources.transition_release_generation,
+        );
         // The transition surface has an opaque black matte beneath its image.
         // Keep the surface disabled unless the retained frame is present, so
         // a missing capture can never become a black rectangle over playback.
@@ -217,51 +198,6 @@ fn update_filter_menu_rows(
             |rows| app.set_saved_audio_filter_rows(rows),
         );
     }
-}
-
-fn update_window_title(app: &PlayerWindow, state: &Playback) {
-    #[cfg(target_os = "macos")]
-    let current_media_path = match crate::key_binding_preferences::current_media_location(state) {
-        crate::key_binding_preferences::CurrentMediaLocation::Local(path) => {
-            std::path::absolute(path).ok()
-        }
-        crate::key_binding_preferences::CurrentMediaLocation::NoMedia
-        | crate::key_binding_preferences::CurrentMediaLocation::NonLocal => None,
-    };
-    #[cfg(not(target_os = "macos"))]
-    let current_media_path = state
-        .playlist
-        .iter()
-        .find(|entry| entry.current || entry.playing)
-        .map(|entry| PathBuf::from(&entry.filename));
-    #[cfg(target_os = "macos")]
-    platform::set_represented_file(app.window(), current_media_path.as_deref());
-    #[cfg(target_os = "macos")]
-    let title_path = current_media_path.as_deref();
-    #[cfg(target_os = "macos")]
-    let filename = title_path
-        .and_then(platform::display_name_for_path)
-        .unwrap_or_else(|| state.title.clone());
-    #[cfg(not(target_os = "macos"))]
-    let title_path = current_media_path.as_deref();
-    #[cfg(not(target_os = "macos"))]
-    let filename = title_path
-        .and_then(Path::file_name)
-        .map(|name| name.to_string_lossy().into_owned())
-        .filter(|name| !name.is_empty())
-        .unwrap_or_else(|| state.title.clone());
-    let window_title = if filename.is_empty() {
-        if cfg!(target_os = "macos") {
-            "Riina".to_owned()
-        } else {
-            "riina".to_owned()
-        }
-    } else if cfg!(target_os = "macos") {
-        filename
-    } else {
-        format!("{filename} — riina")
-    };
-    app.set_window_title(window_title.into());
 }
 
 fn update_media_actions(app: &PlayerWindow, state: &Playback) {

@@ -13,12 +13,20 @@ pub(crate) mod folder_dialog;
 pub(crate) mod language;
 mod pip_session;
 pub(crate) use pip_session::PictureInPictureSession;
+mod player_input;
+pub(crate) use player_input::{PlayerFocus, PlayerScrollMonitor, install_player_gestures};
+mod plugin_presentation;
+pub(crate) use plugin_presentation::{
+    PluginMenuObservation, PluginOverlayDelivery, PluginPresenters, pump_plugin_webviews,
+};
 mod plugin_resources;
 pub(crate) mod preferences;
 pub(crate) mod settings_file;
 mod shared_video;
 pub(crate) use shared_video::SharedVideoExtras;
 mod system_media_session;
+pub(crate) mod transition_cover;
+pub(crate) mod window_document;
 pub(crate) use system_media_session::SystemMediaSession;
 pub(crate) mod video_materials;
 pub(crate) mod window_sizing;
@@ -1120,9 +1128,8 @@ pub(crate) use macos::text_recognition;
 #[cfg(target_os = "macos")]
 pub(crate) use macos::{
     ControlGesture, GesturePhase, MacApplicationMenuObserver, MacPictureInPicture,
-    MacPluginMenuObserver, MacScrollEventMonitor, MacSubtitleColorPanel, RemoteMediaAction,
-    SystemMediaControls, display_identity, display_name_for_path, icc_profile_for_window,
-    install_control_gestures, set_represented_file,
+    MacPluginMenuObserver, MacSubtitleColorPanel, RemoteMediaAction, SystemMediaControls,
+    display_identity, icc_profile_for_window, install_control_gestures,
 };
 
 #[cfg(target_os = "macos")]
