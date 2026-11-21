@@ -63,10 +63,11 @@ until the worker replaces or updates them. `playback_mailbox` coalesces pending
 updates to the UI thread.
 Screenshot and frame completions travel alongside the snapshot so coalescing
 cannot discard their side effects. `observations` projects playback state and
-catalogs into Slint. Each player instance owns its audio and timeline globals,
-so changing those observations in one window leaves the other players' views
-independent. Plugin entry workers have a separate runtime and send player intents
-through the existing command path.
+catalogs into Slint. Each player owns its audio, video, subtitle, timeline, and
+feedback state. The controller, sidebars, and menus use the same window's
+observations. Keyboard input and both menu presentations invoke the actions
+registered for that player. Plugin entry workers have a separate runtime and
+send player intents through the existing command path.
 
 The app's named background tasks register until their work returns. Their
 owners retain join handles where teardown depends on the work completing.
@@ -85,9 +86,9 @@ the native engine and only then releases the callback context.
 copy of invalid input and loads recoverable fields. `PreferenceModel` holds the
 committed settings on the UI thread and delegates persistence to
 `preference_store::Writer`. Section bindings read and validate their controls and
-project the saved settings into the Settings window and player. Session saving
-captures window-owned state, recent files and history while sharing the same
-preference writer. See [Add a preference](recipes/add-a-preference.md).
+project the saved settings into the Settings form and `PlayerPreferences`.
+Session saving captures window-owned state, recent files, and history through
+the same preference writer. See [Add a preference](recipes/add-a-preference.md).
 
 ## Platform boundary
 

@@ -30,6 +30,8 @@ for the full workspace gate. `cargo xtask native <filter>` runs a focused native
 group with the pinned DLL. Keep strict workspace Clippy enabled and remove
 line-length exceptions when editing the affected code. The development guide
 describes headless widgets, pixel baselines and optional coverage.
+Run `cargo test -p riina-ui --test headless_visual --locked` on Windows for a
+standalone software-rendered comparison of player and Settings pixels.
 
 ## Attribution and publishing
 

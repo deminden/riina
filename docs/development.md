@@ -345,3 +345,15 @@ The source and package license scopes are settled; see [licensing](licensing.md)
 Use the immutable application tag, Cargo lockfile, native manifest and public
 upstream sources for [source access](SOURCE-ACCESS.md). Do not duplicate native
 or vendored Rust source trees in release assets.
+
+## Resolved review findings
+
+| Finding | Change | Commit |
+| --- | --- | --- |
+| H1 | Recover valid settings and preserve the original invalid profile | `e63fce8`, `f90fffd` |
+| H2 | Log startup failures and panics and show a native Windows startup dialog | `f90fffd` |
+| H5 | Limit extracted plugin bytes and recover abandoned staging directories | `8316f0c` |
+| H6 | Require explicit grants for restricted plugin destinations | `300495e` |
+| H8 | Check unsafe boundaries with strict workspace lints | `dda8174` |
+| H10 | Share plugin HTTP request defaults | `7bcec50` |
+| O4 | Provide an application library, a shared UI crate, and a recording engine for tests | `acb0fbf`, `57346d1`, `721035b` |
