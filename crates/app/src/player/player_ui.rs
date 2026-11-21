@@ -753,7 +753,9 @@ fn configure_with_engine(
     crate::preferences::model::install_player_section::<riina_core::network_preferences::Cache>(
         &prefs, app,
     );
-    crate::network_ytdl_preferences::install_player(app, &prefs.network_online_videos);
+    crate::preferences::model::install_player_section::<
+        riina_core::network_preferences::OnlineVideos,
+    >(&prefs, app);
     app.set_subtitle_font(prefs.subtitle_font.clone().into());
     app.set_subtitle_font_size_preference(prefs.subtitle_font_size as f32);
     crate::subtitle_preferences::install_style(app, prefs.subtitle_text_style);

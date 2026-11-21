@@ -1,6 +1,31 @@
 //! Bind IINA's optional online-video extraction settings to the shared UI state.
 
+use super::model::{PreferenceSection, SectionError};
+use crate::{PlayerWindow, PreferencesWindow};
+use riina_core::Preferences;
 use riina_core::network_preferences::OnlineVideos;
+
+impl PreferenceSection for OnlineVideos {
+    fn get(all: &Preferences) -> Self {
+        all.network_online_videos.clone()
+    }
+
+    fn put(self, all: &mut Preferences) {
+        all.network_online_videos = self;
+    }
+
+    fn read_window(window: &PreferencesWindow) -> Result<Self, SectionError> {
+        current_window(window).map_err(SectionError::from)
+    }
+
+    fn write_window(&self, window: &PreferencesWindow) {
+        install_window(window, self);
+    }
+
+    fn write_player(&self, app: &PlayerWindow) {
+        install_player(app, self);
+    }
+}
 
 fn validate(preferences: OnlineVideos) -> Result<OnlineVideos, String> {
     preferences.validate().map_err(str::to_owned)?;
