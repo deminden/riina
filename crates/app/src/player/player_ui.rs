@@ -811,7 +811,9 @@ fn configure_with_engine(
     app.set_compact_ui(prefs.compact_ui);
     app.set_always_float_on_top(prefs.always_float_on_top);
     app.set_always_show_on_top_icon(prefs.always_show_on_top_icon);
-    crate::liquid_glass_preferences::install_player(app, prefs.liquid_glass);
+    crate::preferences::model::install_player_section::<riina_core::liquid_glass::SurfaceSettings>(
+        &prefs, app,
+    );
     let appearance = prefs.effective_theme_material();
     app.set_appearance_mode(appearance.index());
     app.set_surface_material_title(crate::platform::surface_material_title().into());

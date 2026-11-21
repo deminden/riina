@@ -164,7 +164,13 @@ fn connect_with_credentials(
         };
         let previous_volume_boost = app.get_volume_boost();
         let previous_liquid_glass = crate::liquid_glass_preferences::current_player(&app);
-        let selected_liquid_glass = crate::liquid_glass_preferences::current_preferences(&window);
+        let Some(selected_liquid_glass) = read_or_refresh(
+            model.read_section::<riina_core::liquid_glass::SurfaceSettings>(&window),
+            &app,
+            &window,
+        ) else {
+            return;
+        };
         let Some(selected_theme) =
             riina_core::ThemeMaterial::from_index(window.get_appearance_index())
         else {
@@ -672,12 +678,12 @@ fn connect_with_credentials(
                 key_bindings: selected_key_bindings.clone(),
                 network_cache: selected_network_cache.clone(),
                 network_online_videos: selected_network_ytdl.clone(),
-                liquid_glass: selected_liquid_glass,
                 ..baseline.clone()
             };
             selected_thumbnail_preview.put(&mut preferences);
             selected_picture_in_picture.put(&mut preferences);
             selected_osd.put(&mut preferences);
+            selected_liquid_glass.put(&mut preferences);
             selected_controls.put(&mut preferences);
             selected_control_bar.put(&mut preferences);
             selected_window_resize.put(&mut preferences);
@@ -758,7 +764,7 @@ fn connect_with_credentials(
                 app.set_always_float_on_top(window.get_always_float_on_top());
                 app.set_always_show_on_top_icon(window.get_always_show_on_top_icon());
                 model.write_player::<riina_core::control_preferences::Settings>(&app);
-                crate::liquid_glass_preferences::install_player(&app, selected_liquid_glass);
+                model.write_player::<riina_core::liquid_glass::SurfaceSettings>(&app);
                 crate::key_binding_preferences::install_player(
                     &app,
                     &selected_key_bindings,
