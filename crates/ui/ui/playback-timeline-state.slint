@@ -1,3 +1,5 @@
+import { PlayerMenuActions } from "player-menu-actions.slint";
+
 export global PlaybackTimelineState {
     in-out property <bool> seekable: false;
     in-out property <float> position: 0;
@@ -6,4 +8,18 @@ export global PlaybackTimelineState {
     in-out property <string> duration-label: "--:--";
     in-out property <string> seek-position-label;
     in-out property <string> seek-duration-label;
+
+    in-out property <image> timeline-thumbnail-image;
+    in-out property <string> timeline-preview-label: "";
+    in-out property <float> thumbnail-preview-width: 120;
+    in-out property <float> ab-loop-a: 0;
+    in-out property <bool> ab-loop-a-known: false;
+    in-out property <float> ab-loop-b: 0;
+    in-out property <bool> ab-loop-b-known: false;
+    in-out property <float> speed-value: 1;
+    in-out property <float> speed-slider-position: 8;
+    in-out property <string> speed-edit-value: "1";
+    in-out property <[float]> chapter-times: [];
+
+    changed speed-edit-value => { PlayerMenuActions.video-menu-changed(); }
 }

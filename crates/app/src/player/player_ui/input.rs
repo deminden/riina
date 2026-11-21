@@ -334,7 +334,11 @@ fn scroll_action_handler(
                 }
             }
             riina_core::control_preferences::ScrollEffect::MultiplySpeed(factor) => {
-                let current = f64::from(app.get_speed_value()).clamp(0.05, 4.0);
+                let current = f64::from(
+                    app.global::<riina_ui::PlaybackTimelineState>()
+                        .get_speed_value(),
+                )
+                .clamp(0.05, 4.0);
                 let target = (current * factor).clamp(0.05, 4.0);
                 Command::MultiplySpeed(target / current)
             }

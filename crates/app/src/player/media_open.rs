@@ -168,7 +168,12 @@ fn open_in_separate_players(
     paths: &[String],
     resume_position: Option<f64>,
 ) -> Result<bool, String> {
-    if app.get_playlist().row_count() == 0 {
+    if app
+        .global::<riina_ui::PlayerCatalogState>()
+        .get_playlist()
+        .row_count()
+        == 0
+    {
         return Ok(false);
     }
     let preferences_path =
@@ -180,7 +185,7 @@ fn open_in_separate_players(
         return Ok(false);
     }
 
-    let existing = app.get_playlist();
+    let existing = app.global::<riina_ui::PlayerCatalogState>().get_playlist();
     let open_paths = (0..existing.row_count())
         .filter_map(|index| existing.row_data(index))
         .map(|row| row.path.to_string())

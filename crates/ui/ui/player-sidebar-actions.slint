@@ -2,6 +2,8 @@ import { DelayLane } from "delay-lane.slint";
 
 // Every sidebar routes its control actions to the owning player session.
 export global PlayerSidebarActions {
+    callback toggle-playlist-shuffle();
+    callback sort-playlist(int);
     callback set-hdr-enabled(bool);
     callback select-playlist-row(int, bool, bool) -> [string];
     callback set-volume-boost(bool);

@@ -225,6 +225,50 @@ pub(super) fn focus_chrome(window: &slint::Window) {
     });
 }
 
+fn refresh_popup(app: &PlayerWindow, hwnd: HWND, wparam: WPARAM) {
+    let information = [
+        (
+            "Volume:",
+            app.global::<riina_ui::PlaybackAudioState>()
+                .get_volume_menu_title()
+                .to_string(),
+        ),
+        (
+            "Speed:",
+            format!(
+                "Speed: {}x",
+                app.global::<riina_ui::PlaybackTimelineState>()
+                    .get_speed_edit_value()
+            ),
+        ),
+        (
+            "Audio Delay:",
+            format!(
+                "Audio Delay: {}s",
+                app.global::<riina_ui::PlaybackAudioState>()
+                    .get_audio_delay_text()
+            ),
+        ),
+        (
+            "Subtitle Delay:",
+            format!(
+                "Subtitle Delay: {}s",
+                app.global::<riina_ui::PlaybackSubtitleState>()
+                    .get_subtitle_delay_text()
+            ),
+        ),
+    ];
+    for (prefix, label) in information {
+        if let Err(error) = update_information_label(HMENU(wparam.0 as *mut _), prefix, &label) {
+            app.set_status(format!("Could not refresh playback menu: {error}").into());
+        }
+    }
+    let plugin_menu = plugin_menu_handle(hwnd);
+    if plugin_menu != 0 && wparam.0 as isize == plugin_menu {
+        app.invoke_plugin_menu_will_open();
+    }
+}
+
 unsafe extern "system" fn menu_proc(
     hwnd: HWND,
     message: u32,
@@ -260,41 +304,7 @@ unsafe extern "system" fn menu_proc(
     if message == WM_INITMENUPOPUP
         && let Some(app) = context.app.upgrade()
     {
-        let information = [
-            (
-                "Volume:",
-                app.global::<riina_ui::PlaybackAudioState>()
-                    .get_volume_menu_title()
-                    .to_string(),
-            ),
-            ("Speed:", format!("Speed: {}x", app.get_speed_edit_value())),
-            (
-                "Audio Delay:",
-                format!(
-                    "Audio Delay: {}s",
-                    app.global::<riina_ui::PlaybackAudioState>()
-                        .get_audio_delay_text()
-                ),
-            ),
-            (
-                "Subtitle Delay:",
-                format!(
-                    "Subtitle Delay: {}s",
-                    app.global::<riina_ui::PlaybackSubtitleState>()
-                        .get_subtitle_delay_text()
-                ),
-            ),
-        ];
-        for (prefix, label) in information {
-            if let Err(error) = update_information_label(HMENU(wparam.0 as *mut _), prefix, &label)
-            {
-                app.set_status(format!("Could not refresh playback menu: {error}").into());
-            }
-        }
-        let plugin_menu = plugin_menu_handle(hwnd);
-        if plugin_menu != 0 && wparam.0 as isize == plugin_menu {
-            app.invoke_plugin_menu_will_open();
-        }
+        refresh_popup(&app, hwnd, wparam);
     }
     if wparam.0 == VK_F10.0 as usize && !context.active.get() {
         if matches!(message, WM_KEYDOWN | WM_SYSKEYDOWN) {

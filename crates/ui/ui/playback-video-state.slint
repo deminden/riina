@@ -1,3 +1,4 @@
+import { PlayerMenuActions } from "player-menu-actions.slint";
 import { CatalogRow } from "catalog-row.slint";
 
 // Per-window video observations are shared by the video pane and menus.
@@ -23,4 +24,14 @@ export global PlaybackVideoState {
     in-out property <bool> hdr-display-active: false;
     in-out property <bool> hdr-source-detected: false;
     in-out property <bool> hdr-enabled: true;
+
+    changed video-tracks => { PlayerMenuActions.video-menu-changed(); }
+    changed video-aspect-known => { PlayerMenuActions.video-menu-changed(); }
+    changed video-aspect-menu-labels => { PlayerMenuActions.video-menu-changed(); }
+    changed video-aspect-menu-index => { PlayerMenuActions.video-menu-changed(); }
+    changed video-rotation-known => { PlayerMenuActions.video-menu-changed(); }
+    changed video-rotation-index => { PlayerMenuActions.video-menu-changed(); }
+    changed video-crop-known => { PlayerMenuActions.video-menu-changed(); }
+    changed video-crop-menu-labels => { PlayerMenuActions.video-menu-changed(); }
+    changed video-crop-menu-index => { PlayerMenuActions.video-menu-changed(); }
 }

@@ -300,9 +300,12 @@ fn save_preferences(
     let show_playlist = preferences.music_mode_show_playlist;
     let show_album_art = preferences.music_mode_show_album_art;
     model.save(preferences)?;
-    app.set_auto_switch_to_music_mode(auto_switch);
-    app.set_music_mode_show_playlist(show_playlist);
-    app.set_music_mode_show_album_art(show_album_art);
+    app.global::<riina_ui::PlayerMusicModeState>()
+        .set_auto_switch_to_music_mode(auto_switch);
+    app.global::<riina_ui::PlayerMusicModeState>()
+        .set_music_mode_show_playlist(show_playlist);
+    app.global::<riina_ui::PlayerMusicModeState>()
+        .set_music_mode_show_album_art(show_album_art);
     Ok(())
 }
 

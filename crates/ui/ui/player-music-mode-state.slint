@@ -1,0 +1,14 @@
+// The MiniPlayer shares its layout and metadata with the full player.
+export global PlayerMusicModeState {
+    in-out property <bool> music-mode: false;
+    in-out property <bool> auto-switch-to-music-mode: true;
+    in-out property <bool> music-mode-show-playlist: false;
+    in-out property <bool> music-mode-show-album-art: true;
+    in-out property <float> music-mode-artwork-aspect-ratio: 0;
+    in-out property <bool> music-mode-is-audio: false;
+    in-out property <bool> music-mode-has-album-art: false;
+    in-out property <bool> music-mode-has-visible-subtitles: false;
+    in-out property <bool> music-mode-volume-open: false;
+    in-out property <string> music-artist: "";
+    in-out property <string> music-album: "";
+}

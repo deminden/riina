@@ -443,7 +443,7 @@ fn material_visible(app: &PlayerWindow) -> bool {
         && !(video.get_hdr_source_detected() && video.get_hdr_enabled())
         && ((appearance.get_liquid_glass_osc()
             && app.get_loaded()
-            && (app.get_controls_visible() || app.get_music_mode()))
+            && (app.get_controls_visible() || app.global::<riina_ui::PlayerMusicModeState>().get_music_mode()))
             || (appearance.get_liquid_glass_sidebar()
                 && (app.get_sidebar() != 0 || app.get_leading_sidebar() != 0))
             || (appearance.get_liquid_glass_osd()

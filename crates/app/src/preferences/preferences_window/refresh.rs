@@ -4,6 +4,7 @@ use slint::ComponentHandle;
 
 pub(super) fn refresh(window: &crate::PreferencesWindow, app: &PlayerWindow) {
     let player_preferences = app.global::<riina_ui::PlayerPreferences>();
+    let music_mode = app.global::<riina_ui::PlayerMusicModeState>();
     let general = window.global::<riina_ui::GeneralSettingsState>();
     let subtitles = window.global::<crate::SubtitleSettingsState>();
     window.set_surface_material_title(crate::platform::surface_material_title().into());
@@ -77,9 +78,9 @@ pub(super) fn refresh(window: &crate::PreferencesWindow, app: &PlayerWindow) {
         player_preferences.get_track_all_files_in_recent_open_menu(),
     );
     general.set_launch_action_index(player_preferences.get_launch_action_index());
-    general.set_auto_switch_to_music_mode(app.get_auto_switch_to_music_mode());
-    general.set_music_mode_show_playlist(app.get_music_mode_show_playlist());
-    general.set_music_mode_show_album_art(app.get_music_mode_show_album_art());
+    general.set_auto_switch_to_music_mode(music_mode.get_auto_switch_to_music_mode());
+    general.set_music_mode_show_playlist(music_mode.get_music_mode_show_playlist());
+    general.set_music_mode_show_album_art(music_mode.get_music_mode_show_album_art());
     window.set_osc_position(app.get_osc_position());
     window.set_show_chapter_pos(player_preferences.get_show_chapter_pos());
     if let Ok(settings) = crate::pip_preferences::current_player(app) {

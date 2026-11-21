@@ -361,7 +361,13 @@ fn plugin_window_properties(
 ) -> BTreeMap<String, serde_json::Value> {
     let mut properties = BTreeMap::from([
         ("loaded".into(), serde_json::Value::Bool(false)),
-        ("music-mode".into(), serde_json::json!(app.get_music_mode())),
+        (
+            "music-mode".into(),
+            serde_json::json!(
+                app.global::<riina_ui::PlayerMusicModeState>()
+                    .get_music_mode()
+            ),
+        ),
         ("fullscreen".into(), serde_json::json!(app.get_fullscreen())),
         (
             "pip".into(),

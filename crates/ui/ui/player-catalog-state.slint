@@ -1,0 +1,22 @@
+import { CatalogRow } from "catalog-row.slint";
+import { MenuCatalogRow } from "native-video.slint";
+import { PlayerMenuActions } from "player-menu-actions.slint";
+import { PlayerMusicModeState } from "player-music-mode-state.slint";
+import { PlayerPreferences } from "player-preferences.slint";
+
+// Each player publishes its own catalog rows and current playback labels.
+export global PlayerCatalogState {
+    in-out property <[MenuCatalogRow]> recent-open-menu-rows: [];
+    in-out property <[CatalogRow]> chapters;
+    in-out property <[CatalogRow]> playlist;
+    in-out property <bool> playlist-shuffled: false;
+    in-out property <string> loop-label: "Off";
+
+    out property <bool> playlist-metadata-visible: PlayerPreferences.playlist-show-metadata
+        && (!PlayerPreferences.playlist-show-metadata-in-music-mode || PlayerMusicModeState.music-mode);
+
+    changed recent-open-menu-rows => { PlayerMenuActions.video-menu-changed(); }
+    changed chapters => { PlayerMenuActions.video-menu-changed(); }
+    changed playlist => { PlayerMenuActions.video-menu-changed(); }
+    changed loop-label => { PlayerMenuActions.video-menu-changed(); }
+}

@@ -73,10 +73,12 @@ pub(super) fn remember_recent_open_document(
     documents.truncate(10);
     let recent = documents.clone();
     drop(documents);
-    app.set_recent_open_menu_rows(slint::ModelRc::new(slint::VecModel::from(
-        recent_open_menu_rows(&recent),
-    )));
-    app.invoke_video_menu_changed();
+    app.global::<riina_ui::PlayerCatalogState>()
+        .set_recent_open_menu_rows(slint::ModelRc::new(slint::VecModel::from(
+            recent_open_menu_rows(&recent),
+        )));
+    app.global::<riina_ui::PlayerMenuActions>()
+        .invoke_video_menu_changed();
     if let Err(error) = persist_recent_open_documents(preferences_path, &recent) {
         app.set_status(format!("Could not save Open Recent: {error}").into());
     }

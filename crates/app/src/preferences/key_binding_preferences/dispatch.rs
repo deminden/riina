@@ -298,7 +298,9 @@ fn dispatch_mapping(app: &PlayerWindow, mapping: &Mapping, latest_playback: &cra
         RuntimeAction::PlaylistPrevious => {
             app.global::<PlayerMenuActions>().invoke_playlist_previous()
         }
-        RuntimeAction::PlaylistShuffle => app.invoke_toggle_playlist_shuffle(),
+        RuntimeAction::PlaylistShuffle => app
+            .global::<riina_ui::PlayerSidebarActions>()
+            .invoke_toggle_playlist_shuffle(),
         RuntimeAction::TogglePlaylistPane(kind) => app
             .global::<PlayerMenuActions>()
             .invoke_toggle_playlist_pane(kind),

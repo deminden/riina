@@ -1,3 +1,8 @@
+import { PlaylistSidebarControls } from "playlist-sidebar-controls.slint";
+export { PlayerCatalogState } from "player-catalog-state.slint";
+import { PlayerCatalogState } from "player-catalog-state.slint";
+import { PlayerMusicModeState } from "player-music-mode-state.slint";
+export { PlayerMusicModeState } from "player-music-mode-state.slint";
 import { PlayerFeedbackLayer } from "player-feedback-layer.slint";
 import { PlayerAppearance } from "player-appearance.slint";
 export { PlayerAppearance } from "player-appearance.slint";
@@ -11,12 +16,9 @@ import { PlayerMenuActions } from "player-menu-actions.slint";
 export { PlayerMenuActions } from "player-menu-actions.slint";
 import { PlaybackSubtitleState } from "playback-subtitle-state.slint";
 export { PlaybackSubtitleState } from "playback-subtitle-state.slint";
-import { PlaybackVideoState } from "playback-video-state.slint";
 export { PlaybackVideoState } from "playback-video-state.slint";
 export { PlayerOsdState } from "player-osd-state.slint";
-import { PlaybackTimelineState } from "playback-timeline-state.slint";
 export { PlaybackTimelineState } from "playback-timeline-state.slint";
-import { PlaybackAudioState } from "playback-audio-state.slint";
 export { PlaybackAudioState } from "playback-audio-state.slint";
 import { PlayerSidebarTabs } from "player-sidebar-tabs.slint";
 import { PlayerSidebarFrame } from "player-sidebar-frame.slint";
@@ -29,15 +31,15 @@ import { LayoutSidebarPage } from "player-layout-sidebar.slint";
 import { PlayerController } from "player-controller.slint";
 import { MusicModePlaylist } from "music-mode-playlist.slint";
 import { PlaylistInteraction } from "playlist-sidebar-row.slint";
+export { PlaylistInteraction } from "playlist-sidebar-row.slint";
 import { VideoSurface } from "player-video-surface.slint";
 import { PlayerRenderedVideo } from "player-rendered-video.slint";
 export { LiveTextRegion, PlayerRenderedVideo } from "player-rendered-video.slint";
-import { PlaylistSortButton, TopmostPin } from "player-chrome-controls.slint";
+import { TopmostPin } from "player-chrome-controls.slint";
 export { AboutWindow } from "about-window.slint";
 export { RecentMediaRow, WelcomeWindow } from "welcome-window.slint";
 import { Theme } from "theme.slint";
 import { QuickSettingsScrollPage, SidebarScrollMemory } from "quick-settings-scroll-page.slint";
-import { Tool } from "player-tool.slint";
 import { MusicModeWindowActions } from "music-mode-controls.slint";
 import { CatalogRow, CatalogSelection } from "catalog-row.slint";
 export { CatalogRow, CatalogSelection } from "catalog-row.slint";
@@ -65,33 +67,30 @@ export component PlayerWindow inherits PlayerMenuWindow {
     in property <bool> deinterlace-known: false;
     in property <bool> deinterlace-enabled: false;
     in property <bool> screenshot-available: false;
-    changed screenshot-available => { root.video-menu-changed(); }
-    changed deinterlace-known => { root.video-menu-changed(); }
-    changed deinterlace-enabled => { root.video-menu-changed(); }
+    changed screenshot-available => { PlayerMenuActions.video-menu-changed(); }
+    changed deinterlace-known => { PlayerMenuActions.video-menu-changed(); }
+    changed deinterlace-enabled => { PlayerMenuActions.video-menu-changed(); }
     in-out property <bool> video-osd-request-feedback: false;
     in-out property <bool> scroll-input-suppressed: false;
     private property <bool> layout-scrollbar-visible: false;
     in property <bool> video-mirrored: false;
     in property <bool> video-flipped: false;
-    callback video-menu-changed();
     in property <[MenuShortcutRow]> menu-shortcuts: [];
-    changed menu-shortcuts => { root.video-menu-changed(); }
-    changed key-binding-current-profile => { root.video-menu-changed(); }
+    changed menu-shortcuts => { PlayerMenuActions.video-menu-changed(); }
     callback window-title-changed(string);
     callback open-application-menu();
     in-out property <int> preferences-target-pane: -1;
     callback plugin-menu-will-open();
     callback native-menu-will-open();
-    changed reflection-known => { root.video-menu-changed(); }
-    changed video-mirrored => { root.video-menu-changed(); }
-    changed video-flipped => { root.video-menu-changed(); }
+    changed reflection-known => { PlayerMenuActions.video-menu-changed(); }
+    changed video-mirrored => { PlayerMenuActions.video-menu-changed(); }
+    changed video-flipped => { PlayerMenuActions.video-menu-changed(); }
     callback crop-window-controls-changed();
-    changed crop-editing => { root.video-menu-changed(); root.crop-window-controls-changed(); root.refresh-fullscreen-info(); }
+    changed crop-editing => { PlayerMenuActions.video-menu-changed(); root.crop-window-controls-changed(); root.refresh-fullscreen-info(); }
 
-    menu-bar-visible: !native-video && !(PlayerAppearance.platform-windows && root.music-mode);
+    menu-bar-visible: !native-video && !(PlayerAppearance.platform-windows && PlayerMusicModeState.music-mode);
     menu-value-menu-shortcuts: root.menu-shortcuts;
     menu-value-always-float-on-top <=> root.always-float-on-top;
-    menu-value-chapters: root.chapters;
     menu-value-crop-editing: root.crop-editing;
     menu-value-current-file-manager-name: root.current-file-manager-name;
     menu-value-deinterlace-enabled: root.deinterlace-enabled;
@@ -106,17 +105,13 @@ export component PlayerWindow inherits PlayerMenuWindow {
     menu-value-live-text-available: root.live-text-available;
     menu-value-live-text-enabled: root.live-text-enabled;
     menu-value-loaded: root.loaded;
-    menu-value-loop-label: root.loop-label;
     menu-value-menu-alternates-visible: root.menu-alternates-visible;
-    menu-value-music-mode: root.music-mode;
     menu-value-paused: root.paused;
     menu-value-picture-in-picture-active: root.picture-in-picture-active;
     menu-value-picture-in-picture-available: root.picture-in-picture-available;
-    menu-value-playlist: root.playlist;
     menu-value-plugin-menu-rows: root.plugin-menu-rows;
     menu-value-preferences-target-pane <=> root.preferences-target-pane;
     menu-value-primary-shortcut-is-meta: root.primary-shortcut-is-meta;
-    menu-value-recent-open-menu-rows: root.recent-open-menu-rows;
     menu-value-reflection-known: root.reflection-known;
     menu-value-reveal-current-media-available: root.reveal-current-media-available;
     menu-value-save-current-playlist-available: root.save-current-playlist-available;
@@ -125,7 +120,6 @@ export component PlayerWindow inherits PlayerMenuWindow {
     menu-value-screenshot-available: root.screenshot-available;
     menu-value-settings-at-leading: root.settings-at-leading;
     menu-value-sidebar: root.sidebar;
-    menu-value-speed-edit-value: root.speed-edit-value;
     menu-value-unlock-window-aspect-ratio <=> root.unlock-window-aspect-ratio;
     menu-value-video-flipped: root.video-flipped;
     menu-value-video-mirrored: root.video-mirrored;
@@ -170,51 +164,44 @@ export component PlayerWindow inherits PlayerMenuWindow {
     in-out property <bool> save-current-playlist-available: false;
     in property <bool> downloaded-subtitle-save-available: false;
     in property <string> current-file-manager-name: "File Manager";
-    in property <image> timeline-thumbnail-image;
-    in property <string> timeline-preview-label: "";
-    in property <float> thumbnail-preview-width: 120;
     callback timeline-hovered(float);
     in property <[PluginMenuRow]> plugin-menu-rows: [];
     in property <[string]> plugin-menu-order: [];
-    changed plugin-menu-rows => { root.video-menu-changed(); }
+    changed plugin-menu-rows => { PlayerMenuActions.video-menu-changed(); }
     callback refresh-hdr-output();
     callback reset-hdr-output();
     in-out property <bool> live-text-enabled: false;
-    changed live-text-enabled => { root.video-menu-changed(); root.toolbar-settings-changed(); }
+    changed live-text-enabled => { PlayerMenuActions.video-menu-changed(); root.toolbar-settings-changed(); }
     in-out property <bool> live-text-available: false;
-    changed live-text-available => { root.video-menu-changed(); root.toolbar-settings-changed(); }
+    changed live-text-available => { PlayerMenuActions.video-menu-changed(); root.toolbar-settings-changed(); }
     in property <bool> live-text-selectable: false;
     callback copy-live-text(string);
-    in-out property <bool> music-mode: false;
-    in-out property <bool> auto-switch-to-music-mode: true;
-    in-out property <bool> music-mode-show-playlist: false;
-    in-out property <bool> music-mode-show-album-art: true;
-    in-out property <float> music-mode-artwork-aspect-ratio: 0;
-    in-out property <bool> music-mode-is-audio: false;
-    in-out property <bool> music-mode-has-album-art: false;
-    in-out property <bool> music-mode-has-visible-subtitles: false;
-    private property <bool> music-mode-volume-open: false;
+    private property <bool> music-mode: PlayerMusicModeState.music-mode;
+    private property <bool> auto-switch-to-music-mode: PlayerMusicModeState.auto-switch-to-music-mode;
+    private property <bool> music-mode-show-playlist: PlayerMusicModeState.music-mode-show-playlist;
+    private property <bool> music-mode-show-album-art: PlayerMusicModeState.music-mode-show-album-art;
+    private property <float> music-mode-artwork-aspect-ratio: PlayerMusicModeState.music-mode-artwork-aspect-ratio;
     callback window-will-close();
     in-out property <bool> in-process-player-manager: false;
     callback open-player-requested([string], float);
     callback music-mode-changed();
     callback auto-switch-music-mode-changed(bool);
     changed music-mode => {
-        if root.music-mode {
+        if PlayerMusicModeState.music-mode {
             // IINA's compact audio surface is independent of main-window sidebars.
             root.leading-sidebar = 0;
             root.sidebar = 0;
         }
-        if !root.music-mode { root.music-mode-volume-open = false; }
-        root.music-mode-changed(); root.video-menu-changed();
+        if !PlayerMusicModeState.music-mode { PlayerMusicModeState.music-mode-volume-open = false; }
+        root.music-mode-changed(); PlayerMenuActions.video-menu-changed();
     }
-    changed auto-switch-to-music-mode => { root.auto-switch-music-mode-changed(root.auto-switch-to-music-mode); }
-    out property <bool> observe-automatic-music-mode: root.loaded && root.auto-switch-to-music-mode;
+    changed auto-switch-to-music-mode => { root.auto-switch-music-mode-changed(PlayerMusicModeState.auto-switch-to-music-mode); }
+    out property <bool> observe-automatic-music-mode: root.loaded && PlayerMusicModeState.auto-switch-to-music-mode;
     callback automatic-music-observation-changed(bool);
     changed observe-automatic-music-mode => { root.automatic-music-observation-changed(root.observe-automatic-music-mode); }
-    changed music-mode-show-playlist => { if root.music-mode { root.music-mode-changed(); } }
-    changed music-mode-show-album-art => { if root.music-mode { root.music-mode-changed(); } }
-    changed music-mode-artwork-aspect-ratio => { if root.music-mode { root.music-mode-changed(); } }
+    changed music-mode-show-playlist => { if PlayerMusicModeState.music-mode { root.music-mode-changed(); } }
+    changed music-mode-show-album-art => { if PlayerMusicModeState.music-mode { root.music-mode-changed(); } }
+    changed music-mode-artwork-aspect-ratio => { if PlayerMusicModeState.music-mode { root.music-mode-changed(); } }
     callback renderer-ready();
     changed engine-ready => { if root.engine-ready { root.renderer-ready(); } }
     callback media-opened(string, string);
@@ -222,12 +209,12 @@ export component PlayerWindow inherits PlayerMenuWindow {
     in property <bool> crop-delogo: false;
     in property <bool> delogo-enabled: false;
     in property <bool> delogo-active: false;
-    changed delogo-enabled => { root.video-menu-changed(); }
-    changed delogo-active => { root.video-menu-changed(); }
+    changed delogo-enabled => { PlayerMenuActions.video-menu-changed(); }
+    changed delogo-active => { PlayerMenuActions.video-menu-changed(); }
     in property <[SavedFilterMenuRow]> saved-video-filter-rows: [];
-    changed saved-video-filter-rows => { root.video-menu-changed(); }
+    changed saved-video-filter-rows => { PlayerMenuActions.video-menu-changed(); }
     in property <[SavedFilterMenuRow]> saved-audio-filter-rows: [];
-    changed saved-audio-filter-rows => { root.video-menu-changed(); }
+    changed saved-audio-filter-rows => { PlayerMenuActions.video-menu-changed(); }
     in property <bool> crop-ready: false;
     in property <string> crop-description;
     in property <float> crop-box-x;
@@ -249,32 +236,20 @@ export component PlayerWindow inherits PlayerMenuWindow {
     callback focus-player();
     focus-player => { keys.focus(); }
     in property <bool> paused: true;
-    changed paused => { root.video-menu-changed(); }
+    changed paused => { PlayerMenuActions.video-menu-changed(); }
     in-out property <bool> menu-alternates-visible: false;
-    changed menu-alternates-visible => { root.video-menu-changed(); }
+    changed menu-alternates-visible => { PlayerMenuActions.video-menu-changed(); }
     in property <bool> playing: false;
-    private property <bool> muted: PlaybackAudioState.muted;
-    changed muted => { root.video-menu-changed(); }
     in-out property <bool> fullscreen: false;
     in-out property <bool> picture-in-picture-active: false;
     private property <bool> picture-in-picture-available: loaded && !crop-editing;
     in property <string> media-title: "riina";
-    in property <string> music-artist: "";
-    in property <string> music-album: "";
     callback show-screenshot-preview();
     callback screenshot-preview-action(int);
     private property <bool> osd-enabled: PlayerPreferences.osd-enabled;
     callback osd-enabled-changed(bool);
     changed osd-enabled => { root.osd-enabled-changed(PlayerPreferences.osd-enabled); }
     private property <bool> display-time-and-battery-in-fullscreen: PlayerPreferences.display-time-and-battery-in-fullscreen;
-    private property <bool> playlist-metadata-visible: PlayerPreferences.playlist-show-metadata
-        && (!PlayerPreferences.playlist-show-metadata-in-music-mode || music-mode);
-    private property <bool> record-recent-files: PlayerPreferences.record-recent-files;
-    private property <bool> track-all-files-in-recent-open-menu: PlayerPreferences.track-all-files-in-recent-open-menu;
-    in property <[MenuCatalogRow]> recent-open-menu-rows: [];
-    changed record-recent-files => { root.video-menu-changed(); }
-    changed track-all-files-in-recent-open-menu => { root.video-menu-changed(); }
-    changed recent-open-menu-rows => { root.video-menu-changed(); }
     callback pause-when-open-changed(bool);
     callback resume-last-position-changed(bool);
     callback record-playback-history-changed(bool);
@@ -282,51 +257,12 @@ export component PlayerWindow inherits PlayerMenuWindow {
     in property <bool> primary-shortcut-is-meta: false;
     in property <string> status: "Open a file to begin";
     in property <string> startup-status;
-    in property <float> ab-loop-a: 0;
-    in property <bool> ab-loop-a-known: false;
-    in property <float> ab-loop-b: 0;
-    in property <bool> ab-loop-b-known: false;
-    private property <string> volume-menu-title: PlaybackAudioState.volume-menu-title;
-    changed volume-menu-title => { root.video-menu-changed(); }
-    private property <string> key-binding-current-profile: PlayerPreferences.key-binding-current-profile;
     callback dispatch-key-binding(string, bool, bool, bool, bool) -> bool;
-    private property <int> open-subtitles-provider-index: PlayerPreferences.open-subtitles-provider-index;
-    changed open-subtitles-provider-index => { root.video-menu-changed(); }
     private property <bool> open-subtitles-auto-search: PlayerPreferences.open-subtitles-auto-search;
     callback open-subtitles-auto-search-changed(bool);
     changed open-subtitles-auto-search => { root.open-subtitles-auto-search-changed(PlayerPreferences.open-subtitles-auto-search); }
     private property <float> volume-limit: PlayerPreferences.volume-boost ? 200 : 100;
-    in property <float> speed-value: 1;
     in property <bool> engine-ready: false;
-    private property <[MenuCatalogRow]> audio-device-menu-rows: PlaybackAudioState.audio-device-menu-rows;
-    changed audio-device-menu-rows => { root.video-menu-changed(); }
-    private property <[CatalogRow]> video-tracks: PlaybackVideoState.video-tracks;
-    changed video-tracks => { root.video-menu-changed(); }
-    private property <bool> video-aspect-known: PlaybackVideoState.video-aspect-known;
-    private property <[string]> video-aspect-menu-labels: PlaybackVideoState.video-aspect-menu-labels;
-    private property <int> video-aspect-menu-index: PlaybackVideoState.video-aspect-menu-index;
-    changed video-aspect-known => { root.video-menu-changed(); }
-    changed video-aspect-menu-labels => { root.video-menu-changed(); }
-    changed video-aspect-menu-index => { root.video-menu-changed(); }
-    private property <bool> video-rotation-known: PlaybackVideoState.video-rotation-known;
-    private property <int> video-rotation-index: PlaybackVideoState.video-rotation-index;
-    changed video-rotation-known => { root.video-menu-changed(); }
-    changed video-rotation-index => { root.video-menu-changed(); }
-    private property <bool> video-crop-known: PlaybackVideoState.video-crop-known;
-    private property <[string]> video-crop-menu-labels: PlaybackVideoState.video-crop-menu-labels;
-    private property <int> video-crop-menu-index: PlaybackVideoState.video-crop-menu-index;
-    changed video-crop-known => { root.video-menu-changed(); }
-    changed video-crop-menu-labels => { root.video-menu-changed(); }
-    changed video-crop-menu-index => { root.video-menu-changed(); }
-    in property <float> speed-slider-position: 8;
-    in property <string> speed-edit-value: "1";
-    changed speed-edit-value => { root.video-menu-changed(); }
-    in property <[CatalogRow]> chapters;
-    changed chapters => { root.video-menu-changed(); }
-    in property <[float]> chapter-times: [];
-    in property <[CatalogRow]> playlist;
-    changed playlist => { root.video-menu-changed(); }
-    in property <bool> playlist-shuffled: false;
     in-out property <int> sidebar: 0;
     in-out property <int> leading-sidebar: 0;
     in-out property <int> remembered-settings-pane: 6;
@@ -342,7 +278,7 @@ export component PlayerWindow inherits PlayerMenuWindow {
     in-out property <float> video-window-height: 0;
     in-out property <int> video-window-rotation: 0;
     in-out property <int> window-size-adjusted-event: 0;
-    changed always-float-on-top => { root.window-level-changed(); root.video-menu-changed(); }
+    changed always-float-on-top => { root.window-level-changed(); PlayerMenuActions.video-menu-changed(); }
     in-out property <bool> edge-to-edge-video: true;
     in-out property <bool> docked-controls: false;
     in-out property <bool> unlock-window-aspect-ratio: false;
@@ -361,24 +297,10 @@ export component PlayerWindow inherits PlayerMenuWindow {
     callback select-settings-pane(int);
     callback select-playlist-pane(int);
     callback sidebar-resize-finished();
-    in-out property <string> selected-playlist-token <=> PlaylistInteraction.selected-playlist-token;
-    in-out property <[string]> selected-playlist-tokens <=> PlaylistInteraction.selected-playlist-tokens;
     in-out property <[string]> plugin-sidebar-identifiers: [];
     in-out property <[string]> plugin-sidebar-labels: [];
     in-out property <string> plugin-sidebar-selected-identifier: "";
     in-out property <int> plugin-sidebar-selected-index: -1;
-    in-out property <string> playlist-drag-token <=> PlaylistInteraction.playlist-drag-token;
-    in-out property <float> playlist-drag-start-x <=> PlaylistInteraction.playlist-drag-start-x;
-    in-out property <float> playlist-drag-start-y <=> PlaylistInteraction.playlist-drag-start-y;
-    in-out property <bool> playlist-drag-active <=> PlaylistInteraction.playlist-drag-active;
-    in-out property <int> playlist-drop-index <=> PlaylistInteraction.playlist-drop-index;
-    in-out property <bool> playlist-drag-extend <=> PlaylistInteraction.playlist-drag-extend;
-    in-out property <bool> playlist-drag-range <=> PlaylistInteraction.playlist-drag-range;
-    in-out property <int> playlist-focus-index <=> PlaylistInteraction.playlist-focus-index;
-    private property <string> audio-delay-text: PlaybackAudioState.audio-delay-text;
-    changed audio-delay-text => { root.video-menu-changed(); }
-    in property <string> loop-label: "Off";
-    changed loop-label => { root.video-menu-changed(); }
     in-out property <bool> controls-visible: true;
     in-out property <bool> controls-rendered: true;
     in property <bool> plugin-ui-disabled: false;
@@ -428,7 +350,6 @@ export component PlayerWindow inherits PlayerMenuWindow {
         visible: false;
         width: root.width;
         height: root.menu-content-height;
-        music-mode: root.music-mode;
         compact-ui: PlayerAppearance.compact-ui;
         leading-sidebar: root.leading-sidebar;
         sidebar: root.sidebar;
@@ -440,7 +361,6 @@ export component PlayerWindow inherits PlayerMenuWindow {
         edge-to-edge-video: root.edge-to-edge-video;
         show-player-title-row: root.show-player-title-row;
         docked-controls: root.docked-controls;
-        music-mode-show-playlist: root.music-mode-show-playlist;
         crop-editing: root.crop-editing;
         native-video: root.native-video;
         crop-picture-width: root.crop-picture-width;
@@ -449,7 +369,7 @@ export component PlayerWindow inherits PlayerMenuWindow {
     changed video-width => { root.crop-viewport-changed(); }
     changed video-height => { root.crop-viewport-changed(); }
     changed edge-to-edge-video => { root.crop-viewport-changed(); root.window-aspect-changed(); }
-    changed unlock-window-aspect-ratio => { root.window-aspect-changed(); root.video-menu-changed(); }
+    changed unlock-window-aspect-ratio => { root.window-aspect-changed(); PlayerMenuActions.video-menu-changed(); }
     changed video-display-aspect-ratio => {
         root.window-aspect-changed();
     }
@@ -457,14 +377,14 @@ export component PlayerWindow inherits PlayerMenuWindow {
     changed sidebar => {
         root.layout-scrollbar-visible = false;
         root.crop-viewport-changed();
-        root.video-menu-changed();
+        PlayerMenuActions.video-menu-changed();
     }
     changed leading-sidebar => {
         root.layout-scrollbar-visible = false;
         root.crop-viewport-changed();
-        root.video-menu-changed();
+        PlayerMenuActions.video-menu-changed();
     }
-    changed settings-at-leading => { root.video-menu-changed(); }
+    changed settings-at-leading => { PlayerMenuActions.video-menu-changed(); }
     changed leading-sidebar-width => { root.crop-viewport-changed(); }
     changed trailing-sidebar-width => { root.crop-viewport-changed(); }
     callback open-url(string);
@@ -490,8 +410,6 @@ export component PlayerWindow inherits PlayerMenuWindow {
     callback show-video-osd();
     callback set-ab-loop-point(int, float);
 
-    callback toggle-playlist-shuffle();
-    callback sort-playlist(int);
 
     // Keys bubble from focused controls through this scope, including sliders.
     // A sibling key scope would lose fullscreen/escape after toolbar navigation.
@@ -532,11 +450,6 @@ export component PlayerWindow inherits PlayerMenuWindow {
             render-height: root.render-height;
             video-width: root.video-width;
             video-height: root.video-height;
-            music-mode: root.music-mode;
-            music-mode-show-album-art: root.music-mode-show-album-art;
-            music-mode-is-audio: root.music-mode-is-audio;
-            music-mode-has-album-art: root.music-mode-has-album-art;
-            music-mode-has-visible-subtitles: root.music-mode-has-visible-subtitles;
             live-text-enabled: root.live-text-enabled;
             paused: root.paused;
             live-text-selectable: root.live-text-selectable;
@@ -714,36 +627,11 @@ export component PlayerWindow inherits PlayerMenuWindow {
                         loaded: root.loaded;
                         plugin-sidebar-selected-identifier: root.plugin-sidebar-selected-identifier;
                         plugin-sidebar-labels: root.plugin-sidebar-labels;
-                        playlist-metadata-visible: root.playlist-metadata-visible;
-                        chapters: root.chapters;
-                        playlist: root.playlist;
-                        speed-edit-value: root.speed-edit-value;
-                        speed-slider-position: root.speed-slider-position;
-                        speed-value: root.speed-value;
                         restore-player-focus => { keys.focus(); }
                     }
                 }
-                if pane-kind == 4 : HorizontalLayout { spacing: 8px;
+                if pane-kind == 4 : PlaylistSidebarControls {
                     width: parent.width - (PlayerAppearance.compact-ui ? 18px : 24px);
-                    Tool { width: 24px; dark-theme: PlayerAppearance.dark-theme; accent-color: PlayerAppearance.interactive-accent-color;
-                        label: loop-label == "File" ? "↻₁" : "↻"; hint: "Cycle repeat: " + loop-label;
-                        activated => { PlayerMenuActions.playlist-action(5, ""); } }
-                    Tool { width: 24px; dark-theme: PlayerAppearance.dark-theme; accent-color: PlayerAppearance.interactive-accent-color;
-                        icon: @image-url("../../../assets/icons/shuffle.svg");
-                        hint: root.playlist-shuffled ? "Turn off shuffle" : "Shuffle playlist";
-                        selected: root.playlist-shuffled; activated => { root.toggle-playlist-shuffle(); } }
-                    PlaylistSortButton { dark-theme: PlayerAppearance.dark-theme; accent-color: PlayerAppearance.interactive-accent-color;
-                        sort-requested(index) => { root.sort-playlist(index); } }
-                    Rectangle { horizontal-stretch: 1; }
-                    Tool { width: 24px; dark-theme: PlayerAppearance.dark-theme; accent-color: PlayerAppearance.interactive-accent-color;
-                        icon: @image-url("../../../assets/icons/add.svg"); hint: "Add files to playlist";
-                        activated => { PlayerMenuActions.browse-files(4); } }
-                    Tool { width: 24px; dark-theme: PlayerAppearance.dark-theme; accent-color: PlayerAppearance.interactive-accent-color;
-                        label: "−"; hint: "Remove selected playlist entries"; enabled: root.selected-playlist-token != "";
-                        activated => { PlayerMenuActions.playlist-action(1, root.selected-playlist-token); } }
-                    Tool { width: 24px; dark-theme: PlayerAppearance.dark-theme; accent-color: PlayerAppearance.interactive-accent-color;
-                        icon: @image-url("../../../assets/icons/trash.svg"); hint: "Clear playlist except current file";
-                        activated => { PlayerMenuActions.playlist-action(4, ""); } }
                 }
             }
         }
@@ -809,20 +697,7 @@ export component PlayerWindow inherits PlayerMenuWindow {
                 volume-limit: root.volume-limit,
                 control-disable-volume-slider-scrolling: PlayerPreferences.control-disable-volume-slider-scrolling,
             };
-            timeline: {
-                ab-loop-a: root.ab-loop-a,
-                ab-loop-b: root.ab-loop-b,
-                ab-loop-a-known: root.ab-loop-a-known,
-                ab-loop-b-known: root.ab-loop-b-known,
-                chapter-times: root.chapter-times,
-                show-chapter-pos: PlayerPreferences.show-chapter-pos,
-                thumbnail-preview-enabled: PlayerPreferences.thumbnail-preview-enabled,
-                thumbnail-preview-width: root.thumbnail-preview-width,
-                timeline-preview-label: root.timeline-preview-label,
-                timeline-thumbnail-image: root.timeline-thumbnail-image,
-                video-display-aspect-ratio: root.video-display-aspect-ratio,
-                control-disable-play-slider-scrolling: PlayerPreferences.control-disable-play-slider-scrolling,
-            };
+            video-display-aspect-ratio: root.video-display-aspect-ratio;
             toolbar: {
                 toolbar-visible-order: root.toolbar-visible-order,
                 loaded: root.loaded,
@@ -836,20 +711,12 @@ export component PlayerWindow inherits PlayerMenuWindow {
                 remembered-settings-pane: root.remembered-settings-pane,
                 remembered-playlist-pane: root.remembered-playlist-pane,
             };
-            music: {
-                music-mode: root.music-mode,
-                media-title: root.media-title,
-                music-album: root.music-album,
-                music-artist: root.music-artist,
-            };
+            media-title: root.media-title;
             control-bar-dragging <=> root.control-bar-dragging;
             control-bar-hovered <=> root.control-bar-hovered;
             control-bar-position-horizontal <=> root.control-bar-position-horizontal;
             control-bar-position-vertical <=> root.control-bar-position-vertical;
             controls-visible <=> root.controls-visible;
-            music-mode-show-album-art <=> root.music-mode-show-album-art;
-            music-mode-show-playlist <=> root.music-mode-show-playlist;
-            music-mode-volume-open <=> root.music-mode-volume-open;
             paused: root.paused;
             activity => { root.activity(); }
             layout-settings-changed => { root.layout-settings-changed(); }
@@ -859,9 +726,9 @@ export component PlayerWindow inherits PlayerMenuWindow {
             timeline-hovered(value) => { root.timeline-hovered(value); }
             volume-scroll-action-request(delta-x, delta-y) => { return root.volume-scroll-action-request(delta-x, delta-y); }
         }
-        if root.music-mode && root.loaded : MusicModeWindowActions {
+        if PlayerMusicModeState.music-mode && root.loaded : MusicModeWindowActions {
             x: 8px; y: 6px;
-            artwork-visible: root.music-mode-show-album-art;
+            artwork-visible: PlayerMusicModeState.music-mode-show-album-art;
             dark-theme: PlayerAppearance.dark-theme;
             translucent: PlayerAppearance.active-liquid-glass-osc;
             accent-color: PlayerAppearance.interactive-accent-color;
@@ -877,8 +744,6 @@ export component PlayerWindow inherits PlayerMenuWindow {
             native-video: root.native-video;
             controls-visible: root.controls-visible;
             fullscreen: root.fullscreen;
-            music-mode: root.music-mode;
-            music-mode-show-playlist: root.music-mode-show-playlist;
             status: root.status;
             startup-status: root.startup-status;
             sidebar: root.sidebar;
@@ -891,21 +756,18 @@ export component PlayerWindow inherits PlayerMenuWindow {
             render-width: root.render-width;
             render-height: root.render-height;
             screenshot-preview-action(action) => { root.screenshot-preview-action(action); }
-            if music-mode && music-mode-show-playlist : MusicModePlaylist {
+            if music-mode && PlayerMusicModeState.music-mode-show-playlist : MusicModePlaylist {
                 x: 0px; y: parent.height - 300px; width: parent.width; height: 300px;
                 dark-theme: PlayerAppearance.dark-theme;
-                playlist-metadata-visible: root.playlist-metadata-visible;
-                playlist: root.playlist;
-                selected-playlist-token: root.selected-playlist-token;
                 platform-windows: PlayerAppearance.platform-windows;
                 windows-accent-color: PlayerAppearance.windows-accent-color;
                 select-row(token) => {
-                    root.selected-playlist-token = token;
-                    root.selected-playlist-tokens = [token];
+                    PlaylistInteraction.selected-playlist-token = token;
+                    PlaylistInteraction.selected-playlist-tokens = [token];
                 }
                 play-row(token) => {
-                    root.selected-playlist-token = "";
-                    root.selected-playlist-tokens = [];
+                    PlaylistInteraction.selected-playlist-token = "";
+                    PlaylistInteraction.selected-playlist-tokens = [];
                     PlayerMenuActions.select-item(CatalogSelection.playlist, token);
                 }
             }
@@ -936,7 +798,7 @@ export component PlayerWindow inherits PlayerMenuWindow {
         }
     }
     // Removing the focused OSC on Stop/auto-hide must leave shortcuts available.
-    changed loaded => { root.video-menu-changed(); if !root.loaded { keys.focus(); } root.refresh-fullscreen-info(); }
+    changed loaded => { PlayerMenuActions.video-menu-changed(); if !root.loaded { keys.focus(); } root.refresh-fullscreen-info(); }
     changed controls-visible => {
         if root.plugin-ui-disabled && root.controls-visible {
             root.controls-visible = false;
@@ -948,7 +810,7 @@ export component PlayerWindow inherits PlayerMenuWindow {
         root.refresh-fullscreen-info();
         root.controls-visibility-changed(root.controls-visible);
     }
-    changed fullscreen => { root.refresh-fullscreen-info(); root.video-menu-changed(); }
+    changed fullscreen => { root.refresh-fullscreen-info(); PlayerMenuActions.video-menu-changed(); }
     changed display-time-and-battery-in-fullscreen => { root.refresh-fullscreen-info(); }
     private property <bool> dark-theme: PlayerAppearance.dark-theme;
     changed dark-theme => { Palette.color-scheme = PlayerAppearance.dark-theme ? ColorScheme.dark : ColorScheme.light; }

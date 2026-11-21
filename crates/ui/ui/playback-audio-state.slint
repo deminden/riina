@@ -1,3 +1,4 @@
+import { PlayerMenuActions } from "player-menu-actions.slint";
 import { CatalogRow } from "catalog-row.slint";
 import { MenuCatalogRow } from "native-video.slint";
 
@@ -21,4 +22,9 @@ export global PlaybackAudioState {
     in-out property <float> audio-delay: 0;
     in-out property <string> audio-delay-text: "0";
     in-out property <string> audio-delay-preview-text: "0";
+
+    changed muted => { PlayerMenuActions.video-menu-changed(); }
+    changed volume-menu-title => { PlayerMenuActions.video-menu-changed(); }
+    changed audio-device-menu-rows => { PlayerMenuActions.video-menu-changed(); }
+    changed audio-delay-text => { PlayerMenuActions.video-menu-changed(); }
 }

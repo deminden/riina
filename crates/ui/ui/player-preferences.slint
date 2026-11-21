@@ -1,3 +1,4 @@
+import { PlayerMenuActions } from "player-menu-actions.slint";
 import { Theme } from "theme.slint";
 
 // Current preference values used by the player and its Settings projection.
@@ -142,4 +143,9 @@ export global PlayerPreferences {
     in-out property <color> subtitle-shadow-preference-color: Theme.subtitle-shadow-default;
     in-out property <float> subtitle-blur-preference: 0;
     in-out property <float> subtitle-spacing-preference: 0;
+
+    changed key-binding-current-profile => { PlayerMenuActions.video-menu-changed(); }
+    changed record-recent-files => { PlayerMenuActions.video-menu-changed(); }
+    changed track-all-files-in-recent-open-menu => { PlayerMenuActions.video-menu-changed(); }
+    changed open-subtitles-provider-index => { PlayerMenuActions.video-menu-changed(); }
 }

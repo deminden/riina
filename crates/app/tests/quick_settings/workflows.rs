@@ -107,7 +107,8 @@ fn settings_pages_keep_independent_scroll_positions() {
 #[test]
 fn playlist_rows_and_six_footer_actions_fit_normal_and_narrow_sidebars() {
     let app = player(4);
-    app.set_playlist(model());
+    app.global::<riina_ui::PlayerCatalogState>()
+        .set_playlist(model());
     for width in [1000.0, 285.0] {
         app.window().set_size(LogicalSize::new(width, 700.0));
         for dark in [false, true] {
@@ -153,7 +154,8 @@ fn playlist_rows_and_six_footer_actions_fit_normal_and_narrow_sidebars() {
 #[test]
 fn playlist_keyboard_selection_moves_focus_and_opens_the_selected_token() {
     let app = player(4);
-    app.set_playlist(model());
+    app.global::<riina_ui::PlayerCatalogState>()
+        .set_playlist(model());
     app.global::<riina_ui::PlayerSidebarActions>()
         .on_select_playlist_row(|index, _, _| {
             slint::ModelRc::new(slint::VecModel::from(vec![(index + 1).to_string().into()]))
@@ -165,16 +167,32 @@ fn playlist_keyboard_selection_moves_focus_and_opens_the_selected_token() {
     flush();
 
     focus(&app, &button(&app, "Clip 0"));
-    assert_eq!(app.get_playlist_focus_index(), 0);
+    assert_eq!(
+        app.global::<riina_ui::PlaylistInteraction>()
+            .get_playlist_focus_index(),
+        0
+    );
     key(&app, Key::DownArrow);
-    assert_eq!(app.get_playlist_focus_index(), 1);
-    assert_eq!(app.get_selected_playlist_token(), "2");
+    assert_eq!(
+        app.global::<riina_ui::PlaylistInteraction>()
+            .get_playlist_focus_index(),
+        1
+    );
+    assert_eq!(
+        app.global::<riina_ui::PlaylistInteraction>()
+            .get_selected_playlist_token(),
+        "2"
+    );
     key(&app, Key::Return);
     assert_eq!(
         opened.borrow().as_slice(),
         &[(CatalogSelection::Playlist, String::from("2"))]
     );
-    assert!(app.get_selected_playlist_token().is_empty());
+    assert!(
+        app.global::<riina_ui::PlaylistInteraction>()
+            .get_selected_playlist_token()
+            .is_empty()
+    );
 }
 
 #[test]
@@ -197,7 +215,8 @@ fn paused_catalog_transitions_mature_without_another_engine_notification() {
     let _timer = automatic_music_mode::install(&app, playback.clone(), mode.clone());
     i_slint_backend_testing::testing_backend::mock_elapsed_time(110);
     assert!(
-        app.get_music_mode(),
+        app.global::<riina_ui::PlayerMusicModeState>()
+            .get_music_mode(),
         "A quiet paused catalog still needs its debounce completion"
     );
     Arc::make_mut(&mut Arc::make_mut(&mut playback.lock().unwrap()).tracks).push(video);
@@ -205,12 +224,17 @@ fn paused_catalog_transitions_mature_without_another_engine_notification() {
         .unwrap()
         .observe_at(riina_core::music_mode::AudioStatus::Video, false, past);
     i_slint_backend_testing::testing_backend::mock_elapsed_time(110);
-    assert!(!app.get_music_mode());
+    assert!(
+        !app.global::<riina_ui::PlayerMusicModeState>()
+            .get_music_mode()
+    );
     mode.lock().unwrap().toggle_manually();
-    app.set_music_mode(true);
+    app.global::<riina_ui::PlayerMusicModeState>()
+        .set_music_mode(true);
     i_slint_backend_testing::testing_backend::mock_elapsed_time(110);
     assert!(
-        app.get_music_mode(),
+        app.global::<riina_ui::PlayerMusicModeState>()
+            .get_music_mode(),
         "Polling must preserve the user's manual override"
     );
 }
@@ -218,12 +242,14 @@ fn paused_catalog_transitions_mature_without_another_engine_notification() {
 #[test]
 fn music_window_buttons_do_not_cover_transport_or_timeline() {
     let app = player(0);
-    app.set_music_mode(true);
+    app.global::<riina_ui::PlayerMusicModeState>()
+        .set_music_mode(true);
     app.set_controls_visible(true);
     app.global::<riina_ui::PlaybackTimelineState>()
         .set_seekable(true);
     for artwork in [true, false] {
-        app.set_music_mode_show_album_art(artwork);
+        app.global::<riina_ui::PlayerMusicModeState>()
+            .set_music_mode_show_album_art(artwork);
         app.window()
             .set_size(LogicalSize::new(300.0, if artwork { 390.0 } else { 90.0 }));
         flush();

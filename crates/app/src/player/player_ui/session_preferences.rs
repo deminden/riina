@@ -179,8 +179,12 @@ fn capture_session_state(
         osc_position: app.get_osc_position() as u8,
         control_bar_position_horizontal: f64::from(app.get_control_bar_position_horizontal()),
         control_bar_position_vertical: f64::from(app.get_control_bar_position_vertical()),
-        music_mode_show_playlist: app.get_music_mode_show_playlist(),
-        music_mode_show_album_art: app.get_music_mode_show_album_art(),
+        music_mode_show_playlist: app
+            .global::<riina_ui::PlayerMusicModeState>()
+            .get_music_mode_show_playlist(),
+        music_mode_show_album_art: app
+            .global::<riina_ui::PlayerMusicModeState>()
+            .get_music_mode_show_album_art(),
         record_recent_files: player_preferences.get_record_recent_files(),
         track_all_files_in_recent_open_menu: player_preferences
             .get_track_all_files_in_recent_open_menu(),

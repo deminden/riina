@@ -5,6 +5,7 @@ use riina_core::{
     window_aspect::{self as policy, PixelSize},
     window_resize::{ScreenRect, clamp_position_with_margin},
 };
+use slint::ComponentHandle;
 use slint::winit_030::winit::{
     raw_window_handle::{HasWindowHandle, RawWindowHandle},
     window::Window,
@@ -79,7 +80,9 @@ unsafe extern "system" fn sizing_proc(
         return result;
     };
     if !app.get_loaded()
-        || app.get_music_mode()
+        || app
+            .global::<riina_ui::PlayerMusicModeState>()
+            .get_music_mode()
         || app.get_unlock_window_aspect_ratio()
         || !app.get_edge_to_edge_video()
         || app.get_fullscreen()

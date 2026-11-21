@@ -294,11 +294,13 @@ fn install_open_recent_menu(app: &PlayerWindow, context: &Context<'_>) {
             if let Some(app) = clear_recent_app.upgrade() {
                 clear_recent_flag.set(true);
                 clear_recent_documents.borrow_mut().clear();
-                app.set_recent_open_menu_rows(slint::ModelRc::new(slint::VecModel::from(Vec::<
-                    MenuCatalogRow,
-                >::new(
-                ))));
-                app.invoke_video_menu_changed();
+                app.global::<riina_ui::PlayerCatalogState>()
+                    .set_recent_open_menu_rows(slint::ModelRc::new(slint::VecModel::from(Vec::<
+                        MenuCatalogRow,
+                    >::new(
+                    ))));
+                app.global::<riina_ui::PlayerMenuActions>()
+                    .invoke_video_menu_changed();
                 if let Err(error) = persist_recent_open_documents(
                     &clear_preferences_path,
                     &clear_recent_documents.borrow(),

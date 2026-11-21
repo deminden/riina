@@ -2,6 +2,7 @@ import { CatalogSelection } from "catalog-row.slint";
 
 // The player, native owner, and Slint menu dispatch commands to the same window session.
 export global PlayerMenuActions {
+    callback video-menu-changed();
     callback activate-plugin-menu-item(string);
     callback adjust-audio-delay(float);
     callback adjust-chapter(int);

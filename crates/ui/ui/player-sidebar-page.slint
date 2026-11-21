@@ -1,3 +1,5 @@
+import { PlayerCatalogState } from "player-catalog-state.slint";
+import { PlaybackTimelineState } from "playback-timeline-state.slint";
 import { PlayerAppearance } from "player-appearance.slint";
 import { AudioQuickSettingsPage } from "quick-settings-audio.slint";
 import { SubtitleQuickSettingsPage } from "quick-settings-subtitles.slint";
@@ -17,12 +19,6 @@ export component PlayerSidebarPage inherits VerticalLayout {
     in property <bool> loaded;
     in property <string> plugin-sidebar-selected-identifier;
     in property <[string]> plugin-sidebar-labels;
-    in property <bool> playlist-metadata-visible;
-    in property <[CatalogRow]> chapters;
-    in property <[CatalogRow]> playlist;
-    in property <string> speed-edit-value;
-    in property <float> speed-slider-position;
-    in property <float> speed-value;
     callback restore-player-focus();
 
     pure function selection-for-pane(kind: int) -> CatalogSelection {
@@ -73,15 +69,13 @@ export component PlayerSidebarPage inherits VerticalLayout {
             color: Theme.sidebar-secondary-text(PlayerAppearance.dark-theme);
             font-size: 11px; wrap: word-wrap; }
     }
-    for row[index] in (pane-kind == 3 ? chapters : pane-kind == 4 ? playlist : []): CatalogSidebarRow {
+    for row[index] in (pane-kind == 3 ? PlayerCatalogState.chapters : pane-kind == 4 ? PlayerCatalogState.playlist : []): CatalogSidebarRow {
         width: parent.width;
         entry: row;
         index: index;
         pane-kind: root.pane-kind;
-        playlist: root.playlist;
         dark-theme: PlayerAppearance.dark-theme;
         interactive-accent-color: PlayerAppearance.interactive-accent-color;
-        playlist-metadata-visible: root.playlist-metadata-visible;
         select-row(token) => { PlayerMenuActions.select-item(root.selection-for-pane(pane-kind), token); }
         select-playlist-row(index, extend, range) => { PlayerSidebarActions.select-playlist-row(index, extend, range) }
         reorder-playlist(tokens, index) => { PlayerSidebarActions.reorder-playlist(tokens, index); }
@@ -106,9 +100,9 @@ export component PlayerSidebarPage inherits VerticalLayout {
         set-video-equalizer(band, value) => { PlayerSidebarActions.set-video-equalizer(band, value); }
         set-video-rotation(value) => { PlayerSidebarActions.set-video-rotation(value); }
         sidebar-card-material-fill: PlayerAppearance.sidebar-card-material-fill;
-        speed-edit-value: root.speed-edit-value;
-        speed-slider-position: root.speed-slider-position;
-        speed-value: root.speed-value;
+        speed-edit-value: PlaybackTimelineState.speed-edit-value;
+        speed-slider-position: PlaybackTimelineState.speed-slider-position;
+        speed-value: PlaybackTimelineState.speed-value;
         track-selected(kind, token) => { PlayerMenuActions.select-item(root.selection-for-pane(kind), token); }
         windows-accent-color: PlayerAppearance.windows-accent-color;
         windows-accent-foreground: PlayerAppearance.windows-accent-foreground;

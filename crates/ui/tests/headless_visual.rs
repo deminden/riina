@@ -148,9 +148,15 @@ fn player(
         window.set_edge_to_edge_video(false);
         window.set_osc_position(2);
     }
-    window.set_music_mode(matches!(layout, Layout::Music));
-    window.set_music_mode_is_audio(matches!(layout, Layout::Music));
-    window.set_music_mode_show_playlist(matches!(layout, Layout::Music));
+    window
+        .global::<riina_ui::PlayerMusicModeState>()
+        .set_music_mode(matches!(layout, Layout::Music));
+    window
+        .global::<riina_ui::PlayerMusicModeState>()
+        .set_music_mode_is_audio(matches!(layout, Layout::Music));
+    window
+        .global::<riina_ui::PlayerMusicModeState>()
+        .set_music_mode_show_playlist(matches!(layout, Layout::Music));
     window.set_sidebar(sidebars.0);
     window.set_leading_sidebar(sidebars.1);
 
@@ -184,8 +190,12 @@ fn player(
         window
             .global::<riina_ui::PlaybackSubtitleState>()
             .set_subtitle_tracks(catalog(&["English", "French"]));
-        window.set_playlist(catalog(&["Headless test clip", "Next clip", "Final clip"]));
-        window.set_chapters(catalog(&["Opening", "Middle", "Credits"]));
+        window
+            .global::<riina_ui::PlayerCatalogState>()
+            .set_playlist(catalog(&["Headless test clip", "Next clip", "Final clip"]));
+        window
+            .global::<riina_ui::PlayerCatalogState>()
+            .set_chapters(catalog(&["Opening", "Middle", "Credits"]));
         window
             .global::<riina_ui::PlayerRenderedVideo>()
             .set_video_frame(test_picture());

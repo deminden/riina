@@ -193,16 +193,16 @@ pub(super) fn align(host: &slint::Window, chrome: &PlayerWindow) -> bool {
                     );
                 }
             });
-            let layout = if chrome.get_music_mode() {
+            let layout = if chrome.global::<riina_ui::PlayerMusicModeState>().get_music_mode() {
                 let bottom_inset = crate::music_mode_layout::COMPACT_CONTROL_HEIGHT
-                    + if chrome.get_music_mode_show_playlist() {
+                    + if chrome.global::<riina_ui::PlayerMusicModeState>().get_music_mode_show_playlist() {
                         crate::music_mode_layout::PLAYLIST_HEIGHT
                     } else {
                         0.0
                     };
                 window_geometry::VideoLayout::Artwork {
                     bottom_inset: (bottom_inset * window.scale_factor()).round() as u32,
-                    visible: chrome.get_music_mode_show_album_art(),
+                    visible: chrome.global::<riina_ui::PlayerMusicModeState>().get_music_mode_show_album_art(),
                 }
             } else {
                 window_geometry::VideoLayout::FullClient

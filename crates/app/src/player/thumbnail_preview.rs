@@ -1,5 +1,6 @@
 use crate::PlayerWindow;
 use riina_core::{Phase, Playback, music_mode::AudioStatus, thumbnail_preferences::Settings};
+use slint::ComponentHandle;
 use slint::{Image, Rgba8Pixel, SharedPixelBuffer};
 use std::{
     path::{Path, PathBuf},
@@ -111,15 +112,18 @@ impl Controller {
         settings: &Settings,
         library: &Path,
     ) -> bool {
-        app.set_thumbnail_preview_width(settings.width as f32);
+        app.global::<riina_ui::PlaybackTimelineState>()
+            .set_thumbnail_preview_width(settings.width as f32);
         let next = active_identity(state, settings);
         if next != self.identity {
             self.cancel_current();
             self.identity = next.clone();
             self.frames.clear();
             self.displayed_index = None;
-            app.set_timeline_thumbnail_image(Image::default());
-            app.set_timeline_preview_label("".into());
+            app.global::<riina_ui::PlaybackTimelineState>()
+                .set_timeline_thumbnail_image(Image::default());
+            app.global::<riina_ui::PlaybackTimelineState>()
+                .set_timeline_preview_label("".into());
             if let Some(identity) = next {
                 self.frames.resize_with(THUMBNAIL_COUNT, || None);
                 let source = PathBuf::from(&identity.media_path);
@@ -188,12 +192,15 @@ impl Controller {
         if !seconds.is_finite() || seconds < 0.0 {
             self.hover_time = None;
             self.displayed_index = None;
-            app.set_timeline_preview_label("".into());
-            app.set_timeline_thumbnail_image(Image::default());
+            app.global::<riina_ui::PlaybackTimelineState>()
+                .set_timeline_preview_label("".into());
+            app.global::<riina_ui::PlaybackTimelineState>()
+                .set_timeline_thumbnail_image(Image::default());
             return;
         }
         self.hover_time = Some(seconds);
-        app.set_timeline_preview_label(riina_core::time_label(Some(seconds)).into());
+        app.global::<riina_ui::PlaybackTimelineState>()
+            .set_timeline_preview_label(riina_core::time_label(Some(seconds)).into());
         self.refresh_preview(app);
     }
 
@@ -207,17 +214,20 @@ impl Controller {
         }
         let Some((_, jpeg)) = index.and_then(|index| self.frames[index].as_ref()) else {
             self.displayed_index = None;
-            app.set_timeline_thumbnail_image(Image::default());
+            app.global::<riina_ui::PlaybackTimelineState>()
+                .set_timeline_thumbnail_image(Image::default());
             return;
         };
         match decode_image(jpeg) {
             Ok(image) => {
                 self.displayed_index = index;
-                app.set_timeline_thumbnail_image(image);
+                app.global::<riina_ui::PlaybackTimelineState>()
+                    .set_timeline_thumbnail_image(image);
             }
             Err(error) => {
                 self.displayed_index = index;
-                app.set_timeline_thumbnail_image(Image::default());
+                app.global::<riina_ui::PlaybackTimelineState>()
+                    .set_timeline_thumbnail_image(Image::default());
                 app.set_status(format!("Could not display a thumbnail: {error}").into());
             }
         }

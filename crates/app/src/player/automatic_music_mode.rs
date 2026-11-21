@@ -59,7 +59,8 @@ pub(crate) fn observe(app: &PlayerWindow, playback: &Playback, mode: &Mutex<Stat
         mode.observe(status, app.get_fullscreen())
     };
     if let Some(active) = transition {
-        app.set_music_mode(active);
+        app.global::<riina_ui::PlayerMusicModeState>()
+            .set_music_mode(active);
     }
 }
 
@@ -76,16 +77,19 @@ mod tests {
         let timer = install(&app, crate::PlaybackStore::default(), mode);
         assert!(!timer.running());
 
-        app.set_auto_switch_to_music_mode(true);
+        app.global::<riina_ui::PlayerMusicModeState>()
+            .set_auto_switch_to_music_mode(true);
         app.set_loaded(true);
         i_slint_backend_testing::mock_elapsed_time(Duration::ZERO);
         assert!(timer.running());
 
-        app.set_auto_switch_to_music_mode(false);
+        app.global::<riina_ui::PlayerMusicModeState>()
+            .set_auto_switch_to_music_mode(false);
         i_slint_backend_testing::mock_elapsed_time(Duration::ZERO);
         assert!(!timer.running());
 
-        app.set_auto_switch_to_music_mode(true);
+        app.global::<riina_ui::PlayerMusicModeState>()
+            .set_auto_switch_to_music_mode(true);
         i_slint_backend_testing::mock_elapsed_time(Duration::ZERO);
         assert!(timer.running());
         app.set_loaded(false);

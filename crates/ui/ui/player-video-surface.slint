@@ -1,3 +1,4 @@
+import { PlayerMusicModeState } from "player-music-mode-state.slint";
 import { PlayerRenderedVideo } from "player-rendered-video.slint";
 
 export component VideoSurface inherits Rectangle {
@@ -13,11 +14,6 @@ export component VideoSurface inherits Rectangle {
     in property <length> render-height;
     in property <length> video-width;
     in property <length> video-height;
-    in property <bool> music-mode;
-    in property <bool> music-mode-show-album-art;
-    in property <bool> music-mode-is-audio;
-    in property <bool> music-mode-has-album-art;
-    in property <bool> music-mode-has-visible-subtitles;
     in property <bool> live-text-enabled;
     in property <bool> paused;
     in property <bool> live-text-selectable;
@@ -32,7 +28,7 @@ export component VideoSurface inherits Rectangle {
         drop-shadow-color: #00000080;
         drop-shadow-offset-x: 0px; drop-shadow-offset-y: 0px;
     }
-    if root.music-mode && !root.music-mode-show-album-art : Rectangle {
+    if PlayerMusicModeState.music-mode && !PlayerMusicModeState.music-mode-show-album-art : Rectangle {
         x: video-inset-leading; y: video-inset-top;
         width: video-width; height: video-height; background: #111111;
     }
@@ -41,7 +37,7 @@ export component VideoSurface inherits Rectangle {
         background: #000000;
     }
     Image {
-        visible: !root.music-mode || root.music-mode-show-album-art;
+        visible: !PlayerMusicModeState.music-mode || PlayerMusicModeState.music-mode-show-album-art;
         source: PlayerRenderedVideo.video-frame;
         x: PlayerRenderedVideo.native-transition-frame ? 0px : video-inset-leading + (crop-editing && !native-video ? crop-picture-x * 1px : 0px);
         y: PlayerRenderedVideo.native-transition-frame ? 0px : video-inset-top + (crop-editing && !native-video ? crop-picture-y * 1px : 0px);
@@ -49,9 +45,9 @@ export component VideoSurface inherits Rectangle {
         height: PlayerRenderedVideo.native-transition-frame ? root.height : root.render-height;
         image-fit: contain;
     }
-    if root.music-mode && root.music-mode-show-album-art
-        && root.music-mode-is-audio && !root.music-mode-has-album-art
-        && !root.music-mode-has-visible-subtitles : Image {
+    if PlayerMusicModeState.music-mode && PlayerMusicModeState.music-mode-show-album-art
+        && PlayerMusicModeState.music-mode-is-audio && !PlayerMusicModeState.music-mode-has-album-art
+        && !PlayerMusicModeState.music-mode-has-visible-subtitles : Image {
         x: video-inset-leading; y: video-inset-top;
         width: video-width; height: video-height;
         source: @image-url("../../../assets/icons/music-mode-placeholder.svg");

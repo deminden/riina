@@ -117,7 +117,8 @@ fn register_media_resize(
                     initial,
                     settings.timing,
                     manually_opened,
-                    app.get_music_mode(),
+                    app.global::<riina_ui::PlayerMusicModeState>()
+                        .get_music_mode(),
                 ) {
                     mark_window_size_adjusted(&app);
                     // The configured timing also governs automatic playlist
@@ -300,7 +301,8 @@ fn register_aspect_resize(
                             initial,
                             timing,
                             manually_opened,
-                            app.get_music_mode(),
+                            app.global::<riina_ui::PlayerMusicModeState>()
+                                .get_music_mode(),
                         );
                         let resize_allowed = resize_allowed
                             && window_sizing::media_resize_allowed(initial, manually_opened);
@@ -574,7 +576,9 @@ fn minimum_content_size(window: &slint::Window) -> PixelSize {
 
 fn aspect_lock_enabled(app: &PlayerWindow) -> bool {
     app.get_loaded()
-        && !app.get_music_mode()
+        && !app
+            .global::<riina_ui::PlayerMusicModeState>()
+            .get_music_mode()
         && app.get_edge_to_edge_video()
         && !app.get_unlock_window_aspect_ratio()
         && f64::from(app.get_video_display_aspect_ratio()).is_finite()

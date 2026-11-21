@@ -1,3 +1,4 @@
+import { PlayerMusicModeState } from "player-music-mode-state.slint";
 import { PlayerOsdState } from "player-osd-state.slint";
 import { ScreenshotPreview } from "screenshot-preview.slint";
 import { FullscreenInfoOsd, OsdMaterial, PlaybackOsd, PluginOsd, SeekOsd } from "player-osd.slint";
@@ -13,8 +14,6 @@ export component PlayerFeedbackLayer inherits Rectangle {
     in property <bool> native-video;
     in property <bool> controls-visible;
     in property <bool> fullscreen;
-    in property <bool> music-mode;
-    in property <bool> music-mode-show-playlist;
     in property <string> status;
     in property <string> startup-status;
     in property <int> sidebar;
@@ -50,7 +49,7 @@ export component PlayerFeedbackLayer inherits Rectangle {
     if !PlayerOsdState.plugin-osd-message.is-empty && !crop-editing : PluginOsd {
         x: (parent.width - self.width) / 2;
         y: max(8px,
-            parent.height - (root.music-mode && root.music-mode-show-playlist ? 300px : 0px) - 112px);
+            parent.height - (PlayerMusicModeState.music-mode && PlayerMusicModeState.music-mode-show-playlist ? 300px : 0px) - 112px);
         width: min(420px, parent.width - 32px);
         material: root.osd-material;
         native-video: root.native-video;

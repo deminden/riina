@@ -227,7 +227,10 @@ fn project_blur(
         && (app.get_sidebar() != 0 || app.get_leading_sidebar() != 0);
     let controller_blur = appearance.get_liquid_glass_osc()
         && app.get_loaded()
-        && (app.get_controls_visible() || app.get_music_mode());
+        && (app.get_controls_visible()
+            || app
+                .global::<riina_ui::PlayerMusicModeState>()
+                .get_music_mode());
     let osd = app.global::<riina_ui::PlayerOsdState>();
     let osd_blur = appearance.get_liquid_glass_osd()
         && app.get_loaded()

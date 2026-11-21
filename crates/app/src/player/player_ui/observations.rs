@@ -57,7 +57,8 @@ pub(super) fn update_ui(
     let timeline = app.global::<riina_ui::PlaybackTimelineState>();
     timeline.set_seek_position_label(seek_osd::clock(state.position).into());
     timeline.set_seek_duration_label(seek_osd::clock(state.duration).into());
-    app.set_playlist_shuffled(state.playlist_shuffled);
+    app.global::<riina_ui::PlayerCatalogState>()
+        .set_playlist_shuffled(state.playlist_shuffled);
     if should_fallback_removed_audio_device(displayed.as_deref(), &state)
         && let Some(audio_device_player) = resources.audio_device_player
         && let Err(error) = audio_device_player.send(Command::AudioDevice("auto".into()))
@@ -90,7 +91,7 @@ pub(super) fn update_ui(
     update_transport(app, &state);
     update_video_and_artwork(app, &state);
     update_delays_and_subtitle_style(app, &state);
-    app.set_loop_label(
+    app.global::<riina_ui::PlayerCatalogState>().set_loop_label(
         match state.loop_mode() {
             LoopMode::Off => "Off",
             LoopMode::File => "File",
@@ -100,8 +101,10 @@ pub(super) fn update_ui(
     );
     update_hdr_source(app, &state, first_loaded);
     app.set_media_title(state.title.as_str().into());
-    app.set_music_artist(state.artist.as_deref().unwrap_or_default().into());
-    app.set_music_album(state.album.as_deref().unwrap_or_default().into());
+    app.global::<riina_ui::PlayerMusicModeState>()
+        .set_music_artist(state.artist.as_deref().unwrap_or_default().into());
+    app.global::<riina_ui::PlayerMusicModeState>()
+        .set_music_album(state.album.as_deref().unwrap_or_default().into());
     let timeline = app.global::<riina_ui::PlaybackTimelineState>();
     timeline.set_position_label(time_label(state.position).into());
     timeline.set_duration_label(time_label(state.duration).into());
@@ -424,10 +427,14 @@ fn update_transport(app: &PlayerWindow, state: &Playback) {
     timeline.set_seekable(state.seekable && state.duration.is_some());
     timeline.set_position(state.position.unwrap_or(0.0) as f32);
     timeline.set_duration(state.duration.unwrap_or(0.0) as f32);
-    app.set_ab_loop_a(state.ab_loop_a.unwrap_or_default() as f32);
-    app.set_ab_loop_a_known(state.ab_loop_a.is_some());
-    app.set_ab_loop_b(state.ab_loop_b.unwrap_or_default() as f32);
-    app.set_ab_loop_b_known(state.ab_loop_b.is_some());
+    app.global::<riina_ui::PlaybackTimelineState>()
+        .set_ab_loop_a(state.ab_loop_a.unwrap_or_default() as f32);
+    app.global::<riina_ui::PlaybackTimelineState>()
+        .set_ab_loop_a_known(state.ab_loop_a.is_some());
+    app.global::<riina_ui::PlaybackTimelineState>()
+        .set_ab_loop_b(state.ab_loop_b.unwrap_or_default() as f32);
+    app.global::<riina_ui::PlaybackTimelineState>()
+        .set_ab_loop_b_known(state.ab_loop_b.is_some());
     let audio = app.global::<riina_ui::PlaybackAudioState>();
     audio.set_volume(state.volume as f32);
     audio.set_volume_menu_title(
@@ -439,9 +446,12 @@ fn update_transport(app: &PlayerWindow, state: &Playback) {
         .into(),
     );
     audio.set_muted(state.muted);
-    app.set_speed_value(state.speed as f32);
-    app.set_speed_slider_position(riina_core::speed_controls::slider_position(state.speed) as f32);
-    app.set_speed_edit_value(riina_core::speed_controls::text(state.speed).into());
+    app.global::<riina_ui::PlaybackTimelineState>()
+        .set_speed_value(state.speed as f32);
+    app.global::<riina_ui::PlaybackTimelineState>()
+        .set_speed_slider_position(riina_core::speed_controls::slider_position(state.speed) as f32);
+    app.global::<riina_ui::PlaybackTimelineState>()
+        .set_speed_edit_value(riina_core::speed_controls::text(state.speed).into());
 }
 
 fn update_video_and_artwork(app: &PlayerWindow, state: &Playback) {
@@ -470,9 +480,12 @@ fn update_video_and_artwork(app: &PlayerWindow, state: &Playback) {
                     && track.selected
                     && track.main_selection == Some(1)))
     });
-    app.set_music_mode_is_audio(is_audio);
-    app.set_music_mode_has_album_art(album_art.is_some());
-    app.set_music_mode_has_visible_subtitles(has_visible_subtitles);
+    app.global::<riina_ui::PlayerMusicModeState>()
+        .set_music_mode_is_audio(is_audio);
+    app.global::<riina_ui::PlayerMusicModeState>()
+        .set_music_mode_has_album_art(album_art.is_some());
+    app.global::<riina_ui::PlayerMusicModeState>()
+        .set_music_mode_has_visible_subtitles(has_visible_subtitles);
     let artwork_aspect = if is_audio {
         album_art
             .and_then(|track| track.width.zip(track.height))
@@ -481,7 +494,8 @@ fn update_video_and_artwork(app: &PlayerWindow, state: &Playback) {
     } else {
         display_aspect
     };
-    app.set_music_mode_artwork_aspect_ratio(artwork_aspect.unwrap_or(0.0) as f32);
+    app.global::<riina_ui::PlayerMusicModeState>()
+        .set_music_mode_artwork_aspect_ratio(artwork_aspect.unwrap_or(0.0) as f32);
     video.set_video_aspect_index(
         state
             .video_aspect

@@ -39,7 +39,8 @@ fn player(pane: i32) -> PlayerWindow {
         .set_audio_delay_text("0".into());
     app.global::<riina_ui::PlaybackSubtitleState>()
         .set_subtitle_delay_text("0".into());
-    app.set_speed_edit_value("1".into());
+    app.global::<riina_ui::PlaybackTimelineState>()
+        .set_speed_edit_value("1".into());
     app.window().set_size(LogicalSize::new(1000.0, 900.0));
     app.show().unwrap();
     flush();
@@ -350,7 +351,8 @@ fn speed_uses_the_same_draft_and_escape_lifecycle() {
     let input = field(&app, "Custom playback speed");
     focus(&app, &input);
     input.set_accessible_value("1.");
-    app.set_speed_edit_value("2".into());
+    app.global::<riina_ui::PlaybackTimelineState>()
+        .set_speed_edit_value("2".into());
     flush();
     assert_eq!(input.accessible_value().unwrap(), "1.");
     key(&app, Key::Escape);
@@ -781,9 +783,11 @@ fn transport_center_is_independent_of_audio_and_toolbar_population() {
 #[test]
 fn music_mode_transport_has_its_own_center_and_disjoint_utility_buttons() {
     let app = player(0);
-    app.set_music_mode(true);
+    app.global::<riina_ui::PlayerMusicModeState>()
+        .set_music_mode(true);
     app.set_controls_visible(true);
-    app.set_music_mode_show_album_art(true);
+    app.global::<riina_ui::PlayerMusicModeState>()
+        .set_music_mode_show_album_art(true);
     app.window().set_size(LogicalSize::new(300.0, 390.0));
     for dark in [false, true] {
         app.global::<riina_ui::PlayerAppearance>()

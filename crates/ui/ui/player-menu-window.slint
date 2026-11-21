@@ -1,3 +1,6 @@
+import { PlayerCatalogState } from "player-catalog-state.slint";
+import { PlayerMusicModeState } from "player-music-mode-state.slint";
+import { PlaybackTimelineState } from "playback-timeline-state.slint";
 import { PlaybackAudioState } from "playback-audio-state.slint";
 import { PlaybackSubtitleState } from "playback-subtitle-state.slint";
 import { PlaybackVideoState } from "playback-video-state.slint";
@@ -12,7 +15,6 @@ export component PlayerMenuWindow inherits Window {
     in property <bool> menu-bar-visible;
     in property <[MenuShortcutRow]> menu-value-menu-shortcuts;
     in-out property <bool> menu-value-always-float-on-top;
-    in property <[CatalogRow]> menu-value-chapters;
     in property <bool> menu-value-crop-editing;
     in property <string> menu-value-current-file-manager-name;
     in property <bool> menu-value-deinterlace-enabled;
@@ -27,17 +29,13 @@ export component PlayerMenuWindow inherits Window {
     in property <bool> menu-value-live-text-available;
     in property <bool> menu-value-live-text-enabled;
     in property <bool> menu-value-loaded;
-    in property <string> menu-value-loop-label;
     in property <bool> menu-value-menu-alternates-visible;
-    in property <bool> menu-value-music-mode;
     in property <bool> menu-value-paused;
     in property <bool> menu-value-picture-in-picture-active;
     in property <bool> menu-value-picture-in-picture-available;
-    in property <[CatalogRow]> menu-value-playlist;
     in property <[PluginMenuRow]> menu-value-plugin-menu-rows;
     in-out property <int> menu-value-preferences-target-pane;
     in property <bool> menu-value-primary-shortcut-is-meta;
-    in property <[MenuCatalogRow]> menu-value-recent-open-menu-rows;
     in property <bool> menu-value-reflection-known;
     in property <bool> menu-value-reveal-current-media-available;
     in property <bool> menu-value-save-current-playlist-available;
@@ -46,7 +44,6 @@ export component PlayerMenuWindow inherits Window {
     in property <bool> menu-value-screenshot-available;
     in property <bool> menu-value-settings-at-leading;
     in property <int> menu-value-sidebar;
-    in property <string> menu-value-speed-edit-value;
     in-out property <bool> menu-value-unlock-window-aspect-ratio;
     in property <bool> menu-value-video-flipped;
     in property <bool> menu-value-video-mirrored;
@@ -99,13 +96,13 @@ export component PlayerMenuWindow inherits Window {
                 activated => { PlayerMenuActions.open-url-dialog(); } }
             if PlayerPreferences.record-recent-files : Menu {
                 title: "Open Recent";
-                enabled: root.menu-value-recent-open-menu-rows.length > 0;
-                for row in root.menu-value-recent-open-menu-rows : MenuItem {
+                enabled: PlayerCatalogState.recent-open-menu-rows.length > 0;
+                for row in PlayerCatalogState.recent-open-menu-rows : MenuItem {
                     title: row.label;
                     activated => { PlayerMenuActions.open-recent-path(row.token); }
                 }
                 MenuSeparator {}
-                MenuItem { title: "Clear Menu"; enabled: root.menu-value-recent-open-menu-rows.length > 0;
+                MenuItem { title: "Clear Menu"; enabled: PlayerCatalogState.recent-open-menu-rows.length > 0;
                     activated => { PlayerMenuActions.clear-open-recent(); } }
             }
             MenuSeparator {}
@@ -166,7 +163,7 @@ export component PlayerMenuWindow inherits Window {
                 shortcut: root.menu-value-primary-shortcut-is-meta ? @keys(Meta + J) : @keys(Control + J);
                 activated => { PlayerMenuActions.open-jump-time-dialog(); } }
             MenuSeparator {}
-            MenuItem { title: "Speed: " + root.menu-value-speed-edit-value + "x"; enabled: false; }
+            MenuItem { title: "Speed: " + PlaybackTimelineState.speed-edit-value + "x"; enabled: false; }
             MenuItem { title: root.menu-value-menu-alternates-visible ? "Speed Up by 1.1x" : "Speed Up by 2x";
                 enabled: root.menu-value-loaded && !root.menu-value-crop-editing;
                 shortcut: root.menu-shortcut(root.menu-value-menu-alternates-visible ? 9 : 7);
@@ -188,7 +185,7 @@ export component PlayerMenuWindow inherits Window {
             MenuItem { title: "A-B Loop"; enabled: root.menu-value-loaded && !root.menu-value-crop-editing;
                 shortcut: root.menu-shortcut(46);
                 activated => { PlayerMenuActions.cycle-ab-loop(); } }
-            MenuItem { title: "File Loop"; checkable: true; checked: root.menu-value-loop-label == "File";
+            MenuItem { title: "File Loop"; checkable: true; checked: PlayerCatalogState.loop-label == "File";
                 enabled: root.menu-value-loaded && !root.menu-value-crop-editing;
                 shortcut: root.menu-shortcut(47);
                 activated => { PlayerMenuActions.toggle-file-loop(); } }
@@ -196,11 +193,11 @@ export component PlayerMenuWindow inherits Window {
             MenuItem { title: "Show Playlist Panel"; enabled: !root.menu-value-crop-editing;
                 shortcut: root.menu-shortcut(12);
                 activated => { PlayerMenuActions.toggle-playlist-pane(4); } }
-            MenuItem { title: "Playlist Loop"; checkable: true; checked: root.menu-value-loop-label == "Playlist";
+            MenuItem { title: "Playlist Loop"; checkable: true; checked: PlayerCatalogState.loop-label == "Playlist";
                 enabled: root.menu-value-loaded && !root.menu-value-crop-editing;
                 activated => { PlayerMenuActions.playlist-action(5, ""); } }
-            Menu { title: "Playlist"; enabled: root.menu-value-loaded && root.menu-value-playlist.length > 0 && !root.menu-value-crop-editing;
-                for row in root.menu-value-playlist : MenuItem {
+            Menu { title: "Playlist"; enabled: root.menu-value-loaded && PlayerCatalogState.playlist.length > 0 && !root.menu-value-crop-editing;
+                for row in PlayerCatalogState.playlist : MenuItem {
                     title: row.label; checkable: true; checked: row.playing;
                     activated => { PlayerMenuActions.playlist-action(12, row.token); }
                 }
@@ -215,8 +212,8 @@ export component PlayerMenuWindow inherits Window {
             MenuItem { title: "Show Chapters Panel"; enabled: !root.menu-value-crop-editing;
                 shortcut: root.menu-shortcut(15);
                 activated => { PlayerMenuActions.toggle-playlist-pane(3); } }
-            Menu { title: "Chapters"; enabled: root.menu-value-loaded && root.menu-value-chapters.length > 0 && !root.menu-value-crop-editing;
-                for row in root.menu-value-chapters : MenuItem {
+            Menu { title: "Chapters"; enabled: root.menu-value-loaded && PlayerCatalogState.chapters.length > 0 && !root.menu-value-crop-editing;
+                for row in PlayerCatalogState.chapters : MenuItem {
                     title: row.label;
                     checkable: true; checked: row.selected;
                     activated => { PlayerMenuActions.select-item(CatalogSelection.chapter, row.token); }
@@ -247,15 +244,15 @@ export component PlayerMenuWindow inherits Window {
             }
             MenuSeparator {}
             MenuItem { title: "Half Size"; enabled: root.menu-value-loaded && root.menu-value-video-window-width > 0
-                    && root.menu-value-video-window-height > 0 && !root.menu-value-music-mode && !root.menu-value-crop-editing;
+                    && root.menu-value-video-window-height > 0 && !PlayerMusicModeState.music-mode && !root.menu-value-crop-editing;
                 shortcut: root.menu-shortcut(20);
                 activated => { PlayerMenuActions.resize-window-command(0); } }
             MenuItem { title: "Normal Size"; enabled: root.menu-value-loaded && root.menu-value-video-window-width > 0
-                    && root.menu-value-video-window-height > 0 && !root.menu-value-music-mode && !root.menu-value-crop-editing;
+                    && root.menu-value-video-window-height > 0 && !PlayerMusicModeState.music-mode && !root.menu-value-crop-editing;
                 shortcut: root.menu-shortcut(21);
                 activated => { PlayerMenuActions.resize-window-command(1); } }
             MenuItem { title: "Double Size"; enabled: root.menu-value-loaded && root.menu-value-video-window-width > 0
-                    && root.menu-value-video-window-height > 0 && !root.menu-value-music-mode && !root.menu-value-crop-editing;
+                    && root.menu-value-video-window-height > 0 && !PlayerMusicModeState.music-mode && !root.menu-value-crop-editing;
                 shortcut: root.menu-shortcut(22);
                 activated => { PlayerMenuActions.resize-window-command(2); } }
             MenuItem { title: "Fit to Screen"; enabled: !root.menu-value-crop-editing;
@@ -263,11 +260,11 @@ export component PlayerMenuWindow inherits Window {
                 activated => { PlayerMenuActions.resize-window-command(3); } }
             MenuSeparator {}
             MenuItem { title: "Bigger Size"; enabled: root.menu-value-loaded && root.menu-value-video-window-width > 0
-                    && root.menu-value-video-window-height > 0 && !root.menu-value-music-mode && !root.menu-value-crop-editing;
+                    && root.menu-value-video-window-height > 0 && !PlayerMusicModeState.music-mode && !root.menu-value-crop-editing;
                 shortcut: root.menu-shortcut(24);
                 activated => { PlayerMenuActions.resize-window-command(4); } }
             MenuItem { title: "Smaller Size"; enabled: root.menu-value-loaded && root.menu-value-video-window-width > 0
-                    && root.menu-value-video-window-height > 0 && !root.menu-value-music-mode && !root.menu-value-crop-editing;
+                    && root.menu-value-video-window-height > 0 && !PlayerMusicModeState.music-mode && !root.menu-value-crop-editing;
                 shortcut: root.menu-shortcut(25);
                 activated => { PlayerMenuActions.resize-window-command(5); } }
             MenuSeparator {}
@@ -292,8 +289,8 @@ export component PlayerMenuWindow inherits Window {
                 shortcut: root.menu-shortcut(29);
                 activated => { PlayerMenuActions.toggle-live-text(); } }
             MenuSeparator {}
-            MenuItem { title: root.menu-value-music-mode ? "Exit Music Mode" : "Enter Music Mode";
-                checkable: true; checked: root.menu-value-music-mode;
+            MenuItem { title: PlayerMusicModeState.music-mode ? "Exit Music Mode" : "Enter Music Mode";
+                checkable: true; checked: PlayerMusicModeState.music-mode;
                 enabled: root.menu-value-loaded && !root.menu-value-crop-editing;
                 shortcut: root.menu-shortcut(30);
                 activated => { PlayerMenuActions.toggle-music-mode(); } }

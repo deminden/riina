@@ -717,8 +717,10 @@ fn a_session_save_keeps_a_different_writer_s_newer_engine_settings() {
 fn session_save_captures_controls_edited_directly_in_the_player() {
     let transaction = Transaction::new();
     let app = &transaction.player.app;
-    app.set_music_mode_show_album_art(false);
-    app.set_music_mode_show_playlist(true);
+    app.global::<riina_ui::PlayerMusicModeState>()
+        .set_music_mode_show_album_art(false);
+    app.global::<riina_ui::PlayerMusicModeState>()
+        .set_music_mode_show_playlist(true);
     app.set_control_bar_position_horizontal(0.25);
     app.set_trailing_sidebar_width(320.0);
     app.global::<PlayerPreferences>()

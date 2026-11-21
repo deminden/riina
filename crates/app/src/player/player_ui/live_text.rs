@@ -105,7 +105,9 @@ pub(super) fn install(
                 || !app.get_loaded()
                 || state.phase != Phase::Paused
                 || app.get_crop_editing()
-                || app.get_music_mode()
+                || app
+                    .global::<riina_ui::PlayerMusicModeState>()
+                    .get_music_mode()
             {
                 capture_state.invalidate();
                 displayed_frame = None;
@@ -163,7 +165,9 @@ pub(super) fn install(
                         || !app.get_live_text_available()
                         || !app.get_loaded()
                         || app.get_crop_editing()
-                        || app.get_music_mode()
+                        || app
+                            .global::<riina_ui::PlayerMusicModeState>()
+                            .get_music_mode()
                     {
                         return;
                     }

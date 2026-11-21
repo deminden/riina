@@ -1,11 +1,10 @@
+import { PlaylistInteraction } from "playlist-sidebar-row.slint";
+import { PlayerCatalogState } from "player-catalog-state.slint";
 import { ScrollView } from "std-widgets.slint";
 import { CatalogRow } from "catalog-row.slint";
 
 export component MusicModePlaylist inherits Rectangle {
     in property <bool> dark-theme;
-    in property <bool> playlist-metadata-visible;
-    in property <[CatalogRow]> playlist;
-    in property <string> selected-playlist-token;
     in property <bool> platform-windows;
     in property <color> windows-accent-color;
     callback select-row(string);
@@ -16,9 +15,9 @@ export component MusicModePlaylist inherits Rectangle {
         width: parent.width; height: parent.height;
         VerticalLayout {
             spacing: 1px;
-            for row in root.playlist : Rectangle {
-                height: root.playlist-metadata-visible ? 38px : 30px; horizontal-stretch: 1;
-                background: row.selected || root.selected-playlist-token == row.token
+            for row in PlayerCatalogState.playlist : Rectangle {
+                height: PlayerCatalogState.playlist-metadata-visible ? 38px : 30px; horizontal-stretch: 1;
+                background: row.selected || PlaylistInteraction.selected-playlist-token == row.token
                     ? (root.dark-theme ? #ffffff1c : #168bff24) :
                     music-row-touch.has-hover ? (root.dark-theme ? #ffffff10 : #0000000a) : transparent;
                 if row.playing : Image {

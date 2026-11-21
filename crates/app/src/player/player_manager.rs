@@ -163,7 +163,10 @@ fn open_player(
         .players
         .iter()
         .map(|player| {
-            let playlist = player.app.get_playlist();
+            let playlist = player
+                .app
+                .global::<riina_ui::PlayerCatalogState>()
+                .get_playlist();
             (0..playlist.row_count())
                 .filter_map(|index| playlist.row_data(index))
                 .map(|row| row.path.to_string())

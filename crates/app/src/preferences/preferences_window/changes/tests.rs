@@ -60,15 +60,18 @@ fn music_mode_choices_are_saved_immediately_and_can_return_to_defaults() {
         !initial.music_mode_show_album_art
     );
     assert_eq!(
-        app.get_auto_switch_to_music_mode(),
+        app.global::<riina_ui::PlayerMusicModeState>()
+            .get_auto_switch_to_music_mode(),
         saved.auto_switch_to_music_mode
     );
     assert_eq!(
-        app.get_music_mode_show_playlist(),
+        app.global::<riina_ui::PlayerMusicModeState>()
+            .get_music_mode_show_playlist(),
         saved.music_mode_show_playlist
     );
     assert_eq!(
-        app.get_music_mode_show_album_art(),
+        app.global::<riina_ui::PlayerMusicModeState>()
+            .get_music_mode_show_album_art(),
         saved.music_mode_show_album_art
     );
 
@@ -116,15 +119,18 @@ fn failed_preferences_save_keeps_live_music_mode_choices_and_is_retryable() {
         .set_music_mode_show_album_art(!initial.music_mode_show_album_art);
     assert!(save_preferences(&window, &app, &model, initial.clone()).is_err());
     assert_eq!(
-        app.get_auto_switch_to_music_mode(),
+        app.global::<riina_ui::PlayerMusicModeState>()
+            .get_auto_switch_to_music_mode(),
         initial.auto_switch_to_music_mode
     );
     assert_eq!(
-        app.get_music_mode_show_playlist(),
+        app.global::<riina_ui::PlayerMusicModeState>()
+            .get_music_mode_show_playlist(),
         initial.music_mode_show_playlist
     );
     assert_eq!(
-        app.get_music_mode_show_album_art(),
+        app.global::<riina_ui::PlayerMusicModeState>()
+            .get_music_mode_show_album_art(),
         initial.music_mode_show_album_art
     );
     std::fs::remove_dir(&path.file).unwrap();
@@ -136,7 +142,8 @@ fn failed_preferences_save_keeps_live_music_mode_choices_and_is_retryable() {
             .get_music_mode_show_playlist()
     );
     assert_eq!(
-        app.get_music_mode_show_playlist(),
+        app.global::<riina_ui::PlayerMusicModeState>()
+            .get_music_mode_show_playlist(),
         window
             .global::<riina_ui::GeneralSettingsState>()
             .get_music_mode_show_playlist()

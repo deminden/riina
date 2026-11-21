@@ -63,7 +63,7 @@ fn parse_track_id(token: &str) -> Result<Option<i64>, std::num::ParseIntError> {
 }
 
 pub(super) fn install_playlist_selection(app: &PlayerWindow, selected: &[String]) {
-    let current = app.get_playlist();
+    let current = app.global::<riina_ui::PlayerCatalogState>().get_playlist();
     let rows = (0..current.row_count())
         .filter_map(|index| current.row_data(index))
         .map(|mut row| {
@@ -73,11 +73,13 @@ pub(super) fn install_playlist_selection(app: &PlayerWindow, selected: &[String]
             row
         })
         .collect::<Vec<_>>();
-    app.set_playlist(slint::ModelRc::new(slint::VecModel::from(rows)));
+    app.global::<riina_ui::PlayerCatalogState>()
+        .set_playlist(slint::ModelRc::new(slint::VecModel::from(rows)));
 }
 
 pub(super) fn selected_playlist_paths(app: &PlayerWindow, clicked_token: &str) -> Vec<String> {
     let selected = app
+        .global::<riina_ui::PlaylistInteraction>()
         .get_selected_playlist_tokens()
         .iter()
         .map(|token| token.to_string())
@@ -87,7 +89,7 @@ pub(super) fn selected_playlist_paths(app: &PlayerWindow, clicked_token: &str) -
     } else {
         vec![clicked_token.to_owned()]
     };
-    let rows = app.get_playlist();
+    let rows = app.global::<riina_ui::PlayerCatalogState>().get_playlist();
     (0..rows.row_count())
         .filter_map(|index| rows.row_data(index))
         .filter(|row| selected.iter().any(|token| token == row.token.as_str()))
@@ -100,6 +102,7 @@ pub(super) fn selected_playlist_ids(
     clicked_token: &str,
 ) -> Result<Vec<i64>, String> {
     let selected = app
+        .global::<riina_ui::PlaylistInteraction>()
         .get_selected_playlist_tokens()
         .iter()
         .map(|token| token.to_string())
@@ -117,11 +120,12 @@ pub(super) fn selected_playlist_ids(
 
 pub(super) fn playlist_paste_index(app: &PlayerWindow, clicked_token: &str) -> usize {
     let selected = app
+        .global::<riina_ui::PlaylistInteraction>()
         .get_selected_playlist_tokens()
         .iter()
         .map(|token| token.to_string())
         .collect::<Vec<_>>();
-    let rows = app.get_playlist();
+    let rows = app.global::<riina_ui::PlayerCatalogState>().get_playlist();
     (0..rows.row_count())
         .find(|index| {
             rows.row_data(*index)
@@ -293,104 +297,116 @@ fn update_tracks(app: &PlayerWindow, state: &Playback) {
 }
 
 fn update_chapters(app: &PlayerWindow, state: &Playback) {
-    app.set_chapters(slint::ModelRc::new(slint::VecModel::from(
-        state
-            .chapters
-            .iter()
-            .enumerate()
-            .map(|(index, chapter)| CatalogRow {
-                token: index.to_string().into(),
-                detail: "".into(),
-                path: "".into(),
-                language: "".into(),
-                label: format!(
-                    "{}  {}",
-                    time_label(Some(chapter.time)),
-                    chapter
-                        .title
-                        .clone()
-                        .unwrap_or_else(|| format!("Chapter {}", index + 1))
-                )
-                .into(),
-                selected: state.position.is_some_and(|position| {
-                    position >= chapter.time
-                        && state
-                            .chapters
-                            .get(index + 1)
-                            .is_none_or(|next| position < next.time)
-                }),
-                playing: false,
-                network: false,
-            })
-            .collect::<Vec<_>>(),
-    )));
+    app.global::<riina_ui::PlayerCatalogState>()
+        .set_chapters(slint::ModelRc::new(slint::VecModel::from(
+            state
+                .chapters
+                .iter()
+                .enumerate()
+                .map(|(index, chapter)| CatalogRow {
+                    token: index.to_string().into(),
+                    detail: "".into(),
+                    path: "".into(),
+                    language: "".into(),
+                    label: format!(
+                        "{}  {}",
+                        time_label(Some(chapter.time)),
+                        chapter
+                            .title
+                            .clone()
+                            .unwrap_or_else(|| format!("Chapter {}", index + 1))
+                    )
+                    .into(),
+                    selected: state.position.is_some_and(|position| {
+                        position >= chapter.time
+                            && state
+                                .chapters
+                                .get(index + 1)
+                                .is_none_or(|next| position < next.time)
+                    }),
+                    playing: false,
+                    network: false,
+                })
+                .collect::<Vec<_>>(),
+        )));
     // IINA omits the first chapter boundary because it coincides with the bar origin.
-    app.set_chapter_times(slint::ModelRc::new(slint::VecModel::from(
-        state
-            .chapters
-            .iter()
-            .skip(1)
-            .map(|chapter| chapter.time as f32)
-            .filter(|time| time.is_finite() && *time >= 0.0)
-            .collect::<Vec<_>>(),
-    )));
+    app.global::<riina_ui::PlaybackTimelineState>()
+        .set_chapter_times(slint::ModelRc::new(slint::VecModel::from(
+            state
+                .chapters
+                .iter()
+                .skip(1)
+                .map(|chapter| chapter.time as f32)
+                .filter(|time| time.is_finite() && *time >= 0.0)
+                .collect::<Vec<_>>(),
+        )));
 }
 
 fn update_playlist(app: &PlayerWindow, state: &Playback) {
-    let selected_playlist_tokens = app.get_selected_playlist_tokens();
-    app.set_playlist(slint::ModelRc::new(slint::VecModel::from(
-        state
-            .playlist
-            .iter()
-            .map(|entry| {
-                let token = entry.id.to_string();
-                let file_label = entry.title.clone().unwrap_or_else(|| {
-                    if entry.filename.contains("://") {
-                        entry.filename.clone()
-                    } else {
-                        PathBuf::from(&entry.filename).file_name().map_or_else(
-                            || entry.filename.clone(),
-                            |name| name.to_string_lossy().into_owned(),
-                        )
-                    }
-                });
-                let metadata = (app
-                    .global::<riina_ui::PlayerPreferences>()
-                    .get_playlist_show_metadata()
-                    && (!app
+    let selected_playlist_tokens = app
+        .global::<riina_ui::PlaylistInteraction>()
+        .get_selected_playlist_tokens();
+    app.global::<riina_ui::PlayerCatalogState>()
+        .set_playlist(slint::ModelRc::new(slint::VecModel::from(
+            state
+                .playlist
+                .iter()
+                .map(|entry| {
+                    let token = entry.id.to_string();
+                    let file_label = entry.title.clone().unwrap_or_else(|| {
+                        if entry.filename.contains("://") {
+                            entry.filename.clone()
+                        } else {
+                            PathBuf::from(&entry.filename).file_name().map_or_else(
+                                || entry.filename.clone(),
+                                |name| name.to_string_lossy().into_owned(),
+                            )
+                        }
+                    });
+                    let metadata = (app
                         .global::<riina_ui::PlayerPreferences>()
-                        .get_playlist_show_metadata_in_music_mode()
-                        || app.get_music_mode()))
-                .then(|| crate::playlist_metadata::lookup(&entry.filename))
-                .flatten();
-                CatalogRow {
-                    token: token.clone().into(),
-                    path: entry.filename.clone().into(),
-                    language: "".into(),
-                    label: metadata
-                        .as_ref()
-                        .map_or(file_label, |metadata| metadata.title.clone())
-                        .into(),
-                    detail: metadata
-                        .map_or_else(String::new, |metadata| metadata.artist)
-                        .into(),
-                    selected: selected_playlist_tokens
-                        .iter()
-                        .any(|selected| selected.as_str() == token),
-                    playing: entry.current,
-                    network: crate::platform::is_http_url(entry.filename.as_str()),
-                }
-            })
-            .collect::<Vec<_>>(),
-    )));
-    if !state
-        .playlist
-        .iter()
-        .any(|entry| entry.id.to_string() == app.get_selected_playlist_token().as_str())
-    {
-        app.set_selected_playlist_token("".into());
+                        .get_playlist_show_metadata()
+                        && (!app
+                            .global::<riina_ui::PlayerPreferences>()
+                            .get_playlist_show_metadata_in_music_mode()
+                            || app
+                                .global::<riina_ui::PlayerMusicModeState>()
+                                .get_music_mode()))
+                    .then(|| crate::playlist_metadata::lookup(&entry.filename))
+                    .flatten();
+                    CatalogRow {
+                        token: token.clone().into(),
+                        path: entry.filename.clone().into(),
+                        language: "".into(),
+                        label: metadata
+                            .as_ref()
+                            .map_or(file_label, |metadata| metadata.title.clone())
+                            .into(),
+                        detail: metadata
+                            .map_or_else(String::new, |metadata| metadata.artist)
+                            .into(),
+                        selected: selected_playlist_tokens
+                            .iter()
+                            .any(|selected| selected.as_str() == token),
+                        playing: entry.current,
+                        network: crate::platform::is_http_url(entry.filename.as_str()),
+                    }
+                })
+                .collect::<Vec<_>>(),
+        )));
+    if !state.playlist.iter().any(|entry| {
+        entry.id.to_string()
+            == app
+                .global::<riina_ui::PlaylistInteraction>()
+                .get_selected_playlist_token()
+                .as_str()
+    }) {
+        app.global::<riina_ui::PlaylistInteraction>()
+            .set_selected_playlist_token("".into());
     }
-    let selection = app.get_selected_playlist_tokens();
+    let selection = app
+        .global::<riina_ui::PlaylistInteraction>()
+        .get_selected_playlist_tokens();
     let retained = selection
         .iter()
         .filter(|token| {
@@ -401,9 +417,11 @@ fn update_playlist(app: &PlayerWindow, state: &Playback) {
         })
         .collect::<Vec<_>>();
     if retained != selection.iter().collect::<Vec<_>>() {
-        app.set_selected_playlist_tokens(slint::ModelRc::new(slint::VecModel::from(retained)));
+        app.global::<riina_ui::PlaylistInteraction>()
+            .set_selected_playlist_tokens(slint::ModelRc::new(slint::VecModel::from(retained)));
     }
     let retained_selection = app
+        .global::<riina_ui::PlaylistInteraction>()
         .get_selected_playlist_tokens()
         .iter()
         .map(|token| token.to_string())
@@ -430,7 +448,8 @@ pub(super) fn install_playlist_metadata_refresh(
                     .get_playlist_show_metadata(),
                 app.global::<riina_ui::PlayerPreferences>()
                     .get_playlist_show_metadata_in_music_mode(),
-                app.get_music_mode(),
+                app.global::<riina_ui::PlayerMusicModeState>()
+                    .get_music_mode(),
             );
             if observed.get() == Some(state) {
                 return;

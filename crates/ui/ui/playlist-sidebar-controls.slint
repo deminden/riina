@@ -1,0 +1,30 @@
+import { PlayerAppearance } from "player-appearance.slint";
+import { PlayerMenuActions } from "player-menu-actions.slint";
+import { PlaylistSortButton } from "player-chrome-controls.slint";
+import { Tool } from "player-tool.slint";
+import { PlayerSidebarActions } from "player-sidebar-actions.slint";
+import { PlayerCatalogState } from "player-catalog-state.slint";
+import { PlaylistInteraction } from "playlist-sidebar-row.slint";
+
+export component PlaylistSidebarControls inherits HorizontalLayout {
+    spacing: 8px;
+    Tool { width: 24px; dark-theme: PlayerAppearance.dark-theme; accent-color: PlayerAppearance.interactive-accent-color;
+        label: PlayerCatalogState.loop-label == "File" ? "↻₁" : "↻"; hint: "Cycle repeat: " + PlayerCatalogState.loop-label;
+        activated => { PlayerMenuActions.playlist-action(5, ""); } }
+    Tool { width: 24px; dark-theme: PlayerAppearance.dark-theme; accent-color: PlayerAppearance.interactive-accent-color;
+        icon: @image-url("../../../assets/icons/shuffle.svg");
+        hint: PlayerCatalogState.playlist-shuffled ? "Turn off shuffle" : "Shuffle playlist";
+        selected: PlayerCatalogState.playlist-shuffled; activated => { PlayerSidebarActions.toggle-playlist-shuffle(); } }
+    PlaylistSortButton { dark-theme: PlayerAppearance.dark-theme; accent-color: PlayerAppearance.interactive-accent-color;
+        sort-requested(index) => { PlayerSidebarActions.sort-playlist(index); } }
+    Rectangle { horizontal-stretch: 1; }
+    Tool { width: 24px; dark-theme: PlayerAppearance.dark-theme; accent-color: PlayerAppearance.interactive-accent-color;
+        icon: @image-url("../../../assets/icons/add.svg"); hint: "Add files to playlist";
+        activated => { PlayerMenuActions.browse-files(4); } }
+    Tool { width: 24px; dark-theme: PlayerAppearance.dark-theme; accent-color: PlayerAppearance.interactive-accent-color;
+        label: "−"; hint: "Remove selected playlist entries"; enabled: PlaylistInteraction.selected-playlist-token != "";
+        activated => { PlayerMenuActions.playlist-action(1, PlaylistInteraction.selected-playlist-token); } }
+    Tool { width: 24px; dark-theme: PlayerAppearance.dark-theme; accent-color: PlayerAppearance.interactive-accent-color;
+        icon: @image-url("../../../assets/icons/trash.svg"); hint: "Clear playlist except current file";
+        activated => { PlayerMenuActions.playlist-action(4, ""); } }
+}

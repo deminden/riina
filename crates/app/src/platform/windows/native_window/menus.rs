@@ -19,21 +19,23 @@ pub(super) fn install(host: &NativeVideoHost, app: &PlayerWindow) {
     let menu_host = host.as_weak();
     let menu_app = app.as_weak();
     let menu_pending = Rc::new(Cell::new(false));
-    app.on_video_menu_changed(move || {
-        if menu_pending.replace(true) {
-            return;
-        }
-        let menu_host = menu_host.clone();
-        let menu_app = menu_app.clone();
-        let menu_pending = menu_pending.clone();
-        slint::Timer::single_shot(std::time::Duration::from_millis(80), move || {
-            menu_pending.set(false);
-            if let (Some(host), Some(app)) = (menu_host.upgrade(), menu_app.upgrade()) {
-                sync(&host, &app);
+    app.global::<riina_ui::PlayerMenuActions>()
+        .on_video_menu_changed(move || {
+            if menu_pending.replace(true) {
+                return;
             }
+            let menu_host = menu_host.clone();
+            let menu_app = menu_app.clone();
+            let menu_pending = menu_pending.clone();
+            slint::Timer::single_shot(std::time::Duration::from_millis(80), move || {
+                menu_pending.set(false);
+                if let (Some(host), Some(app)) = (menu_host.upgrade(), menu_app.upgrade()) {
+                    sync(&host, &app);
+                }
+            });
         });
-    });
-    app.invoke_video_menu_changed();
+    app.global::<riina_ui::PlayerMenuActions>()
+        .invoke_video_menu_changed();
 }
 
 fn sync(host: &NativeVideoHost, app: &PlayerWindow) {
@@ -85,7 +87,10 @@ fn sync(host: &NativeVideoHost, app: &PlayerWindow) {
     host.set_live_text_available(app.get_live_text_available());
     host.set_live_text_enabled(app.get_live_text_enabled());
     host.set_record_recent_files(player_preferences.get_record_recent_files());
-    host.set_recent_open_menu_rows(app.get_recent_open_menu_rows());
+    host.set_recent_open_menu_rows(
+        app.global::<riina_ui::PlayerCatalogState>()
+            .get_recent_open_menu_rows(),
+    );
     host.set_plugin_menu_rows(app.get_plugin_menu_rows());
     host.set_playback_loaded(app.get_loaded() && !app.get_crop_editing());
     host.set_reveal_current_media_available(app.get_reveal_current_media_available());
@@ -97,9 +102,12 @@ fn sync(host: &NativeVideoHost, app: &PlayerWindow) {
     host.set_playback_paused(app.get_paused());
     host.set_menu_alternates_visible(app.get_menu_alternates_visible());
     host.set_playback_muted(app.global::<riina_ui::PlaybackAudioState>().get_muted());
-    host.set_loop_label(app.get_loop_label());
+    host.set_loop_label(
+        app.global::<riina_ui::PlayerCatalogState>()
+            .get_loop_label(),
+    );
     sync_catalog_rows(
-        app.get_playlist(),
+        app.global::<riina_ui::PlayerCatalogState>().get_playlist(),
         &host.get_playlist_menu_rows(),
         |row| row.playing,
         |rows| host.set_playlist_menu_rows(rows),
@@ -116,7 +124,7 @@ fn sync(host: &NativeVideoHost, app: &PlayerWindow) {
         |rows| host.set_audio_track_menu_rows(rows),
     );
     sync_catalog_rows(
-        app.get_chapters(),
+        app.global::<riina_ui::PlayerCatalogState>().get_chapters(),
         &host.get_chapter_menu_rows(),
         |row| row.selected,
         |rows| host.set_chapter_menu_rows(rows),
@@ -153,7 +161,10 @@ fn sync(host: &NativeVideoHost, app: &PlayerWindow) {
         |rows| host.set_subtitle_encoding_menu_rows(rows),
     );
     host.set_music_mode_available(app.get_loaded() && !app.get_crop_editing());
-    host.set_music_mode(app.get_music_mode());
+    host.set_music_mode(
+        app.global::<riina_ui::PlayerMusicModeState>()
+            .get_music_mode(),
+    );
     host.set_video_resize_available(
         app.get_video_window_width() > 0.0
             && app.get_video_window_height() > 0.0

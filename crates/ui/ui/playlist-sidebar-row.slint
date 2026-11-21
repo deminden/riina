@@ -1,3 +1,4 @@
+import { PlayerCatalogState } from "player-catalog-state.slint";
 import { CatalogRow } from "catalog-row.slint";
 
 // Drag selection and keyboard focus are shared only by the rows of one player.
@@ -18,10 +19,8 @@ export component CatalogSidebarRow inherits Rectangle {
     in property <CatalogRow> entry;
     in property <int> index;
     in property <int> pane-kind;
-    in property <[CatalogRow]> playlist;
     in property <bool> dark-theme;
     in property <color> interactive-accent-color;
-    in property <bool> playlist-metadata-visible;
     callback select-row(string);
     callback select-playlist-row(int, bool, bool) -> [string];
     callback reorder-playlist([string], int);
@@ -29,7 +28,7 @@ export component CatalogSidebarRow inherits Rectangle {
 
     property <int> current-playlist-focus-index: PlaylistInteraction.playlist-focus-index;
     height: pane-kind < 3 || pane-kind == 6 ? 26px : pane-kind == 3 ? 40px
-        : (root.playlist-metadata-visible ? 38px : 30px);
+        : (PlayerCatalogState.playlist-metadata-visible ? 38px : 30px);
     background: (pane-kind == 2 || pane-kind == 6) ? transparent
         : entry.selected ? (root.dark-theme ? #ffffff15 : #168bff20) : transparent;
     accessible-role: button; accessible-label: pane-kind == 4 && entry.path != ""
@@ -41,7 +40,7 @@ export component CatalogSidebarRow inherits Rectangle {
     if pane-kind == 4 && PlaylistInteraction.playlist-drag-active && PlaylistInteraction.playlist-drop-index == index : Rectangle {
         x: 0; y: 0; width: parent.width; height: 2px; background: root.interactive-accent-color;
     }
-    if pane-kind == 4 && PlaylistInteraction.playlist-drag-active && PlaylistInteraction.playlist-drop-index == root.playlist.length && index == root.playlist.length - 1 : Rectangle {
+    if pane-kind == 4 && PlaylistInteraction.playlist-drag-active && PlaylistInteraction.playlist-drop-index == PlayerCatalogState.playlist.length && index == PlayerCatalogState.playlist.length - 1 : Rectangle {
         x: 0; y: parent.height - 2px; width: parent.width; height: 2px; background: root.interactive-accent-color;
     }
     accessible-action-default => { root.select-row(entry.token); }
@@ -109,8 +108,8 @@ export component CatalogSidebarRow inherits Rectangle {
                     PlaylistInteraction.playlist-drag-active = true;
                     // The layout's 1px gap is included in the displayed row stride.
                     let content-y = (parent.y + self.mouse-y)
-                        / (root.playlist-metadata-visible ? 39px : 31px);
-                    PlaylistInteraction.playlist-drop-index = clamp(floor(content-y), 0, root.playlist.length);
+                        / (PlayerCatalogState.playlist-metadata-visible ? 39px : 31px);
+                    PlaylistInteraction.playlist-drop-index = clamp(floor(content-y), 0, PlayerCatalogState.playlist.length);
                 }
             }
         }
@@ -127,7 +126,7 @@ export component CatalogSidebarRow inherits Rectangle {
             MenuSeparator {}
             MenuItem { title: "Move Up"; enabled: index > 0;
                 activated => { root.playlist-action(2, entry.token); } }
-            MenuItem { title: "Move Down"; enabled: index + 1 < root.playlist.length;
+            MenuItem { title: "Move Down"; enabled: index + 1 < PlayerCatalogState.playlist.length;
                 activated => { root.playlist-action(3, entry.token); } }
             if entry.network : MenuSeparator {}
             if entry.network : MenuItem {
@@ -151,14 +150,14 @@ export component CatalogSidebarRow inherits Rectangle {
                 return accept;
             }
             if pane-kind == 4 && (event.text == Key.UpArrow || event.text == Key.DownArrow)
-                && root.playlist.length > 0 {
+                && PlayerCatalogState.playlist.length > 0 {
                 let next-index = event.text == Key.UpArrow
                     ? max(0, index - 1)
-                    : min(root.playlist.length - 1, index + 1);
+                    : min(PlayerCatalogState.playlist.length - 1, index + 1);
                 PlaylistInteraction.playlist-focus-index = next-index;
                 PlaylistInteraction.selected-playlist-tokens = root.select-playlist-row(next-index,
                     event.modifiers.control || event.modifiers.meta, event.modifiers.shift);
-                PlaylistInteraction.selected-playlist-token = root.playlist[next-index].token;
+                PlaylistInteraction.selected-playlist-token = PlayerCatalogState.playlist[next-index].token;
                 return accept;
             }
             return reject;

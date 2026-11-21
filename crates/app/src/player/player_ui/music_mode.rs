@@ -14,15 +14,23 @@ pub(super) fn install_window_resize(app: &PlayerWindow) {
     app.on_music_mode_changed(move || {
         if let Some(app) = weak.upgrade() {
             let window = app.window();
-            if app.get_music_mode() {
+            if app
+                .global::<riina_ui::PlayerMusicModeState>()
+                .get_music_mode()
+            {
                 if saved_size.get().is_none() {
                     saved_size.set(Some(window.size()));
                 }
                 let scale = f64::from(window.scale_factor());
                 let height = music_mode_layout::window_height(
-                    app.get_music_mode_show_album_art(),
-                    app.get_music_mode_show_playlist(),
-                    f64::from(app.get_music_mode_artwork_aspect_ratio()),
+                    app.global::<riina_ui::PlayerMusicModeState>()
+                        .get_music_mode_show_album_art(),
+                    app.global::<riina_ui::PlayerMusicModeState>()
+                        .get_music_mode_show_playlist(),
+                    f64::from(
+                        app.global::<riina_ui::PlayerMusicModeState>()
+                            .get_music_mode_artwork_aspect_ratio(),
+                    ),
                 );
                 let target = slint::PhysicalSize::new(
                     (music_mode_layout::WINDOW_WIDTH * scale).round() as u32,
@@ -68,7 +76,8 @@ pub(super) fn install_actions(app: &PlayerWindow, state: &Arc<Mutex<State>>) {
                 if active && app.get_fullscreen() {
                     app.global::<PlayerMenuActions>().invoke_toggle_fullscreen();
                 }
-                app.set_music_mode(active);
+                app.global::<riina_ui::PlayerMusicModeState>()
+                    .set_music_mode(active);
             }
         });
     let automatic_music_mode = state.clone();

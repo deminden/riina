@@ -46,7 +46,9 @@ fn install_actions(
             };
             if action == 12 {
                 window.invoke_activity();
-                let rows = window.get_playlist();
+                let rows = window
+                    .global::<riina_ui::PlayerCatalogState>()
+                    .get_playlist();
                 let exists = (0..rows.row_count()).any(|index| {
                     rows.row_data(index)
                         .is_some_and(|row| row.token.as_str() == token.as_str())
@@ -69,89 +71,7 @@ fn install_actions(
                 return;
             }
             if matches!(action, 6..=11) {
-                window.invoke_activity();
-                let rows = window.get_playlist();
-                let selected_index = (0..rows.row_count()).find(|index| {
-                    rows.row_data(*index)
-                        .is_some_and(|row| row.token.as_str() == token.as_str())
-                });
-                let result = match action {
-                    6 | 7 => {
-                        let paths = selected_playlist_paths(&window, token.as_str());
-                        if paths.is_empty() {
-                            Err("Select a playlist item first".into())
-                        } else {
-                            crate::platform::clipboard::copy_playlist_references(&paths).and_then(
-                                |()| {
-                                    if action == 7 {
-                                        selected_playlist_ids(&window, token.as_str()).and_then(
-                                            |ids| {
-                                                playlist_player
-                                                    .send(Command::RemovePlaylistIds(ids))
-                                            },
-                                        )
-                                    } else {
-                                        Ok(())
-                                    }
-                                },
-                            )
-                        }
-                    }
-                    8 => crate::platform::clipboard::read_playlist_references().and_then(|paths| {
-                        if paths.is_empty() {
-                            return Err("Clipboard contains no playlist references".into());
-                        }
-                        let index = playlist_paste_index(&window, token.as_str());
-                        let count = paths.len();
-                        playlist_player
-                            .send(Command::InsertPlaylistFiles { paths, index })
-                            .map(|()| {
-                                let message = crate::video_osd::action_message(
-                                    crate::video_osd::ActionFeedback::PlaylistAdded(count),
-                                );
-                                show_osd_message(&window, message.text, false);
-                            })
-                    }),
-                    9 => selected_index
-                        .and_then(|index| rows.row_data(index))
-                        .ok_or_else(|| "Select a playlist item first".to_owned())
-                        .and_then(|row| {
-                            crate::media_open::open_in_new_player(&window, row.path.as_str())
-                        }),
-                    10 => {
-                        let urls = selected_playlist_paths(&window, token.as_str())
-                            .into_iter()
-                            .filter(|path| crate::platform::is_http_url(path))
-                            .collect::<Vec<_>>();
-                        if urls.is_empty() {
-                            Err("Select an HTTP or HTTPS playlist entry first".into())
-                        } else {
-                            urls.iter().try_for_each(|url| {
-                                crate::platform::open_http_url_in_browser(url)
-                                    .map_err(|error| error.to_string())
-                            })
-                        }
-                    }
-                    11 => {
-                        let urls = selected_playlist_paths(&window, token.as_str())
-                            .into_iter()
-                            .filter(|path| crate::platform::is_http_url(path))
-                            .collect::<Vec<_>>();
-                        if urls.is_empty() {
-                            Err("Select an HTTP or HTTPS playlist entry first".into())
-                        } else {
-                            crate::platform::clipboard::copy_text(&urls.join("\n"))
-                        }
-                    }
-                    _ => unreachable!(),
-                };
-                if let Err(error) = result {
-                    window.set_status(error.into());
-                } else if action == 7 {
-                    window.set_selected_playlist_token("".into());
-                    window.set_selected_playlist_tokens(slint::ModelRc::default());
-                    install_playlist_selection(&window, &[]);
-                }
+                handle_playlist_external_action(&window, &playlist_player, action, token.as_str());
                 return;
             }
             let command = match action {
@@ -176,11 +96,102 @@ fn install_actions(
                 );
                 show_osd_message(&window, message.text, false);
             } else if action == 1 {
-                window.set_selected_playlist_token("".into());
-                window.set_selected_playlist_tokens(slint::ModelRc::default());
+                window
+                    .global::<riina_ui::PlaylistInteraction>()
+                    .set_selected_playlist_token("".into());
+                window
+                    .global::<riina_ui::PlaylistInteraction>()
+                    .set_selected_playlist_tokens(slint::ModelRc::default());
                 install_playlist_selection(&window, &[]);
             }
         });
+}
+
+fn handle_playlist_external_action(
+    window: &PlayerWindow,
+    playlist_player: &CommandSender,
+    action: i32,
+    token: &str,
+) {
+    window.invoke_activity();
+    let rows = window
+        .global::<riina_ui::PlayerCatalogState>()
+        .get_playlist();
+    let selected_index = (0..rows.row_count())
+        .find(|index| rows.row_data(*index).is_some_and(|row| row.token == token));
+    let result = match action {
+        6 | 7 => {
+            let paths = selected_playlist_paths(window, token);
+            if paths.is_empty() {
+                Err("Select a playlist item first".into())
+            } else {
+                crate::platform::clipboard::copy_playlist_references(&paths).and_then(|()| {
+                    if action == 7 {
+                        selected_playlist_ids(window, token)
+                            .and_then(|ids| playlist_player.send(Command::RemovePlaylistIds(ids)))
+                    } else {
+                        Ok(())
+                    }
+                })
+            }
+        }
+        8 => crate::platform::clipboard::read_playlist_references().and_then(|paths| {
+            if paths.is_empty() {
+                return Err("Clipboard contains no playlist references".into());
+            }
+            let index = playlist_paste_index(window, token);
+            let count = paths.len();
+            playlist_player
+                .send(Command::InsertPlaylistFiles { paths, index })
+                .map(|()| {
+                    let message = crate::video_osd::action_message(
+                        crate::video_osd::ActionFeedback::PlaylistAdded(count),
+                    );
+                    show_osd_message(window, message.text, false);
+                })
+        }),
+        9 => selected_index
+            .and_then(|index| rows.row_data(index))
+            .ok_or_else(|| "Select a playlist item first".to_owned())
+            .and_then(|row| crate::media_open::open_in_new_player(window, row.path.as_str())),
+        10 => {
+            let urls = selected_playlist_paths(window, token)
+                .into_iter()
+                .filter(|path| crate::platform::is_http_url(path))
+                .collect::<Vec<_>>();
+            if urls.is_empty() {
+                Err("Select an HTTP or HTTPS playlist entry first".into())
+            } else {
+                urls.iter().try_for_each(|url| {
+                    crate::platform::open_http_url_in_browser(url)
+                        .map_err(|error| error.to_string())
+                })
+            }
+        }
+        11 => {
+            let urls = selected_playlist_paths(window, token)
+                .into_iter()
+                .filter(|path| crate::platform::is_http_url(path))
+                .collect::<Vec<_>>();
+            if urls.is_empty() {
+                Err("Select an HTTP or HTTPS playlist entry first".into())
+            } else {
+                crate::platform::clipboard::copy_text(&urls.join("\n"))
+            }
+        }
+        _ => unreachable!(),
+    };
+    if let Err(error) = result {
+        window.set_status(error.into());
+    } else if action == 7 {
+        window
+            .global::<riina_ui::PlaylistInteraction>()
+            .set_selected_playlist_token("".into());
+        window
+            .global::<riina_ui::PlaylistInteraction>()
+            .set_selected_playlist_tokens(slint::ModelRc::default());
+        install_playlist_selection(window, &[]);
+    }
 }
 
 fn install_selection(app: &PlayerWindow, command_sender: &CommandSender) {
@@ -195,12 +206,15 @@ fn install_selection(app: &PlayerWindow, command_sender: &CommandSender) {
             let Ok(index) = usize::try_from(index) else {
                 return slint::ModelRc::default();
             };
-            let rows = app.get_playlist();
+            let rows = app.global::<riina_ui::PlayerCatalogState>().get_playlist();
             let Some(clicked) = rows.row_data(index) else {
-                return app.get_selected_playlist_tokens();
+                return app
+                    .global::<riina_ui::PlaylistInteraction>()
+                    .get_selected_playlist_tokens();
             };
             let clicked_token = clicked.token.to_string();
             let previous = app
+                .global::<riina_ui::PlaylistInteraction>()
                 .get_selected_playlist_tokens()
                 .iter()
                 .map(|token| token.to_string())
@@ -253,7 +267,7 @@ fn install_selection(app: &PlayerWindow, command_sender: &CommandSender) {
         .on_reorder_playlist(move |tokens, insertion_slot| {
             let Some(app) = weak.upgrade() else { return };
             app.invoke_activity();
-            let rows = app.get_playlist();
+            let rows = app.global::<riina_ui::PlayerCatalogState>().get_playlist();
             let entries = (0..rows.row_count())
                 .filter_map(|index| rows.row_data(index))
                 .map(|row| row.token.parse::<i64>().ok())
@@ -284,35 +298,37 @@ fn install_selection(app: &PlayerWindow, command_sender: &CommandSender) {
         });
     let shuffle_player = command_sender.clone();
     let weak = app.as_weak();
-    app.on_toggle_playlist_shuffle(move || {
-        if let Some(app) = weak.upgrade() {
-            app.invoke_activity();
-            if let Err(error) = shuffle_player.send(Command::TogglePlaylistShuffle) {
-                app.set_status(error.into());
+    app.global::<riina_ui::PlayerSidebarActions>()
+        .on_toggle_playlist_shuffle(move || {
+            if let Some(app) = weak.upgrade() {
+                app.invoke_activity();
+                if let Err(error) = shuffle_player.send(Command::TogglePlaylistShuffle) {
+                    app.set_status(error.into());
+                }
             }
-        }
-    });
+        });
     let sort_player = command_sender.clone();
     let weak = app.as_weak();
-    app.on_sort_playlist(move |sort| {
-        let sort = match sort {
-            0 => Some(riina_core::playlist::PlaylistSort::FilenameAscending),
-            1 => Some(riina_core::playlist::PlaylistSort::FilenameDescending),
-            2 => Some(riina_core::playlist::PlaylistSort::PathAscending),
-            3 => Some(riina_core::playlist::PlaylistSort::PathDescending),
-            _ => None,
-        };
-        if let Some(app) = weak.upgrade() {
-            app.invoke_activity();
-            let result = sort.map_or_else(
-                || Err("Unknown playlist sort order".to_owned()),
-                |sort| sort_player.send(Command::SortPlaylist(sort)),
-            );
-            if let Err(error) = result {
-                app.set_status(error.into());
+    app.global::<riina_ui::PlayerSidebarActions>()
+        .on_sort_playlist(move |sort| {
+            let sort = match sort {
+                0 => Some(riina_core::playlist::PlaylistSort::FilenameAscending),
+                1 => Some(riina_core::playlist::PlaylistSort::FilenameDescending),
+                2 => Some(riina_core::playlist::PlaylistSort::PathAscending),
+                3 => Some(riina_core::playlist::PlaylistSort::PathDescending),
+                _ => None,
+            };
+            if let Some(app) = weak.upgrade() {
+                app.invoke_activity();
+                let result = sort.map_or_else(
+                    || Err("Unknown playlist sort order".to_owned()),
+                    |sort| sort_player.send(Command::SortPlaylist(sort)),
+                );
+                if let Err(error) = result {
+                    app.set_status(error.into());
+                }
             }
-        }
-    });
+        });
 }
 
 fn queue_playlist_navigation(

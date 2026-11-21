@@ -49,7 +49,8 @@ pub(super) fn install_session(
 fn install_platform(app: &PlayerWindow, prefs: &Preferences) {
     app.global::<riina_ui::PlayerPreferences>()
         .set_volume_boost(prefs.volume_boost);
-    app.set_auto_switch_to_music_mode(prefs.auto_switch_to_music_mode);
+    app.global::<riina_ui::PlayerMusicModeState>()
+        .set_auto_switch_to_music_mode(prefs.auto_switch_to_music_mode);
     app.global::<riina_ui::PlayerPreferences>()
         .set_disable_animations(prefs.disable_animations);
     app.global::<riina_ui::PlayerAppearance>()
@@ -72,8 +73,10 @@ fn install_platform(app: &PlayerWindow, prefs: &Preferences) {
         }
     }
     crate::appearance_preferences::install_system_typography(app);
-    app.set_music_mode_show_playlist(prefs.music_mode_show_playlist);
-    app.set_music_mode_show_album_art(prefs.music_mode_show_album_art);
+    app.global::<riina_ui::PlayerMusicModeState>()
+        .set_music_mode_show_playlist(prefs.music_mode_show_playlist);
+    app.global::<riina_ui::PlayerMusicModeState>()
+        .set_music_mode_show_album_art(prefs.music_mode_show_album_art);
 }
 
 fn install_media(
@@ -127,9 +130,10 @@ fn install_media(
     player_preferences.set_record_recent_files(prefs.record_recent_files);
     player_preferences
         .set_track_all_files_in_recent_open_menu(prefs.track_all_files_in_recent_open_menu);
-    app.set_recent_open_menu_rows(slint::ModelRc::new(slint::VecModel::from(
-        recent_open_menu_rows(&recent_open_documents.borrow()),
-    )));
+    app.global::<riina_ui::PlayerCatalogState>()
+        .set_recent_open_menu_rows(slint::ModelRc::new(slint::VecModel::from(
+            recent_open_menu_rows(&recent_open_documents.borrow()),
+        )));
     player_preferences.set_launch_action_index(prefs.action_after_launch.index());
 }
 

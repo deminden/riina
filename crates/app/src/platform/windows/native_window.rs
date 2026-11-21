@@ -347,7 +347,11 @@ fn install_music_mode_window(
             return;
         };
         if let Some(menu) = music_menu.borrow().as_ref()
-            && let Err(error) = menu.set_visible(!app.get_music_mode() && !app.get_fullscreen())
+            && let Err(error) = menu.set_visible(
+                !app.global::<riina_ui::PlayerMusicModeState>()
+                    .get_music_mode()
+                    && !app.get_fullscreen(),
+            )
         {
             app.set_status(error.into());
             return;
@@ -355,14 +359,22 @@ fn install_music_mode_window(
         let mut resized = None;
         host.window().with_winit_window(|window| {
             let scale = window.scale_factor();
-            let target = if app.get_music_mode() {
+            let target = if app
+                .global::<riina_ui::PlayerMusicModeState>()
+                .get_music_mode()
+            {
                 if saved_music_size.get().is_none() {
                     saved_music_size.set(Some(window.inner_size()));
                 }
                 let height = crate::music_mode_layout::window_height(
-                    app.get_music_mode_show_album_art(),
-                    app.get_music_mode_show_playlist(),
-                    f64::from(app.get_music_mode_artwork_aspect_ratio()),
+                    app.global::<riina_ui::PlayerMusicModeState>()
+                        .get_music_mode_show_album_art(),
+                    app.global::<riina_ui::PlayerMusicModeState>()
+                        .get_music_mode_show_playlist(),
+                    f64::from(
+                        app.global::<riina_ui::PlayerMusicModeState>()
+                            .get_music_mode_artwork_aspect_ratio(),
+                    ),
                 );
                 window.set_min_inner_size(Some(winit::dpi::LogicalSize::new(260.0, 90.0)));
                 winit::dpi::PhysicalSize::new(
@@ -475,8 +487,13 @@ fn install_menu_lifecycle(
             .map_err(std::io::Error::other)?,
     );
     if let Some(menu) = lifecycle.borrow().as_ref() {
-        menu.set_visible(!app.get_fullscreen() && !app.get_music_mode())
-            .map_err(std::io::Error::other)?;
+        menu.set_visible(
+            !app.get_fullscreen()
+                && !app
+                    .global::<riina_ui::PlayerMusicModeState>()
+                    .get_music_mode(),
+        )
+        .map_err(std::io::Error::other)?;
     }
     let fullscreen_menu = lifecycle.clone();
     let fullscreen_host = host.as_weak();
@@ -486,7 +503,12 @@ fn install_menu_lifecycle(
             return false;
         };
         if let Some(menu) = fullscreen_menu.borrow().as_ref()
-            && let Err(error) = menu.set_visible(!fullscreen && !app.get_music_mode())
+            && let Err(error) = menu.set_visible(
+                !fullscreen
+                    && !app
+                        .global::<riina_ui::PlayerMusicModeState>()
+                        .get_music_mode(),
+            )
         {
             app.set_status(error.into());
             return false;
