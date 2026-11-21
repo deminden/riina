@@ -4,7 +4,7 @@ mod discovery;
 mod engine_start;
 mod feedback;
 #[cfg(test)]
-mod glue_tests;
+pub(crate) mod glue_tests;
 pub(crate) mod hdr_output;
 mod lifecycle;
 #[cfg(any(target_os = "windows", target_os = "macos", test))]

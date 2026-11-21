@@ -9,10 +9,6 @@ use std::{
     sync::{Arc, Mutex},
 };
 
-#[expect(
-    clippy::too_many_lines,
-    reason = "decomposition tracked in docs/review"
-)]
 pub(super) fn connect(
     app: &PlayerWindow,
     window: &PreferencesWindow,
@@ -20,6 +16,44 @@ pub(super) fn connect(
     path: PathBuf,
     baseline: riina_core::Preferences,
     key_binding_playback: Arc<Mutex<riina_core::Playback>>,
+) {
+    connect_with_credentials(
+        app,
+        window,
+        decoder_player,
+        path,
+        baseline,
+        key_binding_playback,
+        CredentialStore::system(),
+    );
+}
+
+struct CredentialStore {
+    open_subtitles: fn(&str) -> Result<(), String>,
+    assrt: fn(&str) -> Result<(), String>,
+}
+
+impl CredentialStore {
+    fn system() -> Self {
+        Self {
+            open_subtitles: crate::online_subtitles_credentials::store,
+            assrt: crate::online_subtitles_credentials::store_assrt,
+        }
+    }
+}
+
+#[expect(
+    clippy::too_many_lines,
+    reason = "decomposition tracked in docs/review"
+)]
+fn connect_with_credentials(
+    app: &PlayerWindow,
+    window: &PreferencesWindow,
+    decoder_player: riina_mpv::CommandSender,
+    path: PathBuf,
+    baseline: riina_core::Preferences,
+    key_binding_playback: Arc<Mutex<riina_core::Playback>>,
+    credentials: CredentialStore,
 ) {
     let parent = app.as_weak();
     let weak = window.as_weak();
@@ -692,9 +726,7 @@ pub(super) fn connect(
                         &selected_online_subtitles,
                     );
                 } else {
-                    match crate::online_subtitles_credentials::store(
-                        &selected_online_subtitles.api_key,
-                    ) {
+                    match (credentials.open_subtitles)(&selected_online_subtitles.api_key) {
                         Ok(()) => crate::online_subtitles_preferences::install_player(
                             &app,
                             &selected_online_subtitles,
@@ -709,9 +741,7 @@ pub(super) fn connect(
                     }
                 }
                 if selected_online_subtitles.assrt_token != previous_assrt_token
-                    && let Err(error) = crate::online_subtitles_credentials::store_assrt(
-                        &selected_online_subtitles.assrt_token,
-                    )
+                    && let Err(error) = (credentials.assrt)(&selected_online_subtitles.assrt_token)
                 {
                     let mut retained = selected_online_subtitles.clone();
                     retained.api_key = app.get_open_subtitles_api_key().to_string();

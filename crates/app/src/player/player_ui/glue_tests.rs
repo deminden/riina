@@ -28,14 +28,15 @@ impl Drop for TestProfile {
     }
 }
 
-struct Harness {
-    app: PlayerWindow,
+pub(crate) struct Harness {
+    pub(crate) app: PlayerWindow,
     _session: UiSession,
-    engine: Rc<RecordingEngine>,
+    pub(crate) engine: Rc<RecordingEngine>,
+    pub(crate) sender: CommandSender,
 }
 
 impl Harness {
-    fn start(
+    pub(crate) fn start(
         path: PathBuf,
         capture_before_navigation: bool,
     ) -> Result<Self, Box<dyn std::error::Error>> {
@@ -53,7 +54,7 @@ impl Harness {
             loaded,
             EngineStart::Recording {
                 engine: engine.clone(),
-                commands,
+                commands: commands.clone(),
                 profile: path,
                 capture_before_navigation,
             },
@@ -64,6 +65,7 @@ impl Harness {
             app,
             _session: session,
             engine,
+            sender: commands,
         })
     }
 

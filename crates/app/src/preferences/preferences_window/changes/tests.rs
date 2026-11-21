@@ -1,6 +1,8 @@
 use super::*;
 use riina_core::Preferences;
 
+mod transactions;
+
 struct TestPath(PathBuf);
 impl TestPath {
     fn new() -> Self {
