@@ -559,3 +559,6 @@ the AVKit adapter, frame bridge, and platform session against the pinned
 Objective-C dependencies. The probe used stub Slint controls. Windows passed
 the full workspace gate after moving the portable PiP bindings. Full macOS
 application linking and AVKit playback still need native verification.
+The Settings color-panel binding also passed strict Clippy for
+`aarch64-apple-darwin` against the real AppKit color panel and stub Slint
+controls. Native interaction with the panel remains unverified.

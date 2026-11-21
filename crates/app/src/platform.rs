@@ -14,7 +14,9 @@ pub(crate) mod language;
 mod pip_session;
 pub(crate) use pip_session::PictureInPictureSession;
 mod plugin_resources;
+pub(crate) mod preferences;
 pub(crate) mod settings_file;
+pub(crate) mod window_sizing;
 
 #[cfg(target_os = "windows")]
 pub(crate) fn show_fatal_error(title: &str, text: &str) {
@@ -620,24 +622,6 @@ pub(crate) fn window_work_area(
     }
 }
 
-/// Return the current monitor's work-area limit for client content on Windows.
-#[cfg(target_os = "windows")]
-pub(crate) fn window_content_work_area(
-    window: &slint::Window,
-) -> Option<riina_core::window_aspect::PixelSize> {
-    #[cfg(target_os = "windows")]
-    {
-        window
-            .with_winit_window(windows::window_position::content_work_area)
-            .flatten()
-    }
-    #[cfg(not(target_os = "windows"))]
-    {
-        let _ = window;
-        None
-    }
-}
-
 /// Identify the aligned embedded video surface that is currently visible.
 /// A replacement HWND restarts the Windows handoff stability interval.
 pub(crate) fn native_video_surface_signature(window: &slint::Window) -> Option<u64> {
@@ -1108,8 +1092,7 @@ pub(crate) use windows::text_recognition;
 #[cfg(target_os = "windows")]
 pub(crate) use windows::{
     NativePresentation, NativeVideoMaterialCapture, PluginOverlayPresenter, file_dialog,
-    native_window, open_dialog, services::*, window_geometry::resize_content,
-    window_sizing::WindowSizing,
+    native_window, open_dialog, services::*, window_sizing::WindowSizing,
 };
 
 #[cfg(target_os = "macos")]

@@ -228,8 +228,8 @@ when the timer's work is needed.
 | About window | 250 ms | Follow the owner's theme and read pending libmpv and FFmpeg versions | Starts after show, stops on close or when a tick finds the window hidden. Version reads stop when both labels are available |
 | Online subtitles | 500 ms | Check the automatic subtitle search trigger | While automatic lookup is enabled for eligible media |
 | Player appearance | 500 ms | Refresh system palette and reduced-motion policy | While a player follows system settings |
-| Settings motion | 500 ms | Refresh the reduced-motion flag | While Settings is visible |
-| Settings audio devices | 750 ms | Read the observed audio device list | While Settings is visible |
+| Settings motion | 500 ms | Refresh the reduced-motion flag | Starts after show, stops on close or when a tick finds Settings hidden |
+| Settings audio devices | 750 ms | Read the observed audio device list | Starts after show, stops on close or when a tick finds Settings hidden |
 | Settings recovery notice | 250 ms | Wait for the player to show the recovery notice | Until the first visible player status line |
 | Fullscreen clock and battery | 60 s | Update local time and battery capacity | While fullscreen controls and the information card are visible |
 | Native HDR availability | 2 s | Refresh the display HDR state | While native video presentation is active |

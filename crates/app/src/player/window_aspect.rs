@@ -1,8 +1,6 @@
 //! Apply the shared aspect policy to the winit window without coupling it to a host OS.
 
-#[cfg(target_os = "windows")]
-use crate::NativeVideoHost;
-use crate::PlayerWindow;
+use crate::{NativeVideoHost, PlayerWindow, platform::window_sizing};
 use riina_core::{
     window_aspect::{self as policy, PixelSize},
     window_resize::{ManualSizeCommand, ManualSizeContext, ResizeTiming, manual_size_target},
@@ -11,8 +9,6 @@ use slint::{
     ComponentHandle, PhysicalPosition, PhysicalSize,
     winit_030::{EventResult, WinitWindowAccessor, winit},
 };
-#[cfg(target_os = "windows")]
-use std::cell::RefCell;
 use std::{cell::Cell, rc::Rc, time::Duration};
 
 /// Media identity for window sizing, shared by the playback observer and window owner.
@@ -32,7 +28,7 @@ impl MediaGeometry {
 pub(crate) fn connect(app: &PlayerWindow, source: &MediaGeometry) {
     let filter = connect_with_target(
         app,
-        WindowTarget::Player,
+        WindowTarget(None),
         pixel_size(app.window().size()),
         source,
     );
@@ -49,7 +45,7 @@ pub(crate) fn connect_to_native_host(
 ) -> WindowEventFilter {
     connect_with_target(
         app,
-        WindowTarget::NativeHost(host.as_weak()),
+        WindowTarget(Some(host.as_weak())),
         pixel_size(host.window().size()),
         source,
     )
@@ -59,11 +55,7 @@ pub(crate) type WindowEventFilter =
     Box<dyn Fn(&slint::Window, &winit::event::WindowEvent) -> EventResult>;
 
 #[derive(Clone)]
-enum WindowTarget {
-    Player,
-    #[cfg(target_os = "windows")]
-    NativeHost(slint::Weak<NativeVideoHost>),
-}
+struct WindowTarget(Option<slint::Weak<NativeVideoHost>>);
 
 fn connect_with_target(
     app: &PlayerWindow,
@@ -134,8 +126,7 @@ fn register_media_resize(
                     // "when opened manually" or "never".
                     return;
                 }
-                #[cfg(target_os = "windows")]
-                if !windows_media_resize_applies(initial, manually_opened) {
+                if !window_sizing::media_resize_allowed(initial, manually_opened) {
                     mark_window_size_adjusted(&app);
                     // Playlist handoffs can replace the native D3D11 surface
                     // even when the new frame is larger. Keep the Windows
@@ -219,34 +210,19 @@ fn register_media_resize(
 
 fn place_initial_media(
     window: &slint::Window,
-    _target: &WindowTarget,
-    _app: &PlayerWindow,
+    target: &WindowTarget,
+    app: &PlayerWindow,
     placement: riina_core::window_resize::Placement,
     center: bool,
 ) {
-    #[cfg(target_os = "windows")]
     let positioned = center
-        && window
-            .with_winit_window(|native| {
-                if let Some(overlay) = resize_overlay(_target, _app) {
-                    overlay
-                        .with_winit_window(|overlay| {
-                            crate::platform::resize_content(
-                                native,
-                                placement.size,
-                                true,
-                                Some(overlay),
-                            )
-                            .is_ok()
-                        })
-                        .unwrap_or(false)
-                } else {
-                    crate::platform::resize_content(native, placement.size, true, None).is_ok()
-                }
-            })
-            .unwrap_or(false);
-    #[cfg(not(target_os = "windows"))]
-    let positioned = false;
+        && window_sizing::resize_native_content(
+            window,
+            placement.size,
+            true,
+            resize_overlay(target, app),
+        )
+        .is_some_and(|result| result.is_ok());
     if !positioned {
         window.set_size(PhysicalSize::new(
             placement.size.width,
@@ -325,9 +301,8 @@ fn register_aspect_resize(
                             manually_opened,
                             app.get_music_mode(),
                         );
-                        #[cfg(target_os = "windows")]
                         let resize_allowed = resize_allowed
-                            && windows_media_resize_applies(initial, manually_opened);
+                            && window_sizing::media_resize_allowed(initial, manually_opened);
                         aspect_resize_allowed.set(resize_allowed);
                         aspect_source.set(Some(source));
                         return;
@@ -444,41 +419,18 @@ fn register_resize_command(
                     return;
                 };
                 if command == ManualSizeCommand::FitScreen {
-                    #[cfg(target_os = "windows")]
-                    {
-                        // Use the same measured frame/menu geometry and grouped
-                        // surface resize as other native sizing commands.
-                        let overlay = resize_overlay(&menu_size_target, &app);
-                        let result = window
-                            .with_winit_window(|native| {
-                                if let Some(overlay) = overlay {
-                                    overlay.with_winit_window(|overlay| {
-                                        crate::platform::resize_content(
-                                            native,
-                                            size,
-                                            true,
-                                            Some(overlay),
-                                        )
-                                    })
-                                } else {
-                                    Some(crate::platform::resize_content(native, size, true, None))
-                                }
-                            })
-                            .flatten();
-                        match result {
-                            Some(Ok(())) => {}
-                            Some(Err(error)) => {
-                                app.set_status(error.into());
-                                return;
-                            }
-                            None => {
-                                app.set_status("Could not access the player window".into());
-                                return;
-                            }
+                    // The Windows adapter measures the menu and moves grouped surfaces together.
+                    if let Some(result) = window_sizing::resize_native_content(
+                        window,
+                        size,
+                        true,
+                        resize_overlay(&menu_size_target, &app),
+                    ) {
+                        if let Err(error) = result {
+                            app.set_status(error.into());
+                            return;
                         }
-                    }
-                    #[cfg(not(target_os = "windows"))]
-                    {
+                    } else {
                         let Some((origin, bounds)) = screen_bounds(window, maximum) else {
                             return;
                         };
@@ -513,11 +465,6 @@ fn media_resize_applies(
     // Attached cover images still report video dimensions. The compact player
     // owns its frame; the main video's resize policy must not overwrite it.
     !music_mode && (initial || timing.applies_to(manually_opened))
-}
-
-#[cfg(target_os = "windows")]
-fn windows_media_resize_applies(initial: bool, manually_opened: bool) -> bool {
-    initial || manually_opened
 }
 
 fn defer_window_update(
@@ -561,25 +508,17 @@ fn with_target_window(
     app: &PlayerWindow,
     action: impl FnOnce(&slint::Window),
 ) {
-    match target {
-        WindowTarget::Player => action(app.window()),
-        #[cfg(target_os = "windows")]
-        WindowTarget::NativeHost(host) => {
-            if let Some(host) = host.upgrade() {
-                action(host.window());
-            }
+    if let Some(host) = &target.0 {
+        if let Some(host) = host.upgrade() {
+            action(host.window());
         }
+    } else {
+        action(app.window());
     }
 }
 
-#[cfg(target_os = "windows")]
 fn resize_overlay<'a>(target: &WindowTarget, app: &'a PlayerWindow) -> Option<&'a slint::Window> {
-    matches!(target, WindowTarget::NativeHost(_)).then_some(app.window())
-}
-
-#[cfg(not(target_os = "windows"))]
-fn resize_overlay<'a>(_: &WindowTarget, _: &'a PlayerWindow) -> Option<&'a slint::Window> {
-    None
+    target.0.is_some().then_some(app.window())
 }
 
 fn resize_filter(
@@ -587,15 +526,10 @@ fn resize_filter(
     previous_size: Rc<Cell<PixelSize>>,
     target: WindowTarget,
 ) -> WindowEventFilter {
-    #[cfg(target_os = "windows")]
-    let native_sizing = install_native_sizing(app, target);
-    #[cfg(not(target_os = "windows"))]
-    let _ = target;
-    #[cfg(not(target_os = "windows"))]
+    let native_sizing = window_sizing::install(app, target.0);
     let weak = app.as_weak();
     Box::new(move |window, event| {
-        #[cfg(target_os = "windows")]
-        let _ = (&native_sizing, window);
+        let _native_sizing = &native_sizing;
         let winit::event::WindowEvent::Resized(size) = event else {
             return EventResult::Propagate;
         };
@@ -603,8 +537,8 @@ fn resize_filter(
             width: size.width,
             height: size.height,
         };
-        #[cfg(not(target_os = "windows"))]
-        if let Some(app) = weak.upgrade()
+        if !window_sizing::USES_NATIVE_RESIZE_FILTER
+            && let Some(app) = weak.upgrade()
             && requested != previous_size.get()
             && aspect_lock_enabled(&app)
             && let Some((maximum, true)) = window_limits(window)
@@ -624,34 +558,6 @@ fn resize_filter(
         previous_size.set(requested);
         EventResult::Propagate
     })
-}
-
-#[cfg(target_os = "windows")]
-fn install_native_sizing(
-    app: &PlayerWindow,
-    target: WindowTarget,
-) -> Rc<RefCell<Option<crate::platform::WindowSizing>>> {
-    let sizing = Rc::new(RefCell::new(None));
-    let installed = sizing.clone();
-    let weak = app.as_weak();
-    let _ = slint::spawn_local(async move {
-        let Some(app) = weak.upgrade() else { return };
-        let window = match target {
-            WindowTarget::Player => app.window().winit_window().await,
-            WindowTarget::NativeHost(host) => {
-                let Some(host) = host.upgrade() else { return };
-                host.window().winit_window().await
-            }
-        };
-        match window
-            .map_err(|error| error.to_string())
-            .and_then(|window| crate::platform::WindowSizing::install(&window, app.as_weak()))
-        {
-            Ok(handler) => *installed.borrow_mut() = Some(handler),
-            Err(error) => app.set_status(error.into()),
-        }
-    });
-    sizing
 }
 
 fn minimum_content_size(window: &slint::Window) -> PixelSize {
@@ -675,19 +581,7 @@ fn aspect_lock_enabled(app: &PlayerWindow) -> bool {
 fn window_limits(window: &slint::Window) -> Option<(Option<PixelSize>, bool)> {
     let can_resize = window
         .with_winit_window(|native| !native.is_maximized() && native.fullscreen().is_none())?;
-    #[cfg(target_os = "windows")]
-    let maximum = crate::platform::window_content_work_area(window);
-    #[cfg(not(target_os = "windows"))]
-    let maximum = window.with_winit_window(|native| {
-        native.current_monitor().map(|monitor| {
-            let size = monitor.size();
-            // winit reports the full display; reserve the taskbar/menu-bar and a small edge margin.
-            PixelSize {
-                width: size.width.saturating_mul(96) / 100,
-                height: size.height.saturating_mul(90) / 100,
-            }
-        })
-    })?;
+    let maximum = window_sizing::content_limit(window)?;
     Some((maximum, can_resize))
 }
 
@@ -724,31 +618,7 @@ fn pixel_size(size: PhysicalSize) -> PixelSize {
 }
 
 fn center_outer_frame(window: &slint::Window, content_size: PixelSize) -> Option<PhysicalPosition> {
-    let target_frame = window.with_winit_window(|native| {
-        let outer_size = native.outer_size();
-        #[cfg(target_os = "windows")]
-        {
-            let _ = content_size;
-            // Windows has already applied the synchronous resize, including
-            // any extra native menu row at this width.
-            PixelSize {
-                width: outer_size.width,
-                height: outer_size.height,
-            }
-        }
-        #[cfg(not(target_os = "windows"))]
-        {
-            let client_size = native.inner_size();
-            PixelSize {
-                width: content_size
-                    .width
-                    .saturating_add(outer_size.width.saturating_sub(client_size.width)),
-                height: content_size
-                    .height
-                    .saturating_add(outer_size.height.saturating_sub(client_size.height)),
-            }
-        }
-    })?;
+    let target_frame = window_sizing::initial_frame_size(window, content_size)?;
     let (screen_origin, screen_size) = screen_bounds(window, None)?;
     let area = riina_core::window_resize::ScreenRect {
         x: screen_origin.x,
@@ -769,24 +639,11 @@ pub(crate) fn resize_centered(
     target: PixelSize,
     overlay: Option<&slint::Window>,
 ) {
-    #[cfg(not(target_os = "windows"))]
-    let _ = overlay;
     if target == current || target.width == 0 || target.height == 0 {
         return;
     }
-    #[cfg(target_os = "windows")]
-    if window
-        .with_winit_window(|native| {
-            let Some(overlay) = overlay else {
-                return crate::platform::resize_content(native, target, false, None).is_ok();
-            };
-            overlay
-                .with_winit_window(|overlay| {
-                    crate::platform::resize_content(native, target, false, Some(overlay)).is_ok()
-                })
-                .unwrap_or(false)
-        })
-        .unwrap_or(false)
+    if window_sizing::resize_native_content(window, target, false, overlay)
+        .is_some_and(|result| result.is_ok())
     {
         window.request_redraw();
         return;
@@ -818,16 +675,7 @@ pub(crate) fn resize_centered(
         .with_winit_window(|native| (24.0 * native.scale_factor()).round().max(0.0) as u32)
         .unwrap_or(0);
     window.set_size(PhysicalSize::new(target.width, target.height));
-    #[cfg(target_os = "windows")]
-    let target_frame = window
-        .with_winit_window(|native| {
-            let actual = native.outer_size();
-            PixelSize {
-                width: actual.width,
-                height: actual.height,
-            }
-        })
-        .unwrap_or(target_frame);
+    let target_frame = window_sizing::resized_frame_size(window, target_frame);
     let offset_x = i32::try_from(current_frame.width).unwrap_or(i32::MAX)
         - i32::try_from(target_frame.width).unwrap_or(i32::MAX);
     let offset_y = i32::try_from(current_frame.height).unwrap_or(i32::MAX)
@@ -924,7 +772,7 @@ mod tests {
     #[cfg(target_os = "windows")]
     #[test]
     fn windows_automatic_playlist_changes_keep_the_current_native_video_surface() {
-        use super::windows_media_resize_applies;
+        use crate::platform::window_sizing::media_resize_allowed as windows_media_resize_applies;
 
         assert!(windows_media_resize_applies(true, false));
         assert!(windows_media_resize_applies(false, true));

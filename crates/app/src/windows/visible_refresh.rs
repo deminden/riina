@@ -5,19 +5,28 @@ pub(super) fn start<T: ComponentHandle + 'static>(
     window: &T,
     timer: &Rc<Timer>,
     interval: Duration,
-    mut refresh: impl FnMut(&T) + 'static,
+    refresh: impl FnMut(&T) + 'static,
 ) {
     if timer.running() {
         return;
     }
-    let timer_handle = Rc::downgrade(timer);
-    let close_timer = timer_handle.clone();
+    let close_timer = Rc::downgrade(timer);
     window.window().on_close_requested(move || {
         if let Some(timer) = close_timer.upgrade() {
             timer.stop();
         }
         CloseRequestResponse::HideWindow
     });
+    run(window, timer, interval, refresh);
+}
+
+pub(crate) fn run<T: ComponentHandle + 'static>(
+    window: &T,
+    timer: &Rc<Timer>,
+    interval: Duration,
+    mut refresh: impl FnMut(&T) + 'static,
+) {
+    let timer_handle = Rc::downgrade(timer);
     let window = window.as_weak();
     timer.start(TimerMode::Repeated, interval, move || {
         if let Some(window) = window
