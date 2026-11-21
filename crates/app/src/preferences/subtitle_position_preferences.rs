@@ -1,6 +1,31 @@
 //! Translate editable Preferences values into portable subtitle placement intent.
 
+use super::model::{PreferenceSection, SectionError};
+use crate::{PlayerWindow, PreferencesWindow};
+use riina_core::Preferences;
 use riina_core::subtitle_controls::{HorizontalAlignment, PositionPreferences, VerticalAlignment};
+
+impl PreferenceSection for PositionPreferences {
+    fn get(all: &Preferences) -> Self {
+        all.subtitle_position
+    }
+
+    fn put(self, all: &mut Preferences) {
+        all.subtitle_position = self;
+    }
+
+    fn read_window(window: &PreferencesWindow) -> Result<Self, SectionError> {
+        current_window(window).map_err(SectionError::from)
+    }
+
+    fn write_window(&self, window: &PreferencesWindow) {
+        install_window(window, *self);
+    }
+
+    fn write_player(&self, app: &PlayerWindow) {
+        install_player(app, *self);
+    }
+}
 
 fn horizontal(index: i32) -> Option<HorizontalAlignment> {
     match index {

@@ -746,7 +746,9 @@ fn configure_with_engine(
     app.set_secondary_subtitle_ass_override_index(crate::subtitle_preferences::index(
         prefs.secondary_subtitle_ass_override,
     ));
-    crate::subtitle_position_preferences::install_player(app, prefs.subtitle_position);
+    crate::preferences::model::install_player_section::<
+        riina_core::subtitle_controls::PositionPreferences,
+    >(&prefs, app);
     crate::subtitle_other_preferences::install_player(app, &prefs.subtitle_other);
     crate::subtitle_auto_load_preferences::install_player(app, &prefs.subtitle_auto_load);
     crate::online_subtitles_preferences::install_player(app, &prefs.online_subtitles);

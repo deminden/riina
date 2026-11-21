@@ -209,7 +209,7 @@ fn connect_with_credentials(
             return;
         };
         let Some(selected_position) = read_or_refresh(
-            crate::subtitle_position_preferences::current_window(&window),
+            model.read_section::<riina_core::subtitle_controls::PositionPreferences>(&window),
             &app,
             &window,
         ) else {
@@ -595,7 +595,7 @@ fn connect_with_credentials(
                 decoder_player.send(Command::VideoThreads(selected_video_threads))?;
                 video_threads_applied = true;
             }
-            crate::subtitle_position_preferences::install_player(&app, selected_position);
+            selected_position.write_player(&app);
             crate::subtitle_other_preferences::install_player(&app, &selected_subtitle_other);
             crate::subtitle_auto_load_preferences::install_player(&app, &selected_auto_load);
             crate::screenshot_preferences::current(&app)
@@ -663,7 +663,6 @@ fn connect_with_credentials(
                 hardware_decoder: decoder,
                 subtitle_ass_override: ass_primary,
                 secondary_subtitle_ass_override: ass_secondary,
-                subtitle_position: selected_position,
                 subtitle_other: selected_subtitle_other.clone(),
                 subtitle_auto_load: selected_auto_load.clone(),
                 online_subtitles: selected_online_subtitles.clone(),
@@ -681,6 +680,7 @@ fn connect_with_credentials(
             selected_thumbnail_preview.put(&mut preferences);
             selected_picture_in_picture.put(&mut preferences);
             selected_osd.put(&mut preferences);
+            selected_position.put(&mut preferences);
             selected_network_ytdl.clone().put(&mut preferences);
             selected_network_cache.clone().put(&mut preferences);
             selected_liquid_glass.put(&mut preferences);
