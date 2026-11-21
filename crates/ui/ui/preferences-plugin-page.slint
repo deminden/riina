@@ -1,3 +1,5 @@
+import { PreferenceActionButton } from "preferences-controls.slint";
+import { Theme } from "theme.slint";
 import { PluginPreferencesRow, PluginPageIconButton, PluginPreferencesRowView, PluginPageActionButton } from "preferences-plugins.slint";
 
 export component PluginsPreferencesPage inherits Rectangle {
@@ -57,6 +59,68 @@ export component PluginsPreferencesPage inherits Rectangle {
             about-requested(index) => { root.plugin-row-about(index); }
             actions-requested(index) => { root.plugin-row-actions(index); }
             reorder-requested(dragged, target) => { root.plugin-reordered(dragged, target); }
+        }
+    }
+}
+
+export component PluginInstallDialog inherits Rectangle {
+    in-out property <string> repository;
+    in property <bool> installing;
+    callback install-requested(string);
+    callback cancelled();
+
+    background: #00000055;
+    Rectangle {
+        x: (parent.width - 440px) / 2; y: (parent.height - 372px) / 2;
+        width: 440px; height: 372px;
+        border-radius: 10px; border-width: 1px; border-color: #c8c8cd;
+        background: #f7f7f8;
+        Text { x: 20px; y: 14px; width: parent.width - 40px; height: 22px;
+            text: "Get Plugins"; font-size: 14px; font-weight: 600; color: #222226; }
+        Text { x: 20px; y: 42px; width: parent.width - 40px; height: 34px;
+            text: "Install a plugin from GitHub by entering its repository. Official plugins are listed below.";
+            font-size: 11px; color: #68686e; wrap: word-wrap; }
+        Text { x: 20px; y: 82px; width: 80px; height: 26px; text: "GitHub URL";
+            font-size: 11px; color: #29292d; vertical-alignment: center; }
+        Rectangle { x: 102px; y: 82px; width: parent.width - 122px; height: 26px;
+            border-radius: 4px; border-width: 1px; border-color: Theme.settings-field-border; background: #ffffff;
+            TextInput { x: 5px; y: 1px; width: parent.width - 10px; height: parent.height - 2px;
+                text <=> root.repository; single-line: true;
+                font-size: 11px; color: #222226; enabled: !root.installing;
+                accessible-label: "GitHub repository URL";
+                accepted => { root.install-requested(root.repository); }
+            }
+        }
+        Text { x: 20px; y: 122px; width: parent.width - 40px; height: 18px;
+            text: "Official Plugins"; font-size: 11px; font-weight: 600; color: #77777d; }
+        for official[index] in ["Online Media", "Userscript", "OpenSubtitles"] : Rectangle {
+            x: 20px; y: 145px + index * 38px; width: parent.width - 40px; height: 34px;
+            border-radius: 5px; border-width: 1px; border-color: #dedee1; background: #ffffff;
+            Text { x: 10px; width: parent.width - 106px; height: parent.height;
+                text: official; font-size: 11px; color: #29292d;
+                vertical-alignment: center; }
+            PluginPageActionButton {
+                x: parent.width - 90px; y: 4px; width: 78px; label: "Install";
+                enabled: !root.installing;
+                activated => {
+                    root.repository = index == 0 ? "iina/plugin-online-media" :
+                        index == 1 ? "iina/plugin-userscript" : "iina/plugin-opensub";
+                    root.install-requested(root.repository);
+                }
+            }
+        }
+        Text { x: 20px; y: 265px; width: parent.width - 40px; height: 22px;
+            text: root.installing ? "Downloading and validating plugin…" : "Plugins remain disabled until you enable them.";
+            font-size: 10px; color: #77777d; vertical-alignment: center; }
+        PreferenceActionButton {
+            x: parent.width - 178px; y: 328px; label: "Cancel";
+            enabled: !root.installing;
+            activated => { root.cancelled(); }
+        }
+        PreferenceActionButton {
+            x: parent.width - 92px; y: 328px; label: "Install";
+            enabled: !root.installing && !root.repository.is-empty;
+            activated => { root.install-requested(root.repository); }
         }
     }
 }

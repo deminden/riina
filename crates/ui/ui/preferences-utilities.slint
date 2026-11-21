@@ -1,6 +1,6 @@
 import { Theme } from "theme.slint";
-import { ScrollView } from "std-widgets.slint";
-import { UtilitiesActionRow } from "preferences-controls.slint";
+import { CheckBox, ScrollView } from "std-widgets.slint";
+import { PreferenceActionButton, UtilitiesActionRow } from "preferences-controls.slint";
 
 export component UtilitiesPreferencesPage inherits ScrollView {
     in property <bool> mica-backdrop-enabled;
@@ -67,6 +67,42 @@ export component UtilitiesPreferencesPage inherits ScrollView {
         if !root.utilities-status.is-empty : Text {
             x: 20px; y: 660px; width: parent.width - 40px; height: 20px;
             text: root.utilities-status; font-size: 10px; color: Theme.settings-status-text; wrap: word-wrap;
+        }
+    }
+}
+
+export component DefaultAppDialog inherits Rectangle {
+    in-out property <bool> video;
+    in-out property <bool> audio;
+    in-out property <bool> playlist;
+    callback cancelled();
+    callback confirmed(bool, bool, bool);
+
+    background: #00000055;
+    Rectangle {
+        x: (parent.width - 440px) / 2; y: (parent.height - 252px) / 2;
+        width: 440px; height: 252px;
+        border-radius: 10px; border-width: 1px; border-color: #c8c8cd;
+        background: #f7f7f8;
+        Text { x: 20px; y: 16px; width: parent.width - 40px; height: 22px;
+            text: "Set Riina as the Default Application";
+            font-size: 14px; font-weight: 600; color: #222226; }
+        Text { x: 20px; y: 47px; width: parent.width - 40px; height: 38px;
+            text: "Choose the media types you want Riina to open. Your system controls the final default selection.";
+            font-size: 11px; color: #68686e; wrap: word-wrap; }
+        CheckBox { x: 24px; y: 96px; width: parent.width - 48px; height: 22px;
+            text: "Video"; checked <=> root.video; }
+        CheckBox { x: 24px; y: 122px; width: parent.width - 48px; height: 22px;
+            text: "Audio"; checked <=> root.audio; }
+        CheckBox { x: 24px; y: 148px; width: parent.width - 48px; height: 22px;
+            text: "Playlists"; checked <=> root.playlist; }
+        PreferenceActionButton {
+            x: parent.width - 178px; y: 204px; label: "Cancel";
+            activated => { root.cancelled(); }
+        }
+        PreferenceActionButton {
+            x: parent.width - 92px; y: 204px; label: "OK";
+            activated => { root.confirmed(root.video, root.audio, root.playlist); }
         }
     }
 }

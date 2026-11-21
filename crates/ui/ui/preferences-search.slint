@@ -1,3 +1,5 @@
+import { ScrollView } from "std-widgets.slint";
+
 
 export struct PreferencesSearchResult {
     page-index: int,
@@ -111,6 +113,38 @@ export component PreferenceSearchResultCell inherits Rectangle {
         selected: root.selected;
         activated(page-index, section-name, title, anchor-y) => {
             root.activated(page-index, section-name, title, anchor-y);
+        }
+    }
+}
+
+export component PreferenceSearchPopup inherits Rectangle {
+    in property <[PreferencesSearchResult]> results;
+    in property <int> selected-index;
+    callback activated(int, string, string, int);
+
+    width: 340px;
+    height: min(400px, max(120px, root.results.length * 38px));
+    border-radius: 8px; border-width: 1px; border-color: #d0d0d5;
+    background: #fbfbfc;
+    ScrollView {
+        width: parent.width; height: parent.height;
+        content-height: max(120px, root.results.length * 38px);
+        content-width: self.visible-width;
+        horizontal-scrollbar-policy: always-off;
+        if root.results.length == 0 : Text {
+            width: parent.width; height: parent.height;
+            text: "No Results"; font-size: 13px; color: #77777d;
+            horizontal-alignment: center; vertical-alignment: center;
+        }
+        if root.results.length > 0 : VerticalLayout {
+            width: parent.width; spacing: 0px;
+            for result[index] in root.results : PreferenceSearchResultCell {
+                result: result;
+                selected: root.selected-index == index;
+                activated(page-index, section-name, title, anchor-y) => {
+                    root.activated(page-index, section-name, title, anchor-y);
+                }
+            }
         }
     }
 }

@@ -1,0 +1,161 @@
+import { CheckBox } from "std-widgets.slint";
+import { PreferenceActionButton } from "preferences-controls.slint";
+import { Theme } from "theme.slint";
+
+export component KeyBindingProfileDialog inherits Rectangle {
+    in property <int> mode;
+    in-out property <string> profile-name;
+    callback cancelled();
+    callback submitted(string, int);
+
+    background: #00000055;
+    Rectangle {
+        x: (parent.width - 340px) / 2; y: (parent.height - 168px) / 2;
+        width: 340px; height: 168px;
+        border-radius: 10px; border-width: 1px; border-color: #c8c8cd;
+        background: #f7f7f8;
+        Text {
+            x: 20px; y: 14px; width: parent.width - 40px; height: 22px;
+            text: root.mode == 0 ? "Create key binding set" : root.mode == 1 ? "Duplicate key binding set" : "Rename key binding set";
+            font-size: 14px; font-weight: 600; color: #222226;
+        }
+        Text { x: 20px; y: 42px; width: parent.width - 40px; height: 18px;
+            text: root.mode == 2 ? "Enter a new name for this set." : "Enter a name for the new set."; font-size: 11px; color: #68686e; }
+        Rectangle { x: 20px; y: 70px; width: parent.width - 40px; height: 30px;
+            border-radius: 5px; border-width: 1px; border-color: Theme.settings-field-border; background: #ffffff;
+            TextInput { x: 7px; y: 1px; width: parent.width - 14px; height: parent.height - 2px;
+                text <=> root.profile-name; single-line: true;
+                font-size: 11px; color: #222226; accessible-label: "Key binding set name"; }
+        }
+        PreferenceActionButton {
+            x: parent.width - 178px; y: 124px; label: "Cancel";
+            activated => { root.cancelled(); }
+        }
+        PreferenceActionButton {
+            x: parent.width - 92px; y: 124px;
+            label: root.mode == 0 ? "Create" : root.mode == 1 ? "Duplicate" : "Rename";
+            activated => {
+                if !root.profile-name.is-empty {
+                    root.submitted(root.profile-name,
+                        root.mode);
+                }
+            }
+        }
+    }
+}
+
+export component DeleteKeyBindingProfileDialog inherits Rectangle {
+    callback cancelled();
+    callback confirmed();
+
+    background: #00000055;
+    Rectangle {
+        x: (parent.width - 340px) / 2; y: (parent.height - 156px) / 2;
+        width: 340px; height: 156px;
+        border-radius: 10px; border-width: 1px; border-color: #c8c8cd;
+        background: #f7f7f8;
+        Text {
+            x: 20px; y: 16px; width: parent.width - 40px; height: 22px;
+            text: "Delete key binding set?";
+            font-size: 14px; font-weight: 600; color: #222226;
+        }
+        Text {
+            x: 20px; y: 45px; width: parent.width - 40px; height: 38px;
+            text: "The selected set will be removed from this computer.";
+            font-size: 11px; color: #68686e; wrap: word-wrap;
+        }
+        PreferenceActionButton {
+            x: parent.width - 178px; y: 112px; label: "Cancel";
+            activated => { root.cancelled(); }
+        }
+        PreferenceActionButton {
+            x: parent.width - 92px; y: 112px; label: "Delete";
+            activated => { root.confirmed(); }
+        }
+    }
+}
+
+export component KeyBindingMappingDialog inherits Rectangle {
+    in property <string> mapping-key;
+    in-out property <string> mapping-action;
+    in-out property <string> mapping-comment;
+    in-out property <int> mapping-kind;
+    in property <int> mapping-row;
+    callback cancelled();
+    callback key-recorded(string, bool, bool, bool, bool);
+    callback submitted(string, string, string, int, int);
+
+    background: #00000055;
+    Rectangle {
+        x: (parent.width - 360px) / 2; y: (parent.height - 250px) / 2;
+        width: 360px; height: 250px;
+        border-radius: 10px; border-width: 1px; border-color: #c8c8cd;
+        background: #f7f7f8;
+        Text { x: 20px; y: 14px; width: parent.width - 40px; height: 22px;
+            text: "Key Mapping"; font-size: 14px; font-weight: 600; color: #222226; }
+        Text { x: 20px; y: 39px; width: parent.width - 40px; height: 18px;
+            text: "Press a key, then choose what it should do.";
+            font-size: 11px; color: #68686e; }
+        Text { x: 20px; y: 67px; width: 52px; height: 26px; text: "Key";
+            font-size: 11px; color: #29292d; vertical-alignment: center; }
+        FocusScope {
+            x: 76px; y: 67px; width: parent.width - 96px; height: 26px;
+            accessible-role: button; accessible-label: "Press a key to record its shortcut";
+            Rectangle { width: parent.width; height: parent.height;
+                border-radius: 4px; border-width: 1px;
+                border-color: parent.has-focus ? #168bff : Theme.settings-field-border;
+                background: #ffffff;
+                Text { width: parent.width; height: parent.height;
+                    text: root.mapping-key.is-empty ? "Press a key…" : root.mapping-key;
+                    font-size: 11px; color: root.mapping-key.is-empty ? #85858b : #222226;
+                    horizontal-alignment: center; vertical-alignment: center; }
+            }
+            key-pressed(event) => {
+                if event.text == Key.Escape { root.cancelled(); return accept; }
+                if event.text == Key.Tab { return reject; }
+                root.key-recorded(event.text, event.modifiers.control,
+                    event.modifiers.alt, event.modifiers.shift, event.modifiers.meta);
+                return accept;
+            }
+            capture-touch := TouchArea { clicked => { parent.focus(); } }
+        }
+        Text { x: 20px; y: 101px; width: 52px; height: 26px; text: "Action";
+            font-size: 11px; color: #29292d; vertical-alignment: center; }
+        Rectangle { x: 76px; y: 101px; width: parent.width - 96px; height: 26px;
+            border-radius: 4px; border-width: 1px; border-color: Theme.settings-field-border; background: #ffffff;
+            TextInput { x: 5px; y: 1px; width: parent.width - 10px; height: parent.height - 2px;
+                text <=> root.mapping-action; single-line: true;
+                font-size: 11px; color: #222226; accessible-label: "Mapping action"; }
+        }
+        Text { x: 20px; y: 135px; width: 52px; height: 26px; text: "Note";
+            font-size: 11px; color: #29292d; vertical-alignment: center; }
+        Rectangle { x: 76px; y: 135px; width: parent.width - 96px; height: 26px;
+            border-radius: 4px; border-width: 1px; border-color: Theme.settings-field-border; background: #ffffff;
+            TextInput { x: 5px; y: 1px; width: parent.width - 10px; height: parent.height - 2px;
+                text <=> root.mapping-comment; single-line: true;
+                font-size: 11px; color: #222226; accessible-label: "Mapping comment"; }
+        }
+        CheckBox {
+            x: 76px; y: 168px; width: 180px; height: 22px;
+            text: "Riina action"; checked: root.mapping-kind == 1;
+            toggled => { root.mapping-kind = self.checked ? 1 : 0; }
+        }
+        Text { x: 20px; y: 192px; width: parent.width - 40px; height: 18px;
+            text: "Use an mpv command unless this is a player action.";
+            font-size: 10px; color: #77777d; }
+        PreferenceActionButton {
+            x: parent.width - 178px; y: 214px; label: "Cancel";
+            activated => { root.cancelled(); }
+        }
+        PreferenceActionButton {
+            x: parent.width - 92px; y: 214px; label: "OK";
+            activated => {
+                if !root.mapping-key.is-empty && !root.mapping-action.is-empty {
+                    root.submitted(root.mapping-key,
+                        root.mapping-action, root.mapping-comment,
+                        root.mapping-kind, root.mapping-row);
+                }
+            }
+        }
+    }
+}

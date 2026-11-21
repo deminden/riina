@@ -1,4 +1,5 @@
-import { PluginsPreferencesPage } from "preferences-plugin-page.slint";
+import { KeyBindingProfileDialog, DeleteKeyBindingProfileDialog, KeyBindingMappingDialog } from "preferences-key-binding-dialogs.slint";
+import { PluginsPreferencesPage, PluginInstallDialog } from "preferences-plugin-page.slint";
 import { KeyBindingsPreferencesPage } from "preferences-key-binding-page.slint";
 import { NetworkPreferencesPage } from "preferences-network.slint";
 import { SubtitlesPreferencesPage } from "preferences-subtitles.slint";
@@ -8,18 +9,17 @@ import { AdvancedPreferencesPage } from "preferences-advanced.slint";
 import { ControlPreferencesPage } from "preferences-control.slint";
 import { AudioPreferencesPage } from "preferences-audio.slint";
 import { VideoPreferencesPage } from "preferences-video.slint";
-import { UtilitiesPreferencesPage } from "preferences-utilities.slint";
+import { UtilitiesPreferencesPage, DefaultAppDialog } from "preferences-utilities.slint";
 import { PreferenceNavItem, PreferenceSubNavItem } from "preferences-navigation.slint";
-import { PreferencesSearchResult, PreferenceSearchField, PreferenceSearchResultCell } from "preferences-search.slint";
+import { PreferencesSearchResult, PreferenceSearchField, PreferenceSearchPopup } from "preferences-search.slint";
 export { PreferencesSearchResult } from "preferences-search.slint";
 import { KeyBindingRow } from "preferences-key-bindings.slint";
 export { KeyBindingRow } from "preferences-key-bindings.slint";
-import { PluginPreferencesRow, PluginPageActionButton } from "preferences-plugins.slint";
+import { PluginPreferencesRow } from "preferences-plugins.slint";
 export { PluginPreferencesRow } from "preferences-plugins.slint";
-import { MotionSettings, AdvancedMpvOptionRow, PreferenceActionButton } from "preferences-controls.slint";
+import { MotionSettings, AdvancedMpvOptionRow } from "preferences-controls.slint";
 export { AdvancedMpvOptionRow } from "preferences-controls.slint";
-import { Theme } from "theme.slint";
-import { CheckBox, ScrollView, Palette } from "std-widgets.slint";
+import { ScrollView, Palette } from "std-widgets.slint";
 import { NativeTypography } from "shared-controls.slint";
 
 export component PreferencesWindow inherits Window {
@@ -982,271 +982,65 @@ export component PreferencesWindow inherits Window {
         utilities-clear-thumbnail-cache => { root.utilities-clear-thumbnail-cache(); }
     }
 
-    if !root.search-query.is-empty : Rectangle {
-        x: 8px; y: 48px; width: 340px;
-        height: min(400px, max(120px, root.search-results.length * 38px));
-        border-radius: 8px; border-width: 1px; border-color: #d0d0d5;
-        background: #fbfbfc;
-        ScrollView {
-            width: parent.width; height: parent.height;
-            content-height: max(120px, root.search-results.length * 38px);
-            content-width: self.visible-width;
-            horizontal-scrollbar-policy: always-off;
-            if root.search-results.length == 0 : Text {
-                width: parent.width; height: parent.height;
-                text: "No Results"; font-size: 13px; color: #77777d;
-                horizontal-alignment: center; vertical-alignment: center;
-            }
-            if root.search-results.length > 0 : VerticalLayout {
-                width: parent.width; spacing: 0px;
-                for result[index] in root.search-results : PreferenceSearchResultCell {
-                    result: result;
-                    selected: root.selected-search-index == index;
-                    activated(page-index, section-name, title, anchor-y) => {
-                        root.search-result-activated(page-index, section-name, title, anchor-y);
-                    }
-                }
-            }
+    if !root.search-query.is-empty : PreferenceSearchPopup {
+        x: 8px; y: 48px;
+        results: root.search-results;
+        selected-index: root.selected-search-index;
+        activated(page-index, section-name, title, anchor-y) => {
+            root.search-result-activated(page-index, section-name, title, anchor-y);
         }
     }
 
-    if root.key-binding-profile-editor-open : Rectangle {
+    if root.key-binding-profile-editor-open : KeyBindingProfileDialog {
         x: 0px; y: 0px; width: root.width; height: root.height;
-        background: #00000055;
-        Rectangle {
-            x: (parent.width - 340px) / 2; y: (parent.height - 168px) / 2;
-            width: 340px; height: 168px;
-            border-radius: 10px; border-width: 1px; border-color: #c8c8cd;
-            background: #f7f7f8;
-            Text {
-                x: 20px; y: 14px; width: parent.width - 40px; height: 22px;
-                text: root.key-binding-profile-editor-mode == 0 ? "Create key binding set" : root.key-binding-profile-editor-mode == 1 ? "Duplicate key binding set" : "Rename key binding set";
-                font-size: 14px; font-weight: 600; color: #222226;
-            }
-            Text { x: 20px; y: 42px; width: parent.width - 40px; height: 18px;
-                text: root.key-binding-profile-editor-mode == 2 ? "Enter a new name for this set." : "Enter a name for the new set."; font-size: 11px; color: #68686e; }
-            Rectangle { x: 20px; y: 70px; width: parent.width - 40px; height: 30px;
-                border-radius: 5px; border-width: 1px; border-color: Theme.settings-field-border; background: #ffffff;
-                TextInput { x: 7px; y: 1px; width: parent.width - 14px; height: parent.height - 2px;
-                    text <=> root.key-binding-profile-editor-name; single-line: true;
-                    font-size: 11px; color: #222226; accessible-label: "Key binding set name"; }
-            }
-            PreferenceActionButton {
-                x: parent.width - 178px; y: 124px; label: "Cancel";
-                activated => { root.key-binding-profile-editor-cancelled(); }
-            }
-            PreferenceActionButton {
-                x: parent.width - 92px; y: 124px;
-                label: root.key-binding-profile-editor-mode == 0 ? "Create" : root.key-binding-profile-editor-mode == 1 ? "Duplicate" : "Rename";
-                activated => {
-                    if !root.key-binding-profile-editor-name.is-empty {
-                        root.key-binding-profile-created(root.key-binding-profile-editor-name,
-                            root.key-binding-profile-editor-mode);
-                    }
-                }
-            }
+        mode: root.key-binding-profile-editor-mode;
+        profile-name <=> root.key-binding-profile-editor-name;
+        cancelled => { root.key-binding-profile-editor-cancelled(); }
+        submitted(profile-name, mode) => { root.key-binding-profile-created(profile-name, mode); }
+    }
+
+    if root.key-binding-profile-delete-confirm-open : DeleteKeyBindingProfileDialog {
+        x: 0px; y: 0px; width: root.width; height: root.height;
+        cancelled => { root.key-binding-profile-delete-confirm-open = false; }
+        confirmed => {
+            root.key-binding-profile-delete-confirm-open = false;
+            root.key-binding-delete-profile();
         }
     }
 
-    if root.key-binding-profile-delete-confirm-open : Rectangle {
+    if root.key-binding-editor-open : KeyBindingMappingDialog {
         x: 0px; y: 0px; width: root.width; height: root.height;
-        background: #00000055;
-        Rectangle {
-            x: (parent.width - 340px) / 2; y: (parent.height - 156px) / 2;
-            width: 340px; height: 156px;
-            border-radius: 10px; border-width: 1px; border-color: #c8c8cd;
-            background: #f7f7f8;
-            Text {
-                x: 20px; y: 16px; width: parent.width - 40px; height: 22px;
-                text: "Delete key binding set?";
-                font-size: 14px; font-weight: 600; color: #222226;
-            }
-            Text {
-                x: 20px; y: 45px; width: parent.width - 40px; height: 38px;
-                text: "The selected set will be removed from this computer.";
-                font-size: 11px; color: #68686e; wrap: word-wrap;
-            }
-            PreferenceActionButton {
-                x: parent.width - 178px; y: 112px; label: "Cancel";
-                activated => { root.key-binding-profile-delete-confirm-open = false; }
-            }
-            PreferenceActionButton {
-                x: parent.width - 92px; y: 112px; label: "Delete";
-                activated => {
-                    root.key-binding-profile-delete-confirm-open = false;
-                    root.key-binding-delete-profile();
-                }
-            }
+        mapping-key: root.key-binding-editor-key;
+        mapping-action <=> root.key-binding-editor-action;
+        mapping-comment <=> root.key-binding-editor-comment;
+        mapping-kind <=> root.key-binding-editor-kind;
+        mapping-row: root.key-binding-editor-row;
+        cancelled => { root.key-binding-editor-cancelled(); }
+        key-recorded(key, control, alt, shift, meta) => {
+            root.key-binding-key-recorded(key, control, alt, shift, meta);
+        }
+        submitted(key, action, comment, kind, row) => {
+            root.key-binding-mapping-submitted(key, action, comment, kind, row);
         }
     }
 
-    if root.key-binding-editor-open : Rectangle {
+    if root.plugin-github-sheet-open : PluginInstallDialog {
         x: 0px; y: 0px; width: root.width; height: root.height;
-        background: #00000055;
-        Rectangle {
-            x: (parent.width - 360px) / 2; y: (parent.height - 250px) / 2;
-            width: 360px; height: 250px;
-            border-radius: 10px; border-width: 1px; border-color: #c8c8cd;
-            background: #f7f7f8;
-            Text { x: 20px; y: 14px; width: parent.width - 40px; height: 22px;
-                text: "Key Mapping"; font-size: 14px; font-weight: 600; color: #222226; }
-            Text { x: 20px; y: 39px; width: parent.width - 40px; height: 18px;
-                text: "Press a key, then choose what it should do.";
-                font-size: 11px; color: #68686e; }
-            Text { x: 20px; y: 67px; width: 52px; height: 26px; text: "Key";
-                font-size: 11px; color: #29292d; vertical-alignment: center; }
-            FocusScope {
-                x: 76px; y: 67px; width: parent.width - 96px; height: 26px;
-                accessible-role: button; accessible-label: "Press a key to record its shortcut";
-                Rectangle { width: parent.width; height: parent.height;
-                    border-radius: 4px; border-width: 1px;
-                    border-color: parent.has-focus ? #168bff : Theme.settings-field-border;
-                    background: #ffffff;
-                    Text { width: parent.width; height: parent.height;
-                        text: root.key-binding-editor-key.is-empty ? "Press a key…" : root.key-binding-editor-key;
-                        font-size: 11px; color: root.key-binding-editor-key.is-empty ? #85858b : #222226;
-                        horizontal-alignment: center; vertical-alignment: center; }
-                }
-                key-pressed(event) => {
-                    if event.text == Key.Escape { root.key-binding-editor-cancelled(); return accept; }
-                    if event.text == Key.Tab { return reject; }
-                    root.key-binding-key-recorded(event.text, event.modifiers.control,
-                        event.modifiers.alt, event.modifiers.shift, event.modifiers.meta);
-                    return accept;
-                }
-                capture-touch := TouchArea { clicked => { parent.focus(); } }
-            }
-            Text { x: 20px; y: 101px; width: 52px; height: 26px; text: "Action";
-                font-size: 11px; color: #29292d; vertical-alignment: center; }
-            Rectangle { x: 76px; y: 101px; width: parent.width - 96px; height: 26px;
-                border-radius: 4px; border-width: 1px; border-color: Theme.settings-field-border; background: #ffffff;
-                TextInput { x: 5px; y: 1px; width: parent.width - 10px; height: parent.height - 2px;
-                    text <=> root.key-binding-editor-action; single-line: true;
-                    font-size: 11px; color: #222226; accessible-label: "Mapping action"; }
-            }
-            Text { x: 20px; y: 135px; width: 52px; height: 26px; text: "Note";
-                font-size: 11px; color: #29292d; vertical-alignment: center; }
-            Rectangle { x: 76px; y: 135px; width: parent.width - 96px; height: 26px;
-                border-radius: 4px; border-width: 1px; border-color: Theme.settings-field-border; background: #ffffff;
-                TextInput { x: 5px; y: 1px; width: parent.width - 10px; height: parent.height - 2px;
-                    text <=> root.key-binding-editor-comment; single-line: true;
-                    font-size: 11px; color: #222226; accessible-label: "Mapping comment"; }
-            }
-            CheckBox {
-                x: 76px; y: 168px; width: 180px; height: 22px;
-                text: "Riina action"; checked: root.key-binding-editor-kind == 1;
-                toggled => { root.key-binding-editor-kind = self.checked ? 1 : 0; }
-            }
-            Text { x: 20px; y: 192px; width: parent.width - 40px; height: 18px;
-                text: "Use an mpv command unless this is a player action.";
-                font-size: 10px; color: #77777d; }
-            PreferenceActionButton {
-                x: parent.width - 178px; y: 214px; label: "Cancel";
-                activated => { root.key-binding-editor-cancelled(); }
-            }
-            PreferenceActionButton {
-                x: parent.width - 92px; y: 214px; label: "OK";
-                activated => {
-                    if !root.key-binding-editor-key.is-empty && !root.key-binding-editor-action.is-empty {
-                        root.key-binding-mapping-submitted(root.key-binding-editor-key,
-                            root.key-binding-editor-action, root.key-binding-editor-comment,
-                            root.key-binding-editor-kind, root.key-binding-editor-row);
-                    }
-                }
-            }
-        }
+        repository <=> root.plugin-github-repository;
+        installing: root.plugin-github-installing;
+        install-requested(repository) => { root.plugin-github-install-requested(repository); }
+        cancelled => { root.plugin-github-sheet-open = false; }
     }
 
-    if root.plugin-github-sheet-open : Rectangle {
+    if root.utilities-default-app-sheet-open : DefaultAppDialog {
         x: 0px; y: 0px; width: root.width; height: root.height;
-        background: #00000055;
-        Rectangle {
-            x: (parent.width - 440px) / 2; y: (parent.height - 372px) / 2;
-            width: 440px; height: 372px;
-            border-radius: 10px; border-width: 1px; border-color: #c8c8cd;
-            background: #f7f7f8;
-            Text { x: 20px; y: 14px; width: parent.width - 40px; height: 22px;
-                text: "Get Plugins"; font-size: 14px; font-weight: 600; color: #222226; }
-            Text { x: 20px; y: 42px; width: parent.width - 40px; height: 34px;
-                text: "Install a plugin from GitHub by entering its repository. Official plugins are listed below.";
-                font-size: 11px; color: #68686e; wrap: word-wrap; }
-            Text { x: 20px; y: 82px; width: 80px; height: 26px; text: "GitHub URL";
-                font-size: 11px; color: #29292d; vertical-alignment: center; }
-            Rectangle { x: 102px; y: 82px; width: parent.width - 122px; height: 26px;
-                border-radius: 4px; border-width: 1px; border-color: Theme.settings-field-border; background: #ffffff;
-                TextInput { x: 5px; y: 1px; width: parent.width - 10px; height: parent.height - 2px;
-                    text <=> root.plugin-github-repository; single-line: true;
-                    font-size: 11px; color: #222226; enabled: !root.plugin-github-installing;
-                    accessible-label: "GitHub repository URL";
-                    accepted => { root.plugin-github-install-requested(root.plugin-github-repository); }
-                }
-            }
-            Text { x: 20px; y: 122px; width: parent.width - 40px; height: 18px;
-                text: "Official Plugins"; font-size: 11px; font-weight: 600; color: #77777d; }
-            for official[index] in ["Online Media", "Userscript", "OpenSubtitles"] : Rectangle {
-                x: 20px; y: 145px + index * 38px; width: parent.width - 40px; height: 34px;
-                border-radius: 5px; border-width: 1px; border-color: #dedee1; background: #ffffff;
-                Text { x: 10px; width: parent.width - 106px; height: parent.height;
-                    text: official; font-size: 11px; color: #29292d;
-                    vertical-alignment: center; }
-                PluginPageActionButton {
-                    x: parent.width - 90px; y: 4px; width: 78px; label: "Install";
-                    enabled: !root.plugin-github-installing;
-                    activated => {
-                        root.plugin-github-repository = index == 0 ? "iina/plugin-online-media" :
-                            index == 1 ? "iina/plugin-userscript" : "iina/plugin-opensub";
-                        root.plugin-github-install-requested(root.plugin-github-repository);
-                    }
-                }
-            }
-            Text { x: 20px; y: 265px; width: parent.width - 40px; height: 22px;
-                text: root.plugin-github-installing ? "Downloading and validating plugin…" : "Plugins remain disabled until you enable them.";
-                font-size: 10px; color: #77777d; vertical-alignment: center; }
-            PreferenceActionButton {
-                x: parent.width - 178px; y: 328px; label: "Cancel";
-                enabled: !root.plugin-github-installing;
-                activated => { root.plugin-github-sheet-open = false; }
-            }
-            PreferenceActionButton {
-                x: parent.width - 92px; y: 328px; label: "Install";
-                enabled: !root.plugin-github-installing && !root.plugin-github-repository.is-empty;
-                activated => { root.plugin-github-install-requested(root.plugin-github-repository); }
-            }
-        }
-    }
-
-    if root.utilities-default-app-sheet-open : Rectangle {
-        x: 0px; y: 0px; width: root.width; height: root.height;
-        background: #00000055;
-        Rectangle {
-            x: (parent.width - 440px) / 2; y: (parent.height - 252px) / 2;
-            width: 440px; height: 252px;
-            border-radius: 10px; border-width: 1px; border-color: #c8c8cd;
-            background: #f7f7f8;
-            Text { x: 20px; y: 16px; width: parent.width - 40px; height: 22px;
-                text: "Set Riina as the Default Application";
-                font-size: 14px; font-weight: 600; color: #222226; }
-            Text { x: 20px; y: 47px; width: parent.width - 40px; height: 38px;
-                text: "Choose the media types you want Riina to open. Your system controls the final default selection.";
-                font-size: 11px; color: #68686e; wrap: word-wrap; }
-            CheckBox { x: 24px; y: 96px; width: parent.width - 48px; height: 22px;
-                text: "Video"; checked <=> root.utilities-default-video; }
-            CheckBox { x: 24px; y: 122px; width: parent.width - 48px; height: 22px;
-                text: "Audio"; checked <=> root.utilities-default-audio; }
-            CheckBox { x: 24px; y: 148px; width: parent.width - 48px; height: 22px;
-                text: "Playlists"; checked <=> root.utilities-default-playlist; }
-            PreferenceActionButton {
-                x: parent.width - 178px; y: 204px; label: "Cancel";
-                activated => { root.utilities-default-app-sheet-open = false; }
-            }
-            PreferenceActionButton {
-                x: parent.width - 92px; y: 204px; label: "OK";
-                activated => {
-                    root.utilities-default-app-sheet-open = false;
-                    root.utilities-default-apps-requested(root.utilities-default-video,
-                        root.utilities-default-audio, root.utilities-default-playlist);
-                }
-            }
+        video <=> root.utilities-default-video;
+        audio <=> root.utilities-default-audio;
+        playlist <=> root.utilities-default-playlist;
+        cancelled => { root.utilities-default-app-sheet-open = false; }
+        confirmed(video, audio, playlist) => {
+            root.utilities-default-app-sheet-open = false;
+            root.utilities-default-apps-requested(video, audio, playlist);
         }
     }
 }
