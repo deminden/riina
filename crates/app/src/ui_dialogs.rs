@@ -1,5 +1,5 @@
 //! Dialog intent is shared; each backend owns native presentation and modality.
-use crate::{NativeVideoHost, PlayerWindow, WelcomeWindow};
+use crate::{NativeVideoHost, PlayerWindow, WelcomeWindow, media_open};
 use riina_core::Command;
 
 pub(crate) fn open(
@@ -22,6 +22,10 @@ pub enum Purpose {
 }
 
 impl Purpose {
+    pub(crate) fn allows_multiple(self) -> bool {
+        matches!(self, Self::Media | Self::MediaInNewPlayer | Self::Playlist)
+    }
+
     pub(crate) fn title(self) -> &'static str {
         match self {
             Self::Media => "Open File",
@@ -43,5 +47,31 @@ impl Purpose {
             Self::Subtitle => Command::AddSubtitle(paths[0].clone()),
             Self::Playlist => Command::AppendFiles(paths),
         })
+    }
+}
+
+pub(crate) fn dispatch_selection(
+    app: &PlayerWindow,
+    purpose: Purpose,
+    paths: Vec<String>,
+    sender: riina_mpv::CommandSender,
+) -> Result<(), String> {
+    match purpose {
+        Purpose::Media | Purpose::MediaInNewPlayer | Purpose::Playlist => {
+            if matches!(purpose, Purpose::Media | Purpose::MediaInNewPlayer) {
+                for path in &paths {
+                    app.invoke_remember_recent_path(path.clone().into());
+                }
+            }
+            if matches!(purpose, Purpose::MediaInNewPlayer) {
+                media_open::selection_in_new_player(app, paths);
+            } else {
+                media_open::selection(app, paths, matches!(purpose, Purpose::Playlist), sender);
+            }
+            Ok(())
+        }
+        Purpose::Audio | Purpose::Subtitle => purpose
+            .command(paths)
+            .map_or(Ok(()), |command| sender.send(command)),
     }
 }

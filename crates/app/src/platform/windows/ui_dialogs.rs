@@ -1,5 +1,5 @@
 //! One owned picker per player; native HWNDs outlive its dedicated COM apartment.
-use crate::{NativeVideoHost, PlayerWindow, WelcomeWindow, file_dialog, media_open};
+use crate::{NativeVideoHost, PlayerWindow, WelcomeWindow, file_dialog};
 use riina_mpv::CommandSender;
 use slint::{
     ComponentHandle,
@@ -8,7 +8,7 @@ use slint::{
 use std::sync::Arc;
 use winit::{platform::windows::WindowExtWindows, window::Window};
 
-use crate::ui_dialogs::Purpose;
+use crate::ui_dialogs::{Purpose, dispatch_selection};
 
 struct ModalWindows {
     app: slint::Weak<PlayerWindow>,
@@ -119,44 +119,13 @@ pub fn open(
             std::thread::Builder::new()
                 .name("file-picker".into())
                 .spawn(move || {
-                    let result = file_dialog::open_files(
-                        &owner,
-                        matches!(
-                            purpose,
-                            Purpose::Media | Purpose::MediaInNewPlayer | Purpose::Playlist
-                        ),
-                        purpose.title(),
-                    );
+                    let result =
+                        file_dialog::open_files(&owner, purpose.allows_multiple(), purpose.title());
                     let _ = slint::invoke_from_event_loop(move || {
                         modality.restore(result.as_ref().is_ok_and(Vec::is_empty));
                         if let Some(app) = weak.upgrade() {
-                            let result = result.and_then(|paths| {
-                                if matches!(
-                                    purpose,
-                                    Purpose::Media | Purpose::MediaInNewPlayer | Purpose::Playlist
-                                ) {
-                                    if matches!(purpose, Purpose::Media | Purpose::MediaInNewPlayer)
-                                    {
-                                        for path in &paths {
-                                            app.invoke_remember_recent_path(path.clone().into());
-                                        }
-                                    }
-                                    if matches!(purpose, Purpose::MediaInNewPlayer) {
-                                        media_open::selection_in_new_player(&app, paths);
-                                        return Ok(());
-                                    }
-                                    media_open::selection(
-                                        &app,
-                                        paths,
-                                        matches!(purpose, Purpose::Playlist),
-                                        sender,
-                                    );
-                                    return Ok(());
-                                }
-                                purpose
-                                    .command(paths)
-                                    .map_or(Ok(()), |command| sender.send(command))
-                            });
+                            let result = result
+                                .and_then(|paths| dispatch_selection(&app, purpose, paths, sender));
                             if let Err(error) = result {
                                 app.set_status(error.into());
                             }

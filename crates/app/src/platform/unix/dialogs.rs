@@ -1,4 +1,7 @@
-use crate::{NativeVideoHost, PlayerWindow, WelcomeWindow, media_open, ui_dialogs::Purpose};
+use crate::{
+    NativeVideoHost, PlayerWindow, WelcomeWindow,
+    ui_dialogs::{Purpose, dispatch_selection},
+};
 use riina_mpv::CommandSender;
 use slint::{ComponentHandle, winit_030::WinitWindowAccessor};
 
@@ -29,10 +32,7 @@ pub fn open(
             let dialog = rfd::AsyncFileDialog::new()
                 .set_title(purpose.title())
                 .set_parent(owner.as_ref());
-            let files = if matches!(
-                purpose,
-                Purpose::Media | Purpose::MediaInNewPlayer | Purpose::Playlist
-            ) {
+            let files = if purpose.allows_multiple() {
                 dialog.pick_files().await.unwrap_or_default()
             } else {
                 dialog.pick_file().await.into_iter().collect()
@@ -58,28 +58,7 @@ pub fn open(
             let _ = welcome.show();
             return;
         }
-        let result = result.and_then(|paths| {
-            if matches!(
-                purpose,
-                Purpose::Media | Purpose::MediaInNewPlayer | Purpose::Playlist
-            ) {
-                if matches!(purpose, Purpose::Media | Purpose::MediaInNewPlayer) {
-                    for path in &paths {
-                        app.invoke_remember_recent_path(path.clone().into());
-                    }
-                }
-                if matches!(purpose, Purpose::MediaInNewPlayer) {
-                    media_open::selection_in_new_player(&app, paths);
-                    return Ok(());
-                }
-                media_open::selection(&app, paths, matches!(purpose, Purpose::Playlist), sender);
-                Ok(())
-            } else {
-                purpose
-                    .command(paths)
-                    .map_or(Ok(()), |command| sender.send(command))
-            }
-        });
+        let result = result.and_then(|paths| dispatch_selection(&app, purpose, paths, sender));
         if let Err(error) = result {
             app.set_status(error.into());
         }
