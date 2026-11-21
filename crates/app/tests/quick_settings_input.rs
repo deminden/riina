@@ -525,11 +525,51 @@ fn theme_segments_fit_their_rail_and_keep_selection_after_palette_changes() {
     }
 }
 
+#[expect(
+    clippy::unwrap_used,
+    reason = "The checked-in triangle must provide the geometry under test"
+)]
+fn play_triangle_center() -> f32 {
+    let svg =
+        roxmltree::Document::parse(include_str!("../../../assets/icons/osc-play.svg")).unwrap();
+    let root = svg.root_element();
+    let view_box = root.attribute("viewBox").unwrap();
+    let view: Vec<f32> = view_box
+        .split_ascii_whitespace()
+        .map(|value| value.parse().unwrap())
+        .collect();
+    let [origin, _, width, _]: [f32; 4] = view.try_into().unwrap();
+    assert!(width.is_finite() && width > 0.0);
+
+    // The asset uses an absolute move, a relative vertical edge, an absolute
+    // line to the tip and a close. A triangle's centroid averages its vertices.
+    let path = root
+        .children()
+        .find(|node| node.tag_name().name() == "path")
+        .unwrap()
+        .attribute("d")
+        .unwrap();
+    let (base, rest) = path.strip_prefix('M').unwrap().split_once('v').unwrap();
+    let (height, tip) = rest.split_once('L').unwrap();
+    let x_coordinate = |point: &str| {
+        let (x, y) = point.split_once(' ').unwrap();
+        assert!(y.parse::<f32>().unwrap().is_finite());
+        x.parse::<f32>().unwrap()
+    };
+    let base_x = x_coordinate(base);
+    let tip_x = x_coordinate(tip.strip_suffix('z').unwrap());
+    assert!(
+        height
+            .parse::<f32>()
+            .is_ok_and(|height| height.is_finite() && height != 0.0)
+    );
+    assert!(base_x.is_finite() && tip_x.is_finite() && base_x != tip_x);
+    ((base_x + base_x + tip_x) / 3.0 - origin) / width
+}
+
 #[test]
 fn transport_center_is_independent_of_audio_and_toolbar_population() {
-    // Keep the ink measurement tied to the actual original vector. A shape
-    // change must update this geometric check rather than silently passing it.
-    assert!(include_str!("../../../assets/icons/osc-play.svg").contains("M2.75 1.5v21L22 12z"));
+    let triangle_center = play_triangle_center();
     let app = player(0);
     app.set_paused(true);
     app.set_controls_visible(true);
@@ -559,7 +599,7 @@ fn transport_center_is_independent_of_audio_and_toolbar_population() {
                         "transport drift: {center} != {expected}; audio={has_audio}, compact={compact}"
                     );
                     let play_ink_centroid = play_glyph.absolute_position().x
-                        + play_glyph.size().width * (9.166_667 / 24.0);
+                        + play_glyph.size().width * triangle_center;
                     assert!(
                         (play_ink_centroid - center).abs() < 0.5,
                         "The triangle's filled area must look centered, not only its SVG box"
