@@ -60,35 +60,7 @@ fn install_default_app_actions(window: &PreferencesWindow) {
             settings.set_utilities_status("Select at least one media type.".into());
             return;
         }
-        #[cfg(target_os = "linux")]
-        {
-            let weak_window = window.as_weak();
-            settings.set_utilities_status("Updating file associations…".into());
-            let worker = crate::background::spawn_named("riina-file-associations", move || {
-                    let message = match register_default_file_types(video, audio, playlists) {
-                        Ok(count) => default_app_status(count),
-                        Err(error) => error,
-                    };
-                    let _ = crate::background::to_ui(weak_window, move |window| {
-                        window.global::<riina_ui::UtilitySettingsState>().set_utilities_status(message.into());
-                    });
-                });
-            if let Err(error) = worker {
-                settings.set_utilities_status(
-                    format!("Could not start file-association update: {error}").into(),
-                );
-            }
-        }
-        #[cfg(not(target_os = "linux"))]
-        match register_default_file_types(video, audio, playlists) {
-            Ok(count) => match open_default_apps() {
-                Ok(()) => settings.set_utilities_status(default_app_status(count).into()),
-                Err(error) => settings.set_utilities_status(
-                    format!("Registered {count} file types, but could not open Windows Default Apps: {error}").into(),
-                ),
-            },
-            Err(error) => settings.set_utilities_status(error.into()),
-        }
+        crate::platform::file_associations::set_for_media(&window, video, audio, playlists);
     });
 }
 
@@ -263,57 +235,6 @@ pub(crate) fn preserve_saved_history(preferences: &mut riina_core::Preferences, 
     if let Ok(Some(saved)) = crate::preference_load::read_valid(path) {
         preferences.recent_media = saved.recent_media;
         preferences.playback_history = saved.playback_history;
-    }
-}
-
-#[cfg(not(target_os = "linux"))]
-fn open_default_apps() -> Result<(), String> {
-    #[cfg(target_os = "windows")]
-    {
-        std::process::Command::new("explorer.exe")
-            .arg("ms-settings:defaultapps")
-            .spawn()
-            .map(|_| ())
-            .map_err(|error| format!("Could not open Windows Default Apps: {error}"))
-    }
-    #[cfg(target_os = "macos")]
-    {
-        Ok(())
-    }
-}
-
-fn register_default_file_types(video: bool, audio: bool, playlists: bool) -> Result<usize, String> {
-    #[cfg(target_os = "windows")]
-    {
-        crate::platform::register_default_file_types(video, audio, playlists)
-            .map_err(|error| format!("Could not register Riina file types: {error}"))
-    }
-    #[cfg(target_os = "macos")]
-    {
-        crate::platform::register_default_file_types(video, audio, playlists)
-            .map_err(|error| format!("Could not register Riina file types: {error}"))
-    }
-    #[cfg(target_os = "linux")]
-    {
-        crate::platform::register_default_file_types(video, audio, playlists)
-            .map_err(|error| format!("Could not register Riina file types: {error}"))
-    }
-}
-
-fn default_app_status(count: usize) -> String {
-    #[cfg(target_os = "windows")]
-    {
-        format!(
-            "Registered {count} file types. Choose Riina for the selected types in Windows Default Apps."
-        )
-    }
-    #[cfg(target_os = "macos")]
-    {
-        format!("Launch Services set Riina as the default for {count} media types.")
-    }
-    #[cfg(target_os = "linux")]
-    {
-        format!("Riina is now the default for {count} selected media types.")
     }
 }
 

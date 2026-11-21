@@ -1,17 +1,10 @@
+use crate::platform::text_recognition::Region;
 use objc2::{AnyThread, rc::Retained, rc::autoreleasepool, runtime::AnyObject};
 use objc2_core_graphics::{
     CGBitmapInfo, CGColorRenderingIntent, CGColorSpace, CGDataProvider, CGImage, CGImageAlphaInfo,
     CGImageByteOrderInfo,
 };
 
-#[derive(Debug, Clone, PartialEq)]
-pub(crate) struct Region {
-    pub text: String,
-    pub x: f32,
-    pub y: f32,
-    pub width: f32,
-    pub height: f32,
-}
 use objc2_foundation::{
     NSDictionary, NSOperatingSystemVersion, NSProcessInfo, NSString, NSUserDefaults,
 };

@@ -296,8 +296,8 @@ def main():
         and "interface-appearance-card-height: 122px + liquid-glass-detail-height;" in SOURCE
         and "liquid-glass-detail-height: liquid-glass-expanded ? 96px : 0px;" in SOURCE
         and 'label: root.surface-material-title' in INTERFACE_SOURCE
-        and '"Liquid Glass"' in (ROOT / "crates/app/src/platform.rs").read_text(encoding="utf-8")
-        and '"Translucent Surfaces"' in (ROOT / "crates/app/src/platform.rs").read_text(encoding="utf-8")
+        and '"Liquid Glass"' in (ROOT / "crates/app/src/platform/mod.rs").read_text(encoding="utf-8")
+        and '"Translucent Surfaces"' in (ROOT / "crates/app/src/platform/mod.rs").read_text(encoding="utf-8")
         and 'label: "On-Screen Display"' in INTERFACE_SOURCE
         and 'label: "On-Screen Controller"' in INTERFACE_SOURCE
         and 'label: "Sidebar"' in INTERFACE_SOURCE

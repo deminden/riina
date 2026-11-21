@@ -3,7 +3,7 @@
 Riina keeps playback policy in Rust and uses libmpv for decoding and the
 playback clock. Slint components display state and emit user intents. Native
 window and service adapters live under `crates/app/src/platform/` and share a
-facade in `crates/app/src/platform.rs`.
+facade in `crates/app/src/platform/mod.rs`.
 
 ## Workspace
 

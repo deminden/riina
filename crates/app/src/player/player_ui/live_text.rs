@@ -1,46 +1,35 @@
 //! Paused-frame capture and asynchronous recognition are scoped to one frame identity.
-use crate::PlayerWindow;
-#[cfg(any(target_os = "macos", target_os = "windows"))]
-use crate::platform;
-use riina_core::Preferences;
-use riina_mpv::CommandSender;
-use slint::ComponentHandle;
-use std::{path::Path, rc::Rc};
-
-#[cfg(any(target_os = "windows", target_os = "macos", test))]
-use riina_core::Phase;
+use crate::{LiveTextRegion, PlayerWindow, platform::text_recognition};
 #[cfg(test)]
 use riina_core::Playback;
-#[cfg(any(target_os = "windows", target_os = "macos"))]
-use {
-    crate::LiveTextRegion,
-    riina_core::Command,
-    std::{
-        sync::{
-            Arc,
-            atomic::{AtomicBool, Ordering},
-        },
-        time::Duration,
+use riina_core::{Command, Phase, Preferences};
+use riina_mpv::CommandSender;
+use slint::ComponentHandle;
+use std::{
+    path::Path,
+    rc::Rc,
+    sync::{
+        Arc,
+        atomic::{AtomicBool, Ordering},
     },
+    time::Duration,
 };
 
-#[cfg(any(target_os = "windows", target_os = "macos", test))]
 mod capture;
 #[cfg(test)]
 use capture::RecognitionKey;
-#[cfg(any(target_os = "windows", target_os = "macos", test))]
 use capture::{CaptureAction, CaptureState, FrameKey};
 
 pub(super) fn initialize(app: &PlayerWindow, enabled: bool, use_system_services: bool) {
     app.set_live_text_enabled(enabled);
     app.set_live_text_regions(slint::ModelRc::new(slint::VecModel::from(Vec::new())));
     app.set_live_text_available(false);
-    #[cfg(target_os = "macos")]
-    app.set_live_text_selectable(true);
-    #[cfg(any(target_os = "windows", target_os = "macos"))]
-    if use_system_services {
+    if text_recognition::NATIVE_SELECTION {
+        app.set_live_text_selectable(true);
+    }
+    if use_system_services && text_recognition::SUPPORTED {
         let weak = app.as_weak();
-        let _ = platform::text_recognition::check_availability(move |available| {
+        let _ = text_recognition::check_availability(move |available| {
             let _ = crate::background::to_ui(weak, move |app| {
                 app.set_live_text_available(available);
                 if !available {
@@ -49,8 +38,6 @@ pub(super) fn initialize(app: &PlayerWindow, enabled: bool, use_system_services:
             });
         });
     }
-    #[cfg(not(any(target_os = "windows", target_os = "macos")))]
-    let _ = use_system_services;
 }
 
 pub(super) fn install_actions(app: &PlayerWindow, prefs_path: &Path) {
@@ -90,21 +77,14 @@ pub(super) fn install_actions(app: &PlayerWindow, prefs_path: &Path) {
     });
 }
 
-#[cfg(not(any(target_os = "windows", target_os = "macos")))]
-pub(super) fn install(
-    _: &PlayerWindow,
-    _: CommandSender,
-    _: crate::PlaybackStore,
-) -> Option<Rc<slint::Timer>> {
-    None
-}
-
-#[cfg(any(target_os = "windows", target_os = "macos"))]
 pub(super) fn install(
     app: &PlayerWindow,
     sender: CommandSender,
     latest: crate::PlaybackStore,
 ) -> Option<Rc<slint::Timer>> {
+    if !text_recognition::SUPPORTED {
+        return None;
+    }
     let mut capture_state = CaptureState::default();
     let mut displayed_frame = None;
     let mut recognized_capture = None;
@@ -163,7 +143,7 @@ pub(super) fn install(
             let running = recognition_running.clone();
             let width = frame.width as f32;
             let height = frame.height as f32;
-            if let Err(error) = platform::text_recognition::recognize(frame, move |result| {
+            if let Err(error) = text_recognition::recognize(frame, move |result| {
                 let _ = slint::invoke_from_event_loop(move || {
                     running.store(false, Ordering::Release);
                     let Some(app) = weak_result.upgrade() else {

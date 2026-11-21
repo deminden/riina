@@ -1,6 +1,6 @@
 # Add a platform service
 
-Expose the service through `crates/app/src/platform.rs` so feature code can call
+Expose the service through `crates/app/src/platform/mod.rs` so feature code can call
 the same Rust function on each target. Put native requests in the matching
 `platform/windows/`, `platform/macos/` or `platform/unix/` adapter. Keep native
 types, thread requirements and handle ownership inside that adapter.
@@ -10,8 +10,8 @@ and be exposed by the facade. Return a portable value for an unsupported system.
 An empty font family means Slint uses the backend default.
 
 ```diff
---- a/crates/app/src/platform.rs
-+++ b/crates/app/src/platform.rs
+--- a/crates/app/src/platform/mod.rs
++++ b/crates/app/src/platform/mod.rs
 @@
 +#[cfg(target_os = "macos")]
 +pub(crate) use macos::system_font_family_name;

@@ -9,6 +9,7 @@ use std::{
     time::{Duration, Instant},
 };
 pub(crate) mod clipboard;
+pub(crate) mod file_associations;
 pub(crate) mod folder_dialog;
 pub(crate) mod language;
 mod pip_session;
@@ -23,6 +24,7 @@ mod plugin_resources;
 pub(crate) mod preferences;
 pub(crate) mod settings_file;
 mod shared_video;
+pub(crate) mod text_recognition;
 pub(crate) use shared_video::SharedVideoExtras;
 mod system_media_session;
 pub(crate) mod transition_cover;
@@ -741,26 +743,6 @@ pub(crate) fn resolve_alias_path(path: &str) -> String {
     }
 }
 
-/// Registers the checked media groups with the current platform's default-app service.
-pub(crate) fn register_default_file_types(
-    video: bool,
-    audio: bool,
-    playlists: bool,
-) -> std::io::Result<usize> {
-    #[cfg(target_os = "windows")]
-    {
-        windows::services::register_default_file_types(video, audio, playlists)
-    }
-    #[cfg(target_os = "macos")]
-    {
-        unix::services::register_default_file_types(video, audio, playlists)
-    }
-    #[cfg(target_os = "linux")]
-    {
-        unix::services::register_default_file_types(video, audio, playlists)
-    }
-}
-
 /// Read the platform motion preference outside the render callback.
 pub(crate) fn system_reduce_motion_enabled() -> bool {
     #[cfg(target_os = "windows")]
@@ -1114,8 +1096,6 @@ pub(crate) use unix::SessionExtras;
 #[cfg(target_os = "windows")]
 pub(crate) use windows::SessionExtras;
 #[cfg(target_os = "windows")]
-pub(crate) use windows::text_recognition;
-#[cfg(target_os = "windows")]
 pub(crate) use windows::{
     NativePresentation, NativeVideoMaterialCapture, PluginOverlayPresenter, file_dialog,
     native_window, open_dialog, services::*, window_sizing::WindowSizing,
@@ -1123,8 +1103,6 @@ pub(crate) use windows::{
 
 #[cfg(target_os = "macos")]
 mod macos;
-#[cfg(target_os = "macos")]
-pub(crate) use macos::text_recognition;
 #[cfg(target_os = "macos")]
 pub(crate) use macos::{
     ControlGesture, GesturePhase, MacApplicationMenuObserver, MacPictureInPicture,

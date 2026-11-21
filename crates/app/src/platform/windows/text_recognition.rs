@@ -1,3 +1,4 @@
+use crate::platform::text_recognition::Region;
 use riina_core::CapturedFrame;
 use std::{
     future::Future,
@@ -11,15 +12,6 @@ use windows::{
     Storage::Streams::{DataWriter, InMemoryRandomAccessStream},
     Win32::System::WinRT::{RO_INIT_MULTITHREADED, RoInitialize, RoUninitialize},
 };
-
-#[derive(Debug, Clone, PartialEq)]
-pub(crate) struct Region {
-    pub text: String,
-    pub x: f32,
-    pub y: f32,
-    pub width: f32,
-    pub height: f32,
-}
 
 /// The WinRT recognizer and its frame conversion stay on a dedicated MTA worker.
 pub(crate) fn check_availability(
