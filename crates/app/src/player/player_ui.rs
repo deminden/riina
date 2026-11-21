@@ -749,7 +749,9 @@ fn configure_with_engine(
     crate::preferences::model::install_player_section::<
         riina_core::subtitle_controls::PositionPreferences,
     >(&prefs, app);
-    crate::subtitle_other_preferences::install_player(app, &prefs.subtitle_other);
+    crate::preferences::model::install_player_section::<
+        riina_core::subtitle_controls::OtherPreferences,
+    >(&prefs, app);
     crate::subtitle_auto_load_preferences::install_player(app, &prefs.subtitle_auto_load);
     crate::online_subtitles_preferences::install_player(app, &prefs.online_subtitles);
     crate::preferences::model::install_player_section::<riina_core::network_preferences::Cache>(

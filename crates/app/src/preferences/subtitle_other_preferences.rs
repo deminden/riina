@@ -1,7 +1,32 @@
 //! Keep the Subtitle > Other controls and native subtitle policy in sync.
 
+use super::model::{PreferenceSection, SectionError};
+use crate::{PlayerWindow, PreferencesWindow};
+use riina_core::Preferences;
 use riina_core::subtitle_controls::{OtherPreferences, SUBTITLE_ENCODING_CHOICES};
 use slint::{ModelRc, SharedString, VecModel};
+
+impl PreferenceSection for OtherPreferences {
+    fn get(all: &Preferences) -> Self {
+        all.subtitle_other.clone()
+    }
+
+    fn put(self, all: &mut Preferences) {
+        all.subtitle_other = self;
+    }
+
+    fn read_window(window: &PreferencesWindow) -> Result<Self, SectionError> {
+        current_window(window).map_err(SectionError::from)
+    }
+
+    fn write_window(&self, window: &PreferencesWindow) {
+        let _ = install_window(window, self);
+    }
+
+    fn write_player(&self, app: &PlayerWindow) {
+        install_player(app, self);
+    }
+}
 
 pub(crate) fn encoding_options() -> ModelRc<SharedString> {
     ModelRc::new(VecModel::from(
