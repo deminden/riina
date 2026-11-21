@@ -118,14 +118,24 @@ formatting, lints crates with staged, unstaged or untracked changes, and runs th
 portable core tests. Shared build inputs select workspace-wide linting. Use
 `cargo xtask check` for the full local gate, including the Python, parity,
 fixture and asset checks. Run `cargo xtask native` separately for the native
-engine suite with null audio output. On Windows it uses the pinned development
+engine suite with null audio output. Tests in
+`crates/mpv/tests/native/` are grouped by feature. Run
+`cargo xtask native subtitles::` for just the subtitle cases or substitute
+another module prefix. On Windows it uses the pinned development
 DLL from the setup above unless `RIINA_TEST_MPV_LIBRARY` points to another
 provisioned build.
 
 With the checkout-local Windows toolchain, run
 `./scripts/dev.ps1 -CargoArguments @('xtask', 'check', '--fast')`. Replace the
 argument array with `@('xtask', 'check')` for the full gate or
-`@('xtask', 'native')` for native tests.
+`@('xtask', 'native')` for native tests. Pass a third argument such as
+`'subtitles::'` to select one native group.
+
+`cargo xtask coverage` is optional. If `cargo-llvm-cov` and the pinned
+toolchain's `llvm-tools` component are installed, it runs the workspace tests
+and reports coverage by crate plus the ten largest uncovered function bodies.
+It writes the full JSON report under `target/riina-coverage/` (or
+`$CARGO_TARGET_DIR/riina-coverage/` when configured).
 
 [Verification](verification.md#running-checks) contains the commands, native
 prerequisites, GUI procedure and the latest scoped results. Keep implementation

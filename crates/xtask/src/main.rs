@@ -14,8 +14,10 @@ fn main() -> ExitCode {
     let result = match arguments.as_slice() {
         [command] if command == "check" => check(&root),
         [command, flag] if command == "check" && flag == "--fast" => fast_check(&root),
-        [command] if command == "native" => native(&root),
-        _ => Err("Usage: cargo xtask {check [--fast]|native}".into()),
+        [command] if command == "native" => native(&root, None),
+        [command, filter] if command == "native" => native(&root, Some(filter)),
+        [command] if command == "coverage" => coverage(&root),
+        _ => Err("Usage: cargo xtask {check [--fast]|native [filter]|coverage}".into()),
     };
     if let Err(error) = result {
         let _ = writeln!(io::stderr().lock(), "{error}");
@@ -170,7 +172,7 @@ fn changed_packages(root: &Path, files: &BTreeSet<PathBuf>) -> Result<BTreeSet<S
         .collect())
 }
 
-fn native(root: &Path) -> Result<(), String> {
+fn native(root: &Path, filter: Option<&OsStr>) -> Result<(), String> {
     let library = env::var_os("RIINA_TEST_MPV_LIBRARY")
         .map(PathBuf::from)
         .or_else(|| cfg!(windows).then(|| root.join("tools/mpv/libmpv-2.dll")))
@@ -178,7 +180,8 @@ fn native(root: &Path) -> Result<(), String> {
     let library = library
         .canonicalize()
         .map_err(|error| format!("Could not find libmpv at {}: {error}", library.display()))?;
-    run(Command::new(cargo_program())
+    let mut command = Command::new(cargo_program());
+    command
         .current_dir(root)
         .env("RIINA_TEST_MPV_LIBRARY", library)
         .env("RIINA_TEST_MPV_AUDIO_OUTPUT", "null")
@@ -193,7 +196,44 @@ fn native(root: &Path) -> Result<(), String> {
             "--ignored",
             "--nocapture",
             "--test-threads=1",
-        ]))
+        ]);
+    command.args(filter);
+    run(&mut command)
+}
+
+fn coverage(root: &Path) -> Result<(), String> {
+    let tool = Command::new(cargo_program())
+        .current_dir(root)
+        .args(["llvm-cov", "--version"])
+        .output()
+        .map_err(|error| format!("Could not check for cargo-llvm-cov: {error}"))?;
+    if !tool.status.success() {
+        return Err(
+            "Coverage requires cargo-llvm-cov and the pinned toolchain's llvm-tools component."
+                .into(),
+        );
+    }
+    let target =
+        env::var_os("CARGO_TARGET_DIR").map_or_else(|| root.join("target"), |path| root.join(path));
+    let directory = target.join("riina-coverage");
+    std::fs::create_dir_all(&directory)
+        .map_err(|error| format!("Could not create {}: {error}", directory.display()))?;
+    let report = directory.join("workspace.json");
+    run(Command::new(cargo_program())
+        .current_dir(root)
+        .args([
+            "llvm-cov",
+            "--workspace",
+            "--locked",
+            "--json",
+            "--output-path",
+        ])
+        .arg(&report))?;
+    let executable = if cfg!(windows) { "python" } else { "python3" };
+    run(Command::new(executable)
+        .current_dir(root)
+        .arg("scripts/summarize-coverage.py")
+        .arg(report))
 }
 
 fn cargo_program() -> OsString {
