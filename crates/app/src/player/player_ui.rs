@@ -772,7 +772,9 @@ fn configure_with_engine(
     app.set_display_time_and_battery_in_fullscreen(prefs.display_time_and_battery_in_fullscreen);
     crate::osc_preferences::install_player(app, prefs.control_bar);
     crate::screenshot_preferences::install(app, &prefs.screenshot);
-    crate::preferences::model::install_player_sections(&prefs, app);
+    crate::preferences::model::install_player_section::<riina_core::thumbnail_preferences::Settings>(
+        &prefs, app,
+    );
     app.set_pause_when_open(prefs.pause_when_open);
     app.set_play_when_entering_fullscreen(prefs.play_when_entering_fullscreen);
     app.set_pause_when_leaving_fullscreen(prefs.pause_when_leaving_fullscreen);
@@ -818,7 +820,9 @@ fn configure_with_engine(
     app.set_control_bar_position_horizontal(prefs.control_bar_position_horizontal as f32);
     app.set_control_bar_position_vertical(prefs.control_bar_position_vertical as f32);
     app.set_show_chapter_pos(prefs.show_chapter_pos);
-    crate::pip_preferences::install_player(app, prefs.picture_in_picture);
+    crate::preferences::model::install_player_section::<riina_core::pip_preferences::Settings>(
+        &prefs, app,
+    );
     crate::sidebar_preferences::connect(app, prefs_path.clone(), prefs.clone());
     crate::layout_preferences::connect(app, prefs_path.clone(), prefs.clone());
     refresh_video_menu(app);

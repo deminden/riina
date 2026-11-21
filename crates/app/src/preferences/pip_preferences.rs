@@ -1,5 +1,31 @@
+use super::model::{PreferenceSection, SectionError};
 use crate::{PlayerWindow, PreferencesWindow};
-use riina_core::pip_preferences::{Settings, WindowBehavior};
+use riina_core::{
+    Preferences,
+    pip_preferences::{Settings, WindowBehavior},
+};
+
+impl PreferenceSection for Settings {
+    fn get(all: &Preferences) -> Self {
+        all.picture_in_picture
+    }
+
+    fn put(self, all: &mut Preferences) {
+        all.picture_in_picture = self;
+    }
+
+    fn read_window(window: &PreferencesWindow) -> Result<Self, SectionError> {
+        current_preferences(window).map_err(SectionError::from)
+    }
+
+    fn write_window(&self, window: &PreferencesWindow) {
+        install_preferences(window, *self);
+    }
+
+    fn write_player(&self, app: &PlayerWindow) {
+        install_player(app, *self);
+    }
+}
 
 pub(crate) fn current_player(window: &PlayerWindow) -> Result<Settings, String> {
     current(

@@ -4,7 +4,10 @@ use crate::{
     PlayerWindow, PreferencesWindow,
     preferences::model::{PreferenceModel, PreferenceSection},
 };
-use riina_core::{Command, thumbnail_preferences::Settings as ThumbnailPreview};
+use riina_core::{
+    Command, pip_preferences::Settings as PictureInPicture,
+    thumbnail_preferences::Settings as ThumbnailPreview,
+};
 use slint::ComponentHandle;
 use std::{
     cell::RefCell,
@@ -136,7 +139,7 @@ fn connect_with_credentials(
             return;
         };
         let Some(selected_picture_in_picture) = read_or_refresh(
-            crate::pip_preferences::current_preferences(&window),
+            model.read_section::<PictureInPicture>(&window),
             &app,
             &window,
         ) else {
@@ -605,7 +608,6 @@ fn connect_with_credentials(
                 }),
                 volume_boost: app.get_volume_boost(),
                 show_chapter_pos: window.get_show_chapter_pos(),
-                picture_in_picture: selected_picture_in_picture,
                 action_after_launch: riina_core::ActionAfterLaunch::from_index(
                     window.get_launch_action_index(),
                 )
@@ -690,6 +692,7 @@ fn connect_with_credentials(
                 ..baseline.clone()
             };
             selected_thumbnail_preview.put(&mut preferences);
+            selected_picture_in_picture.put(&mut preferences);
             // Utilities can clear history while this window remains open;
             // preserve that live system action over its original snapshot.
             crate::utilities_preferences::preserve_saved_history(&mut preferences, &path);
@@ -753,7 +756,7 @@ fn connect_with_credentials(
                     window.set_assrt_token(retained.assrt_token.into());
                     app.set_status(error.into());
                 }
-                crate::pip_preferences::install_player(&app, selected_picture_in_picture);
+                model.write_player::<PictureInPicture>(&app);
                 app.set_live_text_enabled(window.get_live_text_enabled());
                 app.set_load_icc_profile(window.get_load_icc_profile());
                 app.set_default_hdr_mode_enabled(window.get_default_hdr_mode_enabled());

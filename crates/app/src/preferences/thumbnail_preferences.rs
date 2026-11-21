@@ -1,5 +1,28 @@
+use super::model::{PreferenceSection, SectionError};
 use crate::{PlayerWindow, PreferencesWindow};
-use riina_core::thumbnail_preferences::Settings;
+use riina_core::{Preferences, thumbnail_preferences::Settings};
+
+impl PreferenceSection for Settings {
+    fn get(all: &Preferences) -> Self {
+        all.thumbnail_preview.clone()
+    }
+
+    fn put(self, all: &mut Preferences) {
+        all.thumbnail_preview = self;
+    }
+
+    fn read_window(window: &PreferencesWindow) -> Result<Self, SectionError> {
+        current_window(window).map_err(SectionError::from)
+    }
+
+    fn write_window(&self, window: &PreferencesWindow) {
+        install_window(window, self);
+    }
+
+    fn write_player(&self, app: &PlayerWindow) {
+        install_player(app, self);
+    }
+}
 
 pub(crate) fn install_player(window: &PlayerWindow, settings: &Settings) {
     window.set_thumbnail_preview_enabled(settings.enabled);
