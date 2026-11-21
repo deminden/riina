@@ -1,7 +1,8 @@
 //! Plugin callbacks, presenters and timers are installed as one UI subsystem.
-use super::plugin_menus::{remove_plugin_menu_rows, replace_plugin_menu_rows};
+mod effects;
+
 use crate::{PlayerWindow, platform};
-use riina_core::Command;
+use effects::PluginEffects;
 use slint::{ComponentHandle, Model, winit_030::WinitWindowAccessor};
 use std::{
     cell::{Cell, RefCell},
@@ -23,10 +24,6 @@ pub(super) struct InstalledPluginUi {
     pub(super) plugin_command_sender: Arc<std::sync::Mutex<Option<riina_mpv::CommandSender>>>,
 }
 
-#[expect(
-    clippy::too_many_lines,
-    reason = "decomposition tracked in docs/review"
-)]
 pub(super) fn install(
     app: &PlayerWindow,
     native: Option<&platform::NativePresentation>,
@@ -42,75 +39,7 @@ pub(super) fn install(
             }
         }
     });
-    let menu_action_host = plugin_host_handle.clone();
-    let menu_action_app = app.as_weak();
-    app.on_activate_plugin_menu_item(move |token| {
-        let Some((identifier, scope_and_id)) = token.as_str().split_once('\u{1f}') else {
-            return;
-        };
-        let Some((scope, item_id)) = scope_and_id.split_once('\u{1f}') else {
-            return;
-        };
-        let global = match scope {
-            "global" => true,
-            "player" => false,
-            _ => return,
-        };
-        let Some(host) = &menu_action_host else {
-            if let Some(app) = menu_action_app.upgrade() {
-                app.set_status("The plugin runtime is unavailable.".into());
-            }
-            return;
-        };
-        if let Err(error) =
-            host.activate_plugin_menu_item(identifier.into(), global, item_id.into())
-            && let Some(app) = menu_action_app.upgrade()
-        {
-            app.set_status(format!("Could not run plugin menu action: {error}").into());
-        }
-    });
-    let menu_update_host = plugin_host_handle.clone();
-    let menu_update_app = app.as_weak();
-    app.on_plugin_menu_will_open(move || {
-        if let Some(host) = &menu_update_host
-            && let Err(error) = host.notify_menu_update()
-            && let Some(app) = menu_update_app.upgrade()
-        {
-            app.set_status(
-                format!("Could not notify plugins that their menu is opening: {error}").into(),
-            );
-        }
-    });
-    let reload_plugins_host = plugin_host_handle.clone();
-    let reload_plugins_app = app.as_weak();
-    app.on_reload_plugins(move || {
-        let Some(host) = &reload_plugins_host else {
-            if let Some(app) = reload_plugins_app.upgrade() {
-                app.set_status("The plugin runtime is unavailable.".into());
-            }
-            return;
-        };
-        if let Err(error) = host.reload_all()
-            && let Some(app) = reload_plugins_app.upgrade()
-        {
-            app.set_status(format!("Could not reload plugins: {error}").into());
-        }
-    });
-    let close_event_sent = Rc::new(Cell::new(false));
-    let close_event_sent_once = close_event_sent.clone();
-    let close_event_host = plugin_host_handle.clone();
-    let weak = app.as_weak();
-    app.on_window_will_close(move || {
-        if close_event_sent_once.replace(true) {
-            return;
-        }
-        if let Some(host) = &close_event_host
-            && let Err(error) = host.notify_window_will_close()
-            && let Some(app) = weak.upgrade()
-        {
-            app.set_status(format!("Could not notify plugins before closing: {error}").into());
-        }
-    });
+    bind_lifecycle(app, plugin_host_handle.as_ref());
     let plugin_window_host = native.map(platform::NativePresentation::host);
     let plugin_command_sender = Arc::new(std::sync::Mutex::new(None::<riina_mpv::CommandSender>));
     #[cfg(target_os = "windows")]
@@ -142,25 +71,23 @@ pub(super) fn install(
         let messages = handle.clone();
         #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
         let sidebar_host = handle.clone();
-        let window_loaded_host = handle.clone();
-        let window_loaded_sent = Rc::new(Cell::new(false));
-        let window_messages = handle.clone();
         let window_host = plugin_window_host.clone();
-        let last_window_properties =
-            Rc::new(RefCell::new(None::<BTreeMap<String, serde_json::Value>>));
-        let last_window_update = Rc::new(Cell::new(Instant::now()));
-        let player_commands = plugin_command_sender.clone();
+        let mut window_events = WindowEvents::new(handle.clone(), window_host.clone());
         let weak = app.as_weak();
-        let osd_timer = plugin_osd_timer_weak.clone();
-        let osd_generation = plugin_osd_generation.clone();
-        #[cfg(target_os = "windows")]
-        let overlay = plugin_overlay_presenter.clone();
-        #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
-        let sidebar_presenter = plugin_sidebar_presenter.clone();
-        #[cfg(target_os = "windows")]
-        let overlay_host = handle.clone();
-        #[cfg(target_os = "windows")]
-        let overlay_parent = plugin_overlay_parent.clone();
+        let effects = PluginEffects {
+            commands: plugin_command_sender.clone(),
+            window_host,
+            osd_timer: plugin_osd_timer_weak.clone(),
+            osd_generation: plugin_osd_generation.clone(),
+            #[cfg(target_os = "windows")]
+            overlay: plugin_overlay_presenter.clone(),
+            #[cfg(target_os = "windows")]
+            overlay_host: handle.clone(),
+            #[cfg(target_os = "windows")]
+            overlay_parent: plugin_overlay_parent.clone(),
+            sidebar: plugin_sidebar_presenter.clone(),
+            sidebar_host,
+        };
         timer.start(
             slint::TimerMode::Repeated,
             Duration::from_millis(25),
@@ -168,205 +95,14 @@ pub(super) fn install(
                 let Some(app) = weak.upgrade() else { return };
                 #[cfg(target_os = "linux")]
                 platform::pump_linux_webview_events();
-                if !window_loaded_sent.get() && window_loaded_host.notify_window_loaded().is_ok() {
-                    window_loaded_sent.set(true);
-                }
-                if last_window_update.get().elapsed() >= Duration::from_millis(125) {
-                    last_window_update.set(Instant::now());
-                    let properties = plugin_window_properties(&app, window_host.as_ref());
-                    if last_window_properties.borrow().as_ref() != Some(&properties)
-                        && window_messages
-                            .update_window_properties(properties.clone())
-                            .is_ok()
-                    {
-                        *last_window_properties.borrow_mut() = Some(properties);
-                    }
-                }
+                window_events.observe(&app);
                 let Ok(messages) = messages.drain_messages() else {
                     return;
                 };
                 for message in messages {
-                    match message {
-                        crate::plugin_host::PluginHostMessage::Log(text)
-                        | crate::plugin_host::PluginHostMessage::Status(text) => {
-                            app.set_status(text.into());
-                        }
-                        crate::plugin_host::PluginHostMessage::PlayerCommand(command) => {
-                            let result = riina_core::sync::lock(&player_commands)
-                                .as_ref()
-                                .map(|sender| sender.send(command));
-                            if let Some(Err(error)) = result {
-                                app.set_status(
-                                    format!("Plugin player command failed: {error}").into(),
-                                );
-                            }
-                        }
-                        crate::plugin_host::PluginHostMessage::ObserveMpvProperty(property) => {
-                            let result = riina_core::sync::lock(&player_commands)
-                                .as_ref()
-                                .map(|sender| sender.send(Command::ObserveMpvProperty(property)));
-                            if let Some(Err(error)) = result {
-                                app.set_status(
-                                    format!("Could not observe mpv plugin property: {error}")
-                                        .into(),
-                                );
-                            }
-                        }
-                        crate::plugin_host::PluginHostMessage::SetUiVisibility(disabled) => {
-                            app.set_plugin_ui_disabled(disabled);
-                        }
-                        crate::plugin_host::PluginHostMessage::WindowAction(action) => {
-                            apply_plugin_window_action(&app, window_host.as_ref(), action);
-                        }
-                        crate::plugin_host::PluginHostMessage::ShowOsd(text) => {
-                            let generation = osd_generation.get().wrapping_add(1);
-                            osd_generation.set(generation);
-                            app.set_plugin_osd_message(text.into());
-                            if let Some(timer) =
-                                osd_timer.as_ref().and_then(|timer| timer.upgrade())
-                            {
-                                let weak = app.as_weak();
-                                let current = osd_generation.clone();
-                                timer.start(
-                                    slint::TimerMode::SingleShot,
-                                    Duration::from_secs(3),
-                                    move || {
-                                        if current.get() == generation
-                                            && let Some(app) = weak.upgrade()
-                                        {
-                                            app.set_plugin_osd_message("".into());
-                                        }
-                                    },
-                                );
-                            }
-                        }
-                        crate::plugin_host::PluginHostMessage::ShowAlert(title, text) => {
-                            rfd::MessageDialog::new()
-                                .set_title(title)
-                                .set_description(text)
-                                .set_buttons(rfd::MessageButtons::Ok)
-                                .show();
-                        }
-                        crate::plugin_host::PluginHostMessage::SidebarTabAdded {
-                            plugin_identifier,
-                            label,
-                        } => {
-                            plugin_sidebar_tab_added(&app, &plugin_identifier, &label);
-                        }
-                        crate::plugin_host::PluginHostMessage::PluginMenuUpdated {
-                            plugin_identifier,
-                            plugin_name,
-                            global,
-                            items,
-                        } => replace_plugin_menu_rows(
-                            &app,
-                            &plugin_identifier,
-                            &plugin_name,
-                            global,
-                            &items,
-                        ),
-                        crate::plugin_host::PluginHostMessage::RemovePluginMenu(identifier) => {
-                            remove_plugin_menu_rows(&app, &identifier);
-                        }
-                        #[cfg(target_os = "windows")]
-                        message @ crate::plugin_host::PluginHostMessage::Overlay { .. } => {
-                            let result = if let Some(parent) = overlay_parent.as_ref() {
-                                overlay.borrow_mut().apply_host_message(
-                                    parent,
-                                    &overlay_host,
-                                    message,
-                                )
-                            } else {
-                                Err("Plugin video overlays require native video presentation"
-                                    .into())
-                            };
-                            if let Err(error) = result {
-                                app.set_status(error.into());
-                            }
-                        }
-                        #[cfg(target_os = "windows")]
-                        crate::plugin_host::PluginHostMessage::RemoveOverlay(identifier) => {
-                            overlay.borrow_mut().remove(&identifier);
-                        }
-                        #[cfg(any(
-                            target_os = "windows",
-                            target_os = "macos",
-                            target_os = "linux"
-                        ))]
-                        message @ crate::plugin_host::PluginHostMessage::Sidebar { .. } => {
-                            if let crate::plugin_host::PluginHostMessage::Sidebar {
-                                plugin_identifier,
-                                effect,
-                                ..
-                            } = &message
-                            {
-                                match effect {
-                                    riina_core::plugin_sidebar::PluginSidebarEffect::Show => {
-                                        select_plugin_sidebar_tab(&app, plugin_identifier);
-                                    }
-                                    riina_core::plugin_sidebar::PluginSidebarEffect::Hide => {
-                                        if app.get_sidebar() == 7 {
-                                            app.set_sidebar(0);
-                                        }
-                                        if app.get_leading_sidebar() == 7 {
-                                            app.set_leading_sidebar(0);
-                                        }
-                                    }
-                                    _ => {}
-                                }
-                            }
-                            let result = app.window().with_winit_window(|parent| {
-                                sidebar_presenter.borrow_mut().apply_host_message(
-                                    parent,
-                                    &sidebar_host,
-                                    message,
-                                )
-                            });
-                            if let Some(Err(error)) = result {
-                                app.set_status(error.into());
-                            }
-                        }
-                        #[cfg(not(target_os = "windows"))]
-                        crate::plugin_host::PluginHostMessage::Overlay { .. } => {
-                            app.set_status(
-                                "Plugin video overlays are unavailable on this platform".into(),
-                            );
-                        }
-                        #[cfg(not(target_os = "windows"))]
-                        crate::plugin_host::PluginHostMessage::RemoveOverlay(_) => {}
-                        #[cfg(any(
-                            target_os = "windows",
-                            target_os = "macos",
-                            target_os = "linux"
-                        ))]
-                        crate::plugin_host::PluginHostMessage::RemoveSidebar(identifier) => {
-                            sidebar_presenter.borrow_mut().remove(&identifier);
-                            plugin_sidebar_tab_removed(&app, &identifier);
-                        }
-                    }
+                    effects.apply(&app, message);
                 }
-                #[cfg(target_os = "windows")]
-                overlay.borrow_mut().update(
-                    app.get_window_width(),
-                    app.get_window_height(),
-                    f64::from(app.window().scale_factor()),
-                );
-                #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
-                {
-                    let selected = if app.get_sidebar() == 7 || app.get_leading_sidebar() == 7 {
-                        let identifier = app.get_plugin_sidebar_selected_identifier();
-                        (!identifier.is_empty()).then(|| identifier.to_string())
-                    } else {
-                        None
-                    };
-                    sidebar_presenter.borrow_mut().update(
-                        app.get_plugin_sidebar_view_x(),
-                        app.get_plugin_sidebar_view_y(),
-                        app.get_plugin_sidebar_view_width(),
-                        app.get_plugin_sidebar_view_height(),
-                        selected,
-                    );
-                }
+                effects.update_presenters(&app);
             },
         );
         timer
@@ -381,6 +117,122 @@ pub(super) fn install(
         plugin_host_timer,
         plugin_osd_timer,
         plugin_command_sender,
+    }
+}
+
+fn bind_lifecycle(
+    app: &PlayerWindow,
+    plugin_host_handle: Option<&crate::plugin_host::PluginHostHandle>,
+) {
+    let menu_action_host = plugin_host_handle.cloned();
+    let menu_action_app = app.as_weak();
+    app.on_activate_plugin_menu_item(move |token| {
+        let Some((identifier, scope_and_id)) = token.as_str().split_once('\u{1f}') else {
+            return;
+        };
+        let Some((scope, item_id)) = scope_and_id.split_once('\u{1f}') else {
+            return;
+        };
+        let global = match scope {
+            "global" => true,
+            "player" => false,
+            _ => return,
+        };
+        let Some(host) = &menu_action_host else {
+            if let Some(app) = menu_action_app.upgrade() {
+                app.set_status("The plugin runtime is unavailable.".into());
+            }
+            return;
+        };
+        if let Err(error) =
+            host.activate_plugin_menu_item(identifier.into(), global, item_id.into())
+            && let Some(app) = menu_action_app.upgrade()
+        {
+            app.set_status(format!("Could not run plugin menu action: {error}").into());
+        }
+    });
+    let menu_update_host = plugin_host_handle.cloned();
+    let menu_update_app = app.as_weak();
+    app.on_plugin_menu_will_open(move || {
+        if let Some(host) = &menu_update_host
+            && let Err(error) = host.notify_menu_update()
+            && let Some(app) = menu_update_app.upgrade()
+        {
+            app.set_status(
+                format!("Could not notify plugins that their menu is opening: {error}").into(),
+            );
+        }
+    });
+    let reload_plugins_host = plugin_host_handle.cloned();
+    let reload_plugins_app = app.as_weak();
+    app.on_reload_plugins(move || {
+        let Some(host) = &reload_plugins_host else {
+            if let Some(app) = reload_plugins_app.upgrade() {
+                app.set_status("The plugin runtime is unavailable.".into());
+            }
+            return;
+        };
+        if let Err(error) = host.reload_all()
+            && let Some(app) = reload_plugins_app.upgrade()
+        {
+            app.set_status(format!("Could not reload plugins: {error}").into());
+        }
+    });
+    let close_event_sent = Rc::new(Cell::new(false));
+    let close_event_sent_once = close_event_sent.clone();
+    let close_event_host = plugin_host_handle.cloned();
+    let weak = app.as_weak();
+    app.on_window_will_close(move || {
+        if close_event_sent_once.replace(true) {
+            return;
+        }
+        if let Some(host) = &close_event_host
+            && let Err(error) = host.notify_window_will_close()
+            && let Some(app) = weak.upgrade()
+        {
+            app.set_status(format!("Could not notify plugins before closing: {error}").into());
+        }
+    });
+}
+
+struct WindowEvents {
+    host: crate::plugin_host::PluginHostHandle,
+    window: Option<slint::Weak<crate::NativeVideoHost>>,
+    announced: bool,
+    last_properties: Option<BTreeMap<String, serde_json::Value>>,
+    last_update: Instant,
+}
+
+impl WindowEvents {
+    fn new(
+        host: crate::plugin_host::PluginHostHandle,
+        window: Option<slint::Weak<crate::NativeVideoHost>>,
+    ) -> Self {
+        Self {
+            host,
+            window,
+            announced: false,
+            last_properties: None,
+            last_update: Instant::now(),
+        }
+    }
+
+    fn observe(&mut self, app: &PlayerWindow) {
+        if !self.announced && self.host.notify_window_loaded().is_ok() {
+            self.announced = true;
+        }
+        if self.last_update.elapsed() >= Duration::from_millis(125) {
+            self.last_update = Instant::now();
+            let properties = plugin_window_properties(app, self.window.as_ref());
+            if self.last_properties.as_ref() != Some(&properties)
+                && self
+                    .host
+                    .update_window_properties(properties.clone())
+                    .is_ok()
+            {
+                self.last_properties = Some(properties);
+            }
+        }
     }
 }
 
