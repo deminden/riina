@@ -27,6 +27,7 @@ mod subtitle_controls;
 mod video_controls;
 use audio_controls::set_audio_equalizer_controls;
 mod materials;
+mod observation_dispatch;
 mod observations;
 mod observer_state;
 mod plugin_menus;
@@ -36,7 +37,6 @@ use context::{PlayerContext, bind};
 use engine_start::EngineStart;
 #[cfg(target_os = "windows")]
 use materials::{install_native_video_material_sampler, install_windows_material_policy_monitor};
-use observations::{UiUpdateResources, update_ui};
 mod session_preferences;
 
 use plugin_menus::reorder_plugin_menu_rows;
@@ -637,9 +637,7 @@ fn configure_with_engine(
         playback_history_write_path,
         Some(prefs_path.with_file_name("watch-later")),
     );
-    let plugin_playback_history = playback_history.clone();
     let record_playback_history = Arc::new(AtomicBool::new(prefs.record_playback_history));
-    let notify_record_playback_history = record_playback_history.clone();
     let history_cleared = crate::playback_history::shared_history_merge_flag(&prefs_path);
     let watch_later_directory = prefs_path.with_file_name("watch-later");
     std::fs::create_dir_all(&watch_later_directory)?;
@@ -762,119 +760,36 @@ fn configure_with_engine(
     let picture_in_picture = Rc::new(RefCell::new(None::<platform::MacPictureInPicture>));
     #[cfg(target_os = "macos")]
     let picture_in_picture_state_dirty = Arc::new(AtomicBool::new(false));
-    let notify_music_mode_state = music_mode_state.clone();
-    let worker_scratch = screenshot_scratch.clone();
-    let notify_plugin_host = plugin_host_handle.clone();
-    let notify_plugin_recent_media = plugin_recent_media.clone();
-    let notify_video_filter_settings = saved_video_filters.clone();
-    let notify_audio_filter_settings = saved_audio_filters.clone();
-    let notify_audio_device_sender = plugin_command_sender.clone();
-    let notified_plugin_file_context = Arc::new(std::sync::Mutex::new(
-        crate::plugin_files::PluginPlayerFileContext::default(),
-    ));
-    let last_notified_plugin_file_context = notified_plugin_file_context.clone();
-    #[cfg(target_os = "macos")]
-    let notify_picture_in_picture_state_dirty = picture_in_picture_state_dirty.clone();
-    let notify = move |state: Arc<Playback>| {
-        // This closure remains owned by the engine until native destruction.
-        let _retain_until_native_teardown = &worker_scratch;
-        *lock(&observed_playback) = state.clone();
-        let (plugin_context, history_error) = crate::plugin_snapshot::observe_playback(
-            &state,
-            &notify_plugin_recent_media,
-            &plugin_playback_history,
-            notify_record_playback_history.load(Ordering::Acquire),
-            playback_history_session_id,
-        );
-        if let Some(error) = history_error {
-            let weak = app_weak.clone();
-            let _ = crate::background::to_ui(weak, move |app| {
-                app.set_status(format!("Could not save playback history: {error}").into());
-            });
-        }
-        {
-            let mut last_context = lock(&last_notified_plugin_file_context);
-            if *last_context != plugin_context
-                && let Some(host) = &notify_plugin_host
-                && host
-                    .update_player_file_context(plugin_context.clone())
-                    .is_ok()
-            {
-                *last_context = plugin_context;
-            }
-        }
+    let notification = observation_dispatch::PlaybackNotification {
+        reported_playback: observed_playback,
+        queued,
+        latest,
+        history: observation_dispatch::HistoryObservation {
+            recent_media: plugin_recent_media.clone(),
+            history: playback_history.clone(),
+            record_history: record_playback_history.clone(),
+            session_id: playback_history_session_id,
+            plugin: plugin_host_handle.clone(),
+            last_plugin_context: Default::default(),
+        },
+        delivery: observation_dispatch::WindowDelivery {
+            app: app_weak,
+            observer_id,
+            crop_editor: observed_crop_editor,
+            saved_video_filters: saved_video_filters.clone(),
+            saved_audio_filters: saved_audio_filters.clone(),
+            audio_device_sender: plugin_command_sender.clone(),
+            opening_fullscreen,
+            music_mode_state: music_mode_state.clone(),
+            transition_overlay: notify_transition_overlay,
+            #[cfg(target_os = "windows")]
+            transition_release_generation: notify_transition_release_generation,
+        },
         #[cfg(target_os = "macos")]
-        notify_picture_in_picture_state_dirty.store(true, Ordering::Release);
-        latest.publish(state);
-        if queued.swap(true, Ordering::AcqRel) {
-            return;
-        }
-        let latest = latest.clone();
-        let queued = queued.clone();
-        let weak = app_weak.clone();
-        let crop_editor = observed_crop_editor.clone();
-        let notify_saved_video_filters = notify_video_filter_settings.clone();
-        let notify_saved_audio_filters = notify_audio_filter_settings.clone();
-        let audio_device_sender = notify_audio_device_sender.clone();
-        let opening_fullscreen = opening_fullscreen.clone();
-        let music_mode_state = notify_music_mode_state.clone();
-        let transition_overlay = notify_transition_overlay.clone();
-        #[cfg(target_os = "windows")]
-        let transition_release_generation = notify_transition_release_generation.clone();
-        let _ = slint::invoke_from_event_loop(move || {
-            queued.store(false, Ordering::Release);
-            if let Some(app) = weak.upgrade()
-                && let Some(observer) = observer_id.lookup()
-                && let Some(playback_mailbox::Delivery { state, captures }) = latest.take()
-            {
-                let first_loaded = (!app.get_loaded()
-                    || observer.borrow().media_geometry.generation() != Some(state.generation))
-                    && matches!(
-                        state.phase,
-                        Phase::Playing | Phase::Paused | Phase::Buffering | Phase::Ended
-                    );
-                let enter_fullscreen = lock(&opening_fullscreen).observe(
-                    &state,
-                    app.get_fullscreen_when_open(),
-                    app.get_fullscreen(),
-                    false,
-                );
-                let clipboard_error = crate::screenshot_output::copy(&app, &captures);
-                crop_editor.observe(&app, &state);
-                let audio_device_sender = lock(&audio_device_sender).clone();
-                crate::automatic_music_mode::observe(&app, &state, &music_mode_state);
-                let resize_for_media = update_ui(
-                    &app,
-                    state,
-                    UiUpdateResources {
-                        audio_device_player: audio_device_sender.as_ref(),
-                        saved_video_filters: &notify_saved_video_filters,
-                        saved_audio_filters: &notify_saved_audio_filters,
-                        transition_overlay: transition_overlay.as_ref(),
-                        #[cfg(target_os = "windows")]
-                        transition_release_generation: transition_release_generation.as_ref(),
-                    },
-                    &mut observer.borrow_mut(),
-                );
-                if resize_for_media {
-                    // Apply the complete geometry after automatic music mode has
-                    // restored the video window. Coalesced snapshots may omit
-                    // Loading, so media identity owns this transition.
-                    app.invoke_resize_window_for_media();
-                }
-                if first_loaded {
-                    app.invoke_initial_media_loaded();
-                }
-                crate::screenshot_output::cleanup(&app, &captures);
-                if enter_fullscreen {
-                    app.invoke_toggle_fullscreen();
-                }
-                if let Some(error) = clipboard_error {
-                    app.set_status(format!("Could not copy screenshot: {error}").into());
-                }
-            }
-        });
+        picture_in_picture_state_dirty: picture_in_picture_state_dirty.clone(),
+        _screenshot_scratch: screenshot_scratch.clone(),
     };
+    let notify = move |state| notification.publish(state);
     let capture_transition_first = engine_start.captures_before_navigation(native.is_some());
     let (player, command_sender) = match engine_start.start(native.as_ref(), engine_options, notify)
     {
