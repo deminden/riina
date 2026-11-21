@@ -472,6 +472,11 @@ impl Drop for UiSession {
     }
 }
 
+struct SessionStartup {
+    engine: EngineStart,
+    media_geometry: crate::window_aspect::MediaGeometry,
+}
+
 pub(crate) fn configure_player(
     app: &PlayerWindow,
     native: Option<platform::NativePresentation>,
@@ -479,6 +484,7 @@ pub(crate) fn configure_player(
     welcome: Option<&WelcomeWindow>,
     startup_resume_position: Option<f64>,
     loaded: LoadedPreferences,
+    media_geometry: crate::window_aspect::MediaGeometry,
 ) -> Result<UiSession, Box<dyn std::error::Error>> {
     configure_with_engine(
         app,
@@ -487,7 +493,10 @@ pub(crate) fn configure_player(
         welcome,
         startup_resume_position,
         loaded,
-        EngineStart::Native,
+        SessionStartup {
+            engine: EngineStart::Native,
+            media_geometry,
+        },
     )
 }
 
@@ -502,7 +511,10 @@ fn configure_with_engine(
     welcome: Option<&WelcomeWindow>,
     startup_resume_position: Option<f64>,
     loaded: LoadedPreferences,
-    engine_start: EngineStart,
+    SessionStartup {
+        engine: engine_start,
+        media_geometry,
+    }: SessionStartup,
 ) -> Result<UiSession, Box<dyn std::error::Error>> {
     #[cfg(target_os = "linux")]
     {
@@ -858,7 +870,7 @@ fn configure_with_engine(
     let mut video_osd =
         crate::video_osd::VideoOsd::new(prefs.disable_osd_speed, prefs.disable_osd_pause_resume);
     video_osd.set_volume_limit(prefs.volume_limit());
-    let observer_state = observer_state::UiObserverState::new(video_osd);
+    let observer_state = observer_state::UiObserverState::new(video_osd, media_geometry);
     let feedback_video_osd = observer_state.video.clone();
     let observer_state = observer_state::ObserverRegistration::new(observer_state);
     let observer_id = observer_state.id();
@@ -938,8 +950,7 @@ fn configure_with_engine(
                 && let Some(playback_mailbox::Delivery { state, captures }) = latest.take()
             {
                 let first_loaded = (!app.get_loaded()
-                    || app.get_window_geometry_source().parse::<u64>().ok()
-                        != Some(state.generation))
+                    || observer.borrow().media_geometry.generation() != Some(state.generation))
                     && matches!(
                         state.phase,
                         Phase::Playing | Phase::Paused | Phase::Buffering | Phase::Ended

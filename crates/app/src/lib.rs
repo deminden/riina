@@ -149,7 +149,16 @@ unsafe fn run() -> Result<(), Box<dyn std::error::Error>> {
     if let Some(welcome) = welcome.as_ref() {
         crate::appearance_preferences::install_system_typography(welcome);
     }
-    let session = configure_player(&app, None, media, welcome.as_ref(), resume_position, loaded)?;
+    let media_geometry = window_aspect::MediaGeometry::default();
+    let session = configure_player(
+        &app,
+        None,
+        media,
+        welcome.as_ref(),
+        resume_position,
+        loaded,
+        media_geometry.clone(),
+    )?;
     player_manager.attach(
         &app,
         welcome.as_ref().map(|window| window.clone_strong()),
@@ -157,7 +166,7 @@ unsafe fn run() -> Result<(), Box<dyn std::error::Error>> {
     );
     #[cfg(target_os = "macos")]
     let application_menu_observer = platform::MacApplicationMenuObserver::new();
-    window_aspect::connect(&app);
+    window_aspect::connect(&app, &media_geometry);
     if let Some(welcome) = &welcome {
         platform::center_auxiliary_window(welcome, &app);
         welcome.show()?;

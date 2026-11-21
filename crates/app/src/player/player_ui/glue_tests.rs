@@ -33,12 +33,15 @@ impl Harness {
             None,
             None,
             loaded,
-            EngineStart::Recording {
-                engine: engine.clone(),
-                commands: commands.clone(),
-                profile: path,
-                capture_before_navigation,
-                startup_options: startup_options.clone(),
+            SessionStartup {
+                media_geometry: Default::default(),
+                engine: EngineStart::Recording {
+                    engine: engine.clone(),
+                    commands: commands.clone(),
+                    profile: path,
+                    capture_before_navigation,
+                    startup_options: startup_options.clone(),
+                },
             },
         )?;
         // These tests exercise subsequent application intents independently of startup.

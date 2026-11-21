@@ -11,14 +11,31 @@ use slint::{
     ComponentHandle, PhysicalPosition, PhysicalSize,
     winit_030::{EventResult, WinitWindowAccessor, winit},
 };
-use std::{
-    cell::{Cell, RefCell},
-    rc::Rc,
-    time::Duration,
-};
+#[cfg(target_os = "windows")]
+use std::cell::RefCell;
+use std::{cell::Cell, rc::Rc, time::Duration};
 
-pub(crate) fn connect(app: &PlayerWindow) {
-    let filter = connect_with_target(app, WindowTarget::Player, pixel_size(app.window().size()));
+/// Media identity for window sizing, shared by the playback observer and window owner.
+#[derive(Clone, Default)]
+pub(crate) struct MediaGeometry(Rc<Cell<Option<u64>>>);
+
+impl MediaGeometry {
+    pub(crate) fn generation(&self) -> Option<u64> {
+        self.0.get()
+    }
+
+    pub(crate) fn observe(&self, generation: u64) -> Option<u64> {
+        self.0.replace(Some(generation))
+    }
+}
+
+pub(crate) fn connect(app: &PlayerWindow, source: &MediaGeometry) {
+    let filter = connect_with_target(
+        app,
+        WindowTarget::Player,
+        pixel_size(app.window().size()),
+        source,
+    );
     app.window().on_winit_window_event(filter);
 }
 
@@ -28,11 +45,13 @@ pub(crate) fn connect(app: &PlayerWindow) {
 pub(crate) fn connect_to_native_host(
     app: &PlayerWindow,
     host: &NativeVideoHost,
+    source: &MediaGeometry,
 ) -> WindowEventFilter {
     connect_with_target(
         app,
         WindowTarget::NativeHost(host.as_weak()),
         pixel_size(host.window().size()),
+        source,
     )
 }
 
@@ -54,6 +73,7 @@ fn connect_with_target(
     app: &PlayerWindow,
     target: WindowTarget,
     initial_size: PixelSize,
+    source: &MediaGeometry,
 ) -> WindowEventFilter {
     let previous_size = Rc::new(Cell::new(initial_size));
     let action_target = target.clone();
@@ -232,7 +252,8 @@ fn connect_with_target(
 
     let aspect_resize_state = previous_size.clone();
     let aspect_pending = Rc::new(Cell::new(false));
-    let aspect_source = Rc::new(RefCell::new(None::<slint::SharedString>));
+    let aspect_source = Rc::new(Cell::new(None::<Option<u64>>));
+    let media_geometry = source.clone();
     let aspect_request_generation = Rc::new(Cell::new(app.get_media_request_generation()));
     let aspect_resize_allowed = Rc::new(Cell::new(true));
     let aspect_initial_state = initial_geometry_applied.clone();
@@ -243,6 +264,7 @@ fn connect_with_target(
             let action_target = action_target.clone();
             let aspect_resize_state = aspect_resize_state.clone();
             let aspect_source = aspect_source.clone();
+            let media_geometry = media_geometry.clone();
             let aspect_request_generation = aspect_request_generation.clone();
             let aspect_resize_allowed = aspect_resize_allowed.clone();
             let aspect_initial_state = aspect_initial_state.clone();
@@ -250,8 +272,8 @@ fn connect_with_target(
                 with_target_window(&action_target, &app, |window| {
                     let current = pixel_size(window.size());
                     aspect_resize_state.set(current);
-                    let source = app.get_window_geometry_source();
-                    if aspect_source.borrow().as_ref() != Some(&source) {
+                    let source = media_geometry.generation();
+                    if aspect_source.get() != Some(source) {
                         let timing = match crate::window_resize_preferences::from_player(&app) {
                             Ok(settings) => settings.timing,
                             Err(error) => {
@@ -273,7 +295,7 @@ fn connect_with_target(
                         let resize_allowed = resize_allowed
                             && windows_media_resize_applies(initial, manually_opened);
                         aspect_resize_allowed.set(resize_allowed);
-                        *aspect_source.borrow_mut() = Some(source);
+                        aspect_source.set(Some(source));
                         return;
                     }
                     if !aspect_lock_enabled(&app) || !aspect_resize_allowed.get() {
@@ -796,7 +818,18 @@ pub(crate) fn resize_centered(
 
 #[cfg(test)]
 mod tests {
-    use super::media_resize_applies;
+    use super::{MediaGeometry, media_resize_applies};
+
+    #[test]
+    fn window_geometry_owners_share_the_full_native_generation() {
+        let source = MediaGeometry::default();
+        let frames = source.clone();
+        let generation = (1_u64 << 53) + 1;
+        assert_eq!(frames.observe(generation), None);
+        assert_eq!(source.generation(), Some(generation));
+        assert_eq!(frames.observe(generation + 1), Some(generation));
+        assert_eq!(source.generation(), Some(generation + 1));
+    }
     use riina_core::window_resize::ResizeTiming;
 
     #[test]

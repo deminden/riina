@@ -44,6 +44,7 @@ pub(super) fn update_ui(
     observer: &mut UiObserverState,
 ) -> bool {
     let UiObserverState {
+        media_geometry,
         displayed,
         seek: last_seek,
         video: last_video,
@@ -122,8 +123,7 @@ pub(super) fn update_ui(
             }
         }
     }
-    let previous_generation = app.get_window_geometry_source().parse::<u64>().ok();
-    app.set_window_geometry_source(state.generation.to_string().into());
+    let previous_generation = media_geometry.observe(state.generation);
     {
         let settings = riina_core::sync::lock(resources.saved_video_filters);
         let active = state.video_filters.as_deref().unwrap_or_default();

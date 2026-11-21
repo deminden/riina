@@ -1432,7 +1432,6 @@ export component PlayerWindow inherits Window {
     in-out property <float> video-window-width: 0;
     in-out property <float> video-window-height: 0;
     in-out property <int> video-window-rotation: 0;
-    in property <string> window-geometry-source: "";
     in-out property <int> window-size-adjusted-event: 0;
     changed always-float-on-top => { root.window-level-changed(); root.video-menu-changed(); }
     in-out property <bool> edge-to-edge-video: true;

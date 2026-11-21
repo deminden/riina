@@ -191,14 +191,22 @@ fn open_player(
     }
     let app = PlayerWindow::new().map_err(|error| error.to_string())?;
     app.set_native_video(false);
-    let session =
-        crate::player_ui::configure_player(&app, None, selected, None, resume_position, loaded)
-            .map_err(|error| error.to_string())?;
+    let media_geometry = crate::window_aspect::MediaGeometry::default();
+    let session = crate::player_ui::configure_player(
+        &app,
+        None,
+        selected,
+        None,
+        resume_position,
+        loaded,
+        media_geometry.clone(),
+    )
+    .map_err(|error| error.to_string())?;
     let manager = PlayerManager {
         state: state.clone(),
     };
     let id = manager.attach(&app, None, session);
-    crate::window_aspect::connect(&app);
+    crate::window_aspect::connect(&app, &media_geometry);
     if let Err(error) = app.show() {
         close_player(state, id, false);
         return Err(error.to_string());
@@ -307,13 +315,21 @@ fn show_welcome(state: &Rc<RefCell<ManagerState>>) -> Result<(), Box<dyn std::er
     let welcome = WelcomeWindow::new()?;
     crate::appearance_preferences::install_system_typography(&welcome);
     let loaded = crate::preference_load::load(&crate::platform::preferences_path()?)?;
-    let session =
-        crate::player_ui::configure_player(&app, None, Vec::new(), Some(&welcome), None, loaded)?;
+    let media_geometry = crate::window_aspect::MediaGeometry::default();
+    let session = crate::player_ui::configure_player(
+        &app,
+        None,
+        Vec::new(),
+        Some(&welcome),
+        None,
+        loaded,
+        media_geometry.clone(),
+    )?;
     let manager = PlayerManager {
         state: state.clone(),
     };
     manager.attach(&app, Some(welcome.clone_strong()), session);
-    crate::window_aspect::connect(&app);
+    crate::window_aspect::connect(&app, &media_geometry);
     crate::platform::center_auxiliary_window(&welcome, &app);
     welcome.show()?;
     crate::platform::enable_welcome_mica(&welcome);

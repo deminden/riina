@@ -417,8 +417,9 @@ pub fn run(
             }
             // Slint stores one event hook per window. Return the aspect filter
             // to our owner router so it cannot replace alignment/focus handling.
+            let media_geometry = crate::window_aspect::MediaGeometry::default();
             *startup_resize_filter.borrow_mut() =
-                Some(crate::window_aspect::connect_to_native_host(&app, &host));
+                Some(crate::window_aspect::connect_to_native_host(&app, &host, &media_geometry));
             let menu_handle = presentation.owner_handle();
             *startup_menu_lifecycle.borrow_mut() = Some(
                 super::menu_focus::MenuFocus::install(
@@ -468,6 +469,7 @@ pub fn run(
                 welcome.as_ref(),
                 resume_position,
                 loaded,
+                media_geometry,
             )?;
             startup_center_pending.set(!app.get_initial_window_position_enabled());
             let commands = configured

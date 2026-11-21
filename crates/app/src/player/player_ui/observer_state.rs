@@ -17,6 +17,7 @@ thread_local! {
 }
 
 pub(super) struct UiObserverState {
+    pub(super) media_geometry: crate::window_aspect::MediaGeometry,
     pub(super) displayed: Option<Arc<Playback>>,
     pub(super) seek: SeekOsd,
     pub(super) video: Rc<RefCell<VideoOsd>>,
@@ -24,8 +25,12 @@ pub(super) struct UiObserverState {
 }
 
 impl UiObserverState {
-    pub(super) fn new(video: VideoOsd) -> Self {
+    pub(super) fn new(
+        video: VideoOsd,
+        media_geometry: crate::window_aspect::MediaGeometry,
+    ) -> Self {
         Self {
+            media_geometry,
             displayed: None,
             seek: SeekOsd::default(),
             video: Rc::new(RefCell::new(video)),
@@ -79,7 +84,7 @@ mod tests {
 
     #[test]
     fn each_session_owns_its_observations_and_late_delivery_is_ignored() {
-        let state = || UiObserverState::new(VideoOsd::new(false, false));
+        let state = || UiObserverState::new(VideoOsd::new(false, false), Default::default());
         let first = ObserverRegistration::new(state());
         let second = ObserverRegistration::new(state());
         let first_id = first.id();
