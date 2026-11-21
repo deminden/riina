@@ -45,7 +45,7 @@ use crate::{
     MenuCatalogRow, PlayerWindow, RecentMediaRow, WelcomeWindow, media_open, platform,
     preference_load::LoadedPreferences, preferences::model::PreferenceModel,
 };
-use riina_core::{Command, Phase, Playback, Preferences, TrackKind, sync::lock, time_label};
+use riina_core::{Command, Phase, Playback, Preferences, sync::lock, time_label};
 use riina_mpv::Player;
 use slint::{ComponentHandle, winit_030::WinitWindowAccessor};
 use std::{
@@ -98,42 +98,6 @@ mod help_menu_tests {
     }
 }
 
-fn queue_playlist_navigation(
-    sender: &riina_mpv::CommandSender,
-    pending: &PendingNavigation,
-    command: Command,
-    capture_transition_first: bool,
-) {
-    if !capture_transition_first {
-        if let Err(error) = sender.send(command) {
-            crate::diagnostics::warn!("Could not navigate the playlist: {error}");
-        }
-        return;
-    }
-
-    let needs_capture = {
-        let mut pending = pending.borrow_mut();
-        if let Some((commands, _)) = pending.as_mut() {
-            commands.push(command);
-            false
-        } else {
-            *pending = Some((vec![command], Instant::now()));
-            true
-        }
-    };
-    if needs_capture && let Err(error) = sender.send(Command::CaptureTransitionFrame) {
-        let commands = pending.borrow_mut().take().map(|(commands, _)| commands);
-        crate::diagnostics::warn!("Could not capture the outgoing video frame: {error}");
-        if let Some(commands) = commands {
-            for command in commands {
-                if let Err(error) = sender.send(command) {
-                    crate::diagnostics::warn!("Could not navigate the playlist: {error}");
-                }
-            }
-        }
-    }
-}
-
 pub(crate) fn reorder_all_open_plugin_menus(order: &[String]) {
     let windows = input::open_player_windows();
     let model = slint::ModelRc::new(slint::VecModel::from(
@@ -174,22 +138,6 @@ fn set_native_video_host_visible(
     // lifetime. Toggle the OS surface directly so Slint does not keep it shown.
     host.window()
         .with_winit_window(|window| window.set_visible(visible));
-}
-
-fn refresh_video_menu(app: &PlayerWindow) {
-    // Native check items toggle before dispatch. A no-op or rejected command
-    // cannot dirty the observed selection, so renew the model identity to make
-    // Slint rebuild the menu from confirmed state rather than that local toggle.
-    app.set_video_crop_menu_labels(slint::ModelRc::new(slint::VecModel::from(
-        riina_core::crop::MENU_LABELS
-            .map(slint::SharedString::from)
-            .to_vec(),
-    )));
-    app.set_video_aspect_menu_labels(slint::ModelRc::new(slint::VecModel::from(
-        riina_core::video_controls::ASPECT_MENU_PRESETS
-            .map(slint::SharedString::from)
-            .to_vec(),
-    )));
 }
 
 fn recent_media_rows(media: &[riina_core::RecentMedia]) -> Vec<RecentMediaRow> {
@@ -857,81 +805,21 @@ fn configure_with_engine(
     });
     crate::window_controls::install(app, native.as_ref().map(platform::NativePresentation::host));
     crop_editor.install(app, command_sender.clone());
-    let reflection_player = command_sender.clone();
-    let weak = app.as_weak();
-    app.on_toggle_video_reflection(move |horizontal| {
-        if let Some(app) = weak.upgrade() {
-            refresh_video_menu(&app);
-            if !app.get_loaded()
-                || !app.get_reflection_known()
-                || app.get_crop_editing()
-                || app.get_dialog_open()
-            {
-                return;
-            }
-            let axis = if horizontal {
-                riina_core::video_reflection::Axis::Horizontal
-            } else {
-                riina_core::video_reflection::Axis::Vertical
-            };
-            if let Err(error) = reflection_player.send(Command::ToggleVideoReflection(axis)) {
-                app.set_status(error.into());
-            }
-        }
-    });
+    video_controls::install_reflection(app, &command_sender);
     feedback::install(app, &command_sender, screenshot_scratch, feedback_video_osd);
-    let deinterlace_player = command_sender.clone();
-    let weak = app.as_weak();
-    app.on_toggle_deinterlace(move || {
-        let Some(app) = weak.upgrade() else { return };
-        refresh_video_menu(&app);
-        if !app.get_loaded()
-            || !app.get_deinterlace_known()
-            || app.get_crop_editing()
-            || app.get_dialog_open()
-        {
-            return;
-        }
-        app.invoke_activity();
-        if let Err(error) = deinterlace_player.send(Command::ToggleDeinterlace) {
-            app.set_status(error.into());
-        }
-    });
+    video_controls::install_deinterlace(app, &command_sender);
     transport::install_pause(app, &context);
     input::install_mpv_input_action(app, &context);
     bind!(context, app, on_toggle_mute, Command::ToggleMute);
     let hdr_player = command_sender.clone();
     hdr_output::install(app, move |command| hdr_player.send(command));
     transport::install_stop_and_steps(app, &context);
-    let playlist_navigation_sender = command_sender.clone();
-    let sender = playlist_navigation_sender.clone();
-    let pending = pending_navigation.clone();
-    let weak = app.as_weak();
-    app.on_playlist_next(move || {
-        if let Some(app) = weak.upgrade() {
-            app.invoke_activity();
-        }
-        queue_playlist_navigation(
-            &sender,
-            &pending,
-            Command::PlaylistNext,
-            capture_transition_first,
-        );
-    });
-    let sender = playlist_navigation_sender.clone();
-    let pending = pending_navigation.clone();
-    let weak = app.as_weak();
-    app.on_playlist_previous(move || {
-        if let Some(app) = weak.upgrade() {
-            app.invoke_activity();
-        }
-        queue_playlist_navigation(
-            &sender,
-            &pending,
-            Command::PlaylistPrevious,
-            capture_transition_first,
-        );
-    });
+    playlist_actions::install_navigation(
+        app,
+        &command_sender,
+        &pending_navigation,
+        capture_transition_first,
+    );
     transport::install_speed(app, &context);
     video_controls::install(app, &command_sender);
     bind!(
@@ -950,69 +838,15 @@ fn configure_with_engine(
         on_toggle_secondary_subtitle_visibility,
         Command::ToggleSecondarySubtitleVisibility
     );
-    bind!(
-        context,
-        app,
-        on_cycle_audio_track,
-        Command::CycleTrack(TrackKind::Audio)
-    );
-    bind!(
-        context,
-        app,
-        on_cycle_subtitle_track,
-        Command::CycleTrack(TrackKind::Sub)
-    );
-    bind!(
-        context,
-        app,
-        on_cycle_video_track,
-        Command::CycleTrack(TrackKind::Video)
-    );
-    let audio_device_player = command_sender.clone();
-    let audio_device_state = latest_playback.clone();
-    let audio_device_app = app.as_weak();
-    app.on_set_audio_device(move |device| {
-        let Some(app) = audio_device_app.upgrade() else {
-            return;
-        };
-        let device = device.to_string();
-        let available = lock(&audio_device_state)
-            .audio_devices
-            .iter()
-            .any(|available| available.name == device);
-        if !available {
-            app.set_status("That audio device is no longer available".into());
-            return;
-        }
-        app.invoke_activity();
-        if let Err(error) = audio_device_player.send(Command::AudioDevice(device)) {
-            app.set_status(error.into());
-        }
-    });
+    catalog::install_track_cycles(app, &context);
+    audio_controls::install_audio_device(app, &command_sender, &latest_playback);
     bind!(
         context,
         app,
         on_toggle_subtitle_visibility,
         Command::ToggleSubtitleVisibility
     );
-    let subtitle_encoding_player = command_sender.clone();
-    let weak = app.as_weak();
-    app.on_set_subtitle_encoding(move |encoding| {
-        let Some(app) = weak.upgrade() else { return };
-        let encoding = encoding.to_string();
-        if !riina_core::subtitle_controls::SUBTITLE_ENCODING_CHOICES
-            .iter()
-            .any(|(_, code)| *code == encoding.as_str())
-        {
-            app.set_status("Unsupported subtitle encoding".into());
-            return;
-        }
-        app.invoke_activity();
-        match subtitle_encoding_player.send(Command::SubtitleEncoding(encoding.clone())) {
-            Ok(()) => app.set_subtitle_default_encoding(encoding.into()),
-            Err(error) => app.set_status(error.into()),
-        }
-    });
+    subtitle_controls::install_encoding(app, &command_sender);
     catalog::install_catalog_selection(app, &context);
     delays::install_sliders(app, &command_sender);
     playlist_actions::install(

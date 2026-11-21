@@ -156,3 +156,24 @@ pub(super) fn install(app: &PlayerWindow, player: &CommandSender) {
         }
     });
 }
+
+pub(super) fn install_encoding(app: &PlayerWindow, player: &CommandSender) {
+    let subtitle_encoding_player = player.clone();
+    let weak = app.as_weak();
+    app.on_set_subtitle_encoding(move |encoding| {
+        let Some(app) = weak.upgrade() else { return };
+        let encoding = encoding.to_string();
+        if !riina_core::subtitle_controls::SUBTITLE_ENCODING_CHOICES
+            .iter()
+            .any(|(_, code)| *code == encoding.as_str())
+        {
+            app.set_status("Unsupported subtitle encoding".into());
+            return;
+        }
+        app.invoke_activity();
+        match subtitle_encoding_player.send(Command::SubtitleEncoding(encoding.clone())) {
+            Ok(()) => app.set_subtitle_default_encoding(encoding.into()),
+            Err(error) => app.set_status(error.into()),
+        }
+    });
+}

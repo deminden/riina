@@ -1,5 +1,5 @@
 //! Project saved preferences before installing playback handlers.
-use super::{recent_open_menu_rows, refresh_video_menu, refresh_welcome_history};
+use super::{recent_open_menu_rows, refresh_welcome_history, video_controls::refresh_video_menu};
 use crate::{PlayerWindow, WelcomeWindow};
 use riina_core::{Preferences, RecentMedia};
 use std::{cell::RefCell, path::Path, rc::Rc};

@@ -5,13 +5,13 @@ use super::{
         install_playlist_selection, playlist_paste_index, selected_playlist_ids,
         selected_playlist_paths,
     },
-    queue_playlist_navigation, show_osd_message,
+    show_osd_message,
 };
 use crate::PlayerWindow;
 use riina_core::Command;
 use riina_mpv::CommandSender;
 use slint::{ComponentHandle, Model};
-use std::{cell::RefCell, rc::Rc};
+use std::{cell::RefCell, rc::Rc, time::Instant};
 
 pub(super) fn install(
     app: &PlayerWindow,
@@ -303,5 +303,77 @@ fn install_selection(app: &PlayerWindow, command_sender: &CommandSender) {
                 app.set_status(error.into());
             }
         }
+    });
+}
+
+fn queue_playlist_navigation(
+    sender: &riina_mpv::CommandSender,
+    pending: &PendingNavigation,
+    command: Command,
+    capture_transition_first: bool,
+) {
+    if !capture_transition_first {
+        if let Err(error) = sender.send(command) {
+            crate::diagnostics::warn!("Could not navigate the playlist: {error}");
+        }
+        return;
+    }
+
+    let needs_capture = {
+        let mut pending = pending.borrow_mut();
+        if let Some((commands, _)) = pending.as_mut() {
+            commands.push(command);
+            false
+        } else {
+            *pending = Some((vec![command], Instant::now()));
+            true
+        }
+    };
+    if needs_capture && let Err(error) = sender.send(Command::CaptureTransitionFrame) {
+        let commands = pending.borrow_mut().take().map(|(commands, _)| commands);
+        crate::diagnostics::warn!("Could not capture the outgoing video frame: {error}");
+        if let Some(commands) = commands {
+            for command in commands {
+                if let Err(error) = sender.send(command) {
+                    crate::diagnostics::warn!("Could not navigate the playlist: {error}");
+                }
+            }
+        }
+    }
+}
+
+pub(super) fn install_navigation(
+    app: &PlayerWindow,
+    player: &CommandSender,
+    pending_navigation: &PendingNavigation,
+    capture_transition_first: bool,
+) {
+    let sender = player.clone();
+    let pending = pending_navigation.clone();
+    let weak = app.as_weak();
+    app.on_playlist_next(move || {
+        if let Some(app) = weak.upgrade() {
+            app.invoke_activity();
+        }
+        queue_playlist_navigation(
+            &sender,
+            &pending,
+            Command::PlaylistNext,
+            capture_transition_first,
+        );
+    });
+    let sender = player.clone();
+    let pending = pending_navigation.clone();
+    let weak = app.as_weak();
+    app.on_playlist_previous(move || {
+        if let Some(app) = weak.upgrade() {
+            app.invoke_activity();
+        }
+        queue_playlist_navigation(
+            &sender,
+            &pending,
+            Command::PlaylistPrevious,
+            capture_transition_first,
+        );
     });
 }

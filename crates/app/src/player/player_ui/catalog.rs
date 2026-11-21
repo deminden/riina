@@ -422,6 +422,27 @@ pub(super) fn current_chapter(state: &Playback) -> Option<usize> {
     })
 }
 
+pub(super) fn install_track_cycles(app: &PlayerWindow, context: &PlayerContext) {
+    bind!(
+        context,
+        app,
+        on_cycle_audio_track,
+        Command::CycleTrack(TrackKind::Audio)
+    );
+    bind!(
+        context,
+        app,
+        on_cycle_subtitle_track,
+        Command::CycleTrack(TrackKind::Sub)
+    );
+    bind!(
+        context,
+        app,
+        on_cycle_video_track,
+        Command::CycleTrack(TrackKind::Video)
+    );
+}
+
 #[cfg(test)]
 mod audio_device_menu_tests {
     use super::{audio_device_menu_rows, should_fallback_removed_audio_device};

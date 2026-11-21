@@ -1,5 +1,4 @@
 //! Video geometry, decoder and equalizer actions use validated typed intents.
-use super::refresh_video_menu;
 use crate::PlayerWindow;
 use riina_core::Command;
 use riina_mpv::CommandSender;
@@ -189,6 +188,67 @@ pub(super) fn install(app: &PlayerWindow, player: &CommandSender) {
             }) {
                 app.set_status(error.into());
             }
+        }
+    });
+}
+
+pub(super) fn refresh_video_menu(app: &PlayerWindow) {
+    // Native check items toggle before dispatch. A no-op or rejected command
+    // cannot dirty the observed selection, so renew the model identity to make
+    // Slint rebuild the menu from confirmed state rather than that local toggle.
+    app.set_video_crop_menu_labels(slint::ModelRc::new(slint::VecModel::from(
+        riina_core::crop::MENU_LABELS
+            .map(slint::SharedString::from)
+            .to_vec(),
+    )));
+    app.set_video_aspect_menu_labels(slint::ModelRc::new(slint::VecModel::from(
+        riina_core::video_controls::ASPECT_MENU_PRESETS
+            .map(slint::SharedString::from)
+            .to_vec(),
+    )));
+}
+
+pub(super) fn install_reflection(app: &PlayerWindow, player: &CommandSender) {
+    let reflection_player = player.clone();
+    let weak = app.as_weak();
+    app.on_toggle_video_reflection(move |horizontal| {
+        if let Some(app) = weak.upgrade() {
+            refresh_video_menu(&app);
+            if !app.get_loaded()
+                || !app.get_reflection_known()
+                || app.get_crop_editing()
+                || app.get_dialog_open()
+            {
+                return;
+            }
+            let axis = if horizontal {
+                riina_core::video_reflection::Axis::Horizontal
+            } else {
+                riina_core::video_reflection::Axis::Vertical
+            };
+            if let Err(error) = reflection_player.send(Command::ToggleVideoReflection(axis)) {
+                app.set_status(error.into());
+            }
+        }
+    });
+}
+
+pub(super) fn install_deinterlace(app: &PlayerWindow, player: &CommandSender) {
+    let deinterlace_player = player.clone();
+    let weak = app.as_weak();
+    app.on_toggle_deinterlace(move || {
+        let Some(app) = weak.upgrade() else { return };
+        refresh_video_menu(&app);
+        if !app.get_loaded()
+            || !app.get_deinterlace_known()
+            || app.get_crop_editing()
+            || app.get_dialog_open()
+        {
+            return;
+        }
+        app.invoke_activity();
+        if let Err(error) = deinterlace_player.send(Command::ToggleDeinterlace) {
+            app.set_status(error.into());
         }
     });
 }
