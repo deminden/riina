@@ -500,6 +500,20 @@ checks after extracting host events and then assigning ownership to `NativeApp`.
 The separate-desktop runs took 9.149 s and 9.331 s, respectively, and each player
 exited. `ee3ce7a` also passed the 53 pinned-libmpv playback tests with null audio.
 
+`d6c0916` and `9929e0a` passed the same ten native-window checks. The locked
+`9929e0a` build also started with `--shared-gl` on an isolated Windows desktop.
+The fixture's playback position advanced from 0.250 s to 0.583 s, and mpv
+saved a 320×180 decoded frame through its test-local IPC pipe. Closing that
+exact window exited normally and the engine worker joined. The input desktop
+stayed unchanged. The decoded frame is evidence for playback, while physical
+presentation remains open.
+
+The shared-video adapter at `9929e0a` passed strict Clippy targeting
+`aarch64-apple-darwin` in the isolated source probe. It used the actual renderer,
+AVKit Picture-in-Picture code and libmpv crate, with stubs for Slint and native
+display-profile access. A full macOS build, presentation and lifecycle check
+remain open.
+
 ## Linux x64 Settings refactor checks 2026-11-21
 
 An exact `da50ecd` checkout in WSL completed strict Clippy, 803 workspace tests,
