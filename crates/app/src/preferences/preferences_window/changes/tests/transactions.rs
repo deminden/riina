@@ -328,7 +328,10 @@ fn advanced_edits_report_that_the_player_must_restart() {
 #[test]
 fn audio_engine_edits_report_that_the_player_must_restart() {
     let transaction = Transaction::new();
-    transaction.window.set_audio_threads_text("3".into());
+    transaction
+        .window
+        .global::<crate::AudioSettingsState>()
+        .set_audio_threads_text("3".into());
     assert_eq!(
         transaction.apply(),
         [transaction.expected_subtitle_reload()]
@@ -518,7 +521,10 @@ fn mixed_invalid_edit_reverses_the_live_volume_command_before_returning() {
 #[test]
 fn saving_a_session_retains_committed_preferences_and_updates_runtime_volume() {
     let transaction = Transaction::new();
-    transaction.window.set_audio_threads_text("3".into());
+    transaction
+        .window
+        .global::<crate::AudioSettingsState>()
+        .set_audio_threads_text("3".into());
     transaction.window.set_thumbnail_preview_enabled(false);
     assert_eq!(
         transaction.apply(),

@@ -101,7 +101,7 @@ fn move_caret_to_end(app: &PlayerWindow) {
     }
 }
 
-fn delay_submissions(app: &PlayerWindow) -> Rc<RefCell<Vec<(i32, String)>>> {
+fn delay_submissions(app: &PlayerWindow) -> Rc<RefCell<Vec<(DelayLane, String)>>> {
     let submissions = Rc::new(RefCell::new(Vec::new()));
     let recorded = submissions.clone();
     app.on_set_delay_text(move |lane, text| {
@@ -124,7 +124,7 @@ fn controller_hide_keeps_delay_focus_and_return_submits_once() {
     key(&app, "5");
     assert_eq!(input.accessible_value().unwrap(), "0.75");
     key(&app, Key::Return);
-    assert_eq!(&*submissions.borrow(), &[(1, "0.75".into())]);
+    assert_eq!(&*submissions.borrow(), &[(DelayLane::Audio, "0.75".into())]);
 }
 
 #[test]
@@ -171,7 +171,10 @@ fn changing_subtitle_lane_discards_its_draft_before_secondary_submission() {
     focus(&app, &secondary);
     secondary.set_accessible_value("-0.25");
     key(&app, Key::Return);
-    assert_eq!(&*submissions.borrow(), &[(5, "-0.25".into())]);
+    assert_eq!(
+        &*submissions.borrow(),
+        &[(DelayLane::SecondarySubtitle, "-0.25".into())]
+    );
 }
 
 #[test]
@@ -189,7 +192,13 @@ fn empty_submit_resets_and_invalid_submit_remains_editable_until_cancelled() {
     assert_eq!(input.accessible_value().unwrap(), "bad");
     key(&app, Key::Escape);
     assert_eq!(input.accessible_value().unwrap(), "0");
-    assert_eq!(&*submissions.borrow(), &[(1, "".into()), (1, "bad".into())]);
+    assert_eq!(
+        &*submissions.borrow(),
+        &[
+            (DelayLane::Audio, "".into()),
+            (DelayLane::Audio, "bad".into())
+        ]
+    );
 }
 
 #[test]
@@ -200,7 +209,10 @@ fn tab_commits_a_dirty_field_once() {
     focus(&app, &input);
     input.set_accessible_value("-1.25");
     key(&app, Key::Tab);
-    assert_eq!(&*submissions.borrow(), &[(1, "-1.25".into())]);
+    assert_eq!(
+        &*submissions.borrow(),
+        &[(DelayLane::Audio, "-1.25".into())]
+    );
 }
 
 #[test]
@@ -388,14 +400,14 @@ fn reverse_tab_leaves_the_editor_for_its_slider_and_commits_once() {
         text: Key::Shift.into(),
     });
     key(&app, Key::RightArrow);
-    assert_eq!(&*submissions.borrow(), &[(1, "0.75".into())]);
+    assert_eq!(&*submissions.borrow(), &[(DelayLane::Audio, "0.75".into())]);
     let changes = slider_changes.borrow();
     assert_eq!(
         changes.len(),
         1,
         "Reverse Tab must focus the preceding slider"
     );
-    assert_eq!(changes[0].0, 1);
+    assert_eq!(changes[0].0, DelayLane::Audio);
     assert!((changes[0].1 - 0.05).abs() < 0.0001);
 }
 
@@ -486,7 +498,7 @@ fn menu_return_keeps_the_active_editor_draft_and_submission_scope() {
     key(&app, "5");
     assert_eq!(input.accessible_value().unwrap(), "0.75");
     key(&app, Key::Return);
-    assert_eq!(&*submissions.borrow(), &[(1, "0.75".into())]);
+    assert_eq!(&*submissions.borrow(), &[(DelayLane::Audio, "0.75".into())]);
 }
 
 #[test]

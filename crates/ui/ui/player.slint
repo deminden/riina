@@ -29,11 +29,13 @@ export { NativeVideoHost, MenuCatalogRow, PluginMenuRow, SavedFilterMenuRow, Men
 export { NativeTypography, AuxiliaryPalette } from "shared-controls.slint";
 export { PictureInPictureWindow } from "pip-window.slint";
 export { FontPicker } from "font-picker.slint";
-export { PreferencesWindow, VideoSettingsState } from "preferences.slint";
+export { AudioSettingsState, PreferencesWindow, VideoSettingsState } from "preferences.slint";
 export { OnlineSubtitlesWindow } from "online-subtitles.slint";
 export { PlaybackHistoryWindow, PlaybackHistoryRow } from "history-window.slint";
 export { LogViewerWindow, LogViewerRow } from "log-viewer.slint";
 export { VideoFiltersWindow, VideoFilterWindowRow, VideoFilterParameterRow } from "video-filters-window.slint";
+
+export enum DelayLane { audio, primary-subtitle, secondary-subtitle }
 
 export component PlayerWindow inherits Window {
     default-font-family: NativeTypography.system-font-family;
@@ -1289,8 +1291,8 @@ export component PlayerWindow inherits Window {
     };
 
     callback browse-files(int);
-    callback set-delay(int, float);
-    callback set-delay-text(int, string) -> bool;
+    callback set-delay(DelayLane, float);
+    callback set-delay-text(DelayLane, string) -> bool;
     callback preview-audio-delay(float);
     callback toggle-subtitle-visibility();
     callback playlist-action(int, string);
@@ -1701,14 +1703,14 @@ export component PlayerWindow inherits Window {
                                         ? root.audio-delay-preview-text : root.audio-delay-text) + "s";
                                     hint: "Audio delay";
                                     draft-changed(value) => { root.preview-audio-delay(value); }
-                                    changed(value) => { root.set-delay(1, round(value * 20) / 20); }
-                                    committed(value) => { root.set-delay(1, round(value * 20) / 20); } }
+                                    changed(value) => { root.set-delay(DelayLane.audio, round(value * 20) / 20); }
+                                    committed(value) => { root.set-delay(DelayLane.audio, round(value * 20) / 20); } }
                                 QuickSettingsInput { accent-color: root.interactive-accent-color; dark-theme: root.dark-theme;
                                     windows-acrylic-surface: root.windows-sidebar-material-active;
                                     observed-value: audio-delay-slider.previewing
                                         ? root.audio-delay-preview-text : root.audio-delay-text;
                                     enabled: root.loaded; hint: "Audio delay in seconds";
-                                    committed(text) => { return root.set-delay-text(1, text); }
+                                    committed(text) => { return root.set-delay-text(DelayLane.audio, text); }
                                     editing-finished => { keys.focus(); } }
                             }
                             HorizontalLayout { height: 12px; spacing: 8px;
@@ -2184,7 +2186,7 @@ export component PlayerWindow inherits Window {
                                         enabled: root.loaded && (!root.edit-secondary-subtitle || root.secondary-subtitle-delay-known);
                                         windows-acrylic-surface: root.windows-sidebar-material-active;
                                         activated => {
-                                            if root.edit-secondary-subtitle { root.set-delay(5, 0); }
+                                            if root.edit-secondary-subtitle { root.set-delay(DelayLane.secondary-subtitle, 0); }
                                             else { root.reset-subtitle-delay(); }
                                         } }
                                 }
@@ -2194,7 +2196,7 @@ export component PlayerWindow inherits Window {
                                         value: root.edit-secondary-subtitle ? root.secondary-subtitle-delay : root.subtitle-delay;
                                         enabled: root.loaded && (!root.edit-secondary-subtitle || root.secondary-subtitle-delay-known);
                                         hint: root.edit-secondary-subtitle ? "Secondary subtitle delay" : "Subtitle delay";
-                                        changed(value) => { root.set-delay(root.edit-secondary-subtitle ? 5 : 2, value); } }
+                                        changed(value) => { root.set-delay(root.edit-secondary-subtitle ? DelayLane.secondary-subtitle : DelayLane.primary-subtitle, value); } }
                                     QuickSettingsInput { accent-color: root.interactive-accent-color;
                                         dark-theme: root.dark-theme;
                                         windows-acrylic-surface: root.windows-sidebar-material-active;
@@ -2204,7 +2206,7 @@ export component PlayerWindow inherits Window {
                                         enabled: root.loaded && (!root.edit-secondary-subtitle || root.secondary-subtitle-delay-known);
                                         hint: root.edit-secondary-subtitle ? "Secondary subtitle delay in seconds" : "Subtitle delay in seconds";
                                         committed(text) => {
-                                            return root.set-delay-text(root.edit-secondary-subtitle ? 5 : 2, text);
+                                            return root.set-delay-text(root.edit-secondary-subtitle ? DelayLane.secondary-subtitle : DelayLane.primary-subtitle, text);
                                         }
                                         editing-finished => { keys.focus(); } }
                                 }

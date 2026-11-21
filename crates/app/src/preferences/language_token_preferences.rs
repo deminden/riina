@@ -1,6 +1,6 @@
 //! Ordered language tokens keep the settings editor and mpv CSV preferences in sync.
 
-use crate::PreferencesWindow;
+use crate::{AudioSettingsState, PreferencesWindow};
 use slint::{ComponentHandle, ModelRc, SharedString, VecModel};
 
 fn parse(value: &str) -> Vec<String> {
@@ -57,8 +57,9 @@ fn apply_subtitle(window: &PreferencesWindow, value: String) {
 }
 
 fn apply_audio(window: &PreferencesWindow, value: String) {
-    window.set_audio_preferred_languages(value.clone().into());
-    window.set_audio_language_tokens(model(&value));
+    let audio = window.global::<AudioSettingsState>();
+    audio.set_audio_preferred_languages(value.clone().into());
+    audio.set_audio_language_tokens(model(&value));
 }
 
 pub(crate) fn connect(window: &PreferencesWindow) {
@@ -90,7 +91,10 @@ pub(crate) fn connect(window: &PreferencesWindow) {
     window.on_add_audio_language_token(move |entry| {
         let Some(window) = weak.upgrade() else { return };
         let Some(value) = add(
-            window.get_audio_preferred_languages().as_str(),
+            window
+                .global::<AudioSettingsState>()
+                .get_audio_preferred_languages()
+                .as_str(),
             entry.as_str(),
         ) else {
             return;
@@ -101,7 +105,13 @@ pub(crate) fn connect(window: &PreferencesWindow) {
     let weak = window.as_weak();
     window.on_remove_audio_language_token(move |index| {
         let Some(window) = weak.upgrade() else { return };
-        let Some(value) = remove(window.get_audio_preferred_languages().as_str(), index) else {
+        let Some(value) = remove(
+            window
+                .global::<AudioSettingsState>()
+                .get_audio_preferred_languages()
+                .as_str(),
+            index,
+        ) else {
             return;
         };
         apply_audio(&window, value);
@@ -114,7 +124,9 @@ pub(crate) fn install_subtitle(window: &PreferencesWindow, value: &str) {
 }
 
 pub(crate) fn install_audio(window: &PreferencesWindow, value: &str) {
-    window.set_audio_language_tokens(model(value));
+    window
+        .global::<AudioSettingsState>()
+        .set_audio_language_tokens(model(value));
 }
 
 #[cfg(test)]

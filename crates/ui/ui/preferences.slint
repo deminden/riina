@@ -8,6 +8,7 @@ import { GeneralPreferencesPage } from "preferences-general.slint";
 import { AdvancedPreferencesPage } from "preferences-advanced.slint";
 import { ControlPreferencesPage } from "preferences-control.slint";
 import { AudioPreferencesPage } from "preferences-audio.slint";
+export { AudioSettingsState } from "preferences-audio.slint";
 import { VideoPreferencesPage, VideoSettingsState } from "preferences-video.slint";
 export { VideoSettingsState } from "preferences-video.slint";
 import { UtilitiesPreferencesPage, DefaultAppDialog } from "preferences-utilities.slint";
@@ -298,29 +299,6 @@ export component PreferencesWindow inherits Window {
     in-out property <string> subtitle-spacing-text: "0";
     in-out property <bool> subtitle-text-advanced-expanded: false;
     in-out property <bool> volume-boost: false;
-    in-out property <string> audio-threads-text: "0";
-    in-out property <int> audio-driver-index: 0;
-    in property <[string]> audio-driver-options;
-    in-out property <int> audio-device-index: 0;
-    in property <[string]> audio-device-options;
-    in property <[string]> audio-device-names;
-    in property <[string]> audio-device-descriptions;
-    in-out property <bool> audio-spdif-ac3: false;
-    in-out property <bool> audio-spdif-dts: false;
-    in-out property <bool> audio-spdif-dts-hd: false;
-    in-out property <bool> audio-spdif-eac3: false;
-    in-out property <bool> audio-spdif-truehd: false;
-    in-out property <bool> audio-initial-volume-enabled: false;
-    in-out property <string> audio-initial-volume-text: "100";
-    in-out property <int> audio-replay-gain-index: 0;
-    in property <[string]> audio-replay-gain-options;
-    in-out property <string> audio-replay-gain-preamp-text: "0";
-    in-out property <bool> audio-replay-gain-clip: false;
-    in-out property <string> audio-replay-gain-fallback-text: "0";
-    in-out property <int> audio-gapless-index: 1;
-    in property <[string]> audio-gapless-options;
-    in-out property <string> audio-preferred-languages: "";
-    in property <[string]> audio-language-tokens;
     callback add-audio-language-token(string);
     callback remove-audio-language-token(int);
     in-out property <bool> network-cache-enabled: true;
@@ -704,30 +682,10 @@ export component PreferencesWindow inherits Window {
         audio-content-height: root.audio-content-height;
         audio-scroll-position <=> root.audio-scroll-position;
         mica-backdrop-enabled: root.mica-backdrop-enabled;
-        audio-threads-text <=> root.audio-threads-text;
         settings-changed => { root.settings-changed(); }
-        audio-driver-options: root.audio-driver-options;
-        audio-driver-index <=> root.audio-driver-index;
-        audio-device-options: root.audio-device-options;
-        audio-device-index <=> root.audio-device-index;
-        audio-spdif-ac3 <=> root.audio-spdif-ac3;
-        audio-spdif-dts <=> root.audio-spdif-dts;
-        audio-spdif-dts-hd <=> root.audio-spdif-dts-hd;
-        audio-spdif-eac3 <=> root.audio-spdif-eac3;
-        audio-spdif-truehd <=> root.audio-spdif-truehd;
         audio-volume-title-y: root.audio-volume-title-y;
         volume-boost <=> root.volume-boost;
-        audio-initial-volume-enabled <=> root.audio-initial-volume-enabled;
-        audio-initial-volume-text <=> root.audio-initial-volume-text;
-        audio-replay-gain-options: root.audio-replay-gain-options;
-        audio-replay-gain-index <=> root.audio-replay-gain-index;
-        audio-replay-gain-preamp-text <=> root.audio-replay-gain-preamp-text;
-        audio-replay-gain-clip <=> root.audio-replay-gain-clip;
-        audio-replay-gain-fallback-text <=> root.audio-replay-gain-fallback-text;
         audio-other-title-y: root.audio-other-title-y;
-        audio-gapless-options: root.audio-gapless-options;
-        audio-gapless-index <=> root.audio-gapless-index;
-        audio-language-tokens: root.audio-language-tokens;
         add-audio-language-token(value1) => { root.add-audio-language-token(value1); }
         remove-audio-language-token(value1) => { root.remove-audio-language-token(value1); }
     }

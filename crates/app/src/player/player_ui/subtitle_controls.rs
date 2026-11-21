@@ -4,10 +4,6 @@ use riina_core::Command;
 use riina_mpv::CommandSender;
 use slint::ComponentHandle;
 
-#[expect(
-    clippy::too_many_lines,
-    reason = "decomposition tracked in docs/review"
-)]
 pub(super) fn install(app: &PlayerWindow, player: &CommandSender) {
     let scale_player = player.clone();
     let absolute_scale_player = player.clone();
@@ -133,39 +129,7 @@ pub(super) fn install(app: &PlayerWindow, player: &CommandSender) {
         }
     });
     let delay_player = player.clone();
-    let text_delay_player = player.clone();
-    let weak = app.as_weak();
-    app.on_set_delay_text(move |category, text| {
-        if let Some(app) = weak.upgrade() {
-            app.invoke_activity();
-            use riina_core::subtitle_controls::SubtitleLane;
-            let normalized = match crate::localized_number::normalize_delay_entry(&text) {
-                Ok(normalized) => normalized,
-                Err(error) => {
-                    app.set_status(error.into());
-                    return false;
-                }
-            };
-            let command = match category {
-                1 => riina_core::timing_controls::parse_delay_seconds(&normalized)
-                    .map(Command::AudioDelay)
-                    .map_err(str::to_owned),
-                2 => SubtitleLane::Primary
-                    .delay_from_text(&normalized)
-                    .map_err(str::to_owned),
-                5 => SubtitleLane::Secondary
-                    .delay_from_text(&normalized)
-                    .map_err(str::to_owned),
-                _ => Err("Unknown delay control".to_owned()),
-            };
-            if let Err(error) = command.and_then(|command| text_delay_player.send(command)) {
-                app.set_status(error.into());
-                return false;
-            }
-            return true;
-        }
-        false
-    });
+    super::delays::install_text(app, player);
     let secondary_position_player = player.clone();
     let weak = app.as_weak();
     app.on_set_subtitle_position(move |secondary, value| {

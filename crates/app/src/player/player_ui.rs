@@ -1,6 +1,7 @@
 mod audio_controls;
 mod catalog;
 mod context;
+mod delays;
 mod dialogs;
 mod discovery;
 mod engine_start;
@@ -1029,32 +1030,7 @@ fn configure_with_engine(
         }
     });
     catalog::install_catalog_selection(app, &context);
-    let delay_player = command_sender.clone();
-    let preview_weak = app.as_weak();
-    app.on_preview_audio_delay(move |value| {
-        if let Some(app) = preview_weak.upgrade() {
-            app.set_audio_delay_preview_text(
-                crate::localized_number::format_delay(f64::from(value)).into(),
-            );
-        }
-    });
-    let weak = app.as_weak();
-    app.on_set_delay(move |category, value| {
-        let command = match category {
-            1 => Some(Command::AudioDelay(value as f64)),
-            2 => Some(Command::SubtitleDelay(value as f64)),
-            5 => Some(Command::SecondarySubtitleDelay(value as f64)),
-            _ => None,
-        };
-        if let Some(app) = weak.upgrade() {
-            app.invoke_activity();
-            if let Some(command) = command
-                && let Err(error) = delay_player.send(command)
-            {
-                app.set_status(error.into());
-            }
-        }
-    });
+    delays::install_sliders(app, &command_sender);
     playlist_actions::install(
         app,
         &command_sender,
