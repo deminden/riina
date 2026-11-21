@@ -1,22 +1,27 @@
 import { PreferenceSwitch, PreferenceChoiceRow, PreferenceSensitivityRow } from "preferences-controls.slint";
 import { ScrollView } from "std-widgets.slint";
 
+export global ControlSettingsState {
+    in-out property <int> control-pinch-index: 0;
+    in-out property <int> control-force-touch-choice: 0;
+    in-out property <int> control-single-click-choice: 2;
+    in-out property <int> control-double-click-choice: 1;
+    in-out property <int> control-right-click-choice: 1;
+    in-out property <int> control-middle-click-choice: 0;
+    in-out property <bool> control-accepts-first-mouse: false;
+    in-out property <int> control-vertical-scroll-index: 0;
+    in-out property <int> control-horizontal-scroll-index: 1;
+    in-out property <bool> control-disable-play-slider-scrolling: false;
+    in-out property <bool> control-disable-volume-slider-scrolling: false;
+    in-out property <int> control-seek-type-index: 0;
+    in-out property <int> control-relative-seek-amount: 3;
+    in-out property <int> control-volume-sensitivity: 3;
+    in-out property <int> control-speed-sensitivity: 3;
+}
+
 export component ControlPreferencesPage inherits ScrollView {
     in property <bool> mica-backdrop-enabled;
-    in-out property <int> control-pinch-index;
     callback settings-changed();
-    in-out property <int> control-force-touch-choice;
-    in-out property <int> control-single-click-choice;
-    in-out property <int> control-double-click-choice;
-    in-out property <int> control-right-click-choice;
-    in-out property <int> control-middle-click-choice;
-    in-out property <bool> control-accepts-first-mouse;
-    in-out property <int> control-vertical-scroll-index;
-    in-out property <int> control-horizontal-scroll-index;
-    in-out property <int> control-seek-type-index;
-    in-out property <int> control-relative-seek-amount;
-    in-out property <int> control-speed-sensitivity;
-    in-out property <int> control-volume-sensitivity;
 
     content-height: 760px; content-width: self.visible-width;
     horizontal-scrollbar-policy: always-off;
@@ -28,11 +33,11 @@ export component ControlPreferencesPage inherits ScrollView {
             border-width: 1px; border-color: #e4e4e7; border-radius: 10px; background: root.mica-backdrop-enabled ? #ffffff80 : #f8f8f8;
             VerticalLayout { spacing: 0px;
                 PreferenceChoiceRow { label: "Pinch to"; options: ["Adjust window size", "Fullscreen", "None"];
-                    selected-index <=> root.control-pinch-index;
+                    selected-index <=> ControlSettingsState.control-pinch-index;
                     selected => { root.settings-changed(); }
                 }
                 PreferenceChoiceRow { label: "Force Touch to"; options: ["None", "Enter/Exit full screen", "Pause/Resume", "Hide OSC"];
-                    selected-index <=> root.control-force-touch-choice;
+                    selected-index <=> ControlSettingsState.control-force-touch-choice;
                     selected => { root.settings-changed(); }
                 }
             }
@@ -43,24 +48,24 @@ export component ControlPreferencesPage inherits ScrollView {
             border-width: 1px; border-color: #e4e4e7; border-radius: 10px; background: root.mica-backdrop-enabled ? #ffffff80 : #f8f8f8;
             VerticalLayout { spacing: 0px;
                 PreferenceChoiceRow { label: "Single click to"; options: ["None", "Pause/Resume", "Hide OSC"];
-                    selected-index <=> root.control-single-click-choice;
+                    selected-index <=> ControlSettingsState.control-single-click-choice;
                     selected => { root.settings-changed(); }
                 }
                 PreferenceChoiceRow { label: "Double click to"; options: ["None", "Enter/Exit full screen", "Pause/Resume", "Hide OSC", "Enter/Exit picture-in-picture", "A-B loop", "Reset speed"];
-                    selected-index <=> root.control-double-click-choice;
+                    selected-index <=> ControlSettingsState.control-double-click-choice;
                     selected => { root.settings-changed(); }
                 }
                 PreferenceChoiceRow { label: "Right click to"; options: ["None", "Pause/Resume", "Hide OSC", "Enter/Exit picture-in-picture", "A-B loop", "Reset speed"];
-                    selected-index <=> root.control-right-click-choice;
+                    selected-index <=> ControlSettingsState.control-right-click-choice;
                     selected => { root.settings-changed(); }
                 }
                 PreferenceChoiceRow { label: "Middle click to"; options: ["None", "Enter/Exit full screen", "Pause/Resume", "Hide OSC", "Enter/Exit picture-in-picture", "A-B loop", "Reset speed"];
-                    selected-index <=> root.control-middle-click-choice;
+                    selected-index <=> ControlSettingsState.control-middle-click-choice;
                     selected => { root.settings-changed(); }
                 }
                 Rectangle { height: 28px;
                 PreferenceSwitch { x: 35px; width: parent.width - 47px; label: "Accepts first mouse click when not focused";
-                    checked <=> root.control-accepts-first-mouse;
+                    checked <=> ControlSettingsState.control-accepts-first-mouse;
                     toggled => { root.settings-changed(); }
                 }
                 }
@@ -72,11 +77,11 @@ export component ControlPreferencesPage inherits ScrollView {
             border-width: 1px; border-color: #e4e4e7; border-radius: 10px; background: root.mica-backdrop-enabled ? #ffffff80 : #f8f8f8;
             VerticalLayout { spacing: 0px;
                 PreferenceChoiceRow { label: "Scroll vertically to"; options: ["Adjust volume", "Seek", "None", "Adjust playback speed"];
-                    selected-index <=> root.control-vertical-scroll-index;
+                    selected-index <=> ControlSettingsState.control-vertical-scroll-index;
                     selected => { root.settings-changed(); }
                 }
                 PreferenceChoiceRow { label: "Scroll horizontally to"; options: ["Adjust volume", "Seek", "None", "Adjust playback speed"];
-                    selected-index <=> root.control-horizontal-scroll-index;
+                    selected-index <=> ControlSettingsState.control-horizontal-scroll-index;
                     selected => { root.settings-changed(); }
                 }
             }
@@ -87,16 +92,16 @@ export component ControlPreferencesPage inherits ScrollView {
             border-width: 1px; border-color: #e4e4e7; border-radius: 10px; background: root.mica-backdrop-enabled ? #ffffff80 : #f8f8f8;
             VerticalLayout { spacing: 0px;
                 PreferenceChoiceRow { label: "Seek type"; options: ["Keyframe seek", "Exact seek", "Auto"];
-                    selected-index <=> root.control-seek-type-index;
+                    selected-index <=> ControlSettingsState.control-seek-type-index;
                     selected => { root.settings-changed(); }
                 }
-                PreferenceSensitivityRow { label: "Relative seek amount"; value <=> root.control-relative-seek-amount;
+                PreferenceSensitivityRow { label: "Relative seek amount"; value <=> ControlSettingsState.control-relative-seek-amount;
                     changed => { root.settings-changed(); }
                 }
-                PreferenceSensitivityRow { label: "Sensitivity for speed"; value <=> root.control-speed-sensitivity;
+                PreferenceSensitivityRow { label: "Sensitivity for speed"; value <=> ControlSettingsState.control-speed-sensitivity;
                     changed => { root.settings-changed(); }
                 }
-                PreferenceSensitivityRow { label: "Sensitivity for volume"; value <=> root.control-volume-sensitivity;
+                PreferenceSensitivityRow { label: "Sensitivity for volume"; value <=> ControlSettingsState.control-volume-sensitivity;
                     changed => { root.settings-changed(); }
                 }
             }

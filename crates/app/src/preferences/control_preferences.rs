@@ -1,7 +1,8 @@
 use super::model::{PreferenceSection, SectionError};
-use crate::{PlayerWindow, PreferencesWindow};
+use crate::{ControlSettingsState, PlayerWindow, PreferencesWindow};
 use riina_core::Preferences;
 use riina_core::control_preferences::{MouseAction, PinchAction, ScrollAction, SeekType, Settings};
+use slint::ComponentHandle;
 
 impl PreferenceSection for Settings {
     fn get(all: &Preferences) -> Self {
@@ -112,73 +113,75 @@ pub(crate) fn current_player(app: &PlayerWindow) -> Result<Settings, String> {
 }
 
 pub(crate) fn install_window(window: &PreferencesWindow, settings: &Settings) {
-    window.set_control_pinch_index(settings.pinch_action.index());
-    window.set_control_force_touch_choice(choice_index(
+    let controls = window.global::<ControlSettingsState>();
+    controls.set_control_pinch_index(settings.pinch_action.index());
+    controls.set_control_force_touch_choice(choice_index(
         settings.force_touch_action,
         &FORCE_TOUCH_CHOICES,
     ));
-    window.set_control_single_click_choice(choice_index(
+    controls.set_control_single_click_choice(choice_index(
         settings.single_click_action,
         &SINGLE_CLICK_CHOICES,
     ));
-    window.set_control_double_click_choice(settings.double_click_action.index());
-    window.set_control_right_click_choice(choice_index(
+    controls.set_control_double_click_choice(settings.double_click_action.index());
+    controls.set_control_right_click_choice(choice_index(
         settings.right_click_action,
         &RIGHT_CLICK_CHOICES,
     ));
-    window.set_control_middle_click_choice(settings.middle_click_action.index());
-    window.set_control_accepts_first_mouse(settings.accepts_first_mouse);
-    window.set_control_vertical_scroll_index(settings.vertical_scroll_action.index());
-    window.set_control_horizontal_scroll_index(settings.horizontal_scroll_action.index());
-    window.set_control_disable_play_slider_scrolling(settings.disable_play_slider_scrolling);
-    window.set_control_disable_volume_slider_scrolling(settings.disable_volume_slider_scrolling);
-    window.set_control_seek_type_index(settings.seek_type.index());
-    window.set_control_relative_seek_amount(i32::from(settings.relative_seek_amount));
-    window.set_control_volume_sensitivity(i32::from(settings.volume_sensitivity));
-    window.set_control_speed_sensitivity(i32::from(settings.speed_sensitivity));
+    controls.set_control_middle_click_choice(settings.middle_click_action.index());
+    controls.set_control_accepts_first_mouse(settings.accepts_first_mouse);
+    controls.set_control_vertical_scroll_index(settings.vertical_scroll_action.index());
+    controls.set_control_horizontal_scroll_index(settings.horizontal_scroll_action.index());
+    controls.set_control_disable_play_slider_scrolling(settings.disable_play_slider_scrolling);
+    controls.set_control_disable_volume_slider_scrolling(settings.disable_volume_slider_scrolling);
+    controls.set_control_seek_type_index(settings.seek_type.index());
+    controls.set_control_relative_seek_amount(i32::from(settings.relative_seek_amount));
+    controls.set_control_volume_sensitivity(i32::from(settings.volume_sensitivity));
+    controls.set_control_speed_sensitivity(i32::from(settings.speed_sensitivity));
 }
 
 pub(crate) fn current_window(window: &PreferencesWindow) -> Result<Settings, String> {
+    let controls = window.global::<ControlSettingsState>();
     let settings = Settings {
-        pinch_action: PinchAction::from_index(window.get_control_pinch_index())
+        pinch_action: PinchAction::from_index(controls.get_control_pinch_index())
             .ok_or_else(|| "Invalid pinch action".to_owned())?,
         force_touch_action: choice(
-            window.get_control_force_touch_choice(),
+            controls.get_control_force_touch_choice(),
             &FORCE_TOUCH_CHOICES,
             "Force Touch",
         )?,
         single_click_action: choice(
-            window.get_control_single_click_choice(),
+            controls.get_control_single_click_choice(),
             &SINGLE_CLICK_CHOICES,
             "single-click",
         )?,
-        double_click_action: MouseAction::from_index(window.get_control_double_click_choice())
+        double_click_action: MouseAction::from_index(controls.get_control_double_click_choice())
             .ok_or_else(|| "Invalid double-click action".to_owned())?,
         right_click_action: choice(
-            window.get_control_right_click_choice(),
+            controls.get_control_right_click_choice(),
             &RIGHT_CLICK_CHOICES,
             "right-click",
         )?,
-        middle_click_action: MouseAction::from_index(window.get_control_middle_click_choice())
+        middle_click_action: MouseAction::from_index(controls.get_control_middle_click_choice())
             .ok_or_else(|| "Invalid middle-click action".to_owned())?,
-        accepts_first_mouse: window.get_control_accepts_first_mouse(),
+        accepts_first_mouse: controls.get_control_accepts_first_mouse(),
         vertical_scroll_action: ScrollAction::from_index(
-            window.get_control_vertical_scroll_index(),
+            controls.get_control_vertical_scroll_index(),
         )
         .ok_or_else(|| "Invalid vertical-scroll action".to_owned())?,
         horizontal_scroll_action: ScrollAction::from_index(
-            window.get_control_horizontal_scroll_index(),
+            controls.get_control_horizontal_scroll_index(),
         )
         .ok_or_else(|| "Invalid horizontal-scroll action".to_owned())?,
-        disable_play_slider_scrolling: window.get_control_disable_play_slider_scrolling(),
-        disable_volume_slider_scrolling: window.get_control_disable_volume_slider_scrolling(),
-        seek_type: SeekType::from_index(window.get_control_seek_type_index())
+        disable_play_slider_scrolling: controls.get_control_disable_play_slider_scrolling(),
+        disable_volume_slider_scrolling: controls.get_control_disable_volume_slider_scrolling(),
+        seek_type: SeekType::from_index(controls.get_control_seek_type_index())
             .ok_or_else(|| "Invalid seek type".to_owned())?,
-        relative_seek_amount: u8::try_from(window.get_control_relative_seek_amount())
+        relative_seek_amount: u8::try_from(controls.get_control_relative_seek_amount())
             .map_err(|_| "Invalid relative seek amount")?,
-        volume_sensitivity: u8::try_from(window.get_control_volume_sensitivity())
+        volume_sensitivity: u8::try_from(controls.get_control_volume_sensitivity())
             .map_err(|_| "Invalid volume sensitivity")?,
-        speed_sensitivity: u8::try_from(window.get_control_speed_sensitivity())
+        speed_sensitivity: u8::try_from(controls.get_control_speed_sensitivity())
             .map_err(|_| "Invalid speed sensitivity")?,
     };
     settings.validate().map_err(str::to_owned)?;

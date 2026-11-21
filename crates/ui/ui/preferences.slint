@@ -7,6 +7,7 @@ import { InterfacePreferencesPage } from "preferences-interface.slint";
 import { GeneralPreferencesPage } from "preferences-general.slint";
 import { AdvancedPreferencesPage } from "preferences-advanced.slint";
 import { ControlPreferencesPage } from "preferences-control.slint";
+export { ControlSettingsState } from "preferences-control.slint";
 import { AudioPreferencesPage } from "preferences-audio.slint";
 export { AudioSettingsState } from "preferences-audio.slint";
 import { VideoPreferencesPage, VideoSettingsState } from "preferences-video.slint";
@@ -209,21 +210,6 @@ export component PreferencesWindow inherits Window {
     in-out property <bool> load-icc-profile <=> VideoSettingsState.load-icc-profile;
     in-out property <bool> default-hdr-mode-enabled <=> VideoSettingsState.default-hdr-mode-enabled;
     in-out property <string> video-threads-text <=> VideoSettingsState.video-threads-text;
-    in-out property <int> control-pinch-index: 0;
-    in-out property <int> control-force-touch-choice: 0;
-    in-out property <int> control-single-click-choice: 2;
-    in-out property <int> control-double-click-choice: 1;
-    in-out property <int> control-right-click-choice: 1;
-    in-out property <int> control-middle-click-choice: 0;
-    in-out property <bool> control-accepts-first-mouse: false;
-    in-out property <int> control-vertical-scroll-index: 0;
-    in-out property <int> control-horizontal-scroll-index: 1;
-    in-out property <bool> control-disable-play-slider-scrolling: false;
-    in-out property <bool> control-disable-volume-slider-scrolling: false;
-    in-out property <int> control-seek-type-index: 0;
-    in-out property <int> control-relative-seek-amount: 3;
-    in-out property <int> control-volume-sensitivity: 3;
-    in-out property <int> control-speed-sensitivity: 3;
     in-out property <string> key-binding-current-profile: "IINA Default";
     in-out property <int> key-binding-profile-index: 0;
     in-out property <[string]> key-binding-profiles: ["IINA Default", "mpv Default", "VLC Default", "Movist Default", "Movist v2 Default"];
@@ -562,8 +548,6 @@ export component PreferencesWindow inherits Window {
         show-chapter-pos <=> root.show-chapter-pos;
         control-auto-hide-enabled <=> root.control-auto-hide-enabled;
         control-auto-hide-timeout-text <=> root.control-auto-hide-timeout-text;
-        control-disable-play-slider-scrolling <=> root.control-disable-play-slider-scrolling;
-        control-disable-volume-slider-scrolling <=> root.control-disable-volume-slider-scrolling;
         toolbar-reset => { root.toolbar-reset(); }
         toolbar-order: root.toolbar-order;
         toolbar-drag-index <=> root.toolbar-drag-index;
@@ -720,20 +704,7 @@ export component PreferencesWindow inherits Window {
     if root.selected-pane == 6 : ControlPreferencesPage {
         x: 200px; y: 0; width: parent.width - 200px; height: parent.height;
         mica-backdrop-enabled: root.mica-backdrop-enabled;
-        control-pinch-index <=> root.control-pinch-index;
         settings-changed => { root.settings-changed(); }
-        control-force-touch-choice <=> root.control-force-touch-choice;
-        control-single-click-choice <=> root.control-single-click-choice;
-        control-double-click-choice <=> root.control-double-click-choice;
-        control-right-click-choice <=> root.control-right-click-choice;
-        control-middle-click-choice <=> root.control-middle-click-choice;
-        control-accepts-first-mouse <=> root.control-accepts-first-mouse;
-        control-vertical-scroll-index <=> root.control-vertical-scroll-index;
-        control-horizontal-scroll-index <=> root.control-horizontal-scroll-index;
-        control-seek-type-index <=> root.control-seek-type-index;
-        control-relative-seek-amount <=> root.control-relative-seek-amount;
-        control-speed-sensitivity <=> root.control-speed-sensitivity;
-        control-volume-sensitivity <=> root.control-volume-sensitivity;
     }
 
     if root.selected-pane == 7 : KeyBindingsPreferencesPage {
