@@ -278,7 +278,9 @@ fn update_feedback(
     }
     match last_seek.observe_with_suppression(state, player_preferences.get_disable_osd_seek()) {
         Change::Hide => osd.set_seek_osd_visible(false),
-        Change::Show => app.invoke_show_seek_osd(),
+        Change::Show => app
+            .global::<riina_ui::PlayerControlActions>()
+            .invoke_show_seek_osd(),
         Change::Keep => {}
     }
     let video_message = {
@@ -302,20 +304,23 @@ fn update_feedback(
         app.set_video_osd_request_feedback(message.kind == crate::video_osd::Kind::Aspect);
         osd.set_video_osd_text(message.text.into());
         osd.set_video_osd_progress(message.progress.unwrap_or(-1.0));
-        app.invoke_show_video_osd();
+        app.global::<riina_ui::PlayerControlActions>()
+            .invoke_show_video_osd();
     }
     match last_screenshot.observe(state) {
         crate::screenshot_osd::Change::Hide => {
             clear_screenshot_preview(app);
         }
         crate::screenshot_osd::Change::Show(path)
-            if player_preferences.get_osd_enabled() && !app.get_crop_editing() =>
+            if player_preferences.get_osd_enabled()
+                && !app.global::<riina_ui::PlayerCropState>().get_crop_editing() =>
         {
             if !player_preferences.get_screenshot_show_preview() {
                 app.set_video_osd_request_feedback(false);
                 osd.set_video_osd_text("Screenshot Captured".into());
                 osd.set_video_osd_progress(-1.0);
-                app.invoke_show_video_osd();
+                app.global::<riina_ui::PlayerControlActions>()
+                    .invoke_show_video_osd();
             } else {
                 match slint::Image::load_from_path(std::path::Path::new(&path)) {
                     Ok(image) => {
@@ -340,14 +345,15 @@ fn update_feedback(
                         app.set_video_osd_request_feedback(false);
                         osd.set_video_osd_text("Screenshot Captured".into());
                         osd.set_video_osd_progress(-1.0);
-                        app.invoke_show_video_osd();
+                        app.global::<riina_ui::PlayerControlActions>()
+                            .invoke_show_video_osd();
                     }
                 }
             }
         }
         _ => {}
     }
-    if app.get_crop_editing() {
+    if app.global::<riina_ui::PlayerCropState>().get_crop_editing() {
         clear_screenshot_preview(app);
     }
 }
@@ -373,7 +379,8 @@ fn update_playback_phase(
     app.set_paused(state.paused);
     app.set_playing(state.phase == Phase::Playing);
     if matches!(state.phase, Phase::Paused | Phase::Ended | Phase::Failed) {
-        app.set_controls_visible(true);
+        app.global::<riina_ui::PlayerControlsState>()
+            .set_controls_visible(true);
     }
     let mut resize_for_media = false;
     if let Some((width, height, rotation)) = window_video_geometry(state) {
@@ -392,7 +399,8 @@ fn update_playback_phase(
 }
 
 fn notify_media_loaded(app: &PlayerWindow, state: &Playback) {
-    app.invoke_activity();
+    app.global::<riina_ui::PlayerControlActions>()
+        .invoke_activity();
     if let Some(entry) = state.playlist.iter().find(|entry| entry.current) {
         let title = entry
             .title
@@ -418,7 +426,8 @@ fn notify_media_loaded(app: &PlayerWindow, state: &Playback) {
         app.set_video_osd_request_feedback(false);
         osd.set_video_osd_text(message.text.into());
         osd.set_video_osd_progress(message.progress.unwrap_or(-1.0));
-        app.invoke_show_video_osd();
+        app.global::<riina_ui::PlayerControlActions>()
+            .invoke_show_video_osd();
     }
 }
 

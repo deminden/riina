@@ -68,8 +68,10 @@ pub(super) fn project(
         .set_dark_theme(saved.dark);
     model.write_player::<Osd>(app);
     model.write_player::<riina_core::osc_preferences::Settings>(app);
-    app.set_always_float_on_top(saved.always_float_on_top);
-    app.set_always_show_on_top_icon(saved.always_show_on_top_icon);
+    app.global::<riina_ui::PlayerLayoutState>()
+        .set_always_float_on_top(saved.always_float_on_top);
+    app.global::<riina_ui::PlayerLayoutState>()
+        .set_always_show_on_top_icon(saved.always_show_on_top_icon);
     model.write_player::<riina_core::control_preferences::Settings>(app);
     model.write_player::<riina_core::liquid_glass::SurfaceSettings>(app);
     crate::key_binding_preferences::install_player(app, &saved.key_bindings, playback.clone());

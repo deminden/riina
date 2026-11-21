@@ -95,10 +95,11 @@ fn navigation(kind: i32) {
         .on_select_item(move |kind, token| received.borrow_mut().push((kind, token.to_string())));
     let playback = Rc::new(std::cell::Cell::new(0));
     let received = playback.clone();
-    app.on_dispatch_key_binding(move |_, _, _, _, _| {
-        received.set(received.get() + 1);
-        false
-    });
+    app.global::<riina_ui::PlayerControlActions>()
+        .on_dispatch_key_binding(move |_, _, _, _, _| {
+            received.set(received.get() + 1);
+            false
+        });
     focus(&app, &track_row(&app, &row_label(kind, 2)));
     selected.borrow_mut().clear();
     // No backend echo: fast repeated input must advance its own cursor, rather

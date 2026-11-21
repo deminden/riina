@@ -158,7 +158,9 @@ fn capture_session_state(
         volume_boost: player_preferences.get_volume_boost(),
         resume_last_position: player_preferences.get_resume_last_position(),
         live_text_enabled: app.get_live_text_enabled(),
-        always_float_on_top: app.get_always_float_on_top(),
+        always_float_on_top: app
+            .global::<riina_ui::PlayerLayoutState>()
+            .get_always_float_on_top(),
         theme_material: Some(
             riina_core::ThemeMaterial::from_index(
                 app.global::<riina_ui::PlayerAppearance>()
@@ -167,18 +169,42 @@ fn capture_session_state(
             .ok_or_else(|| std::io::Error::other("Invalid appearance selection"))?,
         ),
         dark: app.global::<riina_ui::PlayerAppearance>().get_dark_theme(),
-        leading_sidebar_width: app.get_leading_sidebar_width() as u32,
-        trailing_sidebar_width: app.get_trailing_sidebar_width() as u32,
-        settings_at_leading: app.get_settings_at_leading(),
-        playlist_at_leading: app.get_playlist_at_leading(),
-        plugins_at_leading: app.get_plugins_at_leading(),
-        edge_to_edge_video: app.get_edge_to_edge_video(),
-        docked_controls: app.get_docked_controls(),
-        unlock_window_aspect_ratio: app.get_unlock_window_aspect_ratio(),
+        leading_sidebar_width: app
+            .global::<riina_ui::PlayerSidebarState>()
+            .get_leading_sidebar_width() as u32,
+        trailing_sidebar_width: app
+            .global::<riina_ui::PlayerSidebarState>()
+            .get_trailing_sidebar_width() as u32,
+        settings_at_leading: app
+            .global::<riina_ui::PlayerSidebarState>()
+            .get_settings_at_leading(),
+        playlist_at_leading: app
+            .global::<riina_ui::PlayerSidebarState>()
+            .get_playlist_at_leading(),
+        plugins_at_leading: app
+            .global::<riina_ui::PlayerSidebarState>()
+            .get_plugins_at_leading(),
+        edge_to_edge_video: app
+            .global::<riina_ui::PlayerLayoutState>()
+            .get_edge_to_edge_video(),
+        docked_controls: app
+            .global::<riina_ui::PlayerLayoutState>()
+            .get_docked_controls(),
+        unlock_window_aspect_ratio: app
+            .global::<riina_ui::PlayerLayoutState>()
+            .get_unlock_window_aspect_ratio(),
         compact_ui: app.global::<riina_ui::PlayerAppearance>().get_compact_ui(),
-        osc_position: app.get_osc_position() as u8,
-        control_bar_position_horizontal: f64::from(app.get_control_bar_position_horizontal()),
-        control_bar_position_vertical: f64::from(app.get_control_bar_position_vertical()),
+        osc_position: app
+            .global::<riina_ui::PlayerLayoutState>()
+            .get_osc_position() as u8,
+        control_bar_position_horizontal: f64::from(
+            app.global::<riina_ui::PlayerLayoutState>()
+                .get_control_bar_position_horizontal(),
+        ),
+        control_bar_position_vertical: f64::from(
+            app.global::<riina_ui::PlayerLayoutState>()
+                .get_control_bar_position_vertical(),
+        ),
         music_mode_show_playlist: app
             .global::<riina_ui::PlayerMusicModeState>()
             .get_music_mode_show_playlist(),

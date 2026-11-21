@@ -44,7 +44,9 @@ impl PluginEffects {
                     "Could not observe mpv plugin property",
                 );
             }
-            PluginHostMessage::SetUiVisibility(disabled) => app.set_plugin_ui_disabled(disabled),
+            PluginHostMessage::SetUiVisibility(disabled) => app
+                .global::<riina_ui::PlayerControlsState>()
+                .set_plugin_ui_disabled(disabled),
             PluginHostMessage::WindowAction(action) => {
                 apply_plugin_window_action(app, self.window_host.as_ref(), action);
             }
@@ -125,11 +127,16 @@ impl PluginEffects {
             match effect {
                 PluginSidebarEffect::Show => select_plugin_sidebar_tab(app, plugin_identifier),
                 PluginSidebarEffect::Hide => {
-                    if app.get_sidebar() == 7 {
-                        app.set_sidebar(0);
+                    if app.global::<riina_ui::PlayerSidebarState>().get_sidebar() == 7 {
+                        app.global::<riina_ui::PlayerSidebarState>().set_sidebar(0);
                     }
-                    if app.get_leading_sidebar() == 7 {
-                        app.set_leading_sidebar(0);
+                    if app
+                        .global::<riina_ui::PlayerSidebarState>()
+                        .get_leading_sidebar()
+                        == 7
+                    {
+                        app.global::<riina_ui::PlayerSidebarState>()
+                            .set_leading_sidebar(0);
                     }
                 }
                 _ => {}
@@ -147,8 +154,15 @@ impl PluginEffects {
 
     pub(super) fn update_presenters(&self, app: &PlayerWindow) {
         self.overlay.update(app);
-        let selected = if app.get_sidebar() == 7 || app.get_leading_sidebar() == 7 {
-            let identifier = app.get_plugin_sidebar_selected_identifier();
+        let selected = if app.global::<riina_ui::PlayerSidebarState>().get_sidebar() == 7
+            || app
+                .global::<riina_ui::PlayerSidebarState>()
+                .get_leading_sidebar()
+                == 7
+        {
+            let identifier = app
+                .global::<riina_ui::PlayerSidebarState>()
+                .get_plugin_sidebar_selected_identifier();
             (!identifier.is_empty()).then(|| identifier.to_string())
         } else {
             None

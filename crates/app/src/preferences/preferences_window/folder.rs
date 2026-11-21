@@ -9,10 +9,15 @@ pub(super) fn register(app: &PlayerWindow, window: &PreferencesWindow) {
         let (Some(app), Some(window)) = (parent.upgrade(), weak.upgrade()) else {
             return;
         };
-        if app.get_dialog_open() || app.get_crop_editing() {
+        if app
+            .global::<riina_ui::PlayerDialogState>()
+            .get_dialog_open()
+            || app.global::<riina_ui::PlayerCropState>().get_crop_editing()
+        {
             return;
         }
-        app.set_dialog_open(true);
+        app.global::<riina_ui::PlayerDialogState>()
+            .set_dialog_open(true);
         window
             .global::<riina_ui::GeneralSettingsState>()
             .set_folder_dialog_open(true);
@@ -36,7 +41,8 @@ pub(super) fn register(app: &PlayerWindow, window: &PreferencesWindow) {
                     let (Some(app), Some(window)) = (parent.upgrade(), weak.upgrade()) else {
                         return;
                     };
-                    app.set_dialog_open(false);
+                    app.global::<riina_ui::PlayerDialogState>()
+                        .set_dialog_open(false);
                     window
                         .global::<riina_ui::GeneralSettingsState>()
                         .set_folder_dialog_open(false);
@@ -55,7 +61,8 @@ pub(super) fn register(app: &PlayerWindow, window: &PreferencesWindow) {
             }
             .await;
             if let Err(error) = result {
-                app.set_dialog_open(false);
+                app.global::<riina_ui::PlayerDialogState>()
+                    .set_dialog_open(false);
                 window
                     .global::<riina_ui::GeneralSettingsState>()
                     .set_folder_dialog_open(false);
@@ -64,7 +71,8 @@ pub(super) fn register(app: &PlayerWindow, window: &PreferencesWindow) {
         });
         if let Err(error) = started {
             if let Some(app) = failure_parent.upgrade() {
-                app.set_dialog_open(false);
+                app.global::<riina_ui::PlayerDialogState>()
+                    .set_dialog_open(false);
                 app.set_status(error.to_string().into());
             }
             if let Some(window) = failure_window.upgrade() {

@@ -1,0 +1,11 @@
+// User-controlled layout is shared by the player views and native menus.
+export global PlayerLayoutState {
+    in-out property <bool> always-float-on-top: false;
+    in-out property <bool> always-show-on-top-icon: false;
+    in-out property <bool> edge-to-edge-video: true;
+    in-out property <bool> docked-controls: false;
+    in-out property <bool> unlock-window-aspect-ratio: false;
+    in-out property <int> osc-position: 0;
+    in-out property <float> control-bar-position-horizontal: 0.5;
+    in-out property <float> control-bar-position-vertical: 0.1;
+}

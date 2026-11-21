@@ -26,7 +26,8 @@ pub(super) fn install_sliders(app: &PlayerWindow, player: &CommandSender) {
                 DelayLane::SecondarySubtitle => Command::SecondarySubtitleDelay(value),
             };
             if let Some(app) = weak.upgrade() {
-                app.invoke_activity();
+                app.global::<riina_ui::PlayerControlActions>()
+                    .invoke_activity();
                 if let Err(error) = delay_player.send(command) {
                     app.set_status(error.into());
                 }
@@ -40,7 +41,8 @@ pub(super) fn install_text(app: &PlayerWindow, player: &CommandSender) {
     app.global::<riina_ui::PlayerSidebarActions>()
         .on_set_delay_text(move |lane, text| {
             if let Some(app) = weak.upgrade() {
-                app.invoke_activity();
+                app.global::<riina_ui::PlayerControlActions>()
+                    .invoke_activity();
                 use riina_core::subtitle_controls::SubtitleLane;
                 let normalized = match crate::localized_number::normalize_delay_entry(&text) {
                     Ok(normalized) => normalized,

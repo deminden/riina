@@ -432,26 +432,31 @@ impl MaterialSampler {
 
 fn material_visible(app: &PlayerWindow) -> bool {
     let appearance = app.global::<riina_ui::PlayerAppearance>();
+    let controls = app.global::<riina_ui::PlayerControlsState>();
+    let music = app.global::<riina_ui::PlayerMusicModeState>();
+    let sidebars = app.global::<riina_ui::PlayerSidebarState>();
+    let preferences = app.global::<riina_ui::PlayerPreferences>();
+    let appearance = appearance;
     let video = app.global::<riina_ui::PlaybackVideoState>();
     let osd = app.global::<riina_ui::PlayerOsdState>();
     appearance.get_system_materials_enabled()
         && app.get_native_video()
         && !app.global::<riina_ui::PlayerRenderedVideo>().get_native_transition_frame()
-        && !app.get_crop_editing()
+        && !app.global::<riina_ui::PlayerCropState>().get_crop_editing()
         // The Slint overlay is SDR. Keep the native HDR composition
         // on its existing tint instead of mixing an 8-bit screenshot.
         && !(video.get_hdr_source_detected() && video.get_hdr_enabled())
         && ((appearance.get_liquid_glass_osc()
             && app.get_loaded()
-            && (app.get_controls_visible() || app.global::<riina_ui::PlayerMusicModeState>().get_music_mode()))
+            && (controls.get_controls_visible() || music.get_music_mode()))
             || (appearance.get_liquid_glass_sidebar()
-                && (app.get_sidebar() != 0 || app.get_leading_sidebar() != 0))
+                && (sidebars.get_sidebar() != 0 || sidebars.get_leading_sidebar() != 0))
             || (appearance.get_liquid_glass_osd()
                 && app.get_loaded()
                 && (osd.get_video_osd_visible()
                     || osd.get_seek_osd_visible()
                     || !osd.get_plugin_osd_message().is_empty()
                     || (app.get_fullscreen()
-                        && app.get_controls_visible()
-                        && app.global::<riina_ui::PlayerPreferences>().get_display_time_and_battery_in_fullscreen()))))
+                        && controls.get_controls_visible()
+                        && preferences.get_display_time_and_battery_in_fullscreen()))))
 }

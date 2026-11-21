@@ -245,7 +245,8 @@ fn exercise_startup(profile: &std::path::Path) -> Result<(), Box<dyn std::error:
 
 fn exercise_transport_settings(harness: &Harness) {
     let app = &harness.app;
-    app.invoke_set_paused(false);
+    app.global::<riina_ui::PlayerControlActions>()
+        .invoke_set_paused(false);
     harness.expect(Command::SetPaused(false));
     app.global::<PlayerMenuActions>().invoke_frame_step();
     harness.expect(Command::FrameStep);
@@ -253,7 +254,8 @@ fn exercise_transport_settings(harness: &Harness) {
     harness.expect(Command::FrameBackStep);
     app.global::<PlayerMenuActions>().invoke_adjust_chapter(-1);
     harness.expect(Command::AdjustChapter(-1));
-    app.invoke_subtitle_seek(1);
+    app.global::<riina_ui::PlayerControlActions>()
+        .invoke_subtitle_seek(1);
     harness.expect(Command::SubtitleSeek(1));
     app.global::<PlayerMenuActions>().invoke_reset_speed();
     harness.expect(Command::Speed(1.0));
@@ -275,7 +277,8 @@ fn exercise_transport_settings(harness: &Harness) {
     harness.expect(Command::CycleAbLoop);
     app.global::<PlayerMenuActions>().invoke_toggle_file_loop();
     harness.expect(Command::ToggleFileLoop);
-    app.invoke_execute_mpv_input_action("cycle pause".into());
+    app.global::<riina_ui::PlayerControlActions>()
+        .invoke_execute_mpv_input_action("cycle pause".into());
     harness.expect(Command::MpvInputAction("cycle pause".into()));
 }
 
@@ -312,7 +315,8 @@ fn exercise_transport_and_tracks(harness: &Harness) {
     harness.expect(Command::SelectSecondarySubtitle(None));
     app.global::<PlayerMenuActions>().invoke_playlist_next();
     harness.expect(Command::PlaylistNext);
-    app.invoke_set_ab_loop_point(0, 1.25);
+    app.global::<riina_ui::PlayerControlActions>()
+        .invoke_set_ab_loop_point(0, 1.25);
     harness.expect_idle();
 }
 
@@ -322,28 +326,57 @@ fn exercise_dialogs_and_relative_controls(harness: &Harness) {
         .set_position_label("2:05".into());
     app.global::<PlayerMenuActions>()
         .invoke_open_jump_time_dialog();
-    assert!(app.get_jump_time_dialog_visible());
-    assert_eq!(app.get_jump_time_draft(), "2:05");
-    app.invoke_jump_to_time("invalid".into());
-    assert!(app.get_jump_time_dialog_visible());
+    assert!(
+        app.global::<riina_ui::PlayerDialogState>()
+            .get_jump_time_dialog_visible()
+    );
     assert_eq!(
-        app.get_jump_time_error(),
+        app.global::<riina_ui::PlayerDialogState>()
+            .get_jump_time_draft(),
+        "2:05"
+    );
+    app.global::<riina_ui::PlayerDialogState>()
+        .invoke_jump_to_time("invalid".into());
+    assert!(
+        app.global::<riina_ui::PlayerDialogState>()
+            .get_jump_time_dialog_visible()
+    );
+    assert_eq!(
+        app.global::<riina_ui::PlayerDialogState>()
+            .get_jump_time_error(),
         "Enter a valid time such as 20:35 or 1:02:03.500."
     );
     harness.expect_idle();
-    app.invoke_jump_to_time("2:05.500".into());
+    app.global::<riina_ui::PlayerDialogState>()
+        .invoke_jump_to_time("2:05.500".into());
     harness.expect(Command::Seek {
         seconds: 125.5,
         absolute: true,
     });
-    assert!(!app.get_jump_time_dialog_visible());
-    assert_eq!(app.get_jump_time_error(), "");
+    assert!(
+        !app.global::<riina_ui::PlayerDialogState>()
+            .get_jump_time_dialog_visible()
+    );
+    assert_eq!(
+        app.global::<riina_ui::PlayerDialogState>()
+            .get_jump_time_error(),
+        ""
+    );
 
-    app.set_url_dialog_draft("previous".into());
+    app.global::<riina_ui::PlayerDialogState>()
+        .set_url_dialog_draft("previous".into());
     app.global::<PlayerMenuActions>().invoke_open_url_dialog();
-    assert!(app.get_url_dialog_visible());
-    assert_eq!(app.get_url_dialog_draft(), "");
-    app.set_url_dialog_visible(false);
+    assert!(
+        app.global::<riina_ui::PlayerDialogState>()
+            .get_url_dialog_visible()
+    );
+    assert_eq!(
+        app.global::<riina_ui::PlayerDialogState>()
+            .get_url_dialog_draft(),
+        ""
+    );
+    app.global::<riina_ui::PlayerDialogState>()
+        .set_url_dialog_visible(false);
     app.global::<PlayerMenuActions>().invoke_browse_files(-1);
     harness.expect_idle();
 
@@ -390,17 +423,20 @@ fn exercise_observation_and_volume(harness: &Harness) -> Result<(), Box<dyn std:
     );
     assert_eq!(app.get_media_title(), "Headless fixture");
 
-    app.invoke_set_ab_loop_point(0, 1.25);
+    app.global::<riina_ui::PlayerControlActions>()
+        .invoke_set_ab_loop_point(0, 1.25);
     harness.expect(Command::SetAbLoopPoint {
         point: riina_core::AbLoopPoint::A,
         value: Some(1.25),
     });
-    app.invoke_set_volume(140.0);
+    app.global::<riina_ui::PlayerControlActions>()
+        .invoke_set_volume(140.0);
     harness.expect(Command::Volume(100.0));
     app.global::<riina_ui::PlayerSidebarActions>()
         .invoke_set_volume_boost(true);
     harness.expect(Command::SetVolumeBoost(true));
-    app.invoke_set_volume(140.0);
+    app.global::<riina_ui::PlayerControlActions>()
+        .invoke_set_volume(140.0);
     harness.expect(Command::Volume(140.0));
     Ok(())
 }

@@ -498,7 +498,10 @@ fn mark_window_size_adjusted(app: &PlayerWindow) {
 }
 
 fn apply_window_level(app: &PlayerWindow, target: &WindowTarget) {
-    let level = if app.get_always_float_on_top() {
+    let level = if app
+        .global::<riina_ui::PlayerLayoutState>()
+        .get_always_float_on_top()
+    {
         winit::window::WindowLevel::AlwaysOnTop
     } else {
         winit::window::WindowLevel::Normal
@@ -579,8 +582,12 @@ fn aspect_lock_enabled(app: &PlayerWindow) -> bool {
         && !app
             .global::<riina_ui::PlayerMusicModeState>()
             .get_music_mode()
-        && app.get_edge_to_edge_video()
-        && !app.get_unlock_window_aspect_ratio()
+        && app
+            .global::<riina_ui::PlayerLayoutState>()
+            .get_edge_to_edge_video()
+        && !app
+            .global::<riina_ui::PlayerLayoutState>()
+            .get_unlock_window_aspect_ratio()
         && f64::from(app.get_video_display_aspect_ratio()).is_finite()
         && app.get_video_display_aspect_ratio() > 0.0
 }

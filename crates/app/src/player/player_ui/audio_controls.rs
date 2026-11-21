@@ -45,7 +45,8 @@ pub(super) fn install(
                 return;
             }
             set_audio_equalizer_controls(&app, &settings);
-            app.invoke_activity();
+            app.global::<riina_ui::PlayerControlActions>()
+                .invoke_activity();
         });
     let audio_eq_settings_for_profile = audio_equalizer.clone();
     let audio_eq_player_for_profile = player.clone();
@@ -232,28 +233,31 @@ pub(super) fn install_volume(app: &PlayerWindow, command_sender: &CommandSender)
                     }
                     Err(error) => app.set_status(error.into()),
                 }
-                app.invoke_activity();
+                app.global::<riina_ui::PlayerControlActions>()
+                    .invoke_activity();
             }
         });
     let volume_player = command_sender.clone();
     let weak = app.as_weak();
-    app.on_set_volume(move |volume| {
-        let Some(app) = weak.upgrade() else { return };
-        app.invoke_activity();
-        let limit = if app
-            .global::<riina_ui::PlayerPreferences>()
-            .get_volume_boost()
-        {
-            200.0
-        } else {
-            100.0
-        };
-        if let Err(error) = volume_player.send(Command::Volume((volume as f64).min(limit)))
-            && let Some(app) = weak.upgrade()
-        {
-            app.set_status(error.into());
-        }
-    });
+    app.global::<riina_ui::PlayerControlActions>()
+        .on_set_volume(move |volume| {
+            let Some(app) = weak.upgrade() else { return };
+            app.global::<riina_ui::PlayerControlActions>()
+                .invoke_activity();
+            let limit = if app
+                .global::<riina_ui::PlayerPreferences>()
+                .get_volume_boost()
+            {
+                200.0
+            } else {
+                100.0
+            };
+            if let Err(error) = volume_player.send(Command::Volume((volume as f64).min(limit)))
+                && let Some(app) = weak.upgrade()
+            {
+                app.set_status(error.into());
+            }
+        });
 }
 
 pub(super) fn install_volume_adjustment(app: &PlayerWindow, command_sender: &CommandSender) {
@@ -262,7 +266,8 @@ pub(super) fn install_volume_adjustment(app: &PlayerWindow, command_sender: &Com
     app.global::<PlayerMenuActions>()
         .on_adjust_volume(move |delta| {
             let Some(app) = weak.upgrade() else { return };
-            app.invoke_activity();
+            app.global::<riina_ui::PlayerControlActions>()
+                .invoke_activity();
             if let Err(error) = adjustment_player.send(Command::AdjustVolume {
                 delta: delta as f64,
                 boost: app
@@ -296,7 +301,8 @@ pub(super) fn install_audio_device(
                 app.set_status("That audio device is no longer available".into());
                 return;
             }
-            app.invoke_activity();
+            app.global::<riina_ui::PlayerControlActions>()
+                .invoke_activity();
             if let Err(error) = audio_device_player.send(Command::AudioDevice(device)) {
                 app.set_status(error.into());
             }

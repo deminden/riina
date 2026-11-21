@@ -571,24 +571,33 @@ fn installed_profiles_dispatch_encoded_events_without_ui_fallbacks() {
         (slint::platform::Key::LeftArrow, -5.0),
         (slint::platform::Key::RightArrow, 5.0),
     ] {
-        assert!(app.invoke_dispatch_key_binding(key.into(), false, false, false, false));
+        assert!(
+            app.global::<riina_ui::PlayerControlActions>()
+                .invoke_dispatch_key_binding(key.into(), false, false, false, false)
+        );
         assert_eq!(position.get(), expected);
     }
-    assert!(app.invoke_dispatch_key_binding(
-        slint::platform::Key::Return.into(),
-        false,
-        false,
-        false,
-        false
-    ));
+    assert!(
+        app.global::<riina_ui::PlayerControlActions>()
+            .invoke_dispatch_key_binding(
+                slint::platform::Key::Return.into(),
+                false,
+                false,
+                false,
+                false
+            )
+    );
     assert!(app.get_fullscreen());
-    assert!(app.invoke_dispatch_key_binding(
-        slint::platform::Key::Escape.into(),
-        false,
-        false,
-        false,
-        false
-    ));
+    assert!(
+        app.global::<riina_ui::PlayerControlActions>()
+            .invoke_dispatch_key_binding(
+                slint::platform::Key::Escape.into(),
+                false,
+                false,
+                false,
+                false
+            )
+    );
     assert!(!app.get_fullscreen());
 }
 

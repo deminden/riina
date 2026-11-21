@@ -25,7 +25,7 @@ pub(crate) fn install(app: &PlayerWindow, host: Option<slint::Weak<NativeVideoHo
     let host_buttons = Cell::new(None);
     app.on_crop_window_controls_changed(move || {
         if let Some(app) = weak.upgrade() {
-            let editing = app.get_crop_editing();
+            let editing = app.global::<riina_ui::PlayerCropState>().get_crop_editing();
             update(app.window(), &app_buttons, editing);
             if let Some(host) = host.as_ref().and_then(slint::Weak::upgrade) {
                 update(host.window(), &host_buttons, editing);

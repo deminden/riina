@@ -20,8 +20,10 @@ struct ModalWindows {
 impl ModalWindows {
     fn restore(&mut self, return_to_welcome: bool) {
         if let Some(app) = self.app.upgrade() {
-            app.set_dialog_open(false);
-            app.invoke_activity();
+            app.global::<riina_ui::PlayerDialogState>()
+                .set_dialog_open(false);
+            app.global::<riina_ui::PlayerControlActions>()
+                .invoke_activity();
         }
         for window in &self.windows {
             window.set_enable(true);
@@ -57,8 +59,10 @@ impl Drop for ModalWindows {
         // another guard and try to enqueue itself on a stopped event loop.
         let _ = slint::invoke_from_event_loop(move || {
             if let Some(app) = app.upgrade() {
-                app.set_dialog_open(false);
-                app.invoke_activity();
+                app.global::<riina_ui::PlayerDialogState>()
+                    .set_dialog_open(false);
+                app.global::<riina_ui::PlayerControlActions>()
+                    .invoke_activity();
             }
             for window in &windows {
                 window.set_enable(true);
@@ -79,11 +83,16 @@ pub fn open(
 ) {
     // The gate closes before the async HWND lookup: queued shortcuts cannot open
     // a second picker while the first is still being constructed.
-    if app.get_dialog_open() {
+    if app
+        .global::<riina_ui::PlayerDialogState>()
+        .get_dialog_open()
+    {
         return;
     }
-    app.set_dialog_open(true);
-    app.invoke_activity();
+    app.global::<riina_ui::PlayerDialogState>()
+        .set_dialog_open(true);
+    app.global::<riina_ui::PlayerControlActions>()
+        .invoke_activity();
     let weak = app.as_weak();
     let failure = weak.clone();
     let started = slint::spawn_local(async move {
@@ -135,14 +144,16 @@ pub fn open(
         }
         .await;
         if let Err(error) = result {
-            app.set_dialog_open(false);
+            app.global::<riina_ui::PlayerDialogState>()
+                .set_dialog_open(false);
             app.set_status(error.into());
         }
     });
     if let Err(error) = started
         && let Some(app) = failure.upgrade()
     {
-        app.set_dialog_open(false);
+        app.global::<riina_ui::PlayerDialogState>()
+            .set_dialog_open(false);
         app.set_status(error.to_string().into());
     }
 }

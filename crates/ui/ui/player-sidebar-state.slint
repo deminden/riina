@@ -1,0 +1,17 @@
+// The leading and trailing sidebars retain their own pane and width.
+export global PlayerSidebarState {
+    in-out property <bool> layout-scrollbar-visible: false;
+    in-out property <int> sidebar: 0;
+    in-out property <int> leading-sidebar: 0;
+    in-out property <int> remembered-settings-pane: 6;
+    in-out property <int> remembered-playlist-pane: 4;
+    in-out property <bool> settings-at-leading: false;
+    in-out property <bool> playlist-at-leading: true;
+    in-out property <bool> plugins-at-leading: true;
+    in-out property <float> leading-sidebar-width: 360;
+    in-out property <float> trailing-sidebar-width: 360;
+    in-out property <[string]> plugin-sidebar-identifiers: [];
+    in-out property <[string]> plugin-sidebar-labels: [];
+    in-out property <string> plugin-sidebar-selected-identifier: "";
+    in-out property <int> plugin-sidebar-selected-index: -1;
+}

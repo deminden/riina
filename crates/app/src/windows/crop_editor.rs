@@ -96,17 +96,24 @@ impl Editor {
         };
         // Property changes may call back into layout. Never hold the coordinator
         // mutex while publishing UI properties or moving keyboard focus.
-        let entering = !app.get_crop_editing() && editing;
-        let exiting = app.get_crop_editing() && !editing;
+        let entering = !app.global::<riina_ui::PlayerCropState>().get_crop_editing() && editing;
+        let exiting = app.global::<riina_ui::PlayerCropState>().get_crop_editing() && !editing;
         if let Some(content) = content {
-            app.set_crop_picture_x(content.x as f32);
-            app.set_crop_picture_y(content.y as f32);
-            app.set_crop_picture_width(content.width as f32);
-            app.set_crop_picture_height(content.height as f32);
+            app.global::<riina_ui::PlayerCropState>()
+                .set_crop_picture_x(content.x as f32);
+            app.global::<riina_ui::PlayerCropState>()
+                .set_crop_picture_y(content.y as f32);
+            app.global::<riina_ui::PlayerCropState>()
+                .set_crop_picture_width(content.width as f32);
+            app.global::<riina_ui::PlayerCropState>()
+                .set_crop_picture_height(content.height as f32);
         }
-        app.set_crop_editing(editing);
-        app.set_crop_delogo(delogo);
-        app.set_crop_ready(ready);
+        app.global::<riina_ui::PlayerCropState>()
+            .set_crop_editing(editing);
+        app.global::<riina_ui::PlayerCropState>()
+            .set_crop_delogo(delogo);
+        app.global::<riina_ui::PlayerCropState>()
+            .set_crop_ready(ready);
         if app.get_native_video() {
             let window_size = (
                 f64::from(app.get_window_width()),
@@ -127,7 +134,10 @@ impl Editor {
                     width: content.width,
                     height: content.height,
                 })
-            } else if app.get_edge_to_edge_video() {
+            } else if app
+                .global::<riina_ui::PlayerLayoutState>()
+                .get_edge_to_edge_video()
+            {
                 None
             } else {
                 Some(DisplayRect {
@@ -155,8 +165,9 @@ impl Editor {
             app.invoke_focus_player();
         }
         if entering {
-            app.set_sidebar(0);
-            app.set_leading_sidebar(0);
+            app.global::<riina_ui::PlayerSidebarState>().set_sidebar(0);
+            app.global::<riina_ui::PlayerSidebarState>()
+                .set_leading_sidebar(0);
             app.global::<riina_ui::PlayerOsdState>()
                 .set_seek_osd_visible(false);
             app.global::<riina_ui::PlayerOsdState>()
@@ -164,29 +175,36 @@ impl Editor {
             let weak = app.as_weak();
             slint::Timer::single_shot(Duration::from_millis(32), move || {
                 if let Some(app) = weak.upgrade()
-                    && app.get_crop_editing()
+                    && app.global::<riina_ui::PlayerCropState>().get_crop_editing()
                 {
                     app.invoke_focus_crop_editor();
                 }
             });
         }
         if let Some(rectangle) = rectangle {
-            app.set_crop_description(
-                format!(
-                    "({}, {}) ({}×{})",
-                    rectangle.x, rectangle.y, rectangle.width, rectangle.height
-                )
-                .into(),
-            );
+            app.global::<riina_ui::PlayerCropState>()
+                .set_crop_description(
+                    format!(
+                        "({}, {}) ({}×{})",
+                        rectangle.x, rectangle.y, rectangle.width, rectangle.height
+                    )
+                    .into(),
+                );
         }
         if let Some(screen) = screen {
-            app.set_crop_box_x(screen.x as f32);
-            app.set_crop_box_y(screen.y as f32);
-            app.set_crop_box_width(screen.width as f32);
-            app.set_crop_box_height(screen.height as f32);
+            app.global::<riina_ui::PlayerCropState>()
+                .set_crop_box_x(screen.x as f32);
+            app.global::<riina_ui::PlayerCropState>()
+                .set_crop_box_y(screen.y as f32);
+            app.global::<riina_ui::PlayerCropState>()
+                .set_crop_box_width(screen.width as f32);
+            app.global::<riina_ui::PlayerCropState>()
+                .set_crop_box_height(screen.height as f32);
         } else if delogo {
-            app.set_crop_box_width(0.0);
-            app.set_crop_box_height(0.0);
+            app.global::<riina_ui::PlayerCropState>()
+                .set_crop_box_width(0.0);
+            app.global::<riina_ui::PlayerCropState>()
+                .set_crop_box_height(0.0);
         }
     }
 
@@ -292,13 +310,14 @@ impl Editor {
         });
         let editor = self.clone();
         let weak = app.as_weak();
-        app.on_finish_custom_crop(move |confirm| {
-            if let Some(app) = weak.upgrade()
-                && let Err(error) = editor.finish(&app, &sender, confirm)
-            {
-                app.set_status(error.into());
-            }
-        });
+        app.global::<riina_ui::PlayerCropState>()
+            .on_finish_custom_crop(move |confirm| {
+                if let Some(app) = weak.upgrade()
+                    && let Err(error) = editor.finish(&app, &sender, confirm)
+                {
+                    app.set_status(error.into());
+                }
+            });
     }
 
     fn install_viewport(&self, app: &PlayerWindow) {
@@ -311,122 +330,126 @@ impl Editor {
         });
         let editor = self.clone();
         let weak = app.as_weak();
-        app.on_crop_preset(move |index| {
-            if let Some(app) = weak.upgrade() {
-                {
-                    let mut data = lock(&editor.0);
-                    let Some(session) = data.session.as_ref() else {
-                        return;
-                    };
-                    if data.delogo {
-                        return;
+        app.global::<riina_ui::PlayerCropState>()
+            .on_crop_preset(move |index| {
+                if let Some(app) = weak.upgrade() {
+                    {
+                        let mut data = lock(&editor.0);
+                        let Some(session) = data.session.as_ref() else {
+                            return;
+                        };
+                        if data.delogo {
+                            return;
+                        }
+                        let whole = session.whole_source();
+                        let Some((w, h)) = usize::try_from(index)
+                            .ok()
+                            .and_then(|index| {
+                                [
+                                    (4.0, 3.0),
+                                    (16.0, 9.0),
+                                    (16.0, 10.0),
+                                    (21.0, 9.0),
+                                    (3.0, 2.0),
+                                    (5.0, 4.0),
+                                ]
+                                .get(index)
+                            })
+                            .copied()
+                        else {
+                            return;
+                        };
+                        let ratio = w / h;
+                        let width = f64::from(whole.width).min(f64::from(whole.height) * ratio);
+                        let height = f64::from(whole.height).min(f64::from(whole.width) / ratio);
+                        data.rectangle = Some(SourceRect {
+                            x: (f64::from(whole.width) - width) / 2.0,
+                            y: (f64::from(whole.height) - height) / 2.0,
+                            width,
+                            height,
+                        });
                     }
-                    let whole = session.whole_source();
-                    let Some((w, h)) = usize::try_from(index)
-                        .ok()
-                        .and_then(|index| {
-                            [
-                                (4.0, 3.0),
-                                (16.0, 9.0),
-                                (16.0, 10.0),
-                                (21.0, 9.0),
-                                (3.0, 2.0),
-                                (5.0, 4.0),
-                            ]
-                            .get(index)
-                        })
-                        .copied()
-                    else {
-                        return;
-                    };
-                    let ratio = w / h;
-                    let width = f64::from(whole.width).min(f64::from(whole.height) * ratio);
-                    let height = f64::from(whole.height).min(f64::from(whole.width) / ratio);
-                    data.rectangle = Some(SourceRect {
-                        x: (f64::from(whole.width) - width) / 2.0,
-                        y: (f64::from(whole.height) - height) / 2.0,
-                        width,
-                        height,
-                    });
+                    editor.refresh(&app);
                 }
-                editor.refresh(&app);
-            }
-        });
+            });
     }
 
     fn install_drag(&self, app: &PlayerWindow) {
         let editor = self.clone();
         let weak = app.as_weak();
-        app.on_begin_crop_drag(move |kind, x, y| {
-            if let Some(app) = weak.upgrade()
-                && app.get_crop_ready()
-            {
-                let mut data = lock(&editor.0);
-                if let Ok(projection) = Self::projection(&data, &app) {
-                    let point = Point {
-                        x: f64::from(x),
-                        y: f64::from(y),
-                    };
-                    let content = projection.content();
-                    let inside = point.x >= content.x
-                        && point.x <= content.x + content.width
-                        && point.y >= content.y
-                        && point.y <= content.y + content.height;
-                    if data.delogo && kind == 0 && inside {
-                        data.drag = Drag::begin(
-                            None,
-                            point,
-                            DisplayRect {
-                                x: point.x,
-                                y: point.y,
-                                width: 0.0,
-                                height: 0.0,
-                            },
-                        )
-                        .ok();
-                    } else if let Some(rectangle) = data.rectangle
-                        && let Ok(screen) = projection.project_continuous(rectangle)
-                        && ((1..=4).contains(&kind) || inside)
-                    {
-                        let edge = match kind {
-                            0 => None,
-                            1 => Some(Edge::Left),
-                            2 => Some(Edge::Right),
-                            3 => Some(Edge::Top),
-                            4 => Some(Edge::Bottom),
-                            _ => return,
-                        };
-                        data.drag = Drag::begin(edge, point, screen).ok();
-                    }
-                }
-            }
-        });
-        let editor = self.clone();
-        let weak = app.as_weak();
-        app.on_move_crop_drag(move |x, y| {
-            if let Some(app) = weak.upgrade() {
+        app.global::<riina_ui::PlayerCropState>()
+            .on_begin_crop_drag(move |kind, x, y| {
+                if let Some(app) = weak.upgrade()
+                    && app.global::<riina_ui::PlayerCropState>().get_crop_ready()
                 {
                     let mut data = lock(&editor.0);
-                    if let Some(drag) = data.drag
-                        && let Ok(projection) = Self::projection(&data, &app)
-                    {
+                    if let Ok(projection) = Self::projection(&data, &app) {
                         let point = Point {
                             x: f64::from(x),
                             y: f64::from(y),
                         };
-                        if let Ok((start, end)) = drag.points(point)
-                            && let Ok(rectangle) = projection.select_continuous(start, end)
+                        let content = projection.content();
+                        let inside = point.x >= content.x
+                            && point.x <= content.x + content.width
+                            && point.y >= content.y
+                            && point.y <= content.y + content.height;
+                        if data.delogo && kind == 0 && inside {
+                            data.drag = Drag::begin(
+                                None,
+                                point,
+                                DisplayRect {
+                                    x: point.x,
+                                    y: point.y,
+                                    width: 0.0,
+                                    height: 0.0,
+                                },
+                            )
+                            .ok();
+                        } else if let Some(rectangle) = data.rectangle
+                            && let Ok(screen) = projection.project_continuous(rectangle)
+                            && ((1..=4).contains(&kind) || inside)
                         {
-                            data.rectangle = Some(rectangle);
+                            let edge = match kind {
+                                0 => None,
+                                1 => Some(Edge::Left),
+                                2 => Some(Edge::Right),
+                                3 => Some(Edge::Top),
+                                4 => Some(Edge::Bottom),
+                                _ => return,
+                            };
+                            data.drag = Drag::begin(edge, point, screen).ok();
                         }
                     }
                 }
-                editor.refresh(&app);
-            }
-        });
+            });
         let editor = self.clone();
-        app.on_end_crop_drag(move || {
-            lock(&editor.0).drag = None;
-        });
+        let weak = app.as_weak();
+        app.global::<riina_ui::PlayerCropState>()
+            .on_move_crop_drag(move |x, y| {
+                if let Some(app) = weak.upgrade() {
+                    {
+                        let mut data = lock(&editor.0);
+                        if let Some(drag) = data.drag
+                            && let Ok(projection) = Self::projection(&data, &app)
+                        {
+                            let point = Point {
+                                x: f64::from(x),
+                                y: f64::from(y),
+                            };
+                            if let Ok((start, end)) = drag.points(point)
+                                && let Ok(rectangle) = projection.select_continuous(start, end)
+                            {
+                                data.rectangle = Some(rectangle);
+                            }
+                        }
+                    }
+                    editor.refresh(&app);
+                }
+            });
+        let editor = self.clone();
+        app.global::<riina_ui::PlayerCropState>()
+            .on_end_crop_drag(move || {
+                lock(&editor.0).drag = None;
+            });
     }
 }

@@ -1,3 +1,4 @@
+import { PlayerLayoutState } from "player-layout-state.slint";
 import { ScrollView } from "std-widgets.slint";
 import { Theme } from "theme.slint";
 import { LayoutChoice } from "player-layout-choice.slint";
@@ -7,8 +8,6 @@ export component LayoutSidebarPage inherits ScrollView {
     in-out property <int> appearance-mode;
     in-out property <bool> compact-ui;
     in property <bool> dark-theme;
-    in-out property <bool> docked-controls;
-    in-out property <bool> edge-to-edge-video;
     in property <bool> fullscreen;
     in property <color> interactive-accent-color;
     in-out property <bool> layout-scrollbar-visible;
@@ -16,14 +15,12 @@ export component LayoutSidebarPage inherits ScrollView {
     in-out property <bool> liquid-glass-osd;
     in-out property <bool> liquid-glass-sidebar;
     in property <bool> loaded;
-    in-out property <int> osc-position;
     in property <bool> platform-windows;
     in-out property <bool> playlist-at-leading;
     in-out property <bool> plugins-at-leading;
     in-out property <bool> settings-at-leading;
     in property <color> sidebar-card-material-fill;
     in property <string> surface-material-title;
-    in-out property <bool> unlock-window-aspect-ratio;
     in property <color> windows-accent-color;
     in property <color> windows-accent-foreground;
     in property <bool> windows-sidebar-material-active;
@@ -146,8 +143,8 @@ export component LayoutSidebarPage inherits ScrollView {
     }
     Rectangle {
         width: layout-content.width - (root.compact-ui ? 8px : 12px);
-        height: (root.edge-to-edge-video ? 76px : 44px) +
-            (root.unlock-window-aspect-ratio ? 32px : 0px);
+        height: (PlayerLayoutState.edge-to-edge-video ? 76px : 44px) +
+            (PlayerLayoutState.unlock-window-aspect-ratio ? 32px : 0px);
         border-radius: 8px; border-width: 1px;
         border-color: Theme.sidebar-card-border(root.dark-theme);
         background: root.sidebar-card-material-fill;
@@ -155,26 +152,26 @@ export component LayoutSidebarPage inherits ScrollView {
             SidebarPositionToggle { label: "Edge-to-Edge Video";
                 icon: @image-url("../../../assets/icons/edge-video.svg");
                 icon-size: 20px;
-                leading: root.edge-to-edge-video; dark-theme: root.dark-theme;
+                leading: PlayerLayoutState.edge-to-edge-video; dark-theme: root.dark-theme;
                 accent-color: root.platform-windows ? root.windows-accent-color : #3787ef;
                 height: 23px;
-                changed(value) => { root.edge-to-edge-video = value; root.layout-settings-changed(); } }
-            if root.edge-to-edge-video : SidebarPositionToggle { label: "Lock Window Aspect Ratio";
+                changed(value) => { PlayerLayoutState.edge-to-edge-video = value; root.layout-settings-changed(); } }
+            if PlayerLayoutState.edge-to-edge-video : SidebarPositionToggle { label: "Lock Window Aspect Ratio";
                 icon: @image-url("../../../assets/icons/aspect-lock.svg");
                 icon-size: 20px;
-                leading: !root.unlock-window-aspect-ratio; dark-theme: root.dark-theme;
+                leading: !PlayerLayoutState.unlock-window-aspect-ratio; dark-theme: root.dark-theme;
                 accent-color: root.platform-windows ? root.windows-accent-color : #3787ef;
                 height: 23px;
-                changed(value) => { root.unlock-window-aspect-ratio = !value; root.layout-settings-changed(); } }
-            if !root.edge-to-edge-video : SidebarPositionToggle { label: "Dock Control Bar and Titlebar";
+                changed(value) => { PlayerLayoutState.unlock-window-aspect-ratio = !value; root.layout-settings-changed(); } }
+            if !PlayerLayoutState.edge-to-edge-video : SidebarPositionToggle { label: "Dock Control Bar and Titlebar";
                 icon: @image-url("../../../assets/icons/control.svg");
                 icon-size: 20px;
-                leading: root.docked-controls; dark-theme: root.dark-theme;
+                leading: PlayerLayoutState.docked-controls; dark-theme: root.dark-theme;
                 accent-color: root.platform-windows ? root.windows-accent-color : #3787ef;
                 height: 23px;
-                changed(value) => { root.docked-controls = value; root.layout-settings-changed(); } }
+                changed(value) => { PlayerLayoutState.docked-controls = value; root.layout-settings-changed(); } }
             // IINA exposes this action only while aspect-ratio lock is released.
-            if root.unlock-window-aspect-ratio : SidebarAction { accent-color: root.interactive-accent-color;
+            if PlayerLayoutState.unlock-window-aspect-ratio : SidebarAction { accent-color: root.interactive-accent-color;
                 label: "Fit Window to Video";
                 icon: @image-url("../../../assets/icons/fit-window-to-video.svg");
                 dark-theme: root.dark-theme;
@@ -192,12 +189,12 @@ export component LayoutSidebarPage inherits ScrollView {
             // 66-point equal tiles plus two gaps give this 214-point row.
             width: min(214px, layout-content.width);
             spacing: 8px;
-            LayoutChoice { label: "Floating"; position: 0; dark-theme: root.dark-theme; platform-windows: root.platform-windows; accent-color: root.platform-windows ? root.windows-accent-color : #168bff; card-width: (parent.width - 16px) / 3; selected: root.osc-position == 0;
-                activated => { root.osc-position = 0; root.layout-settings-changed(); } }
-            LayoutChoice { label: "Top"; position: 1; dark-theme: root.dark-theme; platform-windows: root.platform-windows; accent-color: root.platform-windows ? root.windows-accent-color : #168bff; card-width: (parent.width - 16px) / 3; selected: root.osc-position == 1;
-                activated => { root.osc-position = 1; root.layout-settings-changed(); } }
-            LayoutChoice { label: "Bottom"; position: 2; dark-theme: root.dark-theme; platform-windows: root.platform-windows; accent-color: root.platform-windows ? root.windows-accent-color : #168bff; card-width: (parent.width - 16px) / 3; selected: root.osc-position == 2;
-                activated => { root.osc-position = 2; root.layout-settings-changed(); } }
+            LayoutChoice { label: "Floating"; position: 0; dark-theme: root.dark-theme; platform-windows: root.platform-windows; accent-color: root.platform-windows ? root.windows-accent-color : #168bff; card-width: (parent.width - 16px) / 3; selected: PlayerLayoutState.osc-position == 0;
+                activated => { PlayerLayoutState.osc-position = 0; root.layout-settings-changed(); } }
+            LayoutChoice { label: "Top"; position: 1; dark-theme: root.dark-theme; platform-windows: root.platform-windows; accent-color: root.platform-windows ? root.windows-accent-color : #168bff; card-width: (parent.width - 16px) / 3; selected: PlayerLayoutState.osc-position == 1;
+                activated => { PlayerLayoutState.osc-position = 1; root.layout-settings-changed(); } }
+            LayoutChoice { label: "Bottom"; position: 2; dark-theme: root.dark-theme; platform-windows: root.platform-windows; accent-color: root.platform-windows ? root.windows-accent-color : #168bff; card-width: (parent.width - 16px) / 3; selected: PlayerLayoutState.osc-position == 2;
+                activated => { PlayerLayoutState.osc-position = 2; root.layout-settings-changed(); } }
         }
         Rectangle { height: 8px; background: transparent; }
     }

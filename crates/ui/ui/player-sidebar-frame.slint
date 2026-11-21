@@ -1,3 +1,4 @@
+import { PlayerControlActions } from "player-control-actions.slint";
 import { PlayerAppearance } from "player-appearance.slint";
 import { PlayerRenderedVideo } from "player-rendered-video.slint";
 import { Theme } from "theme.slint";
@@ -7,7 +8,6 @@ export component PlayerSidebarFrame inherits Rectangle {
     in property <length> render-width;
     in property <length> video-inset-leading;
     in property <length> video-inset-top;
-    callback activity();
 
     in property <bool> leading;
     in property <length> viewport-width;
@@ -71,7 +71,7 @@ export component PlayerSidebarFrame inherits Rectangle {
     // Unhandled input belongs to this panel, not the video behind it.
     // In particular, a wheel at a scroll boundary must not change volume.
     TouchArea {
-        clicked => { root.activity(); }
+        clicked => { PlayerControlActions.activity(); }
         scroll-event(event) => { return accept; }
     }
     @children

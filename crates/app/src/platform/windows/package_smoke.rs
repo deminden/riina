@@ -65,6 +65,8 @@ impl Runner {
     }
 
     fn tick(&mut self, app: &PlayerWindow, host: &NativeVideoHost) -> Result<bool, String> {
+        let controls = app.global::<riina_ui::PlayerControlsState>();
+        let actions = app.global::<riina_ui::PlayerControlActions>();
         if self.started.elapsed() > Duration::from_secs(40) {
             return Err(format!(
                 "GUI smoke timed out at stage {}: {}",
@@ -97,7 +99,7 @@ impl Runner {
                 Stage::EnterFullscreen
             }
             Stage::EnterFullscreen => {
-                app.invoke_double_click_action(
+                actions.invoke_double_click_action(
                     riina_core::control_preferences::MouseAction::Fullscreen.index(),
                 );
                 Stage::WaitForFullscreen
@@ -113,19 +115,19 @@ impl Runner {
                 {
                     return Err("Fullscreen overlay does not preserve the alpha workaround".into());
                 }
-                app.set_controls_visible(false);
+                controls.set_controls_visible(false);
                 self.checks.push("double_click_fullscreen");
                 Stage::RevealController
             }
             Stage::RevealController => {
-                app.set_controls_visible(true);
-                app.invoke_activity();
+                controls.set_controls_visible(true);
+                actions.invoke_activity();
                 app.window().request_redraw();
                 crate::diagnostics::warn!("riina-gui-smoke: fullscreen controller revealed");
                 Stage::WaitForController
             }
             Stage::WaitForController => {
-                if !app.get_controls_visible() || !app.get_controls_rendered() {
+                if !controls.get_controls_visible() || !controls.get_controls_rendered() {
                     return Err("Controller did not reveal".into());
                 }
                 surfaces(app, host)?;
@@ -148,7 +150,7 @@ impl Runner {
                 Stage::DispatchProfileReturn
             }
             Stage::DispatchProfileReturn => {
-                if !app.invoke_dispatch_key_binding(
+                if !actions.invoke_dispatch_key_binding(
                     slint::platform::Key::Return.into(),
                     false,
                     false,
@@ -165,7 +167,7 @@ impl Runner {
                 }
                 self.checks
                     .push("encoded_return_dispatches_profile_fullscreen");
-                if !app.invoke_dispatch_key_binding(
+                if !actions.invoke_dispatch_key_binding(
                     slint::platform::Key::Escape.into(),
                     false,
                     false,
@@ -252,9 +254,15 @@ impl Runner {
             prefs.hdr_tone_mapping.algorithm = riina_core::hdr_preferences::Algorithm::Hable;
             Ok(())
         })?;
-        app.set_control_bar_position_horizontal(0.45);
+        app.global::<riina_ui::PlayerLayoutState>()
+            .set_control_bar_position_horizontal(0.45);
         app.invoke_layout_settings_changed();
-        app.set_trailing_sidebar_width(app.get_trailing_sidebar_width() + 8.0);
+        app.global::<riina_ui::PlayerSidebarState>()
+            .set_trailing_sidebar_width(
+                app.global::<riina_ui::PlayerSidebarState>()
+                    .get_trailing_sidebar_width()
+                    + 8.0,
+            );
         app.invoke_sidebar_resize_finished();
         check_preferences()?;
         self.checks.push("preference_writers_preserve_settings");

@@ -39,17 +39,40 @@ pub(crate) fn current_player(window: &PlayerWindow) -> Settings {
                 .get_control_auto_hide_timeout_secs(),
         ),
         toolbar_buttons: toolbar_mask([
-            window.get_toolbar_show_plugins(),
-            window.get_toolbar_show_pip(),
-            window.get_toolbar_show_playlist(),
-            window.get_toolbar_show_quick_settings(),
-            window.get_toolbar_show_fullscreen(),
-            window.get_toolbar_show_music_mode(),
-            window.get_toolbar_show_subtitle_track(),
-            window.get_toolbar_show_screenshot(),
-            window.get_toolbar_show_live_text(),
+            window
+                .global::<riina_ui::PlayerControlsState>()
+                .get_toolbar_show_plugins(),
+            window
+                .global::<riina_ui::PlayerControlsState>()
+                .get_toolbar_show_pip(),
+            window
+                .global::<riina_ui::PlayerControlsState>()
+                .get_toolbar_show_playlist(),
+            window
+                .global::<riina_ui::PlayerControlsState>()
+                .get_toolbar_show_quick_settings(),
+            window
+                .global::<riina_ui::PlayerControlsState>()
+                .get_toolbar_show_fullscreen(),
+            window
+                .global::<riina_ui::PlayerControlsState>()
+                .get_toolbar_show_music_mode(),
+            window
+                .global::<riina_ui::PlayerControlsState>()
+                .get_toolbar_show_subtitle_track(),
+            window
+                .global::<riina_ui::PlayerControlsState>()
+                .get_toolbar_show_screenshot(),
+            window
+                .global::<riina_ui::PlayerControlsState>()
+                .get_toolbar_show_live_text(),
         ]),
-        toolbar_order: read_order(window.get_toolbar_order()).unwrap_or(defaults.toolbar_order),
+        toolbar_order: read_order(
+            window
+                .global::<riina_ui::PlayerControlsState>()
+                .get_toolbar_order(),
+        )
+        .unwrap_or(defaults.toolbar_order),
     }
 }
 
@@ -100,7 +123,9 @@ fn refresh_visible_order_for(window: &PlayerWindow, settings: Settings) {
         .filter(|action| *action != 8 || live_text_enabled)
         .map(i32::from)
         .collect::<Vec<_>>();
-    window.set_toolbar_visible_order(ModelRc::new(VecModel::from(visible)));
+    window
+        .global::<riina_ui::PlayerControlsState>()
+        .set_toolbar_visible_order(ModelRc::new(VecModel::from(visible)));
 }
 
 pub(crate) fn install_preferences(window: &PreferencesWindow, settings: Settings) {
@@ -243,36 +268,46 @@ trait ToolbarVisibility {
 
 impl ToolbarVisibility for crate::PlayerWindow {
     fn set_toolbar_show_plugins(&self, value: bool) {
-        self.set_toolbar_show_plugins(value);
+        self.global::<riina_ui::PlayerControlsState>()
+            .set_toolbar_show_plugins(value);
     }
     fn set_toolbar_show_pip(&self, value: bool) {
-        self.set_toolbar_show_pip(value);
+        self.global::<riina_ui::PlayerControlsState>()
+            .set_toolbar_show_pip(value);
     }
     fn set_toolbar_show_playlist(&self, value: bool) {
-        self.set_toolbar_show_playlist(value);
+        self.global::<riina_ui::PlayerControlsState>()
+            .set_toolbar_show_playlist(value);
     }
     fn set_toolbar_show_quick_settings(&self, value: bool) {
-        self.set_toolbar_show_quick_settings(value);
+        self.global::<riina_ui::PlayerControlsState>()
+            .set_toolbar_show_quick_settings(value);
     }
     fn set_toolbar_show_fullscreen(&self, value: bool) {
-        self.set_toolbar_show_fullscreen(value);
+        self.global::<riina_ui::PlayerControlsState>()
+            .set_toolbar_show_fullscreen(value);
     }
     fn set_toolbar_show_music_mode(&self, value: bool) {
-        self.set_toolbar_show_music_mode(value);
+        self.global::<riina_ui::PlayerControlsState>()
+            .set_toolbar_show_music_mode(value);
     }
     fn set_toolbar_show_subtitle_track(&self, value: bool) {
-        self.set_toolbar_show_subtitle_track(value);
+        self.global::<riina_ui::PlayerControlsState>()
+            .set_toolbar_show_subtitle_track(value);
     }
     fn set_toolbar_show_screenshot(&self, value: bool) {
-        self.set_toolbar_show_screenshot(value);
+        self.global::<riina_ui::PlayerControlsState>()
+            .set_toolbar_show_screenshot(value);
     }
     fn set_toolbar_show_live_text(&self, value: bool) {
-        self.set_toolbar_show_live_text(value);
+        self.global::<riina_ui::PlayerControlsState>()
+            .set_toolbar_show_live_text(value);
     }
     fn install_toolbar_order(&self, order: [u8; 9]) {
-        self.set_toolbar_order(ModelRc::new(VecModel::from(
-            order.into_iter().map(i32::from).collect::<Vec<_>>(),
-        )));
+        self.global::<riina_ui::PlayerControlsState>()
+            .set_toolbar_order(ModelRc::new(VecModel::from(
+                order.into_iter().map(i32::from).collect::<Vec<_>>(),
+            )));
     }
 }
 

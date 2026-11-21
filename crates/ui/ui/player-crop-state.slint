@@ -1,0 +1,22 @@
+// Interactive selection geometry is private to the player being edited.
+export global PlayerCropState {
+    in-out property <bool> crop-editing: false;
+    in-out property <bool> crop-delogo: false;
+    in-out property <bool> crop-ready: false;
+    in-out property <string> crop-description;
+    in-out property <float> crop-box-x;
+    in-out property <float> crop-box-y;
+    in-out property <float> crop-box-width;
+    in-out property <float> crop-box-height;
+    in-out property <int> crop-preset-index: -1;
+    in-out property <float> crop-picture-x;
+    in-out property <float> crop-picture-y;
+    in-out property <float> crop-picture-width;
+    in-out property <float> crop-picture-height;
+
+    callback finish-custom-crop(bool);
+    callback crop-preset(int);
+    callback begin-crop-drag(int,float,float);
+    callback move-crop-drag(float,float);
+    callback end-crop-drag();
+}

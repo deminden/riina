@@ -66,12 +66,13 @@ pub(super) fn install(
     {
         let weak = app.as_weak();
         let presenter = presenters.sidebar.clone();
-        app.on_select_plugin_sidebar_tab(move |identifier| {
-            let Some(app) = weak.upgrade() else { return };
-            let identifier = identifier.to_string();
-            select_plugin_sidebar_tab(&app, &identifier);
-            presenter.borrow_mut().select(Some(identifier));
-        });
+        app.global::<riina_ui::PlayerSidebarActions>()
+            .on_select_plugin_sidebar_tab(move |identifier| {
+                let Some(app) = weak.upgrade() else { return };
+                let identifier = identifier.to_string();
+                select_plugin_sidebar_tab(&app, &identifier);
+                presenter.borrow_mut().select(Some(identifier));
+            });
     }
     let plugin_osd_timer = plugin_host_handle
         .as_ref()
@@ -240,12 +241,26 @@ impl WindowEvents {
 }
 
 fn plugin_sidebar_tab_added(app: &PlayerWindow, identifier: &str, label: &str) {
-    let mut identifiers = (0..app.get_plugin_sidebar_identifiers().row_count())
-        .filter_map(|row| app.get_plugin_sidebar_identifiers().row_data(row))
+    let mut identifiers = (0..app
+        .global::<riina_ui::PlayerSidebarState>()
+        .get_plugin_sidebar_identifiers()
+        .row_count())
+        .filter_map(|row| {
+            app.global::<riina_ui::PlayerSidebarState>()
+                .get_plugin_sidebar_identifiers()
+                .row_data(row)
+        })
         .map(|value| value.to_string())
         .collect::<Vec<_>>();
-    let mut labels = (0..app.get_plugin_sidebar_labels().row_count())
-        .filter_map(|row| app.get_plugin_sidebar_labels().row_data(row))
+    let mut labels = (0..app
+        .global::<riina_ui::PlayerSidebarState>()
+        .get_plugin_sidebar_labels()
+        .row_count())
+        .filter_map(|row| {
+            app.global::<riina_ui::PlayerSidebarState>()
+                .get_plugin_sidebar_labels()
+                .row_data(row)
+        })
         .map(|value| value.to_string())
         .collect::<Vec<_>>();
     if let Some(index) = identifiers.iter().position(|current| current == identifier) {
@@ -254,79 +269,122 @@ fn plugin_sidebar_tab_added(app: &PlayerWindow, identifier: &str, label: &str) {
         identifiers.push(identifier.to_owned());
         labels.push(label.to_owned());
     }
-    app.set_plugin_sidebar_identifiers(slint::ModelRc::new(slint::VecModel::from(
-        identifiers
-            .iter()
-            .map(|value| slint::SharedString::from(value.as_str()))
-            .collect::<Vec<_>>(),
-    )));
-    app.set_plugin_sidebar_labels(slint::ModelRc::new(slint::VecModel::from(
-        labels
-            .iter()
-            .map(|value| slint::SharedString::from(value.as_str()))
-            .collect::<Vec<_>>(),
-    )));
-    let selected = app.get_plugin_sidebar_selected_identifier().to_string();
-    app.set_plugin_sidebar_selected_index(
-        identifiers
-            .iter()
-            .position(|current| current == &selected)
-            .map_or(-1, |index| index as i32),
-    );
+    app.global::<riina_ui::PlayerSidebarState>()
+        .set_plugin_sidebar_identifiers(slint::ModelRc::new(slint::VecModel::from(
+            identifiers
+                .iter()
+                .map(|value| slint::SharedString::from(value.as_str()))
+                .collect::<Vec<_>>(),
+        )));
+    app.global::<riina_ui::PlayerSidebarState>()
+        .set_plugin_sidebar_labels(slint::ModelRc::new(slint::VecModel::from(
+            labels
+                .iter()
+                .map(|value| slint::SharedString::from(value.as_str()))
+                .collect::<Vec<_>>(),
+        )));
+    let selected = app
+        .global::<riina_ui::PlayerSidebarState>()
+        .get_plugin_sidebar_selected_identifier()
+        .to_string();
+    app.global::<riina_ui::PlayerSidebarState>()
+        .set_plugin_sidebar_selected_index(
+            identifiers
+                .iter()
+                .position(|current| current == &selected)
+                .map_or(-1, |index| index as i32),
+        );
 }
 
 fn plugin_sidebar_tab_removed(app: &PlayerWindow, identifier: &str) {
-    let mut identifiers = (0..app.get_plugin_sidebar_identifiers().row_count())
-        .filter_map(|row| app.get_plugin_sidebar_identifiers().row_data(row))
+    let mut identifiers = (0..app
+        .global::<riina_ui::PlayerSidebarState>()
+        .get_plugin_sidebar_identifiers()
+        .row_count())
+        .filter_map(|row| {
+            app.global::<riina_ui::PlayerSidebarState>()
+                .get_plugin_sidebar_identifiers()
+                .row_data(row)
+        })
         .map(|value| value.to_string())
         .collect::<Vec<_>>();
-    let mut labels = (0..app.get_plugin_sidebar_labels().row_count())
-        .filter_map(|row| app.get_plugin_sidebar_labels().row_data(row))
+    let mut labels = (0..app
+        .global::<riina_ui::PlayerSidebarState>()
+        .get_plugin_sidebar_labels()
+        .row_count())
+        .filter_map(|row| {
+            app.global::<riina_ui::PlayerSidebarState>()
+                .get_plugin_sidebar_labels()
+                .row_data(row)
+        })
         .map(|value| value.to_string())
         .collect::<Vec<_>>();
     if let Some(index) = identifiers.iter().position(|current| current == identifier) {
         identifiers.remove(index);
         labels.remove(index);
     }
-    if app.get_plugin_sidebar_selected_identifier().as_str() == identifier {
-        app.set_plugin_sidebar_selected_identifier("".into());
+    if app
+        .global::<riina_ui::PlayerSidebarState>()
+        .get_plugin_sidebar_selected_identifier()
+        .as_str()
+        == identifier
+    {
+        app.global::<riina_ui::PlayerSidebarState>()
+            .set_plugin_sidebar_selected_identifier("".into());
     }
-    app.set_plugin_sidebar_identifiers(slint::ModelRc::new(slint::VecModel::from(
-        identifiers
-            .iter()
-            .map(|value| slint::SharedString::from(value.as_str()))
-            .collect::<Vec<_>>(),
-    )));
-    app.set_plugin_sidebar_labels(slint::ModelRc::new(slint::VecModel::from(
-        labels
-            .iter()
-            .map(|value| slint::SharedString::from(value.as_str()))
-            .collect::<Vec<_>>(),
-    )));
-    let selected = app.get_plugin_sidebar_selected_identifier().to_string();
-    app.set_plugin_sidebar_selected_index(
-        identifiers
-            .iter()
-            .position(|current| current == &selected)
-            .map_or(-1, |index| index as i32),
-    );
+    app.global::<riina_ui::PlayerSidebarState>()
+        .set_plugin_sidebar_identifiers(slint::ModelRc::new(slint::VecModel::from(
+            identifiers
+                .iter()
+                .map(|value| slint::SharedString::from(value.as_str()))
+                .collect::<Vec<_>>(),
+        )));
+    app.global::<riina_ui::PlayerSidebarState>()
+        .set_plugin_sidebar_labels(slint::ModelRc::new(slint::VecModel::from(
+            labels
+                .iter()
+                .map(|value| slint::SharedString::from(value.as_str()))
+                .collect::<Vec<_>>(),
+        )));
+    let selected = app
+        .global::<riina_ui::PlayerSidebarState>()
+        .get_plugin_sidebar_selected_identifier()
+        .to_string();
+    app.global::<riina_ui::PlayerSidebarState>()
+        .set_plugin_sidebar_selected_index(
+            identifiers
+                .iter()
+                .position(|current| current == &selected)
+                .map_or(-1, |index| index as i32),
+        );
 }
 
 fn select_plugin_sidebar_tab(app: &PlayerWindow, identifier: &str) {
-    app.set_plugin_sidebar_selected_identifier(identifier.into());
-    if app.get_leading_sidebar() != 7 && app.get_sidebar() != 7 {
+    app.global::<riina_ui::PlayerSidebarState>()
+        .set_plugin_sidebar_selected_identifier(identifier.into());
+    if app
+        .global::<riina_ui::PlayerSidebarState>()
+        .get_leading_sidebar()
+        != 7
+        && app.global::<riina_ui::PlayerSidebarState>().get_sidebar() != 7
+    {
         // Use the configured IINA placement while leaving an already-open
         // Plugins panel on its current side when a different tab is selected.
         crate::sidebar_preferences::show_plugins_panel(app);
     }
-    let index = (0..app.get_plugin_sidebar_identifiers().row_count())
+    let index = (0..app
+        .global::<riina_ui::PlayerSidebarState>()
+        .get_plugin_sidebar_identifiers()
+        .row_count())
         .find(|row| {
-            app.get_plugin_sidebar_identifiers()
+            app.global::<riina_ui::PlayerSidebarState>()
+                .get_plugin_sidebar_identifiers()
                 .row_data(*row)
                 .is_some_and(|value| value.as_str() == identifier)
         })
         .map_or(-1, |row| row as i32);
-    app.set_plugin_sidebar_selected_index(index);
+    app.global::<riina_ui::PlayerSidebarState>()
+        .set_plugin_sidebar_selected_index(index);
 }
 
 fn plugin_sidebar_name(index: i32) -> Option<&'static str> {
@@ -375,12 +433,20 @@ fn plugin_window_properties(
         ),
         (
             "ontop".into(),
-            serde_json::json!(app.get_always_float_on_top()),
+            serde_json::json!(
+                app.global::<riina_ui::PlayerLayoutState>()
+                    .get_always_float_on_top()
+            ),
         ),
         (
             "sidebar".into(),
-            plugin_sidebar_name(app.get_sidebar())
-                .or_else(|| plugin_sidebar_name(app.get_leading_sidebar()))
+            plugin_sidebar_name(app.global::<riina_ui::PlayerSidebarState>().get_sidebar())
+                .or_else(|| {
+                    plugin_sidebar_name(
+                        app.global::<riina_ui::PlayerSidebarState>()
+                            .get_leading_sidebar(),
+                    )
+                })
                 .map_or(serde_json::Value::Null, |name| serde_json::json!(name)),
         ),
         ("visible".into(), serde_json::Value::Null),
@@ -502,11 +568,14 @@ fn apply_plugin_window_action(
                     .invoke_toggle_picture_in_picture();
             }
         }
-        WindowAction::SetOnTop(ontop) => app.set_always_float_on_top(ontop),
+        WindowAction::SetOnTop(ontop) => app
+            .global::<riina_ui::PlayerLayoutState>()
+            .set_always_float_on_top(ontop),
         WindowAction::SetSidebar(name) => {
             let index = name.as_deref().map_or(Some(0), plugin_sidebar_index);
             if let Some(index) = index {
-                app.set_sidebar(index);
+                app.global::<riina_ui::PlayerSidebarState>()
+                    .set_sidebar(index);
             } else {
                 app.set_status("Plugin requested an unsupported sidebar name".into());
             }

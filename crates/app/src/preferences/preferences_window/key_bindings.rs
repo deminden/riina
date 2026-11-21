@@ -110,11 +110,16 @@ fn install_profile_files(app: &PlayerWindow, window: &PreferencesWindow) {
         let (Some(window), Some(app)) = (import_window.upgrade(), import_parent.upgrade()) else {
             return;
         };
-        if app.get_dialog_open() {
+        if app
+            .global::<riina_ui::PlayerDialogState>()
+            .get_dialog_open()
+        {
             return;
         }
-        app.set_dialog_open(true);
-        app.invoke_activity();
+        app.global::<riina_ui::PlayerDialogState>()
+            .set_dialog_open(true);
+        app.global::<riina_ui::PlayerControlActions>()
+            .invoke_activity();
         let weak_window = window.as_weak();
         let weak_app = app.as_weak();
         let started = slint::spawn_local(async move {
@@ -145,8 +150,10 @@ fn install_profile_files(app: &PlayerWindow, window: &PreferencesWindow) {
             let Some(app) = weak_app.upgrade() else {
                 return;
             };
-            app.set_dialog_open(false);
-            app.invoke_activity();
+            app.global::<riina_ui::PlayerDialogState>()
+                .set_dialog_open(false);
+            app.global::<riina_ui::PlayerControlActions>()
+                .invoke_activity();
             match result {
                 Ok(Some(name)) => {
                     if let Some(window) = weak_window.upgrade()
@@ -161,8 +168,10 @@ fn install_profile_files(app: &PlayerWindow, window: &PreferencesWindow) {
             }
         });
         if let Err(error) = started {
-            app.set_dialog_open(false);
-            app.invoke_activity();
+            app.global::<riina_ui::PlayerDialogState>()
+                .set_dialog_open(false);
+            app.global::<riina_ui::PlayerControlActions>()
+                .invoke_activity();
             app.set_status(error.to_string().into());
         }
     });

@@ -48,10 +48,14 @@ fn schedule_control_hide(app: &PlayerWindow, timer: &slint::Timer) {
     if !app
         .global::<riina_ui::PlayerPreferences>()
         .get_control_auto_hide_enabled()
-        || !app.get_controls_visible()
+        || !app
+            .global::<riina_ui::PlayerControlsState>()
+            .get_controls_visible()
         || !app.get_loaded()
-        || app.get_dialog_open()
-        || app.get_crop_editing()
+        || app
+            .global::<riina_ui::PlayerDialogState>()
+            .get_dialog_open()
+        || app.global::<riina_ui::PlayerCropState>().get_crop_editing()
     {
         return;
     }
@@ -72,16 +76,30 @@ fn schedule_control_hide(app: &PlayerWindow, timer: &slint::Timer) {
                     .global::<riina_ui::PlayerPreferences>()
                     .get_control_auto_hide_enabled(),
                 loaded: app.get_loaded(),
-                dialog_open: app.get_dialog_open(),
-                crop_editing: app.get_crop_editing(),
-                title_bar_hovered: app.get_title_bar_hovered(),
-                control_bar_hovered: app.get_control_bar_hovered(),
-                control_bar_dragging: app.get_control_bar_dragging(),
-                settings_panel_open: app.get_sidebar() != 0 || app.get_leading_sidebar() != 0,
+                dialog_open: app
+                    .global::<riina_ui::PlayerDialogState>()
+                    .get_dialog_open(),
+                crop_editing: app.global::<riina_ui::PlayerCropState>().get_crop_editing(),
+                title_bar_hovered: app
+                    .global::<riina_ui::PlayerControlsState>()
+                    .get_title_bar_hovered(),
+                control_bar_hovered: app
+                    .global::<riina_ui::PlayerControlsState>()
+                    .get_control_bar_hovered(),
+                control_bar_dragging: app
+                    .global::<riina_ui::PlayerControlsState>()
+                    .get_control_bar_dragging(),
+                settings_panel_open: app.global::<riina_ui::PlayerSidebarState>().get_sidebar()
+                    != 0
+                    || app
+                        .global::<riina_ui::PlayerSidebarState>()
+                        .get_leading_sidebar()
+                        != 0,
             })
             .allowed()
             {
-                app.set_controls_visible(false);
+                app.global::<riina_ui::PlayerControlsState>()
+                    .set_controls_visible(false);
             }
         }
     });
@@ -124,11 +142,17 @@ fn install_controls_fade(app: &PlayerWindow) {
         // controller. Movement shows the controls and restores the pointer.
         app.window().with_winit_window(|window| {
             window.set_cursor_visible(
-                visible || app.get_sidebar() != 0 || app.get_leading_sidebar() != 0,
+                visible
+                    || app.global::<riina_ui::PlayerSidebarState>().get_sidebar() != 0
+                    || app
+                        .global::<riina_ui::PlayerSidebarState>()
+                        .get_leading_sidebar()
+                        != 0,
             );
         });
         if visible {
-            app.set_controls_rendered(true);
+            app.global::<riina_ui::PlayerControlsState>()
+                .set_controls_rendered(true);
         } else if app
             .global::<riina_ui::PlayerPreferences>()
             .get_disable_animations()
@@ -136,7 +160,8 @@ fn install_controls_fade(app: &PlayerWindow) {
                 .global::<riina_ui::PlayerAppearance>()
                 .get_system_reduce_motion()
         {
-            app.set_controls_rendered(false);
+            app.global::<riina_ui::PlayerControlsState>()
+                .set_controls_rendered(false);
         } else {
             let weak = app.as_weak();
             controls_fade_timeout.start(
@@ -144,9 +169,12 @@ fn install_controls_fade(app: &PlayerWindow) {
                 Duration::from_millis(250),
                 move || {
                     if let Some(app) = weak.upgrade()
-                        && !app.get_controls_visible()
+                        && !app
+                            .global::<riina_ui::PlayerControlsState>()
+                            .get_controls_visible()
                     {
-                        app.set_controls_rendered(false);
+                        app.global::<riina_ui::PlayerControlsState>()
+                            .set_controls_rendered(false);
                     }
                 },
             );
@@ -195,10 +223,16 @@ fn install_screenshot_actions(
     app.global::<PlayerMenuActions>()
         .on_take_screenshot(move || {
             let Some(app) = weak.upgrade() else { return };
-            if !app.get_screenshot_available() || app.get_crop_editing() || app.get_dialog_open() {
+            if !app.get_screenshot_available()
+                || app.global::<riina_ui::PlayerCropState>().get_crop_editing()
+                || app
+                    .global::<riina_ui::PlayerDialogState>()
+                    .get_dialog_open()
+            {
                 return;
             }
-            app.invoke_activity();
+            app.global::<riina_ui::PlayerControlActions>()
+                .invoke_activity();
             let result =
                 crate::screenshot_preferences::current(&app).and_then(|screenshot_settings| {
                     if !screenshot_settings.destinations.enabled() {
@@ -226,7 +260,11 @@ fn install_screenshot_actions(
     app.global::<PlayerMenuActions>()
         .on_open_screenshot_folder(move || {
             let Some(app) = weak.upgrade() else { return };
-            if app.get_crop_editing() || app.get_dialog_open() {
+            if app.global::<riina_ui::PlayerCropState>().get_crop_editing()
+                || app
+                    .global::<riina_ui::PlayerDialogState>()
+                    .get_dialog_open()
+            {
                 return;
             }
             if let Err(error) = crate::screenshot_preferences::current(&app).and_then(|settings| {
@@ -241,34 +279,35 @@ fn install_screenshot_actions(
 
 fn install_seek_osd(app: &PlayerWindow, seek_timer: Rc<slint::Timer>) {
     let weak = app.as_weak();
-    app.on_show_seek_osd(move || {
-        let Some(app) = weak.upgrade() else { return };
-        if !app
-            .global::<riina_ui::PlayerPreferences>()
-            .get_osd_enabled()
-            || app
+    app.global::<riina_ui::PlayerControlActions>()
+        .on_show_seek_osd(move || {
+            let Some(app) = weak.upgrade() else { return };
+            if !app
                 .global::<riina_ui::PlayerPreferences>()
-                .get_disable_osd_seek()
-        {
-            return;
-        }
-        app.global::<riina_ui::PlayerOsdState>()
-            .set_seek_osd_visible(true);
-        clear_screenshot_preview(&app);
-        app.global::<riina_ui::PlayerOsdState>()
-            .set_video_osd_visible(false);
-        let weak = weak.clone();
-        seek_timer.start(
-            slint::TimerMode::SingleShot,
-            configured_osd_timeout(&app),
-            move || {
-                if let Some(app) = weak.upgrade() {
-                    app.global::<riina_ui::PlayerOsdState>()
-                        .set_seek_osd_visible(false);
-                }
-            },
-        );
-    });
+                .get_osd_enabled()
+                || app
+                    .global::<riina_ui::PlayerPreferences>()
+                    .get_disable_osd_seek()
+            {
+                return;
+            }
+            app.global::<riina_ui::PlayerOsdState>()
+                .set_seek_osd_visible(true);
+            clear_screenshot_preview(&app);
+            app.global::<riina_ui::PlayerOsdState>()
+                .set_video_osd_visible(false);
+            let weak = weak.clone();
+            seek_timer.start(
+                slint::TimerMode::SingleShot,
+                configured_osd_timeout(&app),
+                move || {
+                    if let Some(app) = weak.upgrade() {
+                        app.global::<riina_ui::PlayerOsdState>()
+                            .set_seek_osd_visible(false);
+                    }
+                },
+            );
+        });
 }
 
 fn install_screenshot_preview(app: &PlayerWindow, screenshot_timer: Rc<slint::Timer>) {
@@ -278,7 +317,7 @@ fn install_screenshot_preview(app: &PlayerWindow, screenshot_timer: Rc<slint::Ti
         if !app
             .global::<riina_ui::PlayerPreferences>()
             .get_osd_enabled()
-            || app.get_crop_editing()
+            || app.global::<riina_ui::PlayerCropState>().get_crop_editing()
         {
             return;
         }
@@ -305,8 +344,10 @@ fn install_screenshot_preview(app: &PlayerWindow, screenshot_timer: Rc<slint::Ti
         if !app
             .global::<riina_ui::PlayerOsdState>()
             .get_screenshot_preview_visible()
-            || app.get_crop_editing()
-            || app.get_dialog_open()
+            || app.global::<riina_ui::PlayerCropState>().get_crop_editing()
+            || app
+                .global::<riina_ui::PlayerDialogState>()
+                .get_dialog_open()
         {
             return;
         }
@@ -339,108 +380,136 @@ fn install_video_osd(
     pending_video_osd: Rc<RefCell<crate::video_osd::VideoOsd>>,
 ) {
     let weak = app.as_weak();
-    app.on_show_video_osd(move || {
-        let Some(app) = weak.upgrade() else { return };
-        if !app
-            .global::<riina_ui::PlayerPreferences>()
-            .get_osd_enabled()
-        {
-            return;
-        }
-        app.global::<riina_ui::PlayerOsdState>()
-            .set_seek_osd_visible(false);
-        clear_screenshot_preview(&app);
-        app.global::<riina_ui::PlayerOsdState>()
-            .set_video_osd_visible(true);
-        let weak = weak.clone();
-        let pending_video_osd = pending_video_osd.clone();
-        video_timer.start(
-            slint::TimerMode::SingleShot,
-            configured_osd_timeout(&app),
-            move || {
-                let Some(app) = weak.upgrade() else { return };
-                if !app
-                    .global::<riina_ui::PlayerPreferences>()
-                    .get_osd_enabled()
-                {
-                    pending_video_osd.borrow_mut().clear_pending();
-                    app.global::<riina_ui::PlayerOsdState>()
-                        .set_video_osd_visible(false);
-                    app.set_video_osd_request_feedback(false);
-                    return;
-                }
-                let next = pending_video_osd.borrow_mut().take_pending();
-                if let Some(message) = next {
-                    app.set_video_osd_request_feedback(
-                        message.kind == crate::video_osd::Kind::Aspect,
-                    );
-                    app.global::<riina_ui::PlayerOsdState>()
-                        .set_video_osd_text(message.text.into());
-                    app.global::<riina_ui::PlayerOsdState>()
-                        .set_video_osd_progress(message.progress.unwrap_or(-1.0));
-                    app.invoke_show_video_osd();
-                } else {
-                    app.global::<riina_ui::PlayerOsdState>()
-                        .set_video_osd_visible(false);
-                    app.set_video_osd_request_feedback(false);
-                }
-            },
-        );
-    });
+    app.global::<riina_ui::PlayerControlActions>()
+        .on_show_video_osd(move || {
+            let Some(app) = weak.upgrade() else { return };
+            if !app
+                .global::<riina_ui::PlayerPreferences>()
+                .get_osd_enabled()
+            {
+                return;
+            }
+            app.global::<riina_ui::PlayerOsdState>()
+                .set_seek_osd_visible(false);
+            clear_screenshot_preview(&app);
+            app.global::<riina_ui::PlayerOsdState>()
+                .set_video_osd_visible(true);
+            let weak = weak.clone();
+            let pending_video_osd = pending_video_osd.clone();
+            video_timer.start(
+                slint::TimerMode::SingleShot,
+                configured_osd_timeout(&app),
+                move || {
+                    let Some(app) = weak.upgrade() else { return };
+                    if !app
+                        .global::<riina_ui::PlayerPreferences>()
+                        .get_osd_enabled()
+                    {
+                        pending_video_osd.borrow_mut().clear_pending();
+                        app.global::<riina_ui::PlayerOsdState>()
+                            .set_video_osd_visible(false);
+                        app.set_video_osd_request_feedback(false);
+                        return;
+                    }
+                    let next = pending_video_osd.borrow_mut().take_pending();
+                    if let Some(message) = next {
+                        app.set_video_osd_request_feedback(
+                            message.kind == crate::video_osd::Kind::Aspect,
+                        );
+                        app.global::<riina_ui::PlayerOsdState>()
+                            .set_video_osd_text(message.text.into());
+                        app.global::<riina_ui::PlayerOsdState>()
+                            .set_video_osd_progress(message.progress.unwrap_or(-1.0));
+                        app.global::<riina_ui::PlayerControlActions>()
+                            .invoke_show_video_osd();
+                    } else {
+                        app.global::<riina_ui::PlayerOsdState>()
+                            .set_video_osd_visible(false);
+                        app.set_video_osd_request_feedback(false);
+                    }
+                },
+            );
+        });
 }
 
 fn install_controls_deadline(app: &PlayerWindow) {
     let idle_timer = Rc::new(slint::Timer::default());
     let weak = app.as_weak();
     let activity_timer = idle_timer.clone();
-    app.on_activity(move || {
-        if let Some(app) = weak.upgrade()
-            && !app.get_plugin_ui_disabled()
-        {
-            app.set_controls_visible(true);
-            schedule_control_hide(&app, &activity_timer);
-        }
-    });
+    app.global::<riina_ui::PlayerControlActions>()
+        .on_activity(move || {
+            if let Some(app) = weak.upgrade()
+                && !app
+                    .global::<riina_ui::PlayerControlsState>()
+                    .get_plugin_ui_disabled()
+            {
+                app.global::<riina_ui::PlayerControlsState>()
+                    .set_controls_visible(true);
+                schedule_control_hide(&app, &activity_timer);
+            }
+        });
     let auto_hide_parent = app.as_weak();
     let auto_hide_timer = idle_timer.clone();
-    app.on_control_bar_settings_changed(move || {
-        let Some(app) = auto_hide_parent.upgrade() else {
-            return;
-        };
-        if app.get_title_bar_hovered()
-            || app.get_control_bar_hovered()
-            || app.get_control_bar_dragging()
-        {
-            auto_hide_timer.stop();
-            app.set_controls_visible(true);
-        } else if app
-            .global::<riina_ui::PlayerPreferences>()
-            .get_control_auto_hide_enabled()
-        {
-            schedule_control_hide(&app, &auto_hide_timer);
-        } else {
-            auto_hide_timer.stop();
-            if app.get_loaded() && !app.get_dialog_open() && !app.get_crop_editing() {
-                app.set_controls_visible(true);
+    app.global::<riina_ui::PlayerPreferences>()
+        .on_control_bar_settings_changed(move || {
+            let Some(app) = auto_hide_parent.upgrade() else {
+                return;
+            };
+            if app
+                .global::<riina_ui::PlayerControlsState>()
+                .get_title_bar_hovered()
+                || app
+                    .global::<riina_ui::PlayerControlsState>()
+                    .get_control_bar_hovered()
+                || app
+                    .global::<riina_ui::PlayerControlsState>()
+                    .get_control_bar_dragging()
+            {
+                auto_hide_timer.stop();
+                app.global::<riina_ui::PlayerControlsState>()
+                    .set_controls_visible(true);
+            } else if app
+                .global::<riina_ui::PlayerPreferences>()
+                .get_control_auto_hide_enabled()
+            {
+                schedule_control_hide(&app, &auto_hide_timer);
+            } else {
+                auto_hide_timer.stop();
+                if app.get_loaded()
+                    && !app
+                        .global::<riina_ui::PlayerDialogState>()
+                        .get_dialog_open()
+                    && !app.global::<riina_ui::PlayerCropState>().get_crop_editing()
+                {
+                    app.global::<riina_ui::PlayerControlsState>()
+                        .set_controls_visible(true);
+                }
             }
-        }
-    });
+        });
     let hover_parent = app.as_weak();
     let hover_timer = idle_timer.clone();
-    app.on_control_bar_hover_changed(move || {
-        let Some(app) = hover_parent.upgrade() else {
-            return;
-        };
-        if app.get_title_bar_hovered()
-            || app.get_control_bar_hovered()
-            || app.get_control_bar_dragging()
-        {
-            hover_timer.stop();
-            app.set_controls_visible(true);
-        } else {
-            schedule_control_hide(&app, &hover_timer);
-        }
-    });
+    app.global::<riina_ui::PlayerControlsState>()
+        .on_control_bar_hover_changed(move || {
+            let Some(app) = hover_parent.upgrade() else {
+                return;
+            };
+            if app
+                .global::<riina_ui::PlayerControlsState>()
+                .get_title_bar_hovered()
+                || app
+                    .global::<riina_ui::PlayerControlsState>()
+                    .get_control_bar_hovered()
+                || app
+                    .global::<riina_ui::PlayerControlsState>()
+                    .get_control_bar_dragging()
+            {
+                hover_timer.stop();
+                app.global::<riina_ui::PlayerControlsState>()
+                    .set_controls_visible(true);
+            } else {
+                schedule_control_hide(&app, &hover_timer);
+            }
+        });
 }
 
 #[cfg(test)]

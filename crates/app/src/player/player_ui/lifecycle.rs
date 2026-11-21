@@ -69,7 +69,8 @@ pub(super) fn install_pause_on_minimize(
             }
         };
         if let Some(paused) = action {
-            app.invoke_set_paused(paused);
+            app.global::<riina_ui::PlayerControlActions>()
+                .invoke_set_paused(paused);
         }
     };
     // The framed owner represents Windows playback. The separate control
@@ -106,7 +107,8 @@ mod tests {
         install_pause_on_minimize(&app, Some(owner.as_weak()), playback);
         let decisions = Rc::new(RefCell::new(Vec::new()));
         let observed = decisions.clone();
-        app.on_set_paused(move |paused| observed.borrow_mut().push(paused));
+        app.global::<riina_ui::PlayerControlActions>()
+            .on_set_paused(move |paused| observed.borrow_mut().push(paused));
         let flush_changes = || i_slint_backend_testing::mock_elapsed_time(Duration::ZERO);
 
         app.global::<riina_ui::PlayerPreferences>()

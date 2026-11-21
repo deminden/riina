@@ -1,0 +1,24 @@
+
+// Key, pointer, and transport intents are dispatched by the active player.
+export global PlayerControlActions {
+    callback open-application-menu();
+    callback timeline-hovered(float);
+    callback activate-saved-filter-shortcut(string, bool, bool, bool, bool) -> bool;
+    callback dispatch-key-binding(string, bool, bool, bool, bool) -> bool;
+    callback set-paused(bool);
+    callback execute-mpv-input-action(string);
+    callback set-volume(float);
+    callback subtitle-seek(int);
+    callback adjust-subtitle-scale(float);
+    callback adjust-subtitle-position(float);
+    callback activity();
+    callback single-click-action(int);
+    callback double-click-action(int);
+    callback mouse-button-action(int);
+    callback scroll-action-request(float, float) -> bool;
+    callback seek-scroll-action-request(float, float) -> bool;
+    callback volume-scroll-action-request(float, float) -> bool;
+    callback show-seek-osd();
+    callback show-video-osd();
+    callback set-ab-loop-point(int, float);
+}

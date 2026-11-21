@@ -1,0 +1,25 @@
+// Control visibility, hover, and toolbar order belong to the player.
+export global PlayerControlsState {
+    in-out property <bool> controls-visible: true;
+    in-out property <bool> controls-rendered: true;
+    in-out property <bool> plugin-ui-disabled: false;
+    in-out property <bool> toolbar-show-plugins: true;
+    in-out property <bool> toolbar-show-pip: true;
+    in-out property <bool> toolbar-show-playlist: true;
+    in-out property <bool> toolbar-show-quick-settings: true;
+    in-out property <bool> toolbar-show-fullscreen: false;
+    in-out property <bool> toolbar-show-music-mode: false;
+    in-out property <bool> toolbar-show-subtitle-track: false;
+    in-out property <bool> toolbar-show-screenshot: false;
+    in-out property <bool> toolbar-show-live-text: false;
+    in-out property <[int]> toolbar-order: [7, 2, 1, 0, 3, 4, 5, 6, 8];
+    in-out property <[int]> toolbar-visible-order: [7, 2, 1, 0];
+    in-out property <bool> title-bar-hovered: false;
+    in-out property <bool> control-bar-hovered: false;
+    in-out property <bool> control-bar-dragging: false;
+
+    callback control-bar-hover-changed();
+    changed title-bar-hovered => { self.control-bar-hover-changed(); }
+    changed control-bar-hovered => { self.control-bar-hover-changed(); }
+    changed control-bar-dragging => { self.control-bar-hover-changed(); }
+}

@@ -68,12 +68,13 @@ fn equalizer_fader_passes_modified_shortcuts_and_tab_reaches_the_profile_picker(
         .on_set_audio_equalizer(move |index, value| recorded.borrow_mut().push((index, value)));
     let shortcuts = Rc::new(RefCell::new(Vec::new()));
     let recorded = shortcuts.clone();
-    app.on_dispatch_key_binding(move |text, control, _, _, _| {
-        let right: slint::SharedString = Key::RightArrow.into();
-        let handled = control && text == right;
-        recorded.borrow_mut().push((text.to_string(), control));
-        handled
-    });
+    app.global::<riina_ui::PlayerControlActions>()
+        .on_dispatch_key_binding(move |text, control, _, _, _| {
+            let right: slint::SharedString = Key::RightArrow.into();
+            let handled = control && text == right;
+            recorded.borrow_mut().push((text.to_string(), control));
+            handled
+        });
     focus(&app, &field(&app, "32 Hz equalizer gain"));
     gains.borrow_mut().clear();
     app.window().dispatch_event(WindowEvent::KeyPressed {
@@ -174,10 +175,11 @@ fn escape_cancels_a_profile_prompt_without_reaching_fullscreen_or_playback() {
     app.global::<PlayerMenuActions>()
         .on_toggle_fullscreen(move || recorded.set(recorded.get() + 1));
     let recorded = commands.clone();
-    app.on_dispatch_key_binding(move |_, _, _, _, _| {
-        recorded.set(recorded.get() + 1);
-        true
-    });
+    app.global::<riina_ui::PlayerControlActions>()
+        .on_dispatch_key_binding(move |_, _, _, _, _| {
+            recorded.set(recorded.get() + 1);
+            true
+        });
     naming_dialog(&app).set_accessible_value("Cancelled");
     key(&app, Key::Escape);
     assert_eq!(commands.get(), 0);

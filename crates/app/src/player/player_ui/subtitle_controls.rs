@@ -13,7 +13,8 @@ pub(super) fn install(app: &PlayerWindow, player: &CommandSender) {
     let weak = app.as_weak();
     menu.on_set_subtitle_scale_slider(move |value| {
         if let Some(app) = weak.upgrade() {
-            app.invoke_activity();
+            app.global::<riina_ui::PlayerControlActions>()
+                .invoke_activity();
             // Each side advances in 0.05 scale units; the negative side is reciprocal.
             let magnitude = ((1.0 + f64::from(value).abs()) * 20.0).round() / 20.0;
             let scale = if value < 0.0 {
@@ -27,21 +28,24 @@ pub(super) fn install(app: &PlayerWindow, player: &CommandSender) {
         }
     });
     let weak = app.as_weak();
-    app.on_adjust_subtitle_scale(move |delta| {
-        if let Some(app) = weak.upgrade() {
-            app.invoke_activity();
-        }
-        if let Err(error) = scale_player.send(Command::AdjustSubtitleScale(delta as f64))
-            && let Some(app) = weak.upgrade()
-        {
-            app.set_status(error.into());
-        }
-    });
+    app.global::<riina_ui::PlayerControlActions>()
+        .on_adjust_subtitle_scale(move |delta| {
+            if let Some(app) = weak.upgrade() {
+                app.global::<riina_ui::PlayerControlActions>()
+                    .invoke_activity();
+            }
+            if let Err(error) = scale_player.send(Command::AdjustSubtitleScale(delta as f64))
+                && let Some(app) = weak.upgrade()
+            {
+                app.set_status(error.into());
+            }
+        });
     let multiply_scale_player = player.clone();
     let weak = app.as_weak();
     menu.on_multiply_subtitle_scale(move |factor| {
         if let Some(app) = weak.upgrade() {
-            app.invoke_activity();
+            app.global::<riina_ui::PlayerControlActions>()
+                .invoke_activity();
         }
         if let Err(error) =
             multiply_scale_player.send(Command::MultiplySubtitleScale(factor as f64))
@@ -52,21 +56,24 @@ pub(super) fn install(app: &PlayerWindow, player: &CommandSender) {
     });
     let position_player = player.clone();
     let weak = app.as_weak();
-    app.on_adjust_subtitle_position(move |delta| {
-        if let Some(app) = weak.upgrade() {
-            app.invoke_activity();
-        }
-        if let Err(error) = position_player.send(Command::AdjustSubtitlePosition(delta as f64))
-            && let Some(app) = weak.upgrade()
-        {
-            app.set_status(error.into());
-        }
-    });
+    app.global::<riina_ui::PlayerControlActions>()
+        .on_adjust_subtitle_position(move |delta| {
+            if let Some(app) = weak.upgrade() {
+                app.global::<riina_ui::PlayerControlActions>()
+                    .invoke_activity();
+            }
+            if let Err(error) = position_player.send(Command::AdjustSubtitlePosition(delta as f64))
+                && let Some(app) = weak.upgrade()
+            {
+                app.set_status(error.into());
+            }
+        });
     let audio_delay_player = player.clone();
     let weak = app.as_weak();
     menu.on_adjust_audio_delay(move |delta| {
         if let Some(app) = weak.upgrade() {
-            app.invoke_activity();
+            app.global::<riina_ui::PlayerControlActions>()
+                .invoke_activity();
         }
         if let Err(error) = audio_delay_player.send(Command::AdjustAudioDelay(delta as f64))
             && let Some(app) = weak.upgrade()
@@ -81,7 +88,8 @@ pub(super) fn install(app: &PlayerWindow, player: &CommandSender) {
     app.global::<riina_ui::PlayerSidebarActions>()
         .on_set_subtitle_position(move |secondary, value| {
             if let Some(app) = weak.upgrade() {
-                app.invoke_activity();
+                app.global::<riina_ui::PlayerControlActions>()
+                    .invoke_activity();
                 if let Err(error) = secondary_position_player.send(if secondary {
                     Command::SecondarySubtitlePosition(value as f64)
                 } else {
@@ -94,7 +102,8 @@ pub(super) fn install(app: &PlayerWindow, player: &CommandSender) {
     let weak = app.as_weak();
     menu.on_adjust_subtitle_delay(move |delta| {
         if let Some(app) = weak.upgrade() {
-            app.invoke_activity();
+            app.global::<riina_ui::PlayerControlActions>()
+                .invoke_activity();
         }
         if let Err(error) = delay_player.send(Command::AdjustSubtitleDelay(delta as f64))
             && let Some(app) = weak.upgrade()
@@ -124,7 +133,8 @@ fn install_appearance(app: &PlayerWindow, player: &CommandSender) {
                     3 => Command::SubtitleBorderColor(color),
                     _ => return,
                 };
-                app.invoke_activity();
+                app.global::<riina_ui::PlayerControlActions>()
+                    .invoke_activity();
                 if let Err(error) = color_player.send(command) {
                     app.set_status(error.into());
                 } else {
@@ -150,7 +160,8 @@ fn install_appearance(app: &PlayerWindow, player: &CommandSender) {
     app.global::<riina_ui::PlayerSidebarActions>()
         .on_set_subtitle_outline_size(move |value| {
             if let Some(app) = weak.upgrade() {
-                app.invoke_activity();
+                app.global::<riina_ui::PlayerControlActions>()
+                    .invoke_activity();
                 if let Err(error) =
                     outline_size_player.send(Command::SubtitleOutlineSize(value as f64))
                 {
@@ -165,7 +176,8 @@ fn install_appearance(app: &PlayerWindow, player: &CommandSender) {
     app.global::<riina_ui::PlayerSidebarActions>()
         .on_set_subtitle_font_size(move |value| {
             if let Some(app) = weak.upgrade() {
-                app.invoke_activity();
+                app.global::<riina_ui::PlayerControlActions>()
+                    .invoke_activity();
                 if let Err(error) = font_size_player.send(Command::SubtitleFontSize(value as f64)) {
                     app.set_status(error.into());
                 } else {
@@ -190,7 +202,8 @@ pub(super) fn install_encoding(app: &PlayerWindow, player: &CommandSender) {
                 app.set_status("Unsupported subtitle encoding".into());
                 return;
             }
-            app.invoke_activity();
+            app.global::<riina_ui::PlayerControlActions>()
+                .invoke_activity();
             match subtitle_encoding_player.send(Command::SubtitleEncoding(encoding.clone())) {
                 Ok(()) => app
                     .global::<riina_ui::PlayerPreferences>()

@@ -1,3 +1,4 @@
+import { PlayerLayoutState } from "player-layout-state.slint";
 import { PlayerAppearance } from "player-appearance.slint";
 import { PlayerRenderedVideo } from "player-rendered-video.slint";
 import { Theme } from "theme.slint";
@@ -12,8 +13,6 @@ export component PlayerTitleBar inherits Rectangle {
     in property <length> render-height;
     in property <bool> engine-ready;
     in property <string> media-title;
-    in property <bool> always-float-on-top;
-    in property <bool> always-show-on-top-icon;
     callback hover-changed(bool);
     callback open-file();
     callback window-level-toggle-requested(bool);
@@ -40,9 +39,9 @@ export component PlayerTitleBar inherits Rectangle {
             Tool { accent-color: PlayerAppearance.interactive-accent-color; dark-theme: PlayerAppearance.dark-theme; icon: @image-url("../../../assets/icons/add.svg"); hint: "Open file"; enabled: root.engine-ready; activated => { root.open-file(); } }
             Text { text: root.media-title; color: Theme.title-bar-text(PlayerAppearance.dark-theme); font-size: 12px;
                 horizontal-alignment: center; vertical-alignment: center; overflow: elide; }
-            if root.always-float-on-top || root.always-show-on-top-icon : TopmostPin {
+            if PlayerLayoutState.always-float-on-top || PlayerLayoutState.always-show-on-top-icon : TopmostPin {
                 dark-theme: PlayerAppearance.dark-theme;
-                pinned: root.always-float-on-top;
+                pinned: PlayerLayoutState.always-float-on-top;
                 changed(value) => {
                     root.window-level-toggle-requested(value);
                 }

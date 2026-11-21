@@ -1,3 +1,4 @@
+import { PlayerSidebarState } from "player-sidebar-state.slint";
 import { PlayerCatalogState } from "player-catalog-state.slint";
 import { PlaybackTimelineState } from "playback-timeline-state.slint";
 import { PlayerAppearance } from "player-appearance.slint";
@@ -17,8 +18,6 @@ export component PlayerSidebarPage inherits VerticalLayout {
     in property <bool> quick-settings-pane;
     in property <length> sidebar-width;
     in property <bool> loaded;
-    in property <string> plugin-sidebar-selected-identifier;
-    in property <[string]> plugin-sidebar-labels;
     callback restore-player-focus();
 
     pure function selection-for-pane(kind: int) -> CatalogSelection {
@@ -59,12 +58,12 @@ export component PlayerSidebarPage inherits VerticalLayout {
         windows-accent-color: PlayerAppearance.windows-accent-color;
         windows-sidebar-material-active: PlayerAppearance.windows-sidebar-material-active;
     }
-    if pane-kind == 7 && root.plugin-sidebar-selected-identifier == "" : VerticalLayout {
+    if pane-kind == 7 && PlayerSidebarState.plugin-sidebar-selected-identifier == "" : VerticalLayout {
         spacing: 6px;
         Text { text: "Plugins can provide content in this panel.";
             color: Theme.sidebar-heading-text(PlayerAppearance.dark-theme);
             font-size: 12px; wrap: word-wrap; }
-        if root.plugin-sidebar-labels.length == 0 : Text {
+        if PlayerSidebarState.plugin-sidebar-labels.length == 0 : Text {
             text: "Enabled plugins with sidebar tabs appear here.";
             color: Theme.sidebar-secondary-text(PlayerAppearance.dark-theme);
             font-size: 11px; wrap: word-wrap; }

@@ -251,10 +251,18 @@ fn install_video_window_actions(host: &NativeVideoHost, app: &PlayerWindow) {
         app.global::<PlayerMenuActions>().invoke_toggle_fullscreen();
     });
     forward!(host, app, on_toggle_float_on_top, || {
-        app.set_always_float_on_top(!app.get_always_float_on_top());
+        app.global::<riina_ui::PlayerLayoutState>()
+            .set_always_float_on_top(
+                !app.global::<riina_ui::PlayerLayoutState>()
+                    .get_always_float_on_top(),
+            );
     });
     forward!(host, app, on_toggle_window_aspect_lock, || {
-        app.set_unlock_window_aspect_ratio(!app.get_unlock_window_aspect_ratio());
+        app.global::<riina_ui::PlayerLayoutState>()
+            .set_unlock_window_aspect_ratio(
+                !app.global::<riina_ui::PlayerLayoutState>()
+                    .get_unlock_window_aspect_ratio(),
+            );
     });
     forward!(host, app, on_toggle_live_text, || {
         app.global::<PlayerMenuActions>().invoke_toggle_live_text();

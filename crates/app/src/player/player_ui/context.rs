@@ -71,7 +71,8 @@ impl PlayerContext {
 
     pub(super) fn activity(&self) {
         if let Some(app) = self.app() {
-            app.invoke_activity();
+            app.global::<riina_ui::PlayerControlActions>()
+                .invoke_activity();
         }
     }
 

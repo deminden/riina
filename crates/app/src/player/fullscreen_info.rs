@@ -39,9 +39,11 @@ fn should_show(app: &PlayerWindow) -> bool {
         && app
             .global::<riina_ui::PlayerPreferences>()
             .get_display_time_and_battery_in_fullscreen()
-        && app.get_controls_visible()
+        && app
+            .global::<riina_ui::PlayerControlsState>()
+            .get_controls_visible()
         && app.get_loaded()
-        && !app.get_crop_editing()
+        && !app.global::<riina_ui::PlayerCropState>().get_crop_editing()
 }
 
 pub(crate) fn connect(app: &PlayerWindow) {

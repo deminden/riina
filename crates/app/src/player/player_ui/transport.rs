@@ -11,7 +11,8 @@ pub(super) fn install_seek(app: &PlayerWindow, command_sender: &CommandSender) {
         let weak = app.as_weak();
         let seek = move |seconds: f32| {
             if let Some(app) = weak.upgrade() {
-                app.invoke_activity();
+                app.global::<riina_ui::PlayerControlActions>()
+                    .invoke_activity();
             }
             if let Err(error) = player.send(Command::Seek {
                 seconds: seconds as f64,
@@ -34,7 +35,8 @@ pub(super) fn install_relative_speed(app: &PlayerWindow, command_sender: &Comman
     let weak = app.as_weak();
     app.global::<PlayerMenuActions>().on_speed(move |factor| {
         if let Some(app) = weak.upgrade() {
-            app.invoke_activity();
+            app.global::<riina_ui::PlayerControlActions>()
+                .invoke_activity();
         }
         if let Err(error) = speed_player.send(Command::MultiplySpeed(factor as f64))
             && let Some(app) = weak.upgrade()
@@ -52,23 +54,31 @@ pub(super) fn install_pause(app: &PlayerWindow, context: &PlayerContext) {
         on_toggle_pause,
         |ctx| {
             let Some(app) = ctx.app() else { return };
-            app.invoke_activity();
+            app.global::<riina_ui::PlayerControlActions>()
+                .invoke_activity();
             if let Err(error) = ctx.commands().toggle_pause() {
                 ctx.report(error);
             }
         }
     );
-    bind!(context, app, on_set_paused, |ctx, paused| {
-        let Some(app) = ctx.app() else { return };
-        app.invoke_activity();
-        ctx.send(Command::SetPaused(paused));
-    });
+    bind!(
+        context,
+        app.global::<riina_ui::PlayerControlActions>(),
+        on_set_paused,
+        |ctx, paused| {
+            let Some(app) = ctx.app() else { return };
+            app.global::<riina_ui::PlayerControlActions>()
+                .invoke_activity();
+            ctx.send(Command::SetPaused(paused));
+        }
+    );
 }
 
 pub(super) fn install_stop_and_steps(app: &PlayerWindow, context: &PlayerContext) {
     bind!(context, app.global::<PlayerMenuActions>(), on_stop, |ctx| {
         if let Some(app) = ctx.app() {
-            app.invoke_activity();
+            app.global::<riina_ui::PlayerControlActions>()
+                .invoke_activity();
             crate::media_open::invalidate(&app);
         }
         ctx.send_with_osd(Command::Stop, crate::video_osd::ActionFeedback::Stop, true);
@@ -94,10 +104,15 @@ pub(super) fn install_stop_and_steps(app: &PlayerWindow, context: &PlayerContext
             ctx.send(Command::AdjustChapter(direction));
         }
     );
-    bind!(context, app, on_subtitle_seek, |ctx, direction| {
-        ctx.activity();
-        ctx.send(Command::SubtitleSeek(direction));
-    });
+    bind!(
+        context,
+        app.global::<riina_ui::PlayerControlActions>(),
+        on_subtitle_seek,
+        |ctx, direction| {
+            ctx.activity();
+            ctx.send(Command::SubtitleSeek(direction));
+        }
+    );
 }
 
 pub(super) fn install_speed(app: &PlayerWindow, context: &PlayerContext) {
@@ -113,7 +128,8 @@ pub(super) fn install_speed(app: &PlayerWindow, context: &PlayerContext) {
         on_set_speed_slider,
         |ctx, position| {
             if let Some(app) = ctx.app() {
-                app.invoke_activity();
+                app.global::<riina_ui::PlayerControlActions>()
+                    .invoke_activity();
                 match riina_core::speed_controls::from_slider(position.into()) {
                     Ok(command) => ctx.send(command),
                     Err(error) => ctx.report(error.to_owned()),
@@ -130,7 +146,8 @@ pub(super) fn install_speed(app: &PlayerWindow, context: &PlayerContext) {
                 .map_err(str::to_owned)
                 .and_then(|command| ctx.commands().send(command));
             if let Some(app) = ctx.app() {
-                app.invoke_activity();
+                app.global::<riina_ui::PlayerControlActions>()
+                    .invoke_activity();
                 if let Err(error) = result {
                     ctx.report(error);
                     return false;
@@ -148,22 +165,28 @@ pub(super) fn install_loops(app: &PlayerWindow, context: &PlayerContext) {
         on_cycle_ab_loop,
         Command::CycleAbLoop
     );
-    bind!(context, app, on_set_ab_loop_point, |ctx, point, value| {
-        let Some(app) = ctx.app() else { return };
-        if !app.get_loaded() || !value.is_finite() {
-            return;
+    bind!(
+        context,
+        app.global::<riina_ui::PlayerControlActions>(),
+        on_set_ab_loop_point,
+        |ctx, point, value| {
+            let Some(app) = ctx.app() else { return };
+            if !app.get_loaded() || !value.is_finite() {
+                return;
+            }
+            let point = match point {
+                0 => riina_core::AbLoopPoint::A,
+                1 => riina_core::AbLoopPoint::B,
+                _ => return,
+            };
+            app.global::<riina_ui::PlayerControlActions>()
+                .invoke_activity();
+            ctx.send(Command::SetAbLoopPoint {
+                point,
+                value: Some(f64::from(value)),
+            });
         }
-        let point = match point {
-            0 => riina_core::AbLoopPoint::A,
-            1 => riina_core::AbLoopPoint::B,
-            _ => return,
-        };
-        app.invoke_activity();
-        ctx.send(Command::SetAbLoopPoint {
-            point,
-            value: Some(f64::from(value)),
-        });
-    });
+    );
     bind!(
         context,
         app.global::<PlayerMenuActions>(),

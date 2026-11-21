@@ -26,7 +26,11 @@ fn dispatch_control_mouse_action(
         app.set_status("Invalid mouse action preference".into());
         return;
     };
-    if app.get_crop_editing() || app.get_dialog_open() {
+    if app.global::<riina_ui::PlayerCropState>().get_crop_editing()
+        || app
+            .global::<riina_ui::PlayerDialogState>()
+            .get_dialog_open()
+    {
         return;
     }
     let effect = action.effect(app.get_paused());
@@ -47,7 +51,8 @@ fn dispatch_control_mouse_action(
                 .global::<riina_ui::PlayerPreferences>()
                 .get_control_auto_hide_enabled()
             {
-                app.set_controls_visible(false);
+                app.global::<riina_ui::PlayerControlsState>()
+                    .set_controls_visible(false);
             }
             return;
         }
@@ -343,7 +348,8 @@ fn scroll_action_handler(
                 Command::MultiplySpeed(target / current)
             }
         };
-        app.invoke_activity();
+        app.global::<riina_ui::PlayerControlActions>()
+            .invoke_activity();
         if let Err(error) = player.send(command) {
             app.set_status(error.into());
         }
@@ -428,84 +434,90 @@ pub(super) fn install(
     let timer = single_click_timer.clone();
     let single_player = player.clone();
     let single_app = app.as_weak();
-    app.on_single_click_action(move |action| {
-        if let Some(app) = single_app.upgrade()
-            && app
-                .global::<riina_ui::PlayerPreferences>()
-                .get_control_double_click_index()
-                == 0
-        {
-            dispatch_control_mouse_action(&app, &single_player, action);
-            return;
-        }
-        *pending.borrow_mut() = Some(action);
-        let pending = pending.clone();
-        let player = single_player.clone();
-        let weak = single_app.clone();
-        // Slint reports clicked before double-clicked. Delay the single action
-        // so a double click invokes only its configured action.
-        timer.start(
-            slint::TimerMode::SingleShot,
-            platform::double_click_interval(),
-            move || {
-                let action = pending.borrow_mut().take();
-                if let (Some(action), Some(app)) = (action, weak.upgrade()) {
-                    dispatch_control_mouse_action(&app, &player, action);
-                }
-            },
-        );
-    });
+    app.global::<riina_ui::PlayerControlActions>()
+        .on_single_click_action(move |action| {
+            if let Some(app) = single_app.upgrade()
+                && app
+                    .global::<riina_ui::PlayerPreferences>()
+                    .get_control_double_click_index()
+                    == 0
+            {
+                dispatch_control_mouse_action(&app, &single_player, action);
+                return;
+            }
+            *pending.borrow_mut() = Some(action);
+            let pending = pending.clone();
+            let player = single_player.clone();
+            let weak = single_app.clone();
+            // Slint reports clicked before double-clicked. Delay the single action
+            // so a double click invokes only its configured action.
+            timer.start(
+                slint::TimerMode::SingleShot,
+                platform::double_click_interval(),
+                move || {
+                    let action = pending.borrow_mut().take();
+                    if let (Some(action), Some(app)) = (action, weak.upgrade()) {
+                        dispatch_control_mouse_action(&app, &player, action);
+                    }
+                },
+            );
+        });
     let pending = pending_single_click;
     let timer = single_click_timer;
     let double_player = player.clone();
     let double_app = app.as_weak();
-    app.on_double_click_action(move |action| {
-        timer.stop();
-        pending.borrow_mut().take();
-        let app = double_app.clone();
-        let player = double_player.clone();
-        // Fullscreen can move/hide the surface delivering this pointer release.
-        // Let capture and double-click dispatch unwind before changing HWNDs.
-        slint::Timer::single_shot(Duration::ZERO, move || {
-            if let Some(app) = app.upgrade() {
-                dispatch_control_mouse_action(&app, &player, action);
-            }
+    app.global::<riina_ui::PlayerControlActions>()
+        .on_double_click_action(move |action| {
+            timer.stop();
+            pending.borrow_mut().take();
+            let app = double_app.clone();
+            let player = double_player.clone();
+            // Fullscreen can move/hide the surface delivering this pointer release.
+            // Let capture and double-click dispatch unwind before changing HWNDs.
+            slint::Timer::single_shot(Duration::ZERO, move || {
+                if let Some(app) = app.upgrade() {
+                    dispatch_control_mouse_action(&app, &player, action);
+                }
+            });
         });
-    });
     let button_player = player.clone();
     let button_app = app.as_weak();
-    app.on_mouse_button_action(move |action| {
-        if let Some(app) = button_app.upgrade() {
-            dispatch_control_mouse_action(&app, &button_player, action);
-        }
-    });
+    app.global::<riina_ui::PlayerControlActions>()
+        .on_mouse_button_action(move |action| {
+            if let Some(app) = button_app.upgrade() {
+                dispatch_control_mouse_action(&app, &button_player, action);
+            }
+        });
     let scroll_player = player.clone();
     let scroll_playback = latest_playback.clone();
     let scroll_pause_generation = trackpad_pause_generation.clone();
-    app.on_scroll_action_request(scroll_action_handler(
-        app.as_weak(),
-        scroll_player.clone(),
-        scroll_playback.clone(),
-        scroll_input.clone(),
-        scroll_pause_generation.clone(),
-        None,
-    ));
-    app.on_seek_scroll_action_request(scroll_action_handler(
-        app.as_weak(),
-        scroll_player.clone(),
-        scroll_playback.clone(),
-        scroll_input.clone(),
-        scroll_pause_generation.clone(),
-        Some(riina_core::control_preferences::ScrollAction::Seek),
-    ));
-    app.on_volume_scroll_action_request(scroll_action_handler(
-        app.as_weak(),
-        scroll_player,
-        scroll_playback,
-        scroll_input,
-        scroll_pause_generation,
-        Some(riina_core::control_preferences::ScrollAction::Volume),
-    ));
+    app.global::<riina_ui::PlayerControlActions>()
+        .on_scroll_action_request(scroll_action_handler(
+            app.as_weak(),
+            scroll_player.clone(),
+            scroll_playback.clone(),
+            scroll_input.clone(),
+            scroll_pause_generation.clone(),
+            None,
+        ));
+    app.global::<riina_ui::PlayerControlActions>()
+        .on_seek_scroll_action_request(scroll_action_handler(
+            app.as_weak(),
+            scroll_player.clone(),
+            scroll_playback.clone(),
+            scroll_input.clone(),
+            scroll_pause_generation.clone(),
+            Some(riina_core::control_preferences::ScrollAction::Seek),
+        ));
+    app.global::<riina_ui::PlayerControlActions>()
+        .on_volume_scroll_action_request(scroll_action_handler(
+            app.as_weak(),
+            scroll_player,
+            scroll_playback,
+            scroll_input,
+            scroll_pause_generation,
+            Some(riina_core::control_preferences::ScrollAction::Volume),
+        ));
     InstalledInput {
         file_drop_timer,
         player_window_focus,
@@ -514,9 +526,15 @@ pub(super) fn install(
 }
 pub(super) fn install_mpv_input_action(app: &PlayerWindow, context: &super::PlayerContext) {
     use super::bind;
-    bind!(context, app, on_execute_mpv_input_action, |ctx, action| {
-        let Some(app) = ctx.app() else { return };
-        app.invoke_activity();
-        ctx.send(Command::MpvInputAction(action.to_string()));
-    });
+    bind!(
+        context,
+        app.global::<riina_ui::PlayerControlActions>(),
+        on_execute_mpv_input_action,
+        |ctx, action| {
+            let Some(app) = ctx.app() else { return };
+            app.global::<riina_ui::PlayerControlActions>()
+                .invoke_activity();
+            ctx.send(Command::MpvInputAction(action.to_string()));
+        }
+    );
 }

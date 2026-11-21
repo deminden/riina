@@ -1,15 +1,14 @@
+import { PlayerCropState } from "player-crop-state.slint";
+import { PlayerLayoutState } from "player-layout-state.slint";
 import { PlayerMusicModeState } from "player-music-mode-state.slint";
 import { PlayerRenderedVideo } from "player-rendered-video.slint";
 
 export component VideoSurface inherits Rectangle {
-    in property <bool> crop-editing;
     in property <bool> native-video;
     in property <length> video-inset-leading;
     in property <length> video-inset-top;
     in property <length> video-inset-trailing;
     in property <length> video-inset-bottom;
-    in property <float> crop-picture-x;
-    in property <float> crop-picture-y;
     in property <length> render-width;
     in property <length> render-height;
     in property <length> video-width;
@@ -17,11 +16,10 @@ export component VideoSurface inherits Rectangle {
     in property <bool> live-text-enabled;
     in property <bool> paused;
     in property <bool> live-text-selectable;
-    in property <bool> edge-to-edge-video;
     callback copy-live-text(string);
 
-    if crop-editing && !native-video : Rectangle {
-        x: video-inset-leading + crop-picture-x * 1px; y: video-inset-top + crop-picture-y * 1px;
+    if PlayerCropState.crop-editing && !native-video : Rectangle {
+        x: video-inset-leading + PlayerCropState.crop-picture-x * 1px; y: video-inset-top + PlayerCropState.crop-picture-y * 1px;
         width: root.render-width; height: root.render-height;
         background: #000000;
         drop-shadow-blur: 10px;
@@ -39,8 +37,8 @@ export component VideoSurface inherits Rectangle {
     Image {
         visible: !PlayerMusicModeState.music-mode || PlayerMusicModeState.music-mode-show-album-art;
         source: PlayerRenderedVideo.video-frame;
-        x: PlayerRenderedVideo.native-transition-frame ? 0px : video-inset-leading + (crop-editing && !native-video ? crop-picture-x * 1px : 0px);
-        y: PlayerRenderedVideo.native-transition-frame ? 0px : video-inset-top + (crop-editing && !native-video ? crop-picture-y * 1px : 0px);
+        x: PlayerRenderedVideo.native-transition-frame ? 0px : video-inset-leading + (PlayerCropState.crop-editing && !native-video ? PlayerCropState.crop-picture-x * 1px : 0px);
+        y: PlayerRenderedVideo.native-transition-frame ? 0px : video-inset-top + (PlayerCropState.crop-editing && !native-video ? PlayerCropState.crop-picture-y * 1px : 0px);
         width: PlayerRenderedVideo.native-transition-frame ? root.width : root.render-width;
         height: PlayerRenderedVideo.native-transition-frame ? root.height : root.render-height;
         image-fit: contain;
@@ -78,17 +76,17 @@ export component VideoSurface inherits Rectangle {
                 color: #ffffff; font-size: 11px; overflow: elide; vertical-alignment: center; }
         }
     }
-    if !root.edge-to-edge-video && root.native-video : Rectangle {
+    if !PlayerLayoutState.edge-to-edge-video && root.native-video : Rectangle {
         x: 0px; y: 0px; width: root.video-inset-leading; height: root.height; background: #000000;
     }
-    if !root.edge-to-edge-video && root.native-video && root.video-inset-trailing > 0px : Rectangle {
+    if !PlayerLayoutState.edge-to-edge-video && root.native-video && root.video-inset-trailing > 0px : Rectangle {
         x: root.width - root.video-inset-trailing; y: 0px;
         width: root.video-inset-trailing; height: root.height; background: #000000;
     }
-    if !root.edge-to-edge-video && root.native-video && root.video-inset-top > 0px : Rectangle {
+    if !PlayerLayoutState.edge-to-edge-video && root.native-video && root.video-inset-top > 0px : Rectangle {
         x: 0px; y: 0px; width: root.width; height: root.video-inset-top; background: #000000;
     }
-    if !root.edge-to-edge-video && root.native-video && root.video-inset-bottom > 0px : Rectangle {
+    if !PlayerLayoutState.edge-to-edge-video && root.native-video && root.video-inset-bottom > 0px : Rectangle {
         x: 0px; y: root.height - root.video-inset-bottom;
         width: root.width; height: root.video-inset-bottom; background: #000000;
     }

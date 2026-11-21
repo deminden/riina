@@ -24,26 +24,27 @@ pub(crate) fn install_player(
     app.set_menu_shortcuts(ModelRc::new(VecModel::from(menu_shortcut_rows(&mappings))));
     let player = app.as_weak();
     let observed_playback = latest_playback;
-    app.on_dispatch_key_binding(move |text, control, alt, shift, meta| {
-        let Some(key) = recorded_key(text.as_str(), control, alt, shift, meta) else {
-            return false;
-        };
-        let Some(mapping) = mappings.get(&key) else {
-            return false;
-        };
-        let Some(app) = player.upgrade() else {
-            return true;
-        };
-        if is_system_media_key(&key)
-            && !app
-                .global::<riina_ui::PlayerPreferences>()
-                .get_key_binding_use_system_media_controls()
-        {
-            return false;
-        }
-        dispatch_mapping(&app, mapping, &observed_playback);
-        true
-    });
+    app.global::<riina_ui::PlayerControlActions>()
+        .on_dispatch_key_binding(move |text, control, alt, shift, meta| {
+            let Some(key) = recorded_key(text.as_str(), control, alt, shift, meta) else {
+                return false;
+            };
+            let Some(mapping) = mappings.get(&key) else {
+                return false;
+            };
+            let Some(app) = player.upgrade() else {
+                return true;
+            };
+            if is_system_media_key(&key)
+                && !app
+                    .global::<riina_ui::PlayerPreferences>()
+                    .get_key_binding_use_system_media_controls()
+            {
+                return false;
+            }
+            dispatch_mapping(&app, mapping, &observed_playback);
+            true
+        });
 }
 
 pub(super) enum RuntimeAction {
@@ -248,7 +249,9 @@ fn dispatch_mapping(app: &PlayerWindow, mapping: &Mapping, latest_playback: &cra
     };
     match action {
         RuntimeAction::TogglePause => app.global::<PlayerMenuActions>().invoke_toggle_pause(),
-        RuntimeAction::SetPaused(paused) => app.invoke_set_paused(paused),
+        RuntimeAction::SetPaused(paused) => app
+            .global::<riina_ui::PlayerControlActions>()
+            .invoke_set_paused(paused),
         RuntimeAction::Quit => app.global::<PlayerMenuActions>().invoke_quit_riina(),
         RuntimeAction::Stop => app.global::<PlayerMenuActions>().invoke_stop(),
         RuntimeAction::ShowProgress => {
@@ -262,7 +265,8 @@ fn dispatch_mapping(app: &PlayerWindow, mapping: &Mapping, latest_playback: &cra
                     .set_video_osd_text(message.text.into());
                 app.global::<riina_ui::PlayerOsdState>()
                     .set_video_osd_progress(message.progress.unwrap_or(-1.0));
-                app.invoke_show_video_osd();
+                app.global::<riina_ui::PlayerControlActions>()
+                    .invoke_show_video_osd();
             }
         }
         RuntimeAction::Seek(seconds) => app
@@ -287,7 +291,9 @@ fn dispatch_mapping(app: &PlayerWindow, mapping: &Mapping, latest_playback: &cra
         RuntimeAction::CycleVideo => app.global::<PlayerMenuActions>().invoke_cycle_video_track(),
         RuntimeAction::FrameStep => app.global::<PlayerMenuActions>().invoke_frame_step(),
         RuntimeAction::FrameBackStep => app.global::<PlayerMenuActions>().invoke_frame_back_step(),
-        RuntimeAction::SubtitlePosition(amount) => app.invoke_adjust_subtitle_position(amount),
+        RuntimeAction::SubtitlePosition(amount) => app
+            .global::<riina_ui::PlayerControlActions>()
+            .invoke_adjust_subtitle_position(amount),
         RuntimeAction::OpenPreferences => {
             app.global::<PlayerMenuActions>().invoke_open_preferences()
         }
@@ -328,7 +334,9 @@ fn dispatch_mapping(app: &PlayerWindow, mapping: &Mapping, latest_playback: &cra
         RuntimeAction::RevealCurrentMedia => reveal_current_media(app, latest_playback),
         RuntimeAction::AbLoop => app.global::<PlayerMenuActions>().invoke_cycle_ab_loop(),
         RuntimeAction::Screenshot => app.global::<PlayerMenuActions>().invoke_take_screenshot(),
-        RuntimeAction::MpvInputAction(action) => app.invoke_execute_mpv_input_action(action.into()),
+        RuntimeAction::MpvInputAction(action) => app
+            .global::<riina_ui::PlayerControlActions>()
+            .invoke_execute_mpv_input_action(action.into()),
         RuntimeAction::Ignore => {}
     }
 }

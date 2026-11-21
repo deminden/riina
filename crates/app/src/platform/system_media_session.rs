@@ -47,7 +47,8 @@ mod macos {
                     "PLAYONLY",
                     latest_playback,
                 ) {
-                    app.invoke_set_paused(false);
+                    app.global::<riina_ui::PlayerControlActions>()
+                        .invoke_set_paused(false);
                 }
             }
             Action::Pause => {
@@ -56,7 +57,8 @@ mod macos {
                     "PAUSEONLY",
                     latest_playback,
                 ) {
-                    app.invoke_set_paused(true);
+                    app.global::<riina_ui::PlayerControlActions>()
+                        .invoke_set_paused(true);
                 }
             }
             Action::Toggle => {
@@ -103,7 +105,8 @@ mod macos {
                 ) && seconds.is_finite()
                     && seconds > 0.0
                 {
-                    app.invoke_execute_mpv_input_action(format!("seek {seconds} exact").into());
+                    app.global::<riina_ui::PlayerControlActions>()
+                        .invoke_execute_mpv_input_action(format!("seek {seconds} exact").into());
                 }
             }
             Action::Backward(seconds) => {
@@ -114,7 +117,8 @@ mod macos {
                 ) && seconds.is_finite()
                     && seconds > 0.0
                 {
-                    app.invoke_execute_mpv_input_action(format!("seek -{seconds} exact").into());
+                    app.global::<riina_ui::PlayerControlActions>()
+                        .invoke_execute_mpv_input_action(format!("seek -{seconds} exact").into());
                 }
             }
             Action::Position(seconds) if seconds.is_finite() && seconds >= 0.0 => {
@@ -143,7 +147,8 @@ mod macos {
                 {
                     let state = riina_core::sync::lock(latest_playback).clone();
                     if paused_by_inactive.pause(&state) {
-                        app.invoke_set_paused(true);
+                        app.global::<riina_ui::PlayerControlActions>()
+                            .invoke_set_paused(true);
                     }
                 }
             }
@@ -158,7 +163,8 @@ mod macos {
                     state.phase == Phase::Playing && !state.paused
                 };
                 if should_pause {
-                    app.invoke_set_paused(true);
+                    app.global::<riina_ui::PlayerControlActions>()
+                        .invoke_set_paused(true);
                 }
             }
             Action::Sleep => {}
@@ -261,12 +267,14 @@ mod macos {
                             {
                                 let state = riina_core::sync::lock(&playback).clone();
                                 if paused_by_inactive.pause(&state) {
-                                    app.invoke_set_paused(true);
+                                    app.global::<riina_ui::PlayerControlActions>()
+                                        .invoke_set_paused(true);
                                 }
                             } else if application_active && focused {
                                 let state = riina_core::sync::lock(&playback).clone();
                                 if paused_by_inactive.resume(&state) {
-                                    app.invoke_set_paused(false);
+                                    app.global::<riina_ui::PlayerControlActions>()
+                                        .invoke_set_paused(false);
                                 }
                             }
                         }

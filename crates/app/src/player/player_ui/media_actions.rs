@@ -329,39 +329,40 @@ fn install_url_open(
     let open_url_host = open_host.clone();
     let url_welcome = welcome_window.clone();
     let url_pending = pending_welcome_open.clone();
-    app.on_open_url(move |value| {
-        if let Some(app) = weak.upgrade() {
-            let from_welcome = url_welcome
-                .as_ref()
-                .and_then(slint::Weak::upgrade)
-                .is_some_and(|welcome| welcome.window().is_visible());
-            if from_welcome {
-                if let Err(error) = media_open::validate_url(value.as_str()) {
-                    if let Some(welcome) = url_welcome.as_ref().and_then(slint::Weak::upgrade) {
-                        welcome.set_url_error(error.into());
+    app.global::<riina_ui::PlayerDialogState>()
+        .on_open_url(move |value| {
+            if let Some(app) = weak.upgrade() {
+                let from_welcome = url_welcome
+                    .as_ref()
+                    .and_then(slint::Weak::upgrade)
+                    .is_some_and(|welcome| welcome.window().is_visible());
+                if from_welcome {
+                    if let Err(error) = media_open::validate_url(value.as_str()) {
+                        if let Some(welcome) = url_welcome.as_ref().and_then(slint::Weak::upgrade) {
+                            welcome.set_url_error(error.into());
+                        }
+                        return;
                     }
-                    return;
-                }
-                platform::set_native_video_host_visible(open_url_host.as_ref(), true);
-                if let Err(error) = app.show() {
-                    app.set_status(error.to_string().into());
-                    return;
-                }
-                if let Some(welcome) = url_welcome.as_ref().and_then(slint::Weak::upgrade) {
-                    welcome.set_url_error("".into());
-                    let _ = welcome.hide();
-                }
-                let request = PendingWelcomeOpen::Url(value.to_string());
-                if app.get_engine_ready() {
-                    dispatch_welcome_open(&app, request, &open_url);
+                    platform::set_native_video_host_visible(open_url_host.as_ref(), true);
+                    if let Err(error) = app.show() {
+                        app.set_status(error.to_string().into());
+                        return;
+                    }
+                    if let Some(welcome) = url_welcome.as_ref().and_then(slint::Weak::upgrade) {
+                        welcome.set_url_error("".into());
+                        let _ = welcome.hide();
+                    }
+                    let request = PendingWelcomeOpen::Url(value.to_string());
+                    if app.get_engine_ready() {
+                        dispatch_welcome_open(&app, request, &open_url);
+                    } else {
+                        *url_pending.borrow_mut() = Some(request);
+                    }
                 } else {
-                    *url_pending.borrow_mut() = Some(request);
+                    media_open::url(&app, value.as_str(), open_url.clone());
                 }
-            } else {
-                media_open::url(&app, value.as_str(), open_url.clone());
             }
-        }
-    });
+        });
 }
 
 fn install_help_and_debug(app: &PlayerWindow, latest_playback: &crate::PlaybackStore) {

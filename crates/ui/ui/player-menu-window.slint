@@ -1,3 +1,5 @@
+import { PlayerLayoutState } from "player-layout-state.slint";
+import { PlayerSidebarState } from "player-sidebar-state.slint";
 import { PlayerCatalogState } from "player-catalog-state.slint";
 import { PlayerMusicModeState } from "player-music-mode-state.slint";
 import { PlaybackTimelineState } from "playback-timeline-state.slint";
@@ -14,7 +16,6 @@ import { MenuCatalogRow, MenuShortcutRow, PluginMenuRow, SavedFilterMenuRow } fr
 export component PlayerMenuWindow inherits Window {
     in property <bool> menu-bar-visible;
     in property <[MenuShortcutRow]> menu-value-menu-shortcuts;
-    in-out property <bool> menu-value-always-float-on-top;
     in property <bool> menu-value-crop-editing;
     in property <string> menu-value-current-file-manager-name;
     in property <bool> menu-value-deinterlace-enabled;
@@ -25,7 +26,6 @@ export component PlayerMenuWindow inherits Window {
     in property <bool> menu-value-downloaded-subtitle-save-available;
     in property <bool> menu-value-fullscreen;
     in property <bool> menu-value-in-process-player-manager;
-    in property <int> menu-value-leading-sidebar;
     in property <bool> menu-value-live-text-available;
     in property <bool> menu-value-live-text-enabled;
     in property <bool> menu-value-loaded;
@@ -42,9 +42,6 @@ export component PlayerMenuWindow inherits Window {
     in property <[SavedFilterMenuRow]> menu-value-saved-audio-filter-rows;
     in property <[SavedFilterMenuRow]> menu-value-saved-video-filter-rows;
     in property <bool> menu-value-screenshot-available;
-    in property <bool> menu-value-settings-at-leading;
-    in property <int> menu-value-sidebar;
-    in-out property <bool> menu-value-unlock-window-aspect-ratio;
     in property <bool> menu-value-video-flipped;
     in property <bool> menu-value-video-mirrored;
     in property <float> menu-value-video-window-height;
@@ -228,7 +225,7 @@ export component PlayerMenuWindow inherits Window {
                 activated => { PlayerMenuActions.adjust-chapter(-1); } }
         }
         Menu { title: "Video";
-            MenuItem { title: (root.menu-value-settings-at-leading ? root.menu-value-leading-sidebar == 6 : root.menu-value-sidebar == 6) ? "Hide Video Panel" : "Show Video Panel"; enabled: !root.menu-value-crop-editing;
+            MenuItem { title: (PlayerSidebarState.settings-at-leading ? PlayerSidebarState.leading-sidebar == 6 : PlayerSidebarState.sidebar == 6) ? "Hide Video Panel" : "Show Video Panel"; enabled: !root.menu-value-crop-editing;
                 shortcut: root.menu-shortcut(18);
                 activated => { PlayerMenuActions.toggle-settings-pane(6); } }
             MenuSeparator {}
@@ -277,12 +274,12 @@ export component PlayerMenuWindow inherits Window {
                 shortcut: root.menu-shortcut(27);
                 activated => { PlayerMenuActions.toggle-fullscreen(); } }
             MenuItem { title: "Float on Top"; checkable: true;
-                checked: root.menu-value-always-float-on-top; enabled: !root.menu-value-crop-editing;
+                checked: PlayerLayoutState.always-float-on-top; enabled: !root.menu-value-crop-editing;
                 shortcut: root.menu-shortcut(28);
-                activated => { root.menu-value-always-float-on-top = !root.menu-value-always-float-on-top; } }
+                activated => { PlayerLayoutState.always-float-on-top = !PlayerLayoutState.always-float-on-top; } }
             MenuItem { title: "Lock Window Aspect Ratio"; checkable: true;
-                checked: !root.menu-value-unlock-window-aspect-ratio; enabled: !root.menu-value-crop-editing;
-                activated => { root.menu-value-unlock-window-aspect-ratio = !root.menu-value-unlock-window-aspect-ratio; } }
+                checked: !PlayerLayoutState.unlock-window-aspect-ratio; enabled: !root.menu-value-crop-editing;
+                activated => { PlayerLayoutState.unlock-window-aspect-ratio = !PlayerLayoutState.unlock-window-aspect-ratio; } }
             MenuItem { title: "Live Text";
                 checkable: true; checked: root.menu-value-live-text-enabled;
                 enabled: root.menu-value-live-text-available && !root.menu-value-crop-editing;
@@ -345,7 +342,7 @@ export component PlayerMenuWindow inherits Window {
             }
         }
         Menu { title: "Audio";
-            MenuItem { title: (root.menu-value-settings-at-leading ? root.menu-value-leading-sidebar == 1 : root.menu-value-sidebar == 1) ? "Hide Audio Panel" : "Show Audio Panel"; enabled: !root.menu-value-crop-editing;
+            MenuItem { title: (PlayerSidebarState.settings-at-leading ? PlayerSidebarState.leading-sidebar == 1 : PlayerSidebarState.sidebar == 1) ? "Hide Audio Panel" : "Show Audio Panel"; enabled: !root.menu-value-crop-editing;
                 shortcut: root.menu-shortcut(31);
                 activated => { PlayerMenuActions.toggle-settings-pane(1); } }
             MenuSeparator {}
@@ -408,7 +405,7 @@ export component PlayerMenuWindow inherits Window {
             }
         }
         Menu { title: "Subtitles";
-            MenuItem { title: (root.menu-value-settings-at-leading ? root.menu-value-leading-sidebar == 2 : root.menu-value-sidebar == 2) ? "Hide Subtitles Panel" : "Show Subtitles Panel"; enabled: !root.menu-value-crop-editing;
+            MenuItem { title: (PlayerSidebarState.settings-at-leading ? PlayerSidebarState.leading-sidebar == 2 : PlayerSidebarState.sidebar == 2) ? "Hide Subtitles Panel" : "Show Subtitles Panel"; enabled: !root.menu-value-crop-editing;
                 shortcut: root.menu-shortcut(42);
                 activated => { PlayerMenuActions.toggle-settings-pane(2); } }
             MenuSeparator {}
@@ -488,7 +485,7 @@ export component PlayerMenuWindow inherits Window {
         Menu { title: "Plugin";
             MenuItem { title: "Manage Plugins…"; enabled: !root.menu-value-crop-editing;
                 activated => { root.menu-value-preferences-target-pane = 9; PlayerMenuActions.open-preferences(); } }
-            MenuItem { title: (root.menu-value-sidebar == 7 || root.menu-value-leading-sidebar == 7) ? "Hide Plugins Panel" : "Show Plugins Panel"; enabled: !root.menu-value-crop-editing;
+            MenuItem { title: (PlayerSidebarState.sidebar == 7 || PlayerSidebarState.leading-sidebar == 7) ? "Hide Plugins Panel" : "Show Plugins Panel"; enabled: !root.menu-value-crop-editing;
                 shortcut: root.menu-shortcut(45);
                 activated => { PlayerMenuActions.toggle-plugins-pane(); } }
             MenuSeparator {}

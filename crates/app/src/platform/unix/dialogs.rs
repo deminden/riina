@@ -12,11 +12,16 @@ pub fn open(
     sender: CommandSender,
     welcome: Option<slint::Weak<WelcomeWindow>>,
 ) {
-    if app.get_dialog_open() {
+    if app
+        .global::<riina_ui::PlayerDialogState>()
+        .get_dialog_open()
+    {
         return;
     }
-    app.set_dialog_open(true);
-    app.invoke_activity();
+    app.global::<riina_ui::PlayerDialogState>()
+        .set_dialog_open(true);
+    app.global::<riina_ui::PlayerControlActions>()
+        .invoke_activity();
     let weak = app.as_weak();
     let failure = weak.clone();
     let started = slint::spawn_local(async move {
@@ -49,8 +54,10 @@ pub fn open(
             Ok::<_, String>(paths)
         }
         .await;
-        app.set_dialog_open(false);
-        app.invoke_activity();
+        app.global::<riina_ui::PlayerDialogState>()
+            .set_dialog_open(false);
+        app.global::<riina_ui::PlayerControlActions>()
+            .invoke_activity();
         if result.as_ref().is_ok_and(Vec::is_empty)
             && let Some(welcome) = welcome.as_ref().and_then(slint::Weak::upgrade)
         {
@@ -66,7 +73,8 @@ pub fn open(
     if let Err(error) = started
         && let Some(app) = failure.upgrade()
     {
-        app.set_dialog_open(false);
+        app.global::<riina_ui::PlayerDialogState>()
+            .set_dialog_open(false);
         app.set_status(error.to_string().into());
     }
 }

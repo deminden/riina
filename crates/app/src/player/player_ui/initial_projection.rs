@@ -138,18 +138,28 @@ fn install_media(
 }
 
 fn install_layout(app: &PlayerWindow, prefs: &Preferences, prefs_path: &Path) -> Rc<slint::Timer> {
-    app.set_leading_sidebar_width(prefs.leading_sidebar_width as f32);
-    app.set_trailing_sidebar_width(prefs.trailing_sidebar_width as f32);
-    app.set_settings_at_leading(prefs.settings_at_leading);
-    app.set_playlist_at_leading(prefs.playlist_at_leading);
-    app.set_plugins_at_leading(prefs.plugins_at_leading);
-    app.set_edge_to_edge_video(prefs.edge_to_edge_video);
-    app.set_docked_controls(prefs.docked_controls);
-    app.set_unlock_window_aspect_ratio(prefs.unlock_window_aspect_ratio);
+    app.global::<riina_ui::PlayerSidebarState>()
+        .set_leading_sidebar_width(prefs.leading_sidebar_width as f32);
+    app.global::<riina_ui::PlayerSidebarState>()
+        .set_trailing_sidebar_width(prefs.trailing_sidebar_width as f32);
+    app.global::<riina_ui::PlayerSidebarState>()
+        .set_settings_at_leading(prefs.settings_at_leading);
+    app.global::<riina_ui::PlayerSidebarState>()
+        .set_playlist_at_leading(prefs.playlist_at_leading);
+    app.global::<riina_ui::PlayerSidebarState>()
+        .set_plugins_at_leading(prefs.plugins_at_leading);
+    app.global::<riina_ui::PlayerLayoutState>()
+        .set_edge_to_edge_video(prefs.edge_to_edge_video);
+    app.global::<riina_ui::PlayerLayoutState>()
+        .set_docked_controls(prefs.docked_controls);
+    app.global::<riina_ui::PlayerLayoutState>()
+        .set_unlock_window_aspect_ratio(prefs.unlock_window_aspect_ratio);
     app.global::<riina_ui::PlayerAppearance>()
         .set_compact_ui(prefs.compact_ui);
-    app.set_always_float_on_top(prefs.always_float_on_top);
-    app.set_always_show_on_top_icon(prefs.always_show_on_top_icon);
+    app.global::<riina_ui::PlayerLayoutState>()
+        .set_always_float_on_top(prefs.always_float_on_top);
+    app.global::<riina_ui::PlayerLayoutState>()
+        .set_always_show_on_top_icon(prefs.always_show_on_top_icon);
     let appearance = prefs.effective_theme_material();
     app.global::<riina_ui::PlayerAppearance>()
         .set_appearance_mode(appearance.index());
@@ -158,9 +168,12 @@ fn install_layout(app: &PlayerWindow, prefs: &Preferences, prefs_path: &Path) ->
     app.global::<riina_ui::PlayerAppearance>()
         .set_dark_theme(appearance.dark_for(prefs.dark));
     let appearance_timer = crate::appearance_preferences::connect(app);
-    app.set_osc_position(i32::from(prefs.osc_position));
-    app.set_control_bar_position_horizontal(prefs.control_bar_position_horizontal as f32);
-    app.set_control_bar_position_vertical(prefs.control_bar_position_vertical as f32);
+    app.global::<riina_ui::PlayerLayoutState>()
+        .set_osc_position(i32::from(prefs.osc_position));
+    app.global::<riina_ui::PlayerLayoutState>()
+        .set_control_bar_position_horizontal(prefs.control_bar_position_horizontal as f32);
+    app.global::<riina_ui::PlayerLayoutState>()
+        .set_control_bar_position_vertical(prefs.control_bar_position_vertical as f32);
     app.global::<riina_ui::PlayerPreferences>()
         .set_show_chapter_pos(prefs.show_chapter_pos);
     crate::sidebar_preferences::connect(app, prefs_path.to_path_buf(), prefs.clone());

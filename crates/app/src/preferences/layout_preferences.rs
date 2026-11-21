@@ -27,21 +27,23 @@ pub(crate) fn connect(app: &PlayerWindow, path: PathBuf, baseline: Preferences) 
     app.on_layout_settings_changed(move || {
         let Some(app) = weak.upgrade() else { return };
         let appearance = app.global::<riina_ui::PlayerAppearance>();
+        let layout = app.global::<riina_ui::PlayerLayoutState>();
+        let sidebar = app.global::<riina_ui::PlayerSidebarState>();
         let selected = (
             appearance.get_compact_ui(),
-            app.get_osc_position().clamp(0, 2),
-            app.get_settings_at_leading(),
-            app.get_playlist_at_leading(),
-            app.get_edge_to_edge_video(),
-            app.get_docked_controls(),
-            app.get_unlock_window_aspect_ratio(),
+            layout.get_osc_position().clamp(0, 2),
+            sidebar.get_settings_at_leading(),
+            sidebar.get_playlist_at_leading(),
+            layout.get_edge_to_edge_video(),
+            layout.get_docked_controls(),
+            layout.get_unlock_window_aspect_ratio(),
             appearance.get_appearance_mode(),
             appearance.get_liquid_glass_osd(),
             appearance.get_liquid_glass_osc(),
             appearance.get_liquid_glass_sidebar(),
-            app.get_control_bar_position_horizontal(),
-            app.get_control_bar_position_vertical(),
-            app.get_plugins_at_leading(),
+            layout.get_control_bar_position_horizontal(),
+            layout.get_control_bar_position_vertical(),
+            sidebar.get_plugins_at_leading(),
         );
         let previous = saved.get();
         let result = crate::preference_store::update(&path, &baseline, |preferences| {
@@ -58,76 +60,76 @@ pub(crate) fn connect(app: &PlayerWindow, path: PathBuf, baseline: Preferences) 
             preferences.theme_material =
                 Some(ThemeMaterial::from_index(selected.7).ok_or("Invalid theme selection")?);
             preferences.window_resize = crate::window_resize_preferences::from_player(&app)?;
-            preferences.always_float_on_top = app.get_always_float_on_top();
-            preferences.always_show_on_top_icon = app.get_always_show_on_top_icon();
-            preferences.leading_sidebar_width = app.get_leading_sidebar_width() as u32;
-            preferences.trailing_sidebar_width = app.get_trailing_sidebar_width() as u32;
+            preferences.always_float_on_top = layout.get_always_float_on_top();
+            preferences.always_show_on_top_icon = layout.get_always_show_on_top_icon();
+            preferences.leading_sidebar_width = sidebar.get_leading_sidebar_width() as u32;
+            preferences.trailing_sidebar_width = sidebar.get_trailing_sidebar_width() as u32;
             preferences.control_bar = crate::osc_preferences::current_player(&app);
             preferences.liquid_glass = crate::liquid_glass_preferences::current_player(&app);
             Ok(())
         });
         if let Err(error) = result {
             appearance.set_compact_ui(previous.0);
-            app.set_osc_position(previous.1);
-            app.set_settings_at_leading(previous.2);
-            app.set_playlist_at_leading(previous.3);
-            app.set_plugins_at_leading(previous.13);
-            app.set_edge_to_edge_video(previous.4);
-            app.set_docked_controls(previous.5);
-            app.set_unlock_window_aspect_ratio(previous.6);
+            layout.set_osc_position(previous.1);
+            sidebar.set_settings_at_leading(previous.2);
+            sidebar.set_playlist_at_leading(previous.3);
+            sidebar.set_plugins_at_leading(previous.13);
+            layout.set_edge_to_edge_video(previous.4);
+            layout.set_docked_controls(previous.5);
+            layout.set_unlock_window_aspect_ratio(previous.6);
             appearance.set_appearance_mode(previous.7);
             appearance.set_liquid_glass_osd(previous.8);
             appearance.set_liquid_glass_osc(previous.9);
             appearance.set_liquid_glass_sidebar(previous.10);
-            app.set_control_bar_position_horizontal(previous.11);
-            app.set_control_bar_position_vertical(previous.12);
+            layout.set_control_bar_position_horizontal(previous.11);
+            layout.set_control_bar_position_vertical(previous.12);
             app.set_status(error.into());
         } else {
             // IINA relocates a changed pane and dismisses other open sidebars.
             // Store one pane per physical side, so a same-side collision replaces it.
             if selected.2 != previous.2 {
                 let kind = if previous.2 {
-                    app.get_leading_sidebar()
+                    sidebar.get_leading_sidebar()
                 } else {
-                    app.get_sidebar()
+                    sidebar.get_sidebar()
                 };
                 if (1..=2).contains(&kind) || kind == 5 || kind == 6 {
-                    app.set_leading_sidebar(0);
-                    app.set_sidebar(0);
+                    sidebar.set_leading_sidebar(0);
+                    sidebar.set_sidebar(0);
                     if selected.2 {
-                        app.set_leading_sidebar(kind);
+                        sidebar.set_leading_sidebar(kind);
                     } else {
-                        app.set_sidebar(kind);
+                        sidebar.set_sidebar(kind);
                     }
                 }
             } else if selected.3 != previous.3 {
                 let kind = if previous.3 {
-                    app.get_leading_sidebar()
+                    sidebar.get_leading_sidebar()
                 } else {
-                    app.get_sidebar()
+                    sidebar.get_sidebar()
                 };
                 if kind == 3 || kind == 4 {
-                    app.set_leading_sidebar(0);
-                    app.set_sidebar(0);
+                    sidebar.set_leading_sidebar(0);
+                    sidebar.set_sidebar(0);
                     if selected.3 {
-                        app.set_leading_sidebar(kind);
+                        sidebar.set_leading_sidebar(kind);
                     } else {
-                        app.set_sidebar(kind);
+                        sidebar.set_sidebar(kind);
                     }
                 }
             } else if selected.13 != previous.13 {
                 let kind = if previous.13 {
-                    app.get_leading_sidebar()
+                    sidebar.get_leading_sidebar()
                 } else {
-                    app.get_sidebar()
+                    sidebar.get_sidebar()
                 };
                 if kind == 7 {
-                    app.set_leading_sidebar(0);
-                    app.set_sidebar(0);
+                    sidebar.set_leading_sidebar(0);
+                    sidebar.set_sidebar(0);
                     if selected.13 {
-                        app.set_leading_sidebar(kind);
+                        sidebar.set_leading_sidebar(kind);
                     } else {
-                        app.set_sidebar(kind);
+                        sidebar.set_sidebar(kind);
                     }
                 }
             }
@@ -149,7 +151,8 @@ pub(crate) fn connect(app: &PlayerWindow, path: PathBuf, baseline: Preferences) 
         if let Err(error) = result {
             // The UI optimistically updates the native window; restore its last
             // saved level if atomic preference persistence fails.
-            app.set_always_float_on_top(!requested);
+            app.global::<riina_ui::PlayerLayoutState>()
+                .set_always_float_on_top(!requested);
             app.set_status(error.to_string().into());
         }
     });

@@ -24,7 +24,8 @@ pub(super) fn install_catalog_selection(app: &PlayerWindow, context: &PlayerCont
                 None
             };
             let Some(app) = ctx.app() else { return };
-            app.invoke_activity();
+            app.global::<riina_ui::PlayerControlActions>()
+                .invoke_activity();
             match (command, chapter_title) {
                 (Ok(command), Some(title)) => {
                     ctx.send_with_osd(command, ActionFeedback::Chapter(title), false)

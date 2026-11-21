@@ -44,7 +44,8 @@ pub fn selection_in_new_player(app: &PlayerWindow, paths: Vec<String>) {
         app.set_status("The media selection contains an invalid reference".into());
         return;
     }
-    app.invoke_activity();
+    app.global::<riina_ui::PlayerControlActions>()
+        .invoke_activity();
     app.set_status("Preparing media for a new player…".into());
     let weak = app.as_weak();
     let failure = weak.clone();

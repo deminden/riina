@@ -1,3 +1,6 @@
+import { PlayerControlActions } from "player-control-actions.slint";
+import { PlayerControlsState } from "player-controls-state.slint";
+import { PlayerLayoutState } from "player-layout-state.slint";
 import { PlayerMusicModeState } from "player-music-mode-state.slint";
 import { PlayerPreferences } from "player-preferences.slint";
 import { PlayerAppearance } from "player-appearance.slint";
@@ -21,8 +24,6 @@ struct ControllerGeometry {
     video-inset-top: length,
     sidebar-leading-extent: length,
     sidebar-trailing-extent: length,
-    edge-to-edge-video: bool,
-    osc-position: int,
     osc-height: length,
 }
 
@@ -51,7 +52,6 @@ struct ControllerAudio {
 }
 
 struct ControllerToolbar {
-    toolbar-visible-order: [int],
     loaded: bool,
     screenshot-available: bool,
     live-text-available: bool,
@@ -73,27 +73,16 @@ export component PlayerController inherits Rectangle {
     in property <float> video-display-aspect-ratio;
     in property <ControllerToolbar> toolbar;
     in property <string> media-title;
-    in-out property <bool> control-bar-dragging;
-    in-out property <bool> control-bar-hovered;
-    in-out property <float> control-bar-position-horizontal;
-    in-out property <float> control-bar-position-vertical;
-    in-out property <bool> controls-visible;
     in property <bool> paused;
-    callback activity();
     callback layout-settings-changed();
-    callback seek-scroll-action-request(float, float) -> bool;
-    callback set-ab-loop-point(int, float);
-    callback set-volume(float);
-    callback timeline-hovered(float);
-    callback volume-scroll-action-request(float, float) -> bool;
 
     clip: true;
     // IINA's OSCToolbarButton uses 24-point frames and a zero-spacing
     // NSStackView; retain those bounds while allowing compact rows to clip vertically.
     private property <length> toolbar-button-width: Theme.controller-toolbar-button-size;
     private property <length> toolbar-gap: 0px;
-    private property <length> toolbar-width: root.toolbar.toolbar-visible-order.length * toolbar-button-width +
-        max(0, root.toolbar.toolbar-visible-order.length - 1) * toolbar-gap;
+    private property <length> toolbar-width: PlayerControlsState.toolbar-visible-order.length * toolbar-button-width +
+        max(0, PlayerControlsState.toolbar-visible-order.length - 1) * toolbar-gap;
     private property <length> side-width: max(116px, toolbar-width);
     private property <bool> side-controls-fit: self.width >= transport-width +
         side-width * 2 + 2 * root.layout.osc-row-inline-inset + 4 * root.layout.osc-row-gap;
@@ -105,7 +94,7 @@ export component PlayerController inherits Rectangle {
             (root.layout.transport-neighbor-actions-fit ? 20px : 12px);
     private property <bool> toolbar-actions-fit: side-controls-fit || compact-toolbar-fit;
     private property <length> transport-width: root.layout.transport-neighbor-actions-fit
-        ? (root.geometry.osc-position == 0 ? 120px : 104px) : 24px;
+        ? (PlayerLayoutState.osc-position == 0 ? 120px : 104px) : 24px;
     // Equal side reservations keep Play centered even without audio or
     // with a customized toolbar. Below this fit limit, retain the
     // Windows narrow-window packed row so every action stays reachable.
@@ -115,19 +104,19 @@ export component PlayerController inherits Rectangle {
     // Edge-to-edge keeps video behind sidebars, but the controls must
     // stay in the unobscured video area so their actions remain visible.
     private property <length> osc-video-leading-inset:
-        !PlayerMusicModeState.music-mode ? (root.geometry.edge-to-edge-video ? root.geometry.sidebar-leading-extent : root.geometry.video-inset-leading) : 0px;
+        !PlayerMusicModeState.music-mode ? (PlayerLayoutState.edge-to-edge-video ? root.geometry.sidebar-leading-extent : root.geometry.video-inset-leading) : 0px;
     private property <length> osc-video-width:
-        !PlayerMusicModeState.music-mode ? (root.geometry.edge-to-edge-video
+        !PlayerMusicModeState.music-mode ? (PlayerLayoutState.edge-to-edge-video
             ? max(1px, root.geometry.window-width - root.geometry.sidebar-leading-extent - root.geometry.sidebar-trailing-extent)
             : root.geometry.video-width) : root.geometry.available-width;
     width: PlayerMusicModeState.music-mode ? root.geometry.available-width :
-        root.geometry.osc-position == 0 ? min(osc-video-width, max(200px, min(460px, osc-video-width - 2px))) :
+        PlayerLayoutState.osc-position == 0 ? min(osc-video-width, max(200px, min(460px, osc-video-width - 2px))) :
         osc-video-width;
     animate width { duration: PlayerAppearance.animations-disabled ? 0ms : Theme.controller-reposition-duration; }
     height: root.geometry.osc-height;
     x: PlayerMusicModeState.music-mode ? 0px :
-        osc-video-leading-inset + (root.geometry.osc-position == 0 ? clamp(
-            osc-video-width * (osc-video-width < 462px ? 0.5 : root.control-bar-position-horizontal) - self.width / 2,
+        osc-video-leading-inset + (PlayerLayoutState.osc-position == 0 ? clamp(
+            osc-video-width * (osc-video-width < 462px ? 0.5 : PlayerLayoutState.control-bar-position-horizontal) - self.width / 2,
             0px, max(0px, osc-video-width - self.width)) : 0px);
     animate x { duration: PlayerAppearance.animations-disabled ? 0ms : Theme.controller-reposition-duration; }
     // Keep the transport row outside the playlist's hit-test surface
@@ -137,14 +126,14 @@ export component PlayerController inherits Rectangle {
     // top-origin coordinates before positioning the full visible bar.
     y: PlayerMusicModeState.music-mode ? root.geometry.available-height -
             (PlayerMusicModeState.music-mode-show-playlist ? 300px : 0px) - self.height :
-        root.geometry.osc-position == 1 ? min(max(0px, root.geometry.available-height - self.height), PlayerAppearance.compact-ui ? 30px : 34px) :
-        root.geometry.osc-position == 2 ? max(0px, root.geometry.available-height - self.height) :
+        PlayerLayoutState.osc-position == 1 ? min(max(0px, root.geometry.available-height - self.height), PlayerAppearance.compact-ui ? 30px : 34px) :
+        PlayerLayoutState.osc-position == 2 ? max(0px, root.geometry.available-height - self.height) :
             max(0px, root.geometry.available-height -
                 min(max(0px, root.geometry.available-height - 67px - 25px),
-                    max(0px, root.geometry.available-height * root.control-bar-position-vertical)) - self.height);
-    opacity: PlayerMusicModeState.music-mode || root.controls-visible ? 1 : 0;
+                    max(0px, root.geometry.available-height * PlayerLayoutState.control-bar-position-vertical)) - self.height);
+    opacity: PlayerMusicModeState.music-mode || PlayerControlsState.controls-visible ? 1 : 0;
     animate opacity { duration: PlayerAppearance.animations-disabled ? 0ms : Theme.controller-visibility-duration; }
-    border-radius: PlayerMusicModeState.music-mode ? 0px : root.geometry.osc-position == 0 ? 12px : 4px;
+    border-radius: PlayerMusicModeState.music-mode ? 0px : PlayerLayoutState.osc-position == 0 ? 12px : 4px;
     background: Theme.controller-surface(
         PlayerAppearance.dark-theme, PlayerAppearance.active-liquid-glass-osc,
         PlayerAppearance.platform-windows, root.native-video);
@@ -168,7 +157,7 @@ export component PlayerController inherits Rectangle {
         private property <float> drag-origin-x: 0;
         private property <float> drag-origin-y: 0;
         moved => {
-            if self.pressed && root.geometry.osc-position == 0 && !PlayerMusicModeState.music-mode {
+            if self.pressed && PlayerLayoutState.osc-position == 0 && !PlayerMusicModeState.music-mode {
                 let available-x = max(0px, osc-video-width - root.width);
                 let available-y = max(0, root.geometry.window-height / 1px - root.height / 1px);
                 // AppKit constrains the left edge to 10 points, but lets
@@ -182,26 +171,26 @@ export component PlayerController inherits Rectangle {
                 let bounded-y = clamp(requested-y, minimum-y, available-y);
                 let center-x = (osc-video-width / 1px - root.width / 1px) / 2;
                 let snapped-x = abs(bounded-x - center-x) <= 5 ? center-x : bounded-x;
-                root.control-bar-position-horizontal = (snapped-x + root.width / 2 / 1px) / max(1, osc-video-width / 1px);
-                root.control-bar-position-vertical = (root.geometry.window-height / 1px - bounded-y - root.height / 1px) / max(1, root.geometry.window-height / 1px);
-                root.control-bar-dragging = true;
+                PlayerLayoutState.control-bar-position-horizontal = (snapped-x + root.width / 2 / 1px) / max(1, osc-video-width / 1px);
+                PlayerLayoutState.control-bar-position-vertical = (root.geometry.window-height / 1px - bounded-y - root.height / 1px) / max(1, root.geometry.window-height / 1px);
+                PlayerControlsState.control-bar-dragging = true;
             }
         }
         pointer-event(event) => {
             if event.button == PointerEventButton.left && event.kind == PointerEventKind.down
-                && root.geometry.osc-position == 0 && !PlayerMusicModeState.music-mode {
+                && PlayerLayoutState.osc-position == 0 && !PlayerMusicModeState.music-mode {
                 drag-start-x = self.mouse-x / 1px;
                 drag-start-y = self.mouse-y / 1px;
                 drag-origin-x = (root.x - osc-video-leading-inset) / 1px;
                 drag-origin-y = root.y / 1px;
             } else if event.button == PointerEventButton.left && event.kind == PointerEventKind.up
-                && root.control-bar-dragging {
-                root.control-bar-dragging = false;
+                && PlayerControlsState.control-bar-dragging {
+                PlayerControlsState.control-bar-dragging = false;
                 root.layout-settings-changed();
             }
         }
         changed has-hover => {
-            root.control-bar-hovered = self.has-hover;
+            PlayerControlsState.control-bar-hovered = self.has-hover;
             if PlayerMusicModeState.music-mode && !self.has-hover { PlayerMusicModeState.music-mode-volume-open = false; }
         }
         VerticalLayout { width: parent.width; height: parent.height;
@@ -220,7 +209,7 @@ export component PlayerController inherits Rectangle {
                 accent-color: PlayerAppearance.interactive-accent-color;
                 playlist-visible: PlayerMusicModeState.music-mode-show-playlist;
                 artwork-visible: PlayerMusicModeState.music-mode-show-album-art;
-                opacity: root.controls-visible ? 1 : 0;
+                opacity: PlayerControlsState.controls-visible ? 1 : 0;
                 animate opacity { duration: PlayerAppearance.animations-disabled ? 0ms : Theme.controller-content-fade-duration; }
                 pause-requested => { PlayerMenuActions.toggle-pause(); }
                 previous-requested => { PlayerMenuActions.playlist-previous(); }
@@ -235,7 +224,7 @@ export component PlayerController inherits Rectangle {
             if !PlayerMusicModeState.music-mode : HorizontalLayout {
             x: 0px; y: 0px;
             width: parent.width; height: root.layout.osc-row-height;
-            opacity: root.controls-visible ? 1 : 0;
+            opacity: PlayerControlsState.controls-visible ? 1 : 0;
             animate opacity { duration: PlayerAppearance.animations-disabled ? 0ms : Theme.controller-content-fade-duration; }
             padding-left: root.layout.osc-row-inline-inset;
             padding-right: root.layout.osc-row-inline-inset;
@@ -251,15 +240,15 @@ export component PlayerController inherits Rectangle {
                         minimum: 0; maximum: root.audio.volume-limit; value: PlaybackAudioState.volume; hint: "Volume";
                         scroll-override-enabled: !root.audio.control-disable-volume-slider-scrolling;
                         scroll-disabled: root.audio.control-disable-volume-slider-scrolling;
-                        scroll-request(delta-x, delta-y) => { root.volume-scroll-action-request(delta-x, delta-y); }
-                        changed is-dragging => { root.control-bar-dragging = self.is-dragging; }
-                        changed(value) => { root.set-volume(value); }
+                        scroll-request(delta-x, delta-y) => { PlayerControlActions.volume-scroll-action-request(delta-x, delta-y); }
+                        changed is-dragging => { PlayerControlsState.control-bar-dragging = self.is-dragging; }
+                        changed(value) => { PlayerControlActions.set-volume(value); }
                     }
                 }
             }
             Rectangle { horizontal-stretch: 1; background: transparent; }
             HorizontalLayout {
-                spacing: PlayerMusicModeState.music-mode ? 2px : root.geometry.osc-position == 0 ? 24px : 16px;
+                spacing: PlayerMusicModeState.music-mode ? 2px : PlayerLayoutState.osc-position == 0 ? 24px : 16px;
                 if root.layout.transport-neighbor-actions-fit : Tool { accent-color: PlayerAppearance.interactive-accent-color;
                     dark-theme: PlayerAppearance.dark-theme; width: 24px; height: root.layout.osc-row-height; icon-size: 24px;
                     icon: PlayerMusicModeState.music-mode
@@ -298,7 +287,7 @@ export component PlayerController inherits Rectangle {
                 x: parent.width - self.width;
                 width: root.toolbar-width; height: root.layout.osc-row-height;
                 spacing: root.toolbar-gap;
-                for action-kind in root.toolbar.toolbar-visible-order : ToolbarAction {
+                for action-kind in PlayerControlsState.toolbar-visible-order : ToolbarAction {
                 kind: action-kind;
                 action-width: root.toolbar-button-width;
                 action-height: min(root.toolbar-button-width, root.layout.osc-row-height);
@@ -338,7 +327,7 @@ export component PlayerController inherits Rectangle {
         }
             if PlayerMusicModeState.music-mode : HorizontalLayout {
             x: 0px; y: 0px; width: parent.width; height: 27px;
-            opacity: root.controls-visible ? 0 : 1;
+            opacity: PlayerControlsState.controls-visible ? 0 : 1;
             animate opacity { duration: PlayerAppearance.animations-disabled ? 0ms : Theme.controller-content-fade-duration; }
             padding-left: 16px; padding-right: 16px;
             VerticalLayout {
@@ -354,10 +343,10 @@ export component PlayerController inherits Rectangle {
                 }
             }
         }
-            if PlayerMusicModeState.music-mode && !root.controls-visible : TouchArea {
+            if PlayerMusicModeState.music-mode && !PlayerControlsState.controls-visible : TouchArea {
                 width: parent.width; height: parent.height;
-                moved => { root.controls-visible = true; root.activity(); }
-                clicked => { root.activity(); }
+                moved => { PlayerControlsState.controls-visible = true; PlayerControlActions.activity(); }
+                clicked => { PlayerControlActions.activity(); }
             }
         }
         if root.layout.osc-timeline-height > 0px : HorizontalLayout {
@@ -375,7 +364,7 @@ export component PlayerController inherits Rectangle {
                 knob-width: 3px; knob-height: root.layout.small-video-controller ? 12px : 15px; knob-radius: 1px;
                 scroll-override-enabled: PlaybackTimelineState.seekable && !PlayerPreferences.control-disable-play-slider-scrolling;
                 scroll-disabled: PlayerPreferences.control-disable-play-slider-scrolling;
-                scroll-request(delta-x, delta-y) => { root.seek-scroll-action-request(delta-x, delta-y); }
+                scroll-request(delta-x, delta-y) => { PlayerControlActions.seek-scroll-action-request(delta-x, delta-y); }
                 loop-a-visible: PlaybackTimelineState.ab-loop-a-known; loop-a-value: PlaybackTimelineState.ab-loop-a;
                 loop-b-visible: PlaybackTimelineState.ab-loop-b-known; loop-b-value: PlaybackTimelineState.ab-loop-b;
                 show-chapter-positions: PlayerPreferences.show-chapter-pos; chapter-times: PlaybackTimelineState.chapter-times;
@@ -383,14 +372,14 @@ export component PlayerController inherits Rectangle {
                 preview-image: PlaybackTimelineState.timeline-thumbnail-image;
                 preview-label: PlaybackTimelineState.timeline-preview-label; preview-width: PlaybackTimelineState.thumbnail-preview-width;
                 preview-aspect-ratio: root.video-display-aspect-ratio > 0 ? root.video-display-aspect-ratio : 16 / 9;
-                preview-above: root.geometry.osc-position != 1;
+                preview-above: PlayerLayoutState.osc-position != 1;
                 minimum: 0; maximum: max(1, PlaybackTimelineState.duration); value: PlaybackTimelineState.position; enabled: PlaybackTimelineState.seekable; hint: "Playback position";
-                changed is-dragging => { root.control-bar-dragging = self.is-dragging; }
+                changed is-dragging => { PlayerControlsState.control-bar-dragging = self.is-dragging; }
                 changed(value) => { PlayerMenuActions.seek(value); }
-                loop-a-moved(value) => { root.set-ab-loop-point(0, value); }
-                loop-b-moved(value) => { root.set-ab-loop-point(1, value); }
-                preview-requested(value) => { root.timeline-hovered(value); }
-                preview-dismissed => { root.timeline-hovered(-1); } }
+                loop-a-moved(value) => { PlayerControlActions.set-ab-loop-point(0, value); }
+                loop-b-moved(value) => { PlayerControlActions.set-ab-loop-point(1, value); }
+                preview-requested(value) => { PlayerControlActions.timeline-hovered(value); }
+                preview-dismissed => { PlayerControlActions.timeline-hovered(-1); } }
             Text { visible: root.geometry.window-width >= 150px; min-width: PlayerMusicModeState.music-mode ? root.layout.music-mode-time-label-min-width : root.layout.small-video-controller ? 34px : 46px;
                 horizontal-alignment: PlayerMusicModeState.music-mode ? left : center;
                 text: PlaybackTimelineState.duration-label; color: Theme.controller-time-text(PlayerAppearance.dark-theme);
@@ -412,9 +401,9 @@ export component PlayerController inherits Rectangle {
                 minimum: 0; maximum: root.audio.volume-limit; value: PlaybackAudioState.volume; hint: "Volume";
                 scroll-override-enabled: !root.audio.control-disable-volume-slider-scrolling;
                 scroll-disabled: root.audio.control-disable-volume-slider-scrolling;
-                scroll-request(delta-x, delta-y) => { root.volume-scroll-action-request(delta-x, delta-y); }
-                changed is-dragging => { root.control-bar-dragging = self.is-dragging; }
-                changed(value) => { root.set-volume(value); } }
+                scroll-request(delta-x, delta-y) => { PlayerControlActions.volume-scroll-action-request(delta-x, delta-y); }
+                changed is-dragging => { PlayerControlsState.control-bar-dragging = self.is-dragging; }
+                changed(value) => { PlayerControlActions.set-volume(value); } }
         }
     }
 }

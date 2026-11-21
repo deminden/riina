@@ -168,7 +168,8 @@ checkbox_cases! {
         get_disable_animations, set_disable_animations, [PlayerPreferences] get_disable_animations,
         |p: &Preferences| p.disable_animations;
     always_show_on_top_icon_persists_and_projects =>
-        get_always_show_on_top_icon, set_always_show_on_top_icon, get_always_show_on_top_icon,
+        get_always_show_on_top_icon, set_always_show_on_top_icon,
+        [riina_ui::PlayerLayoutState] get_always_show_on_top_icon,
         |p: &Preferences| p.always_show_on_top_icon;
     osd_enabled_persists_and_projects =>
         get_osd_enabled, set_osd_enabled, [PlayerPreferences] get_osd_enabled, |p: &Preferences| p.enable_osd;
@@ -188,7 +189,7 @@ checkbox_cases! {
         get_pip_toggle_by_minimizing, set_pip_toggle_by_minimizing, [PlayerPreferences] get_pip_toggle_by_minimizing,
         |p: &Preferences| p.picture_in_picture.toggle_by_minimizing;
     floating_window_policy_persists_and_projects =>
-        get_always_float_on_top, set_always_float_on_top, get_always_float_on_top,
+        get_always_float_on_top, set_always_float_on_top, [riina_ui::PlayerLayoutState] get_always_float_on_top,
         |p: &Preferences| p.always_float_on_top;
     screenshot_preview_persists_and_projects =>
         [riina_ui::GeneralSettingsState]
@@ -721,8 +722,10 @@ fn session_save_captures_controls_edited_directly_in_the_player() {
         .set_music_mode_show_album_art(false);
     app.global::<riina_ui::PlayerMusicModeState>()
         .set_music_mode_show_playlist(true);
-    app.set_control_bar_position_horizontal(0.25);
-    app.set_trailing_sidebar_width(320.0);
+    app.global::<riina_ui::PlayerLayoutState>()
+        .set_control_bar_position_horizontal(0.25);
+    app.global::<riina_ui::PlayerSidebarState>()
+        .set_trailing_sidebar_width(320.0);
     app.global::<PlayerPreferences>()
         .set_subtitle_font_size_preference(38.0);
     transaction.player.session.save(app).unwrap();

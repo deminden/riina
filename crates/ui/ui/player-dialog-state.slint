@@ -1,0 +1,12 @@
+// Entry drafts and native modal exclusion belong to the player.
+export global PlayerDialogState {
+    in-out property <bool> dialog-open: false;
+    in-out property <bool> jump-time-dialog-visible: false;
+    in-out property <string> jump-time-draft: "";
+    in-out property <string> jump-time-error: "";
+    in-out property <bool> url-dialog-visible: false;
+    in-out property <string> url-dialog-draft: "";
+
+    callback open-url(string);
+    callback jump-to-time(string);
+}

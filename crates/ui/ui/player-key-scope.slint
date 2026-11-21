@@ -1,27 +1,17 @@
+import { PlayerDialogState } from "player-dialog-state.slint";
+import { PlayerControlActions } from "player-control-actions.slint";
+import { PlayerCropState } from "player-crop-state.slint";
+import { PlayerControlsState } from "player-controls-state.slint";
+import { PlayerSidebarState } from "player-sidebar-state.slint";
 import { PlayerMenuActions } from "player-menu-actions.slint";
 
 // The same focus scope owns the child controls and the remaining player shortcuts.
 export component PlayerKeyScope inherits FocusScope {
     in-out property <bool> menu-alternates-visible;
     in property <bool> native-video;
-    in property <bool> crop-editing;
-    in-out property <bool> jump-time-dialog-visible;
-    in-out property <string> jump-time-error;
-    in-out property <bool> url-dialog-visible;
-    in-out property <bool> controls-visible;
     in property <bool> primary-shortcut-is-meta;
     in property <bool> loaded;
     in property <bool> fullscreen;
-    in-out property <int> sidebar;
-    in-out property <int> leading-sidebar;
-    callback activate-saved-filter-shortcut(string, bool, bool, bool, bool) -> bool;
-    callback activity();
-    callback adjust-subtitle-position(float);
-    callback adjust-subtitle-scale(float);
-    callback dispatch-key-binding(string, bool, bool, bool, bool) -> bool;
-    callback finish-custom-crop(bool);
-    callback open-application-menu();
-    callback subtitle-seek(int);
 
     @children
 
@@ -29,32 +19,32 @@ export component PlayerKeyScope inherits FocusScope {
         if (event.text == Key.Alt || !event.modifiers.alt) && menu-alternates-visible {
             menu-alternates-visible = false;
         }
-        if native-video && !crop-editing && event.text == Key.F10 { root.open-application-menu(); return accept; }
+        if native-video && !PlayerCropState.crop-editing && event.text == Key.F10 { PlayerControlActions.open-application-menu(); return accept; }
         return reject;
     }
     key-pressed(event) => {
         if menu-alternates-visible != event.modifiers.alt {
             menu-alternates-visible = event.modifiers.alt;
         }
-        if crop-editing { if event.text == Key.Escape { root.finish-custom-crop(false); } if event.text == Key.Tab { return reject; } return accept; }
-        if jump-time-dialog-visible {
-            if event.text == Key.Escape { jump-time-dialog-visible = false; jump-time-error = ""; return accept; }
+        if PlayerCropState.crop-editing { if event.text == Key.Escape { PlayerCropState.finish-custom-crop(false); } if event.text == Key.Tab { return reject; } return accept; }
+        if PlayerDialogState.jump-time-dialog-visible {
+            if event.text == Key.Escape { PlayerDialogState.jump-time-dialog-visible = false; PlayerDialogState.jump-time-error = ""; return accept; }
             return accept;
         }
-        if url-dialog-visible {
-            if event.text == Key.Escape { url-dialog-visible = false; return accept; }
+        if PlayerDialogState.url-dialog-visible {
+            if event.text == Key.Escape { PlayerDialogState.url-dialog-visible = false; return accept; }
             return accept;
         }
         if native-video && event.text == Key.F10 { return accept; }
-        if root.activate-saved-filter-shortcut(event.text, event.modifiers.control,
+        if PlayerControlActions.activate-saved-filter-shortcut(event.text, event.modifiers.control,
                 event.modifiers.alt, event.modifiers.shift, event.modifiers.meta) {
             return accept;
         }
-        if root.dispatch-key-binding(event.text, event.modifiers.control,
+        if PlayerControlActions.dispatch-key-binding(event.text, event.modifiers.control,
                 event.modifiers.alt, event.modifiers.shift, event.modifiers.meta) {
             return accept;
         }
-        root.controls-visible = true; root.activity();
+        PlayerControlsState.controls-visible = true; PlayerControlActions.activity();
         if (primary-shortcut-is-meta ? event.modifiers.meta : event.modifiers.control) {
             if event.text == "," && !event.modifiers.shift && !event.modifiers.alt {
                 PlayerMenuActions.open-preferences(); return accept;
@@ -116,13 +106,13 @@ export component PlayerKeyScope inherits FocusScope {
         if event.modifiers.shift && !event.modifiers.alt && !event.modifiers.control && !event.modifiers.meta {
             if event.text == Key.PageUp { PlayerMenuActions.seek-relative(600); return accept; }
             if event.text == Key.PageDown { PlayerMenuActions.seek-relative(-600); return accept; }
-            if event.text == Key.RightArrow { root.subtitle-seek(1); return accept; }
-            if event.text == Key.LeftArrow { root.subtitle-seek(-1); return accept; }
+            if event.text == Key.RightArrow { PlayerControlActions.subtitle-seek(1); return accept; }
+            if event.text == Key.LeftArrow { PlayerControlActions.subtitle-seek(-1); return accept; }
         }
         if !event.modifiers.alt && !event.modifiers.control && !event.modifiers.meta {
-            if event.text == "G" { root.adjust-subtitle-scale(0.1); return accept; }
-            if event.text == "F" { root.adjust-subtitle-scale(-0.1); return accept; }
-            if event.text == "R" { root.adjust-subtitle-position(1); return accept; }
+            if event.text == "G" { PlayerControlActions.adjust-subtitle-scale(0.1); return accept; }
+            if event.text == "F" { PlayerControlActions.adjust-subtitle-scale(-0.1); return accept; }
+            if event.text == "R" { PlayerControlActions.adjust-subtitle-position(1); return accept; }
         }
         if event.modifiers.alt || event.modifiers.control || event.modifiers.meta || event.modifiers.shift { return reject; }
         if event.text == " " || event.text == "p" { PlayerMenuActions.toggle-pause(); return accept; }
@@ -133,14 +123,14 @@ export component PlayerKeyScope inherits FocusScope {
         if event.text == "m" { PlayerMenuActions.toggle-mute(); return accept; }
         if event.text == "j" && root.loaded { PlayerMenuActions.open-jump-time-dialog(); return accept; }
         if event.text == "v" { PlayerMenuActions.toggle-subtitle-visibility(); return accept; }
-        if event.text == "r" { root.adjust-subtitle-position(-1); return accept; }
-        if event.text == "t" { root.adjust-subtitle-position(1); return accept; }
+        if event.text == "r" { PlayerControlActions.adjust-subtitle-position(-1); return accept; }
+        if event.text == "t" { PlayerControlActions.adjust-subtitle-position(1); return accept; }
         if event.text == "." { PlayerMenuActions.frame-step(); return accept; }
         if event.text == "," { PlayerMenuActions.frame-back-step(); return accept; }
         if event.text == "f" { PlayerMenuActions.toggle-fullscreen(); return accept; }
         if event.text == Key.Return { if !root.fullscreen { PlayerMenuActions.toggle-fullscreen(); } return accept; }
         if event.text == Key.Escape && root.fullscreen { PlayerMenuActions.toggle-fullscreen(); return accept; }
-        if event.text == Key.Escape && (root.sidebar != 0 || root.leading-sidebar != 0) { root.sidebar = 0; root.leading-sidebar = 0; return accept; }
+        if event.text == Key.Escape && (PlayerSidebarState.sidebar != 0 || PlayerSidebarState.leading-sidebar != 0) { PlayerSidebarState.sidebar = 0; PlayerSidebarState.leading-sidebar = 0; return accept; }
         return reject;
     }
 }

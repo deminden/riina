@@ -1,3 +1,7 @@
+import { PlayerCropState } from "player-crop-state.slint";
+import { PlayerControlsState } from "player-controls-state.slint";
+import { PlayerLayoutState } from "player-layout-state.slint";
+import { PlayerSidebarState } from "player-sidebar-state.slint";
 import { PlayerMusicModeState } from "player-music-mode-state.slint";
 import { PlayerOsdState } from "player-osd-state.slint";
 import { ScreenshotPreview } from "screenshot-preview.slint";
@@ -10,15 +14,10 @@ import { Theme } from "theme.slint";
 // Keep the MiniPlayer playlist between the seek feedback and persistent overlays.
 export component PlayerFeedbackLayer inherits Rectangle {
     in property <bool> loaded;
-    in property <bool> crop-editing;
     in property <bool> native-video;
-    in property <bool> controls-visible;
     in property <bool> fullscreen;
     in property <string> status;
     in property <string> startup-status;
-    in property <int> sidebar;
-    in property <float> trailing-sidebar-width;
-    in property <int> osc-position;
     in property <length> osc-height;
     in property <string> media-title;
     in property <length> video-inset-leading;
@@ -39,14 +38,14 @@ export component PlayerFeedbackLayer inherits Rectangle {
         sample-opacity: PlayerAppearance.video-material-sample-opacity(root.native-video),
     };
 
-    if loaded && !crop-editing : SeekOsd {
+    if loaded && !PlayerCropState.crop-editing : SeekOsd {
         material: root.osd-material;
         progress-color: PlayerAppearance.platform-windows ? PlayerAppearance.windows-accent-color : Theme.playback-progress-accent;
         osd-enabled: PlayerPreferences.osd-enabled;
         osd-text-size: PlayerPreferences.osd-text-size;
         osd-fade-duration: root.osd-fade-duration;
     }
-    if !PlayerOsdState.plugin-osd-message.is-empty && !crop-editing : PluginOsd {
+    if !PlayerOsdState.plugin-osd-message.is-empty && !PlayerCropState.crop-editing : PluginOsd {
         x: (parent.width - self.width) / 2;
         y: max(8px,
             parent.height - (PlayerMusicModeState.music-mode && PlayerMusicModeState.music-mode-show-playlist ? 300px : 0px) - 112px);
@@ -58,13 +57,13 @@ export component PlayerFeedbackLayer inherits Rectangle {
         text: startup-status == "" ? status : startup-status;
         color: Theme.player-status-text(PlayerAppearance.dark-theme); font-size: 11px; overflow: elide; }
     @children
-    if fullscreen && loaded && controls-visible && PlayerPreferences.display-time-and-battery-in-fullscreen && !crop-editing : FullscreenInfoOsd {
+    if fullscreen && loaded && PlayerControlsState.controls-visible && PlayerPreferences.display-time-and-battery-in-fullscreen && !PlayerCropState.crop-editing : FullscreenInfoOsd {
         private property <length> card-width: min(340px, parent.width - 16px -
-            (root.sidebar != 0 ? min(root.trailing-sidebar-width * 1px, parent.width * 0.8) : 0px));
+            (PlayerSidebarState.sidebar != 0 ? min(PlayerSidebarState.trailing-sidebar-width * 1px, parent.width * 0.8) : 0px));
         x: parent.width - self.card-width -
-            (root.sidebar != 0 ? min(root.trailing-sidebar-width * 1px, parent.width * 0.8) : 0px) - 8px;
+            (PlayerSidebarState.sidebar != 0 ? min(PlayerSidebarState.trailing-sidebar-width * 1px, parent.width * 0.8) : 0px) - 8px;
         y: (PlayerAppearance.compact-ui ? 38px : 42px) +
-            (root.osc-position == 1 ? root.osc-height : 0px);
+            (PlayerLayoutState.osc-position == 1 ? root.osc-height : 0px);
         width: self.card-width;
         material: root.osd-material;
         media-title: root.media-title;
@@ -76,7 +75,7 @@ export component PlayerFeedbackLayer inherits Rectangle {
         osd-text-size: PlayerPreferences.osd-text-size;
         osd-fade-duration: root.osd-fade-duration;
     }
-    if loaded && !crop-editing : ScreenshotPreview {
+    if loaded && !PlayerCropState.crop-editing : ScreenshotPreview {
         x: Theme.playback-osd-left; y: Theme.playback-osd-top;
         active: PlayerOsdState.screenshot-preview-visible && PlayerPreferences.osd-enabled;
         opacity: PlayerOsdState.screenshot-preview-visible && PlayerPreferences.osd-enabled ? 1 : 0;

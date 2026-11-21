@@ -119,11 +119,17 @@ fn install_lut_picker(
         let Some(app) = browse_app.upgrade() else {
             return;
         };
-        if is_audio || app.get_dialog_open() {
+        if is_audio
+            || app
+                .global::<riina_ui::PlayerDialogState>()
+                .get_dialog_open()
+        {
             return;
         }
-        app.set_dialog_open(true);
-        app.invoke_activity();
+        app.global::<riina_ui::PlayerDialogState>()
+            .set_dialog_open(true);
+        app.global::<riina_ui::PlayerControlActions>()
+            .invoke_activity();
         let weak_app = app.as_weak();
         let weak_window = browse_window.clone();
         let selection_window = browse_window.clone();
@@ -155,8 +161,10 @@ fn install_lut_picker(
             let Some(app) = weak_app.upgrade() else {
                 return;
             };
-            app.set_dialog_open(false);
-            app.invoke_activity();
+            app.global::<riina_ui::PlayerDialogState>()
+                .set_dialog_open(false);
+            app.global::<riina_ui::PlayerControlActions>()
+                .invoke_activity();
             match selected {
                 Ok(Some(path)) => {
                     let Some(window) = selection_window.upgrade() else {
@@ -179,8 +187,10 @@ fn install_lut_picker(
             }
         });
         if let Err(error) = path_result {
-            app.set_dialog_open(false);
-            app.invoke_activity();
+            app.global::<riina_ui::PlayerDialogState>()
+                .set_dialog_open(false);
+            app.global::<riina_ui::PlayerControlActions>()
+                .invoke_activity();
             app.set_status(error.to_string().into());
         }
     });

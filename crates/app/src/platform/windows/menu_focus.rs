@@ -328,7 +328,11 @@ unsafe extern "system" fn menu_proc(
         let Some(app) = context.app.upgrade() else {
             return LRESULT(0);
         };
-        if app.get_crop_editing() || app.get_dialog_open() {
+        if app.global::<riina_ui::PlayerCropState>().get_crop_editing()
+            || app
+                .global::<riina_ui::PlayerDialogState>()
+                .get_dialog_open()
+        {
             return LRESULT(0);
         }
         context.active.set(true);
@@ -365,11 +369,18 @@ unsafe extern "system" fn menu_proc(
             context.active.set(false);
             return LRESULT(0);
         };
-        if app.get_crop_editing() || app.get_dialog_open() {
+        if app.global::<riina_ui::PlayerCropState>().get_crop_editing()
+            || app
+                .global::<riina_ui::PlayerDialogState>()
+                .get_dialog_open()
+        {
             context.active.set(false);
             // Editing may begin between activation and its queued system
             // command. Return input to the editor without disturbing a dialog.
-            if !app.get_dialog_open() {
+            if !app
+                .global::<riina_ui::PlayerDialogState>()
+                .get_dialog_open()
+            {
                 focus_chrome(app.window());
             }
             return LRESULT(0);
@@ -416,7 +427,10 @@ unsafe extern "system" fn menu_proc(
                     super::menu_modifiers::reconcile_alt(app.window(), alt_held);
                     // An action may have opened an editor/dialog. Repair its
                     // modifier state too, while retaining its native focus.
-                    if !app.get_dialog_open() {
+                    if !app
+                        .global::<riina_ui::PlayerDialogState>()
+                        .get_dialog_open()
+                    {
                         focus_chrome(app.window());
                     }
                 }
@@ -432,7 +446,8 @@ fn dispatch_system_media_shortcut(app: &PlayerWindow, lparam: LPARAM) -> bool {
     app.global::<riina_ui::PlayerPreferences>()
         .get_key_binding_use_system_media_controls()
         && system_media_key(((lparam.0 as u32) >> 16) & 0x7ff).is_some_and(|key| {
-            app.invoke_dispatch_key_binding(key.into(), false, false, false, false)
+            app.global::<riina_ui::PlayerControlActions>()
+                .invoke_dispatch_key_binding(key.into(), false, false, false, false)
         })
 }
 

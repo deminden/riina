@@ -24,17 +24,23 @@ impl HostInput {
             WindowEvent::KeyboardInput { event, .. }
                 if event.state == ElementState::Pressed
                     && !event.repeat
-                    && accepts_commands(app.get_crop_editing(), app.get_dialog_open()) =>
+                    && accepts_commands(
+                        app.global::<riina_ui::PlayerCropState>().get_crop_editing(),
+                        app.global::<riina_ui::PlayerDialogState>()
+                            .get_dialog_open(),
+                    ) =>
             {
                 let modifiers = self.modifiers.get();
                 if let Some(text) = control_binding(&event.logical_key, modifiers)
-                    && app.invoke_dispatch_key_binding(
-                        text,
-                        true,
-                        modifiers.alt_key(),
-                        modifiers.shift_key(),
-                        false,
-                    )
+                    && app
+                        .global::<riina_ui::PlayerControlActions>()
+                        .invoke_dispatch_key_binding(
+                            text,
+                            true,
+                            modifiers.alt_key(),
+                            modifiers.shift_key(),
+                            false,
+                        )
                 {
                     // The framed host has no Slint editor or key scope. Keep
                     // these commands on the same configurable route as menus.
@@ -49,13 +55,14 @@ impl HostInput {
                 if event.logical_key == Key::Named(NamedKey::Escape) && app.get_fullscreen() {
                     dispatch_escape(
                         || {
-                            app.invoke_dispatch_key_binding(
-                                "Escape".into(),
-                                modifiers.control_key(),
-                                modifiers.alt_key(),
-                                modifiers.shift_key(),
-                                modifiers.super_key(),
-                            )
+                            app.global::<riina_ui::PlayerControlActions>()
+                                .invoke_dispatch_key_binding(
+                                    "Escape".into(),
+                                    modifiers.control_key(),
+                                    modifiers.alt_key(),
+                                    modifiers.shift_key(),
+                                    modifiers.super_key(),
+                                )
                         },
                         || app.global::<PlayerMenuActions>().invoke_toggle_fullscreen(),
                     );

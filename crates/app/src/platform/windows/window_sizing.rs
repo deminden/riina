@@ -83,8 +83,12 @@ unsafe extern "system" fn sizing_proc(
         || app
             .global::<riina_ui::PlayerMusicModeState>()
             .get_music_mode()
-        || app.get_unlock_window_aspect_ratio()
-        || !app.get_edge_to_edge_video()
+        || app
+            .global::<riina_ui::PlayerLayoutState>()
+            .get_unlock_window_aspect_ratio()
+        || !app
+            .global::<riina_ui::PlayerLayoutState>()
+            .get_edge_to_edge_video()
         || app.get_fullscreen()
     {
         return result;

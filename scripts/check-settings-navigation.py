@@ -144,7 +144,7 @@ def main():
     sidebar_tint = SIDEBAR_FRAME_SOURCE.index("sidebar-light-tint := Rectangle")
     sidebar_content_slot = SIDEBAR_FRAME_SOURCE.index("@children")
     assert sidebar_sample < sidebar_tint < sidebar_content_slot and re.search(
-        r"sidebar-frame := PlayerSidebarFrame\s*\{.*?\n\s*sidebar-content := VerticalLayout",
+        r"sidebar-frame := PlayerSidebarFrame\s*\{.*?\n\s*sidebar-content := PlayerSidebarContent",
         PLAYER_SOURCE,
         re.DOTALL,
     ), (
@@ -344,11 +344,9 @@ def main():
         and "checked <=> root.always-show-on-top-icon" in INTERFACE_SOURCE
     ), "The captured title-bar pin visibility preference must be represented"
     assert (
-        "root.always-float-on-top || root.always-show-on-top-icon : TopmostPin" in PLAYER_TITLE_SOURCE
-        and "pinned: root.always-float-on-top;" in PLAYER_TITLE_SOURCE
+        "PlayerLayoutState.always-float-on-top || PlayerLayoutState.always-show-on-top-icon : TopmostPin" in PLAYER_TITLE_SOURCE
+        and "pinned: PlayerLayoutState.always-float-on-top;" in PLAYER_TITLE_SOURCE
         and "root.window-level-toggle-requested(value);" in PLAYER_TITLE_SOURCE
-        and "always-float-on-top: root.always-float-on-top;" in PLAYER_SOURCE
-        and "always-show-on-top-icon: root.always-show-on-top-icon;" in PLAYER_SOURCE
         and "root.layout-settings-changed();" in PLAYER_SOURCE
         and 'assets/icons/pin-fill.svg' in PLAYER_CHROME_SOURCE
         and 'assets/icons/pin.svg' in PLAYER_CHROME_SOURCE
@@ -396,7 +394,7 @@ def main():
     )
     assert (
         re.search(
-            r"if fullscreen\s*&&\s*loaded\s*&&\s*controls-visible\s*&&\s*PlayerPreferences\.display-time-and-battery-in-fullscreen\s*&&\s*!crop-editing\s*:\s*FullscreenInfoOsd",
+            r"if fullscreen\s*&&\s*loaded\s*&&\s*PlayerControlsState\.controls-visible\s*&&\s*PlayerPreferences\.display-time-and-battery-in-fullscreen\s*&&\s*!PlayerCropState\.crop-editing\s*:\s*FullscreenInfoOsd",
             PLAYER_FEEDBACK_SOURCE,
         )
         and all(

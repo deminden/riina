@@ -224,10 +224,16 @@ fn project_blur(
 ) {
     let appearance = app.global::<riina_ui::PlayerAppearance>();
     let sidebar_blur = appearance.get_liquid_glass_sidebar()
-        && (app.get_sidebar() != 0 || app.get_leading_sidebar() != 0);
+        && (app.global::<riina_ui::PlayerSidebarState>().get_sidebar() != 0
+            || app
+                .global::<riina_ui::PlayerSidebarState>()
+                .get_leading_sidebar()
+                != 0);
     let controller_blur = appearance.get_liquid_glass_osc()
         && app.get_loaded()
-        && (app.get_controls_visible()
+        && (app
+            .global::<riina_ui::PlayerControlsState>()
+            .get_controls_visible()
             || app
                 .global::<riina_ui::PlayerMusicModeState>()
                 .get_music_mode());
@@ -238,7 +244,9 @@ fn project_blur(
             || osd.get_seek_osd_visible()
             || !osd.get_plugin_osd_message().is_empty()
             || (app.get_fullscreen()
-                && app.get_controls_visible()
+                && app
+                    .global::<riina_ui::PlayerControlsState>()
+                    .get_controls_visible()
                 && app
                     .global::<riina_ui::PlayerPreferences>()
                     .get_display_time_and_battery_in_fullscreen()));

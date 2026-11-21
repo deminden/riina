@@ -1003,11 +1003,16 @@ pub(crate) fn save_playlist_file(
     host: Option<slint::Weak<NativeVideoHost>>,
     content: String,
 ) {
-    if app.get_dialog_open() {
+    if app
+        .global::<riina_ui::PlayerDialogState>()
+        .get_dialog_open()
+    {
         return;
     }
-    app.set_dialog_open(true);
-    app.invoke_activity();
+    app.global::<riina_ui::PlayerDialogState>()
+        .set_dialog_open(true);
+    app.global::<riina_ui::PlayerControlActions>()
+        .invoke_activity();
     let weak = app.as_weak();
     let failure = weak.clone();
     let started = slint::spawn_local(async move {
@@ -1041,8 +1046,10 @@ pub(crate) fn save_playlist_file(
             }
         }
         .await;
-        app.set_dialog_open(false);
-        app.invoke_activity();
+        app.global::<riina_ui::PlayerDialogState>()
+            .set_dialog_open(false);
+        app.global::<riina_ui::PlayerControlActions>()
+            .invoke_activity();
         match saved {
             Ok(true) => app.set_status("Playlist saved".into()),
             Ok(false) => {}
@@ -1052,7 +1059,8 @@ pub(crate) fn save_playlist_file(
     if let Err(error) = started
         && let Some(app) = failure.upgrade()
     {
-        app.set_dialog_open(false);
+        app.global::<riina_ui::PlayerDialogState>()
+            .set_dialog_open(false);
         app.set_status(error.to_string().into());
     }
 }

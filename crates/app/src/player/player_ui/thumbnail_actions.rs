@@ -14,11 +14,12 @@ pub(super) fn install(
         Rc::new(RefCell::new(crate::thumbnail_preview::Controller::default()));
     let thumbnail_hover = thumbnail_controller.clone();
     let thumbnail_weak = app.as_weak();
-    app.on_timeline_hovered(move |seconds| {
-        if let Some(app) = thumbnail_weak.upgrade() {
-            thumbnail_hover.borrow_mut().hover(&app, f64::from(seconds));
-        }
-    });
+    app.global::<riina_ui::PlayerControlActions>()
+        .on_timeline_hovered(move |seconds| {
+            if let Some(app) = thumbnail_weak.upgrade() {
+                thumbnail_hover.borrow_mut().hover(&app, f64::from(seconds));
+            }
+        });
     let thumbnail_weak = app.as_weak();
     let thumbnail_playback = latest_playback.clone();
     let thumbnail_tick = thumbnail_controller.clone();

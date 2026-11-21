@@ -171,7 +171,10 @@ pub fn connect(app: &PlayerWindow) {
             let Some(app) = weak.upgrade() else {
                 return;
             };
-            if app.get_dialog_open() {
+            if app
+                .global::<riina_ui::PlayerDialogState>()
+                .get_dialog_open()
+            {
                 return;
             }
             // Reuse the auxiliary window's sample, search and discovered catalog.
@@ -238,7 +241,8 @@ fn install_lifecycle(picker: &FontPicker, app: &PlayerWindow) {
             window.set_picker_active(false);
             let _ = window.hide();
         }
-        app.invoke_activity();
+        app.global::<riina_ui::PlayerControlActions>()
+            .invoke_activity();
     });
     let parent = app.as_weak();
     let window = picker.as_weak();
@@ -248,7 +252,8 @@ fn install_lifecycle(picker: &FontPicker, app: &PlayerWindow) {
             let _ = window.hide();
         }
         if let Some(app) = parent.upgrade() {
-            app.invoke_activity();
+            app.global::<riina_ui::PlayerControlActions>()
+                .invoke_activity();
         }
     });
     let parent = app.as_weak();
@@ -258,7 +263,8 @@ fn install_lifecycle(picker: &FontPicker, app: &PlayerWindow) {
             window.set_picker_active(false);
         }
         if let Some(app) = parent.upgrade() {
-            app.invoke_activity();
+            app.global::<riina_ui::PlayerControlActions>()
+                .invoke_activity();
         }
         slint::CloseRequestResponse::HideWindow
     });

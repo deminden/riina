@@ -149,14 +149,17 @@ pub(crate) fn connect_actions(
         let (Some(app), Some(window)) = (chooser_app.upgrade(), weak_window.upgrade()) else {
             return;
         };
-        if app.get_dialog_open()
+        if app
+            .global::<riina_ui::PlayerDialogState>()
+            .get_dialog_open()
             || window
                 .global::<riina_ui::GeneralSettingsState>()
                 .get_folder_dialog_open()
         {
             return;
         }
-        app.set_dialog_open(true);
+        app.global::<riina_ui::PlayerDialogState>()
+            .set_dialog_open(true);
         window
             .global::<riina_ui::GeneralSettingsState>()
             .set_folder_dialog_open(true);
@@ -180,7 +183,8 @@ pub(crate) fn connect_actions(
                     let (Some(app), Some(window)) = (parent.upgrade(), weak.upgrade()) else {
                         return;
                     };
-                    app.set_dialog_open(false);
+                    app.global::<riina_ui::PlayerDialogState>()
+                        .set_dialog_open(false);
                     window
                         .global::<riina_ui::GeneralSettingsState>()
                         .set_folder_dialog_open(false);
@@ -201,7 +205,8 @@ pub(crate) fn connect_actions(
             }
             .await;
             if let Err(error) = result {
-                app.set_dialog_open(false);
+                app.global::<riina_ui::PlayerDialogState>()
+                    .set_dialog_open(false);
                 window
                     .global::<riina_ui::GeneralSettingsState>()
                     .set_folder_dialog_open(false);
@@ -210,7 +215,8 @@ pub(crate) fn connect_actions(
         });
         if let Err(error) = started {
             if let Some(app) = failure_app.upgrade() {
-                app.set_dialog_open(false);
+                app.global::<riina_ui::PlayerDialogState>()
+                    .set_dialog_open(false);
                 app.set_status(error.to_string().into());
             }
             if let Some(window) = failure_window.upgrade() {

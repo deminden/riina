@@ -15,7 +15,8 @@ fn opening_menu_refreshes_availability_without_waiting_for_coalescing_timer() {
     assert!(host.get_reflection_menu_enabled());
     assert!(host.get_video_mirrored());
     assert!(host.get_screenshot_available());
-    app.set_crop_editing(true);
+    app.global::<riina_ui::PlayerCropState>()
+        .set_crop_editing(true);
     app.invoke_native_menu_will_open();
     assert!(!host.get_playback_loaded());
     assert!(!host.get_reflection_menu_enabled());

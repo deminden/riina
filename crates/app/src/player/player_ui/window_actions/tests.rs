@@ -23,7 +23,8 @@ fn rejected_fullscreen_transition_preserves_playback_in_both_directions() {
         host.on_set_fullscreen_window(|_| false);
         let pauses = Rc::new(RefCell::new(Vec::new()));
         let observed = pauses.clone();
-        app.on_set_paused(move |paused| observed.borrow_mut().push(paused));
+        app.global::<riina_ui::PlayerControlActions>()
+            .on_set_paused(move |paused| observed.borrow_mut().push(paused));
         install_fullscreen(&app, Some(host.as_weak()));
         app.global::<PlayerMenuActions>().invoke_toggle_fullscreen();
         assert_eq!(app.get_fullscreen(), fullscreen);
@@ -47,10 +48,11 @@ fn accepted_fullscreen_transition_commits_window_state_before_playback_policy() 
         let pauses = Rc::new(RefCell::new(Vec::new()));
         let observed = pauses.clone();
         let weak = app.as_weak();
-        app.on_set_paused(move |paused| {
-            let app = weak.upgrade().unwrap();
-            observed.borrow_mut().push((app.get_fullscreen(), paused));
-        });
+        app.global::<riina_ui::PlayerControlActions>()
+            .on_set_paused(move |paused| {
+                let app = weak.upgrade().unwrap();
+                observed.borrow_mut().push((app.get_fullscreen(), paused));
+            });
         install_fullscreen(&app, Some(host.as_weak()));
         app.global::<PlayerMenuActions>().invoke_toggle_fullscreen();
         assert_eq!(app.get_fullscreen(), !fullscreen);
@@ -80,7 +82,8 @@ fn fullscreen_preferences_do_not_change_playback_when_disabled_or_unloaded() {
             .set_play_when_entering_fullscreen(false);
         let host = NativeVideoHost::new().unwrap();
         host.on_set_fullscreen_window(|_| true);
-        app.on_set_paused(|_| panic!("Playback policy should be inactive"));
+        app.global::<riina_ui::PlayerControlActions>()
+            .on_set_paused(|_| panic!("Playback policy should be inactive"));
         install_fullscreen(&app, Some(host.as_weak()));
         app.global::<PlayerMenuActions>().invoke_toggle_fullscreen();
         assert!(app.get_fullscreen());

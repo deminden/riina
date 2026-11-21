@@ -43,7 +43,11 @@ pub(crate) fn connect(
     app.global::<PlayerMenuActions>()
         .on_open_preferences(move || {
             let Some(app) = parent.upgrade() else { return };
-            if app.get_crop_editing() || app.get_dialog_open() {
+            if app.global::<riina_ui::PlayerCropState>().get_crop_editing()
+                || app
+                    .global::<riina_ui::PlayerDialogState>()
+                    .get_dialog_open()
+            {
                 return;
             }
             let existing = current.borrow().as_ref().map(ComponentHandle::clone_strong);

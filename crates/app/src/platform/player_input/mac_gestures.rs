@@ -83,7 +83,11 @@ pub(super) fn install(
                 use platform::GesturePhase;
                 use riina_core::control_preferences::PinchAction;
 
-                if app.get_crop_editing() || app.get_dialog_open() {
+                if app.global::<riina_ui::PlayerCropState>().get_crop_editing()
+                    || app
+                        .global::<riina_ui::PlayerDialogState>()
+                        .get_dialog_open()
+                {
                     return;
                 }
                 let Ok(settings) = crate::control_preferences::current_player(&app) else {

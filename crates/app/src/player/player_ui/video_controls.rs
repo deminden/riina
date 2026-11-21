@@ -20,7 +20,8 @@ fn install_aspect_and_crop(app: &PlayerWindow, player: &CommandSender) {
             }
             let aspect = riina_core::video_controls::AspectRatio::from_text(text.as_str());
             if let Some(app) = weak.upgrade() {
-                app.invoke_activity();
+                app.global::<riina_ui::PlayerControlActions>()
+                    .invoke_activity();
                 if let Err(error) = aspect_player.send(Command::VideoAspect(aspect)) {
                     app.set_status(error.into());
                 }
@@ -35,8 +36,10 @@ fn install_aspect_and_crop(app: &PlayerWindow, player: &CommandSender) {
                 || !app
                     .global::<riina_ui::PlaybackVideoState>()
                     .get_video_aspect_known()
-                || app.get_crop_editing()
-                || app.get_dialog_open()
+                || app.global::<riina_ui::PlayerCropState>().get_crop_editing()
+                || app
+                    .global::<riina_ui::PlayerDialogState>()
+                    .get_dialog_open()
             {
                 return;
             }
@@ -70,7 +73,8 @@ fn install_aspect_and_crop(app: &PlayerWindow, player: &CommandSender) {
                 return;
             };
             if let Some(app) = crop_ui.upgrade() {
-                app.invoke_activity();
+                app.global::<riina_ui::PlayerControlActions>()
+                    .invoke_activity();
                 if let Err(error) = crop_player.send(Command::VideoCrop(preset)) {
                     app.set_status(error.into());
                 }
@@ -80,10 +84,16 @@ fn install_aspect_and_crop(app: &PlayerWindow, player: &CommandSender) {
     let weak = app.as_weak();
     app.global::<PlayerMenuActions>().on_toggle_delogo(move || {
         let Some(app) = weak.upgrade() else { return };
-        if !app.get_delogo_enabled() || app.get_crop_editing() || app.get_dialog_open() {
+        if !app.get_delogo_enabled()
+            || app.global::<riina_ui::PlayerCropState>().get_crop_editing()
+            || app
+                .global::<riina_ui::PlayerDialogState>()
+                .get_dialog_open()
+        {
             return;
         }
-        app.invoke_activity();
+        app.global::<riina_ui::PlayerControlActions>()
+            .invoke_activity();
         if app.get_delogo_active() {
             if let Err(error) = delogo_player.send(Command::RemoveDelogo) {
                 app.set_status(error.into());
@@ -102,8 +112,10 @@ fn install_aspect_and_crop(app: &PlayerWindow, player: &CommandSender) {
                 || !app
                     .global::<riina_ui::PlaybackVideoState>()
                     .get_video_crop_known()
-                || app.get_crop_editing()
-                || app.get_dialog_open()
+                || app.global::<riina_ui::PlayerCropState>().get_crop_editing()
+                || app
+                    .global::<riina_ui::PlayerDialogState>()
+                    .get_dialog_open()
             {
                 return;
             }
@@ -122,7 +134,8 @@ fn install_aspect_and_crop(app: &PlayerWindow, player: &CommandSender) {
             } else {
                 return;
             };
-            app.invoke_activity();
+            app.global::<riina_ui::PlayerControlActions>()
+                .invoke_activity();
             if let Err(error) = menu_crop_player.send(Command::VideoCrop(preset)) {
                 app.set_status(error.into());
             }
@@ -138,7 +151,8 @@ fn install_rotation_and_picture(app: &PlayerWindow, player: &CommandSender) {
                 && let Some(rotation) =
                     riina_core::video_controls::Rotation::from_degrees(degrees.into())
             {
-                app.invoke_activity();
+                app.global::<riina_ui::PlayerControlActions>()
+                    .invoke_activity();
                 if let Err(error) = rotation_player.send(Command::VideoRotation(rotation)) {
                     app.set_status(error.into());
                 }
@@ -154,8 +168,10 @@ fn install_rotation_and_picture(app: &PlayerWindow, player: &CommandSender) {
                 || !app
                     .global::<riina_ui::PlaybackVideoState>()
                     .get_video_rotation_known()
-                || app.get_crop_editing()
-                || app.get_dialog_open()
+                || app.global::<riina_ui::PlayerCropState>().get_crop_editing()
+                || app
+                    .global::<riina_ui::PlayerDialogState>()
+                    .get_dialog_open()
             {
                 return;
             }
@@ -163,7 +179,8 @@ fn install_rotation_and_picture(app: &PlayerWindow, player: &CommandSender) {
             else {
                 return;
             };
-            app.invoke_activity();
+            app.global::<riina_ui::PlayerControlActions>()
+                .invoke_activity();
             if let Err(error) = menu_rotation_player.send(Command::VideoRotation(rotation)) {
                 app.set_status(error.into());
             }
@@ -173,7 +190,8 @@ fn install_rotation_and_picture(app: &PlayerWindow, player: &CommandSender) {
     app.global::<riina_ui::PlayerSidebarActions>()
         .on_set_hardware_decoding(move |enabled| {
             if let Some(app) = weak.upgrade() {
-                app.invoke_activity();
+                app.global::<riina_ui::PlayerControlActions>()
+                    .invoke_activity();
                 let mode = if enabled {
                     crate::codec_preferences::hardware_decoder(
                         app.global::<riina_ui::PlayerPreferences>()
@@ -202,7 +220,8 @@ fn install_rotation_and_picture(app: &PlayerWindow, player: &CommandSender) {
                 && (-100.0..=100.0).contains(&value)
                 && let Some(app) = weak.upgrade()
             {
-                app.invoke_activity();
+                app.global::<riina_ui::PlayerControlActions>()
+                    .invoke_activity();
                 // NSSlider's integer action uses whole units. The backend validates
                 // the range again so every caller obeys the same portable contract.
                 if let Err(error) = equalizer_player.send(Command::VideoEqualizer {
@@ -241,8 +260,10 @@ pub(super) fn install_reflection(app: &PlayerWindow, player: &CommandSender) {
                 refresh_video_menu(&app);
                 if !app.get_loaded()
                     || !app.get_reflection_known()
-                    || app.get_crop_editing()
-                    || app.get_dialog_open()
+                    || app.global::<riina_ui::PlayerCropState>().get_crop_editing()
+                    || app
+                        .global::<riina_ui::PlayerDialogState>()
+                        .get_dialog_open()
                 {
                     return;
                 }
@@ -267,12 +288,15 @@ pub(super) fn install_deinterlace(app: &PlayerWindow, player: &CommandSender) {
             refresh_video_menu(&app);
             if !app.get_loaded()
                 || !app.get_deinterlace_known()
-                || app.get_crop_editing()
-                || app.get_dialog_open()
+                || app.global::<riina_ui::PlayerCropState>().get_crop_editing()
+                || app
+                    .global::<riina_ui::PlayerDialogState>()
+                    .get_dialog_open()
             {
                 return;
             }
-            app.invoke_activity();
+            app.global::<riina_ui::PlayerControlActions>()
+                .invoke_activity();
             if let Err(error) = deinterlace_player.send(Command::ToggleDeinterlace) {
                 app.set_status(error.into());
             }

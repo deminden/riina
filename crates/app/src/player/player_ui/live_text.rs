@@ -104,7 +104,7 @@ pub(super) fn install(
                 || !app.get_live_text_available()
                 || !app.get_loaded()
                 || state.phase != Phase::Paused
-                || app.get_crop_editing()
+                || app.global::<riina_ui::PlayerCropState>().get_crop_editing()
                 || app
                     .global::<riina_ui::PlayerMusicModeState>()
                     .get_music_mode()
@@ -164,7 +164,7 @@ pub(super) fn install(
                         || !app.get_live_text_enabled()
                         || !app.get_live_text_available()
                         || !app.get_loaded()
-                        || app.get_crop_editing()
+                        || app.global::<riina_ui::PlayerCropState>().get_crop_editing()
                         || app
                             .global::<riina_ui::PlayerMusicModeState>()
                             .get_music_mode()

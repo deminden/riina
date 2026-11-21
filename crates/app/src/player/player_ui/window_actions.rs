@@ -9,7 +9,10 @@ mod tests;
 pub(super) fn install_lifecycle(app: &PlayerWindow, welcome: Option<&WelcomeWindow>) {
     let weak = app.as_weak();
     app.window().on_close_requested(move || {
-        if weak.upgrade().is_some_and(|app| app.get_dialog_open()) {
+        if weak.upgrade().is_some_and(|app| {
+            app.global::<riina_ui::PlayerDialogState>()
+                .get_dialog_open()
+        }) {
             slint::CloseRequestResponse::KeepWindowShown
         } else {
             if let Some(app) = weak.upgrade() {
@@ -65,7 +68,8 @@ pub(super) fn install_lifecycle(app: &PlayerWindow, welcome: Option<&WelcomeWind
         let weak = app.as_weak();
         welcome.on_open_url(move |value| {
             if let Some(app) = weak.upgrade() {
-                app.invoke_open_url(value);
+                app.global::<riina_ui::PlayerDialogState>()
+                    .invoke_open_url(value);
             }
         });
         let weak = app.as_weak();
@@ -85,7 +89,8 @@ pub(super) fn install_fullscreen(
     app.global::<PlayerMenuActions>()
         .on_toggle_fullscreen(move || {
             if let Some(app) = weak.upgrade() {
-                app.invoke_activity();
+                app.global::<riina_ui::PlayerControlActions>()
+                    .invoke_activity();
                 let fullscreen = !app.get_fullscreen();
                 match fullscreen_host.as_ref() {
                     Some(host) => {
@@ -104,7 +109,8 @@ pub(super) fn install_fullscreen(
                         .global::<riina_ui::PlayerPreferences>()
                         .get_play_when_entering_fullscreen()
                 {
-                    app.invoke_set_paused(false);
+                    app.global::<riina_ui::PlayerControlActions>()
+                        .invoke_set_paused(false);
                 } else if !fullscreen
                     && app.get_loaded()
                     && !app.get_paused()
@@ -112,7 +118,8 @@ pub(super) fn install_fullscreen(
                         .global::<riina_ui::PlayerPreferences>()
                         .get_pause_when_leaving_fullscreen()
                 {
-                    app.invoke_set_paused(true);
+                    app.global::<riina_ui::PlayerControlActions>()
+                        .invoke_set_paused(true);
                 }
             }
         });

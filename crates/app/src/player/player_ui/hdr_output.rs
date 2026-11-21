@@ -40,7 +40,8 @@ pub(super) fn install(app: &PlayerWindow, send: impl Fn(Command) -> Result<(), S
             }
             if apply(&app, enabled, send.as_ref()) {
                 requested.set(enabled);
-                app.invoke_activity();
+                app.global::<riina_ui::PlayerControlActions>()
+                    .invoke_activity();
             }
         });
 }

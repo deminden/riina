@@ -36,38 +36,39 @@ pub(crate) fn install(
     let shortcut_video_settings = video_settings.clone();
     let shortcut_audio_settings = audio_settings.clone();
     let shortcut_player = player.clone();
-    app.on_activate_saved_filter_shortcut(move |key, control, alt, shift, meta| {
-        let modifiers = (if control {
-            video_filters::SHORTCUT_CONTROL
-        } else {
-            0
-        }) | (if alt { video_filters::SHORTCUT_ALT } else { 0 })
-            | (if shift {
-                video_filters::SHORTCUT_SHIFT
+    app.global::<riina_ui::PlayerControlActions>()
+        .on_activate_saved_filter_shortcut(move |key, control, alt, shift, meta| {
+            let modifiers = (if control {
+                video_filters::SHORTCUT_CONTROL
             } else {
                 0
-            })
-            | (if meta {
-                video_filters::SHORTCUT_META
-            } else {
-                0
-            });
-        let matches = |settings: &Settings| {
-            riina_core::sync::lock(settings)
-                .saved
-                .iter()
-                .find(|saved| {
-                    saved.shortcut_key == key.as_str() && saved.shortcut_modifiers == modifiers
+            }) | (if alt { video_filters::SHORTCUT_ALT } else { 0 })
+                | (if shift {
+                    video_filters::SHORTCUT_SHIFT
+                } else {
+                    0
                 })
-                .map(|saved| saved.filter.clone())
-        };
-        let command = matches(&shortcut_video_settings)
-            .map(riina_core::Command::ToggleVideoFilter)
-            .or_else(|| {
-                matches(&shortcut_audio_settings).map(riina_core::Command::ToggleAudioFilter)
-            });
-        command.is_some_and(|command| shortcut_player.send(command).is_ok())
-    });
+                | (if meta {
+                    video_filters::SHORTCUT_META
+                } else {
+                    0
+                });
+            let matches = |settings: &Settings| {
+                riina_core::sync::lock(settings)
+                    .saved
+                    .iter()
+                    .find(|saved| {
+                        saved.shortcut_key == key.as_str() && saved.shortcut_modifiers == modifiers
+                    })
+                    .map(|saved| saved.filter.clone())
+            };
+            let command = matches(&shortcut_video_settings)
+                .map(riina_core::Command::ToggleVideoFilter)
+                .or_else(|| {
+                    matches(&shortcut_audio_settings).map(riina_core::Command::ToggleAudioFilter)
+                });
+            command.is_some_and(|command| shortcut_player.send(command).is_ok())
+        });
 
     let video = install_for_kind(
         app,

@@ -4,6 +4,8 @@ use slint::ComponentHandle;
 
 pub(super) fn refresh(window: &crate::PreferencesWindow, app: &PlayerWindow) {
     let player_preferences = app.global::<riina_ui::PlayerPreferences>();
+    let layout = app.global::<riina_ui::PlayerLayoutState>();
+    let appearance = app.global::<riina_ui::PlayerAppearance>();
     let music_mode = app.global::<riina_ui::PlayerMusicModeState>();
     let general = window.global::<riina_ui::GeneralSettingsState>();
     let subtitles = window.global::<crate::SubtitleSettingsState>();
@@ -81,7 +83,7 @@ pub(super) fn refresh(window: &crate::PreferencesWindow, app: &PlayerWindow) {
     general.set_auto_switch_to_music_mode(music_mode.get_auto_switch_to_music_mode());
     general.set_music_mode_show_playlist(music_mode.get_music_mode_show_playlist());
     general.set_music_mode_show_album_art(music_mode.get_music_mode_show_album_art());
-    window.set_osc_position(app.get_osc_position());
+    window.set_osc_position(layout.get_osc_position());
     window.set_show_chapter_pos(player_preferences.get_show_chapter_pos());
     if let Ok(settings) = crate::pip_preferences::current_player(app) {
         crate::pip_preferences::install_preferences(window, settings);
@@ -103,18 +105,15 @@ pub(super) fn refresh(window: &crate::PreferencesWindow, app: &PlayerWindow) {
         crate::subtitle_auto_load_preferences::install_window(window, &auto_load);
     }
     window.set_volume_boost(player_preferences.get_volume_boost());
-    window.set_appearance_index(
-        app.global::<riina_ui::PlayerAppearance>()
-            .get_appearance_mode(),
-    );
-    window.set_always_float_on_top(app.get_always_float_on_top());
-    window.set_always_show_on_top_icon(app.get_always_show_on_top_icon());
+    window.set_appearance_index(appearance.get_appearance_mode());
+    window.set_always_float_on_top(layout.get_always_float_on_top());
+    window.set_always_show_on_top_icon(layout.get_always_show_on_top_icon());
     if let Ok(settings) = crate::window_resize_preferences::from_player(app) {
         crate::window_resize_preferences::install_preferences(window, settings);
     }
-    window.set_compact_ui(app.global::<riina_ui::PlayerAppearance>().get_compact_ui());
-    window.set_docked_controls(app.get_docked_controls());
-    window.set_edge_to_edge_video(app.get_edge_to_edge_video());
+    window.set_compact_ui(appearance.get_compact_ui());
+    window.set_docked_controls(layout.get_docked_controls());
+    window.set_edge_to_edge_video(layout.get_edge_to_edge_video());
     let index = ["png", "jpg", "jpeg", "webp", "jxl"]
         .iter()
         .position(|format| *format == player_preferences.get_screenshot_format().as_str())

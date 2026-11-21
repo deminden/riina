@@ -137,16 +137,24 @@ fn player(
         .global::<riina_ui::PlayerAppearance>()
         .set_dark_theme(dark);
     window.set_engine_ready(true);
-    window.set_controls_visible(true);
+    window
+        .global::<riina_ui::PlayerControlsState>()
+        .set_controls_visible(true);
     window.set_loaded(!matches!(state, PlaybackState::Stopped));
     window.set_paused(!matches!(state, PlaybackState::Playing));
     window
         .global::<riina_ui::PlayerAppearance>()
         .set_compact_ui(matches!(layout, Layout::Compact));
-    window.set_docked_controls(matches!(layout, Layout::Docked));
+    window
+        .global::<riina_ui::PlayerLayoutState>()
+        .set_docked_controls(matches!(layout, Layout::Docked));
     if matches!(layout, Layout::Docked) {
-        window.set_edge_to_edge_video(false);
-        window.set_osc_position(2);
+        window
+            .global::<riina_ui::PlayerLayoutState>()
+            .set_edge_to_edge_video(false);
+        window
+            .global::<riina_ui::PlayerLayoutState>()
+            .set_osc_position(2);
     }
     window
         .global::<riina_ui::PlayerMusicModeState>()
@@ -157,8 +165,12 @@ fn player(
     window
         .global::<riina_ui::PlayerMusicModeState>()
         .set_music_mode_show_playlist(matches!(layout, Layout::Music));
-    window.set_sidebar(sidebars.0);
-    window.set_leading_sidebar(sidebars.1);
+    window
+        .global::<riina_ui::PlayerSidebarState>()
+        .set_sidebar(sidebars.0);
+    window
+        .global::<riina_ui::PlayerSidebarState>()
+        .set_leading_sidebar(sidebars.1);
 
     if window.get_loaded() {
         window.set_media_title("Headless test clip".into());
@@ -321,11 +333,21 @@ fn player_overlay_frames(baselines: &Baselines) -> Result<(), Box<dyn Error>> {
                 .set_fullscreen_info_battery_level(82.0);
         }),
         ("player-crop-video", |window| {
-            window.set_crop_picture_x(24.0);
-            window.set_crop_picture_y(50.0);
-            window.set_crop_picture_width(800.0);
-            window.set_crop_picture_height(450.0);
-            window.set_crop_editing(true);
+            window
+                .global::<riina_ui::PlayerCropState>()
+                .set_crop_picture_x(24.0);
+            window
+                .global::<riina_ui::PlayerCropState>()
+                .set_crop_picture_y(50.0);
+            window
+                .global::<riina_ui::PlayerCropState>()
+                .set_crop_picture_width(800.0);
+            window
+                .global::<riina_ui::PlayerCropState>()
+                .set_crop_picture_height(450.0);
+            window
+                .global::<riina_ui::PlayerCropState>()
+                .set_crop_editing(true);
         }),
         ("player-live-text", |window| {
             window.set_live_text_enabled(true);

@@ -54,9 +54,13 @@ impl Draft {
         let thumbnail_preview =
             read_or_refresh(model.read_section::<ThumbnailPreview>(window), app, window)?;
         let previous_layout = Layout {
-            position: app.get_osc_position(),
+            position: app
+                .global::<riina_ui::PlayerLayoutState>()
+                .get_osc_position(),
             compact: app.global::<riina_ui::PlayerAppearance>().get_compact_ui(),
-            docked: app.get_docked_controls(),
+            docked: app
+                .global::<riina_ui::PlayerLayoutState>()
+                .get_docked_controls(),
         };
         let previous_chapter_positions = app
             .global::<riina_ui::PlayerPreferences>()
@@ -110,12 +114,17 @@ impl Draft {
         player_preferences.set_osd_enabled(window.get_osd_enabled());
         player_preferences.set_disable_osd_speed(window.get_disable_osd_speed());
         player_preferences.set_disable_osd_seek(window.get_disable_osd_seek());
-        app.set_osc_position(window.get_osc_position().clamp(0, 2));
+        app.global::<riina_ui::PlayerLayoutState>()
+            .set_osc_position(window.get_osc_position().clamp(0, 2));
         player_preferences.set_show_chapter_pos(window.get_show_chapter_pos());
         app.global::<riina_ui::PlayerAppearance>()
             .set_compact_ui(window.get_compact_ui());
-        if !app.get_edge_to_edge_video() {
-            app.set_docked_controls(window.get_docked_controls());
+        if !app
+            .global::<riina_ui::PlayerLayoutState>()
+            .get_edge_to_edge_video()
+        {
+            app.global::<riina_ui::PlayerLayoutState>()
+                .set_docked_controls(window.get_docked_controls());
         }
     }
 
@@ -132,12 +141,14 @@ impl Draft {
 
     pub(super) fn restore(&self, app: &PlayerWindow) {
         self.previous_osd.install_player(app);
-        app.set_osc_position(self.previous_layout.position);
+        app.global::<riina_ui::PlayerLayoutState>()
+            .set_osc_position(self.previous_layout.position);
         app.global::<riina_ui::PlayerPreferences>()
             .set_show_chapter_pos(self.previous_chapter_positions);
         app.global::<riina_ui::PlayerAppearance>()
             .set_compact_ui(self.previous_layout.compact);
-        app.set_docked_controls(self.previous_layout.docked);
+        app.global::<riina_ui::PlayerLayoutState>()
+            .set_docked_controls(self.previous_layout.docked);
         self.previous_material.write_player(app);
         self.previous_resize.write_player(app);
     }

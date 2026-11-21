@@ -20,7 +20,8 @@ fn model() -> slint::ModelRc<CatalogRow> {
 }
 
 fn switch(app: &PlayerWindow, pane: i32) {
-    app.set_sidebar(pane);
+    app.global::<riina_ui::PlayerSidebarState>()
+        .set_sidebar(pane);
     flush();
     // Headless components are instantiated lazily. Materialize a recreated
     // scrolling body before advancing its deferred-restore timer.
@@ -244,7 +245,8 @@ fn music_window_buttons_do_not_cover_transport_or_timeline() {
     let app = player(0);
     app.global::<riina_ui::PlayerMusicModeState>()
         .set_music_mode(true);
-    app.set_controls_visible(true);
+    app.global::<riina_ui::PlayerControlsState>()
+        .set_controls_visible(true);
     app.global::<riina_ui::PlaybackTimelineState>()
         .set_seekable(true);
     for artwork in [true, false] {

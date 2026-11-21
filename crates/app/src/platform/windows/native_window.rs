@@ -295,7 +295,10 @@ impl NativeApp {
         let close_chrome = self.chrome.clone();
         self.host.window().on_close_requested(move || {
             let chrome = close_chrome.borrow();
-            if chrome.as_ref().is_some_and(|app| app.get_dialog_open()) {
+            if chrome.as_ref().is_some_and(|app| {
+                app.global::<riina_ui::PlayerDialogState>()
+                    .get_dialog_open()
+            }) {
                 return slint::CloseRequestResponse::KeepWindowShown;
             }
             let should_quit = chrome.as_ref().is_some_and(|app| {
@@ -519,14 +522,15 @@ fn install_menu_lifecycle(
     });
     let keyboard_host = host.as_weak();
     let keyboard_app = app.as_weak();
-    app.on_open_application_menu(move || {
-        if let Some(_host) = keyboard_host.upgrade()
-            && let Err(error) = super::menu_focus::request(menu_handle)
-            && let Some(app) = keyboard_app.upgrade()
-        {
-            app.set_status(error.to_string().into());
-        }
-    });
+    app.global::<riina_ui::PlayerControlActions>()
+        .on_open_application_menu(move || {
+            if let Some(_host) = keyboard_host.upgrade()
+                && let Err(error) = super::menu_focus::request(menu_handle)
+                && let Some(app) = keyboard_app.upgrade()
+            {
+                app.set_status(error.to_string().into());
+            }
+        });
     menus::install(host, app);
     menu_actions::install(host, app);
     Ok(())
@@ -544,7 +548,10 @@ fn install_chrome_close_handlers(
     let weak_app = app.as_weak();
     app.window().on_close_requested(move || {
         let app = weak_app.upgrade();
-        if app.as_ref().is_some_and(|app| app.get_dialog_open()) {
+        if app.as_ref().is_some_and(|app| {
+            app.global::<riina_ui::PlayerDialogState>()
+                .get_dialog_open()
+        }) {
             return slint::CloseRequestResponse::KeepWindowShown;
         }
         let should_quit = crate::player_manager::should_quit_after_last_window_closed(

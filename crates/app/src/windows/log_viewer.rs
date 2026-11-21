@@ -402,7 +402,10 @@ fn connect_window(
         let (Some(app), Some(viewer)) = (save_app.upgrade(), save_viewer.upgrade()) else {
             return;
         };
-        if app.get_dialog_open() {
+        if app
+            .global::<riina_ui::PlayerDialogState>()
+            .get_dialog_open()
+        {
             return;
         }
         let filtered = filtered_rows(&viewer, &save_reader, &save_subsystems);
@@ -421,7 +424,8 @@ fn connect_window(
             let (Some(app), Some(viewer)) = (app.upgrade(), viewer.upgrade()) else {
                 return;
             };
-            app.set_dialog_open(true);
+            app.global::<riina_ui::PlayerDialogState>()
+                .set_dialog_open(true);
             let result = async {
                 let owner = viewer
                     .window()
@@ -444,7 +448,8 @@ fn connect_window(
                 }
             }
             .await;
-            app.set_dialog_open(false);
+            app.global::<riina_ui::PlayerDialogState>()
+                .set_dialog_open(false);
             match result {
                 Ok(true) => viewer.set_status_text("Filtered logs saved".into()),
                 Ok(false) => {}

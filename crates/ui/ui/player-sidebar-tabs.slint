@@ -1,3 +1,4 @@
+import { PlayerSidebarState } from "player-sidebar-state.slint";
 import { PlayerAppearance } from "player-appearance.slint";
 import { Theme } from "theme.slint";
 import { ComboBox } from "std-widgets.slint";
@@ -9,9 +10,6 @@ export component PlayerSidebarTabs inherits HorizontalLayout {
     in property <bool> leading;
     in property <int> pane-kind;
     in property <bool> expanded-tab-labels;
-    in property <[string]> plugin-sidebar-identifiers;
-    in property <[string]> plugin-sidebar-labels;
-    in property <int> plugin-sidebar-selected-index;
     callback close-pane();
     callback select-settings-pane(int);
     callback select-playlist-pane(int);
@@ -47,14 +45,14 @@ export component PlayerSidebarTabs inherits HorizontalLayout {
     if root.pane-kind == 7 : HorizontalLayout {
         Text { text: "Plugins"; color: Theme.sidebar-heading-text(PlayerAppearance.dark-theme);
             font-size: 12px; font-weight: 700; vertical-alignment: center; }
-        if root.plugin-sidebar-labels.length > 0 : ComboBox {
+        if PlayerSidebarState.plugin-sidebar-labels.length > 0 : ComboBox {
             horizontal-stretch: 1;
             height: 24px;
-            model: root.plugin-sidebar-labels;
-            current-index: max(0, root.plugin-sidebar-selected-index);
+            model: PlayerSidebarState.plugin-sidebar-labels;
+            current-index: max(0, PlayerSidebarState.plugin-sidebar-selected-index);
             selected => {
-                if self.current-index >= 0 && self.current-index < root.plugin-sidebar-identifiers.length {
-                    root.select-plugin-sidebar-tab(root.plugin-sidebar-identifiers[self.current-index]);
+                if self.current-index >= 0 && self.current-index < PlayerSidebarState.plugin-sidebar-identifiers.length {
+                    root.select-plugin-sidebar-tab(PlayerSidebarState.plugin-sidebar-identifiers[self.current-index]);
                 }
             }
         }

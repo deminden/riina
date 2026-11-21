@@ -1,0 +1,69 @@
+import { PlayerAppearance } from "player-appearance.slint";
+import { PlayerLayoutState } from "player-layout-state.slint";
+import { PlayerSidebarState } from "player-sidebar-state.slint";
+import { PlayerSidebarActions } from "player-sidebar-actions.slint";
+import { PlayerSidebarTabs } from "player-sidebar-tabs.slint";
+import { LayoutSidebarPage } from "player-layout-sidebar.slint";
+import { PlaylistSidebarControls } from "playlist-sidebar-controls.slint";
+
+export component PlayerSidebarContent inherits Rectangle {
+    in property <int> pane-kind;
+    in property <bool> quick-settings-pane;
+    in property <bool> leading;
+    in property <bool> expanded-tab-labels;
+    in property <bool> fullscreen;
+    in property <bool> loaded;
+    callback close-pane();
+    callback fit-window-to-video();
+    callback layout-settings-changed();
+
+    VerticalLayout {
+        // IINA's tab row uses 10-point side margins; card widths are
+        // explicit, so this does not change their measured insets.
+        padding-left: quick-settings-pane ? 10px : (PlayerAppearance.compact-ui ? 9px : 12px);
+        padding-right: quick-settings-pane ? 10px : (PlayerAppearance.compact-ui ? 9px : 12px);
+        padding-top: PlayerAppearance.compact-ui ? 9px : 12px;
+        padding-bottom: PlayerAppearance.compact-ui ? 9px : 12px;
+        width: parent.width; height: parent.height;
+        spacing: PlayerAppearance.compact-ui ? 6px : 8px;
+        cross-axis-alignment: pane-kind == 1 ? center : start;
+        PlayerSidebarTabs {
+            width: parent.width - 2px * (quick-settings-pane ? 10 : PlayerAppearance.compact-ui ? 9 : 12);
+            leading: root.leading;
+            pane-kind: root.pane-kind;
+            expanded-tab-labels: root.expanded-tab-labels;
+            close-pane => { root.close-pane(); }
+            select-settings-pane(pane) => { PlayerSidebarActions.select-settings-pane(pane); }
+            select-playlist-pane(pane) => { PlayerSidebarActions.select-playlist-pane(pane); }
+            select-plugin-sidebar-tab(id) => { PlayerSidebarActions.select-plugin-sidebar-tab(id); }
+        }
+        if pane-kind == 5 : layout-scroll := LayoutSidebarPage {
+            width: parent.width - 20px;
+            appearance-mode <=> PlayerAppearance.appearance-mode;
+            compact-ui <=> PlayerAppearance.compact-ui;
+            dark-theme: PlayerAppearance.dark-theme;
+            fit-window-to-video => { root.fit-window-to-video(); }
+            fullscreen: root.fullscreen;
+            interactive-accent-color: PlayerAppearance.interactive-accent-color;
+            layout-scrollbar-visible <=> PlayerSidebarState.layout-scrollbar-visible;
+            layout-settings-changed => { root.layout-settings-changed(); }
+            liquid-glass-osc <=> PlayerAppearance.liquid-glass-osc;
+            liquid-glass-osd <=> PlayerAppearance.liquid-glass-osd;
+            liquid-glass-sidebar <=> PlayerAppearance.liquid-glass-sidebar;
+            loaded: root.loaded;
+            platform-windows: PlayerAppearance.platform-windows;
+            playlist-at-leading <=> PlayerSidebarState.playlist-at-leading;
+            plugins-at-leading <=> PlayerSidebarState.plugins-at-leading;
+            settings-at-leading <=> PlayerSidebarState.settings-at-leading;
+            sidebar-card-material-fill: PlayerAppearance.sidebar-card-material-fill;
+            surface-material-title: PlayerAppearance.surface-material-title;
+            windows-accent-color: PlayerAppearance.windows-accent-color;
+            windows-accent-foreground: PlayerAppearance.windows-accent-foreground;
+            windows-sidebar-material-active: PlayerAppearance.windows-sidebar-material-active;
+        }
+        @children
+        if pane-kind == 4 : PlaylistSidebarControls {
+            width: parent.width - (PlayerAppearance.compact-ui ? 18px : 24px);
+        }
+    }
+}

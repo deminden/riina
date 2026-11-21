@@ -45,7 +45,9 @@ fn install_actions(
                 return;
             };
             if action == 12 {
-                window.invoke_activity();
+                window
+                    .global::<riina_ui::PlayerControlActions>()
+                    .invoke_activity();
                 let rows = window
                     .global::<riina_ui::PlayerCatalogState>()
                     .get_playlist();
@@ -87,7 +89,9 @@ fn install_actions(
                 5 => Ok(Command::CycleLoop),
                 _ => Err("Unknown playlist action".into()),
             };
-            window.invoke_activity();
+            window
+                .global::<riina_ui::PlayerControlActions>()
+                .invoke_activity();
             if let Err(error) = command.and_then(|command| playlist_player.send(command)) {
                 window.set_status(error.into());
             } else if action == 4 {
@@ -113,7 +117,9 @@ fn handle_playlist_external_action(
     action: i32,
     token: &str,
 ) {
-    window.invoke_activity();
+    window
+        .global::<riina_ui::PlayerControlActions>()
+        .invoke_activity();
     let rows = window
         .global::<riina_ui::PlayerCatalogState>()
         .get_playlist();
@@ -266,7 +272,8 @@ fn install_selection(app: &PlayerWindow, command_sender: &CommandSender) {
     app.global::<riina_ui::PlayerSidebarActions>()
         .on_reorder_playlist(move |tokens, insertion_slot| {
             let Some(app) = weak.upgrade() else { return };
-            app.invoke_activity();
+            app.global::<riina_ui::PlayerControlActions>()
+                .invoke_activity();
             let rows = app.global::<riina_ui::PlayerCatalogState>().get_playlist();
             let entries = (0..rows.row_count())
                 .filter_map(|index| rows.row_data(index))
@@ -301,7 +308,8 @@ fn install_selection(app: &PlayerWindow, command_sender: &CommandSender) {
     app.global::<riina_ui::PlayerSidebarActions>()
         .on_toggle_playlist_shuffle(move || {
             if let Some(app) = weak.upgrade() {
-                app.invoke_activity();
+                app.global::<riina_ui::PlayerControlActions>()
+                    .invoke_activity();
                 if let Err(error) = shuffle_player.send(Command::TogglePlaylistShuffle) {
                     app.set_status(error.into());
                 }
@@ -319,7 +327,8 @@ fn install_selection(app: &PlayerWindow, command_sender: &CommandSender) {
                 _ => None,
             };
             if let Some(app) = weak.upgrade() {
-                app.invoke_activity();
+                app.global::<riina_ui::PlayerControlActions>()
+                    .invoke_activity();
                 let result = sort.map_or_else(
                     || Err("Unknown playlist sort order".to_owned()),
                     |sort| sort_player.send(Command::SortPlaylist(sort)),
@@ -378,7 +387,8 @@ pub(super) fn install_navigation(
     let weak = app.as_weak();
     app.global::<PlayerMenuActions>().on_playlist_next(move || {
         if let Some(app) = weak.upgrade() {
-            app.invoke_activity();
+            app.global::<riina_ui::PlayerControlActions>()
+                .invoke_activity();
         }
         queue_playlist_navigation(
             &sender,
@@ -393,7 +403,8 @@ pub(super) fn install_navigation(
     app.global::<PlayerMenuActions>()
         .on_playlist_previous(move || {
             if let Some(app) = weak.upgrade() {
-                app.invoke_activity();
+                app.global::<riina_ui::PlayerControlActions>()
+                    .invoke_activity();
             }
             queue_playlist_navigation(
                 &sender,

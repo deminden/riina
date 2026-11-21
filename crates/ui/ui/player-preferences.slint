@@ -148,4 +148,8 @@ export global PlayerPreferences {
     changed record-recent-files => { PlayerMenuActions.video-menu-changed(); }
     changed track-all-files-in-recent-open-menu => { PlayerMenuActions.video-menu-changed(); }
     changed open-subtitles-provider-index => { PlayerMenuActions.video-menu-changed(); }
+
+    callback control-bar-settings-changed();
+    changed control-auto-hide-enabled => { self.control-bar-settings-changed(); }
+    changed control-auto-hide-timeout-secs => { self.control-bar-settings-changed(); }
 }

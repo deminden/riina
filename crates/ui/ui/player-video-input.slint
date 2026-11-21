@@ -1,0 +1,33 @@
+import { PlayerControlActions } from "player-control-actions.slint";
+import { PlayerControlsState } from "player-controls-state.slint";
+import { PlayerPreferences } from "player-preferences.slint";
+import { PlayerSidebarState } from "player-sidebar-state.slint";
+
+export component PlayerVideoInput inherits TouchArea {
+    callback restore-player-focus();
+
+    moved => { PlayerControlsState.controls-visible = true; PlayerControlActions.activity(); }
+    clicked => {
+        PlayerControlActions.activity();
+        PlayerControlActions.single-click-action(PlayerPreferences.control-single-click-index);
+        if PlayerSidebarState.sidebar != 0 || PlayerSidebarState.leading-sidebar != 0 {
+            root.restore-player-focus(); PlayerSidebarState.sidebar = 0; PlayerSidebarState.leading-sidebar = 0;
+        }
+    }
+    double-clicked => { PlayerControlActions.double-click-action(PlayerPreferences.control-double-click-index); }
+    pointer-event(event) => {
+        if event.kind == PointerEventKind.up {
+            if event.button == PointerEventButton.right {
+                PlayerControlActions.activity(); PlayerControlActions.mouse-button-action(PlayerPreferences.control-right-click-index);
+            } else if event.button == PointerEventButton.middle {
+                PlayerControlActions.activity(); PlayerControlActions.mouse-button-action(PlayerPreferences.control-middle-click-index);
+            }
+        }
+    }
+    scroll-event(event) => {
+        if PlayerControlActions.scroll-action-request(event.delta-x / 1px, event.delta-y / 1px) {
+            return accept;
+        }
+        return reject;
+    }
+}

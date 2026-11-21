@@ -34,7 +34,8 @@ fn player(pane: i32) -> PlayerWindow {
     app.global::<riina_ui::PlayerPreferences>()
         .set_disable_animations(true);
     app.set_loaded(true);
-    app.set_sidebar(pane);
+    app.global::<riina_ui::PlayerSidebarState>()
+        .set_sidebar(pane);
     app.global::<riina_ui::PlaybackAudioState>()
         .set_audio_delay_text("0".into());
     app.global::<riina_ui::PlaybackSubtitleState>()
@@ -193,16 +194,23 @@ fn playback_feedback_belongs_to_each_player() {
 fn title_bar_pin_projects_and_toggles_the_player_window_level() {
     let app = player(0);
     app.set_show_player_title_row(true);
-    app.set_always_show_on_top_icon(true);
+    app.global::<riina_ui::PlayerLayoutState>()
+        .set_always_show_on_top_icon(true);
     let toggles = Rc::new(RefCell::new(Vec::new()));
     let recorded = toggles.clone();
     app.on_window_level_toggle_requested(move |value| recorded.borrow_mut().push(value));
     flush();
 
     focus(&app, &button(&app, "Float on top"));
-    assert!(app.get_always_float_on_top());
+    assert!(
+        app.global::<riina_ui::PlayerLayoutState>()
+            .get_always_float_on_top()
+    );
     focus(&app, &button(&app, "Remove float on top"));
-    assert!(!app.get_always_float_on_top());
+    assert!(
+        !app.global::<riina_ui::PlayerLayoutState>()
+            .get_always_float_on_top()
+    );
     assert_eq!(*toggles.borrow(), [true, false]);
 }
 
@@ -211,29 +219,53 @@ fn player_entry_dialogs_focus_the_field_and_keep_keyboard_actions() {
     let app = player(0);
     let submitted_time = Rc::new(RefCell::new(None));
     let time = submitted_time.clone();
-    app.on_jump_to_time(move |value| *time.borrow_mut() = Some(value.to_string()));
-    app.set_jump_time_dialog_visible(true);
+    app.global::<riina_ui::PlayerDialogState>()
+        .on_jump_to_time(move |value| *time.borrow_mut() = Some(value.to_string()));
+    app.global::<riina_ui::PlayerDialogState>()
+        .set_jump_time_dialog_visible(true);
     flush();
-    assert!(app.get_dialog_open());
+    assert!(
+        app.global::<riina_ui::PlayerDialogState>()
+            .get_dialog_open()
+    );
     key(&app, "2");
     key(&app, "0");
-    assert_eq!(app.get_jump_time_draft(), "20");
+    assert_eq!(
+        app.global::<riina_ui::PlayerDialogState>()
+            .get_jump_time_draft(),
+        "20"
+    );
     key(&app, Key::Return);
     assert_eq!(submitted_time.borrow().as_deref(), Some("20"));
     key(&app, Key::Escape);
-    assert!(!app.get_jump_time_dialog_visible());
+    assert!(
+        !app.global::<riina_ui::PlayerDialogState>()
+            .get_jump_time_dialog_visible()
+    );
 
     let submitted_url = Rc::new(RefCell::new(None));
     let url = submitted_url.clone();
-    app.on_open_url(move |value| *url.borrow_mut() = Some(value.to_string()));
-    app.set_url_dialog_visible(true);
+    app.global::<riina_ui::PlayerDialogState>()
+        .on_open_url(move |value| *url.borrow_mut() = Some(value.to_string()));
+    app.global::<riina_ui::PlayerDialogState>()
+        .set_url_dialog_visible(true);
     flush();
-    assert!(app.get_dialog_open());
+    assert!(
+        app.global::<riina_ui::PlayerDialogState>()
+            .get_dialog_open()
+    );
     key(&app, "x");
-    assert_eq!(app.get_url_dialog_draft(), "x");
+    assert_eq!(
+        app.global::<riina_ui::PlayerDialogState>()
+            .get_url_dialog_draft(),
+        "x"
+    );
     key(&app, Key::Return);
     assert_eq!(submitted_url.borrow().as_deref(), Some("x"));
-    assert!(!app.get_dialog_open());
+    assert!(
+        !app.global::<riina_ui::PlayerDialogState>()
+            .get_dialog_open()
+    );
 }
 
 #[test]
@@ -244,7 +276,8 @@ fn controller_hide_keeps_delay_focus_and_return_submits_once() {
     focus(&app, &input);
     input.set_accessible_value("0.7");
     move_caret_to_end(&app);
-    app.set_controls_visible(false);
+    app.global::<riina_ui::PlayerControlsState>()
+        .set_controls_visible(false);
     flush();
     key(&app, "5");
     assert_eq!(input.accessible_value().unwrap(), "0.75");
@@ -272,7 +305,10 @@ fn draft_survives_observations_and_escape_restores_latest_without_submission() {
     assert_eq!(input.accessible_value().unwrap(), "2");
     assert!(submissions.borrow().is_empty());
     assert_eq!(fullscreen_toggles.get(), 0);
-    assert_eq!(app.get_sidebar(), 1);
+    assert_eq!(
+        app.global::<riina_ui::PlayerSidebarState>().get_sidebar(),
+        1
+    );
     key(&app, Key::Escape);
     assert_eq!(
         fullscreen_toggles.get(),
@@ -357,7 +393,10 @@ fn speed_uses_the_same_draft_and_escape_lifecycle() {
     assert_eq!(input.accessible_value().unwrap(), "1.");
     key(&app, Key::Escape);
     assert_eq!(input.accessible_value().unwrap(), "2");
-    assert_eq!(app.get_sidebar(), 6);
+    assert_eq!(
+        app.global::<riina_ui::PlayerSidebarState>().get_sidebar(),
+        6
+    );
 }
 
 #[test]
@@ -381,14 +420,20 @@ fn disabling_a_field_discards_its_draft_and_blocks_accessible_edits() {
 )]
 fn connect_settings_tabs(app: &PlayerWindow) {
     let weak = app.as_weak();
-    app.on_select_settings_pane(move |pane| {
-        let app = weak.upgrade().unwrap();
-        if app.get_settings_at_leading() {
-            app.set_leading_sidebar(pane);
-        } else {
-            app.set_sidebar(pane);
-        }
-    });
+    app.global::<riina_ui::PlayerSidebarActions>()
+        .on_select_settings_pane(move |pane| {
+            let app = weak.upgrade().unwrap();
+            if app
+                .global::<riina_ui::PlayerSidebarState>()
+                .get_settings_at_leading()
+            {
+                app.global::<riina_ui::PlayerSidebarState>()
+                    .set_leading_sidebar(pane);
+            } else {
+                app.global::<riina_ui::PlayerSidebarState>()
+                    .set_sidebar(pane);
+            }
+        });
 }
 
 #[expect(
@@ -409,10 +454,11 @@ fn category_arrows_home_end_keep_focus_and_do_not_reach_playback() {
     connect_settings_tabs(&app);
     let playback_keys = Rc::new(std::cell::Cell::new(0));
     let received = playback_keys.clone();
-    app.on_dispatch_key_binding(move |_, _, _, _, _| {
-        received.set(received.get() + 1);
-        false
-    });
+    app.global::<riina_ui::PlayerControlActions>()
+        .on_dispatch_key_binding(move |_, _, _, _, _| {
+            received.set(received.get() + 1);
+            false
+        });
     focus(&app, &button(&app, "Audio"));
     for (pressed, pane, label) in [
         (Key::LeftArrow, 6, "Video"),
@@ -425,11 +471,17 @@ fn category_arrows_home_end_keep_focus_and_do_not_reach_playback() {
         (Key::RightArrow, 1, "Audio"),
     ] {
         key(&app, pressed);
-        assert_eq!(app.get_sidebar(), pane);
+        assert_eq!(
+            app.global::<riina_ui::PlayerSidebarState>().get_sidebar(),
+            pane
+        );
         assert_eq!(button(&app, label).accessible_item_selected(), Some(true));
     }
     key(&app, " ");
-    assert_eq!(app.get_sidebar(), 1);
+    assert_eq!(
+        app.global::<riina_ui::PlayerSidebarState>().get_sidebar(),
+        1
+    );
     assert_eq!(playback_keys.get(), 0);
 }
 
@@ -459,9 +511,12 @@ fn narrow_category_buttons_remain_inside_both_sidebar_headers() {
     let app = player(1);
     connect_settings_tabs(&app);
     for leading in [false, true] {
-        app.set_settings_at_leading(leading);
-        app.set_sidebar(if leading { 0 } else { 1 });
-        app.set_leading_sidebar(if leading { 1 } else { 0 });
+        app.global::<riina_ui::PlayerSidebarState>()
+            .set_settings_at_leading(leading);
+        app.global::<riina_ui::PlayerSidebarState>()
+            .set_sidebar(if leading { 0 } else { 1 });
+        app.global::<riina_ui::PlayerSidebarState>()
+            .set_leading_sidebar(if leading { 1 } else { 0 });
         for compact in [false, true] {
             app.global::<riina_ui::PlayerAppearance>()
                 .set_compact_ui(compact);
@@ -489,9 +544,10 @@ fn narrow_category_buttons_remain_inside_both_sidebar_headers() {
                 key(&app, Key::End);
                 assert_eq!(
                     if leading {
-                        app.get_leading_sidebar()
+                        app.global::<riina_ui::PlayerSidebarState>()
+                            .get_leading_sidebar()
                     } else {
-                        app.get_sidebar()
+                        app.global::<riina_ui::PlayerSidebarState>().get_sidebar()
                     },
                     2
                 );
@@ -556,12 +612,13 @@ fn menu_return_clears_a_consumed_alt_release_before_category_navigation() {
     connect_settings_tabs(&app);
     let modified_keys = Rc::new(RefCell::new(Vec::new()));
     let recorded = modified_keys.clone();
-    app.on_dispatch_key_binding(move |text, control, alt, shift, meta| {
-        recorded
-            .borrow_mut()
-            .push((text.to_string(), control, alt, shift, meta));
-        true
-    });
+    app.global::<riina_ui::PlayerControlActions>()
+        .on_dispatch_key_binding(move |text, control, alt, shift, meta| {
+            recorded
+                .borrow_mut()
+                .push((text.to_string(), control, alt, shift, meta));
+            true
+        });
     focus(&app, &button(&app, "Audio"));
     app.window().dispatch_event(WindowEvent::KeyPressed {
         text: Key::Alt.into(),
@@ -569,7 +626,7 @@ fn menu_return_clears_a_consumed_alt_release_before_category_navigation() {
     modified_keys.borrow_mut().clear();
     key(&app, Key::LeftArrow);
     assert_eq!(
-        app.get_sidebar(),
+        app.global::<riina_ui::PlayerSidebarState>().get_sidebar(),
         1,
         "First reproduce the stale Alt rejection"
     );
@@ -578,7 +635,10 @@ fn menu_return_clears_a_consumed_alt_release_before_category_navigation() {
     menu_modifiers::reconcile_alt(app.window(), false);
     assert!(!app.get_menu_alternates_visible());
     key(&app, Key::LeftArrow);
-    assert_eq!(app.get_sidebar(), 6);
+    assert_eq!(
+        app.global::<riina_ui::PlayerSidebarState>().get_sidebar(),
+        6
+    );
     assert!(
         modified_keys.borrow().is_empty(),
         "Plain Left must stay in the category group"
@@ -592,12 +652,13 @@ fn menu_return_preserves_a_physically_held_alt_and_other_modifiers() {
     app.invoke_focus_player();
     let modifiers = Rc::new(RefCell::new(Vec::new()));
     let recorded = modifiers.clone();
-    app.on_dispatch_key_binding(move |text, control, alt, shift, meta| {
-        if text == "x" {
-            recorded.borrow_mut().push((control, alt, shift, meta));
-        }
-        true
-    });
+    app.global::<riina_ui::PlayerControlActions>()
+        .on_dispatch_key_binding(move |text, control, alt, shift, meta| {
+            if text == "x" {
+                recorded.borrow_mut().push((control, alt, shift, meta));
+            }
+            true
+        });
     for modifier in [Key::Control, Key::Shift, Key::Alt] {
         app.window().dispatch_event(WindowEvent::KeyPressed {
             text: modifier.into(),
@@ -727,10 +788,13 @@ fn transport_center_is_independent_of_audio_and_toolbar_population() {
     let triangle_center = play_triangle_center();
     let app = player(0);
     app.set_paused(true);
-    app.set_controls_visible(true);
-    app.set_osc_position(0);
+    app.global::<riina_ui::PlayerControlsState>()
+        .set_controls_visible(true);
+    app.global::<riina_ui::PlayerLayoutState>()
+        .set_osc_position(0);
     for order in [vec![], vec![0], vec![7, 2, 1, 0], vec![7, 2, 1, 0, 6]] {
-        app.set_toolbar_visible_order(slint::ModelRc::new(slint::VecModel::from(order)));
+        app.global::<riina_ui::PlayerControlsState>()
+            .set_toolbar_visible_order(slint::ModelRc::new(slint::VecModel::from(order)));
         for has_audio in [false, true] {
             app.global::<riina_ui::PlaybackAudioState>()
                 .set_has_active_audio_track(has_audio);
@@ -738,8 +802,10 @@ fn transport_center_is_independent_of_audio_and_toolbar_population() {
                 app.global::<riina_ui::PlayerAppearance>()
                     .set_compact_ui(compact);
                 for (leading, trailing) in [(0, 0), (5, 0), (0, 5)] {
-                    app.set_leading_sidebar(leading);
-                    app.set_sidebar(trailing);
+                    app.global::<riina_ui::PlayerSidebarState>()
+                        .set_leading_sidebar(leading);
+                    app.global::<riina_ui::PlayerSidebarState>()
+                        .set_sidebar(trailing);
                     flush();
                     let play = button(&app, "Play");
                     let play_glyph = descendant(&play, "Tool::glyph");
@@ -785,7 +851,8 @@ fn music_mode_transport_has_its_own_center_and_disjoint_utility_buttons() {
     let app = player(0);
     app.global::<riina_ui::PlayerMusicModeState>()
         .set_music_mode(true);
-    app.set_controls_visible(true);
+    app.global::<riina_ui::PlayerControlsState>()
+        .set_controls_visible(true);
     app.global::<riina_ui::PlayerMusicModeState>()
         .set_music_mode_show_album_art(true);
     app.window().set_size(LogicalSize::new(300.0, 390.0));
@@ -837,7 +904,8 @@ fn first_timeline_pointer_press_seeks_instead_of_only_focusing() {
         .set_duration(60.0);
     app.global::<riina_ui::PlaybackTimelineState>()
         .set_seekable(true);
-    app.set_controls_visible(true);
+    app.global::<riina_ui::PlayerControlsState>()
+        .set_controls_visible(true);
     let seeks = Rc::new(RefCell::new(Vec::new()));
     let recorded = seeks.clone();
     app.global::<PlayerMenuActions>()
@@ -852,7 +920,8 @@ fn first_timeline_pointer_press_seeks_instead_of_only_focusing() {
 fn narrow_controller_keeps_actions_disjoint_and_centers_when_symmetric_space_fits() {
     let app = player(0);
     app.set_paused(true);
-    app.set_controls_visible(true);
+    app.global::<riina_ui::PlayerControlsState>()
+        .set_controls_visible(true);
     for width in [200.0, 285.0, 340.0, 360.0, 380.0, 400.0, 440.0] {
         app.window().set_size(LogicalSize::new(width, 600.0));
         flush();

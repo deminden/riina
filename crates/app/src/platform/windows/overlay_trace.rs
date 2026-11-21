@@ -1,5 +1,6 @@
 //! Opt-in, bounded framebuffer diagnostics for native controls composition.
 use glow::HasContext;
+use slint::ComponentHandle;
 use std::time::{Duration, Instant};
 
 pub(super) struct OverlayTrace {
@@ -74,8 +75,10 @@ impl OverlayTrace {
                 crate::diagnostics::warn!(
                     "native-alpha fullscreen={} controls={} rendered={} viewport={viewport:?} alpha_bits={alpha_bits} framebuffer={framebuffer} rgba={pixels:?}",
                     app.get_fullscreen(),
-                    app.get_controls_visible(),
-                    app.get_controls_rendered(),
+                    app.global::<riina_ui::PlayerControlsState>()
+                        .get_controls_visible(),
+                    app.global::<riina_ui::PlayerControlsState>()
+                        .get_controls_rendered(),
                 );
             }
             _ => {}

@@ -117,7 +117,7 @@ pub(crate) fn show_osd_message(
     if !app
         .global::<riina_ui::PlayerPreferences>()
         .get_osd_enabled()
-        || app.get_crop_editing()
+        || app.global::<riina_ui::PlayerCropState>().get_crop_editing()
     {
         return;
     }
@@ -125,7 +125,8 @@ pub(crate) fn show_osd_message(
     let osd = app.global::<riina_ui::PlayerOsdState>();
     osd.set_video_osd_text(text.into());
     osd.set_video_osd_progress(-1.0);
-    app.invoke_show_video_osd();
+    app.global::<riina_ui::PlayerControlActions>()
+        .invoke_show_video_osd();
 }
 
 fn window_video_geometry(state: &Playback) -> Option<(f32, f32, i32)> {
