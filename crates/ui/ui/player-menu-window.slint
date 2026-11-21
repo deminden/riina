@@ -1,0 +1,634 @@
+import { CatalogRow, CatalogSelection } from "catalog-row.slint";
+import { MenuCatalogRow, MenuShortcutRow, PluginMenuRow, SavedFilterMenuRow } from "native-video.slint";
+
+// Menus are attached by Slint to a Window. The player supplies live values
+// and actions without moving the Window's public playback interface.
+export component PlayerMenuWindow inherits Window {
+    in property <bool> menu-bar-visible;
+    in property <[MenuShortcutRow]> menu-value-menu-shortcuts;
+    in-out property <bool> menu-value-always-float-on-top;
+    in property <string> menu-value-audio-delay-text;
+    in property <[MenuCatalogRow]> menu-value-audio-device-menu-rows;
+    in property <[CatalogRow]> menu-value-audio-tracks;
+    in property <[CatalogRow]> menu-value-chapters;
+    in property <bool> menu-value-crop-editing;
+    in property <string> menu-value-current-file-manager-name;
+    in property <bool> menu-value-deinterlace-enabled;
+    in property <bool> menu-value-deinterlace-known;
+    in property <bool> menu-value-delete-current-media-available;
+    in property <bool> menu-value-delogo-active;
+    in property <bool> menu-value-delogo-enabled;
+    in property <bool> menu-value-downloaded-subtitle-save-available;
+    in property <bool> menu-value-fullscreen;
+    in property <bool> menu-value-in-process-player-manager;
+    in property <int> menu-value-leading-sidebar;
+    in property <bool> menu-value-live-text-available;
+    in property <bool> menu-value-live-text-enabled;
+    in property <bool> menu-value-loaded;
+    in property <string> menu-value-loop-label;
+    in property <bool> menu-value-menu-alternates-visible;
+    in property <bool> menu-value-music-mode;
+    in property <bool> menu-value-muted;
+    in property <int> menu-value-open-subtitles-provider-index;
+    in property <bool> menu-value-paused;
+    in property <bool> menu-value-picture-in-picture-active;
+    in property <bool> menu-value-picture-in-picture-available;
+    in property <[CatalogRow]> menu-value-playlist;
+    in property <[PluginMenuRow]> menu-value-plugin-menu-rows;
+    in-out property <int> menu-value-preferences-target-pane;
+    in property <bool> menu-value-primary-shortcut-is-meta;
+    in property <[MenuCatalogRow]> menu-value-recent-open-menu-rows;
+    in property <bool> menu-value-record-recent-files;
+    in property <bool> menu-value-reflection-known;
+    in property <bool> menu-value-reveal-current-media-available;
+    in property <bool> menu-value-save-current-playlist-available;
+    in property <[SavedFilterMenuRow]> menu-value-saved-audio-filter-rows;
+    in property <[SavedFilterMenuRow]> menu-value-saved-video-filter-rows;
+    in property <bool> menu-value-screenshot-available;
+    in property <[CatalogRow]> menu-value-secondary-subtitle-tracks;
+    in property <bool> menu-value-secondary-subtitle-visibility-known;
+    in property <bool> menu-value-secondary-subtitle-visible;
+    in property <bool> menu-value-settings-at-leading;
+    in property <int> menu-value-sidebar;
+    in property <string> menu-value-speed-edit-value;
+    in property <string> menu-value-subtitle-default-encoding;
+    in property <string> menu-value-subtitle-delay-text;
+    in property <[CatalogRow]> menu-value-subtitle-encoding-options;
+    in property <bool> menu-value-subtitle-scale-known;
+    in property <[CatalogRow]> menu-value-subtitle-tracks;
+    in property <bool> menu-value-subtitle-visible;
+    in-out property <bool> menu-value-unlock-window-aspect-ratio;
+    in property <bool> menu-value-video-aspect-known;
+    in property <int> menu-value-video-aspect-menu-index;
+    in property <[string]> menu-value-video-aspect-menu-labels;
+    in property <bool> menu-value-video-crop-known;
+    in property <int> menu-value-video-crop-menu-index;
+    in property <[string]> menu-value-video-crop-menu-labels;
+    in property <bool> menu-value-video-flipped;
+    in property <bool> menu-value-video-mirrored;
+    in property <int> menu-value-video-rotation-index;
+    in property <bool> menu-value-video-rotation-known;
+    in property <[CatalogRow]> menu-value-video-tracks;
+    in property <float> menu-value-video-window-height;
+    in property <float> menu-value-video-window-width;
+    in property <string> menu-value-volume-menu-title;
+    callback menu-action-activate-plugin-menu-item(string);
+    callback menu-action-adjust-audio-delay(float);
+    callback menu-action-adjust-chapter(int);
+    callback menu-action-adjust-subtitle-delay(float);
+    callback menu-action-adjust-volume(float);
+    callback menu-action-bring-all-to-front();
+    callback menu-action-browse-files(int);
+    callback menu-action-choose-subtitle-font();
+    callback menu-action-clear-open-recent();
+    callback menu-action-close-player();
+    callback menu-action-cycle-ab-loop();
+    callback menu-action-cycle-audio-track();
+    callback menu-action-cycle-subtitle-track();
+    callback menu-action-cycle-video-track();
+    callback menu-action-delete-current-media();
+    callback menu-action-dump-debug-info();
+    callback menu-action-find-online-subtitles();
+    callback menu-action-find-online-subtitles-with-provider(int);
+    callback menu-action-frame-back-step();
+    callback menu-action-frame-step();
+    callback menu-action-hide-riina();
+    callback menu-action-minimize-window();
+    callback menu-action-multiply-subtitle-scale(float);
+    callback menu-action-open-audio-filters();
+    callback menu-action-open-file();
+    callback menu-action-open-help-link(string);
+    callback menu-action-open-in-new-window();
+    callback menu-action-open-jump-time-dialog();
+    callback menu-action-open-preferences();
+    callback menu-action-open-recent-path(string);
+    callback menu-action-open-screenshot-folder();
+    callback menu-action-open-url-dialog();
+    callback menu-action-open-video-filters();
+    callback menu-action-playlist-action(int, string);
+    callback menu-action-playlist-next();
+    callback menu-action-playlist-previous();
+    callback menu-action-quit-riina();
+    callback menu-action-reload-plugins();
+    callback menu-action-reset-audio-delay();
+    callback menu-action-reset-speed();
+    callback menu-action-reset-subtitle-delay();
+    callback menu-action-resize-window-command(int);
+    callback menu-action-reveal-current-media();
+    callback menu-action-save-current-playlist();
+    callback menu-action-save-downloaded-subtitle();
+    callback menu-action-seek(float);
+    callback menu-action-seek-relative(float);
+    callback menu-action-select-item(CatalogSelection, string);
+    callback menu-action-set-audio-device(string);
+    callback menu-action-set-menu-video-aspect(int);
+    callback menu-action-set-menu-video-crop(int);
+    callback menu-action-set-menu-video-rotation(int);
+    callback menu-action-set-subtitle-encoding(string);
+    callback menu-action-set-subtitle-scale-slider(float);
+    callback menu-action-show-about();
+    callback menu-action-show-playback-history();
+    callback menu-action-speed(float);
+    callback menu-action-stop();
+    callback menu-action-take-screenshot();
+    callback menu-action-toggle-deinterlace();
+    callback menu-action-toggle-delogo();
+    callback menu-action-toggle-file-loop();
+    callback menu-action-toggle-fullscreen();
+    callback menu-action-toggle-live-text();
+    callback menu-action-toggle-music-mode();
+    callback menu-action-toggle-mute();
+    callback menu-action-toggle-pause();
+    callback menu-action-toggle-picture-in-picture();
+    callback menu-action-toggle-playlist-pane(int);
+    callback menu-action-toggle-plugins-pane();
+    callback menu-action-toggle-saved-audio-filter(string);
+    callback menu-action-toggle-saved-video-filter(string);
+    callback menu-action-toggle-secondary-subtitle-visibility();
+    callback menu-action-toggle-settings-pane(int);
+    callback menu-action-toggle-subtitle-visibility();
+    callback menu-action-toggle-video-reflection(bool);
+    callback menu-action-zoom-window();
+
+    function menu-shortcut(index: int) -> keys {
+        if index < 0 || index >= root.menu-value-menu-shortcuts.length { return @keys(); }
+        return root.menu-value-menu-shortcuts[index].shortcut;
+    }
+
+    // Slint binds this height to the window area below its menu bar.
+    out property <length> menu-content-height: root.height;
+    Rectangle {
+        width: root.width;
+        height: root.menu-content-height;
+        @children
+    }
+
+    if root.menu-bar-visible : MenuBar {
+        Menu { title: "riina";
+            MenuItem { title: "About Riina"; activated => { root.menu-action-show-about(); } }
+            MenuItem { title: "Check for Updates…";
+                activated => { root.menu-action-open-help-link("release-highlights"); } }
+            MenuSeparator {}
+            MenuItem { title: root.menu-value-primary-shortcut-is-meta ? "Settings…" : "Preferences…";
+                enabled: !root.menu-value-crop-editing;
+                shortcut: root.menu-value-primary-shortcut-is-meta ? @keys(Meta + ",") : @keys(Control + ",");
+                activated => { root.menu-action-open-preferences(); } }
+            MenuSeparator {}
+            MenuItem { title: "Services"; enabled: false; }
+            MenuSeparator {}
+            MenuItem { title: "Hide Riina";
+                shortcut: root.menu-value-primary-shortcut-is-meta ? @keys(Meta + H) : @keys(Control + H);
+                activated => { root.menu-action-hide-riina(); } }
+            MenuItem { title: "Quit Riina";
+                shortcut: root.menu-value-primary-shortcut-is-meta ? @keys(Meta + Q) : @keys(Control + Q);
+                activated => { root.menu-action-quit-riina(); }
+            }
+        }
+        Menu { title: "File";
+            MenuItem { title: "Open…"; enabled: !root.menu-value-crop-editing;
+                shortcut: root.menu-value-primary-shortcut-is-meta ? @keys(Meta + O) : @keys(Control + O);
+                activated => { root.menu-action-open-file(); } }
+            MenuItem { title: "Open in New Window…"; enabled: !root.menu-value-crop-editing;
+                shortcut: root.menu-value-primary-shortcut-is-meta ? @keys(Meta + Alt + O) : @keys(Control + Alt + O);
+                activated => { root.menu-action-open-in-new-window(); } }
+            MenuItem { title: "Open URL…"; enabled: !root.menu-value-crop-editing;
+                shortcut: root.menu-value-primary-shortcut-is-meta ? @keys(Meta + Shift + O) : @keys(Control + Shift + O);
+                activated => { root.menu-action-open-url-dialog(); } }
+            if root.menu-value-record-recent-files : Menu {
+                title: "Open Recent";
+                enabled: root.menu-value-recent-open-menu-rows.length > 0;
+                for row in root.menu-value-recent-open-menu-rows : MenuItem {
+                    title: row.label;
+                    activated => { root.menu-action-open-recent-path(row.token); }
+                }
+                MenuSeparator {}
+                MenuItem { title: "Clear Menu"; enabled: root.menu-value-recent-open-menu-rows.length > 0;
+                    activated => { root.menu-action-clear-open-recent(); } }
+            }
+            MenuSeparator {}
+            MenuItem { title: "Playback History";
+                shortcut: root.menu-value-primary-shortcut-is-meta ? @keys(Meta + Shift + H) : @keys(Control + Shift + H);
+                activated => { root.menu-action-show-playback-history(); } }
+            MenuSeparator {}
+            MenuItem {
+                title: "Show Current File in " + root.menu-value-current-file-manager-name;
+                enabled: root.menu-value-reveal-current-media-available;
+                activated => { root.menu-action-reveal-current-media(); } }
+            MenuItem { title: "Delete Current File";
+                enabled: root.menu-value-delete-current-media-available;
+                activated => { root.menu-action-delete-current-media(); } }
+            MenuItem { title: "Save Current Playlist…";
+                enabled: root.menu-value-save-current-playlist-available;
+                activated => { root.menu-action-save-current-playlist(); } }
+            MenuSeparator {}
+            MenuItem { title: "Close";
+                shortcut: root.menu-value-primary-shortcut-is-meta ? @keys(Meta + W) : @keys(Control + W);
+                activated => { root.menu-action-close-player(); } }
+        }
+        Menu { title: "Edit";
+            MenuItem { title: "Undo"; enabled: false;
+                shortcut: root.menu-value-primary-shortcut-is-meta ? @keys(Meta + Z) : @keys(Control + Z); }
+            MenuItem { title: "Redo"; enabled: false;
+                shortcut: root.menu-value-primary-shortcut-is-meta ? @keys(Meta + Shift + Z) : @keys(Control + Shift + Z); }
+            MenuSeparator {}
+            MenuItem { title: "Cut"; enabled: false;
+                shortcut: root.menu-value-primary-shortcut-is-meta ? @keys(Meta + X) : @keys(Control + X); }
+            MenuItem { title: "Copy"; enabled: false;
+                shortcut: root.menu-value-primary-shortcut-is-meta ? @keys(Meta + C) : @keys(Control + C); }
+            MenuItem { title: "Paste"; enabled: false;
+                shortcut: root.menu-value-primary-shortcut-is-meta ? @keys(Meta + V) : @keys(Control + V); }
+            MenuItem { title: "Select All"; enabled: false;
+                shortcut: root.menu-value-primary-shortcut-is-meta ? @keys(Meta + A) : @keys(Control + A); }
+        }
+        Menu { title: "Playback";
+            MenuItem { title: root.menu-value-paused ? "Resume" : "Pause";
+                enabled: root.menu-value-loaded && !root.menu-value-crop-editing;
+                shortcut: root.menu-shortcut(0);
+                activated => { root.menu-action-toggle-pause(); } }
+            MenuItem { title: "Stop and Clear Playlists"; enabled: root.menu-value-loaded && !root.menu-value-crop-editing;
+                shortcut: root.menu-shortcut(1);
+                activated => { root.menu-action-stop(); } }
+            MenuSeparator {}
+            MenuItem { title: root.menu-value-menu-alternates-visible ? "Next Frame" : "Step Forward 5s";
+                enabled: root.menu-value-loaded && !root.menu-value-crop-editing;
+                shortcut: root.menu-shortcut(root.menu-value-menu-alternates-visible ? 4 : 2);
+                activated => { if root.menu-value-menu-alternates-visible { root.menu-action-frame-step(); } else { root.menu-action-seek-relative(5); } } }
+            MenuItem { title: root.menu-value-menu-alternates-visible ? "Previous Frame" : "Step Backward 5s";
+                enabled: root.menu-value-loaded && !root.menu-value-crop-editing;
+                shortcut: root.menu-shortcut(root.menu-value-menu-alternates-visible ? 5 : 3);
+                activated => { if root.menu-value-menu-alternates-visible { root.menu-action-frame-back-step(); } else { root.menu-action-seek-relative(-5); } } }
+            MenuItem { title: "Jump to Beginning"; enabled: root.menu-value-loaded && !root.menu-value-crop-editing;
+                activated => { root.menu-action-seek(0); } }
+            MenuItem { title: "Jump to…"; enabled: root.menu-value-loaded && !root.menu-value-crop-editing;
+                shortcut: root.menu-value-primary-shortcut-is-meta ? @keys(Meta + J) : @keys(Control + J);
+                activated => { root.menu-action-open-jump-time-dialog(); } }
+            MenuSeparator {}
+            MenuItem { title: "Speed: " + root.menu-value-speed-edit-value + "x"; enabled: false; }
+            MenuItem { title: root.menu-value-menu-alternates-visible ? "Speed Up by 1.1x" : "Speed Up by 2x";
+                enabled: root.menu-value-loaded && !root.menu-value-crop-editing;
+                shortcut: root.menu-shortcut(root.menu-value-menu-alternates-visible ? 9 : 7);
+                activated => { root.menu-action-speed(root.menu-value-menu-alternates-visible ? 1.1 : 2); } }
+            MenuItem { title: root.menu-value-menu-alternates-visible ? "Speed Down by 0.9x" : "Speed Down by 0.5x";
+                enabled: root.menu-value-loaded && !root.menu-value-crop-editing;
+                shortcut: root.menu-shortcut(root.menu-value-menu-alternates-visible ? 10 : 8);
+                activated => { root.menu-action-speed(root.menu-value-menu-alternates-visible ? 0.9 : 0.5); } }
+            MenuItem { title: "Reset Speed"; enabled: root.menu-value-loaded && !root.menu-value-crop-editing;
+                shortcut: root.menu-shortcut(6);
+                activated => { root.menu-action-reset-speed(); } }
+            MenuSeparator {}
+            MenuItem { title: "Take a Screenshot"; enabled: root.menu-value-screenshot-available && !root.menu-value-crop-editing;
+                shortcut: root.menu-shortcut(11);
+                activated => { root.menu-action-take-screenshot(); } }
+            MenuItem { title: "Go to Screenshot Folder"; enabled: !root.menu-value-crop-editing;
+                activated => { root.menu-action-open-screenshot-folder(); } }
+            MenuSeparator {}
+            MenuItem { title: "A-B Loop"; enabled: root.menu-value-loaded && !root.menu-value-crop-editing;
+                shortcut: root.menu-shortcut(46);
+                activated => { root.menu-action-cycle-ab-loop(); } }
+            MenuItem { title: "File Loop"; checkable: true; checked: root.menu-value-loop-label == "File";
+                enabled: root.menu-value-loaded && !root.menu-value-crop-editing;
+                shortcut: root.menu-shortcut(47);
+                activated => { root.menu-action-toggle-file-loop(); } }
+            MenuSeparator {}
+            MenuItem { title: "Show Playlist Panel"; enabled: !root.menu-value-crop-editing;
+                shortcut: root.menu-shortcut(12);
+                activated => { root.menu-action-toggle-playlist-pane(4); } }
+            MenuItem { title: "Playlist Loop"; checkable: true; checked: root.menu-value-loop-label == "Playlist";
+                enabled: root.menu-value-loaded && !root.menu-value-crop-editing;
+                activated => { root.menu-action-playlist-action(5, ""); } }
+            Menu { title: "Playlist"; enabled: root.menu-value-loaded && root.menu-value-playlist.length > 0 && !root.menu-value-crop-editing;
+                for row in root.menu-value-playlist : MenuItem {
+                    title: row.label; checkable: true; checked: row.playing;
+                    activated => { root.menu-action-playlist-action(12, row.token); }
+                }
+            }
+            MenuSeparator {}
+            MenuItem { title: "Next Media"; enabled: root.menu-value-loaded && !root.menu-value-crop-editing;
+                shortcut: root.menu-shortcut(13);
+                activated => { root.menu-action-playlist-next(); } }
+            MenuItem { title: "Previous Media"; enabled: root.menu-value-loaded && !root.menu-value-crop-editing;
+                shortcut: root.menu-shortcut(14);
+                activated => { root.menu-action-playlist-previous(); } }
+            MenuItem { title: "Show Chapters Panel"; enabled: !root.menu-value-crop-editing;
+                shortcut: root.menu-shortcut(15);
+                activated => { root.menu-action-toggle-playlist-pane(3); } }
+            Menu { title: "Chapters"; enabled: root.menu-value-loaded && root.menu-value-chapters.length > 0 && !root.menu-value-crop-editing;
+                for row in root.menu-value-chapters : MenuItem {
+                    title: row.label;
+                    checkable: true; checked: row.selected;
+                    activated => { root.menu-action-select-item(CatalogSelection.chapter, row.token); }
+                }
+            }
+            MenuSeparator {}
+            MenuItem { title: "Next Chapter"; enabled: root.menu-value-loaded && !root.menu-value-crop-editing;
+                shortcut: root.menu-shortcut(16);
+                activated => { root.menu-action-adjust-chapter(1); } }
+            MenuItem { title: "Previous Chapter"; enabled: root.menu-value-loaded && !root.menu-value-crop-editing;
+                shortcut: root.menu-shortcut(17);
+                activated => { root.menu-action-adjust-chapter(-1); } }
+        }
+        Menu { title: "Video";
+            MenuItem { title: (root.menu-value-settings-at-leading ? root.menu-value-leading-sidebar == 6 : root.menu-value-sidebar == 6) ? "Hide Video Panel" : "Show Video Panel"; enabled: !root.menu-value-crop-editing;
+                shortcut: root.menu-shortcut(18);
+                activated => { root.menu-action-toggle-settings-pane(6); } }
+            MenuSeparator {}
+            MenuItem { title: "Cycle Video Tracks"; enabled: root.menu-value-loaded && !root.menu-value-crop-editing;
+                shortcut: root.menu-shortcut(19);
+                activated => { root.menu-action-cycle-video-track(); } }
+            Menu { title: "Video Track"; enabled: root.menu-value-loaded && !root.menu-value-crop-editing;
+                for row in root.menu-value-video-tracks : MenuItem {
+                    title: row.label;
+                    checkable: true; checked: row.selected;
+                    activated => { root.menu-action-select-item(CatalogSelection.video-track, row.token); }
+                }
+            }
+            MenuSeparator {}
+            MenuItem { title: "Half Size"; enabled: root.menu-value-loaded && root.menu-value-video-window-width > 0
+                    && root.menu-value-video-window-height > 0 && !root.menu-value-music-mode && !root.menu-value-crop-editing;
+                shortcut: root.menu-shortcut(20);
+                activated => { root.menu-action-resize-window-command(0); } }
+            MenuItem { title: "Normal Size"; enabled: root.menu-value-loaded && root.menu-value-video-window-width > 0
+                    && root.menu-value-video-window-height > 0 && !root.menu-value-music-mode && !root.menu-value-crop-editing;
+                shortcut: root.menu-shortcut(21);
+                activated => { root.menu-action-resize-window-command(1); } }
+            MenuItem { title: "Double Size"; enabled: root.menu-value-loaded && root.menu-value-video-window-width > 0
+                    && root.menu-value-video-window-height > 0 && !root.menu-value-music-mode && !root.menu-value-crop-editing;
+                shortcut: root.menu-shortcut(22);
+                activated => { root.menu-action-resize-window-command(2); } }
+            MenuItem { title: "Fit to Screen"; enabled: !root.menu-value-crop-editing;
+                shortcut: root.menu-shortcut(23);
+                activated => { root.menu-action-resize-window-command(3); } }
+            MenuSeparator {}
+            MenuItem { title: "Bigger Size"; enabled: root.menu-value-loaded && root.menu-value-video-window-width > 0
+                    && root.menu-value-video-window-height > 0 && !root.menu-value-music-mode && !root.menu-value-crop-editing;
+                shortcut: root.menu-shortcut(24);
+                activated => { root.menu-action-resize-window-command(4); } }
+            MenuItem { title: "Smaller Size"; enabled: root.menu-value-loaded && root.menu-value-video-window-width > 0
+                    && root.menu-value-video-window-height > 0 && !root.menu-value-music-mode && !root.menu-value-crop-editing;
+                shortcut: root.menu-shortcut(25);
+                activated => { root.menu-action-resize-window-command(5); } }
+            MenuSeparator {}
+            MenuItem { title: root.menu-value-picture-in-picture-active ? "Exit Picture in Picture" : "Enter Picture in Picture";
+                enabled: root.menu-value-picture-in-picture-active || root.menu-value-picture-in-picture-available;
+                shortcut: root.menu-shortcut(26);
+                activated => { root.menu-action-toggle-picture-in-picture(); } }
+            MenuItem { title: root.menu-value-fullscreen ? "Exit Full Screen" : "Enter Full Screen";
+                checkable: true; checked: root.menu-value-fullscreen; enabled: !root.menu-value-crop-editing;
+                shortcut: root.menu-shortcut(27);
+                activated => { root.menu-action-toggle-fullscreen(); } }
+            MenuItem { title: "Float on Top"; checkable: true;
+                checked: root.menu-value-always-float-on-top; enabled: !root.menu-value-crop-editing;
+                shortcut: root.menu-shortcut(28);
+                activated => { root.menu-value-always-float-on-top = !root.menu-value-always-float-on-top; } }
+            MenuItem { title: "Lock Window Aspect Ratio"; checkable: true;
+                checked: !root.menu-value-unlock-window-aspect-ratio; enabled: !root.menu-value-crop-editing;
+                activated => { root.menu-value-unlock-window-aspect-ratio = !root.menu-value-unlock-window-aspect-ratio; } }
+            MenuItem { title: "Live Text";
+                checkable: true; checked: root.menu-value-live-text-enabled;
+                enabled: root.menu-value-live-text-available && !root.menu-value-crop-editing;
+                shortcut: root.menu-shortcut(29);
+                activated => { root.menu-action-toggle-live-text(); } }
+            MenuSeparator {}
+            MenuItem { title: root.menu-value-music-mode ? "Exit Music Mode" : "Enter Music Mode";
+                checkable: true; checked: root.menu-value-music-mode;
+                enabled: root.menu-value-loaded && !root.menu-value-crop-editing;
+                shortcut: root.menu-shortcut(30);
+                activated => { root.menu-action-toggle-music-mode(); } }
+            MenuSeparator {}
+            Menu { title: "Aspect Ratio"; enabled: root.menu-value-loaded && root.menu-value-video-aspect-known && !root.menu-value-crop-editing;
+                for label[index] in root.menu-value-video-aspect-menu-labels : MenuItem {
+                    title: label; checkable: true; checked: root.menu-value-video-aspect-menu-index == index;
+                    activated => { root.menu-action-set-menu-video-aspect(index); }
+                }
+            }
+            Menu { title: "Crop"; enabled: root.menu-value-loaded && root.menu-value-video-crop-known && !root.menu-value-crop-editing;
+                for label[index] in root.menu-value-video-crop-menu-labels : MenuItem {
+                    title: label; checkable: true; checked: root.menu-value-video-crop-menu-index == index;
+                    activated => { root.menu-action-set-menu-video-crop(index); }
+                }
+                MenuSeparator {}
+                MenuItem { title: "Custom…"; checkable: true; checked: root.menu-value-video-crop-menu-index == 10;
+                    activated => { root.menu-action-set-menu-video-crop(10); } }
+            }
+            Menu { title: "Rotation"; enabled: root.menu-value-loaded && root.menu-value-video-rotation-known && !root.menu-value-crop-editing;
+                MenuItem { title: "0°"; checkable: true; checked: root.menu-value-video-rotation-index == 0;
+                    activated => { root.menu-action-set-menu-video-rotation(0); } }
+                MenuItem { title: "90°"; checkable: true; checked: root.menu-value-video-rotation-index == 1;
+                    activated => { root.menu-action-set-menu-video-rotation(90); } }
+                MenuItem { title: "180°"; checkable: true; checked: root.menu-value-video-rotation-index == 2;
+                    activated => { root.menu-action-set-menu-video-rotation(180); } }
+                MenuItem { title: "270°"; checkable: true; checked: root.menu-value-video-rotation-index == 3;
+                    activated => { root.menu-action-set-menu-video-rotation(270); } }
+            }
+            Menu { title: "Flip"; enabled: root.menu-value-loaded && root.menu-value-reflection-known && !root.menu-value-crop-editing;
+                MenuItem { title: "Horizontal (Mirror)"; checkable: true; checked: root.menu-value-video-mirrored;
+                    activated => { root.menu-action-toggle-video-reflection(true); } }
+                MenuItem { title: "Vertical (Flip)"; checkable: true; checked: root.menu-value-video-flipped;
+                    activated => { root.menu-action-toggle-video-reflection(false); } }
+            }
+            MenuItem { title: "Deinterlace"; checkable: true; checked: root.menu-value-deinterlace-enabled;
+                enabled: root.menu-value-loaded && root.menu-value-deinterlace-known && !root.menu-value-crop-editing;
+                activated => { root.menu-action-toggle-deinterlace(); } }
+            MenuItem { title: "Delogo"; checkable: true; checked: root.menu-value-delogo-active;
+                enabled: root.menu-value-delogo-enabled && !root.menu-value-crop-editing;
+                activated => { root.menu-action-toggle-delogo(); } }
+            MenuSeparator {}
+            MenuItem { title: "Video Filters…"; enabled: root.menu-value-loaded && !root.menu-value-crop-editing;
+                shortcut: root.menu-value-primary-shortcut-is-meta ? @keys(Meta + Shift + F) : @keys(Control + Shift + F);
+                activated => { root.menu-action-open-video-filters(); } }
+            Menu { title: "Saved Video Filters"; enabled: root.menu-value-loaded && !root.menu-value-crop-editing;
+                for row in root.menu-value-saved-video-filter-rows : MenuItem {
+                    title: row.label; shortcut: row.shortcut;
+                    checkable: true; checked: row.selected;
+                    activated => { root.menu-action-toggle-saved-video-filter(row.token); }
+                }
+            }
+        }
+        Menu { title: "Audio";
+            MenuItem { title: (root.menu-value-settings-at-leading ? root.menu-value-leading-sidebar == 1 : root.menu-value-sidebar == 1) ? "Hide Audio Panel" : "Show Audio Panel"; enabled: !root.menu-value-crop-editing;
+                shortcut: root.menu-shortcut(31);
+                activated => { root.menu-action-toggle-settings-pane(1); } }
+            MenuSeparator {}
+            MenuItem { title: "Cycle Audio Tracks"; enabled: root.menu-value-loaded && !root.menu-value-crop-editing;
+                shortcut: root.menu-shortcut(32);
+                activated => { root.menu-action-cycle-audio-track(); } }
+            Menu { title: "Audio Track"; enabled: root.menu-value-loaded && !root.menu-value-crop-editing;
+                for row in root.menu-value-audio-tracks : MenuItem {
+                    title: row.label; checkable: true; checked: row.selected;
+                    activated => { root.menu-action-select-item(CatalogSelection.audio-track, row.token); }
+                }
+            }
+            MenuItem { title: "Load External Audio…"; enabled: root.menu-value-loaded && !root.menu-value-crop-editing;
+                activated => { root.menu-action-browse-files(1); } }
+            MenuSeparator {}
+            MenuItem { title: root.menu-value-volume-menu-title; enabled: false; }
+            MenuItem { title: root.menu-value-menu-alternates-visible ? "Volume + 1%" : "Volume + 5%";
+                enabled: root.menu-value-loaded && !root.menu-value-crop-editing;
+                shortcut: root.menu-shortcut(root.menu-value-menu-alternates-visible ? 35 : 33);
+                activated => { root.menu-action-adjust-volume(root.menu-value-menu-alternates-visible ? 1 : 5); } }
+            MenuItem { title: root.menu-value-menu-alternates-visible ? "Volume - 1%" : "Volume - 5%";
+                enabled: root.menu-value-loaded && !root.menu-value-crop-editing;
+                shortcut: root.menu-shortcut(root.menu-value-menu-alternates-visible ? 36 : 34);
+                activated => { root.menu-action-adjust-volume(root.menu-value-menu-alternates-visible ? -1 : -5); } }
+            MenuItem { title: "Mute"; checkable: true; checked: root.menu-value-muted;
+                enabled: root.menu-value-loaded && !root.menu-value-crop-editing;
+                shortcut: root.menu-shortcut(37);
+                activated => { root.menu-action-toggle-mute(); } }
+            MenuSeparator {}
+            MenuItem { title: "Audio Delay: " + root.menu-value-audio-delay-text + "s"; enabled: false; }
+            MenuItem { title: root.menu-value-menu-alternates-visible ? "Audio Delay + 0.1s" : "Audio Delay + 0.5s";
+                enabled: root.menu-value-loaded && !root.menu-value-crop-editing;
+                shortcut: root.menu-shortcut(root.menu-value-menu-alternates-visible ? 40 : 38);
+                activated => { root.menu-action-adjust-audio-delay(root.menu-value-menu-alternates-visible ? 0.1 : 0.5); } }
+            MenuItem { title: root.menu-value-menu-alternates-visible ? "Audio Delay - 0.1s" : "Audio Delay - 0.5s";
+                enabled: root.menu-value-loaded && !root.menu-value-crop-editing;
+                shortcut: root.menu-shortcut(root.menu-value-menu-alternates-visible ? 41 : 39);
+                activated => { root.menu-action-adjust-audio-delay(root.menu-value-menu-alternates-visible ? -0.1 : -0.5); } }
+            MenuItem { title: "Reset Audio Delay"; enabled: root.menu-value-loaded && !root.menu-value-crop-editing;
+                shortcut: root.menu-shortcut(48);
+                activated => { root.menu-action-reset-audio-delay(); } }
+            MenuSeparator {}
+            Menu { title: "Audio Device";
+                enabled: root.menu-value-loaded && !root.menu-value-crop-editing && root.menu-value-audio-device-menu-rows.length > 0;
+                for row in root.menu-value-audio-device-menu-rows : MenuItem {
+                    title: row.label; checkable: true; checked: row.selected;
+                    activated => { root.menu-action-set-audio-device(row.token); }
+                }
+            }
+            MenuSeparator {}
+            MenuItem { title: "Audio Filters…"; enabled: root.menu-value-loaded && !root.menu-value-crop-editing;
+                shortcut: root.menu-value-primary-shortcut-is-meta ? @keys(Meta + Shift + G) : @keys(Control + Shift + G);
+                activated => { root.menu-action-open-audio-filters(); } }
+            Menu { title: "Saved Audio Filters"; enabled: root.menu-value-loaded && !root.menu-value-crop-editing;
+                for row in root.menu-value-saved-audio-filter-rows : MenuItem {
+                    title: row.label; shortcut: row.shortcut;
+                    checkable: true; checked: row.selected;
+                    activated => { root.menu-action-toggle-saved-audio-filter(row.token); }
+                }
+            }
+        }
+        Menu { title: "Subtitles";
+            MenuItem { title: (root.menu-value-settings-at-leading ? root.menu-value-leading-sidebar == 2 : root.menu-value-sidebar == 2) ? "Hide Subtitles Panel" : "Show Subtitles Panel"; enabled: !root.menu-value-crop-editing;
+                shortcut: root.menu-shortcut(42);
+                activated => { root.menu-action-toggle-settings-pane(2); } }
+            MenuSeparator {}
+            MenuItem { title: "Cycle Subtitles"; enabled: root.menu-value-loaded && !root.menu-value-crop-editing;
+                shortcut: root.menu-shortcut(43);
+                activated => { root.menu-action-cycle-subtitle-track(); } }
+            Menu { title: "Subtitle"; enabled: root.menu-value-loaded && !root.menu-value-crop-editing;
+                for row in root.menu-value-subtitle-tracks : MenuItem {
+                    title: row.label; checkable: true; checked: row.selected;
+                    activated => { root.menu-action-select-item(CatalogSelection.primary-subtitle, row.token); }
+                }
+            }
+            MenuItem { title: root.menu-value-subtitle-visible ? "Hide Subtitles" : "Show Subtitles";
+                checkable: true; checked: root.menu-value-subtitle-visible;
+                enabled: root.menu-value-loaded && !root.menu-value-crop-editing;
+                shortcut: root.menu-shortcut(44);
+                activated => { root.menu-action-toggle-subtitle-visibility(); } }
+            Menu { title: "Secondary Subtitle"; enabled: root.menu-value-loaded && !root.menu-value-crop-editing;
+                for row in root.menu-value-secondary-subtitle-tracks : MenuItem {
+                    title: row.label; checkable: true; checked: row.selected;
+                    activated => { root.menu-action-select-item(CatalogSelection.secondary-subtitle, row.token); }
+                }
+            }
+            MenuItem { title: root.menu-value-secondary-subtitle-visible ? "Hide Secondary Subtitles" : "Show Secondary Subtitles";
+                checkable: true; checked: root.menu-value-secondary-subtitle-visible;
+                enabled: root.menu-value-loaded && root.menu-value-secondary-subtitle-visibility-known && !root.menu-value-crop-editing;
+                shortcut: root.menu-shortcut(54);
+                activated => { root.menu-action-toggle-secondary-subtitle-visibility(); }
+            }
+            MenuItem { title: "Load External Subtitle…"; enabled: root.menu-value-loaded && !root.menu-value-crop-editing;
+                activated => { root.menu-action-browse-files(2); } }
+            MenuSeparator {}
+            MenuItem { title: root.menu-value-open-subtitles-provider-index == 1 ? "Find Online Subtitles from assrt.net" : root.menu-value-open-subtitles-provider-index == 2 ? "Find Online Subtitles from shooter.cn" : "Find Online Subtitles from opensubtitles.com"; enabled: root.menu-value-loaded && !root.menu-value-crop-editing;
+                shortcut: root.menu-shortcut(55);
+                activated => { root.menu-action-find-online-subtitles(); } }
+            Menu { title: "Find Online Subtitles from"; enabled: root.menu-value-loaded && !root.menu-value-crop-editing;
+                MenuItem { title: "opensubtitles.com"; activated => { root.menu-action-find-online-subtitles-with-provider(0); } }
+                MenuItem { title: "assrt.net"; activated => { root.menu-action-find-online-subtitles-with-provider(1); } }
+                MenuItem { title: "shooter.cn"; activated => { root.menu-action-find-online-subtitles-with-provider(2); } }
+            }
+            MenuItem { title: "Save Downloaded Subtitle…";
+                enabled: root.menu-value-downloaded-subtitle-save-available && !root.menu-value-crop-editing;
+                activated => { root.menu-action-save-downloaded-subtitle(); }
+            }
+            MenuSeparator {}
+            Menu { title: "Encoding"; enabled: root.menu-value-loaded && !root.menu-value-crop-editing;
+                for row in root.menu-value-subtitle-encoding-options : MenuItem {
+                    title: row.label; checkable: true;
+                    checked: root.menu-value-subtitle-default-encoding == row.token;
+                    activated => { root.menu-action-set-subtitle-encoding(row.token); }
+                }
+            }
+            MenuSeparator {}
+            MenuItem { title: "Scale Up"; enabled: root.menu-value-loaded && root.menu-value-subtitle-scale-known && !root.menu-value-crop-editing;
+                activated => { root.menu-action-multiply-subtitle-scale(1.1); } }
+            MenuItem { title: "Scale Down"; enabled: root.menu-value-loaded && root.menu-value-subtitle-scale-known && !root.menu-value-crop-editing;
+                activated => { root.menu-action-multiply-subtitle-scale(0.9); } }
+            MenuItem { title: "Reset Subtitle Scale"; enabled: root.menu-value-loaded && root.menu-value-subtitle-scale-known && !root.menu-value-crop-editing;
+                activated => { root.menu-action-set-subtitle-scale-slider(0); } }
+            MenuSeparator {}
+            MenuItem { title: "Subtitle Delay: " + root.menu-value-subtitle-delay-text + "s"; enabled: false; }
+            MenuItem { title: root.menu-value-menu-alternates-visible ? "Subtitle Delay + 0.1s" : "Subtitle Delay + 0.5s";
+                enabled: root.menu-value-loaded && !root.menu-value-crop-editing;
+                shortcut: root.menu-shortcut(root.menu-value-menu-alternates-visible ? 52 : 49);
+                activated => { root.menu-action-adjust-subtitle-delay(root.menu-value-menu-alternates-visible ? 0.1 : 0.5); } }
+            MenuItem { title: root.menu-value-menu-alternates-visible ? "Subtitle Delay - 0.1s" : "Subtitle Delay - 0.5s";
+                enabled: root.menu-value-loaded && !root.menu-value-crop-editing;
+                shortcut: root.menu-shortcut(root.menu-value-menu-alternates-visible ? 53 : 50);
+                activated => { root.menu-action-adjust-subtitle-delay(root.menu-value-menu-alternates-visible ? -0.1 : -0.5); } }
+            MenuItem { title: "Reset Subtitle Delay"; enabled: root.menu-value-loaded && !root.menu-value-crop-editing;
+                shortcut: root.menu-shortcut(51);
+                activated => { root.menu-action-reset-subtitle-delay(); } }
+            MenuSeparator {}
+            MenuItem { title: "Font…"; enabled: !root.menu-value-crop-editing;
+                activated => { root.menu-action-choose-subtitle-font(); } }
+        }
+        Menu { title: "Plugin";
+            MenuItem { title: "Manage Plugins…"; enabled: !root.menu-value-crop-editing;
+                activated => { root.menu-value-preferences-target-pane = 9; root.menu-action-open-preferences(); } }
+            MenuItem { title: (root.menu-value-sidebar == 7 || root.menu-value-leading-sidebar == 7) ? "Hide Plugins Panel" : "Show Plugins Panel"; enabled: !root.menu-value-crop-editing;
+                shortcut: root.menu-shortcut(45);
+                activated => { root.menu-action-toggle-plugins-pane(); } }
+            MenuSeparator {}
+            for row in root.menu-value-plugin-menu-rows : MenuItem {
+                title: row.label;
+                enabled: row.enabled && !row.section-header && !root.menu-value-crop-editing;
+                checkable: false;
+                checked: row.selected;
+                shortcut: row.shortcut;
+                activated => { root.menu-action-activate-plugin-menu-item(row.token); }
+            }
+            if root.menu-value-plugin-menu-rows.length > 0 : MenuSeparator {}
+            MenuItem { title: "Reload All Plugins"; enabled: !root.menu-value-crop-editing;
+                activated => { root.menu-action-reload-plugins(); } }
+        }
+        Menu { title: "Window";
+            MenuItem { title: "Minimize";
+                shortcut: root.menu-value-primary-shortcut-is-meta ? @keys(Meta + M) : @keys(Control + M);
+                activated => { root.menu-action-minimize-window(); }
+            }
+            MenuItem { title: "Zoom"; activated => { root.menu-action-zoom-window(); } }
+            MenuSeparator {}
+            MenuItem { title: "Bring All to Front";
+                enabled: root.menu-value-in-process-player-manager;
+                activated => { root.menu-action-bring-all-to-front(); }
+            }
+        }
+        Menu { title: "Help";
+            MenuItem { title: "Riina Help";
+                shortcut: root.menu-value-primary-shortcut-is-meta ? @keys(Meta + Shift + "/") : @keys(Control + Shift + "/");
+                activated => { root.menu-action-open-help-link("help"); } }
+            MenuItem { title: "Dump Debug Info"; activated => { root.menu-action-dump-debug-info(); } }
+            MenuSeparator {}
+            MenuItem { title: "Use New Settings Window"; checkable: true; checked: true;
+                activated => { root.menu-action-open-preferences(); } }
+            MenuSeparator {}
+            MenuItem { title: "Release Highlights"; activated => { root.menu-action-open-help-link("release-highlights"); } }
+            MenuSeparator {}
+            MenuItem { title: "GitHub"; activated => { root.menu-action-open-help-link("github"); } }
+            MenuItem { title: "Website"; activated => { root.menu-action-open-help-link("website"); } }
+        }
+    }
+}
