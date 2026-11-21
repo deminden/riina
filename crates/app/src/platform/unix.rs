@@ -23,7 +23,7 @@ impl NativePresentation {
     pub(crate) fn start_engine(
         &self,
         _options: Vec<(String, String)>,
-        _notify: impl Fn(riina_core::Playback) + Send + 'static,
+        _notify: impl Fn(std::sync::Arc<riina_core::Playback>) + Send + 'static,
     ) -> Result<riina_mpv::Player, String> {
         Err("Native-window playback is unavailable on this platform".into())
     }
