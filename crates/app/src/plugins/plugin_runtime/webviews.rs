@@ -10,10 +10,6 @@ use riina_core::{
 use rquickjs::{Ctx, Object, Value, function::Func};
 use std::sync::{Arc, Mutex};
 
-#[expect(
-    clippy::too_many_lines,
-    reason = "decomposition tracked in docs/review"
-)]
 pub(super) fn install(
     ctx: Ctx<'_>,
     events: Arc<Mutex<Vec<HostEvent>>>,
@@ -21,12 +17,25 @@ pub(super) fn install(
     overlay_state: Arc<Mutex<OverlayState>>,
     sidebar_state: Arc<Mutex<PluginSidebarState>>,
 ) -> rquickjs::Result<()> {
+    install_overlay(
+        ctx.clone(),
+        &events,
+        permissions.video_overlay,
+        &overlay_state,
+    )?;
+    install_sidebar(ctx, events, sidebar_state)
+}
+
+fn install_overlay(
+    ctx: Ctx<'_>,
+    events: &Arc<Mutex<Vec<HostEvent>>>,
+    can_use_overlay: bool,
+    overlay_state: &Arc<Mutex<OverlayState>>,
+) -> rquickjs::Result<()> {
     let globals = ctx.globals();
     let overlay = Object::new(ctx.clone())?;
-    let overlay_state = overlay_state.clone();
     let overlay_events = events.clone();
     let overlay_state_for_call = overlay_state.clone();
-    let can_use_overlay = permissions.video_overlay;
     overlay.set(
         "loadFile",
         Func::from(move |path: String| -> rquickjs::Result<()> {
@@ -48,7 +57,6 @@ pub(super) fn install(
     )?;
     let overlay_events = events.clone();
     let overlay_state_for_call = overlay_state.clone();
-    let can_use_overlay = permissions.video_overlay;
     overlay.set(
         "simpleMode",
         Func::from(move || -> rquickjs::Result<()> {
@@ -138,9 +146,21 @@ pub(super) fn install(
             Ok(())
         }),
     )?;
+    install_overlay_messages(&overlay, events, overlay_state, can_use_overlay)?;
+    globals.set("__riinaOverlay", overlay)?;
+    ctx.eval::<(), _>(include_str!("overlay_api.js"))?;
+
+    Ok(())
+}
+
+fn install_overlay_messages(
+    overlay: &Object<'_>,
+    events: &Arc<Mutex<Vec<HostEvent>>>,
+    overlay_state: &Arc<Mutex<OverlayState>>,
+    can_use_overlay: bool,
+) -> rquickjs::Result<()> {
     let overlay_events = events.clone();
     let overlay_state_for_call = overlay_state.clone();
-    let can_use_overlay = permissions.video_overlay;
     overlay.set(
         "postMessage",
         Func::from(move |name: String, data: String| -> rquickjs::Result<()> {
@@ -161,7 +181,6 @@ pub(super) fn install(
     )?;
     let overlay_events = events.clone();
     let overlay_state_for_call = overlay_state.clone();
-    let can_use_overlay = permissions.video_overlay;
     overlay.set(
         "onMessage",
         Func::from(
@@ -178,32 +197,15 @@ pub(super) fn install(
             },
         ),
     )?;
-    globals.set("__riinaOverlay", overlay)?;
-    ctx.eval::<(), _>(
-    r#"iina.overlay = __riinaOverlay;
-    (() => {
-        const overlay = iina.overlay;
-        const postMessage = overlay.postMessage;
-        const loadFile = overlay.loadFile;
-        const simpleMode = overlay.simpleMode;
-        const onMessage = overlay.onMessage;
-        const listeners = new Map();
-        overlay.postMessage = (name, data) => postMessage(name, JSON.stringify(data));
-        overlay.loadFile = path => { const result = loadFile(path); listeners.clear(); return result; };
-        overlay.simpleMode = () => { const result = simpleMode(); listeners.clear(); return result; };
-        overlay.onMessage = (name, callback) => {
-            if (typeof callback !== 'function') throw new TypeError('callback must be a function');
-            onMessage(name, callback);
-            const callbacks = listeners.get(name) || [];
-            callbacks.push(callback);
-            listeners.set(name, callbacks);
-        };
-        overlay.__deliverMessage = (name, data) => {
-            for (const callback of listeners.get(name) || []) callback(data);
-        };
-    })();"#,
-)?;
+    Ok(())
+}
 
+fn install_sidebar(
+    ctx: Ctx<'_>,
+    events: Arc<Mutex<Vec<HostEvent>>>,
+    sidebar_state: Arc<Mutex<PluginSidebarState>>,
+) -> rquickjs::Result<()> {
+    let globals = ctx.globals();
     let sidebar = Object::new(ctx.clone())?;
     for (method, intent) in [("show", 0), ("hide", 1)] {
         let sidebar_events = events.clone();
@@ -270,28 +272,7 @@ pub(super) fn install(
         ),
     )?;
     globals.set("__riinaSidebar", sidebar)?;
-    ctx.eval::<(), _>(
-    r#"iina.sidebar = __riinaSidebar;
-    (() => {
-        const sidebar = iina.sidebar;
-        const postMessage = sidebar.postMessage;
-        const loadFile = sidebar.loadFile;
-        const onMessage = sidebar.onMessage;
-        const listeners = new Map();
-        sidebar.postMessage = (name, data) => postMessage(name, JSON.stringify(data));
-        sidebar.loadFile = path => { const result = loadFile(path); listeners.clear(); return result; };
-        sidebar.onMessage = (name, callback) => {
-            if (typeof callback !== 'function') throw new TypeError('callback must be a function');
-            onMessage(name, callback);
-            const callbacks = listeners.get(name) || [];
-            callbacks.push(callback);
-            listeners.set(name, callbacks);
-        };
-        sidebar.__deliverMessage = (name, data) => {
-            for (const callback of listeners.get(name) || []) callback(data);
-        };
-    })();"#,
-)?;
+    ctx.eval::<(), _>(include_str!("sidebar_api.js"))?;
 
     Ok(())
 }
