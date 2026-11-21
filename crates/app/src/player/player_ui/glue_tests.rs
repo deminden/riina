@@ -30,7 +30,7 @@ impl Drop for TestProfile {
 
 pub(crate) struct Harness {
     pub(crate) app: PlayerWindow,
-    _session: UiSession,
+    pub(crate) session: UiSession,
     pub(crate) engine: Rc<RecordingEngine>,
     pub(crate) sender: CommandSender,
 }
@@ -63,7 +63,7 @@ impl Harness {
         assert!(engine.commands.try_iter().count() > 0);
         Ok(Self {
             app,
-            _session: session,
+            session,
             engine,
             sender: commands,
         })

@@ -489,3 +489,44 @@ fn mixed_invalid_edit_reverses_the_live_volume_command_before_returning() {
     assert!(!transaction.player.app.get_volume_boost());
     assert!(!transaction.window.get_volume_boost());
 }
+
+#[test]
+fn saving_a_session_retains_committed_preferences_and_updates_runtime_volume() {
+    let transaction = Transaction::new();
+    transaction.window.set_audio_threads_text("3".into());
+    transaction.window.set_thumbnail_preview_enabled(false);
+    assert_eq!(
+        transaction.apply(),
+        [transaction.expected_subtitle_reload()]
+    );
+    transaction.player.app.set_volume(72.0);
+    transaction
+        .player
+        .session
+        .save(&transaction.player.app)
+        .unwrap();
+    let saved = transaction.profile.read();
+    assert_eq!(saved.audio.audio_threads, 3);
+    assert!(!saved.thumbnail_preview.enabled);
+    assert_eq!(saved.volume, 72.0);
+}
+
+#[test]
+fn a_session_save_keeps_a_different_writer_s_newer_engine_settings() {
+    let transaction = Transaction::new();
+    let baseline = transaction.profile.read();
+    let writer =
+        crate::preference_store::Writer::new(transaction.profile.0.clone(), baseline.clone());
+    let mut foreign = baseline;
+    foreign.audio.audio_threads = 5;
+    writer.save(&foreign).unwrap();
+    transaction.player.app.set_volume(65.0);
+    transaction
+        .player
+        .session
+        .save(&transaction.player.app)
+        .unwrap();
+    let saved = transaction.profile.read();
+    assert_eq!(saved.audio.audio_threads, 5);
+    assert_eq!(saved.volume, 65.0);
+}
