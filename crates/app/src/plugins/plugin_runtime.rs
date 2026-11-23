@@ -74,7 +74,8 @@ pub enum HostEvent {
     Overlay(OverlayEffect),
     Sidebar(PluginSidebarEffect),
     MenuUpdate(Vec<PluginMenuItem>),
-    PluginMessage(String, serde_json::Value),
+    PluginMessage(crate::plugins::plugin_players::Message),
+    CreatePluginPlayer(u64, crate::plugins::plugin_players::Options),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -100,7 +101,7 @@ enum RuntimeCommand {
         response: SyncSender<Vec<PluginMenuItem>>,
     },
     ActivatePlaylistMenuItem(u64, String),
-    DeliverPluginMessage(String, serde_json::Value),
+    DeliverPluginMessage(String, serde_json::Value, Option<String>),
     DeliverPlayerEvent(String, serde_json::Value),
     DeliverStandaloneMessage(u64, String, serde_json::Value),
     DeliverInput(input::Request),
@@ -128,6 +129,7 @@ struct PluginWorkerHost {
     standalone: Arc<standalone::Endpoint>,
     execution: Arc<ExecutionControl>,
     global_api_mode: Option<GlobalApiMode>,
+    player_label: Option<String>,
     module_context: Option<PluginModuleContext>,
     file_system: PluginFiles,
     player_mpv: Option<riina_mpv::CommandSender>,
@@ -144,6 +146,7 @@ pub(crate) struct PluginUi {
     pub(crate) dialogs: utilities::PluginDialogs,
     pub(crate) input: input::Router,
     pub(crate) windows: standalone::Hub,
+    pub(crate) player_label: Option<String>,
 }
 
 struct PluginStorageContext {
@@ -335,6 +338,7 @@ impl PluginRuntimeSession {
                     standalone,
                     execution: worker_execution,
                     global_api_mode,
+                    player_label: storage.ui.player_label,
                     module_context,
                     file_system: storage.file_system,
                     player_mpv: storage.player_mpv,
@@ -459,10 +463,15 @@ impl PluginRuntimeSession {
         &self,
         name: String,
         data: serde_json::Value,
+        player_label: Option<String>,
     ) -> Result<(), String> {
         validate_plugin_message(&name, &data)?;
         self.commands
-            .try_send(RuntimeCommand::DeliverPluginMessage(name, data))
+            .try_send(RuntimeCommand::DeliverPluginMessage(
+                name,
+                data,
+                player_label,
+            ))
             .map_err(|error| match error {
                 mpsc::TrySendError::Full(_) => "Plugin message queue is busy".into(),
                 mpsc::TrySendError::Disconnected(_) => "Plugin session has stopped".into(),

@@ -1,5 +1,7 @@
 //! One Windows event loop owns the native player frames in this application.
 use super::{NativeLaunch, NativePlayer};
+use crate::player_ui::InitialMedia;
+use crate::plugins::plugin_players::Ticket;
 use crate::{PlayerWindow, player_manager::select_media_for_new_player, preference_load};
 use riina_core::{Preferences, ThemeMaterial, sync::lock};
 use riina_ui::{PlayerCatalogState, PlayerDialogState, PlayerMenuActions};
@@ -75,6 +77,29 @@ pub(super) fn run(initial: NativeLaunch) -> Result<(), Box<dyn std::error::Error
         initial_error: RefCell::default(),
         quitting: Cell::default(),
     });
+    let owner = Rc::downgrade(&application);
+    application
+        .plugins
+        .bind_player_launcher(move |parent, ticket| {
+            let app = owner.upgrade().ok_or("The application has closed")?;
+            let path = crate::platform::preferences_path().map_err(|error| error.to_string())?;
+            let loaded = preference_load::load(&path).map_err(|error| error.to_string())?;
+            let launch = NativeLaunch {
+                media: InitialMedia::for_plugin(ticket),
+                owner_center: crate::platform::player_window_center(parent.window()),
+                loaded,
+            };
+            let player = app
+                .launch(launch, Some(parent.as_weak()))
+                .map_err(|error| error.to_string())?;
+            let player = Rc::downgrade(&player);
+            let owner = owner.clone();
+            Ok(Box::new(move || {
+                if let (Some(app), Some(player)) = (owner.upgrade(), player.upgrade()) {
+                    app.close(&player);
+                }
+            }))
+        });
     application.launch(initial, None)?;
     let result = slint::run_event_loop_until_quit();
     application.finish();
@@ -97,7 +122,7 @@ impl Application {
         self: &Rc<Self>,
         launch: NativeLaunch,
         origin: Option<slint::Weak<PlayerWindow>>,
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    ) -> Result<Rc<NativePlayer>, Box<dyn std::error::Error>> {
         if self.quitting.get() {
             return Err("Riina is closing".into());
         }
@@ -107,6 +132,7 @@ impl Application {
             application: Rc::downgrade(self),
             player: Rc::downgrade(&player),
             origin,
+            managed: launch.media.managed.clone(),
         };
         // Keep the host owned while Slint is realizing its frame and controls.
         self.players.borrow_mut().push(player.clone());
@@ -116,7 +142,7 @@ impl Application {
             self.close(&player);
             return Err(error);
         }
-        Ok(())
+        Ok(player)
     }
 
     fn open(
@@ -155,13 +181,17 @@ impl Application {
         }
         self.launch(
             NativeLaunch {
-                media,
-                resume_position,
+                media: InitialMedia {
+                    files: media,
+                    resume_position,
+                    managed: None,
+                },
                 owner_center: crate::platform::player_window_center(owner.window()),
                 loaded,
             },
             Some(owner.as_weak()),
         )
+        .map(|_| ())
     }
 
     fn close(&self, target: &Rc<NativePlayer>) {
@@ -222,6 +252,7 @@ pub(super) struct WindowActions {
     application: Weak<Application>,
     player: Weak<NativePlayer>,
     origin: Option<slint::Weak<PlayerWindow>>,
+    managed: Option<Arc<Ticket>>,
 }
 
 impl WindowActions {
@@ -285,7 +316,11 @@ impl WindowActions {
     pub(super) fn close(&self) {
         let application = self.application.clone();
         let player = self.player.clone();
+        let managed = self.managed.clone();
         schedule(move || {
+            if let Some(ticket) = managed {
+                ticket.close();
+            }
             if let (Some(application), Some(player)) = (application.upgrade(), player.upgrade()) {
                 application.close(&player);
             }
@@ -293,6 +328,9 @@ impl WindowActions {
     }
 
     pub(super) fn startup_failed(&self, error: Box<dyn std::error::Error>) {
+        if let Some(ticket) = &self.managed {
+            ticket.close();
+        }
         let (Some(application), Some(player)) = (self.application.upgrade(), self.player.upgrade())
         else {
             return;

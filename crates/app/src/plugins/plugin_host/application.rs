@@ -4,13 +4,14 @@ use super::{
     host_message, load_grants, record,
 };
 use crate::plugin_runtime::{HostEvent, PluginRuntimeSession, PluginUi};
+use crate::plugins::plugin_players::{Message, Options, Target, Ticket};
 use riina_core::{plugin::Manifest, plugin_menu::PluginMenuItem, sync::lock};
 use std::{
     collections::{BTreeMap, BTreeSet},
     path::{Path, PathBuf},
     sync::{
         Arc, Mutex, Weak,
-        atomic::{AtomicBool, Ordering},
+        atomic::{AtomicBool, AtomicU64, Ordering},
         mpsc,
     },
     thread::JoinHandle,
@@ -18,6 +19,8 @@ use std::{
 };
 
 const CHANGE_TIMEOUT: Duration = Duration::from_secs(30);
+const MAX_PLAYERS_PER_PLUGIN: usize = 16;
+const MAX_PENDING_PLAYERS: usize = 32;
 type Acknowledgement = mpsc::Receiver<Result<(), String>>;
 
 pub(crate) struct GlobalHost {
@@ -29,6 +32,8 @@ pub(crate) struct GlobalHost {
 pub(crate) struct GlobalHandle {
     pub(crate) ui: PluginUi,
     commands: mpsc::SyncSender<Request>,
+    next_player: Arc<AtomicU64>,
+    launches: Arc<Mutex<Vec<Arc<Ticket>>>>,
 }
 
 pub(super) struct PlayerPort {
@@ -36,6 +41,8 @@ pub(super) struct PlayerPort {
     pub(super) messages: Arc<Mutex<Vec<PluginHostMessage>>>,
     pub(super) activity: Arc<UiActivity>,
     pub(super) closed: AtomicBool,
+    pub(super) label: String,
+    pub(super) managed: Option<Arc<Ticket>>,
 }
 
 #[derive(Clone)]
@@ -48,10 +55,15 @@ pub(super) enum PackageChange {
 
 enum Request {
     Join(Weak<PlayerPort>),
-    Ensure(Arc<Manifest>, PathBuf, mpsc::SyncSender<Result<(), String>>),
+    Ensure(
+        Weak<PlayerPort>,
+        Arc<Manifest>,
+        PathBuf,
+        mpsc::SyncSender<Result<(), String>>,
+    ),
     Change(PackageChange, Option<mpsc::SyncSender<Schedule>>),
     ActivateMenu(String, String),
-    FromPlayer(String, String, serde_json::Value),
+    FromPlayer(Weak<PlayerPort>, String, Message),
     Shutdown,
 }
 
@@ -65,13 +77,20 @@ impl GlobalHost {
         let (commands, requests) = mpsc::sync_channel(64);
         let ui = PluginUi::default();
         let worker_ui = ui.clone();
+        let launches = Arc::new(Mutex::new(Vec::new()));
+        let worker_launches = launches.clone();
         let profile = preferences_path.to_path_buf();
         let worker = crate::background::spawn_named("riina-application-plugins", move || {
-            Coordinator::new(&profile, worker_ui).run(requests);
+            Coordinator::new(&profile, worker_ui, worker_launches).run(requests);
         })
         .map_err(|error| format!("Could not start global plugin host: {error}"))?;
         Ok(Self {
-            handle: GlobalHandle { ui, commands },
+            handle: GlobalHandle {
+                ui,
+                commands,
+                next_player: Arc::default(),
+                launches,
+            },
             worker: Some(worker),
         })
     }
@@ -92,6 +111,14 @@ impl Drop for GlobalHost {
 }
 
 impl GlobalHandle {
+    pub(crate) fn take_player_launches(&self) -> Vec<Arc<Ticket>> {
+        std::mem::take(&mut *lock(&self.launches))
+    }
+
+    pub(super) fn next_player_label(&self) -> String {
+        self.next_player.fetch_add(1, Ordering::Relaxed).to_string()
+    }
+
     fn send(&self, request: Request) -> Result<(), String> {
         self.commands
             .try_send(request)
@@ -109,16 +136,17 @@ impl GlobalHandle {
         &self,
         manifest: &Arc<Manifest>,
         directory: &Path,
-        port: &PlayerPort,
+        port: &Arc<PlayerPort>,
     ) -> Result<(), String> {
         let (sender, receiver) = mpsc::sync_channel(1);
         self.send(Request::Ensure(
+            Arc::downgrade(port),
             manifest.clone(),
             directory.to_owned(),
             sender,
         ))?;
         // Closing one player must not wait for an application-level startup dialog.
-        while !port.closed.load(Ordering::Acquire) {
+        while port.is_open() {
             match receiver.recv_timeout(HOST_EVENT_POLL_INTERVAL) {
                 Ok(result) => return result,
                 Err(mpsc::RecvTimeoutError::Timeout) => {}
@@ -161,11 +189,15 @@ impl GlobalHandle {
 
     pub(super) fn deliver(
         &self,
+        port: &Arc<PlayerPort>,
         identifier: String,
-        name: String,
-        data: serde_json::Value,
+        message: Message,
     ) -> Result<(), String> {
-        self.send(Request::FromPlayer(identifier, name, data))
+        self.send(Request::FromPlayer(
+            Arc::downgrade(port),
+            identifier,
+            message,
+        ))
     }
 }
 
@@ -173,6 +205,21 @@ struct Entry {
     session: PluginRuntimeSession,
     name: String,
     menu: Option<Vec<PluginMenuItem>>,
+    managed: BTreeMap<u64, PendingPlayer>,
+}
+
+struct PendingPlayer {
+    ticket: Arc<Ticket>,
+    messages: Vec<Message>,
+    pending_bytes: usize,
+}
+
+impl Drop for Entry {
+    fn drop(&mut self) {
+        for player in self.managed.values() {
+            player.ticket.close();
+        }
+    }
 }
 
 struct Coordinator {
@@ -183,10 +230,11 @@ struct Coordinator {
     entries: BTreeMap<String, Entry>,
     suspended: BTreeSet<String>,
     players: Vec<Weak<PlayerPort>>,
+    launches: Arc<Mutex<Vec<Arc<Ticket>>>>,
 }
 
 impl Coordinator {
-    fn new(profile: &Path, ui: PluginUi) -> Self {
+    fn new(profile: &Path, ui: PluginUi, launches: Arc<Mutex<Vec<Arc<Ticket>>>>) -> Self {
         let directory = profile.with_file_name("Plugins");
         crate::plugin_packages::sweep_staging(&directory);
         Self {
@@ -197,6 +245,7 @@ impl Coordinator {
             entries: BTreeMap::new(),
             suspended: BTreeSet::new(),
             players: Vec::new(),
+            launches,
         }
     }
 
@@ -223,16 +272,24 @@ impl Coordinator {
         match request {
             Request::Join(player) => {
                 if let Some(port) = player.upgrade() {
-                    for (identifier, entry) in &self.entries {
-                        if let Some(items) = &entry.menu {
+                    for (identifier, entry) in &mut self.entries {
+                        if let Some(items) = &entry.menu
+                            && port.allows(identifier)
+                        {
                             port.menu(menu_update(identifier, &entry.name, items.clone()));
                         }
+                        entry.attach(identifier, &port);
                     }
                     self.players.push(player);
                 }
             }
-            Request::Ensure(manifest, root, response) => {
-                let _ = response.try_send(self.ensure(&manifest, &root));
+            Request::Ensure(player, manifest, root, response) => {
+                let result = if player.upgrade().is_some_and(|port| port.is_open()) {
+                    self.ensure(&manifest, &root)
+                } else {
+                    Err("Plugin startup was cancelled".into())
+                };
+                let _ = response.try_send(result);
             }
             Request::Change(change, response) => self.change(change, response),
             Request::ActivateMenu(identifier, id) => {
@@ -242,9 +299,15 @@ impl Coordinator {
                     self.report(error);
                 }
             }
-            Request::FromPlayer(identifier, name, data) => {
-                if let Some(entry) = self.entries.get(&identifier)
-                    && let Err(error) = entry.session.deliver_plugin_message(name, data)
+            Request::FromPlayer(player, identifier, message) => {
+                if let Some(player) = player.upgrade()
+                    && player.is_open()
+                    && let Some(entry) = self.entries.get(&identifier)
+                    && let Err(error) = entry.session.deliver_plugin_message(
+                        message.name,
+                        message.data,
+                        Some(player.label.clone()),
+                    )
                 {
                     self.report(error);
                 }
@@ -280,6 +343,7 @@ impl Coordinator {
                 session,
                 name: manifest.name.clone(),
                 menu: None,
+                managed: BTreeMap::new(),
             },
         );
         Ok(())
@@ -353,10 +417,7 @@ impl Coordinator {
     fn live_players(&mut self) -> Vec<Arc<PlayerPort>> {
         let mut live = Vec::new();
         self.players.retain(|player| {
-            let Some(player) = player
-                .upgrade()
-                .filter(|port| !port.closed.load(Ordering::Acquire))
-            else {
+            let Some(player) = player.upgrade().filter(|port| port.is_open()) else {
                 return false;
             };
             live.push(player);
@@ -373,6 +434,7 @@ impl Coordinator {
 
     fn pump(&mut self, players: &[Arc<PlayerPort>]) {
         for (identifier, entry) in &mut self.entries {
+            entry.managed.retain(|_, player| player.ticket.is_open());
             let events = match entry.session.drain_events() {
                 Ok(events) => events,
                 Err(error) => {
@@ -384,23 +446,19 @@ impl Coordinator {
             };
             for event in events {
                 match event {
-                    HostEvent::PluginMessage(name, data) => {
-                        for port in players {
-                            let result = port.commands.try_send(PluginCommand::FromGlobal(
-                                identifier.clone(),
-                                name.clone(),
-                                data.clone(),
-                            ));
-                            if matches!(result, Err(mpsc::TrySendError::Full(_))) {
-                                port.publish(PluginHostMessage::Status(
-                                    "A player missed a plugin message because its queue is full"
-                                        .into(),
-                                ));
-                            }
+                    HostEvent::PluginMessage(message) => {
+                        entry.route(identifier, message, players);
+                    }
+                    HostEvent::CreatePluginPlayer(id, options) => {
+                        if let Err(error) =
+                            entry.create_player(identifier, id, options, &self.launches)
+                            && let Some(port) = players.last()
+                        {
+                            port.publish(PluginHostMessage::Status(error));
                         }
                     }
                     HostEvent::MenuUpdate(items) => {
-                        for port in players {
+                        for port in players.iter().filter(|port| port.allows(identifier)) {
                             port.menu(menu_update(identifier, &entry.name, items.clone()));
                         }
                         entry.menu = Some(items);
@@ -424,7 +482,124 @@ impl Coordinator {
     }
 }
 
+impl Entry {
+    fn create_player(
+        &mut self,
+        package: &str,
+        instance: u64,
+        options: Options,
+        launches: &Mutex<Vec<Arc<Ticket>>>,
+    ) -> Result<(), String> {
+        let mut launches = lock(launches);
+        launches.retain(|ticket| ticket.is_open());
+        if self.managed.len() >= MAX_PLAYERS_PER_PLUGIN || launches.len() >= MAX_PENDING_PLAYERS {
+            return Err(format!("{} reached the plugin player limit", self.name));
+        }
+        let ticket = Ticket::new(package.into(), instance, options);
+        self.managed.insert(
+            instance,
+            PendingPlayer {
+                ticket: ticket.clone(),
+                messages: Vec::new(),
+                pending_bytes: 0,
+            },
+        );
+        launches.push(ticket);
+        Ok(())
+    }
+
+    fn attach(&mut self, package: &str, port: &PlayerPort) {
+        let Some(ticket) = &port.managed else { return };
+        if ticket.package == package
+            && let Some(slot) = self.managed.get_mut(&ticket.instance)
+            && Arc::ptr_eq(&slot.ticket, ticket)
+        {
+            for message in slot.messages.drain(..) {
+                port.deliver(package, &message);
+            }
+            slot.pending_bytes = 0;
+        }
+    }
+
+    fn route(&mut self, package: &str, mut message: Message, ports: &[Arc<PlayerPort>]) {
+        match message.target.take() {
+            Some(Target::PlayerLabel(label)) => {
+                if let Some(port) = ports
+                    .iter()
+                    .find(|port| port.managed.is_none() && port.label == label)
+                {
+                    port.deliver(package, &message);
+                }
+            }
+            Some(Target::Instance(instance)) => {
+                if let Some(player) = self.managed.get_mut(&instance) {
+                    player.deliver(package, &message, ports);
+                }
+            }
+            Some(Target::Broadcast) => {
+                for player in self.managed.values_mut() {
+                    player.deliver(package, &message, ports);
+                }
+            }
+            None => {}
+        }
+    }
+}
+
+impl PendingPlayer {
+    fn deliver(&mut self, package: &str, message: &Message, ports: &[Arc<PlayerPort>]) {
+        if !self.ticket.is_open() {
+            return;
+        }
+        if let Some(port) = ports.iter().find(|port| {
+            port.managed
+                .as_ref()
+                .is_some_and(|ticket| Arc::ptr_eq(ticket, &self.ticket))
+        }) {
+            port.deliver(package, message);
+        } else {
+            // Keep messages sent immediately after createPlayerInstance until the
+            // player registers. Its host delivers them after running the entry.
+            let bytes = message.name.len() + message.data.to_string().len();
+            if self.messages.len() < 16
+                && self.pending_bytes.saturating_add(bytes) <= 2 * 1024 * 1024
+            {
+                self.pending_bytes += bytes;
+                self.messages.push(message.clone());
+            } else if let Some(port) = ports.last() {
+                port.publish(PluginHostMessage::Status(
+                    "A starting plugin player's message queue is full".into(),
+                ));
+            }
+        }
+    }
+}
+
 impl PlayerPort {
+    fn is_open(&self) -> bool {
+        !self.closed.load(Ordering::Acquire)
+            && self.managed.as_ref().is_none_or(|ticket| ticket.is_open())
+    }
+
+    pub(super) fn allows(&self, package: &str) -> bool {
+        self.managed
+            .as_ref()
+            .is_none_or(|ticket| ticket.allows(package))
+    }
+
+    fn deliver(&self, package: &str, message: &Message) {
+        let command =
+            PluginCommand::FromGlobal(package.into(), message.name.clone(), message.data.clone());
+        if matches!(
+            self.commands.try_send(command),
+            Err(mpsc::TrySendError::Full(_))
+        ) {
+            self.publish(PluginHostMessage::Status(
+                "A player missed a plugin message because its queue is full".into(),
+            ));
+        }
+    }
+
     fn menu(&self, message: PluginHostMessage) {
         if matches!(
             self.commands.try_send(PluginCommand::GlobalMenu(message)),

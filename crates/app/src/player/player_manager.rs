@@ -3,6 +3,7 @@
 use crate::{
     PlayerWindow, WelcomeWindow,
     player_ui::{ApplicationPlugins, InitialMedia, UiSession},
+    preference_load::LoadedPreferences,
 };
 use riina_ui::PlayerMenuActions;
 use slint::{CloseRequestResponse, ComponentHandle, Model, winit_030::WinitWindowAccessor};
@@ -62,7 +63,30 @@ pub(crate) struct PlayerManager {
 
 impl PlayerManager {
     pub(crate) fn new() -> Self {
-        Self::default()
+        let manager = Self::default();
+        let state = Rc::downgrade(&manager.state);
+        manager
+            .plugins()
+            .bind_player_launcher(move |owner, ticket| {
+                let application = state.upgrade().ok_or("The application has closed")?;
+                let preferences =
+                    crate::platform::preferences_path().map_err(|error| error.to_string())?;
+                let loaded = crate::preference_load::load(&preferences)
+                    .map_err(|error| error.to_string())?;
+                let id = open_new_player(
+                    &application,
+                    owner,
+                    InitialMedia::for_plugin(ticket),
+                    loaded,
+                )?;
+                let state = state.clone();
+                Ok(Box::new(move || {
+                    if let Some(state) = state.upgrade() {
+                        close_player(&state, id, false);
+                    }
+                }))
+            });
+        manager
     }
 
     pub(crate) fn plugins(&self) -> Rc<ApplicationPlugins> {
@@ -226,6 +250,30 @@ fn open_player(
         }
         return Err("The selected media is already open.".into());
     }
+    open_new_player(
+        state,
+        owner,
+        InitialMedia {
+            files: selected,
+            resume_position,
+            managed: None,
+        },
+        loaded,
+    )?;
+    Ok(())
+}
+
+fn open_new_player(
+    state: &Rc<RefCell<ManagerState>>,
+    owner: &PlayerWindow,
+    media: InitialMedia,
+    loaded: LoadedPreferences,
+) -> Result<u64, String> {
+    let hidden = media.managed.is_some() && media.files.is_empty();
+    let disable_animation = media
+        .managed
+        .as_ref()
+        .is_some_and(|ticket| ticket.options.disable_window_animation);
     let app = PlayerWindow::new().map_err(|error| error.to_string())?;
     app.set_native_video(false);
     let media_geometry = crate::window_aspect::MediaGeometry::default();
@@ -233,10 +281,7 @@ fn open_player(
     let session = crate::player_ui::configure_player(
         &app,
         None,
-        InitialMedia {
-            files: selected,
-            resume_position,
-        },
+        media,
         None,
         loaded,
         media_geometry,
@@ -247,12 +292,24 @@ fn open_player(
         state: state.clone(),
     };
     let id = manager.attach(&app, None, session);
-    if let Err(error) = crate::platform::show_window(&app) {
+    if !hidden && let Err(error) = show_opened_player(&app, owner, disable_animation) {
         close_player(state, id, false);
-        return Err(error.to_string());
+        return Err(error);
+    }
+    Ok(id)
+}
+
+fn show_opened_player(
+    app: &PlayerWindow,
+    owner: &PlayerWindow,
+    disable_animation: bool,
+) -> Result<(), String> {
+    crate::platform::show_window(app).map_err(|error| error.to_string())?;
+    if disable_animation {
+        crate::platform::window_sizing::disable_plugin_window_animation(app.window());
     }
     crate::platform::center_player_window_for_owner(
-        &app,
+        app,
         owner,
         app.global::<riina_ui::PlayerPreferences>()
             .get_initial_window_position_enabled(),

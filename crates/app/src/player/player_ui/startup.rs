@@ -246,6 +246,33 @@ pub(super) fn install_toolbar_order(app: &PlayerWindow) {
 pub(crate) struct InitialMedia {
     pub(crate) files: Vec<std::ffi::OsString>,
     pub(crate) resume_position: Option<f64>,
+    pub(crate) managed: Option<Arc<crate::plugins::plugin_players::Ticket>>,
+}
+
+impl InitialMedia {
+    pub(super) fn plugin_startup<'a>(
+        &'a self,
+        application: &'a plugins::ApplicationPlugins,
+    ) -> PluginStartup<'a> {
+        PluginStartup {
+            application,
+            managed: self.managed.as_ref(),
+        }
+    }
+
+    pub(crate) fn for_plugin(ticket: Arc<crate::plugins::plugin_players::Ticket>) -> Self {
+        let files = ticket
+            .options
+            .source
+            .iter()
+            .map(std::ffi::OsString::from)
+            .collect();
+        Self {
+            files,
+            resume_position: None,
+            managed: Some(ticket),
+        }
+    }
 }
 
 pub(super) struct InitialOpen {
@@ -258,6 +285,7 @@ impl InitialOpen {
         let InitialMedia {
             files,
             resume_position,
+            ..
         } = self.media;
         if files.is_empty() {
             return;
@@ -346,6 +374,11 @@ pub(super) struct PreparedSession {
     pub(super) picture_in_picture: platform::PictureInPictureSession,
 }
 
+pub(super) struct PluginStartup<'a> {
+    pub(super) application: &'a plugins::ApplicationPlugins,
+    pub(super) managed: Option<&'a Arc<crate::plugins::plugin_players::Ticket>>,
+}
+
 pub(super) fn prepare(
     app: &PlayerWindow,
     native: Option<&platform::NativePresentation>,
@@ -353,7 +386,7 @@ pub(super) fn prepare(
     engine_start: &EngineStart,
     loaded: LoadedPreferences,
     media_geometry: MediaGeometry,
-    application_plugins: &plugins::ApplicationPlugins,
+    plugin_startup: PluginStartup<'_>,
 ) -> Result<PreparedStartup, Box<dyn std::error::Error>> {
     let picture_in_picture = platform::PictureInPictureSession::new(app);
     let prefs_path = engine_start.preferences_path()?;
@@ -366,14 +399,22 @@ pub(super) fn prepare(
         saved_audio_filters,
         history,
     } = prepare_settings(app, &prefs_path, loaded, use_system_services);
-    let plugin_host = match application_plugins.host(&prefs_path).and_then(|global| {
-        PluginHost::prepare_for_application(
-            &prefs_path,
-            &prefs.recent_media,
-            history.entries(),
-            global,
-        )
-    }) {
+    if let Some(ticket) = plugin_startup.managed {
+        app.global::<riina_ui::PlayerControlsState>()
+            .set_plugin_ui_disabled(ticket.options.disable_ui);
+    }
+    let plugin_host = match plugin_startup
+        .application
+        .host(&prefs_path)
+        .and_then(|global| {
+            PluginHost::prepare_for_application(
+                &prefs_path,
+                &prefs.recent_media,
+                history.entries(),
+                global,
+                plugin_startup.managed.cloned(),
+            )
+        }) {
         Ok(host) => Some(host),
         Err(error) => {
             app.set_status(error.into());
@@ -381,7 +422,12 @@ pub(super) fn prepare(
         }
     };
     let plugin_host_handle = plugin_host.as_ref().map(PluginHost::handle);
-    let plugin_ui = plugins::install(app, native, plugin_host_handle.clone(), application_plugins);
+    let plugin_ui = plugins::install(
+        app,
+        native,
+        plugin_host_handle.clone(),
+        plugin_startup.application,
+    );
     live_text::initialize(app, prefs.live_text_enabled, use_system_services);
     hdr_output::initialize_display(app, &prefs, native);
     let recent = SessionRecents::new(&prefs);
@@ -407,6 +453,13 @@ pub(super) fn prepare(
             saved_audio_filters: saved_audio_filters.clone(),
             audio_device_sender: plugin_ui.plugin_command_sender.clone(),
             picture_in_picture_state_dirty: picture_in_picture.notification_flag(),
+            managed_visibility: plugin_startup
+                .managed
+                .filter(|ticket| ticket.is_waiting_for_media())
+                .map(|ticket| observation_dispatch::ManagedVisibility {
+                    ticket: ticket.clone(),
+                    native: native.map(platform::NativePresentation::host),
+                }),
         },
     );
     Ok(PreparedStartup {

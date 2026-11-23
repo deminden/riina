@@ -1649,6 +1649,33 @@ not select that item, so native selection still needs interactive verification.
 The test player exited normally. The Windows executable SHA-256 was
 `0cb70e2b89e00fdfefe22507423ffab5044e022dae1b5e818acc05cc82bf8ff4`.
 
+### Plugin-managed players 2026-11-23
+
+The grouped host regression covers denied media access, numeric IDs, messages
+queued during creation, ordinary player labels, managed broadcasts, child
+labels, selective plugin loading and controller retirement. It exercises
+reload and update suspension on the same host fixture.
+The headless player callback group also checks that an idle managed window
+appears during the first load and stays hidden after a later explicit hide.
+
+On a private Windows desktop, the controller opened a paused video and created
+an idle player in the same process. Both children received numeric messages
+queued during startup. The ordinary player received a string-addressed reply.
+The idle child opened through its own core API, and both children received a
+broadcast. Closing one child preserved the other. Reload retired the surviving
+child and left the ordinary player open. Closing that player exited the exact
+process with no replacement. The same executable passed ten private-desktop
+playback, menu and fullscreen checks in 9.225 s. Its SHA-256 was
+`b58586716de1802933ae5aa40a4179969f648fb9f93b68c362e3be247680c9d2`.
+
+An isolated Linux X11 run verified all three message routes, paused playback
+in both children, and independent close behavior. The locked Linux application
+build, strict Clippy, 512 app tests and 53 interaction tests passed. Windows
+passed the locked workspace build, strict Clippy, 919 Rust tests and 78 Python
+tests. The pinned null-output engine passed all 58 native tests in 11.20 s.
+Strict Apple Silicon cross-target Clippy passed. Native macOS and managed-player
+Wayland interaction remain unverified.
+
 The locked Windows workspace build, strict Clippy, 883 Rust tests and 78 Python
 tests passed. Linux x64 passed the locked application build, strict workspace
 Clippy and 844 Rust tests. Strict Apple Silicon workspace Clippy passed from

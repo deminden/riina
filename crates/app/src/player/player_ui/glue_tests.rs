@@ -30,6 +30,14 @@ impl Harness {
         path: PathBuf,
         capture_before_navigation: bool,
     ) -> Result<Self, Box<dyn std::error::Error>> {
+        Self::start_with_media(path, capture_before_navigation, InitialMedia::default())
+    }
+
+    fn start_with_media(
+        path: PathBuf,
+        capture_before_navigation: bool,
+        media: InitialMedia,
+    ) -> Result<Self, Box<dyn std::error::Error>> {
         let loaded = crate::preference_load::load(&path)?;
         let app = PlayerWindow::new()?;
         app.set_native_video(capture_before_navigation);
@@ -39,7 +47,7 @@ impl Harness {
         let session = configure_with_engine(
             &app,
             None,
-            startup::InitialMedia::default(),
+            media,
             None,
             loaded,
             SessionStartup {
@@ -115,6 +123,52 @@ fn exercise_teardown(profile: &std::path::Path) -> Result<(), Box<dyn std::error
     Ok(())
 }
 
+fn exercise_idle_managed_player(
+    profile: &std::path::Path,
+) -> Result<(), Box<dyn std::error::Error>> {
+    use crate::plugins::plugin_players::{Options, Ticket};
+    use riina_core::Phase;
+
+    let ticket = Ticket::new(
+        "org.example.visibility".into(),
+        1,
+        Options {
+            source: None,
+            label: None,
+            enable_plugins: false,
+            disable_ui: true,
+            disable_window_animation: false,
+        },
+    );
+    let harness = Harness::start_with_media(
+        profile.join("managed/preferences.json"),
+        false,
+        InitialMedia::for_plugin(ticket),
+    )?;
+    harness.publish(Playback::default())?;
+    assert!(!harness.app.window().is_visible());
+    assert!(
+        harness
+            .app
+            .global::<riina_ui::PlayerControlsState>()
+            .get_plugin_ui_disabled()
+    );
+    harness.publish(Playback {
+        generation: 1,
+        phase: Phase::Loading,
+        ..Playback::default()
+    })?;
+    assert!(harness.app.window().is_visible());
+    harness.app.hide()?;
+    harness.publish(Playback {
+        generation: 2,
+        phase: Phase::Paused,
+        ..Playback::default()
+    })?;
+    assert!(!harness.app.window().is_visible());
+    Ok(())
+}
+
 #[test]
 fn player_callbacks_and_playback_projection_work_headlessly() -> io::Result<()> {
     // Slint registers a process-wide proxy for a backend with an event loop.
@@ -158,6 +212,7 @@ fn player_glue_worker() -> Result<(), Box<dyn std::error::Error>> {
     );
     exercise_startup(&profile)?;
     exercise_teardown(&profile)?;
+    exercise_idle_managed_player(&profile)?;
     let harness = Harness::start(profile.join("shared/preferences.json"), false)?;
     exercise_transport_and_tracks(&harness);
     exercise_transport_settings(&harness);

@@ -8,6 +8,7 @@ use crate::{
     plugin_files::PluginPlayerFileContext,
     plugin_runtime::{HostEvent, PluginRuntimeSession, PluginUi, UiEffect},
     plugin_snapshot::{playback_history_values, recent_document_values, version_snapshot},
+    plugins::plugin_players::Ticket,
 };
 pub(crate) use application::{GlobalHandle, GlobalHost};
 use application::{PackageChange, PlayerPort};
@@ -292,6 +293,7 @@ impl PluginHost {
             recent_media,
             playback_history,
             global.handle(),
+            None,
         )?;
         player.isolated_global = Some(global);
         Ok(player)
@@ -302,6 +304,7 @@ impl PluginHost {
         recent_media: &[riina_core::RecentMedia],
         playback_history: &[riina_core::playback_history::Entry],
         global: GlobalHandle,
+        managed: Option<Arc<Ticket>>,
     ) -> Result<Self, String> {
         let plugins_directory = preferences_path.with_file_name("Plugins");
         let permissions_path = preferences_path.with_file_name("plugin-permissions.json");
@@ -310,15 +313,26 @@ impl PluginHost {
         let (player_start, player_ready) = mpsc::sync_channel(1);
         let messages = Arc::new(Mutex::new(Vec::new()));
         let ui_activity = Arc::new(UiActivity::new());
+        let label = managed.as_ref().map_or_else(
+            || global.next_player_label(),
+            |ticket| ticket.internal_label(),
+        );
+        let ui = PluginUi {
+            player_label: managed
+                .as_ref()
+                .and_then(|ticket| ticket.options.label.clone()),
+            ..PluginUi::default()
+        };
         let port = Arc::new(PlayerPort {
             commands: commands.clone(),
             messages: messages.clone(),
             activity: ui_activity.clone(),
             closed: Default::default(),
+            managed,
+            label,
         });
         let worker_port = port.clone();
         let worker_global = global.clone();
-        let ui = PluginUi::default();
         let worker_ui = ui.clone();
         let initial_player_context = PluginPlayerFileContext::default()
             .with_core_version(version_snapshot(None))
@@ -336,8 +350,8 @@ impl PluginHost {
                     enabled_path,
                     player_mpv,
                     global: worker_global,
+                    port: worker_port,
                 },
-                worker_port,
                 initial_player_context,
                 receiver,
             );
@@ -383,6 +397,9 @@ impl Drop for PluginHost {
         // Bootstrap can be waiting on a UI dialog before reading the command queue.
         self.handle.ui.dialogs.stop();
         self.port.closed.store(true, Ordering::Release);
+        if let Some(ticket) = &self.port.managed {
+            ticket.close();
+        }
         // An engine startup failure closes the gate before joining the host.
         drop(self.player_start.take());
         // A disconnected receiver means the host has already stopped.
@@ -449,10 +466,10 @@ impl PluginInstanceKey {
 
 fn run_host(
     paths: PluginHostPaths,
-    port: Arc<PlayerPort>,
     initial_player_context: PluginPlayerFileContext,
     commands: mpsc::Receiver<PluginCommand>,
 ) {
+    let port = &paths.port;
     let messages = port.messages.clone();
     let mut sessions = BTreeMap::<PluginInstanceKey, PluginRuntimeSession>::new();
     let mut plugin_directories = BTreeMap::<String, PluginDirectory>::new();
@@ -460,6 +477,9 @@ fn run_host(
     let mut window_loaded = false;
     let mut deferred = Vec::new();
     for plugin in enabled_packages(&paths.plugins_directory, &paths.enabled_path) {
+        if !port.allows(&plugin.manifest.identifier) {
+            continue;
+        }
         loop {
             match commands.try_recv() {
                 Ok(PluginCommand::Shutdown) => return,
@@ -475,7 +495,7 @@ fn run_host(
         }
         let activated = paths
             .global
-            .ensure(&plugin.manifest, &plugin.directory, &port)
+            .ensure(&plugin.manifest, &plugin.directory, port)
             .and_then(|()| {
                 activate(
                     &plugin.manifest,
@@ -490,7 +510,7 @@ fn run_host(
         if let Err(error) = activated {
             record(&messages, PluginHostMessage::Status(error));
         }
-        pump_session_events(&paths.global, &messages, &sessions, &plugin_directories);
+        pump_session_events(&paths, &messages, &sessions, &plugin_directories);
     }
     for command in deferred {
         if handle_command(
@@ -536,7 +556,7 @@ fn run_host(
             Err(mpsc::RecvTimeoutError::Timeout) => {}
             Err(mpsc::RecvTimeoutError::Disconnected) => break,
         }
-        pump_session_events(&paths.global, &messages, &sessions, &plugin_directories);
+        pump_session_events(&paths, &messages, &sessions, &plugin_directories);
     }
 }
 
@@ -547,6 +567,7 @@ struct PluginHostPaths {
     enabled_path: PathBuf,
     player_mpv: Option<riina_mpv::CommandSender>,
     global: GlobalHandle,
+    port: Arc<PlayerPort>,
 }
 
 struct PluginDirectory {
@@ -612,7 +633,7 @@ fn handle_command(
         }
         PluginCommand::FromGlobal(identifier, name, data) => {
             if let Some(session) = sessions.get(&PluginInstanceKey::player(&identifier))
-                && let Err(error) = session.deliver_plugin_message(name, data)
+                && let Err(error) = session.deliver_plugin_message(name, data, None)
             {
                 record(messages, PluginHostMessage::Status(error));
             }
@@ -911,7 +932,7 @@ fn command_error(error: mpsc::TrySendError<PluginCommand>) -> String {
 }
 
 fn pump_session_events(
-    global: &GlobalHandle,
+    paths: &PluginHostPaths,
     messages: &Arc<Mutex<Vec<PluginHostMessage>>>,
     sessions: &BTreeMap<PluginInstanceKey, PluginRuntimeSession>,
     plugin_directories: &BTreeMap<String, PluginDirectory>,
@@ -929,11 +950,16 @@ fn pump_session_events(
         };
         for event in events {
             match event {
-                HostEvent::PluginMessage(name, data) => {
-                    if let Err(error) = global.deliver(key.identifier.clone(), name, data) {
+                HostEvent::PluginMessage(message) => {
+                    if let Err(error) =
+                        paths
+                            .global
+                            .deliver(&paths.port, key.identifier.clone(), message)
+                    {
                         record(messages, PluginHostMessage::Status(error));
                     }
                 }
+                HostEvent::CreatePluginPlayer(_, _) => {}
                 HostEvent::Overlay(effect) => {
                     if let Some(plugin_directory) = plugin_directories.get(&key.identifier) {
                         record(
@@ -1053,7 +1079,7 @@ fn activate(
     player_context: &PluginPlayerFileContext,
 ) -> Result<(), String> {
     let player_key = PluginInstanceKey::player(&manifest.identifier);
-    if sessions.contains_key(&player_key) {
+    if !paths.port.allows(&manifest.identifier) || sessions.contains_key(&player_key) {
         return Ok(());
     }
     if !crate::plugin_preferences::current_runtime_supports(manifest) {

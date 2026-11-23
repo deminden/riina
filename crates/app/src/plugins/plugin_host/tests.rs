@@ -530,7 +530,7 @@ fn verify_playlist_menu_actions(handle: &PluginHostHandle) {
 }
 
 #[test]
-fn global_entry_outlives_each_player_and_reloads_once_for_all_players() {
+fn global_entry_owns_managed_players_and_routes_each_kind_of_message() {
     let scratch = TempDir::new("application-plugin").unwrap();
     let root = scratch.path();
     let profile = root.join("preferences.json");
@@ -544,85 +544,106 @@ fn global_entry_outlives_each_player_and_reloads_once_for_all_players() {
     .unwrap();
     fs::write(
         package.join("global.js"),
-        r"let count = 0;
-        iina.global.onMessage('tick', () => iina.global.postMessage(null, 'count', ++count));
-        iina.menu.addItem(iina.menu.item('Increment', () => iina.global.postMessage(null, 'count', ++count)));",
+        r"if (iina.global.createPlayerInstance({url: 'https://example.invalid/video'}) !== false)
+            throw new Error('An ungranted URL was accepted');
+        const left = iina.global.createPlayerInstance({label: 'Left', disableUI: true,
+            disableWindowAnimation: true});
+        const right = iina.global.createPlayerInstance({label: 'Right', enablePlugins: true});
+        if (left !== 1 || right !== 2) throw new Error('Wrong instance IDs');
+        iina.global.postMessage(left, 'count', 10);
+        iina.global.postMessage(right, 'count', 20);
+        iina.global.onMessage('receipt', (_, sender) => iina.global.postMessage('0', 'sender', sender));
+        let count = 0;
+        iina.global.onMessage('tick', (_, sender) => iina.global.postMessage(sender, 'count', ++count));
+        iina.menu.addItem(iina.menu.item('Broadcast', () => iina.global.postMessage(null, 'count', 50)));",
     )
     .unwrap();
     fs::write(
         package.join("main.js"),
-        r"iina.global.onMessage('count', count => iina.log('count ' + count));
+        r"const label = iina.global.getLabel();
+        iina.global.onMessage('count', count => {
+            iina.log(label + ': count ' + count);
+            if (count === 10 || count === 20) iina.global.postMessage('receipt', count);
+        });
+        iina.global.onMessage('sender', sender => iina.log('sender ' + sender));
         iina.event.on('iina.menu-update', () => iina.global.postMessage('tick', null));",
     )
     .unwrap();
     fs::write(
         root.join("plugin-enabled.json"),
-        r#"["org.example.shared"]"#,
+        r#"["org.example.extra","org.example.shared"]"#,
     )
     .unwrap();
 
+    let extra = root.join("Plugins/org.example.extra.iinaplugin");
+    fs::create_dir_all(&extra).unwrap();
+    fs::write(extra.join("Info.json"),
+        r#"{"name":"Extra","identifier":"org.example.extra","version":"1.0.0","author":{"name":"Test"},"entry":"main.js","permissions":[]}"#).unwrap();
+    fs::write(extra.join("main.js"), "").unwrap();
+
     let global = GlobalHost::start(&profile).unwrap();
-    let open = || {
+    let open = |managed| {
         let mut host =
-            PluginHost::prepare_for_application(&profile, &[], &[], global.handle()).unwrap();
+            PluginHost::prepare_for_application(&profile, &[], &[], global.handle(), managed)
+                .unwrap();
         let handle = host.handle();
         host.start_player(None);
         (host, handle)
     };
-    let (first, first_handle) = open();
-    let first_item = wait_for_global_item(&first_handle, "Increment");
-    let (second, second_handle) = open();
-    let second_item = wait_for_global_item(&second_handle, "Increment");
+    let (first, first_handle) = open(None);
+    let first_item = wait_for_global_item(&first_handle, "Broadcast");
+    let tickets = global.handle().take_player_launches();
+    let [left, right] = tickets.as_slice() else {
+        panic!("Expected two managed players");
+    };
+    assert!(left.options.disable_ui && left.options.disable_window_animation);
+    assert!(left.options.source.is_none());
+    let (left_player, left_handle) = open(Some(left.clone()));
+    wait_for_log(&left_handle, "Left: count 10");
+    wait_for_log(&first_handle, "sender 1-org.example.shared");
+    let (right_player, right_handle) = open(Some(right.clone()));
+    wait_for_log(&right_handle, "Right: count 20");
+    wait_for_log(&first_handle, "sender 2-org.example.shared");
+    assert_eq!(left_handle.ui.developer.list(0).unwrap().1.len(), 1);
+    assert_eq!(right_handle.ui.developer.list(0).unwrap().1.len(), 2);
+
+    let (second, second_handle) = open(None);
+    let second_item = wait_for_global_item(&second_handle, "Broadcast");
     assert_eq!(first_item, second_item);
     assert_eq!(global.handle().ui.developer.list(0).unwrap().1.len(), 1);
-    assert_eq!(first_handle.ui.developer.list(0).unwrap().1.len(), 1);
-    assert_eq!(second_handle.ui.developer.list(0).unwrap().1.len(), 1);
-
     first_handle.notify_menu_update().unwrap();
-    wait_for_count(&first_handle, 1);
-    wait_for_count(&second_handle, 1);
+    wait_for_log(&first_handle, "null: count 1");
     second_handle
         .activate_plugin_menu_item(identifier.into(), true, second_item)
         .unwrap();
-    wait_for_count(&first_handle, 2);
-    wait_for_count(&second_handle, 2);
+    wait_for_log(&left_handle, "Left: count 50");
+    wait_for_log(&right_handle, "Right: count 50");
 
     drop(first);
     second_handle.notify_menu_update().unwrap();
-    wait_for_count(&second_handle, 3);
-    let (third, third_handle) = open();
-    wait_for_global_item(&third_handle, "Increment");
+    assert_no_broadcast_to_ordinary(&second_handle);
+    drop(left_player);
+    assert!(!left.is_open());
+    assert!(right.is_open());
 
     fs::write(
         package.join("global.js"),
-        r"iina.menu.addItem(iina.menu.item('After reload',
-            () => iina.global.postMessage(null, 'count', 42)));",
+        r"iina.menu.addItem(iina.menu.item('After reload', () => {}));",
     )
     .unwrap();
     second_handle.reload_all().unwrap();
-    let second_item = wait_for_global_item(&second_handle, "After reload");
-    let third_item = wait_for_global_item(&third_handle, "After reload");
-    assert_eq!(second_item, third_item);
-    third_handle
-        .activate_plugin_menu_item(identifier.into(), true, third_item)
-        .unwrap();
-    wait_for_count(&second_handle, 42);
-    wait_for_count(&third_handle, 42);
+    wait_for_global_item(&second_handle, "After reload");
+    assert!(!right.is_open());
+    drop(right_player);
 
     second_handle.suspend_for_update(identifier.into()).unwrap();
-    for ui in [
-        global.handle().ui,
-        second_handle.ui.clone(),
-        third_handle.ui.clone(),
-    ] {
-        assert!(ui.developer.list(0).unwrap().1.is_empty());
-    }
+    assert!(global.handle().ui.developer.list(0).unwrap().1.is_empty());
+    assert_eq!(second_handle.ui.developer.list(0).unwrap().1.len(), 1);
     second_handle
         .activate_after_update(Manifest::load_from_directory(&package).unwrap(), package)
         .unwrap();
     wait_for_global_item(&second_handle, "After reload");
-    wait_for_global_item(&third_handle, "After reload");
-    drop((second, third));
+    drop(second);
 }
 
 fn wait_for_global_item(handle: &PluginHostHandle, title: &str) -> String {
@@ -639,10 +660,19 @@ fn wait_for_global_item(handle: &PluginHostHandle, title: &str) -> String {
     })
 }
 
-fn wait_for_count(handle: &PluginHostHandle, count: u32) {
-    let expected = format!(": count {count}");
+fn wait_for_log(handle: &PluginHostHandle, expected: &str) {
     wait_for_host_message(handle, |message| {
-        matches!(message, PluginHostMessage::Log(text) if text.ends_with(&expected)).then_some(())
+        matches!(message, PluginHostMessage::Log(text) if text.ends_with(expected)).then_some(())
+    });
+}
+
+fn assert_no_broadcast_to_ordinary(handle: &PluginHostHandle) {
+    wait_for_host_message(handle, |message| match message {
+        PluginHostMessage::Log(text) => {
+            assert!(!text.ends_with("null: count 50"));
+            text.ends_with("null: count 2").then_some(())
+        }
+        _ => None,
     });
 }
 

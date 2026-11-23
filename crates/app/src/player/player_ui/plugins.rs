@@ -126,6 +126,12 @@ pub(super) fn install(
         let global_weak = services
             .as_ref()
             .map(|services| Rc::downgrade(&services.standalone));
+        let launches = services.as_ref().map(|services| {
+            (
+                Rc::downgrade(&application_plugins.managed),
+                services.host.handle(),
+            )
+        });
         let developer_weak = developer_tools.as_ref().map(Rc::downgrade);
         let app_weak = app.as_weak();
         app.on_update_plugin_windows(move || {
@@ -147,6 +153,12 @@ pub(super) fn install(
                 && let Ok(mut presenter) = presenter.try_borrow_mut()
             {
                 presenter.update(&app);
+            }
+            if let Some((managed, global)) = &launches
+                && let Some(managed) = managed.upgrade()
+                && let Ok(mut managed) = managed.try_borrow_mut()
+            {
+                managed.update(&app, global);
             }
         });
         presenter

@@ -1,7 +1,7 @@
 //! Size and count limits for effects leaving a plugin realm.
 use super::{
     HostEvent, MAX_HOST_EVENTS, MAX_HOST_OUTPUT_BYTES, MAX_MESSAGE_CHARS, MAX_OVERLAY_INTENT_BYTES,
-    MAX_PLUGIN_MESSAGE_BYTES, UiEffect, console, validate_plugin_message,
+    MAX_PLUGIN_MESSAGE_BYTES, UiEffect, console,
 };
 use riina_core::{
     plugin::{OverlayEffect, OverlayIntent, OverlayState},
@@ -10,24 +10,19 @@ use riina_core::{
 };
 use std::sync::Mutex;
 
-pub(super) fn record_plugin_message(
+pub(super) fn record_global_event(
     events: &Mutex<Vec<HostEvent>>,
-    name: String,
-    data: serde_json::Value,
+    event: HostEvent,
 ) -> Result<(), String> {
-    validate_plugin_message(&name, &data)?;
     let mut events = riina_core::sync::lock(events);
     if events.len() >= MAX_HOST_EVENTS {
         return Err("Plugin event queue is full".into());
     }
-    let message_size = name
-        .len()
-        .saturating_add(serde_json::to_vec(&data).map_or(usize::MAX, |bytes| bytes.len()));
     let pending_size = events.iter().map(host_event_size).sum::<usize>();
-    if pending_size.saturating_add(message_size) > MAX_HOST_OUTPUT_BYTES {
+    if pending_size.saturating_add(host_event_size(&event)) > MAX_HOST_OUTPUT_BYTES {
         return Err("Plugin event output exceeded the 4 MiB queue limit".into());
     }
-    events.push(HostEvent::PluginMessage(name, data));
+    events.push(event);
     Ok(())
 }
 
@@ -184,9 +179,23 @@ fn host_event_size(event: &HostEvent) -> usize {
         HostEvent::MenuUpdate(items) => {
             serde_json::to_vec(items).map_or(usize::MAX, |bytes| bytes.len())
         }
-        HostEvent::PluginMessage(name, data) => name
-            .len()
-            .saturating_add(serde_json::to_vec(data).map_or(usize::MAX, |bytes| bytes.len())),
+        HostEvent::PluginMessage(message) => {
+            let target_bytes = match &message.target {
+                Some(crate::plugins::plugin_players::Target::PlayerLabel(label)) => label.len(),
+                _ => 0,
+            };
+            message
+                .name
+                .len()
+                .saturating_add(target_bytes)
+                .saturating_add(
+                    serde_json::to_vec(&message.data).map_or(usize::MAX, |bytes| bytes.len()),
+                )
+        }
+        HostEvent::CreatePluginPlayer(_, options) => {
+            options.source.as_ref().map_or(0, String::len)
+                + options.label.as_ref().map_or(0, String::len)
+        }
     }
 }
 

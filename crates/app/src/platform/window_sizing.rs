@@ -5,6 +5,44 @@ use slint::winit_030::WinitWindowAccessor;
 
 pub(crate) const USES_NATIVE_RESIZE_FILTER: bool = cfg!(target_os = "windows");
 
+pub(crate) fn disable_plugin_window_animation(window: &slint::Window) {
+    #[cfg(any(target_os = "windows", target_os = "macos"))]
+    window.with_winit_window(|window| {
+        use slint::winit_030::winit::raw_window_handle::{HasWindowHandle, RawWindowHandle};
+        let Ok(handle) = window.window_handle() else {
+            return;
+        };
+        #[cfg(target_os = "windows")]
+        if let RawWindowHandle::Win32(handle) = handle.as_raw() {
+            use windows::Win32::{
+                Foundation::HWND,
+                Graphics::Dwm::{DWMWA_TRANSITIONS_FORCEDISABLED, DwmSetWindowAttribute},
+            };
+            let disabled = 1_i32;
+            // SAFETY: the borrowed HWND is live and DWM reads a BOOL of this size.
+            let _ = unsafe {
+                DwmSetWindowAttribute(
+                    HWND(handle.hwnd.get() as *mut _),
+                    DWMWA_TRANSITIONS_FORCEDISABLED,
+                    (&raw const disabled).cast(),
+                    size_of::<i32>() as u32,
+                )
+            };
+        }
+        #[cfg(target_os = "macos")]
+        if let RawWindowHandle::AppKit(handle) = handle.as_raw() {
+            use objc2_app_kit::{NSView, NSWindowAnimationBehavior};
+            // SAFETY: Winit's borrowed handle points to the live NSView on the UI thread.
+            let view = unsafe { &*handle.ns_view.as_ptr().cast::<NSView>() };
+            if let Some(window) = view.window() {
+                window.setAnimationBehavior(NSWindowAnimationBehavior::None);
+            }
+        }
+    });
+    #[cfg(not(any(target_os = "windows", target_os = "macos")))]
+    let _ = window;
+}
+
 #[cfg(target_os = "windows")]
 pub(crate) fn media_resize_allowed(initial: bool, manually_opened: bool) -> bool {
     initial || manually_opened

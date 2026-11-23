@@ -37,9 +37,6 @@ fn install_transport(
     core_api.set(
         "open",
         Func::from(move |value: String| -> rquickjs::Result<()> {
-            if value.len() > 16 * 1024 || value.contains('\0') {
-                return Err(core_js_error("Media reference is invalid".into()));
-            }
             let path = plugin_media_reference(
                 &value,
                 &open_files,
@@ -414,6 +411,9 @@ pub(super) fn plugin_media_reference(
     network_granted: bool,
     allowed_domains: &[String],
 ) -> Result<String, String> {
+    if value.len() > 16 * 1024 || value.contains('\0') {
+        return Err("Media reference is invalid".into());
+    }
     if riina_core::media_reference::is_network_url_candidate(value) {
         riina_core::media_reference::validate_network_url(value)
             .map_err(|error| error.to_string())?;

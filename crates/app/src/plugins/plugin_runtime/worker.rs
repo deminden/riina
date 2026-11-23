@@ -133,12 +133,14 @@ fn initialize_realm(
     network: &NetworkWorkerContext,
     services: &RealmServices,
 ) -> rquickjs::Result<()> {
+    let messaging = messaging::Host::from_realm(&host, permissions, &network.allowed_domains);
     let PluginWorkerHost {
         developer,
         dialogs,
         input,
         standalone: _,
         global_api_mode,
+        player_label: _,
         module_context,
         file_system,
         player_mpv,
@@ -245,8 +247,8 @@ fn initialize_realm(
         .web_socket
         .install(&api, permissions.network_listener, network.commands.clone())?;
     modules::install(ctx.clone(), module_context.clone())?;
-    if let Some(mode) = global_api_mode {
-        messaging::install(ctx.clone(), api.clone(), mode, events.clone())?;
+    if let Some((mode, host)) = messaging {
+        messaging::install(ctx.clone(), api.clone(), mode, host)?;
     }
     timers::install(ctx.clone(), services.timers.clone())?;
     webviews::install(
@@ -385,8 +387,13 @@ fn run_callbacks(
                     "sidebar callback",
                 )
             }
-            Some(RuntimeCommand::DeliverPluginMessage(name, data)) => (
-                message_script("iina.global.__deliverMessage", &name, &data),
+            Some(RuntimeCommand::DeliverPluginMessage(name, data, sender)) => (
+                format!(
+                    "iina.global.__deliverMessage({}, {}, {})",
+                    serde_json::Value::String(name),
+                    serde_json::Value::String(data.to_string()),
+                    sender.map_or(serde_json::Value::Null, serde_json::Value::String)
+                ),
                 "message callback",
             ),
             Some(RuntimeCommand::DeliverPlayerEvent(name, data)) => (

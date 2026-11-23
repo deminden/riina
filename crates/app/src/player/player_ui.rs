@@ -260,7 +260,7 @@ fn configure_with_engine(
         &engine_start,
         loaded,
         media_geometry.clone(),
-        &application_plugins,
+        media.plugin_startup(&application_plugins),
     )?;
     let prefs = &session.prefs;
     let prefs_path = &session.prefs_path;

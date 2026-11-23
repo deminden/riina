@@ -33,16 +33,18 @@ pub fn run(
     loaded: LoadedPreferences,
 ) -> Result<(), Box<dyn std::error::Error>> {
     application::run(NativeLaunch {
-        media,
-        resume_position,
+        media: InitialMedia {
+            files: media,
+            resume_position,
+            managed: None,
+        },
         owner_center,
         loaded,
     })
 }
 
 struct NativeLaunch {
-    media: Vec<OsString>,
-    resume_position: Option<f64>,
+    media: InitialMedia,
     owner_center: Option<(i32, i32)>,
     loaded: LoadedPreferences,
 }
@@ -103,12 +105,17 @@ impl NativePlayer {
     ) -> Result<(), Box<dyn std::error::Error>> {
         let NativeLaunch {
             media,
-            resume_position,
             owner_center,
             loaded,
         } = launch;
         let action_after_launch = loaded.preferences.action_after_launch;
-        let supplied_media_argument = !media.is_empty();
+        let supplied_media_argument = !media.files.is_empty();
+        let managed = media.managed.is_some();
+        let managed_ticket = media.managed.clone();
+        let disable_animation = media
+            .managed
+            .as_ref()
+            .is_some_and(|ticket| ticket.options.disable_window_animation);
         let weak_host = self.host.as_weak();
         let startup_chrome = self.chrome.clone();
         let startup_welcome = self.welcome_window.clone();
@@ -132,6 +139,9 @@ impl NativePlayer {
             };
             let result = async {
                 let window = host.window().winit_window().await?;
+                if disable_animation {
+                    crate::platform::window_sizing::disable_plugin_window_animation(host.window());
+                }
                 // Winit's first placement is an implementation default, often near
                 // the upper-left corner. Correct it as soon as the native frame is
                 // realized so the user never sees the temporary location while the
@@ -163,11 +173,12 @@ impl NativePlayer {
                 placement.watch_initial_media(&host, &app, owner_center);
                 install_music_mode_window(&host, &app, &startup_menu_lifecycle);
                 restore_recreated_chrome(&host, &app)?;
-                let welcome = if action_after_launch.show_welcome(supplied_media_argument) {
-                    Some(crate::WelcomeWindow::new()?)
-                } else {
-                    None
-                };
+                let welcome =
+                    if !managed && action_after_launch.show_welcome(supplied_media_argument) {
+                        Some(crate::WelcomeWindow::new()?)
+                    } else {
+                        None
+                    };
                 if let Some(welcome) = &welcome {
                     keep_player_after_welcome_close(
                         welcome,
@@ -193,10 +204,7 @@ impl NativePlayer {
                 let configured = configure_player(
                     &app,
                     Some(presentation),
-                    InitialMedia {
-                        files: media,
-                        resume_position,
-                    },
+                    media,
                     welcome.as_ref(),
                     loaded,
                     media_geometry,
@@ -220,7 +228,7 @@ impl NativePlayer {
                 // playback loads. That leaves idle launches and cancelled open
                 // dialogs stranded at the OS-selected (often top-left) position.
                 placement.schedule(host.as_weak(), app.as_weak(), owner_center);
-                if action_after_launch.open_file_panel(supplied_media_argument) {
+                if !managed && action_after_launch.open_file_panel(supplied_media_argument) {
                     app.global::<PlayerMenuActions>().invoke_open_file();
                 }
                 // Its initial DPI and frameless client geometry are not settled until
@@ -232,6 +240,15 @@ impl NativePlayer {
                 align(host.window(), &app);
                 if let Some(welcome) = &welcome {
                     show_welcome(&host, &app, welcome)?;
+                }
+                if managed_ticket
+                    .as_ref()
+                    .is_some_and(|ticket| ticket.is_waiting_for_media())
+                {
+                    app.hide()?;
+                    // mpv retains the realized HWND while the managed player is idle.
+                    host.window()
+                        .with_winit_window(|window| window.set_visible(false));
                 }
                 *startup_welcome.borrow_mut() = welcome;
                 app.window().request_redraw();

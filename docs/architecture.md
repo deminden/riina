@@ -190,15 +190,32 @@ the realm closes, including during plugin reload. Connections, message sizes
 and send queues are bounded. A busy realm pauses socket reads until delivery
 can resume.
 
-### Plugin application menus
+### Plugin runtimes and player ownership
 
 The application owns one global plugin host. Each enabled package can register
 one global realm, which survives closing or opening a player. Player entries
 run in their own playback sessions. The application host distributes package
 changes to those sessions and waits for their acknowledgements before an
-installer can replace an active package. A player's messages go only to its
-package's global realm. Riina's current broadcast reaches that package's
-active player entries. Closing the application retires the global entries.
+installer can replace an active package. Closing the application retires the
+global entries.
+
+A controller can reserve a player ID and ask the application to open an
+independent playback session. The request uses the same reviewed file and
+network access rules as the player's open API. The player starts its owner's
+entry by default. A controller can opt into the full enabled plugin set.
+The controller owns the player until either the window closes or the
+controller retires. Reusing a numeric ID after reload creates a new ownership
+token and cannot address the retired session.
+
+Messages from a player carry its internal label to the package's controller.
+A controller's numeric target selects one of its players and a null target
+selects all of them. A string target resolves an ordinary player's internal
+label. The user label supplied at creation is returned by the child API.
+Messages sent before a new player registers stay in a bounded queue until
+its entry can receive them. The application currently allows 16 live players
+per controller and 32 pending launches across controllers.
+
+### Plugin application menus
 
 The player keeps global and player contributions grouped by their package.
 Menu rows carry their depth and role up to the compiled Slint menu provider.

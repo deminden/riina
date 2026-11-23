@@ -5,17 +5,18 @@ use super::{
     playback_mailbox::{Delivery, Mailbox},
 };
 use crate::{
-    PlaybackStore, PlayerWindow, background::CoalescedUiCallback, crop_editor::Editor,
-    opening_fullscreen::OpeningFullscreen, playback_history::PlaybackHistoryState,
-    plugin_files::PluginPlayerFileContext, plugin_host::PluginHostHandle,
-    screenshot_output::Scratch, video_osd::VideoOsd, window_aspect::MediaGeometry,
+    NativeVideoHost, PlaybackStore, PlayerWindow, background::CoalescedUiCallback,
+    crop_editor::Editor, opening_fullscreen::OpeningFullscreen,
+    playback_history::PlaybackHistoryState, plugin_files::PluginPlayerFileContext,
+    plugin_host::PluginHostHandle, plugins::plugin_players::Ticket, screenshot_output::Scratch,
+    video_osd::VideoOsd, window_aspect::MediaGeometry,
 };
 use riina_core::{
     Phase, Playback, Preferences, RecentMedia, music_mode, sync::lock, video_filters,
 };
 use riina_mpv::CommandSender;
 use riina_ui::PlayerMenuActions;
-use slint::ComponentHandle;
+use slint::{ComponentHandle, winit_030::WinitWindowAccessor};
 use std::{
     cell::RefCell,
     rc::Rc,
@@ -35,6 +36,7 @@ pub(super) struct Inputs<'a> {
     pub(super) saved_audio_filters: Arc<Mutex<video_filters::Settings>>,
     pub(super) audio_device_sender: Arc<Mutex<Option<CommandSender>>>,
     pub(super) picture_in_picture_state_dirty: Option<Arc<AtomicBool>>,
+    pub(super) managed_visibility: Option<ManagedVisibility>,
 }
 
 pub(super) struct PreparedObservation {
@@ -58,6 +60,7 @@ pub(super) fn prepare_observation(app: &PlayerWindow, inputs: Inputs<'_>) -> Pre
         saved_audio_filters,
         audio_device_sender,
         picture_in_picture_state_dirty,
+        managed_visibility,
     } = inputs;
     let app_weak = app.as_weak();
     // Only one pending state snapshot is retained; a decoder can produce updates
@@ -101,6 +104,7 @@ pub(super) fn prepare_observation(app: &PlayerWindow, inputs: Inputs<'_>) -> Pre
             music_mode_state: music_mode_state.clone(),
             transition_overlay: notify_transition_overlay,
             transition_release_generation: notify_transition_release_generation,
+            managed_visibility,
         },
         picture_in_picture_state_dirty,
         _screenshot_scratch: screenshot_scratch.clone(),
@@ -195,6 +199,33 @@ pub(super) struct WindowDelivery {
     pub(super) music_mode_state: Arc<Mutex<music_mode::State>>,
     pub(super) transition_overlay: Arc<AtomicU64>,
     pub(super) transition_release_generation: Arc<AtomicU64>,
+    managed_visibility: Option<ManagedVisibility>,
+}
+
+#[derive(Clone)]
+pub(super) struct ManagedVisibility {
+    pub(super) ticket: Arc<Ticket>,
+    pub(super) native: Option<slint::Weak<NativeVideoHost>>,
+}
+
+impl ManagedVisibility {
+    fn reveal(&self, app: &PlayerWindow, state: &Playback) {
+        // A hidden surface can delay native video output. Reveal on the first
+        // media request observed by the engine, before waiting for decoded video.
+        if state.generation == 0 || state.phase == Phase::Stopped || !self.ticket.reveal_for_media()
+        {
+            return;
+        }
+        if let Some(host) = self.native.as_ref().and_then(slint::Weak::upgrade) {
+            host.window()
+                .with_winit_window(|window| window.set_visible(true));
+        }
+        if let Err(error) = crate::platform::show_window(app) {
+            crate::diagnostics::report(app, error.to_string());
+        } else if self.native.is_none() && self.ticket.options.disable_window_animation {
+            crate::platform::window_sizing::disable_plugin_window_animation(app.window());
+        }
+    }
 }
 
 impl WindowDelivery {
@@ -203,6 +234,9 @@ impl WindowDelivery {
             && let Some(observer) = self.observer_id.lookup()
             && let Some(Delivery { state, captures }) = latest.take()
         {
+            if let Some(managed) = &self.managed_visibility {
+                managed.reveal(&app, &state);
+            }
             let first_loaded = (!app.get_loaded()
                 || observer.borrow().media_geometry.generation() != Some(state.generation))
                 && matches!(
