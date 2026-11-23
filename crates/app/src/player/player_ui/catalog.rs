@@ -210,7 +210,7 @@ fn update_tracks(app: &PlayerWindow, state: &Playback) {
         .set_audio_device_menu_rows(slint::ModelRc::new(slint::VecModel::from(
             audio_device_menu_rows(state),
         )));
-    let languages = crate::language_names::LanguageNames::current();
+    let languages = crate::platform::language::LanguageNames::current();
     for kind in [TrackKind::Video, TrackKind::Audio, TrackKind::Sub] {
         let tracks: Vec<_> = state
             .tracks

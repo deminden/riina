@@ -1,5 +1,8 @@
 //! System locale services; metadata formatting stays outside the playback core.
 
+mod names;
+pub(crate) use names::LanguageNames;
+
 #[cfg(target_os = "windows")]
 pub(crate) fn current_locale_identifier() -> Option<String> {
     use windows::Win32::Globalization::GetUserDefaultLocaleName;

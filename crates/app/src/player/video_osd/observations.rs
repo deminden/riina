@@ -325,7 +325,7 @@ fn track_feedback(previous: &Playback, state: &Playback) -> Option<Message> {
         let old = selected_track(previous, kind, secondary);
         let current = selected_track(state, kind, secondary);
         if old.map(|track| track.id) != current.map(|track| track.id) {
-            let languages = crate::language_names::LanguageNames::current();
+            let languages = crate::platform::language::LanguageNames::current();
             return Some(Message {
                 kind: Kind::Track,
                 text: format!("{label}: {}", readable_track_title(current, &languages)),
@@ -452,7 +452,7 @@ fn selected_track(
 
 fn readable_track_title(
     track: Option<&riina_core::Track>,
-    languages: &crate::language_names::LanguageNames,
+    languages: &crate::platform::language::LanguageNames,
 ) -> String {
     let Some(track) = track else {
         // IINA represents the no-track choice as the synthetic track #0.

@@ -208,7 +208,7 @@ fn formatted_track_title(track: &riina_core::Track) -> String {
         .as_deref()
         .filter(|language| *language != "und")
         .map(|language| {
-            crate::language_names::LanguageNames::current().display_name(Some(language))
+            crate::platform::language::LanguageNames::current().display_name(Some(language))
         })
         .filter(|language| !language.is_empty())
         .map_or_else(String::new, |language| format!("[{language}] "));

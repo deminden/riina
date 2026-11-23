@@ -16,9 +16,7 @@ impl LanguageNames {
     pub(crate) fn current() -> Self {
         Self {
             #[cfg(not(target_os = "macos"))]
-            names: UnicodeNames::new(
-                crate::platform::language::current_locale_identifier().as_deref(),
-            ),
+            names: UnicodeNames::new(super::current_locale_identifier().as_deref()),
         }
     }
 
@@ -28,7 +26,7 @@ impl LanguageNames {
         };
         #[cfg(target_os = "macos")]
         {
-            crate::platform::language::language_name(identifier).unwrap_or_default()
+            super::language_name(identifier).unwrap_or_default()
         }
         #[cfg(not(target_os = "macos"))]
         {
