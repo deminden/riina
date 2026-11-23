@@ -555,6 +555,13 @@ At `5aff11a`, `cargo xtask check --fast` passed strict app linting and 552
 application and widget tests. The thumbnail cache test verified that a cache
 hit refreshes the manifest's modification time and preserves its bytes.
 
+At `9871d17`, `cargo xtask check` passed 857 Rust tests and 78 Python tests,
+including the 51 software-rendered reference comparisons. The headless tests
+checked when online subtitle lookup, subtitle discovery, playlist metadata,
+Live Text and Windows video material sampling start and stop. All 53 pinned
+native tests passed with null audio output. The locked workspace build passed
+all ten private-desktop checks in 9.227 seconds and exited normally.
+
 On `954d4d6`, separate private-desktop runs reopened and played media after
 recovering a profile with an invalid setting type, a non-object JSON document,
 or invalid UTF-8. Each run showed the recovery notice, preserved the original
@@ -581,6 +588,11 @@ thumbnail and transition timer tests.
 
 At `5aff11a`, all three thumbnail cache tests passed in WSL, including the
 manifest timestamp and byte-preservation checks.
+
+At `9871d17`, Ubuntu 26.04 in WSL passed strict workspace Clippy, 821
+workspace tests and the locked x86-64 application build. The timer tests
+exercised the portable subtitle, playlist metadata and Live Text scheduling
+paths.
 
 At `a83c518`, Ubuntu 26.04 in WSL passed strict workspace Clippy, 814
 workspace tests, and the locked x86-64 application build.

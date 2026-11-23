@@ -230,7 +230,7 @@ cargo run -p riina --bin font-catalog-probe --locked
 
 The interval is part of the behavior for playback presentation and hover
 feedback. Keep it when narrowing a timer's lifetime. The last column records
-when the timer's work is needed.
+when each repeating timer or one-shot delay is needed.
 
 Pause on minimize follows the owning window's minimize and restore events.
 
@@ -240,10 +240,10 @@ Pause on minimize follows the owning window's minimize and restore events.
 | Video and audio filter window | 300 ms | Refresh live filter rows | Starts after show, stops on close or when a tick finds the window hidden |
 | Playback History window | 500 ms | Refresh visible history and grouping | Starts after show, stops on close or when a tick finds the window hidden |
 | Log Viewer | 500 ms | Read and append new log records | Starts after show, stops on close or when a tick finds the window hidden |
-| Font Picker | 250 ms | Refresh appearance and available font results | While Font Picker is visible |
+| Font Picker | 250 ms | Follow the owner's appearance | While Font Picker is visible. Font discovery delivers results when ready |
 | About window | 250 ms | Follow the owner's theme and read pending libmpv and FFmpeg versions | Starts after show, stops on close or when a tick finds the window hidden. Version reads stop when both labels are available |
-| Online subtitles | 500 ms | Check the automatic subtitle search trigger | While automatic lookup is enabled. Each tick checks media eligibility |
-| Player appearance | 500 ms | Refresh system palette and reduced-motion policy | While a player follows system settings |
+| Online subtitles | 500 ms | Check the automatic subtitle search trigger | While automatic lookup is enabled and media is loaded. Each tick checks media eligibility |
+| Player appearance | 500 ms | Apply palette changes and refresh the system reduced-motion policy | While a player window is owned. Explicit themes still follow the system motion policy |
 | Settings motion | 500 ms | Refresh the reduced-motion flag | Starts after show, stops on close or when a tick finds Settings hidden |
 | Settings audio devices | 750 ms | Read the observed audio device list | Starts after show, stops on close or when a tick finds Settings hidden |
 | Settings recovery notice | 250 ms | Wait for the player to show the recovery notice | Until the first visible player status line |
@@ -254,16 +254,30 @@ Pause on minimize follows the owning window's minimize and restore events.
 | Native video transition | 80 ms | Capture outgoing and incoming frames and settle the handoff | While a playlist request waits for its frame, playback approaches a pending outgoing capture, or the incoming surface is settling |
 | Windows startup material policy | 500 ms | Reapply native backdrop settings | While the Windows owner and chrome are active |
 | Windows surface alignment | 16 ms | Align owner, native video and controls | While the native Windows surfaces are attached |
-| Playlist metadata | 300 ms | Refresh the catalog after metadata results or display changes | While a playlist surface can use the results |
+| Playlist metadata | 300 ms | Refresh visible playlist rows | One delayed pass after a lookup completes or the display policy changes |
 | Automatic Music Mode | 100 ms | Complete the track-catalog debounce | While media is loaded and automatic switching is enabled, including paused playback |
-| Subtitle priority | 120 ms | Select a matching loaded subtitle track | While subtitle discovery or selection is pending for the current file |
-| Windows picture-in-picture | 250 ms | Refresh paused state and the preview surface | While a PiP window is active |
+| Subtitle discovery | 120 ms | Discover sibling media and select a matching subtitle track | One delayed pass at setup and after relevant playback or discovery settings change |
+| Windows picture-in-picture | 250 ms | Check automatic enter/exit on minimize or restore and refresh active preview | While the native PiP controller owns the player |
 | macOS Now Playing | 50 ms | Sync media controls and drain system actions | While system media controls or application focus policy are active |
 | Windows package smoke | 100 ms | Advance the package verification steps | For the lifetime of the smoke run |
-| Live Text | 300 ms | Request and project paused-frame recognition | While recognition is enabled and paused video is eligible |
+| Live Text | 300 ms | Request and project paused-frame recognition | While recognition is enabled and paused video is eligible, with one cleanup tick after eligibility ends |
 | Windows player material policy | 100 ms | Follow system material policy and accent colors | While the player displays Windows materials or controls |
-| Windows video material sampling | 16 ms | Capture and transform a video sample | While the active material uses video or a sample is in flight |
+| Windows video material sampling | 16 ms | Capture and transform a video sample | While a visible material uses active native video, with one cleanup tick to clear retired samples |
 | Plugin UI | 25 ms | Drain plugin host messages and update overlays | While a player plugin host is installed |
+
+The Slint controls also own short presentation delays. Their bindings start
+them for the corresponding interaction and stop them after it settles.
+
+| Control | Delay | Work |
+|---|---:|---|
+| Equalizer profiles | 16 ms | Show the name dialog after the popup releases focus |
+| Font Picker | 16 ms | Reveal selected rows once the visible lists have a layout |
+| Font and track lists | 32 ms | Hand accessibility focus to a row after its tree is rebuilt |
+| Layout sidebar scrollbar | 850 ms | Hide the scrollbar after scrolling |
+| Sidebar frame | 260 ms | End the close transition |
+| Quick Settings scroll page | 1 ms | Restore a page's scroll position after switching |
+| Video controls | 300 ms | Finish a programmatic scroll |
+| Timeline slider | 750 ms | Release the drag value when the native seek reply is late |
 
 ## GUI sessions
 
