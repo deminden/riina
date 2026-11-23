@@ -608,7 +608,7 @@ fn move_history_files_to_trash(
     let trash_sync = connection.history_sync.clone();
     let trash_groups = connection.collapsed_groups.clone();
     let trash_anchor = selection_anchor.clone();
-    let _ = crate::background::spawn_named("riina-history-trash-selection", move || {
+    let task = crate::background::spawn_named("riina-history-trash-selection", move || {
         let mut removed_references = Vec::new();
         let mut failures = Vec::new();
         for (reference, path) in files {
@@ -668,6 +668,9 @@ fn move_history_files_to_trash(
             }
         });
     });
+    if let Err(error) = task {
+        crate::diagnostics::warn!("Could not start the playback history trash worker: {error}");
+    }
 }
 
 fn clear_history_selection(window: &PlaybackHistoryWindow, anchor: &AtomicI32) {

@@ -139,7 +139,9 @@ pub(crate) fn restore(
     selected: &Cache,
 ) {
     for command in previous.live_commands(selected) {
-        let _ = player.send(command);
+        if let Err(error) = player.send(command) {
+            crate::diagnostics::warn!("Could not restore the playback cache settings: {error}");
+        }
         install_player(app, previous);
     }
 }

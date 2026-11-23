@@ -81,6 +81,7 @@ impl Drop for PreviewTask {
         self.cancel();
         drop(self.events.take());
         if let Some(thread) = self.thread.take() {
+            // The named worker logs a panic before releasing its resources.
             let _ = thread.join();
         }
     }
@@ -244,7 +245,11 @@ impl Controller {
             return;
         };
         task.cancel();
-        let _ = crate::background::spawn_named("riina-thumbnail-cleanup", move || drop(task));
+        if let Err(error) = crate::background::spawn_named("riina-thumbnail-cleanup", move || {
+            drop(task);
+        }) {
+            crate::diagnostics::warn!("Could not start the thumbnail cleanup worker: {error}");
+        }
     }
 }
 

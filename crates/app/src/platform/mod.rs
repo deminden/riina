@@ -677,7 +677,11 @@ pub(crate) fn system_trash_name() -> &'static str {
 /// Assign the stable Shell identity used by Windows automatic Jump Lists.
 pub(crate) fn initialize_recent_documents() {
     #[cfg(target_os = "windows")]
-    let _ = windows::recent_documents::initialize();
+    if let Err(error) = windows::recent_documents::initialize() {
+        crate::diagnostics::warn!(
+            "Could not register the player for Windows recent documents: {error}"
+        );
+    }
 }
 
 /// Add a locally opened media file to the platform's native recent documents.
