@@ -1,7 +1,18 @@
 //! Save changes that belong to an individual player session.
 
-use super::*;
+use super::{PlayerContext, UiSession, history_session, startup};
+use crate::{PlaybackStore, PlayerWindow};
+use riina_core::{Phase, Preferences, audio_equalizer, video_filters};
+use riina_ui::{
+    PlaybackAudioState, PlaybackSubtitleState, PlayerAppearance, PlayerLayoutState,
+    PlayerMusicModeState, PlayerPreferences, PlayerSidebarState,
+};
 use slint::ComponentHandle;
+use std::{
+    io,
+    path::PathBuf,
+    sync::{Arc, Mutex, atomic::Ordering},
+};
 
 pub(super) fn connect(
     app: &PlayerWindow,
@@ -25,7 +36,29 @@ pub(super) fn connect(
 
 impl UiSession {
     pub(crate) fn save(&self, app: &PlayerWindow) -> Result<(), Box<dyn std::error::Error>> {
-        let mut prefs = capture_session_state(app, self.preference_model.snapshot())?;
+        let candidate = self
+            .preference_state
+            .capture(app, self.preference_model.snapshot())?;
+        self.preference_model
+            .save_session(candidate)
+            .map_err(io::Error::other)?;
+        Ok(())
+    }
+}
+
+pub(super) struct SessionState {
+    pub(super) prefs_path: PathBuf,
+    pub(super) audio_equalizer: Arc<Mutex<audio_equalizer::Settings>>,
+    pub(super) saved_video_filters: Arc<Mutex<video_filters::Settings>>,
+    pub(super) saved_audio_filters: Arc<Mutex<video_filters::Settings>>,
+    pub(super) recent: startup::SessionRecents,
+    pub(super) history: history_session::Tracking,
+    pub(super) latest_playback: PlaybackStore,
+}
+
+impl SessionState {
+    fn capture(&self, app: &PlayerWindow, preferences: Preferences) -> io::Result<Preferences> {
+        let mut prefs = capture_window_state(app, preferences)?;
         prefs.audio_equalizer = self
             .audio_equalizer
             .lock()
@@ -54,10 +87,7 @@ impl UiSession {
 
         self.merge_saved_recents(&mut prefs);
         self.remember_current_media(&mut prefs);
-        self.preference_model
-            .save_session(prefs)
-            .map_err(std::io::Error::other)?;
-        Ok(())
+        Ok(prefs)
     }
 
     fn merge_saved_recents(&self, prefs: &mut Preferences) {
@@ -140,89 +170,56 @@ impl UiSession {
     }
 }
 
-fn capture_session_state(
-    app: &PlayerWindow,
-    preferences: Preferences,
-) -> std::io::Result<Preferences> {
-    let player_preferences = app.global::<riina_ui::PlayerPreferences>();
+fn capture_window_state(app: &PlayerWindow, preferences: Preferences) -> io::Result<Preferences> {
+    let player_preferences = app.global::<PlayerPreferences>();
+    let layout = app.global::<PlayerLayoutState>();
+    let appearance = app.global::<PlayerAppearance>();
+    let sidebar = app.global::<PlayerSidebarState>();
+    let music_mode = app.global::<PlayerMusicModeState>();
+    let volume_boost = player_preferences.get_volume_boost();
     // These values can change through the player, its native menus, or engine
     // observations. Settings-only controls are already in the model.
     Ok(Preferences {
-        volume: f64::from(app.global::<riina_ui::PlaybackAudioState>().get_volume()).min(
-            if player_preferences.get_volume_boost() {
-                200.0
-            } else {
-                100.0
-            },
-        ),
-        volume_boost: player_preferences.get_volume_boost(),
+        volume: f64::from(app.global::<PlaybackAudioState>().get_volume()).min(if volume_boost {
+            200.0
+        } else {
+            100.0
+        }),
+        volume_boost,
         resume_last_position: player_preferences.get_resume_last_position(),
         live_text_enabled: app.get_live_text_enabled(),
-        always_float_on_top: app
-            .global::<riina_ui::PlayerLayoutState>()
-            .get_always_float_on_top(),
+        always_float_on_top: layout.get_always_float_on_top(),
         theme_material: Some(
-            riina_core::ThemeMaterial::from_index(
-                app.global::<riina_ui::PlayerAppearance>()
-                    .get_appearance_mode(),
-            )
-            .ok_or_else(|| std::io::Error::other("Invalid appearance selection"))?,
+            riina_core::ThemeMaterial::from_index(appearance.get_appearance_mode())
+                .ok_or_else(|| io::Error::other("Invalid appearance selection"))?,
         ),
-        dark: app.global::<riina_ui::PlayerAppearance>().get_dark_theme(),
-        leading_sidebar_width: app
-            .global::<riina_ui::PlayerSidebarState>()
-            .get_leading_sidebar_width() as u32,
-        trailing_sidebar_width: app
-            .global::<riina_ui::PlayerSidebarState>()
-            .get_trailing_sidebar_width() as u32,
-        settings_at_leading: app
-            .global::<riina_ui::PlayerSidebarState>()
-            .get_settings_at_leading(),
-        playlist_at_leading: app
-            .global::<riina_ui::PlayerSidebarState>()
-            .get_playlist_at_leading(),
-        plugins_at_leading: app
-            .global::<riina_ui::PlayerSidebarState>()
-            .get_plugins_at_leading(),
-        edge_to_edge_video: app
-            .global::<riina_ui::PlayerLayoutState>()
-            .get_edge_to_edge_video(),
-        docked_controls: app
-            .global::<riina_ui::PlayerLayoutState>()
-            .get_docked_controls(),
-        unlock_window_aspect_ratio: app
-            .global::<riina_ui::PlayerLayoutState>()
-            .get_unlock_window_aspect_ratio(),
-        compact_ui: app.global::<riina_ui::PlayerAppearance>().get_compact_ui(),
-        osc_position: app
-            .global::<riina_ui::PlayerLayoutState>()
-            .get_osc_position() as u8,
-        control_bar_position_horizontal: f64::from(
-            app.global::<riina_ui::PlayerLayoutState>()
-                .get_control_bar_position_horizontal(),
-        ),
-        control_bar_position_vertical: f64::from(
-            app.global::<riina_ui::PlayerLayoutState>()
-                .get_control_bar_position_vertical(),
-        ),
-        music_mode_show_playlist: app
-            .global::<riina_ui::PlayerMusicModeState>()
-            .get_music_mode_show_playlist(),
-        music_mode_show_album_art: app
-            .global::<riina_ui::PlayerMusicModeState>()
-            .get_music_mode_show_album_art(),
+        dark: appearance.get_dark_theme(),
+        leading_sidebar_width: sidebar.get_leading_sidebar_width() as u32,
+        trailing_sidebar_width: sidebar.get_trailing_sidebar_width() as u32,
+        settings_at_leading: sidebar.get_settings_at_leading(),
+        playlist_at_leading: sidebar.get_playlist_at_leading(),
+        plugins_at_leading: sidebar.get_plugins_at_leading(),
+        edge_to_edge_video: layout.get_edge_to_edge_video(),
+        docked_controls: layout.get_docked_controls(),
+        unlock_window_aspect_ratio: layout.get_unlock_window_aspect_ratio(),
+        compact_ui: appearance.get_compact_ui(),
+        osc_position: layout.get_osc_position() as u8,
+        control_bar_position_horizontal: f64::from(layout.get_control_bar_position_horizontal()),
+        control_bar_position_vertical: f64::from(layout.get_control_bar_position_vertical()),
+        music_mode_show_playlist: music_mode.get_music_mode_show_playlist(),
+        music_mode_show_album_art: music_mode.get_music_mode_show_album_art(),
         record_recent_files: player_preferences.get_record_recent_files(),
         track_all_files_in_recent_open_menu: player_preferences
             .get_track_all_files_in_recent_open_menu(),
         subtitle_other: crate::subtitle_other_preferences::current_player(app)
-            .map_err(std::io::Error::other)?,
+            .map_err(io::Error::other)?,
         subtitle_font: app
-            .global::<riina_ui::PlaybackSubtitleState>()
+            .global::<PlaybackSubtitleState>()
             .get_subtitle_font()
             .to_string(),
         subtitle_font_size: crate::subtitle_preferences::current_font_size(app),
         subtitle_text_style: crate::subtitle_preferences::current_style(app)
-            .map_err(std::io::Error::other)?,
+            .map_err(io::Error::other)?,
         ..preferences
     })
 }

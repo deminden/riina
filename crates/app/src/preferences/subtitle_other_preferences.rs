@@ -21,7 +21,9 @@ impl PreferenceSection for OtherPreferences {
     }
 
     fn write_window(&self, window: &PreferencesWindow) {
-        let _ = install_window(window, self);
+        if let Err(error) = install_window(window, self) {
+            crate::diagnostics::warn!("Could not refresh the subtitle language settings: {error}");
+        }
     }
 
     fn write_player(&self, app: &PlayerWindow) {

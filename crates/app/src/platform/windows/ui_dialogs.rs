@@ -39,7 +39,9 @@ impl ModalWindows {
                 // Continue releasing session resources if the window is closing.
                 let _ = app.hide();
             }
-            let _ = welcome.show();
+            if let Err(error) = welcome.show() {
+                crate::diagnostics::warn!("Could not restore the welcome window: {error}");
+            }
         } else if let Some(owner) = self.windows.first() {
             owner.focus_window();
         }

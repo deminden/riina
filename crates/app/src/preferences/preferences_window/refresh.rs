@@ -1,5 +1,5 @@
 //! Refresh controls from the owning player.
-use crate::PlayerWindow;
+use crate::{PlayerWindow, preferences::model::PreferenceSection};
 use slint::ComponentHandle;
 
 pub(super) fn refresh(window: &crate::PreferencesWindow, app: &PlayerWindow) {
@@ -38,7 +38,7 @@ pub(super) fn refresh(window: &crate::PreferencesWindow, app: &PlayerWindow) {
         crate::control_preferences::install_window(window, &controls);
     }
     if let Ok(settings) = crate::key_binding_preferences::current_player(app) {
-        let _ = crate::key_binding_preferences::refresh(window, &settings);
+        settings.write_window(window);
     }
     subtitles.set_subtitle_encoding_options(crate::subtitle_other_preferences::encoding_options());
     subtitles
@@ -99,7 +99,7 @@ pub(super) fn refresh(window: &crate::PreferencesWindow, app: &PlayerWindow) {
         crate::subtitle_position_preferences::install_window(window, position);
     }
     if let Ok(other) = crate::subtitle_other_preferences::current_player(app) {
-        let _ = crate::subtitle_other_preferences::install_window(window, &other);
+        other.write_window(window);
     }
     if let Ok(auto_load) = crate::subtitle_auto_load_preferences::current_player(app) {
         crate::subtitle_auto_load_preferences::install_window(window, &auto_load);

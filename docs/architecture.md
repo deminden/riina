@@ -95,8 +95,10 @@ copy of invalid input and loads recoverable fields. `PreferenceModel` holds the
 committed settings on the UI thread and delegates persistence to
 `preference_store::Writer`. Section bindings read and validate their controls and
 project the saved settings into the Settings form and `PlayerPreferences`.
-Session saving captures window-owned state, recent files, and history through
-the same preference writer. See [Add a preference](recipes/add-a-preference.md).
+At shutdown, `session_preferences::SessionState` captures runtime settings,
+recent files, and history over the model's committed settings. The model saves
+that candidate through the same preference writer. See
+[Add a preference](recipes/add-a-preference.md).
 
 ## Platform boundary
 

@@ -260,15 +260,18 @@ fn select_media_for_new_player(
 }
 
 fn schedule_close(state: Weak<RefCell<ManagerState>>, id: u64, from_welcome: bool) {
-    let _ = slint::spawn_local(async move {
+    let scheduled = slint::spawn_local(async move {
         if let Some(state) = state.upgrade() {
             close_player(&state, id, from_welcome);
         }
     });
+    if let Err(error) = scheduled {
+        crate::diagnostics::warn!("Could not schedule player close: {error}");
+    }
 }
 
 fn schedule_quit(state: Weak<RefCell<ManagerState>>) {
-    let _ = slint::spawn_local(async move {
+    let scheduled = slint::spawn_local(async move {
         let Some(state) = state.upgrade() else { return };
         let players = std::mem::take(&mut state.borrow_mut().players);
         for player in players {
@@ -279,12 +282,16 @@ fn schedule_quit(state: Weak<RefCell<ManagerState>>) {
                 // Continue releasing session resources if the window is closing.
                 let _ = welcome.hide();
             }
+            // Dropping the player still closes the window if hide fails.
             let _ = player.app.hide();
             drop(player);
         }
         // Shutdown may already have ended the event loop.
         let _ = slint::quit_event_loop();
     });
+    if let Err(error) = scheduled {
+        crate::diagnostics::warn!("Could not schedule application quit: {error}");
+    }
 }
 
 fn close_player(state: &Rc<RefCell<ManagerState>>, id: u64, from_welcome: bool) {
@@ -298,7 +305,7 @@ fn close_player(state: &Rc<RefCell<ManagerState>>, id: u64, from_welcome: bool) 
     };
     let Some(player) = removed else { return };
     if let Err(error) = player.session.save(&player.app) {
-        player.app.set_status(error.to_string().into());
+        crate::diagnostics::report(&player.app, error.to_string());
     }
     if let Some(welcome) = &player.welcome {
         // Continue releasing session resources if the window is closing.

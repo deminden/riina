@@ -37,7 +37,9 @@ impl PreferenceSection for Settings {
     }
 
     fn write_window(&self, window: &PreferencesWindow) {
-        let _ = refresh(window, self);
+        if let Err(error) = refresh(window, self) {
+            crate::diagnostics::warn!("Could not refresh the key binding settings: {error}");
+        }
     }
 
     fn write_player(&self, app: &PlayerWindow) {

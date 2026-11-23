@@ -44,16 +44,10 @@ use crate::{
     PlayerWindow, WelcomeWindow, platform, preference_load::LoadedPreferences,
     preferences::model::PreferenceModel,
 };
-use riina_core::{Command, Phase, Playback, Preferences};
+use riina_core::{Command, Phase, Playback};
 use riina_mpv::Player;
 use slint::ComponentHandle;
-use std::{
-    cell::RefCell,
-    path::PathBuf,
-    rc::Rc,
-    sync::{Arc, atomic::Ordering},
-    time::Instant,
-};
+use std::{cell::RefCell, rc::Rc, time::Instant};
 
 type PendingNavigation = Rc<RefCell<Option<(Vec<Command>, Instant)>>>;
 
@@ -175,14 +169,8 @@ pub(crate) struct UiSession {
     // The repeated sampler is held for the same lifetime as the player window.
     _appearance_timer: Rc<slint::Timer>,
     _features: features::PlaybackFeatures,
-    prefs_path: PathBuf,
     pub(crate) preference_model: PreferenceModel,
-    audio_equalizer: Arc<std::sync::Mutex<riina_core::audio_equalizer::Settings>>,
-    saved_video_filters: Arc<std::sync::Mutex<riina_core::video_filters::Settings>>,
-    saved_audio_filters: Arc<std::sync::Mutex<riina_core::video_filters::Settings>>,
-    recent: startup::SessionRecents,
-    history: history_session::Tracking,
-    latest_playback: crate::PlaybackStore,
+    preference_state: session_preferences::SessionState,
 }
 
 impl UiSession {
@@ -381,14 +369,16 @@ fn configure_with_engine(
         _observer_state: observer_state,
         _appearance_timer: session.projection.appearance_timer,
         _features: guards,
-        prefs_path: session.prefs_path,
         preference_model,
-        audio_equalizer: session.audio_equalizer,
-        saved_video_filters: session.saved_video_filters,
-        saved_audio_filters: session.saved_audio_filters,
-        recent: session.recent,
-        history: session.history,
-        latest_playback: session.projection.latest_playback,
+        preference_state: session_preferences::SessionState {
+            prefs_path: session.prefs_path,
+            audio_equalizer: session.audio_equalizer,
+            saved_video_filters: session.saved_video_filters,
+            saved_audio_filters: session.saved_audio_filters,
+            recent: session.recent,
+            history: session.history,
+            latest_playback: session.projection.latest_playback,
+        },
     })
 }
 

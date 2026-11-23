@@ -475,7 +475,11 @@ fn keep_player_after_welcome_close(
             align(host.window(), &app);
             host.window()
                 .with_winit_window(|window| window.set_visible(true));
-            let _ = app.show();
+            if let Err(error) = app.show() {
+                crate::diagnostics::warn!(
+                    "Could not show the player after closing welcome: {error}"
+                );
+            }
             host.window()
                 .with_winit_window(|window| center_host_in_work_area(window, owner_center));
             align(host.window(), &app);
