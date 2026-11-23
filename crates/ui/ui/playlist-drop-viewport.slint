@@ -1,0 +1,20 @@
+import { ScrollView } from "std-widgets.slint";
+
+export struct PlaylistDropViewport {
+    x: length,
+    y: length,
+    width: length,
+    height: length,
+    content-y: length,
+}
+
+// The visible list and its scroll offset move independently of the sidebar frame.
+export component PlaylistDropScrollView inherits ScrollView {
+    out property <PlaylistDropViewport> drop-viewport: {
+        x: root.absolute-position.x,
+        y: root.absolute-position.y,
+        width: root.visible-width,
+        height: root.visible-height,
+        content-y: root.content-y,
+    };
+}

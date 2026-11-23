@@ -178,6 +178,10 @@ pub enum Command {
         paths: Vec<String>,
         index: usize,
     },
+    InsertPlaylistFilesBefore {
+        paths: Vec<String>,
+        before_id: Option<i64>,
+    },
     InsertPlaylistFilesAroundCurrent {
         before: Vec<String>,
         after: Vec<String>,
@@ -289,6 +293,7 @@ impl Command {
                 | Self::RemovePlaylistIds(_)
                 | Self::ClearPlaylist
                 | Self::AppendFiles(_)
+                | Self::InsertPlaylistFilesBefore { .. }
                 | Self::OpenFiles(_)
                 | Self::OpenFilesWithSubtitles { .. }
         )

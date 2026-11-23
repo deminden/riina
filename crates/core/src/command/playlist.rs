@@ -158,6 +158,24 @@ pub(super) fn insert_files(
     Ok(commands)
 }
 
+pub(super) fn insert_files_before(
+    state: &Playback,
+    paths: &[String],
+    before_id: Option<i64>,
+) -> Result<Vec<Vec<String>>, CommandError> {
+    let index = match before_id {
+        Some(id) => state
+            .playlist
+            .iter()
+            .position(|entry| entry.id == id)
+            .ok_or(CommandError::Unavailable {
+                what: "The playlist drop position is no longer available",
+            })?,
+        None => state.playlist.len(),
+    };
+    insert_files(state, paths, index)
+}
+
 pub(super) fn insert_files_around_current(
     state: &Playback,
     before: &[String],

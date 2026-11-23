@@ -1,3 +1,8 @@
+import { PlayerCatalogState } from "player-catalog-state.slint";
+import { PlayerCropState } from "player-crop-state.slint";
+import { PlayerMusicModeState } from "player-music-mode-state.slint";
+import { PlaylistDropViewport } from "playlist-drop-viewport.slint";
+
 // The leading and trailing sidebars retain their own pane and width.
 export global PlayerSidebarState {
     in-out property <bool> layout-scrollbar-visible: false;
@@ -14,4 +19,32 @@ export global PlayerSidebarState {
     in-out property <[string]> plugin-sidebar-labels: [];
     in-out property <string> plugin-sidebar-selected-identifier: "";
     in-out property <int> plugin-sidebar-selected-index: -1;
+    in-out property <PlaylistDropViewport> leading-list-drop-viewport;
+    in-out property <PlaylistDropViewport> trailing-list-drop-viewport;
+    in-out property <PlaylistDropViewport> music-list-drop-viewport;
+
+    pure function drop-slot-in(view: PlaylistDropViewport, x: length, y: length) -> int {
+        let local-x = x - view.x;
+        let local-y = y - view.y;
+        if local-x < 0px || local-x >= view.width || local-y < 0px || local-y >= view.height {
+            return -1;
+        }
+        // Row midpoints divide gaps for insertion. Both views use a 1px row gap.
+        let stride = PlayerCatalogState.playlist-metadata-visible ? 39px : 31px;
+        return clamp(floor((local-y - view.content-y) / stride + 0.5), 0, PlayerCatalogState.playlist.length);
+    }
+
+    public pure function playlist-drop-slot(x: float, y: float) -> int {
+        if PlayerCropState.crop-editing { return -1; }
+        if PlayerMusicModeState.music-mode {
+            return PlayerMusicModeState.music-mode-show-playlist
+                ? root.drop-slot-in(root.music-list-drop-viewport, x * 1px, y * 1px) : -1;
+        }
+        if root.sidebar != 0 && root.sidebar != 5 {
+            let slot = root.drop-slot-in(root.trailing-list-drop-viewport, x * 1px, y * 1px);
+            if slot >= 0 { return root.sidebar == 4 ? slot : -1; }
+        }
+        return root.leading-sidebar == 4
+            ? root.drop-slot-in(root.leading-list-drop-viewport, x * 1px, y * 1px) : -1;
+    }
 }

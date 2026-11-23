@@ -114,6 +114,7 @@ impl Command {
             | Self::AppendFiles(_)
             | Self::AddSubtitlesWithoutSelection(_)
             | Self::InsertPlaylistFiles { .. }
+            | Self::InsertPlaylistFilesBefore { .. }
             | Self::SubtitleLetterboxMargins(_)
             | Self::SubtitleEncoding(_)
             | Self::SubtitleAutoLoad(_)

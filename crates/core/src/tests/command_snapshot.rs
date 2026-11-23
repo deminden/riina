@@ -113,6 +113,7 @@ command_samples! {
     MovePlaylistId { id: 20, direction: -1 };
     AppendFiles[vec!["bonus.mkv".into()]];
     InsertPlaylistFiles { paths: vec!["bonus.mkv".into()], index: 1 };
+    InsertPlaylistFilesBefore { paths: vec!["bonus.mkv".into()], before_id: Some(20) };
     InsertPlaylistFilesAroundCurrent { before: vec!["intro.mkv".into()], after: vec!["outro.mkv".into()] };
     RemovePlaylistEntry[1];
     MovePlaylistEntry { from: 0, to: 2 };
@@ -301,6 +302,7 @@ fn worker_routes_every_command_to_the_expected_lifecycle() {
         "RemovePlaylistIds",
         "ClearPlaylist",
         "AppendFiles",
+        "InsertPlaylistFilesBefore",
         "OpenFiles",
         "OpenFilesWithSubtitles",
     ];

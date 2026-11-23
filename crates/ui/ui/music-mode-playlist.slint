@@ -1,8 +1,9 @@
 import { Theme } from "theme.slint";
 import { PlaylistInteraction } from "playlist-sidebar-row.slint";
 import { PlayerCatalogState } from "player-catalog-state.slint";
-import { ScrollView } from "std-widgets.slint";
 import { CatalogRow } from "catalog-row.slint";
+import { PlayerSidebarState } from "player-sidebar-state.slint";
+import { PlaylistDropScrollView } from "playlist-drop-viewport.slint";
 
 export component MusicModePlaylist inherits Rectangle {
     in property <bool> dark-theme;
@@ -12,8 +13,9 @@ export component MusicModePlaylist inherits Rectangle {
     callback play-row(string);
 
     background: Theme.music-mode-playlist-surface(root.dark-theme);
-    ScrollView {
+    PlaylistDropScrollView {
         width: parent.width; height: parent.height;
+        changed drop-viewport => { PlayerSidebarState.music-list-drop-viewport = self.drop-viewport; }
         VerticalLayout {
             spacing: 1px;
             for row in PlayerCatalogState.playlist : Rectangle {

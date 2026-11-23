@@ -153,6 +153,51 @@ fn playlist_rows_and_six_footer_actions_fit_normal_and_narrow_sidebars() {
 }
 
 #[test]
+fn playlist_drop_target_tracks_visible_rows_and_scroll_position() {
+    let app = player(4);
+    app.window().set_size(LogicalSize::new(1000.0, 320.0));
+    app.global::<PlayerCatalogState>()
+        .set_playlist(slint::ModelRc::new(slint::VecModel::from(
+            (0..30)
+                .map(|index| CatalogRow {
+                    token: index.to_string().into(),
+                    label: format!("Clip {index}").into(),
+                    ..Default::default()
+                })
+                .collect::<Vec<_>>(),
+        )));
+    let sidebar = app.global::<PlayerSidebarState>();
+    let first_row = button(&app, "Clip 0");
+    flush();
+    i_slint_backend_testing::testing_backend::mock_elapsed_time(4);
+    flush();
+    let first = first_row.absolute_position();
+    let x = first.x + 8.0;
+    let y = first.y + 5.0;
+    assert_eq!(sidebar.invoke_playlist_drop_slot(x, y), 0);
+    assert_eq!(sidebar.invoke_playlist_drop_slot(x, first.y + 29.0), 1);
+    assert_eq!(sidebar.invoke_playlist_drop_slot(x, first.y - 4.0), -1);
+    assert_eq!(sidebar.invoke_playlist_drop_slot(first.x - 4.0, y), -1);
+
+    let top = page_y(&app);
+    scroll(&app, -160.0);
+    assert!(page_y(&app) < top - 30.0);
+    assert!(sidebar.invoke_playlist_drop_slot(x, y) > 0);
+    sidebar.set_sidebar(0);
+    flush();
+    assert_eq!(sidebar.invoke_playlist_drop_slot(x, y), -1);
+    sidebar.set_leading_sidebar(4);
+    let left_row = button(&app, "Clip 0");
+    flush();
+    let left = left_row.absolute_position();
+    assert_eq!(
+        sidebar.invoke_playlist_drop_slot(left.x + 8.0, left.y + 5.0),
+        0
+    );
+    assert_eq!(sidebar.invoke_playlist_drop_slot(x, y), -1);
+}
+
+#[test]
 fn playlist_keyboard_selection_moves_focus_and_opens_the_selected_token() {
     let app = player(4);
     app.global::<riina_ui::PlayerCatalogState>()

@@ -18,6 +18,7 @@ mod media_actions;
 mod music_mode;
 mod playback_mailbox;
 mod playlist_actions;
+mod playlist_drop;
 mod rendering;
 mod startup;
 mod thumbnail_actions;

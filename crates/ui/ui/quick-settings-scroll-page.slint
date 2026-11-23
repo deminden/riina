@@ -1,4 +1,4 @@
-import { ScrollView } from "std-widgets.slint";
+import { PlaylistDropScrollView } from "playlist-drop-viewport.slint";
 
 // The sidebar retains this memory even while its Layout page replaces the
 // scrolling view, matching per-window pane ownership rather than widget lifetime.
@@ -13,7 +13,7 @@ export component SidebarScrollMemory inherits Rectangle {
 
 // Each sidebar owns independent page positions. A deferred restore lets the new
 // page establish its extent before the scroll view clamps its saved position.
-export component QuickSettingsScrollPage inherits ScrollView {
+export component QuickSettingsScrollPage inherits PlaylistDropScrollView {
     in property <int> page-kind;
     in property <length> audio-y;
     in property <length> video-y;

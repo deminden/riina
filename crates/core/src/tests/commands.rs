@@ -761,6 +761,47 @@ fn chapter_selection_resumes_and_playlist_ids_resolve_after_reorder() {
 }
 
 #[test]
+fn playlist_insertion_resolves_the_target_id_at_execution() {
+    let state = Playback {
+        playlist: [41, 40]
+            .into_iter()
+            .map(|id| PlaylistEntry {
+                id,
+                filename: format!("{id}.mkv"),
+                title: None,
+                current: id == 41,
+                playing: id == 41,
+            })
+            .collect::<Vec<_>>()
+            .into(),
+        ..Default::default()
+    };
+    let insert = |before_id| Command::InsertPlaylistFilesBefore {
+        paths: vec!["one.mkv".into(), "two.mkv".into()],
+        before_id,
+    };
+    let plan = insert(Some(40)).plan(&state).unwrap();
+    assert_eq!(
+        plan.commands,
+        [
+            vec!["loadfile", "one.mkv", "append"],
+            vec!["playlist-move", "2", "1"],
+            vec!["loadfile", "two.mkv", "append"],
+            vec!["playlist-move", "3", "2"],
+        ]
+    );
+    assert!(!plan.resume_on_load);
+    assert!(insert(Some(99)).plan(&state).is_err());
+    assert_eq!(
+        insert(None).plan(&state).unwrap().commands,
+        [
+            ["loadfile", "one.mkv", "append"],
+            ["loadfile", "two.mkv", "append"],
+        ]
+    );
+}
+
+#[test]
 fn removing_selected_playlist_ids_uses_original_order_and_rejects_stale_or_duplicate_ids() {
     let state = Playback {
         playlist: [10, 20, 30, 40, 50]

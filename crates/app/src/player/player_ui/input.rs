@@ -1,5 +1,6 @@
 //! Native input, focus registration and gesture state belong to one player window.
-use crate::{PlayerWindow, media_open, platform};
+use super::playlist_drop;
+use crate::{PlayerWindow, platform};
 use riina_core::{Command, Phase};
 use riina_ui::PlayerMenuActions;
 use slint::{
@@ -127,12 +128,22 @@ fn install_window_events(
         registered.borrow_mut().push((registry_id, app.as_weak()));
     });
     let weak_app = app.as_weak();
+    let drop_app = weak_app.clone();
     let timer_player = player.clone();
-    let (timer, file_drop) = platform::batched_file_drops(move |paths| {
-        if let Some(app) = weak_app.upgrade() {
-            media_open::dropped(&app, paths, timer_player.clone());
-        }
-    });
+    let (timer, file_drop) = platform::batched_file_drops(
+        move |window| {
+            drop_app
+                .upgrade()
+                .map_or(Ok(playlist_drop::Target::Player), |app| {
+                    playlist_drop::target(&app, window)
+                })
+        },
+        move |target, paths| {
+            if let Some(app) = weak_app.upgrade() {
+                playlist_drop::handle(&app, &timer_player, target, paths);
+            }
+        },
+    );
     let focused = Rc::new(platform::PlayerFocus::new(
         app.window()
             .with_winit_window(|window| window.has_focus())
@@ -148,7 +159,7 @@ fn install_window_events(
         if handle_window_event(window, event) == EventResult::PreventDefault {
             return EventResult::PreventDefault;
         }
-        file_drop(event);
+        file_drop(window, event);
         if let winit::event::WindowEvent::Focused(now_focused) = event
             && let Some(focused) = event_focused.upgrade()
         {

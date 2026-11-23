@@ -601,7 +601,7 @@ fn dropped_subtitles(paths: &[String]) -> Vec<String> {
         .collect()
 }
 
-fn resolve_dropped_url_shortcuts(paths: Vec<String>) -> Result<Vec<String>, String> {
+pub(super) fn resolve_dropped_url_shortcuts(paths: Vec<String>) -> Result<Vec<String>, String> {
     paths
         .into_iter()
         .map(|path| {

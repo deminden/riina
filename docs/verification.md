@@ -1173,6 +1173,32 @@ Windows build passed ten native playback and shutdown checks on an isolated
 desktop in 9.094 s. The locked Linux build, strict workspace Clippy and 834 Rust
 tests passed. Native Welcome drop verification in this batch covers X11.
 
+### Files dropped into the playlist 2026-11-23
+
+The playlist sidebar resolves the visible insertion gap at drop time, including
+the current scroll offset. Folder scanning runs in the background. The mpv
+worker resolves the captured playlist item ID against the current order before
+inserting. A removed target produces an unavailable-position error. Drops
+below the final row append. The video surface retains its media-open action.
+
+On Ubuntu 26.04 in WSL, a GTK drag inserted a folder before the second playlist
+entry. The engine reported `Clip 2 — café.avi` followed by `Clip 10.avi`, with
+the original video still paused at the same position. Dropping beneath the
+rows appended another video, a subtitle-only drop left the list and tracks
+alone, and a drop onto the video opened the new file. The two 1280 × 800 desktop
+captures showed the list before and after insertion. Quit exited normally and
+left no Riina process. The Linux executable SHA-256 was
+`decf995355140df5c46ef956961d4d3670f527f55446467e57aad3bd1849f135`.
+
+The Windows workspace gate passed 873 Rust and 78 Python tests, including
+left- and right-sidebar hit testing, scroll offsets and stale insertion IDs.
+The locked Windows build passed ten native playback and shutdown checks on an
+isolated desktop in 9.227 s. The pinned libmpv playlist group passed four tests.
+The locked Linux build, strict workspace Clippy and 836 Rust tests passed.
+Strict workspace Clippy passed the Apple Silicon source check with Zig 0.15.2.
+Native drag-and-drop verification in this batch covers X11. Automatic playlist
+reveal while dragging and raw URL or text drops remain open.
+
 ### Audio equalizer profile menu 2026-10-14
 
 Core/native coverage checks gains and the dedicated filter. Profile identity

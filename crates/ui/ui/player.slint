@@ -425,6 +425,10 @@ export component PlayerWindow inherits PlayerMenuWindow {
                 layout-settings-changed => { root.layout-settings-changed(); }
                 if pane-kind != 5 : QuickSettingsScrollPage {
                     page-kind: pane-kind;
+                    changed drop-viewport => {
+                        if side == 0 { PlayerSidebarState.leading-list-drop-viewport = self.drop-viewport; }
+                        else { PlayerSidebarState.trailing-list-drop-viewport = self.drop-viewport; }
+                    }
                     audio-y: scroll-memory.audio-y;
                     video-y: scroll-memory.video-y;
                     subtitles-y: scroll-memory.subtitles-y;

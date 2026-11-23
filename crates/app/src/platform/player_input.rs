@@ -9,8 +9,10 @@ use std::{
     time::Duration,
 };
 
+mod drop_position;
 #[cfg(target_os = "macos")]
 mod mac_gestures;
+pub(crate) use drop_position::file_drop_position;
 
 #[cfg(target_os = "macos")]
 thread_local! {
@@ -70,28 +72,34 @@ pub(crate) fn player_gesture_handler(
     }
 }
 
-pub(crate) fn batched_file_drops(
-    open: impl Fn(Vec<OsString>) + 'static,
-) -> (Rc<slint::Timer>, impl Fn(&WindowEvent) + 'static) {
-    let paths = Rc::new(RefCell::new(Vec::new()));
-    let pending = paths.clone();
+pub(crate) fn batched_file_drops<T: 'static>(
+    target: impl Fn(&slint::Window) -> T + 'static,
+    open: impl Fn(T, Vec<OsString>) + 'static,
+) -> (
+    Rc<slint::Timer>,
+    impl Fn(&slint::Window, &WindowEvent) + 'static,
+) {
+    let batch = Rc::new(RefCell::new(None));
+    let pending = batch.clone();
     let timer = Rc::new(slint::Timer::default());
     timer.start(
         slint::TimerMode::SingleShot,
         Duration::from_millis(80),
         move || {
-            let files = std::mem::take(&mut *pending.borrow_mut());
-            if !files.is_empty() {
-                open(files);
+            let files = pending.borrow_mut().take();
+            if let Some((target, files)) = files {
+                open(target, files);
             }
         },
     );
     timer.stop();
     let restart = timer.clone();
-    (timer, move |event| {
+    (timer, move |window, event| {
         // Winit delivers one event per file even when the source sends a batch.
         if let WindowEvent::DroppedFile(path) = event {
-            paths.borrow_mut().push(path.clone().into_os_string());
+            let mut batch = batch.borrow_mut();
+            let (_, files) = batch.get_or_insert_with(|| (target(window), Vec::new()));
+            files.push(path.clone().into_os_string());
             restart.restart();
         }
     })
