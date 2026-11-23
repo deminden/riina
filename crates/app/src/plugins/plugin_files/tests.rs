@@ -10,6 +10,7 @@ fn temporary_files() -> (PluginFiles, TempDir) {
             data_root: root.join(".data"),
             temp_root: root.join(".tmp"),
             player_context: Arc::new(Mutex::new(PluginPlayerFileContext::default())),
+            _test_directory: None,
         },
         directory,
     )

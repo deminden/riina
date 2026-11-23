@@ -87,6 +87,8 @@ pub(crate) struct PluginFiles {
     data_root: PathBuf,
     temp_root: PathBuf,
     player_context: Arc<Mutex<PluginPlayerFileContext>>,
+    #[cfg(test)]
+    _test_directory: Option<Arc<riina_test_support::TempDir>>,
 }
 
 #[derive(Serialize)]
@@ -105,17 +107,20 @@ impl PluginFiles {
             data_root: plugins_root.join(".data").join(&identifier),
             temp_root: std::env::temp_dir().join(format!("riina-{identifier}")),
             player_context: Arc::new(Mutex::new(PluginPlayerFileContext::default())),
+            #[cfg(test)]
+            _test_directory: None,
         }
     }
 
     #[cfg(test)]
     pub(crate) fn temporary(identifier: &str) -> Self {
-        let root = std::env::temp_dir().join("riina-plugin-storage");
+        let root = Arc::new(riina_test_support::TempDir::new("plugin-storage").unwrap());
         let identifier = safe_identifier(identifier);
         Self {
-            data_root: root.join(".data").join(&identifier),
-            temp_root: root.join(".tmp").join(identifier),
+            data_root: root.path().join(".data").join(&identifier),
+            temp_root: root.path().join(".tmp").join(identifier),
             player_context: Arc::new(Mutex::new(PluginPlayerFileContext::default())),
+            _test_directory: Some(root),
         }
     }
 

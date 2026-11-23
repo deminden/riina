@@ -156,11 +156,11 @@ fn a_failed_overlay_callback_still_runs_its_queued_promise_jobs() {
 
 #[test]
 fn package_require_bridge_survives_api_installation() {
-    let root = tests::temporary_directory();
+    let directory = riina_test_support::TempDir::new("plugin-modules").unwrap();
+    let root = directory.path();
     std::fs::write(root.join("entry.js"), "iina.log(require('./helper.js'));").unwrap();
     std::fs::write(root.join("helper.js"), "module.exports = 'module loaded';").unwrap();
-    let result = execute_package_entry(&root, &tests::manifest("entry.js".into()), &[]);
-    std::fs::remove_dir_all(root).unwrap();
+    let result = execute_package_entry(root, &tests::manifest("entry.js".into()), &[]);
     assert_eq!(
         result.unwrap(),
         [HostEvent::Ui(UiEffect::Log("module loaded".into()))]

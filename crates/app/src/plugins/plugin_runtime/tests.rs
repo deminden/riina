@@ -3,24 +3,10 @@ use super::*;
 use crate::plugin_http::perform_http_request;
 use riina_core::control_preferences::SeekType;
 use riina_core::plugin::Author;
+use riina_test_support::TempDir;
 use std::collections::BTreeMap;
+use std::path::PathBuf;
 use std::{io::Read, time::Instant};
-use std::{
-    path::PathBuf,
-    sync::atomic::{AtomicU64, Ordering},
-};
-
-static NEXT_DIRECTORY: AtomicU64 = AtomicU64::new(0);
-
-pub(super) fn temporary_directory() -> PathBuf {
-    let path = std::env::temp_dir().join(format!(
-        "riina-plugin-runtime-{}-{}",
-        std::process::id(),
-        NEXT_DIRECTORY.fetch_add(1, Ordering::Relaxed)
-    ));
-    std::fs::create_dir_all(&path).unwrap();
-    path
-}
 
 pub(super) fn manifest(entry: PathBuf) -> Manifest {
     Manifest {
@@ -149,12 +135,7 @@ fn permitted_overlay_calls_become_validated_platform_effects() {
 
 #[test]
 fn plugin_file_api_scopes_private_paths_and_checks_external_access_grants() {
-    let identifier = format!("org.example.files-{}", std::process::id());
-    let data_root = std::env::temp_dir()
-        .join("riina-plugin-storage")
-        .join(".data")
-        .join(&identifier);
-    let _ = std::fs::remove_dir_all(&data_root);
+    let identifier = "org.example.files";
     let requested = vec!["file-system".to_owned()];
     let source = r#"
         iina.file.write('@data/state.txt', 'saved');
@@ -168,23 +149,14 @@ fn plugin_file_api_scopes_private_paths_and_checks_external_access_grants() {
         iina.log(iina.file.read('@data/moved.txt'));
         iina.file.delete('@data/moved.txt');
     "#;
-    let events = execute_entry(source, &identifier, &requested, &requested).unwrap();
+    let events = execute_entry(source, identifier, &requested, &requested).unwrap();
     assert_eq!(events, [HostEvent::Ui(UiEffect::Log("saved".into()))]);
-    let _ = std::fs::remove_dir_all(data_root);
 
-    assert!(
-        execute_entry(
-            "iina.file.read('C:/Windows/win.ini')",
-            &identifier,
-            &[],
-            &[],
-        )
-        .is_err()
-    );
+    assert!(execute_entry("iina.file.read('C:/Windows/win.ini')", identifier, &[], &[],).is_err());
     assert!(
         execute_entry(
             "iina.file.showInFinder('C:/Windows/win.ini')",
-            &identifier,
+            identifier,
             &[],
             &[],
         )
@@ -197,7 +169,7 @@ fn plugin_file_api_scopes_private_paths_and_checks_external_access_grants() {
         } catch (error) {
             if (!String(error).includes('file-system permission')) throw error;
         }"#,
-        &identifier,
+        identifier,
         &[],
         &[],
     )
@@ -206,12 +178,8 @@ fn plugin_file_api_scopes_private_paths_and_checks_external_access_grants() {
 
 #[test]
 fn plugin_file_handles_expose_binary_seek_read_write_and_close() {
-    let identifier = format!("org.example.file-handles-{}", std::process::id());
-    let data_root = std::env::temp_dir()
-        .join("riina-plugin-storage")
-        .join(".data")
-        .join(&identifier);
-    let _ = std::fs::remove_dir_all(&data_root);
+    let identifier = "org.example.file-handles";
+    let files = PluginFiles::temporary(identifier);
     let requested = vec!["file-system".to_owned()];
     let source = r#"
         iina.file.write('@data/binary.dat', 'abcd');
@@ -232,12 +200,30 @@ fn plugin_file_handles_expose_binary_seek_read_write_and_close() {
         }
         reader.close();
     "#;
-    execute_entry(source, &identifier, &requested, &requested).unwrap();
-    assert_eq!(
-        std::fs::read(data_root.join("binary.dat")).unwrap(),
-        [0, 255, b'c', b'd']
-    );
-    let _ = std::fs::remove_dir_all(data_root);
+    execute_with_files(source, identifier, &requested, files.clone()).unwrap();
+    let path = files.existing_path("@data/binary.dat", false).unwrap();
+    assert_eq!(std::fs::read(path).unwrap(), [0, 255, b'c', b'd']);
+}
+
+fn execute_with_files(
+    source: &str,
+    identifier: &str,
+    permissions: &[String],
+    files: PluginFiles,
+) -> Result<Vec<HostEvent>, String> {
+    PluginRuntimeSession::start_entry_with_context(
+        source,
+        identifier,
+        permissions,
+        permissions,
+        None,
+        None,
+        PluginStorageContext {
+            file_system: files,
+            allowed_domains: Vec::new(),
+        },
+    )?
+    .drain_events()
 }
 
 #[test]
@@ -486,8 +472,8 @@ fn core_status_chapter_recent_document_and_version_reads_follow_playback_context
 
 #[test]
 fn core_open_requires_the_matching_network_or_filesystem_grant() {
-    let identifier = format!("org.example.core-open-{}", std::process::id());
-    let files = PluginFiles::temporary(&identifier);
+    let identifier = "org.example.core-open";
+    let files = PluginFiles::temporary(identifier);
     files
         .write_text("@data/clip.mkv", "fixture", false)
         .unwrap();
@@ -497,14 +483,8 @@ fn core_open_requires_the_matching_network_or_filesystem_grant() {
         .to_string_lossy()
         .into_owned();
     assert_eq!(
-        execute_entry("iina.core.open('@data/clip.mkv')", &identifier, &[], &[],).unwrap(),
+        execute_with_files("iina.core.open('@data/clip.mkv')", identifier, &[], files).unwrap(),
         [HostEvent::Ui(UiEffect::CoreCommand(Command::Load(path)))]
-    );
-    let _ = std::fs::remove_dir_all(
-        std::env::temp_dir()
-            .join("riina-plugin-storage")
-            .join(".data")
-            .join(&identifier),
     );
     let files = PluginFiles::temporary("org.example.core-open-policy");
     assert!(
@@ -995,20 +975,15 @@ fn bounds_source_and_host_output() {
 
 #[test]
 fn package_entry_must_resolve_inside_its_installed_root() {
-    let root = temporary_directory();
+    let directory = TempDir::new("plugin-package").unwrap();
+    let root = directory.path().join("package");
+    std::fs::create_dir(&root).unwrap();
     std::fs::write(root.join("entry.js"), "iina.log('inside')").unwrap();
     let events = execute_package_entry(&root, &manifest("entry.js".into()), &[]).unwrap();
     assert_eq!(events, [HostEvent::Ui(UiEffect::Log("inside".into()))]);
 
-    let sibling_entry = root.with_extension("js");
+    let sibling_entry = directory.path().join("sibling.js");
     std::fs::write(&sibling_entry, "iina.log('outside')").unwrap();
-    let traversal_entry = PathBuf::from("..").join(
-        sibling_entry
-            .file_name()
-            .expect("temporary file has a name"),
-    );
+    let traversal_entry = PathBuf::from("..").join("sibling.js");
     assert!(execute_package_entry(&root, &manifest(traversal_entry), &[]).is_err());
-
-    let _ = std::fs::remove_file(sibling_entry);
-    let _ = std::fs::remove_dir_all(root);
 }
