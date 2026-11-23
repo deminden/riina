@@ -33,6 +33,7 @@ pub(crate) enum Kind {
     Chapter,
     PlaylistAdd,
     PlaylistClear,
+    QuickLut,
     Track,
 }
 

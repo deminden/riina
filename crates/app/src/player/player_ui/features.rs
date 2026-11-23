@@ -73,6 +73,7 @@ pub(super) struct Inputs<'a> {
     pub(super) picture_in_picture: &'a platform::PictureInPictureSession,
     pub(super) system_media: &'a platform::SystemMediaSession,
     pub(super) capture_transition_first: bool,
+    pub(super) resize_filter: Option<crate::window_aspect::WindowEventFilter>,
 }
 
 pub(super) fn install(app: &PlayerWindow, inputs: Inputs<'_>) -> Installed {
@@ -91,6 +92,7 @@ pub(super) fn install(app: &PlayerWindow, inputs: Inputs<'_>) -> Installed {
         picture_in_picture,
         system_media,
         capture_transition_first,
+        resize_filter,
     } = inputs;
     let playback_history_window = history.install_window(
         app,
@@ -125,7 +127,7 @@ pub(super) fn install(app: &PlayerWindow, inputs: Inputs<'_>) -> Installed {
         file_drop_timer,
         player_window_focus,
         scroll_monitor,
-    } = input::install(app, commands, playback.clone());
+    } = input::install(app, commands, playback.clone(), resize_filter);
     let thumbnail_preview_timer = thumbnail_actions::install(app, playback, plugin_host.cloned());
     let (transition_frame_timer, pending_navigation) = transitions::install(
         capture_transition_first,

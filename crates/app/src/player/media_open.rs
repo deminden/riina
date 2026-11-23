@@ -3,7 +3,7 @@ use crate::{PlayerWindow, file_selection};
 use riina_core::Command;
 use riina_mpv::CommandSender;
 use slint::{ComponentHandle, Model, ModelRc, SharedString, VecModel};
-use std::ffi::OsString;
+use std::{ffi::OsString, path::Path};
 
 fn apply_manual_open_repeat(app: &PlayerWindow, sender: &CommandSender) -> Result<(), String> {
     if let Some(command) = manual_open_repeat_command(
@@ -252,7 +252,35 @@ fn open_in_separate_players(
 }
 
 pub fn dropped(app: &PlayerWindow, paths: Vec<OsString>, sender: CommandSender) {
+    if let Some(filter) = dropped_lut(&paths) {
+        if let Err(error) = filter.and_then(|filter| {
+            sender
+                .send(Command::AddVideoFilter(filter))
+                .map_err(|error| error.to_string())
+        }) {
+            crate::diagnostics::report(app, error);
+        }
+        return;
+    }
     startup_selection(app, paths, None, sender, true);
+}
+
+fn dropped_lut(paths: &[OsString]) -> Option<Result<String, String>> {
+    let [path] = paths else { return None };
+    let extension = Path::new(path).extension()?;
+    if !["3dl", "cube", "dat", "m3d"]
+        .iter()
+        .any(|expected| extension.eq_ignore_ascii_case(expected))
+    {
+        return None;
+    }
+    Some(
+        path.to_str()
+            .ok_or_else(|| "The 3D LUT path contains invalid Unicode".into())
+            .and_then(|path| {
+                riina_core::video_filters::quick_lut_filter(path).map_err(|e| e.to_string())
+            }),
+    )
 }
 
 pub fn startup_at(
@@ -562,6 +590,30 @@ mod tests {
     use super::manual_open_repeat_command;
     use super::{parse_internet_shortcut, select_open_paths, validate_url};
     use riina_core::{Command, LoopMode};
+
+    #[test]
+    fn a_single_lut_drop_builds_a_filter_without_replacing_media() {
+        use super::{CommandSender, OsString, PlayerWindow, dropped, dropped_lut};
+
+        i_slint_backend_testing::init_no_event_loop();
+        let app = PlayerWindow::new().unwrap();
+        let (sender, commands) = CommandSender::recording(2);
+        let drop = OsString::from("Filter [café], tint.CUBE");
+        let before = app.get_media_request_generation();
+        dropped(&app, vec![drop.clone()], sender);
+        assert_eq!(app.get_media_request_generation(), before);
+        assert_eq!(
+            commands.commands.try_recv(),
+            Ok(Command::AddVideoFilter(
+                riina_core::video_filters::quick_lut_filter(drop.to_str().unwrap()).unwrap()
+            ))
+        );
+        assert!(commands.commands.try_recv().is_err());
+        assert!(dropped_lut(&[drop, "video.mkv".into()]).is_none());
+        for path in ["look.3dl", "look.dat", "look.m3d"] {
+            assert!(dropped_lut(&[path.into()]).is_some_and(|filter| filter.is_ok()));
+        }
+    }
 
     #[test]
     fn manual_open_repeat_is_opt_in() {

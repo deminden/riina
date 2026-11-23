@@ -304,12 +304,12 @@ pub fn build_preset_filter(index: usize, values: &[String]) -> Result<String, Fi
         5 => "lavfi=[lutrgb=r=negval:g=negval:b=negval]".to_owned(),
         6 => "vflip".to_owned(),
         7 => "hflip".to_owned(),
-        // IINA puts the path verbatim inside the already bracketed lavfi graph.
-        8 => format!(
-            "lavfi=[lut3d=file={}:interp={}]",
-            value("file"),
-            value("interp")
-        ),
+        8 => {
+            let option = escape_lavfi(value("file"), ":\\'");
+            let path = escape_lavfi(&option, "[],;\\'");
+            let graph = format!("lut3d=file={path}:interp={}", value("interp"));
+            format!("lavfi={}", lavfi_graph_argument(&graph))
+        }
         9 => format!("{}={}", value("name"), value("string")),
         10 => format!("lavfi=[{}={}]", value("name"), value("string")),
         _ => return Err(FilterPresetError::UnknownVideoPreset),
@@ -318,6 +318,33 @@ pub fn build_preset_filter(index: usize, values: &[String]) -> Result<String, Fi
         return Err(FilterPresetError::InvalidValues);
     }
     Ok(filter)
+}
+
+pub const QUICK_LUT_LABEL: &str = "iina_quickl3d";
+
+pub fn quick_lut_filter(path: &str) -> Result<String, FilterPresetError> {
+    let preset = build_preset_filter(8, &[path.into(), "nearest".into()])?;
+    let filter = format!("@{QUICK_LUT_LABEL}:{preset}");
+    valid_filter_string(&filter)
+        .then_some(filter)
+        .ok_or(FilterPresetError::InvalidValues)
+}
+
+fn escape_lavfi(value: &str, special: &str) -> String {
+    // libavfilter parses the graph, then parses the filter's option values.
+    let mut escaped = String::with_capacity(value.len());
+    for character in value.chars() {
+        if special.contains(character) || character.is_ascii_whitespace() {
+            escaped.push('\\');
+        }
+        escaped.push(character);
+    }
+    escaped
+}
+
+fn lavfi_graph_argument(graph: &str) -> String {
+    // mpv's length quote preserves brackets and delimiters in the FFmpeg graph.
+    format!("graph=%{}%{graph}", graph.len())
 }
 
 pub fn build_audio_preset_filter(
@@ -529,7 +556,11 @@ pub fn format_filter(filter: &VideoFilter) -> String {
         && let Some(graph) = filter.params.get("graph")
     {
         formatted.push('=');
-        formatted.push_str(graph);
+        if graph.starts_with("lut3d=") {
+            formatted.push_str(&lavfi_graph_argument(graph));
+        } else {
+            formatted.push_str(graph);
+        }
         return formatted;
     }
     if filter.params.is_empty() {
@@ -614,7 +645,7 @@ pub fn is_active(filter: &str, active: &[VideoFilter]) -> bool {
             Some(arguments) if name == "lavfi" => candidate
                 .params
                 .get("graph")
-                .is_some_and(|graph| graph == arguments),
+                .is_some_and(|graph| graph == arguments || graph == decoded_lavfi_graph(arguments)),
             Some(arguments) => {
                 let named = arguments
                     .split(':')
@@ -640,6 +671,20 @@ pub fn is_active(filter: &str, active: &[VideoFilter]) -> bool {
             }
         }
     })
+}
+
+fn decoded_lavfi_graph(argument: &str) -> &str {
+    if let Some((length, graph)) = argument
+        .strip_prefix("graph=%")
+        .and_then(|value| value.split_once('%'))
+        && length.parse::<usize>().ok() == Some(graph.len())
+    {
+        return graph;
+    }
+    argument
+        .strip_prefix('[')
+        .and_then(|graph| graph.strip_suffix(']'))
+        .unwrap_or(argument)
 }
 
 fn parse_filter_identity(filter: &str) -> Option<(Option<String>, String, Option<String>)> {

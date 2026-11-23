@@ -1117,6 +1117,39 @@ Bounded Windows `.url` parsing rejects malformed/out-of-section targets and
 unsupported schemes. OS drag/drop, raw text/URL payloads and playlist insertion
 remain separate GUI checks.
 
+### Dropped 3D LUTs and player input 2026-11-23
+
+IINA v1.5.0 routes a single dropped `.3dl`, `.cube`, `.dat` or `.m3d` file to
+its existing video filter chain with nearest interpolation. Riina now uses
+the same labeled replacement behavior. The manual preset and drop route
+share the filter builder. It escapes the filename at the two FFmpeg parser
+levels and quotes the graph by byte length for mpv. [FFmpeg filtergraph escaping](https://ffmpeg.org/ffmpeg-filters.html#Notes-on-filtergraph-escaping), [mpv fixed-length quoting](https://mpv.io/manual/stable/#escaping-spaces-and-other-special-characters)
+
+On Ubuntu 26.04 in WSL, a GTK drag source sent native X11 file drops to the
+player. At `9c0f8c7` the drop left the blue fixture unchanged. The first LUT
+build had the same result because the separate resize registration replaced
+the player's Winit input callback. The verified build combined those routes.
+It applied a green LUT, replaced it with a red LUT under the same label,
+and kept the active filter and media after a malformed LUT was dropped.
+Full 1280 x 800 captures showed both color changes and the confirmed filter
+OSD. During playback, a window resize kept the video aspect ratio. Both LUT
+drops kept the resulting window geometry. Wheel input changed volume. A
+subtitle-only drop kept the existing media, and a mixed drop opened the second
+fixture and attached its subtitle. Quit exited normally. The Linux executable
+SHA-256 was
+`d64fa0c6e79d4a44d8a2c6cef13fa9ecfe8d0a4b3ef5fdb9041e923e077e04d8`.
+
+The pinned Windows `cargo xtask native` suite passed 56 null-output tests,
+including a paused-playback test that replaced a LUT with paths containing
+Unicode, spaces, brackets, commas and an apostrophe. It kept the loaded media
+and the unrelated horizontal flip filter. Native drag-and-drop evidence
+in this batch covers X11.
+
+The Windows workspace gate passed 869 Rust and 78 Python tests. The Linux
+locked build, strict workspace Clippy and 832 Rust tests passed. Strict
+workspace Clippy also passed the `aarch64-apple-darwin` source check with
+Zig 0.15.2. Native macOS input and playback still need a desktop run.
+
 ### Audio equalizer profile menu 2026-10-14
 
 Core/native coverage checks gains and the dedicated filter. Profile identity

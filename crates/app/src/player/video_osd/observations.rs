@@ -1,6 +1,8 @@
 //! Turn confirmed native changes into ordered feedback.
 use super::{Kind, Message};
-use riina_core::{Phase, Playback, speed_controls};
+use riina_core::{
+    Phase, Playback, crop::VideoFilter, speed_controls, video_filters::QUICK_LUT_LABEL,
+};
 
 pub(super) fn changed_all(previous: Option<&Playback>, state: &Playback) -> Vec<Message> {
     let Some(previous) = previous else {
@@ -12,7 +14,24 @@ pub(super) fn changed_all(previous: Option<&Playback>, state: &Playback) -> Vec<
         advance_baseline(&mut baseline, state, &message.kind);
         messages.push(message);
     }
+    if same_playback(previous, state)
+        && state.error().is_none()
+        && let Some(filter) = observed_lut(state)
+        && observed_lut(previous) != Some(filter)
+    {
+        messages.push(Message {
+            kind: Kind::QuickLut,
+            text: "Added Filter: 3D LUT".into(),
+            progress: None,
+        });
+    }
     messages
+}
+
+fn observed_lut(state: &Playback) -> Option<&VideoFilter> {
+    state.video_filters.as_deref()?.iter().find(|filter| {
+        filter.label.as_deref() == Some(QUICK_LUT_LABEL) && filter.enabled != Some(false)
+    })
 }
 
 fn advance_baseline(baseline: &mut Playback, state: &Playback, kind: &Kind) {
@@ -67,19 +86,14 @@ fn advance_baseline(baseline: &mut Playback, state: &Playback, kind: &Kind) {
         | Kind::Stop
         | Kind::Chapter
         | Kind::PlaylistAdd
+        | Kind::QuickLut
         | Kind::PlaylistClear => {}
     }
 }
 
 pub(super) fn changed_one(previous: Option<&Playback>, state: &Playback) -> Option<Message> {
     let previous = previous?;
-    if previous.generation != state.generation
-        || matches!(state.phase, Phase::Loading | Phase::Stopped | Phase::Failed)
-        || !matches!(
-            previous.phase,
-            Phase::Playing | Phase::Paused | Phase::Buffering | Phase::Seeking | Phase::Ended
-        )
-    {
+    if !same_playback(previous, state) {
         return None;
     }
     let immediate = immediate_feedback(previous, state);
@@ -91,6 +105,15 @@ pub(super) fn changed_one(previous: Option<&Playback>, state: &Playback) -> Opti
         .or_else(|| loop_feedback(previous, state))
         .or_else(|| timing_feedback(previous, state))
         .or_else(|| track_feedback(previous, state))
+}
+
+fn same_playback(previous: &Playback, state: &Playback) -> bool {
+    previous.generation == state.generation
+        && !matches!(state.phase, Phase::Loading | Phase::Stopped | Phase::Failed)
+        && matches!(
+            previous.phase,
+            Phase::Playing | Phase::Paused | Phase::Buffering | Phase::Seeking | Phase::Ended
+        )
 }
 
 fn immediate_feedback(previous: &Playback, state: &Playback) -> Option<Message> {

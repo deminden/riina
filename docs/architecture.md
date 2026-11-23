@@ -79,6 +79,10 @@ that lifetime. Keyboard input and both menu presentations invoke the actions
 registered for that player. Plugin entry workers have a separate runtime and
 send intents through the existing command path.
 
+Slint has one Winit event callback per window. The player combines file drops,
+focus, wheel input, trackpad gestures and shared-renderer resize events in that
+callback. The framed Windows video owner registers its own event callback.
+
 Each player retains its latest 16 engine notices. The status line and the
 plugin snapshot expose the active notice. Clearing it leaves prior notices in
 the history, and the engine logs each new notice when it occurs.

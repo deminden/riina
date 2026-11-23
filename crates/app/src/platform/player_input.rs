@@ -49,15 +49,20 @@ pub(super) fn some_player_window_is_focused() -> bool {
     FOCUSED_PLAYER_WINDOWS.with(|count| count.get() > 0)
 }
 
-pub(crate) fn install_player_gestures(
+pub(crate) fn player_gesture_handler(
     app: &PlayerWindow,
     player: &CommandSender,
     dispatch: fn(&PlayerWindow, &CommandSender, i32),
-) {
+) -> impl FnMut(&WindowEvent) + 'static + use<> {
     #[cfg(target_os = "macos")]
-    mac_gestures::install(app, player.clone(), dispatch);
+    {
+        mac_gestures::handler(app, player.clone(), dispatch)
+    }
     #[cfg(not(target_os = "macos"))]
-    let _ = (app, player, dispatch);
+    {
+        let _ = (app, player, dispatch);
+        |_: &WindowEvent| {}
+    }
 }
 
 #[derive(Clone, Copy, Debug)]

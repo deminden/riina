@@ -253,7 +253,7 @@ fn configure_with_engine(
         welcome,
         &engine_start,
         loaded,
-        media_geometry,
+        media_geometry.clone(),
     )?;
     let prefs = &session.prefs;
     let prefs_path = &session.prefs_path;
@@ -273,6 +273,9 @@ fn configure_with_engine(
         .start(native.as_ref(), engine_options, notify)
         .inspect_err(|error| app.set_status(error.clone().into()))
         .map_err(std::io::Error::other)?;
+    let resize_filter = native
+        .is_none()
+        .then(|| crate::window_aspect::connect_with_target(app, None, &media_geometry));
     let features::Installed {
         guards,
         timers,
@@ -296,6 +299,7 @@ fn configure_with_engine(
             picture_in_picture: &session.picture_in_picture,
             system_media: &session.projection.system_media,
             capture_transition_first,
+            resize_filter,
         },
     );
     observer_state.bind_timers(timers);

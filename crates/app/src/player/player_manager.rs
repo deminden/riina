@@ -228,14 +228,13 @@ fn open_player(
         None,
         resume_position,
         loaded,
-        media_geometry.clone(),
+        media_geometry,
     )
     .map_err(|error| error.to_string())?;
     let manager = PlayerManager {
         state: state.clone(),
     };
     let id = manager.attach(&app, None, session);
-    crate::window_aspect::connect(&app, &media_geometry);
     if let Err(error) = crate::platform::show_window(&app) {
         close_player(state, id, false);
         return Err(error.to_string());
@@ -359,13 +358,12 @@ fn show_welcome(state: &Rc<RefCell<ManagerState>>) -> Result<(), Box<dyn std::er
         Some(&welcome),
         None,
         loaded,
-        media_geometry.clone(),
+        media_geometry,
     )?;
     let manager = PlayerManager {
         state: state.clone(),
     };
     manager.attach(&app, Some(welcome.clone_strong()), session);
-    crate::window_aspect::connect(&app, &media_geometry);
     crate::platform::center_auxiliary_window(&welcome, &app);
     crate::platform::show_window(&welcome)?;
     crate::platform::enable_welcome_mica(&welcome);

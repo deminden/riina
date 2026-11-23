@@ -113,12 +113,14 @@ impl Drop for PlayerWindowFocusRegistration {
     }
 }
 
-fn install_file_drop(
+fn install_window_events(
     app: &PlayerWindow,
     player: riina_mpv::CommandSender,
     playback: crate::PlaybackStore,
     trackpad_pause_generation: Rc<Cell<Option<u64>>>,
     scroll_input: Rc<Cell<ScrollInputState>>,
+    mut handle_window_event: impl FnMut(&slint::Window, &winit::event::WindowEvent) -> EventResult
+    + 'static,
 ) -> (Rc<slint::Timer>, PlayerWindowFocusRegistration) {
     let registry_id = NEXT_PLAYER_WINDOW_REGISTRATION.fetch_add(1, Ordering::Relaxed);
     PLAYER_WINDOWS.with(|registered| {
@@ -155,6 +157,9 @@ fn install_file_drop(
     let event_trackpad_pause_generation = trackpad_pause_generation;
     let event_focused = Rc::downgrade(&focused);
     app.window().on_winit_window_event(move |window, event| {
+        if handle_window_event(window, event) == EventResult::PreventDefault {
+            return EventResult::PreventDefault;
+        }
         if let winit::event::WindowEvent::DroppedFile(path) = event {
             event_paths.borrow_mut().push(path.clone().into_os_string());
             event_timer.restart();
@@ -376,6 +381,7 @@ pub(super) fn install(
     app: &PlayerWindow,
     player: &riina_mpv::CommandSender,
     latest_playback: crate::PlaybackStore,
+    resize_filter: Option<crate::window_aspect::WindowEventFilter>,
 ) -> InstalledInput {
     let scroll_input = Rc::new(Cell::new(ScrollInputState::default()));
     let scroll_monitor = {
@@ -418,13 +424,21 @@ pub(super) fn install(
         })
     };
     let trackpad_pause_generation = Rc::new(Cell::new(None));
-    platform::install_player_gestures(app, player, dispatch_control_mouse_action);
-    let (file_drop_timer, player_window_focus) = install_file_drop(
+    let mut gestures = platform::player_gesture_handler(app, player, dispatch_control_mouse_action);
+    // Slint has one Winit callback per window. Keep native gestures and size
+    // constraints on the same route as file drops, wheel input and focus.
+    let (file_drop_timer, player_window_focus) = install_window_events(
         app,
         player.clone(),
         latest_playback.clone(),
         trackpad_pause_generation.clone(),
         scroll_input.clone(),
+        move |window, event| {
+            gestures(event);
+            resize_filter
+                .as_ref()
+                .map_or(EventResult::Propagate, |resize| resize(window, event))
+        },
     );
     let pending_single_click = Rc::new(RefCell::new(None::<i32>));
     let single_click_timer = Rc::new(slint::Timer::default());

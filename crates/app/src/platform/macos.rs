@@ -15,7 +15,7 @@ mod window_document;
 pub(crate) use appearance::{system_font_family_name, system_reduce_motion_enabled};
 pub(crate) use application_menu::MacApplicationMenuObserver;
 pub(crate) use color_panel::MacSubtitleColorPanel;
-pub(crate) use gesture_events::{ControlGesture, GesturePhase, install_control_gestures};
+pub(crate) use gesture_events::{ControlGesture, GesturePhase, control_gesture};
 pub(crate) use icc_profile::{display_identity, icc_profile_for_window};
 pub(crate) use pip::MacPictureInPicture;
 pub(crate) use plugin_menu::MacPluginMenuObserver;

@@ -26,11 +26,6 @@ impl MediaGeometry {
     }
 }
 
-pub(crate) fn connect(app: &PlayerWindow, source: &MediaGeometry) {
-    let filter = connect_with_target(app, None, source);
-    app.window().on_winit_window_event(filter);
-}
-
 /// The window owner installs this filter alongside its other native event handlers.
 pub(crate) fn connect_with_target(
     app: &PlayerWindow,

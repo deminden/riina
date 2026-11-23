@@ -1,6 +1,49 @@
 use super::*;
 
 #[test]
+#[ignore = "requires provisioned libmpv; applies and replaces a 3D LUT during playback"]
+fn dropped_luts_with_delimiters_replace_only_the_labelled_filter() {
+    use riina_core::video_filters::{QUICK_LUT_LABEL, format_filter, quick_lut_filter};
+
+    let root = fixture_root();
+    let directory = riina_test_support::TempDir::new("native-quick-lut").unwrap();
+    let harness = Harness::start(&root).unwrap();
+    let video = root.join("tests/fixtures/moving-square.avi");
+    harness
+        .send(Command::Load(video.to_str().unwrap().into()))
+        .unwrap();
+    let loaded = harness.wait(|state| state.phase == Phase::Playing);
+    harness.send(Command::SetPaused(true)).unwrap();
+    harness.wait(|state| state.paused && state.position.is_some());
+    harness
+        .send(Command::AddVideoFilter("hflip".into()))
+        .unwrap();
+
+    for filename in ["look [café], first's.cube", "replacement ] красный.cube"] {
+        let path = directory.path().join(filename);
+        let lut = format!("LUT_3D_SIZE 2\n{}", "0 1 0\n".repeat(8));
+        std::fs::write(&path, lut).unwrap();
+        let filter = quick_lut_filter(path.to_str().unwrap()).unwrap();
+        harness
+            .send(Command::AddVideoFilter(filter.clone()))
+            .unwrap();
+        let observed = harness.wait(|state| {
+            state.error().is_some()
+                || state.video_filters.as_deref().is_some_and(|filters| {
+                    filters.iter().any(|active| format_filter(active) == filter)
+                })
+        });
+        assert_eq!(observed.error(), None);
+        assert_eq!(observed.generation, loaded.generation);
+        assert!(observed.paused);
+        let filters = observed.video_filters.as_deref().unwrap();
+        assert_eq!(filters.len(), 2);
+        assert_eq!(filters[0].name, "hflip");
+        assert_eq!(filters[1].label.as_deref(), Some(QUICK_LUT_LABEL));
+    }
+}
+
+#[test]
 #[ignore = "requires provisioned libmpv; verifies original woven fields and 25-to-50 Hz cadence"]
 fn interlaced_fields_decode_and_deinterlace_at_field_cadence() {
     let root = fixture_root();

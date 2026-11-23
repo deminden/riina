@@ -139,7 +139,7 @@ fn run_shared_player(
         welcome.as_ref(),
         resume_position,
         loaded,
-        media_geometry.clone(),
+        media_geometry,
     )?;
     player_manager.attach(
         &app,
@@ -147,7 +147,6 @@ fn run_shared_player(
         session,
     );
     let application_menu = platform::startup::ApplicationMenu::new();
-    window_aspect::connect(&app, &media_geometry);
     if let Some(welcome) = &welcome {
         platform::center_auxiliary_window(welcome, &app);
         platform::show_window(welcome)?;

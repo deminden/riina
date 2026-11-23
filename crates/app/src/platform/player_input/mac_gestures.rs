@@ -2,7 +2,10 @@
 use crate::{PlayerWindow, platform};
 use riina_mpv::CommandSender;
 use riina_ui::PlayerMenuActions;
-use slint::{ComponentHandle, winit_030::WinitWindowAccessor};
+use slint::{
+    ComponentHandle,
+    winit_030::{WinitWindowAccessor, winit::event::WindowEvent},
+};
 use std::cell::Cell;
 
 fn resize_for_trackpad_pinch(window: &slint::Window, delta: f64) {
@@ -56,15 +59,18 @@ fn resize_for_trackpad_pinch(window: &slint::Window, delta: f64) {
     });
 }
 
-pub(super) fn install(
+pub(super) fn handler(
     app: &PlayerWindow,
     player: CommandSender,
     dispatch: fn(&PlayerWindow, &CommandSender, i32),
-) {
+) -> impl FnMut(&WindowEvent) + 'static + use<> {
     let weak = app.as_weak();
     let force_touch_active = Cell::new(false);
     let mut pinch_fullscreen_direction = None::<bool>;
-    platform::install_control_gestures(app.window(), move |gesture| {
+    move |event| {
+        let Some(gesture) = platform::control_gesture(event) else {
+            return;
+        };
         let Some(app) = weak.upgrade() else { return };
         match gesture {
             platform::ControlGesture::Pressure { stage } => {
@@ -128,5 +134,5 @@ pub(super) fn install(
                 }
             }
         }
-    });
+    }
 }
