@@ -1,5 +1,7 @@
 //! Application-lifetime owner for enabled plugin entry sessions.
 
+mod ui_activity;
+
 use crate::{
     plugin_files::PluginPlayerFileContext,
     plugin_runtime::{HostEvent, PluginRuntimeSession, UiEffect},
@@ -19,6 +21,7 @@ use std::{
     thread::JoinHandle,
     time::Duration,
 };
+use ui_activity::UiActivity;
 
 const MAX_PENDING_MESSAGES: usize = 256;
 // Timers and cross-context callbacks produce events while no host command arrives.
@@ -63,6 +66,7 @@ pub(crate) enum PluginHostMessage {
 pub(crate) struct PluginHostHandle {
     commands: mpsc::SyncSender<PluginCommand>,
     messages: Arc<Mutex<Vec<PluginHostMessage>>>,
+    ui_activity: Arc<UiActivity>,
 }
 
 impl PluginHostHandle {
@@ -232,6 +236,14 @@ impl PluginHostHandle {
             .map_err(|_| "Plugin host message queue was poisoned".to_owned())?;
         Ok(std::mem::take(&mut *messages))
     }
+
+    pub(crate) fn has_active_sessions(&self) -> bool {
+        self.ui_activity.has_active_sessions()
+    }
+
+    pub(crate) fn set_ui_waker(&self, wake: impl Fn() + Send + Sync + 'static) {
+        self.ui_activity.set_waker(wake);
+    }
 }
 
 pub(crate) struct PluginHost {
@@ -260,6 +272,8 @@ impl PluginHost {
         let (commands, receiver) = mpsc::sync_channel(64);
         let messages = Arc::new(Mutex::new(Vec::new()));
         let worker_messages = messages.clone();
+        let ui_activity = Arc::new(UiActivity::new());
+        let worker_activity = ui_activity.clone();
         let initial_player_context = PluginPlayerFileContext::default()
             .with_core_version(version_snapshot(None))
             .with_recent_documents(recent_document_values(recent_media))
@@ -273,11 +287,16 @@ impl PluginHost {
                 worker_messages,
                 initial_player_context,
                 receiver,
+                &worker_activity,
             );
         })
         .map_err(|error| format!("Could not start plugin host: {error}"))?;
         Ok(Self {
-            handle: PluginHostHandle { commands, messages },
+            handle: PluginHostHandle {
+                commands,
+                messages,
+                ui_activity,
+            },
             worker: Some(worker),
         })
     }
@@ -369,6 +388,7 @@ fn run_host(
     messages: Arc<Mutex<Vec<PluginHostMessage>>>,
     initial_player_context: PluginPlayerFileContext,
     commands: mpsc::Receiver<PluginCommand>,
+    ui_activity: &UiActivity,
 ) {
     let paths = PluginHostPaths {
         plugins_directory,
@@ -422,7 +442,18 @@ fn run_host(
     }
 
     loop {
-        match commands.recv_timeout(HOST_EVENT_POLL_INTERVAL) {
+        let active = !sessions.is_empty();
+        ui_activity.publish(active, || !riina_core::sync::lock(&messages).is_empty());
+        // Without entry sessions there are no plugin timers or callbacks to drain.
+        // Enabling, reloading and shutting down all arrive through the command queue.
+        let command = if active {
+            commands.recv_timeout(HOST_EVENT_POLL_INTERVAL)
+        } else {
+            commands
+                .recv()
+                .map_err(|_| mpsc::RecvTimeoutError::Disconnected)
+        };
+        match command {
             Ok(command) => {
                 if handle_command(
                     command,

@@ -1,7 +1,7 @@
 //! Plugin callbacks, presenters and timers are installed as one UI subsystem.
 mod effects;
 
-use crate::{PlayerWindow, platform};
+use crate::{PlayerWindow, background::CoalescedUiCallback, platform};
 use effects::PluginEffects;
 use riina_ui::PlayerMenuActions;
 use slint::{ComponentHandle, Model, winit_030::WinitWindowAccessor};
@@ -12,6 +12,9 @@ use std::{
     sync::Arc,
     time::{Duration, Instant},
 };
+
+const PLUGIN_UI_INTERVAL: Duration = Duration::from_millis(25);
+const WINDOW_PROPERTIES_INTERVAL: Duration = Duration::from_millis(125);
 
 pub(super) struct InstalledPluginUi {
     presenters: platform::PluginPresenters,
@@ -95,22 +98,26 @@ pub(super) fn install(
             sidebar: presenters.sidebar.clone(),
             sidebar_host,
         };
-        timer.start(
-            slint::TimerMode::Repeated,
-            Duration::from_millis(25),
-            move || {
-                let Some(app) = weak.upgrade() else { return };
-                platform::pump_plugin_webviews();
-                window_events.observe(&app);
-                let Ok(messages) = messages.drain_messages() else {
-                    return;
-                };
-                for message in messages {
-                    effects.apply(&app, message);
-                }
+        let running_timer = Rc::downgrade(&timer);
+        timer.start(slint::TimerMode::Repeated, PLUGIN_UI_INTERVAL, move || {
+            let (Some(app), Some(timer)) = (weak.upgrade(), running_timer.upgrade()) else {
+                return;
+            };
+            platform::pump_plugin_webviews();
+            window_events.observe(&app, timer.interval() == WINDOW_PROPERTIES_INTERVAL);
+            let Ok(batch) = messages.drain_messages() else {
+                return;
+            };
+            let update_presenters = !batch.is_empty() || messages.has_active_sessions();
+            for message in batch {
+                effects.apply(&app, message);
+            }
+            if update_presenters {
                 effects.update_presenters(&app);
-            },
-        );
+            }
+            update_timer_interval(&timer, messages.has_active_sessions());
+        });
+        bind_host_wake(app, handle, &timer);
         timer
     });
     InstalledPluginUi {
@@ -119,6 +126,44 @@ pub(super) fn install(
         plugin_host_timer,
         plugin_osd_timer,
         plugin_command_sender,
+    }
+}
+
+fn bind_host_wake(
+    app: &PlayerWindow,
+    handle: &crate::plugin_host::PluginHostHandle,
+    timer: &Rc<slint::Timer>,
+) {
+    let timer = Rc::downgrade(timer);
+    app.on_plugin_host_wake(move || {
+        if let Some(timer) = timer.upgrade() {
+            update_timer_interval(&timer, true);
+        }
+    });
+    let weak = app.as_weak();
+    let wake = CoalescedUiCallback::default();
+    handle.set_ui_waker(move || {
+        wake.post(|| {
+            let weak = weak.clone();
+            move || {
+                if let Some(app) = weak.upgrade() {
+                    app.invoke_plugin_host_wake();
+                }
+            }
+        });
+    });
+}
+
+fn update_timer_interval(timer: &slint::Timer, busy: bool) {
+    // Keep the latest native window properties available to plugins enabled
+    // later. With no sessions, the faster presenter cadence is unnecessary.
+    let interval = if busy {
+        PLUGIN_UI_INTERVAL
+    } else {
+        WINDOW_PROPERTIES_INTERVAL
+    };
+    if timer.interval() != interval {
+        timer.set_interval(interval);
     }
 }
 
@@ -228,11 +273,11 @@ impl WindowEvents {
         }
     }
 
-    fn observe(&mut self, app: &PlayerWindow) {
+    fn observe(&mut self, app: &PlayerWindow, window_properties_tick: bool) {
         if !self.announced && self.host.notify_window_loaded().is_ok() {
             self.announced = true;
         }
-        if self.last_update.elapsed() >= Duration::from_millis(125) {
+        if window_properties_tick || self.last_update.elapsed() >= WINDOW_PROPERTIES_INTERVAL {
             self.last_update = Instant::now();
             let properties = plugin_window_properties(app, self.window.as_ref());
             if self.last_properties.as_ref() != Some(&properties)
@@ -595,5 +640,38 @@ fn apply_plugin_window_action(
                     .with_winit_window(|window| window.set_minimized(miniaturized));
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::plugin_host::PluginHost;
+    use riina_test_support::TempDir;
+
+    #[test]
+    fn empty_host_uses_the_window_tick_and_messages_restore_the_fast_tick() {
+        i_slint_backend_testing::init_no_event_loop();
+        let app = PlayerWindow::new().unwrap();
+        let directory = TempDir::new("idle-plugin-presenter").unwrap();
+        let host = PluginHost::start(&directory.path().join("preferences.json"), &[], &[]).unwrap();
+        let handle = host.handle();
+        let deadline = Instant::now() + Duration::from_secs(2);
+        while handle.has_active_sessions() {
+            assert!(
+                Instant::now() < deadline,
+                "Empty plugin host did not become idle"
+            );
+            std::thread::sleep(Duration::from_millis(1));
+        }
+        let installed = install(&app, None, Some(handle));
+        let timer = installed.plugin_host_timer.as_ref().unwrap();
+        assert_eq!(timer.interval(), PLUGIN_UI_INTERVAL);
+        i_slint_backend_testing::mock_elapsed_time(PLUGIN_UI_INTERVAL);
+        assert_eq!(timer.interval(), WINDOW_PROPERTIES_INTERVAL);
+        app.invoke_plugin_host_wake();
+        assert_eq!(timer.interval(), PLUGIN_UI_INTERVAL);
+        i_slint_backend_testing::mock_elapsed_time(PLUGIN_UI_INTERVAL);
+        assert_eq!(timer.interval(), WINDOW_PROPERTIES_INTERVAL);
     }
 }

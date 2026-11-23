@@ -88,6 +88,7 @@ export component PlayerWindow inherits PlayerMenuWindow {
     callback window-title-changed(string);
     in-out property <int> preferences-target-pane: -1;
     callback plugin-menu-will-open();
+    callback plugin-host-wake();
     callback native-menu-will-open();
     changed reflection-known => { PlayerMenuActions.video-menu-changed(); }
     changed video-mirrored => { PlayerMenuActions.video-menu-changed(); }
@@ -322,7 +323,6 @@ export component PlayerWindow inherits PlayerMenuWindow {
     callback subtitle-font-selected(string);
     callback dismiss-font-picker();
     callback refresh-fullscreen-info();
-
 
     // Keys bubble from focused controls through this scope, including sliders.
     // A sibling key scope would lose fullscreen/escape after toolbar navigation.

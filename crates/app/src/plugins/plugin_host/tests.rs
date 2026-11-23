@@ -53,6 +53,19 @@ fn plugins_enabled_after_window_and_mpv_initialization_receive_events_once() {
     let preferences_path = root.join("preferences.json");
     let host = PluginHost::start(&preferences_path, &[], &[]).unwrap();
     let handle = host.handle();
+    let idle_deadline = Instant::now() + Duration::from_secs(2);
+    while handle.has_active_sessions() {
+        assert!(
+            Instant::now() < idle_deadline,
+            "Empty host did not become idle"
+        );
+        std::thread::sleep(Duration::from_millis(1));
+    }
+    let (wake, wakes) = mpsc::channel();
+    handle.set_ui_waker(move || {
+        // The test can finish waiting before the last callback is delivered.
+        let _ = wake.send(());
+    });
     handle
         .update_player_file_context(
             PluginPlayerFileContext::default()
@@ -67,6 +80,8 @@ fn plugins_enabled_after_window_and_mpv_initialization_receive_events_once() {
             directory.clone(),
         )
         .unwrap();
+    wakes.recv_timeout(Duration::from_secs(3)).unwrap();
+    assert!(handle.has_active_sessions());
     handle
         .update_player_file_context(
             PluginPlayerFileContext::default()

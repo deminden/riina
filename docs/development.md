@@ -276,7 +276,7 @@ Pause on minimize follows the owning window's minimize and restore events.
 | Live Text | 300 ms | Request and project paused-frame recognition | While recognition is enabled and paused video is eligible, with one cleanup tick after eligibility ends |
 | Windows player material policy | 100 ms | Follow system material policy and accent colors | While the player displays Windows materials or controls |
 | Windows video material sampling | 16 ms | Capture and transform a video sample | While a visible material uses active native video, with one cleanup tick to clear retired samples |
-| Plugin UI | 25 ms | Drain plugin host messages and update overlays | While a player plugin host is installed |
+| Plugin UI | 25 ms active, 125 ms idle | Drain plugin messages, update presenters and sample window properties | The host wakes the fast tick for new work. With no active sessions, retain the window-property tick for plugins enabled later |
 
 The Windows owner monitors native show-state changes and resumes surface
 alignment, material policy, and HDR polling at their existing intervals. Winit
