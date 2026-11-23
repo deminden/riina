@@ -94,18 +94,13 @@ fn clear_on_shell_apartment() -> io::Result<()> {
 
 #[cfg(test)]
 mod tests {
-    use std::{fs, time::SystemTime};
+    use riina_test_support::TempDir;
+    use std::fs;
 
     #[test]
     fn recent_document_tracking_ignores_urls_and_missing_paths() {
-        let temp = std::env::temp_dir().join(format!(
-            "riina-recent-document-{}-{}.mkv",
-            std::process::id(),
-            SystemTime::now()
-                .duration_since(SystemTime::UNIX_EPOCH)
-                .unwrap()
-                .as_nanos()
-        ));
+        let directory = TempDir::new("recent-document").unwrap();
+        let temp = directory.path().join("recent.mkv");
         let path = temp.to_string_lossy().into_owned();
 
         assert!(super::recent_media_file_path("https://example.com/video.mkv").is_none());
@@ -116,6 +111,5 @@ mod tests {
             super::recent_media_file_path(&path),
             Some(temp.canonicalize().unwrap())
         );
-        fs::remove_file(temp).unwrap();
     }
 }

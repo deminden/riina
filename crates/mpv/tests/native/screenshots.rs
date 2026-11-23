@@ -5,7 +5,7 @@ use super::*;
 fn screenshot_content_respects_active_subtitle_visibility() {
     use riina_core::screenshot::Content;
     let root = fixture_root();
-    let output_dir = riina_test_support::TempDir::new("screenshot-subtitles").unwrap();
+    let output_dir = CaptureOutput::new("screenshot-subtitles").unwrap();
     let output = output_dir.path().to_path_buf();
     let harness = Harness::start(&root).unwrap();
     harness
@@ -88,7 +88,7 @@ fn screenshot_content_respects_active_subtitle_visibility() {
 )]
 fn screenshots_complete_only_after_native_success() {
     let root = fixture_root();
-    let output_dir = riina_test_support::TempDir::new("screenshot-test").unwrap();
+    let output_dir = CaptureOutput::new("screenshot-test").unwrap();
     let output = output_dir.path().to_path_buf();
     let harness = Harness::start(&root).unwrap();
     // Failure before any frame exists cannot advertise a saved image.

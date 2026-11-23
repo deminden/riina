@@ -58,6 +58,10 @@ pub fn fixture(name: &str) -> io::Result<PathBuf> {
 }
 
 #[track_caller]
+#[expect(
+    clippy::panic,
+    reason = "A stopped test worker must fail the waiting test"
+)]
 pub fn wait_for<T: Debug>(
     receiver: &mpsc::Receiver<T>,
     timeout: Duration,
@@ -67,16 +71,22 @@ pub fn wait_for<T: Debug>(
     let caller = std::panic::Location::caller();
     let mut last = None;
     loop {
+        let remaining = deadline.saturating_duration_since(Instant::now());
         assert!(
-            Instant::now() < deadline,
+            !remaining.is_zero(),
             "Timed out at {caller}; last observed state: {last:?}"
         );
-        if let Ok(state) = receiver.recv_timeout(Duration::from_millis(200)) {
-            if predicate(&state) {
-                return state;
-            }
-            last = Some(state);
+        let state = receiver.recv_timeout(remaining).unwrap_or_else(|error| {
+            let reason = match error {
+                mpsc::RecvTimeoutError::Timeout => "Timed out",
+                mpsc::RecvTimeoutError::Disconnected => "Snapshot stream closed",
+            };
+            panic!("{reason} at {caller}; last observed state: {last:?}");
+        });
+        if predicate(&state) {
+            return state;
         }
+        last = Some(state);
     }
 }
 
@@ -108,5 +118,14 @@ mod tests {
         assert!(result.is_err());
         assert!(!path.exists());
         Ok(())
+    }
+
+    #[test]
+    #[should_panic(expected = "Snapshot stream closed")]
+    fn snapshot_wait_stops_when_the_sender_exits() {
+        let (sender, receiver) = mpsc::channel();
+        sender.send("last snapshot").unwrap();
+        drop(sender);
+        wait_for(&receiver, Duration::from_secs(1), |_| false);
     }
 }

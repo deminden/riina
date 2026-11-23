@@ -1,7 +1,5 @@
 //! The event worker owns the player; the GUI owns only its OpenGL render context.
 mod auto_seek;
-#[cfg(test)]
-mod demuxer_tests;
 mod error;
 pub use error::EngineError;
 mod ffi;

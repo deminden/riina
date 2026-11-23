@@ -74,10 +74,16 @@ PyAV 16.0.1 environment; bitexact mux/encoder flags and a single encoder thread
 make repeat generations byte-identical. These original bytes are CC0-1.0.
 `check-interlaced-fixtures.py` now validates all four clips. The native cadence
 test saves 72 frames; encoded clips pass, while the six original v210 BFF On
-frames remain a failing default-demuxer regression. The ignored mpv library
-test `lavf_woven_field_captures` privately selects libavformat for comparison
+frames remain a failing default-demuxer regression. The native suite's
+`lavf_woven_field_captures` test selects libavformat for comparison
 and writes a separate 36-frame manifest; that pixel check passes. Production
 defaults are unchanged. Both runs capture engine video pixels, not GUI output.
+
+Set `RIINA_TEST_ARTIFACT_DIR` to an existing absolute directory before running
+these capture tests to retain their manifests, images, and logs. The native
+runner prints each new capture subdirectory. This also applies to both
+screenshot checks below. Without the setting, the native suite cleans up its
+captures on exit.
 
 `preview-rgb16.png` contains eight original 16-bit RGB patches. Regenerate with
 `python scripts/generate-preview-fixture.py` (standard library only). The fixture
@@ -86,7 +92,7 @@ through Slint's actual preview decoder and checks dimensions, eight colors and
 opaque alpha. It validates decoding, not rendered UI, colorimetry or HDR output.
 
 The ignored `screenshots_complete_only_after_native_success` test writes a
-`formats.json` under its unique ignored screenshot-test directory, with native
+`formats.json` under its dedicated screenshot-test directory, with native
 encoded files and decoded PNG round trips. Run
 `python scripts/check-screenshot-format-roundtrips.py <formats.json> --report <report.json>`
 (Pillow) to verify signatures, geometry and timestamp-aligned woven bar edges.

@@ -135,6 +135,12 @@ or substitute another module prefix. On Windows it uses the pinned development
 DLL from the setup above unless `RIINA_TEST_MPV_LIBRARY` points to another
 provisioned build.
 
+Native capture tests use disposable directories by default. To keep files for
+the pixel and format checkers, set `RIINA_TEST_ARTIFACT_DIR` to an existing
+absolute directory and run the relevant native group. Each capture test creates
+a dedicated subdirectory and refuses to reuse an earlier capture directory.
+Use a fresh parent directory for another run.
+
 With the checkout-local Windows toolchain, run
 `./scripts/dev.ps1 -CargoArguments @('xtask', 'check', '--fast')`. Replace the
 argument array with `@('xtask', 'check')` for the full gate or

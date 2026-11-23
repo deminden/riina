@@ -4,7 +4,7 @@ use super::*;
 #[ignore = "requires provisioned libmpv; verifies original woven fields and 25-to-50 Hz cadence"]
 fn interlaced_fields_decode_and_deinterlace_at_field_cadence() {
     let root = fixture_root();
-    let output_dir = riina_test_support::TempDir::new("interlaced-native-test").unwrap();
+    let output_dir = CaptureOutput::new("interlaced-native-test").unwrap();
     let output = output_dir.path().to_path_buf();
     let mut captures = Vec::new();
     for name in [

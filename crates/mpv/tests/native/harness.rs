@@ -1,5 +1,37 @@
 use super::*;
 use riina_mpv::EngineError;
+use riina_test_support::TempDir;
+
+pub(super) enum CaptureOutput {
+    Temporary(TempDir),
+    Retained(PathBuf),
+}
+
+impl CaptureOutput {
+    pub(super) fn new(label: &str) -> std::io::Result<Self> {
+        let Some(root) = std::env::var_os("RIINA_TEST_ARTIFACT_DIR") else {
+            return TempDir::new(label).map(Self::Temporary);
+        };
+        let root = PathBuf::from(root);
+        if !root.is_absolute() {
+            return Err(std::io::Error::new(
+                std::io::ErrorKind::InvalidInput,
+                "RIINA_TEST_ARTIFACT_DIR must be an absolute directory",
+            ));
+        }
+        let path = root.join(label);
+        // A new directory keeps every manifest tied to a single run.
+        std::fs::create_dir(&path)?;
+        Ok(Self::Retained(path))
+    }
+
+    pub(super) fn path(&self) -> &std::path::Path {
+        match self {
+            Self::Temporary(directory) => directory.path(),
+            Self::Retained(path) => path,
+        }
+    }
+}
 
 pub(super) struct Harness {
     pub(super) player: Player,

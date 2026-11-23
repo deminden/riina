@@ -12,6 +12,7 @@ use std::{
 
 mod audio;
 mod crop;
+mod demuxer_tests;
 mod filters;
 mod harness;
 mod lifecycle;

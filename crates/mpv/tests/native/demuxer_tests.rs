@@ -1,59 +1,28 @@
 //! Same original fields through an alternative demuxer, without changing defaults.
 use super::*;
-use riina_core::Phase;
-use std::{
-    path::PathBuf,
-    time::{Duration, Instant},
-};
 
-fn wait(
-    receiver: &mpsc::Receiver<Arc<Playback>>,
-    predicate: impl Fn(&Playback) -> bool,
-) -> Playback {
-    let until = Instant::now() + Duration::from_secs(10);
-    loop {
-        let state = receiver
-            .recv_timeout(until.saturating_duration_since(Instant::now()))
-            .unwrap();
+#[track_caller]
+fn wait(harness: &Harness, predicate: impl Fn(&Playback) -> bool) -> Playback {
+    riina_test_support::wait_for(&harness.receiver, Duration::from_secs(10), |state| {
         assert_eq!(state.error(), None);
-        if predicate(&state) {
-            return Arc::unwrap_or_clone(state);
-        }
-    }
+        predicate(state)
+    })
 }
 
 #[test]
 #[ignore = "requires provisioned libmpv; compares lavf container field metadata"]
 fn lavf_woven_field_captures() {
-    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../..")
-        .canonicalize()
-        .unwrap();
-    let library = std::env::var_os("RIINA_TEST_MPV_LIBRARY")
-        .map(PathBuf::from)
-        .unwrap_or_else(|| root.join("tools/mpv/libmpv-2.dll"));
-    let output = root.join("tools/interlaced-lavf-test").join(format!(
-        "{}-{}",
-        std::process::id(),
-        std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_nanos()
-    ));
-    std::fs::create_dir_all(&output).unwrap();
+    let root = fixture_root();
+    let output_dir = CaptureOutput::new("interlaced-lavf-test").unwrap();
+    let output = output_dir.path();
     let mut captures = Vec::new();
     for name in ["interlaced-tff.mkv", "interlaced-bff.mkv"] {
-        let (sender, receiver) = mpsc::channel();
-        let player = Player::start_options(
-            &library,
-            true,
+        let player = Harness::with_options(
+            &root,
             vec![
                 ("demuxer".into(), "lavf".into()),
                 ("hwdec".into(), "no".into()),
             ],
-            move |state| {
-                let _ = sender.send(state);
-            },
         )
         .unwrap();
         player
@@ -64,11 +33,11 @@ fn lavf_woven_field_captures() {
                     .into_owned(),
             ))
             .unwrap();
-        wait(&receiver, |state| {
+        wait(&player, |state| {
             state.phase == Phase::Playing && state.position.is_some()
         });
         player.send(Command::TogglePause).unwrap();
-        let mut previous = wait(&receiver, |state| state.paused && state.position.is_some());
+        let mut previous = wait(&player, |state| state.paused && state.position.is_some());
         assert!(
             previous
                 .video_frame_info
@@ -78,7 +47,7 @@ fn lavf_woven_field_captures() {
         );
         for enabled in [false, true, false] {
             player.send(Command::Deinterlace(enabled)).unwrap();
-            previous = wait(&receiver, |state| {
+            previous = wait(&player, |state| {
                 state.paused
                     && !state.seeking
                     && state.deinterlace == Some(enabled)
@@ -87,7 +56,7 @@ fn lavf_woven_field_captures() {
             for _ in 0..6 {
                 let from = previous.position.unwrap();
                 player.send(Command::FrameStep).unwrap();
-                let next = wait(&receiver, |state| {
+                let next = wait(&player, |state| {
                     state.paused
                         && !state.seeking
                         && state
@@ -103,7 +72,7 @@ fn lavf_woven_field_captures() {
                         content: riina_core::screenshot::Content::Video,
                     })
                     .unwrap();
-                let captured = wait(&receiver, |state| {
+                let captured = wait(&player, |state| {
                     state.completed_screenshots > next.completed_screenshots
                 });
                 assert_eq!(captured.position, next.position);
@@ -121,17 +90,11 @@ fn lavf_woven_field_captures() {
 #[test]
 #[ignore = "requires provisioned libmpv; checks screenshot template result"]
 fn screenshot_template_returns_saved_path() {
-    let root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("../..")
-        .canonicalize()
-        .unwrap();
-    let library = root.join("tools/mpv/libmpv-2.dll");
-    let output = root.join("tools/screenshot-template-log");
-    std::fs::create_dir_all(&output).unwrap();
-    let (sender, receiver) = mpsc::channel();
-    let player = Player::start_options(
-        &library,
-        true,
+    let root = fixture_root();
+    let output_dir = CaptureOutput::new("screenshot-template-log").unwrap();
+    let output = output_dir.path();
+    let player = Harness::with_options(
+        &root,
         vec![
             (
                 "log-file".into(),
@@ -139,9 +102,6 @@ fn screenshot_template_returns_saved_path() {
             ),
             ("msg-level".into(), "all=v".into()),
         ],
-        move |state| {
-            let _ = sender.send(state);
-        },
     )
     .unwrap();
     player
@@ -151,11 +111,11 @@ fn screenshot_template_returns_saved_path() {
                 .into_owned(),
         ))
         .unwrap();
-    wait(&receiver, |state| {
+    wait(&player, |state| {
         state.phase == Phase::Playing && state.position.is_some()
     });
     player.send(Command::TogglePause).unwrap();
-    wait(&receiver, |state| state.paused);
+    wait(&player, |state| state.paused);
     player
         .send(Command::Screenshot {
             directory: output.to_string_lossy().into_owned(),
@@ -166,6 +126,6 @@ fn screenshot_template_returns_saved_path() {
             },
         })
         .unwrap();
-    let saved = wait(&receiver, |state| state.completed_screenshots == 1);
+    let saved = wait(&player, |state| state.completed_screenshots == 1);
     println!("Saved {:?}", saved.screenshot_file);
 }
