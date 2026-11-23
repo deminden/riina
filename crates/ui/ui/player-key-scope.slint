@@ -20,6 +20,11 @@ export component PlayerKeyScope inherits FocusScope {
             menu-alternates-visible = false;
         }
         if native-video && !PlayerCropState.crop-editing && event.text == Key.F10 { PlayerControlActions.open-application-menu(); return accept; }
+        if !PlayerCropState.crop-editing && !PlayerDialogState.dialog-open
+            && PlayerControlActions.begin-plugin-key(event.text, event.modifiers.control, event.modifiers.alt,
+                event.modifiers.shift, event.modifiers.meta, event.repeat, true) {
+            return accept;
+        }
         return reject;
     }
     key-pressed(event) => {
@@ -36,12 +41,17 @@ export component PlayerKeyScope inherits FocusScope {
             return accept;
         }
         if native-video && event.text == Key.F10 { return accept; }
-        if PlayerControlActions.activate-saved-filter-shortcut(event.text, event.modifiers.control,
-                event.modifiers.alt, event.modifiers.shift, event.modifiers.meta) {
+        let route-to-plugins = !PlayerDialogState.dialog-open;
+        if route-to-plugins && PlayerControlActions.begin-plugin-key(event.text, event.modifiers.control, event.modifiers.alt,
+                event.modifiers.shift, event.modifiers.meta, event.repeat, false) {
             return accept;
         }
-        if PlayerControlActions.dispatch-key-binding(event.text, event.modifiers.control,
-                event.modifiers.alt, event.modifiers.shift, event.modifiers.meta) {
+        let mapped = PlayerControlActions.activate-saved-filter-shortcut(event.text, event.modifiers.control,
+            event.modifiers.alt, event.modifiers.shift, event.modifiers.meta)
+            || PlayerControlActions.dispatch-key-binding(event.text, event.modifiers.control,
+                event.modifiers.alt, event.modifiers.shift, event.modifiers.meta);
+        let handled = route-to-plugins && PlayerControlActions.finish-plugin-key();
+        if mapped || handled {
             return accept;
         }
         PlayerControlsState.controls-visible = true; PlayerControlActions.activity();

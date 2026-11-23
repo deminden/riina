@@ -1586,6 +1586,33 @@ and 58 native playback tests. Strict Apple Silicon workspace Clippy passed from
 Windows. Native macOS playback, matched chooser pixels and third-party provider
 conformance remain open.
 
+### Plugin input 2026-11-23
+
+QuickJS tests cover listener priority, consumption, replacement, removal and
+player isolation. They also exercise reading the updated key profile from an
+active realm. Headless player tests exercise synchronous profile publication
+before the event loop, key delivery around the normal binding, dialog protection,
+handled mouse-up and the normal click path.
+
+An isolated Windows player used the saved pause-on-open and click-to-pause
+settings. A plugin received F9 press and release as well as left-button press,
+drag and release. It consumed mouse-up and confirmed playback stayed paused.
+The test player closed normally on the private desktop. Executable SHA-256
+`16c76af3ee8646c69c531ecf9e71b871ce1a214ba55074515230a17f0868cdf1`.
+The isolated Linux X11 player passed the same workflow and confirmed that its
+plugin could read the Space binding during entry initialization. It also
+closed normally. Executable SHA-256
+`355693ed9394b8559b6814773f6f5cb299e904dfe05eaa3229455e853d3f6d59`.
+Both tests used the pinned libmpv libraries recorded under the property-read checks.
+
+The first batch passed 857 workspace Rust tests on Linux x64 and 58 native
+playback tests on each platform. After the startup profile fix, Windows passed
+the locked workspace build, strict Clippy, 896 workspace Rust tests and 78
+Python tests. Linux x64 passed the locked application build, strict workspace
+Clippy and 109 plugin-related tests. Strict Apple Silicon workspace Clippy
+passed from Windows. Native macOS input, pressure-sensitive devices, native-menu
+shortcuts and key sequences remain open.
+
 ### Plugin sidebar manifest discovery 2026-10-14
 
 Manifest tests cover bounded localized labels. Runtime tests cover confined

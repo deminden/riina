@@ -109,6 +109,27 @@ pub(crate) fn recorded_key(
     Some(format_modifiers(key, control, alt, shift, meta))
 }
 
+pub(crate) fn plugin_key_binding(key: &str) -> Option<String> {
+    let key = normalize_profile_key(key);
+    (!key.is_empty()).then(|| riina_core::key_bindings::normalize_mpv_key(&key))
+}
+
+pub(crate) fn plugin_event_key(
+    text: &str,
+    control: bool,
+    alt: bool,
+    shift: bool,
+    meta: bool,
+) -> Option<String> {
+    let mut key = recorded_key(text, control, alt, shift, meta)?;
+    // Caps Lock affects the emitted character even when Shift is absent.
+    if !shift && text.chars().count() == 1 && text.starts_with(char::is_uppercase) {
+        key.pop();
+        key.push_str(text);
+    }
+    Some(riina_core::key_bindings::normalize_mpv_key(&key))
+}
+
 fn format_modifiers(key: String, control: bool, alt: bool, shift: bool, meta: bool) -> String {
     let mut output = String::new();
     for (active, modifier) in [

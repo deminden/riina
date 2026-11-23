@@ -5,7 +5,7 @@ mod ui_activity;
 
 use crate::{
     plugin_files::PluginPlayerFileContext,
-    plugin_runtime::{HostEvent, PluginRuntimeSession, UiEffect},
+    plugin_runtime::{HostEvent, PluginRuntimeSession, UiEffect, input},
     plugin_snapshot::{playback_history_values, recent_document_values, version_snapshot},
 };
 pub(crate) use playlist_menu::PlaylistMenuContribution;
@@ -67,6 +67,7 @@ pub(crate) enum PluginHostMessage {
 
 #[derive(Clone)]
 pub(crate) struct PluginHostHandle {
+    pub(crate) input: input::Router,
     commands: mpsc::SyncSender<PluginCommand>,
     messages: Arc<Mutex<Vec<PluginHostMessage>>>,
     ui_activity: Arc<UiActivity>,
@@ -315,6 +316,8 @@ impl PluginHost {
         let worker_messages = messages.clone();
         let ui_activity = Arc::new(UiActivity::new());
         let worker_activity = ui_activity.clone();
+        let input = input::Router::default();
+        let worker_input = input.clone();
         let initial_player_context = PluginPlayerFileContext::default()
             .with_core_version(version_snapshot(None))
             .with_recent_documents(recent_document_values(recent_media))
@@ -326,6 +329,7 @@ impl PluginHost {
             crate::plugin_packages::sweep_staging(&plugins_directory);
             run_host(
                 PluginHostPaths {
+                    input: worker_input,
                     plugins_directory,
                     permissions_path,
                     enabled_path,
@@ -340,6 +344,7 @@ impl PluginHost {
         .map_err(|error| format!("Could not start plugin host: {error}"))?;
         Ok(Self {
             handle: PluginHostHandle {
+                input,
                 commands,
                 messages,
                 ui_activity,
@@ -536,6 +541,7 @@ fn run_host(
 }
 
 struct PluginHostPaths {
+    input: input::Router,
     plugins_directory: PathBuf,
     permissions_path: PathBuf,
     enabled_path: PathBuf,
@@ -1102,11 +1108,13 @@ fn activate(
         &grants,
         player_context.clone(),
         paths.player_mpv.clone(),
+        paths.input.bindings.clone(),
     )
     .map_err(|error| format!("Could not start {}: {error}", manifest.name))?;
     if let Some(global) = global {
         sessions.insert(PluginInstanceKey::global(&manifest.identifier), global);
     }
+    paths.input.add(&session.input);
     sessions.insert(player_key, session);
     plugin_directories.insert(
         manifest.identifier.clone(),

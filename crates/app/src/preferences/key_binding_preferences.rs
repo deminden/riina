@@ -21,7 +21,7 @@ pub(crate) use editor::{
     activate_profile, current_player, current_window, install_window, mapping_for_row, refresh,
     remove_mapping, save_mapping, search, select_profile,
 };
-pub(crate) use keys::{recorded_key, shortcut_keys};
+pub(crate) use keys::{plugin_event_key, plugin_key_binding, recorded_key, shortcut_keys};
 
 impl PreferenceSection for Settings {
     fn get(all: &Preferences) -> Self {

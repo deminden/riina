@@ -1,5 +1,6 @@
 export { PlayerDialogState } from "player-dialog-state.slint";
 import { PlayerVideoInput } from "player-video-input.slint";
+export { PlayerPluginPointerPhase } from "player-control-actions.slint";
 export { PlayerControlActions } from "player-control-actions.slint";
 import { PlayerCropState } from "player-crop-state.slint";
 export { PlayerCropState } from "player-crop-state.slint";
@@ -68,6 +69,8 @@ export { LogViewerWindow, LogViewerRow } from "log-viewer.slint";
 export { VideoFiltersWindow, VideoFilterWindowRow, VideoFilterParameterRow } from "video-filters-window.slint";
 
 export component PlayerWindow inherits PlayerMenuWindow {
+    in property <string> plugin-input-bindings: "{}";
+    callback plugin-input-bindings-changed(string);
 
     callback window-minimized-changed(bool);
     changed minimized => { root.window-minimized-changed(root.minimized); }

@@ -1,6 +1,6 @@
 //! Keyboard intent arriving on the framed owner instead of the controls popup.
 use crate::PlayerWindow;
-use riina_ui::PlayerMenuActions;
+use riina_ui::{PlayerControlActions, PlayerMenuActions};
 use slint::ComponentHandle;
 use slint::winit_030::{
     EventResult,
@@ -22,8 +22,7 @@ impl HostInput {
             WindowEvent::ModifiersChanged(modifiers) => self.modifiers.set(modifiers.state()),
             WindowEvent::Focused(false) => self.modifiers.set(ModifiersState::empty()),
             WindowEvent::KeyboardInput { event, .. }
-                if event.state == ElementState::Pressed
-                    && !event.repeat
+                if event.logical_key != Key::Named(NamedKey::F10)
                     && accepts_commands(
                         app.global::<riina_ui::PlayerCropState>().get_crop_editing(),
                         app.global::<riina_ui::PlayerDialogState>()
@@ -31,48 +30,75 @@ impl HostInput {
                     ) =>
             {
                 let modifiers = self.modifiers.get();
-                if let Some(text) = control_binding(&event.logical_key, modifiers)
-                    && app
-                        .global::<riina_ui::PlayerControlActions>()
-                        .invoke_dispatch_key_binding(
-                            text,
-                            true,
-                            modifiers.alt_key(),
-                            modifiers.shift_key(),
-                            false,
-                        )
-                {
-                    // The framed host has no Slint editor or key scope. Keep
-                    // these commands on the same configurable route as menus.
+                let controls = app.global::<PlayerControlActions>();
+                let released = event.state == ElementState::Released;
+                let text = match &event.logical_key {
+                    Key::Character(text) => text.as_str().into(),
+                    Key::Named(key) => format!("{key:?}").into(),
+                    _ => slint::SharedString::default(),
+                };
+                if controls.invoke_begin_plugin_key(
+                    text,
+                    modifiers.control_key(),
+                    modifiers.alt_key(),
+                    modifiers.shift_key(),
+                    modifiers.super_key(),
+                    event.repeat,
+                    released,
+                ) {
                     return EventResult::PreventDefault;
                 }
-                if modifiers == ModifiersState::CONTROL
-                    && matches!(&event.logical_key, Key::Character(text) if text.eq_ignore_ascii_case("h"))
-                {
-                    app.global::<PlayerMenuActions>().invoke_hide_riina();
-                    return EventResult::PreventDefault;
-                }
-                if event.logical_key == Key::Named(NamedKey::Escape) && app.get_fullscreen() {
-                    dispatch_escape(
-                        || {
-                            app.global::<riina_ui::PlayerControlActions>()
-                                .invoke_dispatch_key_binding(
-                                    "Escape".into(),
-                                    modifiers.control_key(),
-                                    modifiers.alt_key(),
-                                    modifiers.shift_key(),
-                                    modifiers.super_key(),
-                                )
-                        },
-                        || app.global::<PlayerMenuActions>().invoke_toggle_fullscreen(),
-                    );
-                    return EventResult::PreventDefault;
+                if !released {
+                    let mapped =
+                        !event.repeat && framed_key_down(app, &event.logical_key, modifiers);
+                    let handled = controls.invoke_finish_plugin_key();
+                    if mapped || handled {
+                        return EventResult::PreventDefault;
+                    }
                 }
             }
             _ => {}
         }
         EventResult::Propagate
     }
+}
+
+fn framed_key_down(app: &PlayerWindow, key: &Key, modifiers: ModifiersState) -> bool {
+    let controls = app.global::<PlayerControlActions>();
+    let menu = app.global::<PlayerMenuActions>();
+    if let Some(text) = control_binding(key, modifiers)
+        && controls.invoke_dispatch_key_binding(
+            text,
+            true,
+            modifiers.alt_key(),
+            modifiers.shift_key(),
+            false,
+        )
+    {
+        return true;
+    }
+    if modifiers == ModifiersState::CONTROL
+        && matches!(key, Key::Character(text) if text.eq_ignore_ascii_case("h"))
+    {
+        menu.invoke_hide_riina();
+        return true;
+    }
+    if *key == Key::Named(NamedKey::Escape) && app.get_fullscreen() {
+        dispatch_escape(
+            || {
+                controls.invoke_dispatch_key_binding(
+                    "Escape".into(),
+                    modifiers.control_key(),
+                    modifiers.alt_key(),
+                    modifiers.shift_key(),
+                    modifiers.super_key(),
+                )
+            },
+            || menu.invoke_toggle_fullscreen(),
+        );
+        return true;
+    }
+    false
 }
 
 fn accepts_commands(crop_editing: bool, dialog_open: bool) -> bool {

@@ -5,6 +5,7 @@ use super::{
     core_api::install_plugin_core_api,
     events,
     file_api::install_plugin_file_api,
+    input,
     menu::PLUGIN_MENU_API,
     messaging, modules, mpv_api, mpv_hooks, network,
     network::NetworkWorkerContext,
@@ -109,6 +110,7 @@ fn initialize_realm(
     services: &RealmServices,
 ) -> rquickjs::Result<()> {
     let PluginWorkerHost {
+        input,
         global_api_mode,
         module_context,
         file_system,
@@ -184,6 +186,7 @@ fn initialize_realm(
         network.allowed_domains.clone(),
     )?;
     if global_api_mode != Some(GlobalApiMode::Controller) {
+        input::install(&api, input)?;
         subtitles::Realm::install(&api)?;
         mpv_api::install(
             &api,
@@ -269,20 +272,8 @@ fn run_callbacks(
 ) {
     let mut prefer_timer = true;
     while !execution.is_cancelled() {
-        let next_timer = services.timers.next_wait();
-        let command = match next_timer {
-            // Alternate ready timers and commands so neither a busy inbox nor
-            // a chain of zero-delay timers can starve the other source.
-            Some(timeout) if prefer_timer && timeout.is_zero() => None,
-            Some(timeout) => match commands.recv_timeout(timeout) {
-                Ok(command) => Some(command),
-                Err(mpsc::RecvTimeoutError::Timeout) => None,
-                Err(mpsc::RecvTimeoutError::Disconnected) => break,
-            },
-            None => match commands.recv() {
-                Ok(command) => Some(command),
-                Err(_) => break,
-            },
+        let Ok(command) = receive_turn(&commands, &services.timers, prefer_timer) else {
+            break;
         };
         if execution.is_cancelled() {
             break;
@@ -374,6 +365,14 @@ fn run_callbacks(
                 message_script("iina.event.__dispatch", &name, &data),
                 "player event callback",
             ),
+            Some(RuntimeCommand::DeliverInput(request)) => {
+                execution.begin();
+                let evaluated = request.dispatch(context);
+                if finish_turn(runtime, execution, events, "input listener", evaluated) {
+                    break;
+                }
+                continue;
+            }
             Some(RuntimeCommand::DeliverMpvHook(index, next)) => {
                 execution.begin();
                 let evaluated = mpv_hooks::dispatch(context, index, next);
@@ -421,6 +420,23 @@ fn run_callbacks(
         if finish_turn(runtime, execution, events, label, evaluated) {
             break;
         }
+    }
+}
+
+fn receive_turn(
+    commands: &Receiver<RuntimeCommand>,
+    timers: &PluginTimers,
+    prefer_timer: bool,
+) -> Result<Option<RuntimeCommand>, mpsc::RecvError> {
+    match timers.next_wait() {
+        // Alternate ready timers and commands so one source cannot starve the other.
+        Some(timeout) if prefer_timer && timeout.is_zero() => Ok(None),
+        Some(timeout) => match commands.recv_timeout(timeout) {
+            Ok(command) => Ok(Some(command)),
+            Err(mpsc::RecvTimeoutError::Timeout) => Ok(None),
+            Err(mpsc::RecvTimeoutError::Disconnected) => Err(mpsc::RecvError),
+        },
+        None => commands.recv().map(Some),
     }
 }
 

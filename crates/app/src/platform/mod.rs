@@ -521,6 +521,21 @@ fn enable_windows_backdrop<W, Get, Set, GetTheme>(
     }
 }
 
+pub(crate) fn track_plugin_pointer(
+    app: &crate::PlayerWindow,
+    window: &slint::Window,
+    event: &slint::winit_030::winit::event::WindowEvent,
+) {
+    use slint::ComponentHandle;
+    if let slint::winit_030::winit::event::WindowEvent::CursorMoved { position, .. } = event {
+        let scale = f64::from(window.scale_factor());
+        let x = position.x / scale;
+        let y = (f64::from(window.size().height) - position.y) / scale;
+        app.global::<riina_ui::PlayerControlActions>()
+            .invoke_plugin_pointer_location(x as f32, y as f32);
+    }
+}
+
 /// Use the host's click arbitration deadline before dispatching a single click.
 pub(crate) fn double_click_interval() -> std::time::Duration {
     #[cfg(target_os = "windows")]

@@ -171,6 +171,11 @@ fn install_window_events(
         if handle_window_event(window, event) == EventResult::PreventDefault {
             return EventResult::PreventDefault;
         }
+        if matches!(event, winit::event::WindowEvent::CursorMoved { .. })
+            && let Some(app) = event_app.upgrade()
+        {
+            platform::track_plugin_pointer(&app, window, event);
+        }
         file_drop(window, event);
         // The target of the first file is captured before the temporary sidebar closes.
         playlist_hover.on_event(event);

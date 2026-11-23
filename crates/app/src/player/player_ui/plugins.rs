@@ -1,5 +1,6 @@
 //! Plugin callbacks, presenters and timers are installed as one UI subsystem.
 mod effects;
+mod input;
 mod playlist_menu;
 
 use crate::{PlayerWindow, background::CoalescedUiCallback, platform};
@@ -68,6 +69,9 @@ pub(super) fn install(
     let presenters = platform::PluginPresenters::new(app);
     bind_lifecycle(app, plugin_host_handle.as_ref(), presenters.sidebar.clone());
     playlist_menu::install(app, plugin_host_handle.as_ref());
+    if let Some(handle) = &plugin_host_handle {
+        input::install(app, &handle.input);
+    }
     {
         let weak = app.as_weak();
         let presenter = presenters.sidebar.clone();

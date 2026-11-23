@@ -4,6 +4,9 @@ use crate::PreferenceError;
 mod action_error;
 pub use action_error::InputActionError;
 
+mod plugin_keys;
+pub use plugin_keys::normalize_mpv_key;
+
 use std::fmt;
 
 const APP_DIRECTIVE: &str = "#@iina";

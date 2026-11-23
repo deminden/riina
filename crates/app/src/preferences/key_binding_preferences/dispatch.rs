@@ -3,7 +3,7 @@ use super::{
     bindings::Bindings, builtins::mappings_for, keys::recorded_key, menus::menu_shortcut_rows,
 };
 use crate::{PlayerWindow, preferences::model::PreferenceSection};
-use riina_core::key_bindings::{ActionKind, Mapping, Settings};
+use riina_core::key_bindings::{ActionKind, Mapping, Settings, normalize_mpv_key};
 use riina_ui::PlayerMenuActions;
 use slint::{ComponentHandle, ModelRc, VecModel};
 
@@ -21,6 +21,10 @@ pub(crate) fn install_player(
         }
     };
     let mappings = Bindings::new(mappings);
+    let input_bindings = slint::SharedString::from(plugin_input_bindings(&mappings));
+    app.set_plugin_input_bindings(input_bindings.clone());
+    // Player entries can start before Slint delivers property change callbacks.
+    app.invoke_plugin_input_bindings_changed(input_bindings);
     app.set_menu_shortcuts(ModelRc::new(VecModel::from(menu_shortcut_rows(&mappings))));
     let player = app.as_weak();
     let observed_playback = latest_playback;
@@ -45,6 +49,22 @@ pub(crate) fn install_player(
             dispatch_mapping(&app, mapping, &observed_playback);
             true
         });
+}
+
+fn plugin_input_bindings(mappings: &Bindings) -> String {
+    let bindings: serde_json::Map<_, _> = mappings
+        .effective()
+        .map(|mapping| {
+            let key = normalize_mpv_key(&mapping.key);
+            let binding = serde_json::json!({
+                "key": key,
+                "action": mapping.action,
+                "isIINACommand": mapping.kind == ActionKind::Riina,
+            });
+            (key, binding)
+        })
+        .collect();
+    serde_json::Value::Object(bindings).to_string()
 }
 
 pub(super) enum RuntimeAction {

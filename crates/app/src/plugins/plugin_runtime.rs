@@ -6,6 +6,7 @@ mod execution;
 #[cfg(test)]
 mod execution_tests;
 mod file_api;
+pub(crate) mod input;
 mod menu;
 mod messaging;
 mod modules;
@@ -95,6 +96,7 @@ enum RuntimeCommand {
     ActivatePlaylistMenuItem(u64, String),
     DeliverPluginMessage(String, serde_json::Value),
     DeliverPlayerEvent(String, serde_json::Value),
+    DeliverInput(input::Request),
     DeliverMpvHook(u32, riina_mpv::MpvHookContinuation),
     Barrier(mpsc::SyncSender<()>),
     DeliverNetworkResult(u32, Result<serde_json::Value, String>),
@@ -112,6 +114,7 @@ enum GlobalApiMode {
 }
 
 struct PluginWorkerHost {
+    input: Arc<input::Endpoint>,
     execution: Arc<ExecutionControl>,
     global_api_mode: Option<GlobalApiMode>,
     module_context: Option<PluginModuleContext>,
@@ -125,6 +128,7 @@ struct PluginWorkerHost {
 }
 
 struct PluginStorageContext {
+    input_bindings: input::Bindings,
     file_system: PluginFiles,
     player_mpv: Option<riina_mpv::CommandSender>,
     allowed_domains: Vec<String>,
@@ -134,6 +138,7 @@ struct PluginStorageContext {
 impl PluginStorageContext {
     fn for_package(root: &Path, manifest: &Manifest) -> Result<Self, String> {
         Ok(Self {
+            input_bindings: input::Bindings::default(),
             file_system: PluginFiles::for_package(root, &manifest.identifier),
             player_mpv: None,
             allowed_domains: manifest.allowed_domains.clone(),
@@ -145,6 +150,7 @@ impl PluginStorageContext {
 /// Owns a persistent QuickJS realm on its worker so plugin callbacks never run
 /// on the UI or playback thread.
 pub struct PluginRuntimeSession {
+    pub(crate) input: Arc<input::Endpoint>,
     execution: Arc<ExecutionControl>,
     commands: SyncSender<RuntimeCommand>,
     events: Arc<Mutex<Vec<HostEvent>>>,
@@ -167,6 +173,7 @@ impl PluginRuntimeSession {
             granted_permissions,
             PluginPlayerFileContext::default(),
             None,
+            input::Bindings::default(),
         )
     }
 
@@ -176,11 +183,13 @@ impl PluginRuntimeSession {
         granted_permissions: &[String],
         player_context: PluginPlayerFileContext,
         player_mpv: Option<riina_mpv::CommandSender>,
+        input_bindings: input::Bindings,
     ) -> Result<Self, String> {
         let (source, module_context) = read_package_script(package_root, &manifest.entry)?;
         let mut storage = PluginStorageContext::for_package(package_root, manifest)?;
         storage.file_system.set_player_context(player_context);
         storage.player_mpv = player_mpv;
+        storage.input_bindings = input_bindings;
         Self::start_entry_with_context(
             &source,
             &manifest.identifier,
@@ -227,6 +236,7 @@ impl PluginRuntimeSession {
             None,
             None,
             PluginStorageContext {
+                input_bindings: input::Bindings::default(),
                 file_system: PluginFiles::temporary(plugin_identifier),
                 player_mpv: None,
                 allowed_domains: Vec::new(),
@@ -251,6 +261,11 @@ impl PluginRuntimeSession {
         let execution = Arc::new(ExecutionControl::new());
         let worker_execution = execution.clone();
         let (commands, receiver) = mpsc::sync_channel(32);
+        let input = Arc::new(input::Endpoint::new(
+            commands.clone(),
+            storage.input_bindings,
+        ));
+        let worker_input = input.clone();
         let (ready_sender, ready_receiver) = mpsc::sync_channel(1);
         let events = Arc::new(Mutex::new(Vec::new()));
         let session_file_system = storage.file_system.clone();
@@ -280,6 +295,7 @@ impl PluginRuntimeSession {
                 plugin_identifier,
                 permissions,
                 PluginWorkerHost {
+                    input: worker_input,
                     execution: worker_execution,
                     global_api_mode,
                     module_context,
@@ -299,6 +315,7 @@ impl PluginRuntimeSession {
         .map_err(|error| format!("Could not start plugin worker: {error}"))?;
         match ready_receiver.recv_timeout(Duration::from_secs(3)) {
             Ok(Ok(())) => Ok(Self {
+                input,
                 execution,
                 commands,
                 events,

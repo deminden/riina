@@ -35,10 +35,11 @@ pub(super) fn install_filter(host: &NativeVideoHost, inputs: FilterInputs) {
     let event_scroll_transition = Rc::new(Cell::new(0_u64));
     let host_input = super::super::host_input::HostInput::default();
     host.window().on_winit_window_event(move |host, event| {
-        if let Some(app) = event_chrome.borrow().as_ref()
-            && host_input.handle(app, event) == EventResult::PreventDefault
-        {
-            return EventResult::PreventDefault;
+        if let Some(app) = event_chrome.borrow().as_ref() {
+            crate::platform::track_plugin_pointer(app, host, event);
+            if host_input.handle(app, event) == EventResult::PreventDefault {
+                return EventResult::PreventDefault;
+            }
         }
         if event_placement.media_loaded()
             && matches!(

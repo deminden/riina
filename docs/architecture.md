@@ -193,6 +193,22 @@ another request supersedes them. The UI discards replies and actions when
 the observed playlist changes or the originating surface closes. The Windows
 and AppKit presenters hold their menus only for the duration of popup tracking.
 
+### Plugin input
+
+Player realms register normalized keys and video-surface mouse events. Each
+player maintains weak subscriptions to its own realms and publishes a snapshot
+when installing the initial profile and applying profile changes. Publication
+completes before a startup entry can read the profile. The UI calls the matching
+higher-priority key listeners before the normal binding and the lower-priority
+listeners afterward. A truthy reply stops propagation. Mouse-up listeners run
+before the configured click action.
+
+The UI gives both priority groups one 16 ms deadline. Input with no matching
+listener proceeds immediately. Requests that expire before execution are
+discarded, and a reply that arrives after the player has moved on has no effect.
+Text editors, dialogs, crop controls and reserved native menus keep their own
+input paths.
+
 ## Preferences
 
 Plugin preferences use a separate store per installed identifier and profile.

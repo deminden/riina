@@ -1,10 +1,16 @@
 
 // Key, pointer, and transport intents are dispatched by the active player.
+export enum PlayerPluginPointerPhase { down, up, move, cancel }
+
 export global PlayerControlActions {
     callback open-application-menu();
     callback timeline-hovered(float);
     callback activate-saved-filter-shortcut(string, bool, bool, bool, bool) -> bool;
     callback dispatch-key-binding(string, bool, bool, bool, bool) -> bool;
+    callback begin-plugin-key(string, bool, bool, bool, bool, bool, bool) -> bool;
+    callback finish-plugin-key() -> bool;
+    callback plugin-pointer(PlayerPluginPointerPhase, string, float, float, int) -> bool;
+    callback plugin-pointer-location(float, float);
     callback set-paused(bool);
     callback execute-mpv-input-action(string);
     callback set-volume(float);
