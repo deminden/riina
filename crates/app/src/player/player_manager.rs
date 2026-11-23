@@ -248,7 +248,7 @@ fn open_player(
     Ok(())
 }
 
-fn select_media_for_new_player(
+pub(crate) fn select_media_for_new_player(
     media: Vec<OsString>,
     existing_playlists: &[Vec<String>],
     allow_duplicate_players: bool,

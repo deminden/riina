@@ -1578,6 +1578,29 @@ Linux executable and engine SHA-256 values were
 Strict Apple Silicon cross-target Clippy passed. Native Wayland and macOS
 menu interaction and the matched macOS comparison remain open.
 
+### Multiple native Windows players 2026-11-23
+
+The Windows application owns the native players opened from its windows.
+Each frame retains its own engine and playback state. New-window actions use
+the application's duplicate policy. Close releases one frame and Quit releases
+all remaining frames. The Windows process exits after its last player closes.
+
+The locked Windows workspace build passed, along with strict Clippy, 918 Rust
+tests and 78 Python tests. On a private desktop, the native Open in New Window
+menu and file picker opened a second video in the same process. The first
+video resumed while the second stayed paused. Closing the first left the
+second open with quit-on-last enabled. Opening the second file again from a
+third player reused the second frame with duplicates disabled. Quit closed
+both remaining players. In a separate launch, closing the sole frame exited
+normally and left no replacement process.
+
+The same binary passed the native Plugin menu action checks and the ten
+private-desktop playback, fullscreen, menu and shutdown checks in 9.295 s.
+The executable SHA-256 was
+`0c5520fe8411829c651e42a298534232e96d4a6754ff6a366cc88a668ac8a596`.
+Application-level global plugin entries and plugin-managed player creation
+remain open.
+
 ### Plugin playlist context menus 2026-11-23
 
 The headless player test sent a right click to a playlist row and checked

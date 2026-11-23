@@ -116,6 +116,14 @@ On the shared GL route, the renderer retains player ownership until rendering
 teardown frees the GL surface. The worker unregisters its wakeup callback, destroys
 the native engine and only then releases the callback context.
 
+On Windows, one application owns the event loop and all native players opened
+from its windows. Each player owns its framed window, controls, timers and
+playback session. Open in New Window uses the same observed-playlist duplicate
+policy as the shared renderer, and each new frame receives its own controls
+owner handle. Close releases one player. Quit releases all remaining players
+before ending the Windows event loop. A separately launched Riina process has
+its own application owner.
+
 ### Plugin mpv operations
 
 The player attaches its command sender before the plugin host starts entry

@@ -1,4 +1,5 @@
 //! Native video owns a host HWND; the shared player UI owns its transparent popup.
+mod application;
 mod events;
 mod material_watch;
 mod menu_actions;
@@ -11,6 +12,7 @@ use crate::{
     player_ui::{UiSession, configure_player},
     preference_load::LoadedPreferences,
 };
+use application::{Backend, WindowActions};
 use placement::{StartupCenter, center_host_in_work_area};
 use riina_ui::PlayerMenuActions;
 use slint::{
@@ -21,27 +23,21 @@ use std::{
     cell::{Cell, RefCell},
     ffi::OsString,
     rc::Rc,
-    sync::{
-        Arc,
-        atomic::{AtomicIsize, Ordering},
-    },
+    sync::Arc,
 };
 use surfaces::{align, enable_video_transparency};
-use winit::platform::windows::WindowAttributesExtWindows;
 pub fn run(
     media: Vec<OsString>,
     resume_position: Option<f64>,
     owner_center: Option<(i32, i32)>,
     loaded: LoadedPreferences,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let app = NativeApp::create_host(&loaded)?;
-    app.start(NativeLaunch {
+    application::run(NativeLaunch {
         media,
         resume_position,
         owner_center,
         loaded,
-    })?;
-    app.run()
+    })
 }
 
 struct NativeLaunch {
@@ -53,8 +49,8 @@ struct NativeLaunch {
 
 type Slot<T> = Rc<RefCell<Option<T>>>;
 
-struct NativeApp {
-    startup_failure: Slot<Box<dyn std::error::Error>>,
+struct NativePlayer {
+    startup_task: Slot<slint::JoinHandle<()>>,
     placement: StartupCenter,
     menu_focus: Rc<Cell<bool>>,
     menu_lifecycle: Slot<super::menu_focus::MenuFocus>,
@@ -71,52 +67,15 @@ struct NativeApp {
     chrome: Slot<PlayerWindow>,
     // Keep the window alive through the cleanup of earlier fields on an error.
     host: NativeVideoHost,
-    next_owner: Arc<AtomicIsize>,
 }
 
-impl NativeApp {
-    fn create_host(loaded: &LoadedPreferences) -> Result<Self, Box<dyn std::error::Error>> {
-        let initial_native_theme = match loaded.preferences.effective_theme_material() {
-            riina_core::ThemeMaterial::Dark => Some(winit::window::Theme::Dark),
-            riina_core::ThemeMaterial::Light => Some(winit::window::Theme::Light),
-            riina_core::ThemeMaterial::System => None,
-        };
-        let owner = Arc::new(AtomicIsize::new(0));
-        let hook_owner = owner.clone();
-        slint::BackendSelector::new()
-            .backend_name("winit".into())
-            .renderer_name("femtovg".into())
-            .with_winit_window_attributes_hook(move |attributes| {
-                let attributes = attributes.with_drag_and_drop(false);
-                // Consume the next adapter's owner once. Leaving it installed also
-                // styles auxiliary windows as transparent, taskbar-hidden overlays.
-                let handle = hook_owner.swap(0, Ordering::Relaxed);
-                if handle == 0 {
-                    // The first window is the persistent host. Its transparent
-                    // client reveals the requested backdrop only after DWM accepts
-                    // its attribute; actual pixels remain subject to OS policy.
-                    // Initialize the native menu in the saved app theme before Slint
-                    // creates its Muda menu; later frame-theme changes cannot restyle
-                    // a menu that was born with the OS's initial color scheme.
-                    attributes
-                        .with_theme(initial_native_theme)
-                        .with_transparent(true)
-                } else {
-                    attributes
-                        .with_owner_window(handle)
-                        .with_transparent(true)
-                        .with_decorations(false)
-                        .with_resizable(false)
-                        .with_skip_taskbar(true)
-                }
-            })
-            .select()?;
+impl NativePlayer {
+    fn create_host() -> Result<Self, slint::PlatformError> {
         let host = NativeVideoHost::new()?;
         host.set_bring_all_to_front_available(true);
         host.set_display_title("riina".into());
         Ok(Self {
             host,
-            next_owner: owner,
             chrome: Default::default(),
             welcome_window: Default::default(),
             visibility_monitor: Default::default(),
@@ -131,11 +90,16 @@ impl NativeApp {
             menu_lifecycle: Default::default(),
             menu_focus: Default::default(),
             placement: Default::default(),
-            startup_failure: Default::default(),
+            startup_task: Default::default(),
         })
     }
 
-    fn start(&self, launch: NativeLaunch) -> Result<(), Box<dyn std::error::Error>> {
+    fn start(
+        &self,
+        launch: NativeLaunch,
+        backend: Backend,
+        actions: WindowActions,
+    ) -> Result<(), Box<dyn std::error::Error>> {
         let NativeLaunch {
             media,
             resume_position,
@@ -145,7 +109,6 @@ impl NativeApp {
         let action_after_launch = loaded.preferences.action_after_launch;
         let supplied_media_argument = !media.is_empty();
         let weak_host = self.host.as_weak();
-        let owner = self.next_owner.clone();
         let startup_chrome = self.chrome.clone();
         let startup_welcome = self.welcome_window.clone();
         let startup_session = self.session.clone();
@@ -160,9 +123,9 @@ impl NativeApp {
         let startup_menu_lifecycle = self.menu_lifecycle.clone();
         let startup_menu_focus = self.menu_focus.clone();
         let placement = self.placement.clone();
-        let initialization_failure = self.startup_failure.clone();
+        self.install_close_handler(actions.clone());
         self.host.show()?;
-        slint::spawn_local(async move {
+        let startup = slint::spawn_local(async move {
             let Some(host) = weak_host.upgrade() else {
                 return;
             };
@@ -178,10 +141,9 @@ impl NativeApp {
                 let presentation = super::NativePresentation::new(window, host.as_weak())
                     .map_err(std::io::Error::other)?;
                 let video_hwnd = presentation.owner_handle();
-                owner.store(presentation.owner_handle(), Ordering::Relaxed);
                 // Slint captures the attributes hook when creating the component adapter.
                 // Construct only after its owner HWND exists, as in the verified probe.
-                let app = PlayerWindow::new()?;
+                let app = backend.create_controls(video_hwnd)?;
                 app.set_native_video(true);
                 app.global::<riina_ui::PlayerAppearance>()
                     .set_system_materials_enabled(super::materials::native_materials_enabled());
@@ -206,7 +168,13 @@ impl NativeApp {
                     None
                 };
                 if let Some(welcome) = &welcome {
-                    keep_player_after_welcome_close(welcome, &host, &app, owner_center);
+                    keep_player_after_welcome_close(
+                        welcome,
+                        &host,
+                        &app,
+                        owner_center,
+                        actions.clone(),
+                    );
                 }
                 // Slint stores one event hook per window. Return the aspect filter
                 // to our owner router so it cannot replace alignment/focus handling.
@@ -241,7 +209,8 @@ impl NativeApp {
                 );
                 menu_actions::install_playback(&host, &app);
                 *startup_session.borrow_mut() = Some(configured);
-                install_chrome_close_handlers(&host, &app, &startup_session, &startup_pip);
+                actions.bind(&app);
+                *startup_chrome.borrow_mut() = Some(app.clone_strong());
                 let _controls = show_chrome(&host, &app, &startup_menu_lifecycle).await?;
                 // The native host otherwise keeps Winit's default placement until
                 // playback loads. That leaves idle launches and cancelled open
@@ -262,26 +231,18 @@ impl NativeApp {
                 }
                 *startup_welcome.borrow_mut() = welcome;
                 app.window().request_redraw();
-                *startup_smoke.borrow_mut() = super::package_smoke::start(&app, &host);
-                *startup_chrome.borrow_mut() = Some(app);
+                if actions.is_initial_window() {
+                    *startup_smoke.borrow_mut() = super::package_smoke::start(&app, &host);
+                }
                 Ok::<(), Box<dyn std::error::Error>>(())
             }
             .await;
             if let Err(error) = result {
-                close(
-                    &startup_session,
-                    &startup_pip,
-                    startup_chrome.borrow().as_ref(),
-                );
-                // Continue releasing session resources if the window is closing.
-                let _ = host.hide();
-                *initialization_failure.borrow_mut() = Some(error);
-                // Shutdown may already have ended the event loop.
-                let _ = slint::quit_event_loop();
+                actions.startup_failed(error);
             }
         })?;
+        *self.startup_task.borrow_mut() = Some(startup);
         self.install_event_filter(owner_center);
-        self.install_close_handler();
         Ok(())
     }
 
@@ -299,53 +260,38 @@ impl NativeApp {
         );
     }
 
-    fn install_close_handler(&self) {
-        let close_session = self.session.clone();
-        let close_pip = self.pip_controller.clone();
-        let close_chrome = self.chrome.clone();
+    fn install_close_handler(&self, actions: WindowActions) {
+        let chrome = self.chrome.clone();
         self.host.window().on_close_requested(move || {
-            let chrome = close_chrome.borrow();
-            if chrome.as_ref().is_some_and(|app| {
+            if !chrome.borrow().as_ref().is_some_and(|app| {
                 app.global::<riina_ui::PlayerDialogState>()
                     .get_dialog_open()
             }) {
-                return slint::CloseRequestResponse::KeepWindowShown;
+                actions.close();
             }
-            let should_quit = chrome.as_ref().is_some_and(|app| {
-                crate::player_manager::should_quit_after_last_window_closed(
-                    app.global::<riina_ui::PlayerPreferences>()
-                        .get_quit_when_no_opened_window(),
-                    0,
-                )
-            });
-            close(&close_session, &close_pip, chrome.as_ref());
-            if let Some(app) = chrome.as_ref() {
-                // Continue releasing session resources if the window is closing.
-                let _ = app.hide();
-            }
-            if should_quit {
-                // Shutdown may already have ended the event loop.
-                let _ = slint::quit_event_loop();
-            }
-            slint::CloseRequestResponse::HideWindow
+            slint::CloseRequestResponse::KeepWindowShown
         });
     }
 
-    fn run(self) -> Result<(), Box<dyn std::error::Error>> {
-        slint::run_event_loop()?;
+    fn finish(&self) {
+        if let Some(startup) = self.startup_task.borrow_mut().take() {
+            startup.abort();
+        }
         drop(self.smoke.borrow_mut().take());
         drop(self.visibility_monitor.borrow_mut().take());
         self.surface_alignment_timer.stop();
         self.material_policy_timer.stop();
-        close(
-            &self.session,
-            &self.pip_controller,
-            self.chrome.borrow().as_ref(),
-        );
-        if let Some(error) = self.startup_failure.borrow_mut().take() {
-            return Err(error);
+        self.hdr_display_timer.stop();
+        drop(self.menu_lifecycle.borrow_mut().take());
+        let app = self.chrome.borrow_mut().take();
+        close(&self.session, &self.pip_controller, app.as_ref());
+        if let Some(welcome) = self.welcome_window.borrow_mut().take() {
+            let _ = welcome.hide();
         }
-        Ok(())
+        if let Some(app) = app {
+            let _ = app.hide();
+        }
+        let _ = self.host.hide();
     }
 }
 
@@ -462,6 +408,7 @@ fn keep_player_after_welcome_close(
     host: &NativeVideoHost,
     app: &PlayerWindow,
     owner_center: Option<(i32, i32)>,
+    actions: WindowActions,
 ) {
     let quit_preference = app.as_weak();
     let close_welcome_app = app.as_weak();
@@ -471,10 +418,9 @@ fn keep_player_after_welcome_close(
             app.global::<riina_ui::PlayerPreferences>()
                 .get_quit_when_no_opened_window()
         });
-        let should_quit = crate::player_manager::should_quit_after_last_window_closed(setting, 0);
-        if should_quit {
-            // Shutdown may already have ended the event loop.
-            let _ = slint::quit_event_loop();
+        if setting {
+            actions.close();
+            return slint::CloseRequestResponse::KeepWindowShown;
         } else if let (Some(app), Some(host)) =
             (close_welcome_app.upgrade(), close_welcome_host.upgrade())
         {
@@ -553,75 +499,6 @@ fn install_menu_lifecycle(
     menus::install(host, app);
     menu_actions::install(host, app);
     Ok(())
-}
-
-fn install_chrome_close_handlers(
-    host: &NativeVideoHost,
-    app: &PlayerWindow,
-    session: &Slot<UiSession>,
-    pip: &Slot<Rc<RefCell<super::pip::Controller>>>,
-) {
-    let close_session = session.clone();
-    let close_pip = pip.clone();
-    let close_host = host.as_weak();
-    let weak_app = app.as_weak();
-    app.window().on_close_requested(move || {
-        let app = weak_app.upgrade();
-        if app.as_ref().is_some_and(|app| {
-            app.global::<riina_ui::PlayerDialogState>()
-                .get_dialog_open()
-        }) {
-            return slint::CloseRequestResponse::KeepWindowShown;
-        }
-        let should_quit = crate::player_manager::should_quit_after_last_window_closed(
-            app.as_ref().is_some_and(|app| {
-                app.global::<riina_ui::PlayerPreferences>()
-                    .get_quit_when_no_opened_window()
-            }),
-            0,
-        );
-        close(&close_session, &close_pip, app.as_ref());
-        if let Some(host) = close_host.upgrade() {
-            // Continue releasing session resources if the window is closing.
-            let _ = host.hide();
-        }
-        if should_quit {
-            // Shutdown may already have ended the event loop.
-            let _ = slint::quit_event_loop();
-        }
-        slint::CloseRequestResponse::HideWindow
-    });
-    let close_button_chrome = app.as_weak();
-    let close_button_host = host.as_weak();
-    let close_button_session = session.clone();
-    let close_button_pip = pip.clone();
-    app.global::<PlayerMenuActions>().on_close_player(move || {
-        let chrome = close_button_chrome.upgrade();
-        let should_quit = chrome.as_ref().is_some_and(|app| {
-            crate::player_manager::should_quit_after_last_window_closed(
-                app.global::<riina_ui::PlayerPreferences>()
-                    .get_quit_when_no_opened_window(),
-                0,
-            )
-        });
-        close(&close_button_session, &close_button_pip, chrome.as_ref());
-        if let Some(host) = close_button_host.upgrade() {
-            // Continue releasing session resources if the window is closing.
-            let _ = host.hide();
-        }
-        if should_quit {
-            // Shutdown may already have ended the event loop.
-            let _ = slint::quit_event_loop();
-        }
-    });
-    let quit_app = app.as_weak();
-    app.global::<PlayerMenuActions>().on_quit_riina(move || {
-        if let Some(app) = quit_app.upgrade() {
-            app.global::<PlayerMenuActions>().invoke_close_player();
-        }
-        // Shutdown may already have ended the event loop.
-        let _ = slint::quit_event_loop();
-    });
 }
 
 fn connect_video_surfaces(
