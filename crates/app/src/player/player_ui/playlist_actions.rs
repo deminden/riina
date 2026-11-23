@@ -367,7 +367,7 @@ fn queue_playlist_navigation(
     }
 
     let needs_capture = {
-        let mut pending = pending.borrow_mut();
+        let mut pending = pending.requests.borrow_mut();
         if let Some((commands, _)) = pending.as_mut() {
             commands.push(command);
             false
@@ -377,7 +377,11 @@ fn queue_playlist_navigation(
         }
     };
     if needs_capture && let Err(error) = sender.send(Command::CaptureTransitionFrame) {
-        let commands = pending.borrow_mut().take().map(|(commands, _)| commands);
+        let commands = pending
+            .requests
+            .borrow_mut()
+            .take()
+            .map(|(commands, _)| commands);
         crate::diagnostics::warn!("Could not capture the outgoing video frame: {error}");
         if let Some(commands) = commands {
             for command in commands {
@@ -386,6 +390,8 @@ fn queue_playlist_navigation(
                 }
             }
         }
+    } else {
+        pending.wake();
     }
 }
 

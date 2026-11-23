@@ -1,11 +1,11 @@
 //! Collect outgoing and incoming transition frames around playlist navigation.
-use super::PendingNavigation;
 use crate::{NativeVideoHost, platform, transition_frame};
-use riina_core::{Command, Phase, Playback, sync::lock};
+use riina_core::{Command, Playback, sync::lock};
 use riina_mpv::CommandSender;
 use slint::ComponentHandle;
 use std::{
-    rc::Rc,
+    cell::RefCell,
+    rc::{Rc, Weak},
     sync::{
         Arc,
         atomic::{AtomicU64, Ordering},
@@ -16,21 +16,56 @@ use std::{
 const INCOMING_SURFACE_STABLE_FOR: Duration = Duration::from_millis(300);
 const MANUAL_TRANSITION_CAPTURE_TIMEOUT: Duration = Duration::from_millis(500);
 
+type NavigationRequests = Rc<RefCell<Option<(Vec<Command>, Instant)>>>;
+
+#[derive(Clone, Default)]
+pub(super) struct PendingNavigation {
+    pub(super) requests: NavigationRequests,
+    timer: Weak<slint::Timer>,
+}
+
+impl PendingNavigation {
+    pub(super) fn wake(&self) {
+        if let Some(timer) = self.timer.upgrade()
+            && !timer.running()
+        {
+            timer.restart();
+        }
+    }
+}
+
+pub(super) struct TransitionTimer {
+    timer: Rc<slint::Timer>,
+    sampler: Rc<RefCell<Sampler>>,
+}
+
+impl TransitionTimer {
+    pub(super) fn observe(&self, state: &Playback) {
+        if !self.timer.running() && self.sampler.borrow().has_work(state, Instant::now()) {
+            self.timer.restart();
+        }
+    }
+}
+
 pub(super) fn install(
     capture_transition_first: bool,
     native: Option<&platform::NativePresentation>,
     command_sender: &CommandSender,
     latest_playback: &crate::PlaybackStore,
-    pending_navigation: &PendingNavigation,
     transition_release_generation: &Arc<AtomicU64>,
-) -> Option<Rc<slint::Timer>> {
+) -> (Option<TransitionTimer>, PendingNavigation) {
     if !capture_transition_first {
-        return None;
+        return (None, PendingNavigation::default());
     }
     let playback = latest_playback.clone();
-    let mut sampler = Sampler {
+    let timer = Rc::new(slint::Timer::default());
+    let navigation = PendingNavigation {
+        requests: NavigationRequests::default(),
+        timer: Rc::downgrade(&timer),
+    };
+    let sampler = Rc::new(RefCell::new(Sampler {
         sender: command_sender.clone(),
-        navigation: pending_navigation.clone(),
+        navigation: navigation.requests.clone(),
         host: native.map(platform::NativePresentation::host),
         released_generation: transition_release_generation.clone(),
         outgoing_generation: None,
@@ -38,22 +73,30 @@ pub(super) fn install(
         incoming_attempt: None,
         incoming_frame: None,
         incoming_surface: None,
-    };
-    let timer = Rc::new(slint::Timer::default());
+    }));
+    let tick_sampler = sampler.clone();
+    let weak_timer = navigation.timer.clone();
     timer.start(
         slint::TimerMode::Repeated,
         Duration::from_millis(80),
         move || {
             let state = lock(&playback).clone();
+            let mut sampler = tick_sampler.borrow_mut();
             sampler.sample(&state);
+            if !sampler.has_work(&state, Instant::now())
+                && let Some(timer) = weak_timer.upgrade()
+            {
+                timer.stop();
+            }
         },
     );
-    Some(timer)
+    timer.stop();
+    (Some(TransitionTimer { timer, sampler }), navigation)
 }
 
 struct Sampler {
     sender: CommandSender,
-    navigation: PendingNavigation,
+    navigation: NavigationRequests,
     host: Option<slint::Weak<NativeVideoHost>>,
     released_generation: Arc<AtomicU64>,
     outgoing_generation: Option<u64>,
@@ -78,19 +121,34 @@ struct IncomingSurface {
 }
 
 impl Sampler {
+    fn has_work(&self, state: &Playback, now: Instant) -> bool {
+        self.navigation.borrow().is_some()
+            || (state.transition_frame.generation != Some(state.generation)
+                && transition_frame::outgoing_capture_due(
+                    state,
+                    self.outgoing_generation,
+                    None,
+                    now,
+                ))
+            || self.incoming_capture_due(state, now)
+    }
+
+    fn incoming_capture_due(&self, state: &Playback, now: Instant) -> bool {
+        self.released_generation.load(Ordering::Acquire) != state.generation
+            && state
+                .transition_frame
+                .generation
+                .is_some_and(|generation| generation < state.generation)
+            && transition_frame::incoming_capture_window_active(state, now)
+            && transition_frame::incoming_capture_ready(state)
+    }
+
     fn sample(&mut self, state: &Playback) {
         self.release_navigation(state);
         self.capture_outgoing(state);
-        if state
-            .transition_frame
-            .generation
-            .is_some_and(|generation| generation < state.generation)
-            && transition_frame::incoming_has_video(state)
-            && !matches!(state.phase, Phase::Loading | Phase::Stopped | Phase::Failed)
-            && transition_frame::incoming_capture_window_active(state, Instant::now())
-            && transition_frame::incoming_capture_ready(state)
-        {
-            self.capture_incoming(state, Instant::now());
+        let now = Instant::now();
+        if self.incoming_capture_due(state, now) {
+            self.capture_incoming(state, now);
         }
     }
 
@@ -224,5 +282,59 @@ impl Sampler {
             });
         }
         self.incoming_frame.as_ref()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use riina_core::{FrameSlot, Phase};
+    use std::sync::mpsc::TryRecvError;
+
+    #[test]
+    fn outgoing_capture_wakes_near_the_end_and_stops_after_the_reply() {
+        i_slint_backend_testing::init_no_event_loop();
+        let playback = crate::PlaybackStore::default();
+        let (commands, recording) = CommandSender::recording(4);
+        let (timer, _) = install(
+            true,
+            None,
+            &commands,
+            &playback,
+            &Arc::new(AtomicU64::new(u64::MAX)),
+        );
+        let timer = timer.unwrap();
+        let mut state = Playback {
+            generation: 1,
+            phase: Phase::Playing,
+            video: Some(serde_json::from_value(serde_json::json!({ "w": 320, "h": 180 })).unwrap()),
+            duration: Some(10.0),
+            position: Some(5.0),
+            ..Playback::default()
+        };
+        timer.observe(&state);
+        assert!(!timer.timer.running());
+
+        state.position = Some(9.0);
+        *lock(&playback) = Arc::new(state.clone());
+        timer.observe(&state);
+        assert!(timer.timer.running());
+        i_slint_backend_testing::mock_elapsed_time(Duration::from_millis(79));
+        assert_eq!(recording.commands.try_recv(), Err(TryRecvError::Empty));
+        i_slint_backend_testing::mock_elapsed_time(Duration::from_millis(1));
+        assert_eq!(
+            recording.commands.try_recv(),
+            Ok(Command::CaptureTransitionFrame)
+        );
+
+        state.transition_frame = FrameSlot {
+            generation: Some(1),
+            ..FrameSlot::default()
+        };
+        *lock(&playback) = Arc::new(state.clone());
+        timer.observe(&state);
+        i_slint_backend_testing::mock_elapsed_time(Duration::from_millis(80));
+        assert!(!timer.timer.running());
+        assert_eq!(recording.commands.try_recv(), Err(TryRecvError::Empty));
     }
 }

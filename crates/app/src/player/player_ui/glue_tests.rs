@@ -2,12 +2,19 @@
 
 use super::{engine_start::EngineOptions, *};
 use crate::CatalogSelection;
-use riina_core::{Preferences, TrackKind};
+use riina_core::{Command, Preferences, TrackKind};
 use riina_mpv::{CommandSender, RecordingEngine};
 use riina_test_support::TempDir;
 use riina_ui::PlayerMenuActions;
 use slint::ComponentHandle;
-use std::{io, path::PathBuf, sync::mpsc::TryRecvError, time::Duration};
+use std::{
+    cell::RefCell,
+    io,
+    path::PathBuf,
+    rc::Rc,
+    sync::mpsc::TryRecvError,
+    time::{Duration, Instant},
+};
 
 pub(crate) struct Harness {
     pub(crate) app: PlayerWindow,

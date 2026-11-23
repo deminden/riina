@@ -220,6 +220,9 @@ impl WindowDelivery {
             self.crop_editor.observe(&app, &state);
             let audio_device_sender = lock(&self.audio_device_sender).clone();
             crate::automatic_music_mode::observe(&app, &state, &self.music_mode_state);
+            if let Some(timers) = &mut observer.borrow_mut().timers {
+                timers.observe(&state);
+            }
             let resize_for_media = update_ui(
                 &app,
                 state,

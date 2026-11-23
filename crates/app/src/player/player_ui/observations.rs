@@ -39,6 +39,7 @@ pub(super) fn update_ui(
         seek: last_seek,
         video: last_video,
         screenshot: last_screenshot,
+        ..
     } = observer;
     update_transition_cover(app, &state, &resources);
     let previous_generation = media_geometry.observe(state.generation);

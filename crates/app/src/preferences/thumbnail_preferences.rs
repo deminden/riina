@@ -32,6 +32,7 @@ pub(crate) fn install_player(window: &PlayerWindow, settings: &Settings) {
         .set_thumbnail_cache_size_text(settings.maximum_cache_size_mb.to_string().into());
     player_preferences.set_thumbnail_remote_enabled(settings.enable_for_remote_files);
     player_preferences.set_thumbnail_width_text(settings.width.to_string().into());
+    player_preferences.invoke_thumbnail_settings_changed();
 }
 
 pub(crate) fn current_player(window: &PlayerWindow) -> Result<Settings, String> {

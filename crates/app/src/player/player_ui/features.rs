@@ -4,18 +4,15 @@ use super::{
     history_session::Tracking, input, live_text, thumbnail_actions, transitions,
 };
 use crate::{PlaybackStore, PlayerWindow, platform, plugin_host::PluginHostHandle};
-use riina_core::{music_mode, sync::lock, video_filters};
+use riina_core::{Playback, music_mode, sync::lock, video_filters};
 use riina_mpv::CommandSender;
 use std::{
-    cell::RefCell,
     path::Path,
     rc::Rc,
     sync::{Arc, Mutex, atomic::AtomicU64},
 };
 
 pub(super) struct PlaybackFeatures {
-    _thumbnail_preview_timer: Rc<slint::Timer>,
-    _transition_frame_timer: Option<Rc<slint::Timer>>,
     _video_materials: platform::video_materials::Monitor,
     _subtitle_priority_timer: Rc<slint::Timer>,
     _online_subtitles_window: crate::open_subtitles::SearchWindowGuard,
@@ -27,8 +24,27 @@ pub(super) struct PlaybackFeatures {
     _player_window_focus: input::PlayerWindowFocusRegistration,
 }
 
+pub(super) struct PlaybackTimers {
+    thumbnail: Rc<slint::Timer>,
+    transition: Option<transitions::TransitionTimer>,
+    previous: Arc<Playback>,
+}
+
+impl PlaybackTimers {
+    pub(super) fn observe(&mut self, state: &Arc<Playback>) {
+        if crate::thumbnail_preview::playback_selection_changed(&self.previous, state) {
+            thumbnail_actions::wake(&self.thumbnail);
+        }
+        if let Some(transition) = &self.transition {
+            transition.observe(state);
+        }
+        self.previous.clone_from(state);
+    }
+}
+
 pub(super) struct Installed {
     pub(super) guards: PlaybackFeatures,
+    pub(super) timers: PlaybackTimers,
     pub(super) live_text_timer: Option<Rc<slint::Timer>>,
     pub(super) pending_navigation: PendingNavigation,
     pub(super) scroll_monitor: platform::PlayerScrollMonitor,
@@ -103,13 +119,11 @@ pub(super) fn install(app: &PlayerWindow, inputs: Inputs<'_>) -> Installed {
         scroll_monitor,
     } = input::install(app, commands, playback.clone());
     let thumbnail_preview_timer = thumbnail_actions::install(app, playback, plugin_host.cloned());
-    let pending_navigation: PendingNavigation = Rc::new(RefCell::new(None));
-    let transition_frame_timer = transitions::install(
+    let (transition_frame_timer, pending_navigation) = transitions::install(
         capture_transition_first,
         native,
         commands,
         playback,
-        &pending_navigation,
         transition_release_generation,
     );
     let video_materials =
@@ -118,8 +132,6 @@ pub(super) fn install(app: &PlayerWindow, inputs: Inputs<'_>) -> Installed {
     let live_text_timer = live_text::install(app, commands.clone(), playback.clone());
     Installed {
         guards: PlaybackFeatures {
-            _thumbnail_preview_timer: thumbnail_preview_timer,
-            _transition_frame_timer: transition_frame_timer,
             _video_materials: video_materials,
             _subtitle_priority_timer: subtitle_priority_timer,
             _online_subtitles_window: online_subtitles_window,
@@ -129,6 +141,11 @@ pub(super) fn install(app: &PlayerWindow, inputs: Inputs<'_>) -> Installed {
             _automatic_music_mode_timer: automatic_music_mode_timer,
             _file_drop_timer: file_drop_timer,
             _player_window_focus: player_window_focus,
+        },
+        timers: PlaybackTimers {
+            thumbnail: thumbnail_preview_timer,
+            transition: transition_frame_timer,
+            previous: Arc::default(),
         },
         live_text_timer,
         pending_navigation,

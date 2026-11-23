@@ -1,4 +1,5 @@
 //! Snapshot projection state belongs to the UI thread for each player session.
+use super::features::PlaybackTimers;
 use crate::{screenshot_osd::ScreenshotOsd, seek_osd::SeekOsd, video_osd::VideoOsd};
 use riina_core::Playback;
 use std::{
@@ -22,6 +23,7 @@ pub(super) struct UiObserverState {
     pub(super) seek: SeekOsd,
     pub(super) video: Rc<RefCell<VideoOsd>>,
     pub(super) screenshot: ScreenshotOsd,
+    pub(super) timers: Option<PlaybackTimers>,
 }
 
 impl UiObserverState {
@@ -35,6 +37,7 @@ impl UiObserverState {
             seek: SeekOsd::default(),
             video: Rc::new(RefCell::new(video)),
             screenshot: ScreenshotOsd::default(),
+            timers: None,
         }
     }
 }
@@ -50,7 +53,7 @@ impl ObserverId {
 
 pub(super) struct ObserverRegistration {
     id: ObserverId,
-    _state: Rc<RefCell<UiObserverState>>,
+    state: Rc<RefCell<UiObserverState>>,
 }
 
 impl ObserverRegistration {
@@ -63,12 +66,16 @@ impl ObserverRegistration {
         });
         Self {
             id: ObserverId(id),
-            _state: state,
+            state,
         }
     }
 
     pub(super) fn id(&self) -> ObserverId {
         self.id
+    }
+
+    pub(super) fn bind_timers(&self, timers: PlaybackTimers) {
+        self.state.borrow_mut().timers = Some(timers);
     }
 }
 

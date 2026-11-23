@@ -36,6 +36,7 @@ mod subtitle_controls;
 mod video_controls;
 use context::{PlayerContext, bind};
 use engine_start::EngineStart;
+use transitions::PendingNavigation;
 mod session_preferences;
 
 use plugin_menus::reorder_plugin_menu_rows;
@@ -44,12 +45,10 @@ use crate::{
     PlayerWindow, WelcomeWindow, platform, preference_load::LoadedPreferences,
     preferences::model::PreferenceModel,
 };
-use riina_core::{Command, Phase, Playback};
+use riina_core::{Phase, Playback};
 use riina_mpv::Player;
 use slint::ComponentHandle;
-use std::{cell::RefCell, rc::Rc, time::Instant};
-
-type PendingNavigation = Rc<RefCell<Option<(Vec<Command>, Instant)>>>;
+use std::rc::Rc;
 
 pub(crate) fn help_menu_url(destination: &str) -> Option<&'static str> {
     match destination {
@@ -277,6 +276,7 @@ fn configure_with_engine(
         .map_err(std::io::Error::other)?;
     let features::Installed {
         guards,
+        timers,
         live_text_timer,
         pending_navigation,
         scroll_monitor,
@@ -299,6 +299,7 @@ fn configure_with_engine(
             capture_transition_first,
         },
     );
+    observer_state.bind_timers(timers);
     startup::install_toolbar_order(app);
     live_text::install_actions(app, prefs_path);
     music_mode::install_actions(app, &music_mode_state);

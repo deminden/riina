@@ -106,6 +106,10 @@ pub(crate) struct Controller {
 }
 
 impl Controller {
+    pub(crate) fn is_extracting(&self) -> bool {
+        self.task.is_some()
+    }
+
     pub(crate) fn observe(
         &mut self,
         app: &PlayerWindow,
@@ -147,6 +151,7 @@ impl Controller {
         }
 
         let mut events = Vec::with_capacity(4);
+        let mut worker_disconnected = false;
         if let Some(task) = self.task.as_ref() {
             // Bounded batches prevent thumbnail delivery from monopolizing a UI tick.
             for _ in 0..4 {
@@ -160,10 +165,14 @@ impl Controller {
                     }
                     Err(std::sync::mpsc::TryRecvError::Empty) => break,
                     Err(std::sync::mpsc::TryRecvError::Disconnected) => {
+                        worker_disconnected = true;
                         break;
                     }
                 }
             }
+        }
+        if worker_disconnected {
+            self.cancel_current();
         }
         let mut thumbnails_ready = false;
         for event in events {
@@ -259,13 +268,27 @@ impl Drop for Controller {
     }
 }
 
-fn active_identity(state: &Playback, settings: &Settings) -> Option<Identity> {
-    if !settings.enabled
-        || !matches!(state.phase, Phase::Playing | Phase::Paused)
-        || state.audio_status() != AudioStatus::Video
-        || !state
+fn sampling_media_ready(state: &Playback) -> bool {
+    matches!(state.phase, Phase::Playing | Phase::Paused)
+        && state
             .duration
             .is_some_and(|duration| duration.is_finite() && duration > 0.0)
+}
+
+pub(crate) fn playback_selection_changed(previous: &Playback, next: &Playback) -> bool {
+    let was_ready = sampling_media_ready(previous);
+    let ready = sampling_media_ready(next);
+    was_ready != ready
+        || (ready
+            && (previous.generation != next.generation
+                || !Arc::ptr_eq(&previous.playlist, &next.playlist)
+                || !Arc::ptr_eq(&previous.tracks, &next.tracks)))
+}
+
+fn active_identity(state: &Playback, settings: &Settings) -> Option<Identity> {
+    if !settings.enabled
+        || !sampling_media_ready(state)
+        || state.audio_status() != AudioStatus::Video
     {
         return None;
     }
@@ -473,15 +496,35 @@ fn decode_image(data: &[u8]) -> Result<Image, String> {
 mod tests {
     use super::{
         EVENT_CAPACITY, PreviewEvent, THUMBNAIL_COUNT, complete_frame_set, media_path,
-        nearest_sample_index, run_preview_task, volume_is_allowed,
+        nearest_sample_index, playback_selection_changed, run_preview_task, volume_is_allowed,
     };
-    use riina_core::thumbnail_preferences::Settings;
+    use riina_core::{Phase, Playback, thumbnail_preferences::Settings};
     use std::{
         fs,
         sync::{Arc, atomic::AtomicBool, mpsc},
     };
 
     use riina_test_support::TempDir;
+
+    #[test]
+    fn thumbnail_selection_ignores_clock_ticks_and_detects_media_changes() {
+        let initial = Playback::default();
+        let loaded = Playback {
+            phase: Phase::Playing,
+            generation: 1,
+            duration: Some(10.0),
+            ..initial.clone()
+        };
+        assert!(playback_selection_changed(&initial, &loaded));
+        let mut next = loaded.clone();
+        next.position = Some(1.0);
+        next.phase = Phase::Paused;
+        assert!(!playback_selection_changed(&loaded, &next));
+        next.generation += 1;
+        assert!(playback_selection_changed(&loaded, &next));
+        next.phase = Phase::Stopped;
+        assert!(playback_selection_changed(&loaded, &next));
+    }
 
     #[test]
     fn only_absolute_local_files_are_started_by_the_player() {

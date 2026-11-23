@@ -1,6 +1,7 @@
 //! Connect the timeline to its isolated thumbnail decoder and sampler.
 use crate::{PlayerWindow, platform, plugin_host::PluginHostHandle};
 use riina_core::sync::lock;
+use riina_ui::PlayerPreferences;
 use slint::ComponentHandle;
 use std::{cell::RefCell, rc::Rc, time::Duration};
 
@@ -25,6 +26,14 @@ pub(super) fn install(
     let thumbnail_tick = thumbnail_controller.clone();
     let thumbnail_library = platform::playback_library();
     let thumbnail_plugin_host = plugin_host;
+    let weak_timer = Rc::downgrade(&thumbnail_preview_timer);
+    let settings_timer = weak_timer.clone();
+    app.global::<PlayerPreferences>()
+        .on_thumbnail_settings_changed(move || {
+            if let Some(timer) = settings_timer.upgrade() {
+                wake(&timer);
+            }
+        });
     thumbnail_preview_timer.start(
         slint::TimerMode::Repeated,
         Duration::from_millis(80),
@@ -32,14 +41,17 @@ pub(super) fn install(
             let Some(app) = thumbnail_weak.upgrade() else {
                 return;
             };
-            let Ok(settings) = crate::thumbnail_preferences::current_player(&app) else {
-                return;
-            };
-            let state = lock(&thumbnail_playback).clone();
-            let ready =
-                thumbnail_tick
-                    .borrow_mut()
-                    .observe(&app, &state, &settings, &thumbnail_library);
+            let mut controller = thumbnail_tick.borrow_mut();
+            let ready = crate::thumbnail_preferences::current_player(&app).is_ok_and(|settings| {
+                let state = lock(&thumbnail_playback).clone();
+                controller.observe(&app, &state, &settings, &thumbnail_library)
+            });
+            if !controller.is_extracting()
+                && let Some(timer) = weak_timer.upgrade()
+            {
+                timer.stop();
+            }
+            drop(controller);
             if ready
                 && let Some(host) = &thumbnail_plugin_host
                 && let Err(error) = host.notify_thumbnails_ready()
@@ -51,4 +63,42 @@ pub(super) fn install(
         },
     );
     thumbnail_preview_timer
+}
+
+pub(super) fn wake(timer: &slint::Timer) {
+    if !timer.running() {
+        timer.restart();
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use riina_core::thumbnail_preferences::Settings;
+    use riina_ui::PlaybackTimelineState;
+
+    #[test]
+    fn idle_thumbnails_only_wake_for_a_settings_update() -> Result<(), slint::PlatformError> {
+        i_slint_backend_testing::init_no_event_loop();
+        let app = PlayerWindow::new()?;
+        let timer = install(&app, &crate::PlaybackStore::default(), None);
+        let interval = Duration::from_millis(80);
+        i_slint_backend_testing::mock_elapsed_time(interval);
+        assert!(!timer.running());
+
+        crate::thumbnail_preferences::install_player(
+            &app,
+            &Settings {
+                width: 240,
+                ..Default::default()
+            },
+        );
+        assert!(timer.running());
+        let timeline = app.global::<PlaybackTimelineState>();
+        assert_eq!(timeline.get_thumbnail_preview_width(), 120.0);
+        i_slint_backend_testing::mock_elapsed_time(interval);
+        assert_eq!(timeline.get_thumbnail_preview_width(), 240.0);
+        assert!(!timer.running());
+        Ok(())
+    }
 }
