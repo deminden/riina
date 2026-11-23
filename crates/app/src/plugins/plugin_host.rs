@@ -72,6 +72,17 @@ pub(crate) struct PluginHostHandle {
 }
 
 impl PluginHostHandle {
+    pub(crate) fn after_initial_plugins(&self, ready: impl FnOnce() + Send + 'static) {
+        // The host defers queued work until all startup entry points have run.
+        let command = PluginCommand::AfterInitialPlugins(Box::new(ready));
+        if let Err(mpsc::TrySendError::Full(command) | mpsc::TrySendError::Disconnected(command)) =
+            self.commands.try_send(command)
+            && let PluginCommand::AfterInitialPlugins(ready) = command
+        {
+            ready();
+        }
+    }
+
     pub(crate) fn enable(&self, manifest: Manifest, directory: PathBuf) -> Result<(), String> {
         self.commands
             .try_send(PluginCommand::Enable {
@@ -352,6 +363,7 @@ impl Drop for PluginHost {
 }
 
 enum PluginCommand {
+    AfterInitialPlugins(Box<dyn FnOnce() + Send>),
     Enable {
         manifest: Box<Manifest>,
         directory: PathBuf,
@@ -529,6 +541,7 @@ fn handle_command(
     window_loaded: &mut bool,
 ) -> bool {
     match command {
+        PluginCommand::AfterInitialPlugins(ready) => ready(),
         PluginCommand::Enable {
             manifest,
             directory,

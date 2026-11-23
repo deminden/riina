@@ -6,6 +6,8 @@ mod error;
 pub use error::EngineError;
 mod ffi;
 pub mod gl_support;
+mod hooks;
+pub use hooks::{MpvHookContinuation, MpvHookRegistration};
 mod pending;
 mod properties;
 #[cfg(feature = "test-support")]

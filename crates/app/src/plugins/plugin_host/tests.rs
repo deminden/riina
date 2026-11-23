@@ -59,7 +59,7 @@ fn playback_updates_keep_the_plugin_window_context() {
 }
 
 #[test]
-fn enabled_plugin_packages_follow_the_persisted_iina_order() {
+fn enabled_plugin_entries_run_in_persisted_order_before_initial_media() {
     let directory = TempDir::new("plugin-order").unwrap();
     let root = directory.path();
     let plugins = root.join("Plugins");
@@ -73,20 +73,37 @@ fn enabled_plugin_packages_follow_the_persisted_iina_order() {
             ),
         )
         .unwrap();
-        std::fs::write(directory.join("main.js"), "").unwrap();
+        std::fs::write(
+            directory.join("main.js"),
+            format!("iina.log('{identifier}');"),
+        )
+        .unwrap();
     }
     let enabled_path = root.join("plugin-enabled.json");
     std::fs::write(&enabled_path, r#"["a.first","z.last"]"#).unwrap();
     std::fs::write(root.join("plugin-order.json"), r#"["z.last","a.first"]"#).unwrap();
 
-    let plugins = enabled_packages(&plugins, &enabled_path);
-    assert_eq!(
-        plugins
-            .iter()
-            .map(|plugin| plugin.manifest.identifier.as_str())
-            .collect::<Vec<_>>(),
-        ["z.last", "a.first"]
-    );
+    let mut host = PluginHost::prepare(&root.join("preferences.json"), &[], &[]).unwrap();
+    let handle = host.handle();
+    let (send, receive) = mpsc::sync_channel(1);
+    host.handle().after_initial_plugins(move || {
+        _ = send.send(handle.drain_messages());
+    });
+    host.start_player(None);
+    let messages = receive
+        .recv_timeout(Duration::from_secs(2))
+        .unwrap()
+        .unwrap();
+    let activated = messages
+        .iter()
+        .filter_map(|message| match message {
+            PluginHostMessage::Log(text) => {
+                text.rsplit_once(": ").map(|(_, identifier)| identifier)
+            }
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(activated, ["z.last", "a.first"]);
 }
 
 #[test]

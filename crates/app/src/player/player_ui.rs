@@ -359,7 +359,10 @@ fn configure_with_engine(
         player.as_ref(),
         &command_sender,
         prefs,
-        media,
+        startup::InitialOpen {
+            media,
+            plugins: session.plugin_host_handle.clone(),
+        },
         &session.picture_in_picture,
     )?;
     let (platform_extras, plugin_runtime) = session.plugin_ui.finish(

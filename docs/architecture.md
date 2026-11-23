@@ -139,6 +139,17 @@ and external tracks use reviewed file and network access. Quit is routed
 to the application's shutdown handler so the player can release its
 rendering and plugin resources.
 
+Initial media opens after enabled plugin entries have initialized. The UI can
+accept another open request during startup and honors the newer request.
+Hooks register on the player's native client. Each plugin realm owns its
+registrations and runs the callbacks on its JavaScript worker. The native
+worker keeps receiving events and answering property requests while a hook
+awaits its continuation. A synchronous callback completes on return. An async
+callback calls `next()` when ready. A failure, released registration, rejected
+delivery or 15-second deadline releases a pending native hook. The worker
+consumes each native continuation once and reuses vacant slots when that
+preserves libmpv's registration order.
+
 ### Playlist plugin menus
 
 The player captures the row order and selection when opening a playlist menu

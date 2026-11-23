@@ -194,3 +194,58 @@ fn generic_mpv_events_are_retained_for_plugin_listeners() {
     );
     assert!(playback.mpv_event_sequence >= 2);
 }
+
+#[test]
+#[ignore = "requires provisioned libmpv; exercises hook ordering and unload recovery"]
+fn hooks_release_loading_in_priority_and_registration_order() -> Result<(), EngineError> {
+    let root = fixture_root();
+    let harness = Harness::start(&root)?;
+    let commands = harness.player.command_sender();
+    let (send, receive) = mpsc::channel();
+    let register = |label, priority| {
+        let send = send.clone();
+        commands.register_mpv_hook(
+            "on_load",
+            priority,
+            Instant::now() + Duration::from_secs(3),
+            move |next| {
+                _ = send.send((label, next));
+            },
+        )
+    };
+    let _later = register("later", 0)?;
+    let cancelled = register("cancelled", -10)?;
+    let _peer = register("peer", -10)?;
+    let source = root.join("tests/fixtures/moving-square.avi");
+    harness.send(Command::Load(source.to_string_lossy().into_owned()))?;
+
+    let take_hook = |expected| {
+        let (label, next) = receive.recv_timeout(Duration::from_secs(3)).unwrap();
+        assert_eq!(label, expected);
+        assert!(next.is_pending());
+        assert!(receive.try_recv().is_err());
+        next
+    };
+    let abandoned = take_hook("cancelled");
+    assert!(
+        read(&commands, "path", MpvPropertyFormat::Text)?
+            .as_str()
+            .is_some_and(|path| path.ends_with("moving-square.avi"))
+    );
+    drop(cancelled);
+    let peer = take_hook("peer");
+    assert!(!abandoned.is_pending());
+    abandoned.finish();
+    peer.finish();
+    peer.finish();
+    drop(take_hook("later"));
+    let first = harness.wait(|state| state.phase == Phase::Playing);
+
+    let _replacement = register("replacement", -10)?;
+    harness.send(Command::Load(source.to_string_lossy().into_owned()))?;
+    drop(take_hook("peer"));
+    drop(take_hook("replacement"));
+    drop(take_hook("later"));
+    harness.wait(|state| state.generation > first.generation && state.phase == Phase::Playing);
+    Ok(())
+}

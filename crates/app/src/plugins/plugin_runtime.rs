@@ -11,6 +11,7 @@ mod messaging;
 mod modules;
 mod mpv_api;
 mod mpv_commands;
+mod mpv_hooks;
 mod mpv_properties;
 mod network;
 mod output;
@@ -92,6 +93,7 @@ enum RuntimeCommand {
     ActivatePlaylistMenuItem(u64, String),
     DeliverPluginMessage(String, serde_json::Value),
     DeliverPlayerEvent(String, serde_json::Value),
+    DeliverMpvHook(u32, riina_mpv::MpvHookContinuation),
     Barrier(mpsc::SyncSender<()>),
     DeliverNetworkResult(u32, Result<serde_json::Value, String>),
     DeliverNetworkDownload(u32, Result<(), String>),

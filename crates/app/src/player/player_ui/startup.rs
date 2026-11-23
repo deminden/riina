@@ -248,13 +248,45 @@ pub(super) struct InitialMedia {
     pub(super) resume_position: Option<f64>,
 }
 
+pub(super) struct InitialOpen {
+    pub(super) media: InitialMedia,
+    pub(super) plugins: Option<PluginHostHandle>,
+}
+
+impl InitialOpen {
+    pub(super) fn open(self, app: &PlayerWindow, sender: CommandSender) {
+        let InitialMedia {
+            files,
+            resume_position,
+        } = self.media;
+        if files.is_empty() {
+            return;
+        }
+        let Some(plugins) = self.plugins else {
+            crate::media_open::startup_at(app, files, resume_position, sender);
+            return;
+        };
+
+        let player = app.as_weak();
+        let generation = app.get_media_request_generation();
+        plugins.after_initial_plugins(move || {
+            let _ = player.upgrade_in_event_loop(move |app| {
+                // A newer open request owns this player while plugins initialize.
+                if app.get_media_request_generation() == generation {
+                    crate::media_open::startup_at(&app, files, resume_position, sender);
+                }
+            });
+        });
+    }
+}
+
 pub(super) fn activate_output(
     app: &PlayerWindow,
     native_presentation: bool,
     player: Option<&Player>,
     command_sender: &CommandSender,
     prefs: &Preferences,
-    media: InitialMedia,
+    opening: InitialOpen,
     picture_in_picture: &crate::platform::PictureInPictureSession,
 ) -> Result<(), Box<dyn std::error::Error>> {
     crate::fullscreen_info::connect(app);
@@ -263,20 +295,12 @@ pub(super) fn activate_output(
         command_sender
             .send(Command::Volume(prefs.volume))
             .map_err(std::io::Error::other)?;
-        if !media.files.is_empty() {
-            crate::media_open::startup_at(
-                app,
-                media.files,
-                media.resume_position,
-                command_sender.clone(),
-            );
-        }
+        opening.open(app, command_sender.clone());
     } else if let Some(player) = player {
         super::rendering::install(
             app,
             player,
-            media.files,
-            media.resume_position,
+            opening,
             prefs.volume,
             picture_in_picture.render_extras(),
         )?;

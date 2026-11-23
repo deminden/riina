@@ -1,5 +1,5 @@
 //! Acknowledged plugin operations on the playback worker.
-use crate::{CommandQueue, CommandSender, EngineError, Message, ffi::format, send_error};
+use crate::{CommandQueue, CommandSender, EngineError, Message, ffi::format, hooks, send_error};
 use riina_core::Command;
 use serde_json::Value;
 use std::{
@@ -65,6 +65,7 @@ pub(super) enum Operation {
         value: Value,
     },
     Intent(Command),
+    RegisterHook(hooks::Registration),
 }
 
 pub(super) struct Pending {
@@ -117,7 +118,7 @@ impl CommandSender {
             .map(|_| ())
     }
 
-    fn request_client(
+    pub(super) fn request_client(
         &self,
         operation: Operation,
         deadline: Instant,

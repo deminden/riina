@@ -6,7 +6,7 @@ use super::{
     events,
     file_api::install_plugin_file_api,
     menu::PLUGIN_MENU_API,
-    messaging, modules, mpv_api, network,
+    messaging, modules, mpv_api, mpv_hooks, network,
     network::NetworkWorkerContext,
     output::{menu_js_error, record, record_plugin_menu},
     playlist_api, preferences_api, timers,
@@ -89,6 +89,7 @@ struct RealmServices {
     overlay: Arc<Mutex<OverlayState>>,
     sidebar: Arc<Mutex<PluginSidebarState>>,
     timers: Arc<PluginTimers>,
+    hooks: mpv_hooks::RealmHooks,
 }
 
 fn initialize_realm(
@@ -177,13 +178,16 @@ fn initialize_realm(
     if global_api_mode != Some(GlobalApiMode::Controller) {
         mpv_api::install(
             &api,
-            player_mpv,
-            execution,
+            player_mpv.clone(),
+            execution.clone(),
             &file_system,
             permissions,
             &network.allowed_domains,
             &events,
         )?;
+        services
+            .hooks
+            .install(&api, player_mpv, execution, network.commands.clone())?;
         playlist_api::install(
             &api,
             &events,
@@ -360,6 +364,14 @@ fn run_callbacks(
                 message_script("iina.event.__dispatch", &name, &data),
                 "player event callback",
             ),
+            Some(RuntimeCommand::DeliverMpvHook(index, next)) => {
+                execution.begin();
+                let evaluated = mpv_hooks::dispatch(context, index, next);
+                if finish_turn(runtime, execution, events, "mpv hook", evaluated) {
+                    break;
+                }
+                continue;
+            }
             Some(RuntimeCommand::DeliverNetworkResult(id, result)) => (
                 network_result_script("__riinaDeliverHttp", id, result),
                 "HTTP response callback",
@@ -387,19 +399,28 @@ fn run_callbacks(
                 error.to_string()
             })
         });
-        // Jobs queued before a synchronous exception still belong to this turn.
-        // Every route drains them under the same cancellation/deadline budget.
-        let pending = execution.drain_jobs(runtime);
-        for error in evaluated.err().into_iter().chain(pending.err()) {
-            record(
-                events,
-                UiEffect::Log(format!("Plugin {label} failed: {error}")),
-            );
-        }
-        if execution.interrupted() {
+        if finish_turn(runtime, execution, events, label, evaluated) {
             break;
         }
     }
+}
+
+fn finish_turn(
+    runtime: &Runtime,
+    execution: &super::execution::ExecutionControl,
+    events: &Mutex<Vec<super::HostEvent>>,
+    label: &str,
+    evaluated: Result<(), String>,
+) -> bool {
+    // Jobs queued before a synchronous exception still use this turn's deadline.
+    let pending = execution.drain_jobs(runtime);
+    for error in evaluated.err().into_iter().chain(pending.err()) {
+        record(
+            events,
+            UiEffect::Log(format!("Plugin {label} failed: {error}")),
+        );
+    }
+    execution.interrupted()
 }
 
 fn message_script(function: &str, name: &str, data: &serde_json::Value) -> String {

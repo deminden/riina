@@ -4,7 +4,8 @@ use crate::{
     EngineError,
     client_request::Operation,
     ffi::{
-        Api, CommandReply, EndFile, Event, Property, event_id, format, property_string, with_node,
+        Api, CommandReply, EndFile, Event, HookEvent, Property, event_id, format, property_string,
+        with_node,
     },
     properties::{apply_property, observed_property_value, queried_property_value},
 };
@@ -56,6 +57,27 @@ impl Handle {
         })
     }
 
+    pub(in crate::worker) fn add_hook(
+        &self,
+        userdata: u64,
+        name: &CStr,
+        priority: i32,
+    ) -> Result<(), EngineError> {
+        // SAFETY: libmpv copies the terminated hook name on this live client.
+        self.api.check("mpv_hook_add", unsafe {
+            (self.api.hook_add)(self.raw.as_ptr(), userdata, name.as_ptr(), priority)
+        })
+    }
+
+    pub(in crate::worker) fn continue_hook(&self, id: u64) {
+        // SAFETY: the worker consumes this ID once, on the client that received it.
+        if let Err(error) = self.api.check("mpv_hook_continue", unsafe {
+            (self.api.hook_continue)(self.raw.as_ptr(), id)
+        }) {
+            diag(&error.to_string());
+        }
+    }
+
     pub(super) fn request_property(
         &self,
         id: u64,
@@ -69,9 +91,11 @@ impl Handle {
                 })
             }
             Operation::Write { name, value } => self.write_property(id, name, value),
-            Operation::Intent(_) => Err(EngineError::InvalidArgument {
-                reason: "A playback command cannot be sent as a native property",
-            }),
+            Operation::Intent(_) | Operation::RegisterHook(_) => {
+                Err(EngineError::InvalidArgument {
+                    reason: "The operation is not a native property request",
+                })
+            }
         }
     }
 
@@ -209,6 +233,11 @@ impl EventRef<'_> {
 
     pub(super) fn userdata(&self) -> u64 {
         self.event.userdata
+    }
+
+    pub(super) fn hook_id(&self) -> Option<u64> {
+        self.payload::<HookEvent>(event_id::HOOK)
+            .map(|hook| hook.id)
     }
 
     pub(super) fn failed(&self) -> bool {

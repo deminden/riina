@@ -1,29 +1,25 @@
 //! The rendering notifier owns GL resources until the backend tears down its context.
+use super::startup::InitialOpen;
+use crate::PlayerWindow;
 use crate::background::CoalescedUiCallback;
 use crate::platform::{SharedVideoExtras, video_materials::set_video_material_sample};
 use crate::video_blur::VideoBlurSurface;
-use crate::{PlayerWindow, media_open};
 use riina_core::Command;
 use riina_mpv::{Player, video::VideoSurface};
 use slint::{ComponentHandle, GraphicsAPI, RenderingState, Weak};
-use std::{cell::Cell, ffi::OsString, rc::Rc, time::Duration};
+use std::{cell::Cell, rc::Rc, time::Duration};
 
 pub(super) fn install(
     app: &PlayerWindow,
     player: &Player,
-    media: Vec<OsString>,
-    startup_resume_position: Option<f64>,
+    media: InitialOpen,
     volume: f64,
     extras: SharedVideoExtras,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let mut session = RenderSession {
         app: app.as_weak(),
         player: player.clone(),
-        opening: Some(InitialPlayback {
-            media,
-            resume_position: startup_resume_position,
-            volume,
-        }),
+        opening: Some(InitialPlayback { media, volume }),
         surface: None,
         blur_surface: None,
         generation: Rc::new(Cell::new(0)),
@@ -42,8 +38,7 @@ pub(super) fn install(
 }
 
 struct InitialPlayback {
-    media: Vec<OsString>,
-    resume_position: Option<f64>,
+    media: InitialOpen,
     volume: f64,
 }
 
@@ -199,14 +194,7 @@ impl RenderSession {
         if let Err(error) = self.player.send(Command::Volume(opening.volume)) {
             crate::diagnostics::warn!("Could not set the initial playback volume: {error}");
         }
-        if !opening.media.is_empty() {
-            media_open::startup_at(
-                app,
-                opening.media,
-                opening.resume_position,
-                self.player.command_sender(),
-            );
-        }
+        opening.media.open(app, self.player.command_sender());
     }
 }
 

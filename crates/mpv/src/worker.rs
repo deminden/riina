@@ -1,5 +1,6 @@
 //! Native commands and events are serialized on the event thread.
 mod handle;
+mod hooks;
 
 use self::handle::{EventRef, Handle};
 use super::{Message, WakeupContext, diag, record_notice, trace_shutdown};
@@ -72,7 +73,7 @@ impl<N: Fn(Arc<Playback>)> Start<N> {
             }
         };
         handle.register_wakeup(Box::new(WakeupContext {
-            sender: callback_sender,
+            sender: callback_sender.clone(),
             queued: AtomicBool::new(false),
         }));
         // The render API may borrow the registered address. The worker owns the core.
@@ -91,7 +92,7 @@ impl<N: Fn(Arc<Playback>)> Start<N> {
             record_notice(&mut state.playback, NoticeSeverity::Warning, message);
         }
 
-        while let Ok(message) = receiver.recv() {
+        while let Some(message) = state.hooks.next_message(&receiver) {
             if accept_shutdown(&message) {
                 break;
             }
@@ -100,13 +101,18 @@ impl<N: Fn(Arc<Playback>)> Start<N> {
                     Message::Wake => handle.acknowledge_wakeup(),
                     Message::Intent(command @ Command::ObserveMpvProperty(_)) => {
                         state.observe_dynamic(&handle, &command, &notify);
-                        return;
                     }
                     Message::Intent(command) => state.handle_intent(&handle, command),
-                    Message::Client(request) => state.request_client(&handle, request),
+                    Message::Client(request) => {
+                        if matches!(request.operation, Operation::RegisterHook(_)) {
+                            state.drain_events(&mut handle, &callback_sender);
+                        }
+                        state.request_client(&handle, request);
+                    }
                     Message::Shutdown => return,
                 }
-                state.drain_events(&mut handle);
+                state.drain_events(&mut handle, &callback_sender);
+                state.hooks.continue_ready(&handle);
                 state.publish(&notify);
             }));
             if handled.is_err() {
@@ -119,6 +125,7 @@ impl<N: Fn(Arc<Playback>)> Start<N> {
                     "The playback engine stopped unexpectedly; reopen the file".into(),
                 );
                 // The shared OpenGL surface can still use the core until its owner releases it.
+                state.hooks.continue_all(&handle);
                 handle.stop_after_panic();
                 let _ = catch_unwind(AssertUnwindSafe(|| {
                     notify(Arc::new(state.playback.clone()))
@@ -131,6 +138,7 @@ impl<N: Fn(Arc<Playback>)> Start<N> {
                 break;
             }
         }
+        state.hooks.continue_all(&handle);
     }
 }
 
@@ -224,6 +232,7 @@ struct WorkerState {
     next_observer: u64,
     pending: HashMap<u64, PendingCommand>,
     client_requests: HashMap<u64, Pending>,
+    hooks: hooks::Hooks,
     volume_boost: bool,
     pending_drop_subtitles: Vec<String>,
     resume_on_load: bool,
@@ -463,6 +472,10 @@ impl WorkerState {
         handle: &Handle,
         operation: Operation,
     ) -> Result<Option<u64>, EngineError> {
+        if let Operation::RegisterHook(registration) = operation {
+            self.hooks.register(handle, registration)?;
+            return Ok(None);
+        }
         if let Operation::Intent(command) = operation {
             let before = self.next_id;
             self.handle_intent(handle, command);
@@ -478,7 +491,7 @@ impl WorkerState {
         Ok(Some(self.next_id))
     }
 
-    fn drain_events(&mut self, handle: &mut Handle) {
+    fn drain_events(&mut self, handle: &mut Handle, wake: &SyncSender<Message>) {
         while let Some(event) = handle.wait() {
             if matches!(
                 event.id(),
@@ -506,7 +519,10 @@ impl WorkerState {
             if let Some(name) = name {
                 self.playback.record_mpv_event(name.clone());
             }
-            if event.id() == event_id::FILE_LOADED {
+            if let Some(id) = event.hook_id() {
+                let slot = event.userdata();
+                self.hooks.receive(handle, id, slot, wake);
+            } else if event.id() == event_id::FILE_LOADED {
                 self.on_file_loaded(handle);
             } else {
                 self.on_event(&event);

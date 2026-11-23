@@ -24,6 +24,7 @@ pub(crate) mod event_id {
     pub const PLAYBACK_RESTART: std::ffi::c_int = 21;
     pub const PROPERTY_CHANGE: std::ffi::c_int = 22;
     pub const QUEUE_OVERFLOW: std::ffi::c_int = 24;
+    pub const HOOK: std::ffi::c_int = 25;
 }
 
 pub(crate) mod format {
@@ -58,6 +59,12 @@ pub struct Event {
     pub error: c_int,
     pub userdata: u64,
     pub data: *mut c_void,
+}
+
+#[repr(C)]
+pub struct HookEvent {
+    pub name: *const c_char,
+    pub id: u64,
 }
 
 #[repr(C)]
@@ -355,6 +362,8 @@ pub struct Api {
     pub set_property:
         unsafe extern "C" fn(*mut c_void, u64, *const c_char, c_int, *mut c_void) -> c_int,
     pub observe: unsafe extern "C" fn(*mut c_void, u64, *const c_char, c_int) -> c_int,
+    pub hook_add: unsafe extern "C" fn(*mut c_void, u64, *const c_char, c_int) -> c_int,
+    pub hook_continue: unsafe extern "C" fn(*mut c_void, u64) -> c_int,
     pub wait: unsafe extern "C" fn(*mut c_void, f64) -> *const Event,
     pub event_name: unsafe extern "C" fn(c_int) -> *const c_char,
     pub wakeup:
@@ -431,6 +440,8 @@ impl Api {
                 get_property: symbol!("mpv_get_property_async"),
                 set_property: symbol!("mpv_set_property_async"),
                 observe: symbol!("mpv_observe_property"),
+                hook_add: symbol!("mpv_hook_add"),
+                hook_continue: symbol!("mpv_hook_continue"),
                 wait: symbol!("mpv_wait_event"),
                 event_name: symbol!("mpv_event_name"),
                 wakeup: symbol!("mpv_set_wakeup_callback"),

@@ -1502,6 +1502,33 @@ locked application build, strict workspace Clippy, 846 Rust tests and all
 from Windows. macOS playback, native rendering interactions and the
 remaining plugin command forms still need verification.
 
+### Plugin mpv hooks 2026-11-23
+
+The native hook regression covers priority and registration order, live property
+reads during an active hook, repeated continuation and release on plugin unload.
+The plugin-host regression queues the initial media callback before the host starts
+and checks that both configured entries have initialized when it runs. A pending
+hook has a 15-second playback deadline.
+
+On isolated Windows and Linux X11 desktops, a deliberately delayed entry still
+received the first file's `on_load` hook. A second AVI exercised synchronous return,
+async continuation, a thrown exception and a rejected promise in native priority
+order. `mpv.hook` reached the event listener, and `iina.file-loaded` arrived after
+the complete hook sequence. Both players exited normally through the plugin Quit
+command.
+
+The Windows executable SHA-256 was
+`bcac0960dac38cca91821b6eb45cc444b08ceda3f208a534182bae9e970b6591`.
+The Linux executable SHA-256 was
+`82e380c35d63195cb54b10a5f2edc1d8f97c27d72d8be4e13042c7f01cf8fd07`.
+Both used the pinned native libraries recorded in the property-read verification.
+
+Windows passed the locked workspace build, strict Clippy, 885 Rust tests,
+78 Python tests and all 58 null-output native tests. Linux x64 passed the locked
+application build, strict workspace Clippy, 846 Rust tests and all 58 null-output
+native tests. Strict Apple Silicon workspace Clippy passed from Windows. Native
+macOS playback still needs verification.
+
 ### Plugin sidebar manifest discovery 2026-10-14
 
 Manifest tests cover bounded localized labels. Runtime tests cover confined
