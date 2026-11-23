@@ -520,11 +520,40 @@ Those checks used the real AppKit scroll monitor, trackpad dispatch and
 represented-document code with stubbed Slint and Winit window access.
 Native linking and interactive input on macOS remain open.
 
-## Linux x64 application checks 2026-11-21
+## Windows hardening integration 2026-11-23
 
-An exact `da50ecd` checkout in WSL completed strict Clippy, 803 workspace tests,
-and a locked x86-64 Linux application build. The generated executable is a
-64-bit ELF and its dynamic dependencies resolved in the disposable test setup.
+An exact `47c8f73` checkout passed `cargo xtask check` with 849 Rust tests,
+78 Python tests, and all 51 software-rendered reference comparisons. The
+separate `cargo xtask native` run passed 53 tests against the pinned development
+DLL with null audio output. `cargo build --workspace --locked` completed, and
+the resulting executable passed all ten private-desktop playback and window
+checks in 9.263 seconds. The test process exited normally.
+
+The follow-up application batch through `1dde0ee` passed strict Clippy
+and 548 application and widget tests through `cargo xtask check --fast`.
+The updated `cargo xtask native lifecycle::` reused the workspace test
+binary and passed all four lifecycle cases.
+
+On `954d4d6`, separate private-desktop runs reopened and played media after
+recovering a profile with an invalid setting type, a non-object JSON document,
+or invalid UTF-8. Each run showed the recovery notice, preserved the original
+bytes in quarantine, and exited normally. A separate startup with an invalid
+DLL recorded the failure, showed the native startup dialog, and exited with
+code 1. These runs used the isolated desktop and disposable profiles.
+
+## Linux x64 application checks
+
+An exact `47c8f73` source archive passed strict workspace Clippy, 814
+workspace tests, and a locked x86-64 Linux application build on November 23
+under Ubuntu 26.04 in WSL. An isolated Xvfb run opened the moving-square
+fixture with playback active. The desktop capture at 0.375 seconds showed a
+black video region, and the capture at 2 seconds showed the decoded fixture.
+Riina exited through Quit, and the virtual display shut down. The intermittent
+Linux startup rendering issue remains open.
+
+On November 21, an exact `da50ecd` checkout in WSL completed strict Clippy,
+803 workspace tests, and a locked x86-64 Linux application build. The executable
+is a 64-bit ELF and its dynamic dependencies resolved in the disposable test setup.
 This cohort verifies the Settings refactor through compilation and tests.
 
 An exact `9929e0a` checkout also completed strict Clippy, 807 workspace tests,
