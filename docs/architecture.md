@@ -64,6 +64,8 @@ Callbacks and `playback_mailbox` share `Arc<Playback>` snapshots. Tracks, chapte
 playlists, audio devices and retained plugin events are shared across snapshots
 until the worker replaces or updates them. `playback_mailbox` coalesces pending
 updates to the UI thread.
+The event-loop reservation is released when delivery begins or when the loop
+discards the callback. Rendering uses the same ownership for redraw requests.
 Screenshot and frame completions travel alongside the snapshot so coalescing
 cannot discard their side effects. `observations` projects playback state and
 catalogs into Slint. Each player owns its audio, video, subtitle, timeline,

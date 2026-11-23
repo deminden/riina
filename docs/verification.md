@@ -534,6 +534,16 @@ and 548 application and widget tests through `cargo xtask check --fast`.
 The updated `cargo xtask native lifecycle::` reused the workspace test
 binary and passed all four lifecycle cases.
 
+At `a83c518`, the Windows workspace gate passed 849 Rust tests and 78 Python
+tests. The 58 preference change tests covered runtime state saved on close,
+concurrent preference writers and the mixed-edit volume rollback sequence.
+The locked workspace build passed all ten private-desktop checks in 9.303
+seconds. The test process exited normally.
+
+At `845f8c0`, `cargo xtask check --fast` ran strict app linting and passed
+549 application and widget tests. The new callback test verified that a
+discarded callback releases its queue slot and allows the next delivery.
+
 On `954d4d6`, separate private-desktop runs reopened and played media after
 recovering a profile with an invalid setting type, a non-object JSON document,
 or invalid UTF-8. Each run showed the recovery notice, preserved the original
@@ -541,7 +551,26 @@ bytes in quarantine, and exited normally. A separate startup with an invalid
 DLL recorded the failure, showed the native startup dialog, and exited with
 code 1. These runs used the isolated desktop and disposable profiles.
 
+### App-only compilation time
+
+On the Windows development machine, `cargo check -p riina --locked` took
+61.70 and 11.33 seconds at `9c7f48c` and 1.95 and 1.83 seconds at `a83c518`
+after refreshing the modification time of `seek_osd.rs`. Each checkout used
+its own warmed build directory, four build jobs, and the pinned toolchain.
+The source bytes were identical before and after each trial. The prep check
+took 14.06 seconds for the baseline and 69.07 seconds for the current tree.
+These timings measure an app-file edit with built dependencies. Background
+builds during the measurements and the baseline's spread limit precision.
+
 ## Linux x64 application checks
+
+At `a83c518`, Ubuntu 26.04 in WSL passed strict workspace Clippy, 814
+workspace tests, and the locked x86-64 application build.
+
+The locked x86-64 build at `845f8c0` passed compilation. In a private Xvfb
+session it showed black video at 0.375 seconds and visible video at 2.042
+seconds. The active fixture and playback state were verified at capture.
+Riina exited through Quit and the virtual display stopped.
 
 An exact `47c8f73` source archive passed strict workspace Clippy, 814
 workspace tests, and a locked x86-64 Linux application build on November 23

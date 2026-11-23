@@ -1,7 +1,9 @@
 # macOS/Linux development
 
-These application ports are being built now. Native playback and GUI validation
-are pending; Windows remains the supported application target.
+Windows is the supported application target. Linux has a full x64 application
+build and isolated X11 playback and shutdown evidence. macOS needs full
+application and runtime verification. See [Verification](verification.md)
+for the measured scope and open rendering issues.
 
 Use the repository's pinned Rust toolchain and lockfile:
 
@@ -29,11 +31,9 @@ The application-port workflow installs and probes these dependencies before
 linting the full workspace. On 2026-10-20, revision `f674279` passed strict
 application lint on Linux and both macOS runners; Linux also passed the unit
 tests and full application build. macOS unit tests exposed ordinary relative
-paths being rewritten by alias resolution. Revision `948fd34` preserves unchanged
-targets, and its [full application verification](https://github.com/deminden/riina/actions/runs/39351055679)
-is in progress. The [release record](../tests/visual/windows-release-4.2.0-2026-10-20.json)
-separates these source follow-ups from the Windows binary built at `5910648`.
-Neither compilation nor these tests establish native playback support.
+paths being rewritten by alias resolution. Revision `948fd34` preserves those
+targets. The [release record](../tests/visual/windows-release-4.2.0-2026-10-20.json)
+separates those source follow-ups from the Windows binary built at `5910648`.
 
 Library discovery uses `libmpv.so.2` on Linux and `libmpv.2.dylib` on macOS. A
 library beside the executable takes precedence. macOS also checks an application
