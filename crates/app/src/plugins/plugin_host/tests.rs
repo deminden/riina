@@ -459,7 +459,8 @@ fn verify_playlist_menu_actions(handle: &PluginHostHandle) {
         assert_eq!(menu.identifier, "org.example.menu");
         menu.items
     };
-    build(10, vec![1]);
+    let blank = build(10, Vec::new());
+    assert!(blank[0].items[0].title.is_empty());
     let items = build(11, vec![0, 2]);
     assert!(items[1].separator);
     assert!(!items[2].enabled);

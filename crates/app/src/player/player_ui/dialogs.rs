@@ -4,7 +4,7 @@ use crate::{
 };
 use riina_core::Command;
 use riina_mpv::CommandSender;
-use riina_ui::PlayerMenuActions;
+use riina_ui::{PlayerDialogState, PlayerMenuActions};
 use slint::ComponentHandle;
 
 pub(super) fn install_browse(
@@ -36,6 +36,7 @@ pub(super) fn install_browse(
 }
 
 pub(super) fn install_time_and_url(app: &PlayerWindow, command_sender: &CommandSender) {
+    install_url_dialogs(app, command_sender);
     let weak = app.as_weak();
     app.global::<PlayerMenuActions>()
         .on_open_jump_time_dialog(move || {
@@ -49,16 +50,6 @@ pub(super) fn install_time_and_url(app: &PlayerWindow, command_sender: &CommandS
                     .set_jump_time_error("".into());
                 app.global::<riina_ui::PlayerDialogState>()
                     .set_jump_time_dialog_visible(true);
-            }
-        });
-    let weak = app.as_weak();
-    app.global::<PlayerMenuActions>()
-        .on_open_url_dialog(move || {
-            if let Some(app) = weak.upgrade() {
-                app.global::<riina_ui::PlayerDialogState>()
-                    .set_url_dialog_draft("".into());
-                app.global::<riina_ui::PlayerDialogState>()
-                    .set_url_dialog_visible(true);
             }
         });
     let jump_player = command_sender.clone();
@@ -88,4 +79,53 @@ pub(super) fn install_time_and_url(app: &PlayerWindow, command_sender: &CommandS
                     .set_jump_time_error(error.to_string().into()),
             }
         });
+}
+
+fn install_url_dialogs(app: &PlayerWindow, command_sender: &CommandSender) {
+    let open = app.as_weak();
+    let append = app.as_weak();
+    let menu = app.global::<PlayerMenuActions>();
+    menu.on_open_url_dialog(move || {
+        if let Some(app) = open.upgrade() {
+            show_url_dialog(&app, false);
+        }
+    });
+    menu.on_open_playlist_url_dialog(move || {
+        if let Some(app) = append.upgrade() {
+            show_url_dialog(&app, true);
+        }
+    });
+    let weak = app.as_weak();
+    let commands = command_sender.clone();
+    app.global::<PlayerDialogState>()
+        .on_append_playlist_url(move |input| {
+            let Some(app) = weak.upgrade() else {
+                return false;
+            };
+            let result = crate::player::media_open::validate_url(input.as_str())
+                .map_err(|error| error.to_string())
+                .and_then(|url| {
+                    commands
+                        .send(Command::AppendFiles(vec![url.to_owned()]))
+                        .map_err(String::from)
+                });
+            if let Err(error) = result {
+                app.global::<PlayerDialogState>()
+                    .set_url_dialog_error(error.into());
+                return false;
+            }
+            let message = crate::video_osd::action_message(
+                crate::video_osd::ActionFeedback::PlaylistAdded(1),
+            );
+            super::show_osd_message(&app, message.text, false);
+            true
+        });
+}
+
+fn show_url_dialog(app: &PlayerWindow, append: bool) {
+    let dialog = app.global::<PlayerDialogState>();
+    dialog.set_url_dialog_appends_playlist(append);
+    dialog.set_url_dialog_draft("".into());
+    dialog.set_url_dialog_error("".into());
+    dialog.set_url_dialog_visible(true);
 }

@@ -39,8 +39,9 @@ export { DelayLane } from "delay-lane.slint";
 import { PlayerMenuWindow } from "player-menu-window.slint";
 import { PlayerController } from "player-controller.slint";
 import { MusicModePlaylist } from "music-mode-playlist.slint";
-import { PlaylistInteraction } from "playlist-sidebar-row.slint";
-export { PlaylistInteraction } from "playlist-sidebar-row.slint";
+import { PlaylistInteraction, PlaylistMenuOrigin } from "playlist-interaction.slint";
+export { PlaylistInteraction, PlaylistMenuOrigin } from "playlist-interaction.slint";
+import { PlaylistBlankMenuArea } from "playlist-context-menu.slint";
 import { VideoSurface } from "player-video-surface.slint";
 import { PlayerRenderedVideo } from "player-rendered-video.slint";
 export { LiveTextRegion, PlayerRenderedVideo } from "player-rendered-video.slint";
@@ -457,6 +458,12 @@ export component PlayerWindow inherits PlayerMenuWindow {
                         sidebar-width: min((side == 0 ? PlayerSidebarState.leading-sidebar-width : PlayerSidebarState.trailing-sidebar-width) * 1px, root.width * 0.8);
                         loaded: root.loaded;
                         restore-player-focus => { keys.focus(); }
+                    }
+                    if pane-kind == 4 : PlaylistBlankMenuArea {
+                        origin: PlaylistMenuOrigin.sidebar;
+                        y: sidebar-page.preferred-height;
+                        width: parent.width;
+                        height: max(0px, parent.height - self.y);
                     }
                 }
             }

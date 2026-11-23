@@ -118,12 +118,14 @@ the native engine and only then releases the callback context.
 
 ### Playlist plugin menus
 
-The player captures the row order and selection when opening a playlist menu.
-Its plugin host starts builders in the player realms and gathers their replies
-under one deadline. Each realm owns its callbacks and retains the latest
-popup's items until an action is chosen or another request supersedes them.
-The UI discards replies and actions when the observed playlist changes. The
-Windows presenter holds the native menu only for the duration of the popup.
+The player captures the row order and selection when opening a playlist menu
+from the sidebar or Music Mode. A click below the rows passes an empty
+selection to each builder. The plugin host starts builders in the player
+realms and gathers their replies under one deadline. Each realm owns its
+callbacks and retains the latest popup's items until an action is chosen or
+another request supersedes them. The UI discards replies and actions when
+the observed playlist changes or the originating surface closes. The Windows
+and AppKit presenters hold their menus only for the duration of popup tracking.
 
 ## Preferences
 

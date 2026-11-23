@@ -2,21 +2,8 @@ import { Theme } from "theme.slint";
 import { PlayerCatalogState } from "player-catalog-state.slint";
 import { CatalogRow } from "catalog-row.slint";
 
-// Drag selection and keyboard focus are shared only by the rows of one player.
-export global PlaylistInteraction {
-    in-out property <int> playlist-menu-generation: 0;
-    callback request-playlist-menu(string, float, float) -> bool;
-    in-out property <string> selected-playlist-token: "";
-    in-out property <[string]> selected-playlist-tokens: [];
-    in-out property <string> playlist-drag-token: "";
-    in-out property <float> playlist-drag-start-x: 0;
-    in-out property <float> playlist-drag-start-y: 0;
-    in-out property <bool> playlist-drag-active: false;
-    in-out property <int> playlist-drop-index: -1;
-    in-out property <bool> playlist-drag-extend: false;
-    in-out property <bool> playlist-drag-range: false;
-    in-out property <int> playlist-focus-index: -1;
-}
+import { PlaylistInteraction, PlaylistMenuOrigin } from "playlist-interaction.slint";
+import { PlaylistContextMenu } from "playlist-context-menu.slint";
 
 export component CatalogSidebarRow inherits Rectangle {
     in property <CatalogRow> entry;
@@ -27,14 +14,6 @@ export component CatalogSidebarRow inherits Rectangle {
     callback select-row(string);
     callback select-playlist-row(int, bool, bool) -> [string];
     callback reorder-playlist([string], int);
-    callback playlist-action(int, string);
-
-    function open-playlist-menu(x: length, y: length) {
-        if !PlaylistInteraction.request-playlist-menu(entry.token,
-            (root.absolute-position.x + x) / 1px, (root.absolute-position.y + y) / 1px) {
-            row-menu.show({ x: x, y: y });
-        }
-    }
 
     property <int> current-playlist-focus-index: PlaylistInteraction.playlist-focus-index;
     height: pane-kind < 3 || pane-kind == 6 ? 26px : pane-kind == 3 ? 40px
@@ -86,7 +65,7 @@ export component CatalogSidebarRow inherits Rectangle {
                 && event.kind == PointerEventKind.up
                 && self.mouse-x >= 0px && self.mouse-x < self.width
                 && self.mouse-y >= 0px && self.mouse-y < self.height {
-                root.open-playlist-menu(self.mouse-x, self.mouse-y);
+                row-menu.open-at(self.mouse-x, self.mouse-y);
             } else if pane-kind == 4 && event.button == PointerEventButton.left && event.kind == PointerEventKind.down {
                 PlaylistInteraction.playlist-drag-token = entry.token;
                 PlaylistInteraction.playlist-focus-index = index;
@@ -129,38 +108,18 @@ export component CatalogSidebarRow inherits Rectangle {
             }
         }
     }
-    row-menu := ContextMenuArea {
-        enabled: false;
-        Menu {
-            MenuItem { title: "Play"; activated => { root.playlist-action(12, entry.token); } }
-            MenuItem { title: "Play in New Window"; activated => { root.playlist-action(9, entry.token); } }
-            MenuItem { title: "Remove"; activated => { root.playlist-action(1, entry.token); } }
-            MenuSeparator {}
-            MenuItem { title: "Cut"; activated => { root.playlist-action(7, entry.token); } }
-            MenuItem { title: "Copy"; activated => { root.playlist-action(6, entry.token); } }
-            MenuItem { title: "Paste"; activated => { root.playlist-action(8, entry.token); } }
-            MenuSeparator {}
-            MenuItem { title: "Move Up"; enabled: index > 0;
-                activated => { root.playlist-action(2, entry.token); } }
-            MenuItem { title: "Move Down"; enabled: index + 1 < PlayerCatalogState.playlist.length;
-                activated => { root.playlist-action(3, entry.token); } }
-            if entry.network : MenuSeparator {}
-            if entry.network : MenuItem {
-                title: "Open in Browser";
-                activated => { root.playlist-action(10, entry.token); }
-            }
-            if entry.network : MenuItem {
-                title: "Copy URL";
-                activated => { root.playlist-action(11, entry.token); }
-            }
-        }
+    row-menu := PlaylistContextMenu {
+        origin: PlaylistMenuOrigin.sidebar;
+        token: root.entry.token;
+        index: root.index;
+        network: root.entry.network;
     }
     row-focus := FocusScope {
         width: 0px;
         key-pressed(event) => {
             if pane-kind == 4 && event.text == Key.F10 && event.modifiers.shift
                 && !event.modifiers.alt && !event.modifiers.control && !event.modifiers.meta {
-                root.open-playlist-menu(12px, root.height);
+                row-menu.open-at(12px, root.height);
                 return accept;
             }
             // Preserve global playback shortcuts while a catalog row has focus.

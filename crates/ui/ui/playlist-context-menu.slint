@@ -1,0 +1,76 @@
+import { PlayerCatalogState } from "player-catalog-state.slint";
+import { PlayerMenuActions } from "player-menu-actions.slint";
+import { PlaylistInteraction, PlaylistMenuOrigin } from "playlist-interaction.slint";
+
+export component PlaylistContextMenu inherits ContextMenuArea {
+    in property <PlaylistMenuOrigin> origin;
+    in property <string> token;
+    in property <int> index: -1;
+    in property <bool> network;
+    enabled: false;
+
+    public function open-at(x: length, y: length) {
+        if !PlaylistInteraction.request-playlist-menu(root.origin, root.token,
+            (root.absolute-position.x + x) / 1px, (root.absolute-position.y + y) / 1px) {
+            root.show({ x: x, y: y });
+        }
+    }
+
+    Menu {
+        if index >= 0 : MenuItem {
+            title: "Play"; activated => { PlayerMenuActions.playlist-action(12, token); }
+        }
+        if index >= 0 : MenuItem {
+            title: "Play in New Window"; activated => { PlayerMenuActions.playlist-action(9, token); }
+        }
+        if index >= 0 : MenuItem {
+            title: "Remove"; activated => { PlayerMenuActions.playlist-action(1, token); }
+        }
+        if index >= 0 : MenuSeparator {}
+        if index >= 0 : MenuItem {
+            title: "Cut"; activated => { PlayerMenuActions.playlist-action(7, token); }
+        }
+        if index >= 0 : MenuItem {
+            title: "Copy"; activated => { PlayerMenuActions.playlist-action(6, token); }
+        }
+        if index >= 0 : MenuItem {
+            title: "Paste"; activated => { PlayerMenuActions.playlist-action(8, token); }
+        }
+        if index >= 0 : MenuSeparator {}
+        if index >= 0 : MenuItem {
+            title: "Move Up"; enabled: index > 0;
+            activated => { PlayerMenuActions.playlist-action(2, token); }
+        }
+        if index >= 0 : MenuItem {
+            title: "Move Down"; enabled: index + 1 < PlayerCatalogState.playlist.length;
+            activated => { PlayerMenuActions.playlist-action(3, token); }
+        }
+        if network : MenuSeparator {}
+        if network : MenuItem {
+            title: "Open in Browser"; activated => { PlayerMenuActions.playlist-action(10, token); }
+        }
+        if network : MenuItem {
+            title: "Copy URL"; activated => { PlayerMenuActions.playlist-action(11, token); }
+        }
+        if index >= 0 : MenuSeparator {}
+        MenuItem { title: "Add File…"; activated => { PlayerMenuActions.browse-files(4); } }
+        MenuItem { title: "Add URL…"; activated => { PlayerMenuActions.open-playlist-url-dialog(); } }
+        MenuItem { title: "Clear Playlist"; enabled: PlayerCatalogState.playlist.length > 1;
+            activated => { PlayerMenuActions.playlist-action(4, ""); } }
+    }
+}
+
+export component PlaylistBlankMenuArea inherits Rectangle {
+    in property <PlaylistMenuOrigin> origin;
+
+    blank-menu := PlaylistContextMenu { origin: root.origin; }
+    TouchArea {
+        pointer-event(event) => {
+            if event.button == PointerEventButton.right && event.kind == PointerEventKind.up
+                && self.mouse-x >= 0px && self.mouse-x < self.width
+                && self.mouse-y >= 0px && self.mouse-y < self.height {
+                blank-menu.open-at(self.mouse-x, self.mouse-y);
+            }
+        }
+    }
+}

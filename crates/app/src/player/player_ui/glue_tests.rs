@@ -382,8 +382,21 @@ fn exercise_dialogs_and_relative_controls(harness: &Harness) {
             .get_url_dialog_draft(),
         ""
     );
-    app.global::<riina_ui::PlayerDialogState>()
-        .set_url_dialog_visible(false);
+    let dialog = app.global::<riina_ui::PlayerDialogState>();
+    app.global::<PlayerMenuActions>()
+        .invoke_open_playlist_url_dialog();
+    assert!(dialog.get_url_dialog_appends_playlist());
+    assert!(!dialog.invoke_append_playlist_url("bad url".into()));
+    assert!(!dialog.get_url_dialog_error().is_empty());
+    harness.expect_idle();
+    assert!(dialog.invoke_append_playlist_url(" https://example.com/video.mp4 ".into()));
+    harness.expect(Command::AppendFiles(vec![
+        "https://example.com/video.mp4".into(),
+    ]));
+    app.global::<PlayerMenuActions>().invoke_open_url_dialog();
+    assert!(!dialog.get_url_dialog_appends_playlist());
+    assert!(dialog.get_url_dialog_error().is_empty());
+    dialog.set_url_dialog_visible(false);
     app.global::<PlayerMenuActions>().invoke_browse_files(-1);
     harness.expect_idle();
 

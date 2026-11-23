@@ -1,9 +1,9 @@
 //! Platform presentation for a playlist menu whose tree is supplied at runtime.
 use slint::{LogicalPosition, Window};
 
-pub(crate) const SUPPORTED: bool = cfg!(target_os = "windows");
+pub(crate) const SUPPORTED: bool = cfg!(any(target_os = "windows", target_os = "macos"));
 
-#[cfg_attr(not(target_os = "windows"), allow(dead_code))]
+#[cfg_attr(not(any(target_os = "windows", target_os = "macos")), allow(dead_code))]
 pub(crate) enum Entry<A> {
     Separator,
     Item {
@@ -14,7 +14,7 @@ pub(crate) enum Entry<A> {
     },
 }
 
-#[cfg_attr(not(target_os = "windows"), allow(dead_code))]
+#[cfg_attr(not(any(target_os = "windows", target_os = "macos")), allow(dead_code))]
 pub(crate) enum Target<A> {
     Action(A),
     Submenu(Vec<Entry<A>>),
@@ -28,7 +28,10 @@ pub(crate) fn popup<A>(
     #[cfg(target_os = "windows")]
     return super::windows::playlist_menu::popup(window, position, entries);
 
-    #[cfg(not(target_os = "windows"))]
+    #[cfg(target_os = "macos")]
+    return super::macos::playlist_menu::popup(window, position, entries);
+
+    #[cfg(not(any(target_os = "windows", target_os = "macos")))]
     {
         let _ = (window, position, entries);
         Ok(None)

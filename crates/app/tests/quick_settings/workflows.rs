@@ -153,27 +153,48 @@ fn playlist_rows_and_six_footer_actions_fit_normal_and_narrow_sidebars() {
 }
 
 #[test]
-fn playlist_context_request_uses_the_clicked_row_and_window_position() {
+fn playlist_context_requests_keep_row_and_blank_targets_in_both_surfaces() {
     let app = player(4);
     app.global::<PlayerCatalogState>().set_playlist(model());
     let requested = Rc::new(RefCell::new(Vec::new()));
     let observe = requested.clone();
     app.global::<PlaylistInteraction>()
-        .on_request_playlist_menu(move |token, x, y| {
-            observe.borrow_mut().push((token, x, y));
+        .on_request_playlist_menu(move |origin, token, x, y| {
+            observe.borrow_mut().push((origin, token, x, y));
             true
         });
     flush();
-    let row = button(&app, "Clip 1").absolute_position();
-    let position = LogicalPosition::new(row.x + 12.0, row.y + 10.0);
-    for button in [PointerEventButton::Left, PointerEventButton::Right] {
-        app.window()
-            .dispatch_event(WindowEvent::PointerPressed { position, button });
-        app.window()
-            .dispatch_event(WindowEvent::PointerReleased { position, button });
+    let music = app.global::<PlayerMusicModeState>();
+    let mut expected = Vec::new();
+    for origin in [PlaylistMenuOrigin::Sidebar, PlaylistMenuOrigin::MusicMode] {
+        if origin == PlaylistMenuOrigin::MusicMode {
+            app.global::<PlayerSidebarState>().set_sidebar(0);
+            music.set_music_mode(true);
+            music.set_music_mode_show_playlist(true);
+        }
         flush();
+        let row = button(&app, "Clip 1").absolute_position();
+        let last = button(&app, "Clip 2");
+        let blank_y = last.absolute_position().y + last.size().height + 12.0;
+        let row_position = LogicalPosition::new(row.x + 12.0, row.y + 10.0);
+        let blank_position = LogicalPosition::new(row.x + 12.0, blank_y);
+        for (position, button) in [
+            (row_position, PointerEventButton::Left),
+            (row_position, PointerEventButton::Right),
+            (blank_position, PointerEventButton::Right),
+        ] {
+            app.window()
+                .dispatch_event(WindowEvent::PointerPressed { position, button });
+            app.window()
+                .dispatch_event(WindowEvent::PointerReleased { position, button });
+            flush();
+        }
+        expected.extend([
+            (origin, "2".into(), row_position.x, row_position.y),
+            (origin, "".into(), blank_position.x, blank_position.y),
+        ]);
     }
-    assert_eq!(*requested.borrow(), [("2".into(), position.x, position.y)]);
+    assert_eq!(*requested.borrow(), expected);
 }
 
 #[test]

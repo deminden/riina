@@ -1395,6 +1395,26 @@ Windows. The native popup presentation is implemented for Windows playlist
 sidebar rows. Blank-space menus, Music Mode and popup presentation on Linux
 and macOS remain open.
 
+The follow-up reused the same headless widget and engine-recording tests to
+cover clicks on rows and empty space in the sidebar and Music Mode, and the
+Add URL action. Invalid URLs produced no engine command. A valid URL sent
+an append command to the current session without replacing playback. A
+player-realm builder also received an empty index list in the host test.
+
+Three isolated Windows sessions opened the sidebar below its first row,
+a Music Mode row, and the blank space below that row. The plugin received
+`[]`, `[0]`, and `[]` respectively. Each native popup contained the contributed
+item and Add URL. The player exited normally after the menu was dismissed
+in each session. The Windows executable SHA-256 was
+`1da782a2840e0302c18562f43bcb97900366f550acf4dcc14902454a02e8be1a`.
+
+The locked Windows workspace build, strict Clippy, 883 Rust tests and 78
+Python tests passed. Linux x64 passed the locked application build, strict
+workspace Clippy and 844 Rust tests. Strict Apple Silicon workspace Clippy
+covered the new AppKit adapter from Windows. AppKit linking and desktop
+verification, interactive Windows popup selection, and plugin popup
+presentation on Linux remain open.
+
 ### Plugin sidebar manifest discovery 2026-10-14
 
 Manifest tests cover bounded localized labels. Runtime tests cover confined
