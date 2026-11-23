@@ -3,6 +3,62 @@ use riina_test_support::TempDir;
 use std::time::Instant;
 
 #[test]
+fn playback_updates_keep_the_plugin_window_context() {
+    let scratch = TempDir::new("plugin-window-context").unwrap();
+    let directory = scratch
+        .path()
+        .join("Plugins/org.example.window-context.iinaplugin");
+    fs::create_dir_all(&directory).unwrap();
+    fs::write(
+        directory.join("Info.json"),
+        r#"{"name":"Window Context","identifier":"org.example.window-context","version":"1.0.0","author":{"name":"Test"},"entry":"main.js","permissions":[]}"#,
+    )
+    .unwrap();
+    fs::write(
+        directory.join("main.js"),
+        r"const report = label => iina.log(label + ': ' + iina.core.window.loaded + ','
+            + iina.core.window.frame?.width);
+        report('activation');
+        iina.event.on('iina.window-will-close', () => report('closing'));",
+    )
+    .unwrap();
+    let host = PluginHost::start(&scratch.path().join("preferences.json"), &[], &[]).unwrap();
+    let handle = host.handle();
+    handle
+        .update_window_properties(BTreeMap::from([
+            ("loaded".into(), serde_json::json!(true)),
+            (
+                "frame".into(),
+                serde_json::json!({"width": 1040, "height": 585}),
+            ),
+        ]))
+        .unwrap();
+    handle
+        .update_player_file_context(PluginPlayerFileContext::default().with_media_generation(1))
+        .unwrap();
+    handle
+        .enable(
+            Manifest::load_from_directory(&directory).unwrap(),
+            directory,
+        )
+        .unwrap();
+    handle
+        .update_player_file_context(PluginPlayerFileContext::default().with_media_generation(2))
+        .unwrap();
+    handle.notify_window_will_close().unwrap();
+    drop(host);
+    let messages = handle.drain_messages().unwrap();
+    for expected in ["activation: true,1040", "closing: true,1040"] {
+        assert!(
+            messages.iter().any(|message| {
+                matches!(message, PluginHostMessage::Log(text) if text.ends_with(expected))
+            }),
+            "Missing {expected:?} in {messages:?}"
+        );
+    }
+}
+
+#[test]
 fn enabled_plugin_packages_follow_the_persisted_iina_order() {
     let directory = TempDir::new("plugin-order").unwrap();
     let root = directory.path();

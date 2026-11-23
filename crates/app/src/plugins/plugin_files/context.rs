@@ -70,6 +70,12 @@ impl PluginPlayerFileContext {
         self
     }
 
+    pub(crate) fn replace_playback_snapshot(&mut self, mut playback: Self) {
+        // Window observations arrive independently of playback and media changes.
+        playback.core_window_properties = std::mem::take(&mut self.core_window_properties);
+        *self = playback;
+    }
+
     pub(crate) fn player_events_to(&self, next: &Self) -> Vec<(String, serde_json::Value)> {
         let mut events = Vec::new();
         if self

@@ -405,7 +405,7 @@ fn run_host(
             match commands.try_recv() {
                 Ok(PluginCommand::Shutdown) => return,
                 Ok(PluginCommand::UpdatePlayerFileContext(context)) => {
-                    player_context = context;
+                    player_context.replace_playback_snapshot(context);
                 }
                 Ok(PluginCommand::UpdateWindowProperties(properties)) => {
                     player_context.set_core_window_properties(properties);
@@ -560,7 +560,7 @@ fn handle_command(
         }
         PluginCommand::UpdatePlayerFileContext(context) => {
             let events = player_context.player_events_to(&context);
-            *player_context = context;
+            player_context.replace_playback_snapshot(context);
             update_player_sessions(player_context, &events, messages, sessions);
         }
         PluginCommand::UpdateWindowProperties(properties) => {
