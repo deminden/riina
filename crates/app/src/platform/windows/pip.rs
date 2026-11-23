@@ -128,7 +128,7 @@ pub(crate) struct Controller {
     entering: Rc<Cell<bool>>,
     closed: Rc<Cell<bool>>,
     acrylic_monitor_started: Rc<Cell<bool>>,
-    _playback_timer: Timer,
+    playback_timer: Timer,
 }
 
 impl Controller {
@@ -145,7 +145,6 @@ impl Controller {
         let acrylic_monitor_started = Rc::new(Cell::new(false));
         let player_weak = player.as_weak();
         let host_weak = host.as_weak();
-        let pip_weak = pip.as_weak();
         let controller = Rc::new(RefCell::new(Self {
             player: player_weak.clone(),
             host: host_weak.clone(),
@@ -156,7 +155,7 @@ impl Controller {
             entering: entering.clone(),
             closed: closed.clone(),
             acrylic_monitor_started: acrylic_monitor_started.clone(),
-            _playback_timer: Timer::default(),
+            playback_timer: Timer::default(),
         }));
 
         let toggle_controller = controller.clone();
@@ -216,8 +215,13 @@ impl Controller {
                 slint::CloseRequestResponse::HideWindow
             });
 
-        let weak_controller = Rc::downgrade(&controller);
-        let weak_pip = pip_weak;
+        Self::install_playback_watch(&controller, player);
+        Ok(controller)
+    }
+
+    fn install_playback_watch(controller: &Rc<RefCell<Self>>, player: &PlayerWindow) {
+        let weak_controller = Rc::downgrade(controller);
+        let weak_pip = controller.borrow().pip.as_weak();
         let playback_timer = Timer::default();
         playback_timer.start(TimerMode::Repeated, Duration::from_millis(250), move || {
             let Some(controller) = weak_controller.upgrade() else {
@@ -289,12 +293,32 @@ impl Controller {
                 }
             }
         });
-        controller.borrow_mut()._playback_timer = playback_timer;
-        Ok(controller)
+        controller.borrow_mut().playback_timer = playback_timer;
+        controller
+            .borrow()
+            .update_playback_timer(player.get_monitor_picture_in_picture());
+        let weak_controller = Rc::downgrade(controller);
+        player.on_picture_in_picture_monitor_changed(move |needed| {
+            if let Some(controller) = weak_controller.upgrade() {
+                controller.borrow().update_playback_timer(needed);
+            }
+        });
+    }
+
+    fn update_playback_timer(&self, needed: bool) {
+        match (needed && !self.closed.get(), self.playback_timer.running()) {
+            (true, false) => self.playback_timer.restart(),
+            (false, true) => self.playback_timer.stop(),
+            _ => {}
+        }
     }
 
     pub(crate) fn shutdown(controller: Rc<RefCell<Self>>) {
-        controller.borrow().closed.set(true);
+        {
+            let state = controller.borrow();
+            state.closed.set(true);
+            state.playback_timer.stop();
+        }
         exit(controller);
     }
 }
@@ -587,6 +611,37 @@ fn same_rect(left: Option<RECT>, right: Option<RECT>) -> bool {
 mod tests {
     use super::{Controller, NativeVideoHost, PlayerWindow, fit_source_in_rect, same_rect, toggle};
     use windows::Win32::Foundation::{RECT, SIZE};
+
+    #[test]
+    fn picture_in_picture_watch_runs_only_for_preview_or_automatic_window_policy()
+    -> Result<(), Box<dyn std::error::Error>> {
+        use slint::ComponentHandle;
+        use std::time::Duration;
+
+        i_slint_backend_testing::init_no_event_loop();
+        let player = PlayerWindow::new()?;
+        let host = NativeVideoHost::new()?;
+        let (commands, _) = riina_mpv::CommandSender::recording(1);
+        let controller = Controller::install(&player, &host, 0, commands)?;
+        assert!(!controller.borrow().playback_timer.running());
+
+        let preferences = player.global::<riina_ui::PlayerPreferences>();
+        preferences.set_pip_toggle_by_minimizing(true);
+        i_slint_backend_testing::mock_elapsed_time(Duration::ZERO);
+        assert!(controller.borrow().playback_timer.running());
+
+        preferences.set_pip_toggle_by_minimizing(false);
+        i_slint_backend_testing::mock_elapsed_time(Duration::ZERO);
+        assert!(!controller.borrow().playback_timer.running());
+
+        player.set_picture_in_picture_active(true);
+        i_slint_backend_testing::mock_elapsed_time(Duration::ZERO);
+        assert!(controller.borrow().playback_timer.running());
+
+        Controller::shutdown(controller.clone());
+        assert!(!controller.borrow().playback_timer.running());
+        Ok(())
+    }
 
     #[test]
     fn rejected_picture_in_picture_entry_releases_the_pending_state()
