@@ -39,6 +39,7 @@ component PluginEnabledSwitch inherits FocusScope {
         clicked => { focus.focus(); root.checked = !root.checked; root.toggled(root.checked); }
     }
     focus := FocusScope {
+        focus-on-click: false;
         width: parent.width; height: parent.height;
         key-pressed(event) => {
             if root.switch-enabled && (event.text == Key.Space || event.text == Key.Return) {

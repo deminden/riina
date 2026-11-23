@@ -59,7 +59,9 @@ export component PreferenceSwitch inherits Rectangle {
         }
     }
     touch := TouchArea { enabled: root.enabled; clicked => { focus.focus(); root.checked = !root.checked; root.toggled(); } }
+    // The TouchArea activates the control and assigns keyboard focus.
     focus := FocusScope {
+        focus-on-click: false;
         width: parent.width; height: parent.height;
         key-pressed(event) => {
             if root.enabled && (event.text == Key.Return || event.text == " ") {
@@ -91,6 +93,7 @@ export component OverrideLaneButton inherits Rectangle {
         touch := TouchArea { clicked => { focus.focus(); root.activated(); } }
     }
     focus := FocusScope {
+        focus-on-click: false;
         width: parent.width; height: parent.height;
         key-pressed(event) => {
             if event.text == Key.Return || event.text == " " { root.activated(); return accept; }
@@ -116,6 +119,7 @@ export component PreferenceActionButton inherits Rectangle {
         horizontal-alignment: center; vertical-alignment: center; }
     touch := TouchArea { enabled: root.enabled; clicked => { focus.focus(); root.activated(); } }
     focus := FocusScope {
+        focus-on-click: false;
         width: parent.width; height: parent.height; enabled: root.enabled;
         key-pressed(event) => {
             if event.text == Key.Return || event.text == " " { root.activated(); return accept; }
@@ -141,6 +145,7 @@ component ToolbarOrderButton inherits Rectangle {
         horizontal-alignment: center; vertical-alignment: center; }
     touch := TouchArea { enabled: root.enabled; clicked => { focus.focus(); root.activated(); } }
     focus := FocusScope {
+        focus-on-click: false;
         width: parent.width; height: parent.height; enabled: root.enabled;
         key-pressed(event) => {
             if event.text == Key.Return || event.text == " " { if root.enabled { root.activated(); } return accept; }
@@ -324,6 +329,7 @@ export component PreferenceRadioRow inherits Rectangle {
         vertical-alignment: center; overflow: elide; }
     touch := TouchArea { clicked => { focus.focus(); root.activated(); } }
     focus := FocusScope {
+        focus-on-click: false;
         width: parent.width; height: parent.height;
         key-pressed(event) => {
             if event.text == Key.Return || event.text == " " { root.activated(); return accept; }
@@ -357,6 +363,7 @@ export component PreferenceToggle inherits FocusScope {
     touch := TouchArea { enabled: root.enabled;
         clicked => { focus.focus(); root.checked = !root.checked; root.toggled(); } }
     focus := FocusScope {
+        focus-on-click: false;
         width: parent.width; height: parent.height; enabled: root.enabled;
         key-pressed(event) => {
             if root.enabled && (event.text == Key.Return || event.text == " ") {
@@ -384,6 +391,7 @@ export component GeneralDisclosureRow inherits FocusScope {
         border-width: 1px; border-color: Theme.settings-accent; border-radius: 4px; background: transparent; }
     touch := TouchArea { clicked => { focus.focus(); root.activated(); } }
     focus := FocusScope {
+        focus-on-click: false;
         width: parent.width; height: parent.height;
         key-pressed(event) => {
             if event.text == Key.Return || event.text == " " { root.activated(); return accept; }
@@ -416,6 +424,7 @@ export component GeneralSettingToggle inherits FocusScope {
     touch := TouchArea { enabled: root.enabled;
         clicked => { focus.focus(); root.checked = !root.checked; root.toggled(); } }
     focus := FocusScope {
+        focus-on-click: false;
         width: parent.width; height: parent.height; enabled: root.enabled;
         key-pressed(event) => {
             if root.enabled && (event.text == Key.Return || event.text == " ") {
@@ -451,6 +460,7 @@ export component PreferenceOptionCard inherits FocusScope {
         vertical-alignment: top; wrap: word-wrap; }
     touch := TouchArea { enabled: root.enabled; clicked => { focus.focus(); root.activated(); } }
     focus := FocusScope {
+        focus-on-click: false;
         width: parent.width; height: parent.height; enabled: root.enabled;
         key-pressed(event) => {
             if event.text == Key.Return || event.text == " " { root.activated(); return accept; }
@@ -498,6 +508,7 @@ export component PreferenceDisclosure inherits FocusScope {
     }
     touch := TouchArea { clicked => { focus.focus(); root.toggled(); } }
     focus := FocusScope {
+        focus-on-click: false;
         width: parent.width; height: parent.height;
         key-pressed(event) => {
             if event.modifiers.alt || event.modifiers.control || event.modifiers.meta { return reject; }
@@ -531,6 +542,7 @@ export component PreferenceDetailRow inherits FocusScope {
     }
     touch := TouchArea { clicked => { focus.focus(); root.toggled(); } }
     focus := FocusScope {
+        focus-on-click: false;
         width: parent.width; height: parent.height;
         key-pressed(event) => {
             if event.text == Key.Return || event.text == " " {

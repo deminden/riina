@@ -63,6 +63,7 @@ export component KeyBindingActionRow inherits Rectangle {
         double-clicked => { if root.editable { root.edit-requested(root.row-index); } }
     }
     focus := FocusScope {
+        focus-on-click: false;
         width: parent.width; height: parent.height;
         key-pressed(event) => {
             if event.text == Key.Return && root.selected && root.editable {
@@ -134,6 +135,7 @@ export component KeyBindingIconButton inherits FocusScope {
     }
     touch := TouchArea { enabled: root.enabled; clicked => { focus.focus(); root.activated(); } }
     focus := FocusScope {
+        focus-on-click: false;
         width: parent.width; height: parent.height;
         key-pressed(event) => {
             if root.enabled && (event.text == Key.Return || event.text == " ") {

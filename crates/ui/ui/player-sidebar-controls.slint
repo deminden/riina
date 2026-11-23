@@ -286,6 +286,7 @@ export component SubtitleLaneSegment inherits Rectangle {
         border-radius: 4px; background: transparent; }
     touch := TouchArea { clicked => { focus.focus(); root.activated(); } }
     focus := FocusScope {
+        focus-on-click: false;
         key-pressed(event) => {
             // Lane choice is idempotent; modified player shortcuts still bubble.
             if event.modifiers.alt || event.modifiers.control || event.modifiers.meta || event.modifiers.shift { return reject; }

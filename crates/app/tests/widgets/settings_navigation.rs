@@ -1,7 +1,13 @@
-//! Exercise Settings routes through the generated accessibility actions.
+//! Exercise Settings and Welcome routes with headless window input.
 use i_slint_backend_testing::{AccessibleRole, ElementHandle};
-use riina_ui::{PluginPreferencesRow, PreferencesWindow, VideoSettingsState};
-use slint::{ComponentHandle, LogicalSize, ModelRc, VecModel, platform::PointerEventButton};
+use riina_ui::{
+    GeneralSettingsState, PluginPreferencesRow, PreferencesWindow, VideoSettingsState,
+    WelcomeWindow,
+};
+use slint::{
+    ComponentHandle, LogicalSize, ModelRc, VecModel,
+    platform::{PointerEventButton, WindowEvent},
+};
 use std::{cell::Cell, error::Error, rc::Rc};
 
 fn button(settings: &PreferencesWindow, label: &str) -> Result<ElementHandle, Box<dyn Error>> {
@@ -20,6 +26,66 @@ fn button(settings: &PreferencesWindow, label: &str) -> Result<ElementHandle, Bo
 fn select(settings: &PreferencesWindow, label: &str) -> Result<(), Box<dyn Error>> {
     button(settings, label)?.invoke_accessible_default_action();
     super::flush();
+    Ok(())
+}
+
+#[test]
+fn settings_switch_and_disclosure_activate_on_first_click() -> Result<(), Box<dyn Error>> {
+    i_slint_backend_testing::init_no_event_loop();
+    let settings = PreferencesWindow::new()?;
+    settings.set_disable_animations(true);
+    settings.window().set_size(LogicalSize::new(750.0, 670.0));
+    let general = settings.global::<GeneralSettingsState>();
+    general.set_allow_multiple_windows(true);
+    settings.show()?;
+    super::flush();
+
+    assert!(!general.get_group_simultaneous_opens_in_playlist());
+    ElementHandle::find_by_accessible_label(
+        &settings,
+        "Group media in playlist when opening multiple files at once",
+    )
+    .find(|element| element.accessible_role() == Some(AccessibleRole::Switch))
+    .ok_or("Missing media grouping switch")?
+    .mock_single_click(PointerEventButton::Left);
+    assert!(general.get_group_simultaneous_opens_in_playlist());
+
+    settings
+        .window()
+        .dispatch_event(WindowEvent::KeyPressed { text: " ".into() });
+    settings
+        .window()
+        .dispatch_event(WindowEvent::KeyReleased { text: " ".into() });
+    assert!(!general.get_group_simultaneous_opens_in_playlist());
+
+    assert!(!general.get_when_media_opened_expanded());
+    button(&settings, "When media is opened")?.mock_single_click(PointerEventButton::Left);
+    assert!(general.get_when_media_opened_expanded());
+    settings.hide()?;
+    Ok(())
+}
+
+#[test]
+fn welcome_actions_accept_first_pointer_clicks() -> Result<(), Box<dyn Error>> {
+    i_slint_backend_testing::init_no_event_loop();
+    let welcome = WelcomeWindow::new()?;
+    let file_requests = Rc::new(Cell::new(0));
+    let recorded = file_requests.clone();
+    welcome.on_open_file(move || recorded.set(recorded.get() + 1));
+    welcome.show()?;
+    super::flush();
+
+    ElementHandle::find_by_accessible_label(&welcome, "Open a media file")
+        .next()
+        .ok_or("Missing Welcome file action")?
+        .mock_single_click(PointerEventButton::Left);
+    assert_eq!(file_requests.get(), 1);
+    ElementHandle::find_by_accessible_label(&welcome, "Open media from a URL")
+        .next()
+        .ok_or("Missing Welcome URL action")?
+        .mock_single_click(PointerEventButton::Left);
+    assert!(welcome.get_url_entry_visible());
+    welcome.hide()?;
     Ok(())
 }
 

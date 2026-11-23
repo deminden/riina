@@ -72,6 +72,7 @@ export component AudioQuickSettingsPage inherits VerticalLayout {
             if load-focus.has-focus : Rectangle { border-width: 1px; border-color: root.interactive-accent-color; border-radius: 4px; background: transparent; }
             TouchArea { enabled: root.loaded; clicked => { load-focus.focus(); root.load-external-audio(); } }
             load-focus := FocusScope {
+                focus-on-click: false;
                 enabled: root.loaded;
                 key-pressed(event) => {
                     if event.modifiers.alt || event.modifiers.control || event.modifiers.meta || event.modifiers.shift { return reject; }
@@ -165,6 +166,7 @@ export component AudioQuickSettingsPage inherits VerticalLayout {
             border-color: root.interactive-accent-color; border-radius: 4px; background: transparent; }
         TouchArea { clicked => { boost-focus.focus(); root.set-volume-boost(!root.volume-boost); } }
         boost-focus := FocusScope {
+            focus-on-click: false;
             key-pressed(event) => {
                 if event.text == " " || event.text == Key.Return {
                     root.set-volume-boost(!root.volume-boost); return accept;

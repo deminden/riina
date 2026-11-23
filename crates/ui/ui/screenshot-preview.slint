@@ -11,10 +11,13 @@ component CaptureAction inherits Rectangle {
         horizontal-alignment: center; vertical-alignment: center; }
     if focus.has-focus : Rectangle { border-width: 1px; border-color: Theme.player-focus-accent; background: transparent; }
     touch := TouchArea { clicked => { focus.focus(); root.activated(); } }
-    focus := FocusScope { key-pressed(event) => {
-        if event.text == Key.Return || event.text == " " { root.activated(); return accept; }
-        return reject;
-    } }
+    focus := FocusScope {
+        focus-on-click: false;
+        key-pressed(event) => {
+            if event.text == Key.Return || event.text == " " { root.activated(); return accept; }
+            return reject;
+        }
+    }
 }
 
 export component ScreenshotPreview inherits Rectangle {

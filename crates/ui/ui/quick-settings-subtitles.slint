@@ -92,6 +92,7 @@ export component SubtitleQuickSettingsPage inherits VerticalLayout {
                 TouchArea { enabled: root.loaded;
                     clicked => { subtitle-load-focus.focus(); root.load-subtitle(); } }
                 subtitle-load-focus := FocusScope {
+                    focus-on-click: false;
                     enabled: root.loaded;
                     key-pressed(event) => {
                         if event.modifiers.alt || event.modifiers.control || event.modifiers.meta || event.modifiers.shift { return reject; }
@@ -113,6 +114,7 @@ export component SubtitleQuickSettingsPage inherits VerticalLayout {
                 TouchArea { enabled: root.loaded;
                     clicked => { online-subtitle-focus.focus(); root.find-online-subtitles(); } }
                 online-subtitle-focus := FocusScope {
+                    focus-on-click: false;
                     enabled: root.loaded;
                     key-pressed(event) => {
                         if event.modifiers.alt || event.modifiers.control || event.modifiers.meta || event.modifiers.shift { return reject; }

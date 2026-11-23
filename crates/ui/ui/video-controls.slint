@@ -66,7 +66,9 @@ component VideoSegment inherits Rectangle {
             return reject;
         }
     }
-    focus := FocusScope { enabled: root.enabled;
+    focus := FocusScope {
+        focus-on-click: false;
+        enabled: root.enabled;
         key-pressed(event) => {
             if event.modifiers.alt || event.modifiers.control || event.modifiers.meta || event.modifiers.shift { return reject; }
             if event.text == Key.Return || event.text == " " { root.chosen(); return accept; }
@@ -403,7 +405,9 @@ export component HardwareDecodingControls inherits Rectangle {
                     border-color: root.focus-accent-color; }
                 TouchArea { enabled: root.hardware-known;
                     clicked => { hardware-focus.focus(); root.hardware-changed(!root.hardware-enabled); } }
-                hardware-focus := FocusScope { enabled: root.hardware-known;
+                hardware-focus := FocusScope {
+                    focus-on-click: false;
+                    enabled: root.hardware-known;
                     key-pressed(event) => {
                         if event.modifiers.alt || event.modifiers.control || event.modifiers.meta || event.modifiers.shift { return reject; }
                         if event.text == " " || event.text == Key.Return {

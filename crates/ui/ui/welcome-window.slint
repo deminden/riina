@@ -24,6 +24,7 @@ component WelcomeAction inherits Rectangle {
         clicked => { focus.focus(); root.activated(); }
     }
     focus := FocusScope {
+        focus-on-click: false;
         width: parent.width;
         height: parent.height;
         enabled: root.enabled;
@@ -56,6 +57,7 @@ component RecentMediaEntry inherits Rectangle {
     }
     touch := TouchArea { clicked => { focus.focus(); root.activated(); } }
     focus := FocusScope {
+        focus-on-click: false;
         width: parent.width; height: parent.height;
         key-pressed(event) => {
             if event.text == Key.Return || event.text == " " { root.activated(); return accept; }
@@ -92,6 +94,7 @@ component ResumeMediaEntry inherits Rectangle {
     }
     touch := TouchArea { clicked => { focus.focus(); root.activated(); } }
     focus := FocusScope {
+        focus-on-click: false;
         width: parent.width; height: parent.height;
         key-pressed(event) => {
             if event.text == Key.Return || event.text == " " { root.activated(); return accept; }

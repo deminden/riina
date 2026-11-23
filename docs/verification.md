@@ -1424,6 +1424,34 @@ SHA-256 was `2412bfdf3876beb714df01622f15df1211e128306a5d77dec8d31fab89a4e5ea`.
 The same run found that the General switch for grouping files still needed a
 second click to toggle.
 
+### First-click controls and focused widget checks 2026-11-23
+
+Settings switches, choice rows and disclosures now give pointer handling to
+their click areas, which also move keyboard focus. The same pattern applies
+to the affected Welcome, Quick Settings, crop and screenshot controls. The
+headless tests click the General grouping switch and disclosure, open Welcome
+actions, and dispatch audio and subtitle commands. Space still toggles the
+focused switch, and Return repeats the subtitle search.
+
+The fast gate groups changes to these widget tests with the UI interaction and
+pixel comparisons. The scope tests also verify that application source edits
+include the app unit tests. The focused Windows run took 26.5 seconds including
+linting, 54 widget tests and the software-rendered pixel comparison. The Windows
+locked workspace gate and build passed, including 78 Python tests. All 58
+native engine tests passed with null audio output. The native Windows plugin
+settings test saved WebView form edits when switching panes on a private desktop.
+
+Linux passed the locked application build, strict workspace Clippy and 120
+plugin tests. On a private X11 desktop, the production app's grouping switch
+read false before the first click, true after it and false after the second.
+The plugin form reopened with saved values after restarting the player, and
+both player processes exited normally. The Linux executable SHA-256 was
+`fa5e6a9052655661a2dcd0306de521f2c32f3021ab6d1ff89757019bff923d42`. The
+engine SHA-256 was
+`84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`.
+Apple Silicon cross-target Clippy passed. Native macOS interaction remains
+unverified.
+
 ### Plugin playlist context menus 2026-11-23
 
 The headless player test sent a right click to a playlist row and checked

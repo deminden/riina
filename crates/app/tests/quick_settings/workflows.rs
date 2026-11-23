@@ -1,9 +1,30 @@
 use super::*;
 use slint::ComponentHandle;
 use std::{
+    cell::Cell,
     sync::{Arc, Mutex},
     time::{Duration, Instant},
 };
+
+#[test]
+fn audio_and_subtitle_actions_activate_on_first_click() {
+    let app = player(1);
+    let menu = app.global::<PlayerMenuActions>();
+    let file_kind = Rc::new(Cell::new(None));
+    let recorded = file_kind.clone();
+    menu.on_browse_files(move |kind| recorded.set(Some(kind)));
+    let searches = Rc::new(Cell::new(0));
+    let recorded = searches.clone();
+    menu.on_find_online_subtitles(move || recorded.set(recorded.get() + 1));
+
+    field(&app, "Load external audio").mock_single_click(PointerEventButton::Left);
+    assert_eq!(file_kind.get(), Some(1));
+    switch(&app, 2);
+    field(&app, "Search online subtitles").mock_single_click(PointerEventButton::Left);
+    assert_eq!(searches.get(), 1);
+    key(&app, Key::Return);
+    assert_eq!(searches.get(), 2);
+}
 
 fn model() -> slint::ModelRc<CatalogRow> {
     slint::ModelRc::new(slint::VecModel::from(
