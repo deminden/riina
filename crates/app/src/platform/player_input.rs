@@ -1,6 +1,7 @@
 //! Native focus ownership and optional gesture routing for one player window.
 use crate::PlayerWindow;
 use riina_mpv::CommandSender;
+use slint::winit_030::winit::event::{TouchPhase, WindowEvent};
 use std::cell::Cell;
 
 #[cfg(target_os = "macos")]
@@ -70,6 +71,46 @@ pub(crate) struct NativeScrollEvent {
     pub(crate) phase_ended: bool,
     pub(crate) momentum_phase_empty: bool,
 }
+
+pub(crate) struct WinitWheelInput {
+    pub(crate) delta_x: f64,
+    pub(crate) delta_y: f64,
+    pub(crate) precise: bool,
+    pub(crate) phase: TouchPhase,
+}
+
+pub(crate) fn winit_wheel_input(
+    window: &slint::Window,
+    event: &WindowEvent,
+) -> Option<WinitWheelInput> {
+    // AppKit already supplies the deltas and phases through PlayerScrollMonitor.
+    #[cfg(target_os = "macos")]
+    {
+        let _ = (window, event);
+        None
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        use slint::winit_030::winit::event::MouseScrollDelta;
+        let WindowEvent::MouseWheel { delta, phase, .. } = event else {
+            return None;
+        };
+        let (delta_x, delta_y, precise) = match delta {
+            MouseScrollDelta::LineDelta(x, y) => (f64::from(*x), f64::from(*y), false),
+            MouseScrollDelta::PixelDelta(position) => {
+                let position = position.to_logical::<f64>(f64::from(window.scale_factor()));
+                (position.x, position.y, true)
+            }
+        };
+        Some(WinitWheelInput {
+            delta_x,
+            delta_y,
+            precise,
+            phase: *phase,
+        })
+    }
+}
+
 // The monitor is dropped with the session; other hosts deliver wheel input directly.
 pub(crate) struct PlayerScrollMonitor {
     #[cfg(target_os = "macos")]

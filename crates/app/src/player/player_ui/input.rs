@@ -118,7 +118,7 @@ fn install_file_drop(
     player: riina_mpv::CommandSender,
     playback: crate::PlaybackStore,
     trackpad_pause_generation: Rc<Cell<Option<u64>>>,
-    _scroll_input: Rc<Cell<ScrollInputState>>,
+    scroll_input: Rc<Cell<ScrollInputState>>,
 ) -> (Rc<slint::Timer>, PlayerWindowFocusRegistration) {
     let registry_id = NEXT_PLAYER_WINDOW_REGISTRATION.fetch_add(1, Ordering::Relaxed);
     PLAYER_WINDOWS.with(|registered| {
@@ -148,13 +148,13 @@ fn install_file_drop(
             .with_winit_window(|window| window.has_focus())
             .unwrap_or(false),
     ));
-    let event_scroll_input = _scroll_input;
+    let event_scroll_input = scroll_input;
     let event_player = player;
     let event_playback = playback;
     let event_app = app.as_weak();
     let event_trackpad_pause_generation = trackpad_pause_generation;
     let event_focused = Rc::downgrade(&focused);
-    app.window().on_winit_window_event(move |_window, event| {
+    app.window().on_winit_window_event(move |window, event| {
         if let winit::event::WindowEvent::DroppedFile(path) = event {
             event_paths.borrow_mut().push(path.clone().into_os_string());
             event_timer.restart();
@@ -174,23 +174,21 @@ fn install_file_drop(
             input.momentum_allowed = false;
             event_scroll_input.set(input);
         }
-        #[cfg(not(target_os = "macos"))]
-        if let winit::event::WindowEvent::MouseWheel { delta, phase, .. } = event {
-            use winit::event::{MouseScrollDelta, TouchPhase};
-            let (delta_x, delta_y, precise) = match delta {
-                MouseScrollDelta::LineDelta(x, y) => (f64::from(*x), f64::from(*y), false),
-                MouseScrollDelta::PixelDelta(position) => {
-                    let position = position.to_logical::<f64>(f64::from(_window.scale_factor()));
-                    (position.x, position.y, true)
-                }
-            };
+        if let Some(platform::WinitWheelInput {
+            delta_x,
+            delta_y,
+            precise,
+            phase,
+        }) = platform::winit_wheel_input(window, event)
+        {
+            use winit::event::TouchPhase;
             let mut input = event_scroll_input.get();
             input.appkit = false;
             input.native_delta = Some((delta_x, delta_y));
             input.precise = Some(precise);
             input.natural_direction = None;
             input.phase_empty = !precise;
-            input.phase_began = *phase == TouchPhase::Started;
+            input.phase_began = phase == TouchPhase::Started;
             input.phase_ended = matches!(phase, TouchPhase::Ended | TouchPhase::Cancelled);
             if !precise {
                 // Mouse-wheel events are independent. IINA prioritizes horizontal
