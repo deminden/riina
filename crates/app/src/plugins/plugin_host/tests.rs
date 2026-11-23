@@ -126,6 +126,7 @@ fn shutdown_releases_a_bootstrap_plugin_waiting_for_a_dialog() {
     let mut host = PluginHost::prepare(&root.join("preferences.json"), &[], &[]).unwrap();
     let (sender, receiver) = mpsc::sync_channel(1);
     host.handle()
+        .ui
         .dialogs
         .install(move |request| sender.try_send(request).map_err(|_| "Dialog busy".into()));
     host.start_player(None);

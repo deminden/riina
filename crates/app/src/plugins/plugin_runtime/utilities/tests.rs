@@ -134,8 +134,10 @@ fn chooser_delivers_selection_and_cancellation_to_the_requesting_entry() {
         &[],
         Default::default(),
         None,
-        Default::default(),
-        dialogs,
+        super::super::PluginUi {
+            dialogs,
+            ..Default::default()
+        },
     )
     .unwrap();
     let selected = pending.recv_timeout(Duration::from_secs(2)).unwrap();
@@ -186,8 +188,10 @@ fn startup_dialogs_return_synchronous_answers_and_preserve_the_realm_budget() {
             &[],
             Default::default(),
             None,
-            Default::default(),
-            dialogs,
+            super::super::PluginUi {
+                dialogs,
+                ..Default::default()
+            },
         )
         .map(|session| (session, root))
     });

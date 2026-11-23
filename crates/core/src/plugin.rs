@@ -263,7 +263,7 @@ pub(crate) fn validate_plugin_relative_path(path: &Path) -> Result<(), PluginSur
     Ok(())
 }
 
-fn validate_overlay_text(value: &str) -> Result<(), PluginSurfaceError> {
+pub(crate) fn validate_overlay_text(value: &str) -> Result<(), PluginSurfaceError> {
     if value.len() > MAX_OVERLAY_TEXT_BYTES {
         return Err(PluginSurfaceError::ContentSize);
     }

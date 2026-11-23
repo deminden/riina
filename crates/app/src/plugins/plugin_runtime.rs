@@ -20,6 +20,7 @@ mod permissions;
 mod playlist_api;
 mod preferences_api;
 mod preferences_store;
+pub(crate) mod standalone;
 pub(crate) mod subtitles;
 #[cfg(test)]
 mod tests;
@@ -97,6 +98,7 @@ enum RuntimeCommand {
     ActivatePlaylistMenuItem(u64, String),
     DeliverPluginMessage(String, serde_json::Value),
     DeliverPlayerEvent(String, serde_json::Value),
+    DeliverStandaloneMessage(u64, String, serde_json::Value),
     DeliverInput(input::Request),
     DeliverMpvHook(u32, riina_mpv::MpvHookContinuation),
     Barrier(mpsc::SyncSender<()>),
@@ -118,6 +120,7 @@ enum GlobalApiMode {
 struct PluginWorkerHost {
     dialogs: utilities::PluginDialogs,
     input: Arc<input::Endpoint>,
+    standalone: Arc<standalone::Endpoint>,
     execution: Arc<ExecutionControl>,
     global_api_mode: Option<GlobalApiMode>,
     module_context: Option<PluginModuleContext>,
@@ -130,9 +133,16 @@ struct PluginWorkerHost {
     mpv_property_observation_requests: Arc<Mutex<BTreeSet<String>>>,
 }
 
+#[derive(Clone, Default)]
+pub(crate) struct PluginUi {
+    pub(crate) dialogs: utilities::PluginDialogs,
+    pub(crate) input: input::Router,
+    pub(crate) windows: standalone::Hub,
+}
+
 struct PluginStorageContext {
-    dialogs: utilities::PluginDialogs,
-    input_bindings: input::Bindings,
+    ui: PluginUi,
+    plugin_name: String,
     file_system: PluginFiles,
     player_mpv: Option<riina_mpv::CommandSender>,
     allowed_domains: Vec<String>,
@@ -140,10 +150,10 @@ struct PluginStorageContext {
 }
 
 impl PluginStorageContext {
-    fn for_package(root: &Path, manifest: &Manifest) -> Result<Self, String> {
+    fn for_package(root: &Path, manifest: &Manifest, ui: PluginUi) -> Result<Self, String> {
         Ok(Self {
-            dialogs: utilities::PluginDialogs::default(),
-            input_bindings: input::Bindings::default(),
+            ui,
+            plugin_name: manifest.name.clone(),
             file_system: PluginFiles::for_package(root, &manifest.identifier),
             player_mpv: None,
             allowed_domains: manifest.allowed_domains.clone(),
@@ -178,8 +188,7 @@ impl PluginRuntimeSession {
             granted_permissions,
             PluginPlayerFileContext::default(),
             None,
-            input::Bindings::default(),
-            utilities::PluginDialogs::default(),
+            PluginUi::default(),
         )
     }
 
@@ -189,15 +198,12 @@ impl PluginRuntimeSession {
         granted_permissions: &[String],
         player_context: PluginPlayerFileContext,
         player_mpv: Option<riina_mpv::CommandSender>,
-        input_bindings: input::Bindings,
-        dialogs: utilities::PluginDialogs,
+        ui: PluginUi,
     ) -> Result<Self, String> {
         let (source, module_context) = read_package_script(package_root, &manifest.entry)?;
-        let mut storage = PluginStorageContext::for_package(package_root, manifest)?;
+        let mut storage = PluginStorageContext::for_package(package_root, manifest, ui)?;
         storage.file_system.set_player_context(player_context);
         storage.player_mpv = player_mpv;
-        storage.input_bindings = input_bindings;
-        storage.dialogs = dialogs;
         Self::start_entry_with_context(
             &source,
             &manifest.identifier,
@@ -213,14 +219,13 @@ impl PluginRuntimeSession {
         package_root: &Path,
         manifest: &Manifest,
         granted_permissions: &[String],
-        dialogs: utilities::PluginDialogs,
+        ui: PluginUi,
     ) -> Result<Self, String> {
         let Some(entry) = manifest.global_entry.as_deref() else {
             return Err("Plugin does not declare a global entry".into());
         };
         let (source, module_context) = read_package_script(package_root, entry)?;
-        let mut storage = PluginStorageContext::for_package(package_root, manifest)?;
-        storage.dialogs = dialogs;
+        let storage = PluginStorageContext::for_package(package_root, manifest, ui)?;
         Self::start_entry_with_context(
             &source,
             &format!("{}.global", manifest.identifier),
@@ -247,8 +252,8 @@ impl PluginRuntimeSession {
             None,
             None,
             PluginStorageContext {
-                dialogs: utilities::PluginDialogs::default(),
-                input_bindings: input::Bindings::default(),
+                ui: PluginUi::default(),
+                plugin_name: plugin_identifier.to_owned(),
                 file_system: PluginFiles::temporary(plugin_identifier),
                 player_mpv: None,
                 allowed_domains: Vec::new(),
@@ -275,8 +280,14 @@ impl PluginRuntimeSession {
         let (commands, receiver) = mpsc::sync_channel(32);
         let input = Arc::new(input::Endpoint::new(
             commands.clone(),
-            storage.input_bindings,
+            storage.ui.input.bindings.clone(),
         ));
+        let standalone = storage.ui.windows.register(
+            storage.plugin_name,
+            module_context.as_ref().map(|module| module.root.clone()),
+            execution.clone(),
+            commands.clone(),
+        );
         let worker_input = input.clone();
         let (ready_sender, ready_receiver) = mpsc::sync_channel(1);
         let events = Arc::new(Mutex::new(Vec::new()));
@@ -307,8 +318,9 @@ impl PluginRuntimeSession {
                 plugin_identifier,
                 permissions,
                 PluginWorkerHost {
-                    dialogs: storage.dialogs,
+                    dialogs: storage.ui.dialogs,
                     input: worker_input,
+                    standalone,
                     execution: worker_execution,
                     global_api_mode,
                     module_context,

@@ -1,0 +1,265 @@
+//! Confined custom-protocol documents and document-scoped WebView messages.
+use super::super::plugin_resources::{plugin_file_url, resource_response};
+use crate::plugin_runtime::standalone::Endpoint;
+use riina_core::plugin_window::{Document, Presentation};
+use std::{borrow::Cow, cell::Cell, rc::Rc, sync::Arc};
+use url::Url;
+use wry::{
+    NewWindowResponse, PageLoadEvent, WebView, WebViewBuilder,
+    http::{Request, Response, StatusCode},
+};
+
+const SCHEME: &str = "riina-plugin";
+const SHELL: &str = "/.riina-standalone";
+const MAX_IPC_BYTES: usize = 1024 * 1024 + 512;
+const BRIDGE: &str = include_str!("bridge.js");
+const SIMPLE: &[u8] = br#"<!doctype html><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root { color-scheme: light dark; font: 13px system-ui, sans-serif; }
+  body { margin: 12px; }
+</style>
+<style id="plugin-style"></style><main id="plugin-content"></main>"#;
+
+struct Observation {
+    expected: Cell<u64>,
+    ready: Cell<bool>,
+    page: Cell<u64>,
+}
+
+pub(super) struct Page {
+    state: Rc<Observation>,
+    authority: Arc<str>,
+}
+
+impl Page {
+    pub(super) fn new(document: u64, origin: uuid::Uuid) -> Self {
+        Self {
+            state: Rc::new(Observation {
+                expected: Cell::new(document),
+                ready: Cell::new(false),
+                page: Cell::new(0),
+            }),
+            authority: format!("standalone-{}.localhost", origin.simple()).into(),
+        }
+    }
+
+    pub(super) fn navigating_to(&self, document: u64) {
+        self.state.expected.set(document);
+        self.state.ready.set(false);
+    }
+
+    pub(super) fn ready_page(&self) -> Option<u64> {
+        self.state.ready.get().then(|| self.state.page.get())
+    }
+
+    pub(super) fn builder<'a>(
+        &self,
+        endpoint: &Arc<Endpoint>,
+        initial_url: &str,
+    ) -> WebViewBuilder<'a> {
+        let state = self.state.clone();
+        let owner = Arc::downgrade(endpoint);
+        let root = endpoint.package_root().map(std::path::Path::to_path_buf);
+        let protocol_origin = self.authority.clone();
+        let navigation_origin = self.authority.clone();
+        let page_origin = self.authority.clone();
+        let message_origin = self.authority.clone();
+        WebViewBuilder::new()
+            .with_url(initial_url)
+            .with_initialization_script(BRIDGE)
+            .with_custom_protocol(SCHEME.into(), move |_, request| {
+                if !trusted_origin(&request.uri().to_string(), &protocol_origin) {
+                    return unavailable();
+                }
+                match shell_request(&request) {
+                    true => simple_response(),
+                    false => root
+                        .as_ref()
+                        .map_or_else(unavailable, |root| resource_response(root, request)),
+                }
+            })
+            .with_navigation_handler(move |url| trusted_origin(&url, &navigation_origin))
+            .with_new_window_req_handler(|_, _| NewWindowResponse::Deny)
+            .with_on_page_load_handler(move |event, url| {
+                let expected = state.expected.get();
+                if trusted_origin(&url, &page_origin)
+                    && document_id(&url).is_none_or(|id| id == expected)
+                {
+                    let ready = matches!(event, PageLoadEvent::Finished);
+                    state.ready.set(ready);
+                    if ready {
+                        state.page.set(state.page.get().wrapping_add(1));
+                    }
+                }
+            })
+            .with_ipc_handler(move |request: Request<String>| {
+                if request.body().len() > MAX_IPC_BYTES
+                    || !trusted_origin(&request.uri().to_string(), &message_origin)
+                {
+                    return;
+                }
+                let Ok(message) = serde_json::from_str::<Incoming>(request.body()) else {
+                    return;
+                };
+                if let Some(owner) = owner.upgrade()
+                    && let Ok(document) = message.document.parse()
+                {
+                    owner.receive(document, message.name, message.data);
+                }
+            })
+    }
+
+    pub(super) fn url(&self, view: &Presentation) -> Result<String, String> {
+        let (base, shell) = match &view.document {
+            Document::Package(file) => (plugin_file_url(file)?, false),
+            _ => (format!("{SCHEME}://localhost{SHELL}"), true),
+        };
+        let mut url = Url::parse(&base).map_err(|error| error.to_string())?;
+        // Keep storage and script origins distinct across realms, including
+        // WebView2 environments with a shared underlying browser profile.
+        url.set_host(Some(&self.authority))
+            .map_err(|error| error.to_string())?;
+        let mut query = url.query_pairs_mut();
+        query.append_pair("riina_document", &view.document_id.to_string());
+        if shell {
+            query.append_pair("riina_shell", "1");
+        }
+        drop(query);
+        let url: String = url.into();
+        // Wry rewrites builder URLs for WebView2, but subsequent calls to
+        // WebView::load_url need the registered HTTP alias explicitly.
+        #[cfg(target_os = "windows")]
+        let url = url.replacen("riina-plugin://", "http://riina-plugin.", 1);
+        Ok(url)
+    }
+}
+
+#[derive(serde::Deserialize)]
+struct Incoming {
+    document: String,
+    name: String,
+    #[serde(default)]
+    data: serde_json::Value,
+}
+
+fn trusted_origin(url: &str, authority: &str) -> bool {
+    url.strip_prefix("riina-plugin://")
+        .or_else(|| url.strip_prefix("http://riina-plugin."))
+        .and_then(|url| url.strip_prefix(authority))
+        .is_some_and(|path| path.starts_with('/'))
+}
+
+fn document_id(url: &str) -> Option<u64> {
+    let url = Url::parse(url).ok()?;
+    let (_, tag) = url.query_pairs().find(|(key, _)| key == "riina_document")?;
+    tag.parse().ok()
+}
+
+fn shell_request(request: &Request<Vec<u8>>) -> bool {
+    request.uri().path() == SHELL
+        && request
+            .uri()
+            .query()
+            .is_some_and(|query| query.split('&').any(|entry| entry == "riina_shell=1"))
+}
+
+fn simple_response() -> Response<Cow<'static, [u8]>> {
+    Response::builder()
+        .header("Content-Type", "text/html; charset=utf-8")
+        .header("Content-Security-Policy",
+            "default-src 'self' data: blob:; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'none'; object-src 'none'; frame-src 'none'; base-uri 'none'; form-action 'none'")
+        .body(Cow::Borrowed(SIMPLE))
+        .unwrap_or_else(|_| unavailable())
+}
+
+fn unavailable() -> Response<Cow<'static, [u8]>> {
+    let mut response = Response::new(Cow::Borrowed(&[][..]));
+    *response.status_mut() = StatusCode::NOT_FOUND;
+    response
+}
+
+pub(super) fn update_simple_document(
+    browser: &WebView,
+    document: u64,
+    previous: Option<&Document>,
+    next: &Document,
+) -> Result<(), String> {
+    let Document::Simple { style, content } = next else {
+        return Ok(());
+    };
+    let (last_style, last_content) = match previous {
+        Some(Document::Simple { style, content }) => (style.as_deref(), content.as_deref()),
+        _ => (None, None),
+    };
+    let mut script = String::new();
+    if let Some(style) = style.as_deref().filter(|style| Some(*style) != last_style) {
+        script.push_str(&format!("const style = document.getElementById('plugin-style'); if (style) style.textContent = {};", json(style)?));
+    }
+    if let Some(content) = content
+        .as_deref()
+        .filter(|content| Some(*content) != last_content)
+    {
+        script.push_str(&format!("const content = document.getElementById('plugin-content'); if (content) content.innerHTML = {};", json(content)?));
+    }
+    if script.is_empty() {
+        return Ok(());
+    }
+    evaluate(browser, document, &script)
+}
+
+pub(super) fn deliver(
+    browser: &WebView,
+    document: u64,
+    name: &str,
+    data: &serde_json::Value,
+) -> Result<(), String> {
+    evaluate(
+        browser,
+        document,
+        &format!(
+            "window.iina._emit({}, {});",
+            json(name)?,
+            json(&json(data)?)?
+        ),
+    )
+}
+
+fn json(value: &(impl serde::Serialize + ?Sized)) -> Result<String, String> {
+    serde_json::to_string(value).map_err(|error| error.to_string())
+}
+
+fn evaluate(browser: &WebView, document: u64, script: &str) -> Result<(), String> {
+    browser
+        .evaluate_script(&format!(
+            "if (window.iina?._matchesStandaloneDocument(\"{document}\")) {{ {script} }}"
+        ))
+        .map_err(|error| error.to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn standalone_pages_use_distinct_confined_origins() {
+        let first = Page::new(7, uuid::Uuid::from_u128(1));
+        let other = Page::new(7, uuid::Uuid::from_u128(2));
+        let view = Presentation {
+            document_id: 7,
+            document: Document::Package("pages/test café.html".into()),
+            ..Default::default()
+        };
+        let url = first.url(&view).unwrap();
+        assert!(url.contains("/pages/test%20caf%C3%A9.html?"));
+        #[cfg(target_os = "windows")]
+        assert!(url.starts_with("http://riina-plugin."));
+        assert_eq!(document_id(&url), Some(7));
+        assert!(trusted_origin(&url, &first.authority));
+        assert!(!trusted_origin(&url, &other.authority));
+        let native = url.replace("riina-plugin://", "http://riina-plugin.");
+        assert!(trusted_origin(&native, &first.authority));
+        let misleading = url.replace(".localhost/", ".localhost.example/");
+        assert!(!trusted_origin(&misleading, &first.authority));
+    }
+}

@@ -26,6 +26,7 @@ pub mod plugin;
 pub mod plugin_menu;
 pub mod plugin_order;
 pub mod plugin_sidebar;
+pub mod plugin_window;
 pub mod screenshot;
 pub mod speed_controls;
 pub mod subtitle_color;

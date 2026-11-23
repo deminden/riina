@@ -1665,6 +1665,41 @@ native playback tests. Apple Silicon strict workspace Clippy passed from Windows
 Native macOS interaction and Linux and macOS credential-store round trips remain
 open.
 
+### Standalone plugin windows 2026-11-23
+
+QuickJS tests exercised distinct player and global documents, window properties,
+confined paths, stale message rejection, close state and realm retirement. The
+protocol tests checked that each window uses a distinct origin and that similar
+hostnames cannot pass the origin check.
+
+On an isolated Windows desktop, two native WebViews in the same Riina process
+exchanged messages with their respective player and global entries. Closing
+and reopening the player entry's window preserved the page's counter. The
+player then switched to Simple Mode, and the page reported the applied CSS and
+markup. The clip remained paused throughout the test. Quit closed the exact
+Riina process normally while both plugin windows were open.
+
+The Windows application SHA-256 was
+`0f06701a54b257c972fc2ea752da151d39ffed20d8f30ded977309f707a9abd1`.
+The pinned libmpv DLL SHA-256 was
+`a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`.
+
+The isolated Linux X11 check passed the same two-window messaging, native
+close and reopen, Simple Mode styling and normal shutdown sequence. The Linux
+application SHA-256 was
+`5dbb4a5dabc80b03e62ef86dd9c8693c1d3f8ae38c662556f13b77f78245c3a8`.
+The pinned libmpv shared library SHA-256 was
+`84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`.
+
+Windows passed its locked workspace build, strict workspace Clippy, 907 Rust
+tests, 78 Python tests and 58 native null-output playback cases. Linux x64
+passed strict workspace Clippy, 119 plugin-related tests and its locked
+application build, and 58 native null-output playback cases. Strict Apple
+Silicon workspace Clippy passed from Windows. The isolated native Wayland
+compositor accepted a connection, but Riina stopped during Winit initialization
+before the plugin loaded. Native Wayland and macOS WebView behavior and matched
+window geometry remain open.
+
 ### Plugin sidebar manifest discovery 2026-10-14
 
 Manifest tests cover bounded localized labels. Runtime tests cover confined

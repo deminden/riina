@@ -10,7 +10,7 @@ use super::{
     messaging, modules, mpv_api, mpv_hooks, network,
     network::NetworkWorkerContext,
     output::{menu_js_error, record, record_plugin_menu},
-    playlist_api, preferences_api, subtitles, timers,
+    playlist_api, preferences_api, standalone, subtitles, timers,
     timers::PluginTimers,
     utilities, web_socket, webviews,
 };
@@ -70,6 +70,7 @@ pub(super) fn run_entry_worker(
         web_socket: web_socket::RealmWebSocket::default(),
         subtitles: subtitles::Realm::new(host.file_system.clone(), permissions),
         helper_workers: utilities::Workers::default(),
+        standalone: host.standalone.clone(),
     };
     let _cancel_on_exit = CancelOnExit {
         execution: execution.clone(),
@@ -117,6 +118,7 @@ struct RealmServices {
     web_socket: web_socket::RealmWebSocket,
     subtitles: subtitles::Realm,
     helper_workers: utilities::Workers,
+    standalone: Arc<standalone::Endpoint>,
 }
 
 fn initialize_realm(
@@ -130,6 +132,7 @@ fn initialize_realm(
     let PluginWorkerHost {
         dialogs,
         input,
+        standalone: _,
         global_api_mode,
         module_context,
         file_system,
@@ -170,6 +173,7 @@ fn initialize_realm(
         )?;
     }
     globals.set("iina", api.clone())?;
+    standalone::install(&api, &services.standalone)?;
     utilities::install(
         &api,
         &file_system,
@@ -418,6 +422,7 @@ fn run_callbacks(
             Some(
                 command @ (RuntimeCommand::DeliverUtility(_)
                 | RuntimeCommand::DeliverInput(_)
+                | RuntimeCommand::DeliverStandaloneMessage(..)
                 | RuntimeCommand::DeliverMpvHook(..)
                 | RuntimeCommand::DeliverWebSocket(_)
                 | RuntimeCommand::RunSubtitleProvider(_)),
@@ -447,6 +452,10 @@ fn dispatch_typed_callback(
         RuntimeCommand::DeliverUtility(delivery) => {
             ("utility callback", delivery.dispatch(context))
         }
+        RuntimeCommand::DeliverStandaloneMessage(document, name, data) => (
+            "standalone window message",
+            services.standalone.dispatch(context, document, name, data),
+        ),
         RuntimeCommand::DeliverInput(request) => ("input listener", request.dispatch(context)),
         RuntimeCommand::DeliverMpvHook(index, next) => {
             ("mpv hook", mpv_hooks::dispatch(context, index, next))

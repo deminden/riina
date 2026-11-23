@@ -54,7 +54,6 @@ fn playlist_api_reads_the_observed_rows_and_queues_typed_commands() {
         context,
         None,
         Default::default(),
-        Default::default(),
     )
     .unwrap();
     let events = session.drain_events().unwrap();

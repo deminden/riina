@@ -209,6 +209,26 @@ discarded, and a reply that arrives after the player has moved on has no effect.
 Text editors, dialogs, crop controls and reserved native menus keep their own
 input paths.
 
+### Standalone plugin windows
+
+Each player or global entry owns one standalone window state and a distinct
+browser origin. The UI reads that state and creates a native window on the
+first open. Close hides the WebView so reopening retains the document. When an
+entry retires, the UI drops its WebView and native window. The player session
+owns the presenter, and the plugin timer queues window operations on the UI
+event loop. This lets native WebViews dispatch window events without reentering
+the timer callback.
+
+Package assets use a confined custom protocol. Simple-mode markup and style
+can be set while the window is hidden or its page is loading. A document ID
+ties bounded messages to the page that sent them. Loading another document
+clears pending messages and listeners. IPC callbacks also check the owning
+entry's lifetime.
+
+Windows and AppKit use a Slint window with a native WebView. Linux uses a
+GTK top-level window and WebKitGTK, with event delivery on the player UI
+thread. The compositor controls final placement under Wayland.
+
 ### Plugin utilities
 
 The player and global realms share a utility API. Filename lookup and path

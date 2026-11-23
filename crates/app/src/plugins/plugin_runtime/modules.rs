@@ -13,7 +13,7 @@ const MAX_REQUIRE_DEPTH: usize = 64;
 
 #[derive(Clone)]
 pub(super) struct PluginModuleContext {
-    root: PathBuf,
+    pub(super) root: PathBuf,
     pub(super) entry: PathBuf,
     pub(super) current_files: Arc<Mutex<Vec<PathBuf>>>,
     budget: Arc<Mutex<ModuleLoadBudget>>,

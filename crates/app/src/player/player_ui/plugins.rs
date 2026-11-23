@@ -21,6 +21,7 @@ const WINDOW_PROPERTIES_INTERVAL: Duration = Duration::from_millis(125);
 pub(super) struct InstalledPluginUi {
     presenters: platform::PluginPresenters,
     menu_observation: platform::PluginMenuObservation,
+    standalone: Option<Rc<RefCell<platform::plugin_standalone::Presenter>>>,
     pub(super) plugin_host_timer: Option<Rc<slint::Timer>>,
     pub(super) plugin_osd_timer: Option<Rc<slint::Timer>>,
     pub(super) plugin_command_sender: Arc<std::sync::Mutex<Option<riina_mpv::CommandSender>>>,
@@ -30,6 +31,7 @@ pub(super) struct RuntimeSession {
     _host: Option<crate::plugin_host::PluginHost>,
     _host_timer: Option<Rc<slint::Timer>>,
     _osd_timer: Option<Rc<slint::Timer>>,
+    _standalone: Option<Rc<RefCell<platform::plugin_standalone::Presenter>>>,
 }
 
 impl InstalledPluginUi {
@@ -52,6 +54,7 @@ impl InstalledPluginUi {
                 _host: host,
                 _host_timer: self.plugin_host_timer,
                 _osd_timer: self.plugin_osd_timer,
+                _standalone: self.standalone,
             },
         )
     }
@@ -70,8 +73,8 @@ pub(super) fn install(
     bind_lifecycle(app, plugin_host_handle.as_ref(), presenters.sidebar.clone());
     playlist_menu::install(app, plugin_host_handle.as_ref());
     if let Some(handle) = &plugin_host_handle {
-        input::install(app, &handle.input);
-        platform::plugin_dialogs::install(app, plugin_window_host.clone(), &handle.dialogs);
+        input::install(app, &handle.ui.input);
+        platform::plugin_dialogs::install(app, plugin_window_host.clone(), &handle.ui.dialogs);
     }
     {
         let weak = app.as_weak();
@@ -89,12 +92,29 @@ pub(super) fn install(
         .map(|_| Rc::new(slint::Timer::default()));
     let plugin_osd_timer_weak = plugin_osd_timer.as_ref().map(Rc::downgrade);
     let plugin_osd_generation = Rc::new(Cell::new(0_u64));
+    let standalone = plugin_host_handle.as_ref().map(|handle| {
+        let presenter = Rc::new(RefCell::new(platform::plugin_standalone::Presenter::new(
+            handle.ui.windows.clone(),
+        )));
+        let presenter_weak = Rc::downgrade(&presenter);
+        let app_weak = app.as_weak();
+        app.on_update_plugin_windows(move || {
+            if let (Some(app), Some(presenter)) = (app_weak.upgrade(), presenter_weak.upgrade())
+                && let Ok(mut presenter) = presenter.try_borrow_mut()
+            {
+                platform::pump_plugin_webviews();
+                presenter.update(&app);
+            }
+        });
+        presenter
+    });
     let plugin_host_timer = plugin_host_handle.as_ref().map(|handle| {
         let timer = Rc::new(slint::Timer::default());
         let messages = handle.clone();
         let sidebar_host = handle.clone();
         let window_host = plugin_window_host.clone();
         let mut window_events = WindowEvents::new(handle.clone(), window_host.clone());
+        let window_update = CoalescedUiCallback::default();
         let weak = app.as_weak();
         let effects = PluginEffects {
             commands: plugin_command_sender.clone(),
@@ -110,7 +130,16 @@ pub(super) fn install(
             let (Some(app), Some(timer)) = (weak.upgrade(), running_timer.upgrade()) else {
                 return;
             };
-            platform::pump_plugin_webviews();
+            // Native WebView operations can dispatch window events. Keep them
+            // outside Slint's timer callback and its timer registry borrows.
+            window_update.post(|| {
+                let weak = weak.clone();
+                move || {
+                    if let Some(app) = weak.upgrade() {
+                        app.invoke_update_plugin_windows();
+                    }
+                }
+            });
             window_events.observe(&app, timer.interval() == WINDOW_PROPERTIES_INTERVAL);
             let Ok(batch) = messages.drain_messages() else {
                 return;
@@ -130,6 +159,7 @@ pub(super) fn install(
     InstalledPluginUi {
         presenters,
         menu_observation,
+        standalone,
         plugin_host_timer,
         plugin_osd_timer,
         plugin_command_sender,

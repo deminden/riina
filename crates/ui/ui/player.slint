@@ -50,6 +50,7 @@ export { LiveTextRegion, PlayerRenderedVideo } from "player-rendered-video.slint
 import { TopmostPin } from "player-chrome-controls.slint";
 export { AboutWindow } from "about-window.slint";
 export { PluginInteractionWindow } from "plugin-interaction.slint";
+export { PluginStandaloneWindow } from "plugin-standalone-window.slint";
 export { RecentMediaRow, WelcomeWindow } from "welcome-window.slint";
 import { Theme } from "theme.slint";
 import { QuickSettingsScrollPage, SidebarScrollMemory } from "quick-settings-scroll-page.slint";
@@ -95,6 +96,7 @@ export component PlayerWindow inherits PlayerMenuWindow {
     in-out property <int> preferences-target-pane: -1;
     callback plugin-menu-will-open();
     callback plugin-host-wake();
+    callback update-plugin-windows();
     callback plugin-subtitle-catalog-changed();
     callback native-menu-will-open();
     changed reflection-known => { PlayerMenuActions.video-menu-changed(); }
