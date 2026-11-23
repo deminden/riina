@@ -1,4 +1,5 @@
 export struct LiveTextRegion { text: string, x: float, y: float, width: float, height: float }
+export struct PluginOverlayFrame { pixels: image, x: float, y: float, width: float, height: float }
 
 // Frames and derived samples stay with their presentation window.
 export global PlayerRenderedVideo {
@@ -7,4 +8,5 @@ export global PlayerRenderedVideo {
     in-out property <image> video-blurred-frame;
     in-out property <bool> video-material-sample-ready: false;
     in-out property <[LiveTextRegion]> live-text-regions: [];
+    in-out property <[PluginOverlayFrame]> plugin-overlays: [];
 }

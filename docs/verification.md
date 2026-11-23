@@ -1699,6 +1699,33 @@ page bridge preserved independent player and global standalone WebViews,
 including close, reopen and Simple Mode while paused. Native macOS overlay
 interaction and Linux overlay presentation remain open.
 
+### Linux plugin overlay composition 2026-11-23
+
+The Windows workspace build and source gate passed 922 Rust tests, including
+the headless interaction and pixel checks, and 78 Python tests. The pinned
+null-output engine passed all 58 native tests in 11.51 s. Both Windows renderers
+loaded the packaged and Simple Mode overlay documents on a private desktop.
+Each document reported its expected content and delivered messages to the
+plugin. Both test players exited normally, leaving no Riina process. The
+Windows binary SHA-256 was
+`b02d9f317c7e0f13e29b91311935da6a3218d53904c73e20f7a4b471f99d5e3e`.
+The private desktop denied full-screen capture.
+
+The same locked Linux x64 build passed on a private Xvfb display and a native
+Wayland Sway compositor under Ubuntu 26.04 in WSL. Both runs captured the
+1280 × 800 desktop with the isolated video paused and verified the overlay's
+translucency, color changes after a trusted click, resizing and Simple Mode.
+Clicking the non-clickable Simple Mode content resumed playback. Both runs
+closed the exact player normally and left no Riina process. The application
+and libmpv SHA-256 values were
+`be2889db0d76679fa7bb97e73eadad1456ec9729d1820a848e3ddf4a7a896517`
+and `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`.
+
+Linux strict workspace Clippy, 516 app tests and 53 headless interaction tests
+passed. The Cairo conversion test checks transparent pixels, alpha, row padding
+and unchanged-frame detection without starting a display. Strict Apple Silicon
+cross-target Clippy passed. Native macOS overlay interaction remains unverified.
+
 The locked Windows workspace build, strict Clippy, 883 Rust tests and 78 Python
 tests passed. Linux x64 passed the locked application build, strict workspace
 Clippy and 844 Rust tests. Strict Apple Silicon workspace Clippy passed from

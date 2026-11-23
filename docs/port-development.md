@@ -17,9 +17,10 @@ The shared GL route requires an OpenGL-capable desktop session and libmpv client
 API 2.5 or a compatible newer 2.x. Building does not require libmpv to be installed
 because it is loaded at runtime. CI setup is recorded in
 `.github/workflows/application-ports.yml`; Linux WebView compilation also requires
-GTK 3, WebKitGTK 4.1 and `pkg-config`. The current plugin child-WebView adapter
-supports X11, not Wayland embedding. Linux file selection needs an available
-XDG Desktop Portal backend; the dialog dependency supports X11 and Wayland parents.
+GTK 3, WebKitGTK 4.1 and `pkg-config`. Linux video overlays composite offscreen
+WebKitGTK views inside the player on X11 and Wayland. The native plugin sidebar
+child-WebView adapter requires X11. Linux file selection needs an available
+XDG Desktop Portal backend with X11 or Wayland parent support.
 
 Native file drops in the player, Welcome window and playlist have X11 and
 Wayland desktop evidence. Wayland also accepts plain-text media URLs.

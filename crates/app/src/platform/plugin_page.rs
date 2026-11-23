@@ -19,7 +19,7 @@ const STANDALONE: &[u8] = br#"<!doctype html><meta charset="utf-8">
   body { margin: 12px; }
 </style>
 <style id="plugin-style" data-riina-style></style><main id="plugin-content" data-riina-content></main>"#;
-#[cfg(any(target_os = "windows", target_os = "macos"))]
+#[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
 const OVERLAY: &[u8] = br#"<!doctype html><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
@@ -63,7 +63,7 @@ impl Page {
         Self::new(document, origin, STANDALONE)
     }
 
-    #[cfg(any(target_os = "windows", target_os = "macos"))]
+    #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
     pub(super) fn overlay(document: u64) -> Self {
         Self::new(document, uuid::Uuid::new_v4(), OVERLAY)
     }

@@ -10,6 +10,7 @@ export global PlayerControlActions {
     callback begin-plugin-key(string, bool, bool, bool, bool, bool, bool) -> bool;
     callback finish-plugin-key() -> bool;
     callback plugin-pointer(PlayerPluginPointerPhase, string, float, float, int) -> bool;
+    callback plugin-overlay-pointer(PlayerPluginPointerPhase, int, float, float) -> bool;
     callback plugin-pointer-location(float, float);
     callback set-paused(bool);
     callback execute-mpv-input-action(string);

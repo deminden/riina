@@ -52,6 +52,12 @@ export component VideoSurface inherits Rectangle {
         source: @image-url("../../../assets/icons/music-mode-placeholder.svg");
         image-fit: contain;
     }
+    for frame in PlayerRenderedVideo.plugin-overlays : Image {
+        source: frame.pixels;
+        x: frame.x * 1px; y: frame.y * 1px;
+        width: frame.width * 1px; height: frame.height * 1px;
+        image-fit: fill;
+    }
     for region in (root.live-text-enabled && root.paused ? PlayerRenderedVideo.live-text-regions : []) : Rectangle {
         x: video-inset-leading + region.x * root.render-width;
         y: video-inset-top + region.y * root.render-height;

@@ -1,5 +1,8 @@
 //! Player-owned native WebViews for permission-gated video overlays.
 mod hit_test;
+#[cfg(target_os = "linux")]
+mod linux;
+#[cfg_attr(target_os = "linux", path = "plugin_overlay/gtk.rs")]
 #[cfg_attr(target_os = "macos", path = "plugin_overlay/appkit.rs")]
 #[cfg_attr(target_os = "windows", path = "plugin_overlay/win32.rs")]
 mod native;
@@ -28,6 +31,8 @@ pub(super) struct Presenter {
     entries: BTreeMap<String, Entry>,
     clickable_before_load: BTreeMap<String, bool>,
     pub(super) pending: Vec<PluginHostMessage>,
+    #[cfg(target_os = "linux")]
+    composition: linux::Composition,
 }
 
 struct Entry {
@@ -47,6 +52,8 @@ struct Entry {
     bounds: Option<Rect>,
     hit_test: Arc<HitTest>,
     queue: MessageQueue,
+    #[cfg(target_os = "linux")]
+    stacking_order: u64,
 }
 
 #[derive(Default)]
@@ -88,6 +95,8 @@ impl Presenter {
             } => self.apply(parent, host, route, plugin_directory, effect, bounds),
             PluginHostMessage::RemoveOverlay(identifier) => {
                 self.entries.remove(&identifier);
+                #[cfg(target_os = "linux")]
+                self.composition.mark_changed();
                 self.clickable_before_load.remove(&identifier);
                 Ok(())
             }
@@ -153,6 +162,8 @@ impl Presenter {
             bounds,
             clickable,
         )?;
+        #[cfg(target_os = "linux")]
+        let entry = self.composition.stack(entry);
         self.entries.insert(route.identifier, entry);
         Ok(())
     }
@@ -160,6 +171,10 @@ impl Presenter {
     pub(super) fn update(&mut self, bounds: Rect, allowed: bool) -> Result<(), String> {
         let mut error = None;
         for entry in self.entries.values_mut() {
+            #[cfg(target_os = "linux")]
+            if entry.bounds != Some(bounds) {
+                self.composition.mark_changed();
+            }
             if let Err(reason) = entry.update(bounds, allowed) {
                 error = Some(reason);
             }
@@ -219,6 +234,8 @@ impl Entry {
             bounds: Some(bounds),
             hit_test,
             queue: MessageQueue::default(),
+            #[cfg(target_os = "linux")]
+            stacking_order: 0,
         })
     }
 
@@ -227,6 +244,8 @@ impl Entry {
         let url = self.page.url(revision, &document)?;
         self.hit_test.clear();
         self.queue = MessageQueue::default();
+        #[cfg(target_os = "linux")]
+        self.native.invalidate();
         self.page.navigating_to(revision);
         self.revision = revision;
         self.document = document;
@@ -273,9 +292,14 @@ impl Entry {
         }
         let visible = self.visible && allowed;
         if self.shown != visible {
+            #[cfg(not(target_os = "linux"))]
             self.browser()
                 .set_visible(visible)
                 .map_err(|error| error.to_string())?;
+            #[cfg(target_os = "linux")]
+            if !visible {
+                self.native.invalidate();
+            }
             self.shown = visible;
             self.hit_test.clear();
         }
@@ -307,9 +331,14 @@ impl Entry {
         for (name, data) in std::mem::take(&mut self.queue).messages {
             page::deliver(self.browser(), self.revision, &name, &data)?;
         }
-        if visible && self.clickable {
-            self.hit_test
-                .sample(self.browser(), self.revision, self.native.pointer());
+        if visible {
+            #[cfg(target_os = "linux")]
+            self.native.capture();
+            #[cfg(not(target_os = "linux"))]
+            if self.clickable {
+                self.hit_test
+                    .sample(self.browser(), self.revision, self.native.pointer());
+            }
         }
         Ok(())
     }

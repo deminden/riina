@@ -148,5 +148,9 @@ pub(super) fn runtime_supports_permission(permission: &str) -> bool {
             | "file-system"
             | "process-execution"
             | "open-external"
-    ) || (cfg!(any(target_os = "windows", target_os = "macos")) && permission == "video-overlay")
+    ) || (cfg!(any(
+        target_os = "windows",
+        target_os = "macos",
+        target_os = "linux"
+    )) && permission == "video-overlay")
 }

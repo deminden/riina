@@ -93,7 +93,7 @@ pub enum UiEffect {
 
 enum RuntimeCommand {
     EvaluateDeveloper(developer::Request),
-    #[cfg(any(target_os = "windows", target_os = "macos", test))]
+    #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux", test))]
     DeliverOverlayMessage(String, serde_json::Value),
     DeliverSidebarMessage(String, serde_json::Value),
     DeliverPluginMenuAction(String),
@@ -390,7 +390,7 @@ impl PluginRuntimeSession {
         self.file_system.set_player_context(context);
     }
 
-    #[cfg(any(target_os = "windows", target_os = "macos", test))]
+    #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux", test))]
     pub fn deliver_overlay_message(
         &self,
         name: String,

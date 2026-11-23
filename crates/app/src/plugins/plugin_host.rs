@@ -149,7 +149,7 @@ impl PluginHostHandle {
             .map_err(command_error)
     }
 
-    #[cfg(any(target_os = "windows", target_os = "macos"))]
+    #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
     pub(crate) fn notify_video_overlay_loaded(&self, route: OverlayRoute) -> Result<(), String> {
         self.commands
             .try_send(PluginCommand::PluginOverlayLoaded(Some(route)))
@@ -196,7 +196,7 @@ impl PluginHostHandle {
             .change_and_wait(PackageChange::Enable(Arc::new(manifest), directory))
     }
 
-    #[cfg(any(target_os = "windows", target_os = "macos"))]
+    #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
     pub(crate) fn deliver_overlay_message(
         &self,
         route: OverlayRoute,
@@ -435,7 +435,7 @@ enum PluginCommand {
     ThumbnailsReady,
     MenuUpdate,
     WindowWillClose(mpsc::SyncSender<()>),
-    #[cfg(any(target_os = "windows", target_os = "macos"))]
+    #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
     DeliverOverlayMessage {
         route: OverlayRoute,
         name: String,
@@ -684,7 +684,7 @@ fn handle_command(
             // The caller can finish closing before the acknowledgement arrives.
             let _ = response.send(());
         }
-        #[cfg(any(target_os = "windows", target_os = "macos"))]
+        #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
         PluginCommand::DeliverOverlayMessage { route, name, data } => {
             if let Some(session) = overlay_session(sessions, &route)
                 && let Err(error) = session.deliver_overlay_message(name, data)

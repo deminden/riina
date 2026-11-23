@@ -119,9 +119,9 @@ persists one batch before changing the in-memory rows and revision.
 
 ## Checks
 
-Use `cargo xtask check --fast` for a focused batch. It checks formatting and
-source line lengths, then lints and tests the crates with staged, unstaged or
-untracked changes. Slint and Settings search changes check navigation. Edits to
+Group related edits before running `cargo xtask check --fast`. It checks
+formatting and source line lengths, then lints and tests the crates with staged,
+unstaged or untracked changes. Slint and Settings search changes check navigation. Edits to
 UI source, headless widget tests, or both run the interaction and visual tests
 together. Linting includes the libraries and both test targets. Batches that
 also change application source run the app unit tests. Edits limited to visual

@@ -5183,6 +5183,7 @@ dependencies = [
  "url",
  "uuid",
  "wayland-client",
+ "webkit2gtk",
  "windows",
  "windows-core",
  "winresource",

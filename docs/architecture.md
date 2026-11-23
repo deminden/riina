@@ -260,15 +260,21 @@ input paths.
 
 The player owns each overlay WebView. On native Windows it sits in the video
 host. The shared Windows and AppKit players attach their overlays within the
-video viewport. The shared presenters hide the view during crop edits, modal
-dialogs and Music Mode while retaining its document.
+video viewport. Linux renders each WebKitGTK view offscreen and composites
+its premultiplied pixels above the video and below player controls. Each
+visible view has at most one snapshot pending. Static pages are sampled less
+often, and unchanged pixels keep the existing Slint image. The shared presenters
+hide overlays during crop edits, modal dialogs and Music Mode while retaining
+the documents.
 
 Overlays and standalone plugin windows share the confined page protocol. The
 page origin isolates browser storage and a document ID ties messages to the
 active page. Overlay replies also carry the owning plugin realm so a retired
 WebView cannot send a message to a replacement entry. Hit testing uses the last
 DOM result for the current pointer position. Moving the pointer, changing the
-document or hiding the view invalidates the result.
+document or hiding the view invalidates the result. On Linux the frontmost
+clickable document receives the press. Its release belongs to the same document
+even when the pointer moves outside the element.
 
 ### Standalone plugin windows
 

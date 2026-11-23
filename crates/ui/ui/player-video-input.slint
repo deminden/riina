@@ -31,8 +31,12 @@ export component PlayerVideoInput inherits TouchArea {
         let code = event.button == PointerEventButton.left ? "*mouse"
             : event.button == PointerEventButton.right ? "*rightMouse" : "*otherMouse";
         let clicks = double-clicked-on-release ? 2 : clicked-on-release ? 1 : 0;
-        let handled = event.touch-finger-id == 0 && PlayerControlActions.plugin-pointer(phase, code,
-            self.mouse-x / 1px, (self.height - self.mouse-y) / 1px, clicks);
+        let button = event.button == PointerEventButton.left ? 1
+            : event.button == PointerEventButton.right ? 3 : event.button == PointerEventButton.middle ? 2 : 0;
+        let handled = event.touch-finger-id == 0 && (
+            PlayerControlActions.plugin-overlay-pointer(phase, button, self.mouse-x / 1px, self.mouse-y / 1px)
+            || PlayerControlActions.plugin-pointer(phase, code, self.mouse-x / 1px, (self.height - self.mouse-y) / 1px, clicks)
+        );
         if event.kind == PointerEventKind.up {
             clicked-on-release = false;
             double-clicked-on-release = false;

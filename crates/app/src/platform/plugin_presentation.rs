@@ -7,14 +7,31 @@ use crate::{
 use std::{cell::RefCell, rc::Rc};
 
 pub(crate) struct PluginPresenters {
-    #[cfg(any(target_os = "windows", target_os = "macos"))]
+    #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
     overlay: Rc<RefCell<super::plugin_overlay::Presenter>>,
     pub(crate) sidebar: Rc<RefCell<PluginSidebarPresenter>>,
 }
 
 impl PluginPresenters {
     pub(crate) fn new(app: &PlayerWindow) -> Self {
+        #[cfg(target_os = "linux")]
+        let overlay = {
+            use slint::ComponentHandle;
+            let presenter: Rc<RefCell<super::plugin_overlay::Presenter>> = Rc::default();
+            let overlay = Rc::downgrade(&presenter);
+            app.global::<riina_ui::PlayerControlActions>()
+                .on_plugin_overlay_pointer(move |phase, button, x, y| {
+                    overlay.upgrade().is_some_and(|presenter| {
+                        presenter.try_borrow_mut().is_ok_and(|mut presenter| {
+                            presenter.pointer(phase, button, (f64::from(x), f64::from(y)))
+                        })
+                    })
+                });
+            presenter
+        };
         Self {
+            #[cfg(target_os = "linux")]
+            overlay,
             #[cfg(any(target_os = "windows", target_os = "macos"))]
             overlay: Rc::default(),
             sidebar: Rc::new(RefCell::new(PluginSidebarPresenter::new(app))),
@@ -26,9 +43,9 @@ impl PluginPresenters {
         native: Option<&NativePresentation>,
         host: &PluginHostHandle,
     ) -> PluginOverlayDelivery {
-        #[cfg(any(target_os = "windows", target_os = "macos"))]
+        #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
         {
-            #[cfg(target_os = "macos")]
+            #[cfg(not(target_os = "windows"))]
             let _ = native;
             PluginOverlayDelivery {
                 presenter: Rc::downgrade(&self.overlay),
@@ -38,7 +55,7 @@ impl PluginPresenters {
             }
         }
 
-        #[cfg(not(any(target_os = "windows", target_os = "macos")))]
+        #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
         {
             let _ = (native, host);
             PluginOverlayDelivery {}
@@ -48,17 +65,17 @@ impl PluginPresenters {
 
 #[derive(Clone)]
 pub(crate) struct PluginOverlayDelivery {
-    #[cfg(any(target_os = "windows", target_os = "macos"))]
+    #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
     presenter: std::rc::Weak<RefCell<super::plugin_overlay::Presenter>>,
     #[cfg(target_os = "windows")]
     parent: Option<std::sync::Arc<slint::winit_030::winit::window::Window>>,
-    #[cfg(any(target_os = "windows", target_os = "macos"))]
+    #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
     host: PluginHostHandle,
 }
 
 impl PluginOverlayDelivery {
     pub(crate) fn apply(&self, message: PluginHostMessage) -> Result<(), String> {
-        #[cfg(any(target_os = "windows", target_os = "macos"))]
+        #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
         {
             if let Some(presenter) = self.presenter.upgrade() {
                 let mut presenter = presenter.borrow_mut();
@@ -69,7 +86,7 @@ impl PluginOverlayDelivery {
             }
             Ok(())
         }
-        #[cfg(not(any(target_os = "windows", target_os = "macos")))]
+        #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
         {
             let _ = message;
             Err("Plugin video overlays are unavailable on this platform".into())
@@ -77,7 +94,7 @@ impl PluginOverlayDelivery {
     }
 
     pub(crate) fn remove(&self, identifier: &str) {
-        #[cfg(any(target_os = "windows", target_os = "macos"))]
+        #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
         if let Some(presenter) = self.presenter.upgrade() {
             let mut presenter = presenter.borrow_mut();
             presenter.pending.retain(|message| match message {
@@ -91,12 +108,12 @@ impl PluginOverlayDelivery {
                 .pending
                 .push(PluginHostMessage::RemoveOverlay(identifier.into()));
         }
-        #[cfg(not(any(target_os = "windows", target_os = "macos")))]
+        #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
         let _ = identifier;
     }
 
     pub(crate) fn update(&self, app: &PlayerWindow) {
-        #[cfg(any(target_os = "windows", target_os = "macos"))]
+        #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
         {
             use slint::{ComponentHandle, winit_030::WinitWindowAccessor};
             let Some(presenter) = self.presenter.upgrade() else {
@@ -134,11 +151,11 @@ impl PluginOverlayDelivery {
                 self.update_surface(&presenter, parent, bounds, allowed, app)
             });
         }
-        #[cfg(not(any(target_os = "windows", target_os = "macos")))]
+        #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
         let _ = app;
     }
 
-    #[cfg(any(target_os = "windows", target_os = "macos"))]
+    #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
     fn update_surface(
         &self,
         presenter: &RefCell<super::plugin_overlay::Presenter>,
@@ -157,6 +174,12 @@ impl PluginOverlayDelivery {
         }
         if let Err(error) = presenter.update(bounds, allowed) {
             crate::diagnostics::report(app, error);
+        }
+        #[cfg(target_os = "linux")]
+        if let Some(frames) = presenter.frames() {
+            use slint::ComponentHandle;
+            app.global::<riina_ui::PlayerRenderedVideo>()
+                .set_plugin_overlays(slint::ModelRc::new(slint::VecModel::from(frames)));
         }
     }
 }
