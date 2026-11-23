@@ -1542,6 +1542,41 @@ with engine SHA-256
 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`.
 Wayland plugin menus and native macOS desktop verification remain open.
 
+### Wayland plugin playlist menus 2026-11-23
+
+Wayland uses the shared playlist request and action validation. The player
+hosts the contributed menu, with checked and disabled items and a separate
+panel for each open submenu. Menu bounds are clamped to the client and
+keyboard navigation skips separators and disabled items. The menu can
+overlap its parent in a narrow Music Mode window, where Left Arrow returns
+to the parent.
+
+The native test exposed a conflict between submenu navigation and the
+player's seek shortcuts. Slint processes menu-bar shortcuts before the
+focused widget. The player suspends those shortcuts while the playlist popup
+is open. The regression verifies that the arrow keys navigate the popup
+and resume seeking after it closes.
+
+The Windows workspace checks and locked build passed, including the headless
+narrow-window keyboard regression, the 54 existing widget tests and the
+software-rendered pixel comparison. A separate Windows playback run loaded both
+plugin scopes and exited normally. Its executable SHA-256 was
+`c510644debf4f54c3debf056546bd039979cc7fda54b8e7e4a9dc5fbb2ddfb31`.
+Strict Apple Silicon cross-target Clippy passed.
+
+The final Linux application passed the locked build and strict workspace
+Clippy. On an isolated Sway compositor with XWayland disabled, pointer and
+keyboard input both selected a checked item two submenus deep. The sidebar
+and Music Mode each delivered `[0]` for a row and `[]` for blank space. Escape
+and an outside click dismissed open menus. The player exited normally with
+its last menu still open. The same executable also passed the native X11
+sidebar and Music Mode popup sweep.
+
+The tested Linux executable SHA-256 was
+`e1c720707fc67baf6ec7c19c7546c2f68afe356f04ad135c36ea5c8cab5373cf`
+with engine SHA-256
+`84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`.
+
 ### Plugin mpv property reads 2026-11-23
 
 The existing native observation test also reads the engine version before

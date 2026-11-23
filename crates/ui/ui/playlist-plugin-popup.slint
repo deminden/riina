@@ -1,0 +1,131 @@
+import { PlayerAppearance } from "player-appearance.slint";
+import { Theme } from "theme.slint";
+
+export enum PlaylistPopupInput { hover, choose, previous, next, back, forward, enter, dismiss }
+export struct PlaylistPopupBounds { x: float, y: float, width: float, height: float }
+export struct PlaylistPopupRow {
+    title: string, height: float, separator: bool, enabled: bool, checked: bool,
+    submenu: bool, highlighted: bool,
+}
+export struct PlaylistPopupPanel {
+    bounds: PlaylistPopupBounds, content-height: float, reveal: float, rows: [PlaylistPopupRow],
+}
+
+export global PlaylistPluginPopupState {
+    in-out property <bool> shown;
+    in-out property <[PlaylistPopupPanel]> panels;
+    callback input(PlaylistPopupInput, int, int, float);
+    public function handle-key(text: string) {
+        if text == Key.Escape { root.input(PlaylistPopupInput.dismiss, 0, 0, 0); }
+        else if text == Key.UpArrow { root.input(PlaylistPopupInput.previous, 0, 0, 0); }
+        else if text == Key.DownArrow { root.input(PlaylistPopupInput.next, 0, 0, 0); }
+        else if text == Key.LeftArrow { root.input(PlaylistPopupInput.back, 0, 0, 0); }
+        else if text == Key.RightArrow { root.input(PlaylistPopupInput.forward, 0, 0, 0); }
+        else if text == Key.Return || text == " " { root.input(PlaylistPopupInput.enter, 0, 0, 0); }
+    }
+}
+
+component PopupPanel inherits Rectangle {
+    in property <PlaylistPopupPanel> panel;
+    in property <int> panel-index;
+    private property <bool> dark: PlayerAppearance.dark-theme;
+    height: panel.bounds.height * 1px;
+    width: panel.bounds.width * 1px;
+    background: Theme.playlist-sort-surface(dark);
+    border-color: Theme.playlist-sort-border(dark);
+    border-width: 1px;
+    border-radius: 6px;
+
+    TouchArea { width: parent.width; height: parent.height; }
+    Flickable {
+        x: 4px; y: 4px; width: parent.width - 8px; height: parent.height - 8px;
+        content-width: self.width;
+        content-height: max(self.height, root.panel.content-height * 1px);
+        accessible-role: list;
+        accessible-label: "Playlist menu";
+        private property <float> reveal: root.panel.reveal;
+
+        changed reveal => {
+            if self.reveal >= 0 {
+                let top = -self.reveal * 1px;
+                let bottom = max(top, min(0px, top + self.height - 24px));
+                self.content-y = clamp(self.content-y, top, bottom);
+                self.content-y = clamp(self.content-y, self.height - self.content-height, 0px);
+            }
+        }
+
+        VerticalLayout {
+            width: parent.width;
+            for row[index] in root.panel.rows : entry := Rectangle {
+                height: row.height * 1px;
+                border-radius: 4px;
+                background: row.highlighted ? Theme.playlist-sort-hover(root.dark) : transparent;
+                if row.separator : Rectangle {
+                    x: 6px; y: 3px; width: parent.width - 12px; height: 1px;
+                    background: Theme.playlist-sort-border(root.dark);
+                }
+                if !row.separator : HorizontalLayout {
+                    padding-left: 6px; padding-right: 6px; spacing: 5px;
+                    accessible-role: button;
+                    accessible-label: row.title;
+                    accessible-enabled: row.enabled;
+                    accessible-checkable: row.checked;
+                    accessible-checked: row.checked;
+                    accessible-action-default => {
+                        if row.enabled {
+                            PlaylistPluginPopupState.input(PlaylistPopupInput.choose, root.panel-index,
+                                index, entry.absolute-position.y / 1px);
+                        }
+                    }
+                    Text { width: 13px; text: row.checked ? "✓" : "";
+                        color: Theme.player-dialog-button-text(root.dark); vertical-alignment: center; }
+                    Text { text: row.title; font-size: 12px; overflow: elide; vertical-alignment: center;
+                        horizontal-stretch: 1;
+                        color: row.enabled ? Theme.player-dialog-button-text(root.dark)
+                            : Theme.playlist-sort-caption(root.dark); }
+                    Text { width: 12px; text: row.submenu ? "›" : ""; vertical-alignment: center;
+                        color: Theme.player-dialog-button-text(root.dark); }
+                }
+                TouchArea {
+                    enabled: !row.separator;
+                    changed has-hover => {
+                        if self.has-hover {
+                            PlaylistPluginPopupState.input(PlaylistPopupInput.hover, root.panel-index,
+                                index, entry.absolute-position.y / 1px);
+                        }
+                    }
+                    clicked => {
+                        if row.enabled {
+                            PlaylistPluginPopupState.input(PlaylistPopupInput.choose, root.panel-index,
+                                index, entry.absolute-position.y / 1px);
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+export component PlaylistPluginPopup inherits FocusScope {
+    callback restore-player-focus();
+    visible: PlaylistPluginPopupState.shown;
+    enabled: self.visible;
+    focus-on-click: false;
+    changed visible => { if self.visible { self.focus(); } else { root.restore-player-focus(); } }
+
+    TouchArea {
+        width: parent.width; height: parent.height;
+        pointer-event(event) => {
+            if event.kind == PointerEventKind.up {
+                PlaylistPluginPopupState.input(PlaylistPopupInput.dismiss, 0, 0, 0);
+            }
+        }
+        scroll-event(_) => { return accept; }
+    }
+    for panel[index] in PlaylistPluginPopupState.panels : PopupPanel {
+        x: panel.bounds.x * 1px - root.absolute-position.x;
+        y: panel.bounds.y * 1px - root.absolute-position.y;
+        panel: panel;
+        panel-index: index;
+    }
+}

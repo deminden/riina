@@ -41,7 +41,7 @@ struct Request {
 
 pub(super) fn dismiss(app: &PlayerWindow) {
     next_generation(app);
-    playlist_menu::dismiss(app.window());
+    playlist_menu::dismiss(app);
 }
 
 fn next_generation(app: &PlayerWindow) -> i32 {
@@ -62,7 +62,7 @@ pub(super) fn install(app: &PlayerWindow, host: Option<&PluginHostHandle>) {
                 return false;
             };
             let generation = next_generation(&app);
-            playlist_menu::dismiss(app.window());
+            playlist_menu::dismiss(&app);
             if !host.has_active_sessions() || !playlist_menu::supports(app.window()) {
                 return false;
             }
@@ -146,13 +146,11 @@ impl Request {
         let entries = self.entries(contributions);
         let owner = app.as_weak();
         let host = host.clone();
-        if let Err(error) =
-            playlist_menu::popup(app.window(), self.position, entries, move |action| {
-                if let Some(app) = owner.upgrade() {
-                    self.activate(&app, &host, action);
-                }
-            })
-        {
+        if let Err(error) = playlist_menu::popup(app, self.position, entries, move |action| {
+            if let Some(app) = owner.upgrade() {
+                self.activate(&app, &host, action);
+            }
+        }) {
             crate::diagnostics::report(app, error);
         }
     }

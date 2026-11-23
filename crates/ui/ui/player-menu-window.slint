@@ -2,6 +2,7 @@ import { PlayerLayoutState } from "player-layout-state.slint";
 import { PlayerSidebarState } from "player-sidebar-state.slint";
 import { PlayerCatalogState } from "player-catalog-state.slint";
 import { PlayerMusicModeState } from "player-music-mode-state.slint";
+import { PlaylistPluginPopupState } from "playlist-plugin-popup.slint";
 import { PlaybackTimelineState } from "playback-timeline-state.slint";
 import { PlaybackAudioState } from "playback-audio-state.slint";
 import { PlaybackSubtitleState } from "playback-subtitle-state.slint";
@@ -49,7 +50,12 @@ export component PlayerMenuWindow inherits Window {
 
     function menu-shortcut(index: int) -> keys {
         if index < 0 || index >= root.menu-value-menu-shortcuts.length { return @keys(); }
-        return root.menu-value-menu-shortcuts[index].shortcut;
+        return root.player-shortcut(root.menu-value-menu-shortcuts[index].shortcut);
+    }
+
+    // Slint dispatches menu-bar shortcuts before visiting the focused item.
+    function player-shortcut(shortcut: keys) -> keys {
+        return PlaylistPluginPopupState.shown ? @keys() : shortcut;
     }
 
     // Slint binds this height to the window area below its menu bar.
@@ -68,28 +74,28 @@ export component PlayerMenuWindow inherits Window {
             MenuSeparator {}
             MenuItem { title: root.menu-value-primary-shortcut-is-meta ? "Settings…" : "Preferences…";
                 enabled: !root.menu-value-crop-editing;
-                shortcut: root.menu-value-primary-shortcut-is-meta ? @keys(Meta + ",") : @keys(Control + ",");
+                shortcut: root.player-shortcut(root.menu-value-primary-shortcut-is-meta ? @keys(Meta + ",") : @keys(Control + ","));
                 activated => { PlayerMenuActions.open-preferences(); } }
             MenuSeparator {}
             MenuItem { title: "Services"; enabled: false; }
             MenuSeparator {}
             MenuItem { title: "Hide Riina";
-                shortcut: root.menu-value-primary-shortcut-is-meta ? @keys(Meta + H) : @keys(Control + H);
+                shortcut: root.player-shortcut(root.menu-value-primary-shortcut-is-meta ? @keys(Meta + H) : @keys(Control + H));
                 activated => { PlayerMenuActions.hide-riina(); } }
             MenuItem { title: "Quit Riina";
-                shortcut: root.menu-value-primary-shortcut-is-meta ? @keys(Meta + Q) : @keys(Control + Q);
+                shortcut: root.player-shortcut(root.menu-value-primary-shortcut-is-meta ? @keys(Meta + Q) : @keys(Control + Q));
                 activated => { PlayerMenuActions.quit-riina(); }
             }
         }
         Menu { title: "File";
             MenuItem { title: "Open…"; enabled: !root.menu-value-crop-editing;
-                shortcut: root.menu-value-primary-shortcut-is-meta ? @keys(Meta + O) : @keys(Control + O);
+                shortcut: root.player-shortcut(root.menu-value-primary-shortcut-is-meta ? @keys(Meta + O) : @keys(Control + O));
                 activated => { PlayerMenuActions.open-file(); } }
             MenuItem { title: "Open in New Window…"; enabled: !root.menu-value-crop-editing;
-                shortcut: root.menu-value-primary-shortcut-is-meta ? @keys(Meta + Alt + O) : @keys(Control + Alt + O);
+                shortcut: root.player-shortcut(root.menu-value-primary-shortcut-is-meta ? @keys(Meta + Alt + O) : @keys(Control + Alt + O));
                 activated => { PlayerMenuActions.open-in-new-window(); } }
             MenuItem { title: "Open URL…"; enabled: !root.menu-value-crop-editing;
-                shortcut: root.menu-value-primary-shortcut-is-meta ? @keys(Meta + Shift + O) : @keys(Control + Shift + O);
+                shortcut: root.player-shortcut(root.menu-value-primary-shortcut-is-meta ? @keys(Meta + Shift + O) : @keys(Control + Shift + O));
                 activated => { PlayerMenuActions.open-url-dialog(); } }
             if PlayerPreferences.record-recent-files : Menu {
                 title: "Open Recent";
@@ -104,7 +110,7 @@ export component PlayerMenuWindow inherits Window {
             }
             MenuSeparator {}
             MenuItem { title: "Playback History";
-                shortcut: root.menu-value-primary-shortcut-is-meta ? @keys(Meta + Shift + H) : @keys(Control + Shift + H);
+                shortcut: root.player-shortcut(root.menu-value-primary-shortcut-is-meta ? @keys(Meta + Shift + H) : @keys(Control + Shift + H));
                 activated => { PlayerMenuActions.show-playback-history(); } }
             MenuSeparator {}
             MenuItem {
@@ -119,23 +125,23 @@ export component PlayerMenuWindow inherits Window {
                 activated => { PlayerMenuActions.save-current-playlist(); } }
             MenuSeparator {}
             MenuItem { title: "Close";
-                shortcut: root.menu-value-primary-shortcut-is-meta ? @keys(Meta + W) : @keys(Control + W);
+                shortcut: root.player-shortcut(root.menu-value-primary-shortcut-is-meta ? @keys(Meta + W) : @keys(Control + W));
                 activated => { PlayerMenuActions.close-player(); } }
         }
         Menu { title: "Edit";
             MenuItem { title: "Undo"; enabled: false;
-                shortcut: root.menu-value-primary-shortcut-is-meta ? @keys(Meta + Z) : @keys(Control + Z); }
+                shortcut: root.player-shortcut(root.menu-value-primary-shortcut-is-meta ? @keys(Meta + Z) : @keys(Control + Z)); }
             MenuItem { title: "Redo"; enabled: false;
-                shortcut: root.menu-value-primary-shortcut-is-meta ? @keys(Meta + Shift + Z) : @keys(Control + Shift + Z); }
+                shortcut: root.player-shortcut(root.menu-value-primary-shortcut-is-meta ? @keys(Meta + Shift + Z) : @keys(Control + Shift + Z)); }
             MenuSeparator {}
             MenuItem { title: "Cut"; enabled: false;
-                shortcut: root.menu-value-primary-shortcut-is-meta ? @keys(Meta + X) : @keys(Control + X); }
+                shortcut: root.player-shortcut(root.menu-value-primary-shortcut-is-meta ? @keys(Meta + X) : @keys(Control + X)); }
             MenuItem { title: "Copy"; enabled: false;
-                shortcut: root.menu-value-primary-shortcut-is-meta ? @keys(Meta + C) : @keys(Control + C); }
+                shortcut: root.player-shortcut(root.menu-value-primary-shortcut-is-meta ? @keys(Meta + C) : @keys(Control + C)); }
             MenuItem { title: "Paste"; enabled: false;
-                shortcut: root.menu-value-primary-shortcut-is-meta ? @keys(Meta + V) : @keys(Control + V); }
+                shortcut: root.player-shortcut(root.menu-value-primary-shortcut-is-meta ? @keys(Meta + V) : @keys(Control + V)); }
             MenuItem { title: "Select All"; enabled: false;
-                shortcut: root.menu-value-primary-shortcut-is-meta ? @keys(Meta + A) : @keys(Control + A); }
+                shortcut: root.player-shortcut(root.menu-value-primary-shortcut-is-meta ? @keys(Meta + A) : @keys(Control + A)); }
         }
         Menu { title: "Playback";
             MenuItem { title: root.menu-value-paused ? "Resume" : "Pause";
@@ -157,7 +163,7 @@ export component PlayerMenuWindow inherits Window {
             MenuItem { title: "Jump to Beginning"; enabled: root.menu-value-loaded && !root.menu-value-crop-editing;
                 activated => { PlayerMenuActions.seek(0); } }
             MenuItem { title: "Jump to…"; enabled: root.menu-value-loaded && !root.menu-value-crop-editing;
-                shortcut: root.menu-value-primary-shortcut-is-meta ? @keys(Meta + J) : @keys(Control + J);
+                shortcut: root.player-shortcut(root.menu-value-primary-shortcut-is-meta ? @keys(Meta + J) : @keys(Control + J));
                 activated => { PlayerMenuActions.open-jump-time-dialog(); } }
             MenuSeparator {}
             MenuItem { title: "Speed: " + PlaybackTimelineState.speed-edit-value + "x"; enabled: false; }
@@ -331,11 +337,11 @@ export component PlayerMenuWindow inherits Window {
                 activated => { PlayerMenuActions.toggle-delogo(); } }
             MenuSeparator {}
             MenuItem { title: "Video Filters…"; enabled: root.menu-value-loaded && !root.menu-value-crop-editing;
-                shortcut: root.menu-value-primary-shortcut-is-meta ? @keys(Meta + Shift + F) : @keys(Control + Shift + F);
+                shortcut: root.player-shortcut(root.menu-value-primary-shortcut-is-meta ? @keys(Meta + Shift + F) : @keys(Control + Shift + F));
                 activated => { PlayerMenuActions.open-video-filters(); } }
             Menu { title: "Saved Video Filters"; enabled: root.menu-value-loaded && !root.menu-value-crop-editing;
                 for row in root.menu-value-saved-video-filter-rows : MenuItem {
-                    title: row.label; shortcut: row.shortcut;
+                    title: row.label; shortcut: root.player-shortcut(row.shortcut);
                     checkable: true; checked: row.selected;
                     activated => { PlayerMenuActions.toggle-saved-video-filter(row.token); }
                 }
@@ -394,11 +400,11 @@ export component PlayerMenuWindow inherits Window {
             }
             MenuSeparator {}
             MenuItem { title: "Audio Filters…"; enabled: root.menu-value-loaded && !root.menu-value-crop-editing;
-                shortcut: root.menu-value-primary-shortcut-is-meta ? @keys(Meta + Shift + G) : @keys(Control + Shift + G);
+                shortcut: root.player-shortcut(root.menu-value-primary-shortcut-is-meta ? @keys(Meta + Shift + G) : @keys(Control + Shift + G));
                 activated => { PlayerMenuActions.open-audio-filters(); } }
             Menu { title: "Saved Audio Filters"; enabled: root.menu-value-loaded && !root.menu-value-crop-editing;
                 for row in root.menu-value-saved-audio-filter-rows : MenuItem {
-                    title: row.label; shortcut: row.shortcut;
+                    title: row.label; shortcut: root.player-shortcut(row.shortcut);
                     checkable: true; checked: row.selected;
                     activated => { PlayerMenuActions.toggle-saved-audio-filter(row.token); }
                 }
@@ -498,7 +504,7 @@ export component PlayerMenuWindow inherits Window {
                 enabled: row.enabled && !row.section-header && !root.menu-value-crop-editing;
                 checkable: false;
                 checked: row.selected;
-                shortcut: row.shortcut;
+                shortcut: root.player-shortcut(row.shortcut);
                 activated => { PlayerMenuActions.activate-plugin-menu-item(row.token); }
             }
             if root.menu-value-plugin-menu-rows.length > 0 : MenuSeparator {}
@@ -507,7 +513,7 @@ export component PlayerMenuWindow inherits Window {
         }
         Menu { title: "Window";
             MenuItem { title: "Minimize";
-                shortcut: root.menu-value-primary-shortcut-is-meta ? @keys(Meta + M) : @keys(Control + M);
+                shortcut: root.player-shortcut(root.menu-value-primary-shortcut-is-meta ? @keys(Meta + M) : @keys(Control + M));
                 activated => { PlayerMenuActions.minimize-window(); }
             }
             MenuItem { title: "Zoom"; activated => { PlayerMenuActions.zoom-window(); } }
@@ -519,7 +525,7 @@ export component PlayerMenuWindow inherits Window {
         }
         Menu { title: "Help";
             MenuItem { title: "Riina Help";
-                shortcut: root.menu-value-primary-shortcut-is-meta ? @keys(Meta + Shift + "/") : @keys(Control + Shift + "/");
+                shortcut: root.player-shortcut(root.menu-value-primary-shortcut-is-meta ? @keys(Meta + Shift + "/") : @keys(Control + Shift + "/"));
                 activated => { PlayerMenuActions.open-help-link("help"); } }
             MenuItem { title: "Dump Debug Info"; activated => { PlayerMenuActions.dump-debug-info(); } }
             MenuSeparator {}

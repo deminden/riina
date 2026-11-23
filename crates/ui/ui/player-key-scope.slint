@@ -4,6 +4,7 @@ import { PlayerCropState } from "player-crop-state.slint";
 import { PlayerControlsState } from "player-controls-state.slint";
 import { PlayerSidebarState } from "player-sidebar-state.slint";
 import { PlayerMenuActions } from "player-menu-actions.slint";
+import { PlaylistPluginPopupState } from "playlist-plugin-popup.slint";
 
 // The same focus scope owns the child controls and the remaining player shortcuts.
 export component PlayerKeyScope inherits FocusScope {
@@ -14,6 +15,15 @@ export component PlayerKeyScope inherits FocusScope {
     in property <bool> fullscreen;
 
     @children
+
+    capture-key-pressed(event) => {
+        if PlaylistPluginPopupState.shown {
+            PlaylistPluginPopupState.handle-key(event.text);
+            return accept;
+        }
+        return reject;
+    }
+    capture-key-released(_) => { return PlaylistPluginPopupState.shown ? accept : reject; }
 
     key-released(event) => {
         if (event.text == Key.Alt || !event.modifiers.alt) && menu-alternates-visible {

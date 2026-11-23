@@ -44,6 +44,8 @@ import { MusicModePlaylist } from "music-mode-playlist.slint";
 import { PlaylistInteraction, PlaylistMenuOrigin } from "playlist-interaction.slint";
 export { PlaylistInteraction, PlaylistMenuOrigin } from "playlist-interaction.slint";
 import { PlaylistBlankMenuArea } from "playlist-context-menu.slint";
+import { PlaylistPluginPopup, PlaylistPopupBounds, PlaylistPluginPopupState, PlaylistPopupInput } from "playlist-plugin-popup.slint";
+export { PlaylistPopupBounds, PlaylistPluginPopupState, PlaylistPopupInput, PlaylistPopupRow, PlaylistPopupPanel } from "playlist-plugin-popup.slint";
 import { VideoSurface } from "player-video-surface.slint";
 import { PlayerRenderedVideo } from "player-rendered-video.slint";
 export { LiveTextRegion, PlayerRenderedVideo } from "player-rendered-video.slint";
@@ -596,6 +598,10 @@ export component PlayerWindow inherits PlayerMenuWindow {
         }
         crop-editor := CropEditor { width: parent.width; height: parent.height; }
         PlayerEntryDialogs { width: parent.width; height: parent.height; }
+        playlist-popup := PlaylistPluginPopup {
+            width: parent.width; height: parent.height;
+            restore-player-focus => { keys.focus(); }
+        }
         FocusScope {
             visible: PlayerDialogState.plugin-interaction-visible;
             width: parent.width; height: parent.height;
@@ -608,6 +614,16 @@ export component PlayerWindow inherits PlayerMenuWindow {
             }
         }
     }
+    public pure function playlist-popup-bounds() -> PlaylistPopupBounds {
+        return { x: playlist-popup.absolute-position.x / 1px, y: playlist-popup.absolute-position.y / 1px,
+            width: playlist-popup.width / 1px, height: playlist-popup.height / 1px };
+    }
+    changed width => {
+        if PlaylistPluginPopupState.shown { PlaylistPluginPopupState.input(PlaylistPopupInput.dismiss, 0, 0, 0); }
+    }
+    changed height => {
+        if PlaylistPluginPopupState.shown { PlaylistPluginPopupState.input(PlaylistPopupInput.dismiss, 0, 0, 0); }
+    }
     // Removing the focused OSC on Stop/auto-hide must leave shortcuts available.
     changed loaded => { PlayerMenuActions.video-menu-changed(); if !root.loaded { keys.focus(); } root.refresh-fullscreen-info(); }
     changed controls-visible => {
@@ -617,7 +633,8 @@ export component PlayerWindow inherits PlayerMenuWindow {
         }
         // A sidebar stays interactive when only the transport tray disappears.
         // Moving focus here would discard a delay/speed edit after the idle timeout.
-        if !PlayerControlsState.controls-visible && PlayerSidebarState.sidebar == 0 && PlayerSidebarState.leading-sidebar == 0 { keys.focus(); }
+        if !PlaylistPluginPopupState.shown && !PlayerControlsState.controls-visible &&
+            PlayerSidebarState.sidebar == 0 && PlayerSidebarState.leading-sidebar == 0 { keys.focus(); }
         root.refresh-fullscreen-info();
         root.controls-visibility-changed(PlayerControlsState.controls-visible);
     }
