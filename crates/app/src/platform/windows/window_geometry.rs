@@ -219,6 +219,7 @@ fn mpv_child_windows(parent: HWND) -> Vec<HWND> {
         parent,
         matches: Vec::new(),
     };
+    // The callback records matching children and always continues enumeration.
     // SAFETY: the callback receives a valid stack context for the duration of
     // this synchronous enumeration and only selects direct mpv-owned children.
     unsafe {

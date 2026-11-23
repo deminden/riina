@@ -45,7 +45,13 @@ impl Drop for Scratch {
         if let Ok(Some(path)) = self.directory.get_mut() {
             // Only the exclusively created directory is owned. Never recurse
             // through a configured save folder or a directory found by scanning.
-            let _ = std::fs::remove_dir_all(path);
+            if let Err(error) = std::fs::remove_dir_all(path)
+                && error.kind() != std::io::ErrorKind::NotFound
+            {
+                crate::diagnostics::warn!(
+                    "Could not remove the private capture directory: {error}"
+                );
+            }
         }
     }
 }

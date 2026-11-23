@@ -68,7 +68,7 @@ pub(super) fn center_host_in_work_area(
     // Position by the measured outer frame so DPI conversion cannot shift the
     // caption edge; shrink only when that frame exceeds the usable area.
     // SAFETY: this HWND belongs to the live Winit window borrowed on its UI thread.
-    let _ = unsafe {
+    if let Err(error) = unsafe {
         SetWindowPos(
             hwnd,
             None,
@@ -78,7 +78,9 @@ pub(super) fn center_host_in_work_area(
             i32::try_from(placement.size.height).unwrap_or(i32::MAX),
             flags,
         )
-    };
+    } {
+        crate::diagnostics::warn!("Could not center the native player window: {error}");
+    }
 }
 
 #[derive(Clone, Default)]

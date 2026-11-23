@@ -523,6 +523,7 @@ fn exit(controller: Rc<RefCell<Controller>>) {
     if let Some(host) = host_weak.upgrade() {
         host.set_picture_in_picture_active(false);
         host.window().with_winit_window(|window| {
+            // Native geometry notifications confirm the restored size.
             let _ = window.request_inner_size(session.host_geometry.size);
             window.set_outer_position(session.host_geometry.position);
         });
@@ -532,6 +533,7 @@ fn exit(controller: Rc<RefCell<Controller>>) {
     }
     if let Some(player) = player_weak.upgrade() {
         player.window().with_winit_window(|window| {
+            // Native geometry notifications confirm the restored size.
             let _ = window.request_inner_size(session.player_geometry.size);
             window.set_outer_position(session.player_geometry.position);
             if session.policy == WindowBehavior::Minimize {

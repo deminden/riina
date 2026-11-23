@@ -117,7 +117,9 @@ pub(super) fn enable_video_transparency(window: &winit::window::Window) -> Resul
     // SAFETY: the controls HWND, initialized settings and GDI region remain live for DWM.
     let result = unsafe { DwmEnableBlurBehindWindow(hwnd, &blur_behind) };
     // SAFETY: DWM copies the region and this call still owns the original GDI object.
-    let _ = unsafe { DeleteObject(region.into()) };
+    if !unsafe { DeleteObject(region.into()) }.as_bool() {
+        crate::diagnostics::warn!("Could not release the video-overlay composition region");
+    }
     result
         .map_err(|error| format!("Could not restore video-overlay alpha composition: {error}"))?;
     // Blur-behind alone leaves a DWM tint over the clear WGL client on Windows

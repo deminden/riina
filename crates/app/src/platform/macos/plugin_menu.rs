@@ -56,6 +56,7 @@ impl MacPluginMenuObserver {
                 .keyWindow()
                 .is_some_and(|active| Retained::as_ptr(&active) as usize == window_identity)
             {
+                // The menu can finish tracking while its plugin host is shutting down.
                 let _ = host.notify_menu_update();
             }
         });

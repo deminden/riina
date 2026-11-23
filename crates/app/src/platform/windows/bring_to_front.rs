@@ -43,7 +43,10 @@ fn bring_all_native_windows_to_front(active: &winit::window::Window) -> Option<R
         // SAFETY: IsIconic only queries the enumerated HWND and accepts stale handles.
         if unsafe { IsIconic(candidate) }.as_bool() {
             // SAFETY: candidate is a visible top-level Riina HWND from EnumWindows.
-            let _ = unsafe { ShowWindowAsync(candidate, SW_RESTORE) };
+            let restored = unsafe { ShowWindowAsync(candidate, SW_RESTORE) }.as_bool();
+            if !restored {
+                crate::diagnostics::warn!("Windows rejected a Riina window restore request");
+            }
         }
         // SAFETY: candidate remains a live HWND from EnumWindows. Async posting
         // avoids blocking on a sibling player; flags preserve geometry and defer
@@ -81,7 +84,10 @@ pub(crate) fn minimize_all_riina_windows() -> Result<(), String> {
         // independently can leave video and controls in different restore states.
         if unsafe { GetAncestor(window, GA_ROOTOWNER) } == window {
             // SAFETY: this HWND came from top-level enumeration and is passed by value.
-            let _ = unsafe { ShowWindowAsync(window, SW_MINIMIZE) };
+            let minimized = unsafe { ShowWindowAsync(window, SW_MINIMIZE) }.as_bool();
+            if !minimized {
+                crate::diagnostics::warn!("Windows rejected a Riina window minimize request");
+            }
         }
     }
     Ok(())
@@ -141,7 +147,9 @@ fn process_image_path(process_id: u32) -> Option<String> {
         )
     };
     // SAFETY: process is the owned handle returned by OpenProcess.
-    let _ = unsafe { CloseHandle(process) };
+    if let Err(error) = unsafe { CloseHandle(process) } {
+        crate::diagnostics::warn!("Could not release the process query handle: {error}");
+    }
     result.ok()?;
     path.truncate(usize::try_from(length).ok()?);
     Some(String::from_utf16_lossy(&path))
