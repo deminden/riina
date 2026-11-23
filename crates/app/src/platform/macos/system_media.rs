@@ -841,7 +841,9 @@ fn receive_video_artwork(
             Ok(riina_mpv::thumbnail_generator::Event::Finished(Ok(()))) => {
                 return Err("The artwork track produced no video frame".into());
             }
-            Ok(riina_mpv::thumbnail_generator::Event::Finished(Err(error))) => return Err(error),
+            Ok(riina_mpv::thumbnail_generator::Event::Finished(Err(error))) => {
+                return Err(error.to_string());
+            }
             Err(mpsc::TryRecvError::Empty) => thread::sleep(Duration::from_millis(20)),
             Err(mpsc::TryRecvError::Disconnected) => {
                 return Err("The artwork decoder stopped unexpectedly".into());

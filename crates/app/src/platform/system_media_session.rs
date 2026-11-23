@@ -22,6 +22,7 @@ mod macos {
         player_ui::lifecycle::AutomaticPause,
     };
     use riina_core::{Command, Phase};
+    use riina_ui::PlayerMenuActions;
     use slint::{ComponentHandle, winit_030::WinitWindowAccessor};
     use std::{
         cell::RefCell,
@@ -134,7 +135,7 @@ mod macos {
             Action::Rate(_) => {}
             Action::Repeat => {
                 if let Err(error) = player.send(Command::CycleLoop) {
-                    app.set_status(error.into());
+                    crate::diagnostics::report(app, error);
                 }
             }
             Action::Inactive => {
@@ -173,7 +174,7 @@ mod macos {
 
     pub(crate) struct SystemMediaSession {
         controls: Rc<RefCell<platform::SystemMediaControls>>,
-        _timer: Rc<slint::Timer>,
+        timer: Rc<slint::Timer>,
         sender: Rc<RefCell<Option<CommandSender>>>,
     }
 
@@ -291,7 +292,7 @@ mod macos {
             };
             Self {
                 controls: system_media_controls,
-                _timer: system_media_controls_timer,
+                timer: system_media_controls_timer,
                 sender: system_media_sender,
             }
         }
@@ -301,6 +302,8 @@ mod macos {
         }
 
         pub(crate) fn prepare_to_close(&self) {
+            // A last timer tick could otherwise publish the closing player's state again.
+            self.timer.stop();
             self.controls
                 .borrow_mut()
                 .synchronize(false, "", None, None);

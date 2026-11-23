@@ -105,9 +105,15 @@ mod macos {
                     if let Err(error) = result
                         && let Some(app) = weak_app.upgrade()
                     {
-                        app.set_status(error.into());
+                        crate::diagnostics::report(&app, error);
                     }
                 });
+
+            if self.manager.borrow().is_none() {
+                self.timer.stop();
+                app.set_picture_in_picture_active(false);
+                return;
+            }
 
             let manager = self.manager.clone();
             let dirty = self.dirty.clone();
