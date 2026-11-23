@@ -177,16 +177,31 @@ fn include_ui_consumers(packages: &mut BTreeSet<String>, files: &BTreeSet<PathBu
             || path == Path::new("crates/ui/build.rs")
             || path == Path::new("crates/ui/Cargo.toml")
     });
-    if !ui_source_changed {
+    let widget_tests_changed = files.iter().any(|path| is_app_widget_test(path));
+    if !ui_source_changed && !widget_tests_changed {
         return false;
     }
-    // An app integration test compiles the generated interface's main consumer.
-    // For UI-only edits it also avoids linking the unrelated app unit test harness.
-    if packages.len() == 1 && packages.contains("riina-ui") {
+    // The widget tests compile the application library. Run the app unit
+    // harness as well when its source, build inputs or other tests change.
+    if packages
+        .iter()
+        .all(|package| matches!(package.as_str(), "riina" | "riina-ui"))
+        && !files
+            .iter()
+            .any(|path| path.starts_with("crates/app") && !is_app_widget_test(path))
+    {
         return true;
     }
-    packages.insert("riina".to_owned());
+    if ui_source_changed {
+        packages.insert("riina".to_owned());
+    }
     false
+}
+
+fn is_app_widget_test(path: &Path) -> bool {
+    path == Path::new("crates/app/tests/quick_settings_input.rs")
+        || path.starts_with("crates/app/tests/quick_settings")
+        || path.starts_with("crates/app/tests/widgets")
 }
 
 fn shared_build_input(path: &Path) -> bool {
@@ -433,6 +448,21 @@ mod scope_tests {
                 "riina-ui".to_owned()
             ])
         );
+    }
+
+    #[test]
+    fn widget_test_edits_keep_the_group_focused_until_app_source_changes() {
+        let mut packages = BTreeSet::from(["riina".to_owned()]);
+        let mut files = BTreeSet::from([
+            PathBuf::from("crates/app/tests/quick_settings/workflows.rs"),
+            PathBuf::from("crates/app/tests/widgets/settings_navigation.rs"),
+        ]);
+        assert!(include_ui_consumers(&mut packages, &files));
+        files.insert(PathBuf::from("crates/ui/ui/player.slint"));
+        packages.insert("riina-ui".to_owned());
+        assert!(include_ui_consumers(&mut packages, &files));
+        files.insert(PathBuf::from("crates/app/src/player/player_ui.rs"));
+        assert!(!include_ui_consumers(&mut packages, &files));
     }
 
     #[test]
