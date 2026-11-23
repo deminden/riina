@@ -544,6 +544,13 @@ At `845f8c0`, `cargo xtask check --fast` ran strict app linting and passed
 549 application and widget tests. The new callback test verified that a
 discarded callback releases its queue slot and allows the next delivery.
 
+At `17bd471`, the Windows workspace gate passed 853 Rust tests and 78 Python
+tests, including the 51 software-rendered reference comparisons. The headless
+timer tests verified that thumbnails wake for relevant changes and that native
+transition capture waits for its 80 ms tick and stops after the reply. All 53
+pinned native tests passed with null audio output. The locked workspace build
+passed all ten private-desktop checks in 9.245 seconds and exited normally.
+
 On `954d4d6`, separate private-desktop runs reopened and played media after
 recovering a profile with an invalid setting type, a non-object JSON document,
 or invalid UTF-8. Each run showed the recovery notice, preserved the original
@@ -563,6 +570,10 @@ These timings measure an app-file edit with built dependencies. Background
 builds during the measurements and the baseline's spread limit precision.
 
 ## Linux x64 application checks
+
+At `17bd471`, strict workspace Clippy, 818 workspace tests, and the locked
+x86-64 application build passed on Ubuntu 26.04 in WSL. This includes the
+thumbnail and transition timer tests.
 
 At `a83c518`, Ubuntu 26.04 in WSL passed strict workspace Clippy, 814
 workspace tests, and the locked x86-64 application build.

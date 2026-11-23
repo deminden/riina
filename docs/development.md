@@ -250,8 +250,8 @@ Pause on minimize follows the owning window's minimize and restore events.
 | Fullscreen clock and battery | 60 s | Update local time and battery capacity | While fullscreen controls and the information card are visible |
 | Native HDR availability | 2 s | Refresh the display HDR state | While native video presentation is active |
 | macOS picture-in-picture | 100 ms | Sync AVKit state and update the active indicator | While a PiP controller exists |
-| Timeline thumbnails | 80 ms | Process hover previews and completed thumbnail frames | During hover or thumbnail work for the current media |
-| Native video transition | 80 ms | Capture outgoing and incoming frames and settle the handoff | During an active native transition |
+| Timeline thumbnails | 80 ms | Drain bounded batches of thumbnail frames | One initial pass and a pass on media or settings changes. The timer repeats while extraction runs. Pointer callbacks update hover previews directly |
+| Native video transition | 80 ms | Capture outgoing and incoming frames and settle the handoff | While a playlist request waits for its frame, playback approaches a pending outgoing capture, or the incoming surface is settling |
 | Windows startup material policy | 500 ms | Reapply native backdrop settings | While the Windows owner and chrome are active |
 | Windows surface alignment | 16 ms | Align owner, native video and controls | While the native Windows surfaces are attached |
 | Playlist metadata | 300 ms | Refresh the catalog after metadata results or display changes | While a playlist surface can use the results |

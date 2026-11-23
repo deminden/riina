@@ -18,6 +18,7 @@ format. See [Verification](verification.md) for the scope of the runtime checks.
 | H10 Network identity | Share request defaults and versioned application identity across plugin clients. | `7bcec50` |
 | H13 Development checks | Enforce strict Clippy, cache supported hosted jobs, add a non-blocking advisory job, and provide separate workspace, scoped, visual and native check commands. | `dda8174`, `9c7f48c`, `b3d8852`, `a73d9f5` |
 | H14 Background task ownership | Name application workers, log panics, report running tasks at exit, centralize weak window delivery, and release discarded playback and rendering callbacks. | `e5f0dc9`, `475d58a`, `845f8c0` |
+| H14 Preview and transition timers | Wake on playback, settings, or navigation events. Keep the 80 ms interval while work is pending and stop when it settles. | `17bd471` |
 | O1 Preference ownership | Store committed settings in one model, project them through section bindings, and capture runtime state separately when the player closes. | `5581847`, `33e7926`, `a83c518` |
 | O2 Composition roots | Separate the Windows host and player session ownership, and split the history, crop and playback feedback handlers. Windows strict Clippy passed at the 150-line threshold. | `fc2bdb7`, `8bdb6e3`, `4684478` |
 | O3 Slint structure | Split the player and Settings roots to 586 and 595 lines, centralize color tokens, and preserve all 51 software-rendered Windows baselines. | `4bbdd65`, `954d4d6` |
@@ -29,5 +30,5 @@ format. See [Verification](verification.md) for the scope of the runtime checks.
 | In progress | Verified progress | Local commits |
 |---|---|---|
 | H4 Application error handling | Route formatted player statuses through one reporter and log failures in background work, playback setup, and window lifecycle. The audit of intentionally discarded platform results is still open. | `47c8f73`, `1dde0ee`, `a83c518` |
-| H14 Timer lifetime | Gate multiple window, material, and playback timers on demand. Timeline thumbnail polling and native transition sampling still wake while their player is idle. | `208122a`, `beac8cb`, `fc2bdb7` |
+| H14 Timer lifetime | Several window, material, and playback timers are gated. Subtitle search, subtitle discovery, and Live Text still tick while their player is idle. | `208122a`, `beac8cb`, `fc2bdb7`, `17bd471` |
 | O5 Platform boundary | Native player appearance and session services use platform adapters. The plan's source scan counts 27 target conditionals outside `platform/`. Full macOS application verification remains open. | `7226679`, `e529719`, `47c8f73` |

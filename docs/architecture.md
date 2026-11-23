@@ -68,9 +68,11 @@ The event-loop reservation is released when delivery begins or when the loop
 discards the callback. Rendering uses the same ownership for redraw requests.
 Screenshot and frame completions travel alongside the snapshot so coalescing
 cannot discard their side effects. `observations` projects playback state and
-catalogs into Slint. Each player owns its audio, video, subtitle, timeline,
-catalog and feedback state. The sidebar, layout, controls and dialog components
-read state from the owning window. Rendered frames and material samples share
+catalogs into Slint. The UI observer wakes thumbnail and native transition
+timers when a playback snapshot introduces work for them. Each player owns
+its audio, video, subtitle, timeline, catalog and feedback state. The sidebar,
+layout, controls and dialog components read state from the owning window.
+Rendered frames and material samples share
 that lifetime. Keyboard input and both menu presentations invoke the actions
 registered for that player. Plugin entry workers have a separate runtime and
 send intents through the existing command path.
