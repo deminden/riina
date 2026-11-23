@@ -3,8 +3,7 @@ use riina_mpv::thumbnail_generator::SAMPLE_COUNT;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::{
-    fs,
-    io::{self, Write},
+    fs, io,
     path::Path,
     time::{SystemTime, UNIX_EPOCH},
 };
@@ -52,6 +51,7 @@ impl SourceKey {
             .iter()
             .fold(String::with_capacity(64), |mut text, byte| {
                 use std::fmt::Write as _;
+                // Formatting into a String cannot return an I/O error.
                 let _ = write!(text, "{byte:02x}");
                 text
             });
@@ -137,13 +137,15 @@ pub(crate) fn load(
         };
         frames.push((timestamp, bytes));
     }
-    // Rewriting the tiny manifest refreshes this entry's eviction age on a hit.
-    if let Ok(mut file) = fs::OpenOptions::new()
+    // Refresh the eviction age without truncating a manifest another player
+    // might be reading.
+    if let Err(error) = fs::OpenOptions::new()
         .write(true)
-        .truncate(true)
         .open(manifest_path)
+        .and_then(|file| file.set_modified(SystemTime::now()))
+        && error.kind() != io::ErrorKind::NotFound
     {
-        let _ = file.write_all(&manifest_bytes);
+        crate::diagnostics::warn!("Could not refresh the thumbnail cache timestamp: {error}");
     }
     Ok(Some(frames))
 }
@@ -198,8 +200,10 @@ pub(crate) fn store(
         fs::rename(&staging, &entry)?;
         Ok(())
     })();
-    if staging.exists() {
-        let _ = fs::remove_dir_all(&staging);
+    if let Err(error) = fs::remove_dir_all(&staging)
+        && error.kind() != io::ErrorKind::NotFound
+    {
+        crate::diagnostics::warn!("Could not clean up thumbnail cache staging files: {error}");
     }
     result?;
     evict(root, maximum_cache_size_mb.saturating_mul(1024 * 1024))
@@ -257,7 +261,10 @@ fn remove_entry(path: &Path) -> io::Result<()> {
 #[cfg(test)]
 mod tests {
     use super::{load, store};
-    use std::fs;
+    use std::{
+        fs,
+        time::{Duration, SystemTime},
+    };
 
     use riina_test_support::TempDir;
 
@@ -265,15 +272,25 @@ mod tests {
     fn cache_round_trip_is_bound_to_source_and_width() {
         let temp = TempDir::new("thumbnail-cache").unwrap();
         let source = temp.path().join("clip.mkv");
+        let root = temp.path().join("cache");
         fs::write(&source, b"fixture media identity").unwrap();
         let frames = (0..=100)
             .map(|index| (f64::from(index), vec![index as u8, 4, 9]))
             .collect::<Vec<_>>();
-        store(&temp.path().join("cache"), &source, 240, 500, &frames).unwrap();
-        assert_eq!(
-            load(&temp.path().join("cache"), &source, 240, 500).unwrap(),
-            Some(frames)
-        );
+        store(&root, &source, 240, 500, &frames).unwrap();
+        let entry = fs::read_dir(&root).unwrap().next().unwrap().unwrap().path();
+        let manifest_path = entry.join("manifest.json");
+        let manifest = fs::read(&manifest_path).unwrap();
+        let old_age = SystemTime::now() - Duration::from_secs(60);
+        fs::OpenOptions::new()
+            .write(true)
+            .open(&manifest_path)
+            .unwrap()
+            .set_modified(old_age)
+            .unwrap();
+        assert_eq!(load(&root, &source, 240, 500).unwrap(), Some(frames));
+        assert_eq!(fs::read(&manifest_path).unwrap(), manifest);
+        assert!(fs::metadata(&manifest_path).unwrap().modified().unwrap() > old_age);
         assert_eq!(
             load(&temp.path().join("cache"), &source, 320, 500).unwrap(),
             None

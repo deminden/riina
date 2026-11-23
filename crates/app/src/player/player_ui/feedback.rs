@@ -362,7 +362,11 @@ fn install_screenshot_preview(app: &PlayerWindow, screenshot_timer: Rc<slint::Ti
         let path = std::path::Path::new(path.as_str());
         let result = match action {
             0 => {
-                let _ = std::fs::remove_file(path);
+                if let Err(error) = std::fs::remove_file(path)
+                    && error.kind() != std::io::ErrorKind::NotFound
+                {
+                    crate::diagnostics::warn!("Could not delete the previewed screenshot: {error}");
+                }
                 Ok(())
             }
             1 => platform::open_directory(path),
@@ -371,7 +375,7 @@ fn install_screenshot_preview(app: &PlayerWindow, screenshot_timer: Rc<slint::Ti
         };
         clear_screenshot_preview(&app);
         if let Err(error) = result {
-            app.set_status(error.to_string().into());
+            crate::diagnostics::report(&app, error.to_string());
         }
     });
 }

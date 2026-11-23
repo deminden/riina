@@ -331,6 +331,7 @@ impl PluginOverlayPresenter {
                 if message.name.is_empty() || message.name.len() > MAX_IPC_NAME_BYTES {
                     return;
                 }
+                // The page may outlive its plugin entry. The host queue stays bounded.
                 let _ = ipc_host.deliver_overlay_message(
                     ipc_identifier.clone(),
                     message.name,
@@ -457,18 +458,21 @@ fn flush_pending(entry: &OverlayEntry) {
         return;
     }
     if let Some(style) = style {
+        // Page updates can race with the WebView closing.
         let _ = entry.webview.evaluate_script(&format!(
             "window.iina && window.iina._simpleModeSetStyle({});",
             js_string(&style)
         ));
     }
     if let Some(content) = content {
+        // Keep draining this page's updates if the WebView rejects delivery.
         let _ = entry.webview.evaluate_script(&format!(
             "window.iina && window.iina._simpleModeSetContent({});",
             js_string(&content)
         ));
     }
     if let Some(opacity) = opacity {
+        // A hidden or dismissed overlay may have released its document.
         let _ = entry.webview.evaluate_script(&format!(
             "document.documentElement.style.opacity = {};",
             opacity
@@ -478,6 +482,7 @@ fn flush_pending(entry: &OverlayEntry) {
         let Ok(data_json) = serde_json::to_string(&data) else {
             continue;
         };
+        // Replies to this page expire when it navigates or closes.
         let _ = entry.webview.evaluate_script(&format!(
             "window.iina && window.iina._emit({}, {});",
             js_string(&name),

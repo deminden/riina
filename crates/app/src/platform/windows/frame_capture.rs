@@ -89,9 +89,11 @@ struct CaptureOwner {
 impl Drop for CaptureOwner {
     fn drop(&mut self) {
         if let Some(shutdown) = riina_core::sync::lock(&self.shutdown).take() {
+            // The receiver can already be gone after a capture failure.
             let _ = shutdown.send(());
         }
         if let Some(worker) = riina_core::sync::lock(&self.worker).take() {
+            // The named worker reports panics before returning.
             let _ = worker.join();
         }
     }
@@ -124,12 +126,16 @@ impl FrameCapture {
                 worker: Mutex::new(Some(worker)),
             }))),
             Ok(Err(error)) => {
+                // Failed initialization can close the receiver before shutdown.
                 let _ = shutdown_sender.send(());
+                // Preserve the reported initialization error after joining.
                 let _ = worker.join();
                 Err(error)
             }
             Err(error) => {
+                // A stopped worker has already dropped its receiver.
                 let _ = shutdown_sender.send(());
+                // The named worker reports panics before returning.
                 let _ = worker.join();
                 Err(format!("Windows video capture did not initialize: {error}"))
             }
@@ -195,9 +201,17 @@ struct ActiveCapture {
 
 impl ActiveCapture {
     fn close(self) {
-        let _ = self.pool.RemoveFrameArrived(self.frame_arrived_token);
-        let _ = self.session.Close();
-        let _ = self.pool.Close();
+        if let Err(error) = self.pool.RemoveFrameArrived(self.frame_arrived_token) {
+            crate::diagnostics::warn!(
+                "Could not remove the Windows frame capture callback: {error}"
+            );
+        }
+        if let Err(error) = self.session.Close() {
+            crate::diagnostics::warn!("Could not close the Windows capture session: {error}");
+        }
+        if let Err(error) = self.pool.Close() {
+            crate::diagnostics::warn!("Could not close the Windows capture frame pool: {error}");
+        }
     }
 }
 
@@ -211,6 +225,7 @@ fn capture_worker(
     // object lifetime belong to a dedicated MTA thread rather than Slint's UI.
     // SAFETY: this worker initializes its own apartment and balances success below.
     if let Err(error) = unsafe { RoInitialize(RO_INIT_MULTITHREADED) } {
+        // The starter may have stopped waiting for the initialization result.
         let _ = ready.send(Err(format!(
             "Could not initialize Windows Runtime: {error}"
         )));
@@ -219,11 +234,14 @@ fn capture_worker(
 
     match start_capture(hwnd, state) {
         Ok(capture) => {
+            // The starter may already have requested shutdown after a timeout.
             let _ = ready.send(Ok(()));
+            // Dropping the last sender is also a shutdown request.
             let _ = shutdown.recv();
             capture.close();
         }
         Err(error) => {
+            // The starter may have timed out before the result was ready.
             let _ = ready.send(Err(error));
         }
     }
@@ -339,14 +357,14 @@ fn frame_handler(
         let content_size = match frame.ContentSize() {
             Ok(size) if size.Width > 0 && size.Height > 0 => size,
             _ => {
-                let _ = frame.Close();
+                close_frame(&frame);
                 return Ok(());
             }
         };
         // The native pool might have been resized mid-update. A poisoned
         // size record cannot establish matching dimensions for a readback.
         let Ok(mut pool_size) = callback_pool_size.lock() else {
-            let _ = frame.Close();
+            close_frame(&frame);
             return Ok(());
         };
         if *pool_size != (content_size.Width, content_size.Height) {
@@ -359,25 +377,25 @@ fn frame_handler(
             {
                 *pool_size = (content_size.Width, content_size.Height);
             }
-            let _ = frame.Close();
+            close_frame(&frame);
             return Ok(());
         }
         drop(pool_size);
 
         if !callback_state.enabled.load(Ordering::Acquire) {
-            let _ = frame.Close();
+            close_frame(&frame);
             return Ok(());
         }
         let capture_epoch = callback_state.epoch.load(Ordering::Acquire);
         let mut last_capture = match callback_state.last_capture.lock() {
             Ok(last_capture) => last_capture,
             Err(_) => {
-                let _ = frame.Close();
+                close_frame(&frame);
                 return Ok(());
             }
         };
         if last_capture.elapsed() < CAPTURE_INTERVAL {
-            let _ = frame.Close();
+            close_frame(&frame);
             return Ok(());
         }
         *last_capture = Instant::now();
@@ -407,7 +425,7 @@ fn frame_handler(
                 readback_started.elapsed().as_millis(),
             );
         }
-        let _ = frame.Close();
+        close_frame(&frame);
         match capture_result {
             Ok(frame) => {
                 if !callback_state.enabled.load(Ordering::Acquire)
@@ -454,11 +472,17 @@ fn frame_handler(
     })
 }
 
+fn close_frame(frame: &Direct3D11CaptureFrame) {
+    // Closing the pool can invalidate a frame in flight. The interface is
+    // released by its owner even if the native close fails.
+    let _ = frame.Close();
+}
+
 fn newest_frame(pool: &Direct3D11CaptureFramePool) -> Option<Direct3D11CaptureFrame> {
     let mut newest = None;
     while let Ok(frame) = pool.TryGetNextFrame() {
         if let Some(previous) = newest.replace(frame) {
-            let _ = previous.Close();
+            close_frame(&previous);
         }
     }
     newest

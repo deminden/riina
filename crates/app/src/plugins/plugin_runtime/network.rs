@@ -223,6 +223,7 @@ impl NetworkRequestSlot {
     }
 
     fn deliver(self, sender: &SyncSender<RuntimeCommand>, result: RuntimeCommand) {
+        // The entry runtime can close while a request is in flight.
         let _ = sender.send(result);
     }
 }

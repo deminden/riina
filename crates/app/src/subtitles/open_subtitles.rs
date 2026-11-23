@@ -292,7 +292,12 @@ fn save_download(name: &str, bytes: &[u8]) -> Result<PathBuf, String> {
             Err(error) => return Err(format!("Could not save downloaded subtitle: {error}")),
         };
         if let Err(error) = file.write_all(bytes) {
-            let _ = std::fs::remove_file(&path);
+            drop(file);
+            if let Err(cleanup) = std::fs::remove_file(&path) {
+                crate::diagnostics::warn!(
+                    "Could not remove a partial subtitle download: {cleanup}"
+                );
+            }
             return Err(format!("Could not save downloaded subtitle: {error}"));
         }
         return Ok(path);

@@ -108,7 +108,11 @@ fn cleanup_paths(destinations: riina_core::screenshot::Destinations, paths: &[St
     // Native completion supplies each exact filename. Decode/preview/copy must
     // precede removal; never find the "latest" file in a user's screenshot folder.
     for path in paths {
-        let _ = std::fs::remove_file(path);
+        if let Err(error) = std::fs::remove_file(path)
+            && error.kind() != std::io::ErrorKind::NotFound
+        {
+            crate::diagnostics::warn!("Could not remove a clipboard-only screenshot: {error}");
+        }
     }
 }
 #[cfg(test)]

@@ -272,12 +272,15 @@ impl PluginRuntimeSession {
                 worker: Some(worker),
             }),
             Ok(Err(error)) => {
+                // The named worker records panics before returning.
                 let _ = worker.join();
                 Err(error)
             }
             Err(error) => {
                 execution.cancel();
+                // A full queue already wakes the worker to observe cancellation.
                 let _ = commands.try_send(RuntimeCommand::Shutdown);
+                // Keep the initialization error as the result of this attempt.
                 let _ = worker.join();
                 Err(format!("Plugin worker did not initialize: {error}"))
             }
@@ -417,6 +420,7 @@ impl Drop for PluginRuntimeSession {
         // cancellation flag prevents queued callbacks from delaying teardown.
         let _ = self.commands.try_send(RuntimeCommand::Shutdown);
         if let Some(worker) = self.worker.take() {
+            // The named worker records panics before returning.
             let _ = worker.join();
         }
     }

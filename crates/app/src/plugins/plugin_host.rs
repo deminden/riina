@@ -289,8 +289,10 @@ impl PluginHost {
 
 impl Drop for PluginHost {
     fn drop(&mut self) {
+        // A disconnected receiver means the host has already stopped.
         let _ = self.handle.commands.send(PluginCommand::Shutdown);
         if let Some(worker) = self.worker.take() {
+            // The named worker records panics before returning.
             let _ = worker.join();
         }
     }
@@ -494,6 +496,7 @@ fn handle_command(
             response,
         } => {
             remove_plugin(identifier, messages, sessions, plugin_directories);
+            // The updater may have timed out before the host completed the request.
             let _ = response.send(Ok(()));
         }
         PluginCommand::ActivateAfterUpdate {
@@ -521,6 +524,7 @@ fn handle_command(
                     sessions,
                 );
             }
+            // Activation is complete even if the updater has timed out.
             let _ = response.send(result);
         }
         PluginCommand::UpdatePlayerFileContext(context) => {
@@ -559,6 +563,7 @@ fn handle_command(
         ),
         PluginCommand::WindowWillClose(response) => {
             flush_closing_sessions(messages, sessions);
+            // The caller can finish closing before the acknowledgement arrives.
             let _ = response.send(());
         }
         #[cfg(target_os = "windows")]

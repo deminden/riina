@@ -177,7 +177,11 @@ impl ProfileStore {
         let mappings = self.load(current)?;
         write_new(&target, key_bindings::serialize(&mappings)?.as_bytes())?;
         if let Err(error) = fs::remove_file(source) {
-            let _ = fs::remove_file(target);
+            if let Err(cleanup) = fs::remove_file(target) {
+                crate::diagnostics::warn!(
+                    "Could not roll back the key binding profile rename: {cleanup}"
+                );
+            }
             return Err(error.into());
         }
         Ok(())
@@ -230,7 +234,11 @@ fn write_new(path: &Path, contents: &[u8]) -> Result<(), ProfileError> {
     let mut file = OpenOptions::new().write(true).create_new(true).open(path)?;
     if let Err(error) = file.write_all(contents).and_then(|()| file.sync_all()) {
         drop(file);
-        let _ = fs::remove_file(path);
+        if let Err(cleanup) = fs::remove_file(path) {
+            crate::diagnostics::warn!(
+                "Could not remove an incomplete key binding profile: {cleanup}"
+            );
+        }
         return Err(error.into());
     }
     Ok(())

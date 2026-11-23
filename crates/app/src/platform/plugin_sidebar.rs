@@ -135,6 +135,7 @@ impl PluginSidebarPresenter {
                 entry.bounds = Some(bounds);
             }
             entry.visible = self.selected.as_deref() == Some(identifier);
+            // A later update reapplies the desired visibility after a child window change.
             let _ = entry.webview.set_visible(entry.visible);
             if entry.ready.get() {
                 flush_messages(entry);
@@ -145,6 +146,7 @@ impl PluginSidebarPresenter {
     fn update_visibility(&mut self) {
         for (identifier, entry) in &mut self.entries {
             entry.visible = self.selected.as_deref() == Some(identifier);
+            // The next layout update reapplies visibility if the child is closing.
             let _ = entry.webview.set_visible(entry.visible);
         }
     }
@@ -186,6 +188,7 @@ impl PluginSidebarPresenter {
                 if message.name.is_empty() || message.name.len() > MAX_IPC_NAME_BYTES {
                     return;
                 }
+                // The page may outlive its plugin entry. The host queue stays bounded.
                 let _ = ipc_host.deliver_sidebar_message(
                     ipc_identifier.clone(),
                     message.name,
@@ -196,6 +199,7 @@ impl PluginSidebarPresenter {
                 let loaded = matches!(event, PageLoadEvent::Finished);
                 page_ready.set(loaded);
                 if loaded {
+                    // A finished page can race with plugin teardown.
                     let _ = overlay_loaded_host.notify_plugin_overlay_loaded();
                 }
             })
@@ -281,6 +285,7 @@ fn flush_messages(entry: &mut SidebarEntry) {
         let Ok(data) = serde_json::to_string(&data) else {
             continue;
         };
+        // The old page may have been dismissed while its messages were queued.
         let _ = entry.webview.evaluate_script(&format!(
             "window.iina && window.iina._emit({}, {});",
             js_string(&name),
