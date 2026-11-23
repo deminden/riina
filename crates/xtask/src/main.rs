@@ -8,6 +8,17 @@ use std::{
     process::{Command, ExitCode},
 };
 
+const UI_TEST_TARGETS: &[&str] = &[
+    "-p",
+    "riina-ui",
+    "-p",
+    "riina",
+    "--test",
+    "headless_visual",
+    "--test",
+    "quick_settings_input",
+];
+
 fn main() -> ExitCode {
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
     let arguments: Vec<_> = env::args_os().skip(1).collect();
@@ -91,12 +102,13 @@ fn fast_check(root: &Path, base: &OsStr) -> Result<(), String> {
     let workspace_wide = files.iter().any(|path| shared_build_input(path));
     let mut selected = Vec::new();
     let packages;
-    let mut widget_tests_only = false;
     if workspace_wide {
         selected.push("--workspace");
     } else {
         let mut changed = changed_packages(root, &files)?;
-        widget_tests_only = include_ui_consumers(&mut changed, &files);
+        if include_ui_consumers(&mut changed, &files) {
+            return check_ui(root);
+        }
         if changed.is_empty() {
             return if files.is_empty() {
                 cargo(root, &["test", "-p", "riina-core", "--locked"])
@@ -113,9 +125,6 @@ fn fast_check(root: &Path, base: &OsStr) -> Result<(), String> {
     lint.extend(&selected);
     lint.extend(["--", "-D", "warnings"]);
     cargo(root, &lint)?;
-    if widget_tests_only {
-        return test_ui(root);
-    }
     let mut tests = vec!["test", "--locked"];
     tests.extend(selected);
     cargo(root, &tests)
@@ -141,22 +150,18 @@ fn ui(root: &Path) -> Result<(), String> {
     test_ui(root)
 }
 
+fn check_ui(root: &Path) -> Result<(), String> {
+    let mut lint = vec!["clippy", "--locked", "--lib"];
+    lint.extend_from_slice(UI_TEST_TARGETS);
+    lint.extend(["--", "-D", "warnings"]);
+    cargo(root, &lint)?;
+    test_ui(root)
+}
+
 fn test_ui(root: &Path) -> Result<(), String> {
-    cargo(
-        root,
-        &[
-            "test",
-            "-p",
-            "riina-ui",
-            "-p",
-            "riina",
-            "--locked",
-            "--test",
-            "headless_visual",
-            "--test",
-            "quick_settings_input",
-        ],
-    )
+    let mut tests = vec!["test", "--locked"];
+    tests.extend_from_slice(UI_TEST_TARGETS);
+    cargo(root, &tests)
 }
 
 fn include_ui_consumers(packages: &mut BTreeSet<String>, files: &BTreeSet<PathBuf>) -> bool {

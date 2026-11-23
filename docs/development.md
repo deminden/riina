@@ -123,6 +123,7 @@ Use `cargo xtask check --fast` for a focused batch. It checks formatting and
 source line lengths, then lints and tests the crates with staged, unstaged or
 untracked changes. Slint and Settings search changes check navigation. UI
 source changes alone run the player interaction and visual tests together.
+Linting uses the same packages and includes their libraries and those tests.
 When UI and other Rust code change in one batch, the selected crates also
 include the application. Edits to visual tests or their baselines stay scoped
 to the UI crate. Script and workflow changes run the Python suite. Shared build
