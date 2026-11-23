@@ -9,6 +9,7 @@ mod file_api;
 mod menu;
 mod messaging;
 mod modules;
+mod mpv_api;
 mod network;
 mod output;
 mod permissions;
@@ -107,6 +108,7 @@ struct PluginWorkerHost {
     global_api_mode: Option<GlobalApiMode>,
     module_context: Option<PluginModuleContext>,
     file_system: PluginFiles,
+    player_mpv: Option<riina_mpv::CommandSender>,
     preferences: PluginPreferences,
     events: Arc<Mutex<Vec<HostEvent>>>,
     player_event_subscriptions: Arc<Mutex<BTreeSet<String>>>,
@@ -116,6 +118,7 @@ struct PluginWorkerHost {
 
 struct PluginStorageContext {
     file_system: PluginFiles,
+    player_mpv: Option<riina_mpv::CommandSender>,
     allowed_domains: Vec<String>,
     preferences: PluginPreferences,
 }
@@ -124,6 +127,7 @@ impl PluginStorageContext {
     fn for_package(root: &Path, manifest: &Manifest) -> Result<Self, String> {
         Ok(Self {
             file_system: PluginFiles::for_package(root, &manifest.identifier),
+            player_mpv: None,
             allowed_domains: manifest.allowed_domains.clone(),
             preferences: PluginPreferences::for_package(root, manifest)?,
         })
@@ -154,6 +158,7 @@ impl PluginRuntimeSession {
             manifest,
             granted_permissions,
             PluginPlayerFileContext::default(),
+            None,
         )
     }
 
@@ -162,10 +167,12 @@ impl PluginRuntimeSession {
         manifest: &Manifest,
         granted_permissions: &[String],
         player_context: PluginPlayerFileContext,
+        player_mpv: Option<riina_mpv::CommandSender>,
     ) -> Result<Self, String> {
         let (source, module_context) = read_package_script(package_root, &manifest.entry)?;
-        let storage = PluginStorageContext::for_package(package_root, manifest)?;
+        let mut storage = PluginStorageContext::for_package(package_root, manifest)?;
         storage.file_system.set_player_context(player_context);
+        storage.player_mpv = player_mpv;
         Self::start_entry_with_context(
             &source,
             &manifest.identifier,
@@ -213,6 +220,7 @@ impl PluginRuntimeSession {
             None,
             PluginStorageContext {
                 file_system: PluginFiles::temporary(plugin_identifier),
+                player_mpv: None,
                 allowed_domains: Vec::new(),
                 preferences: PluginPreferences::temporary(),
             },
@@ -268,6 +276,7 @@ impl PluginRuntimeSession {
                     global_api_mode,
                     module_context,
                     file_system: storage.file_system,
+                    player_mpv: storage.player_mpv,
                     preferences: storage.preferences,
                     events: worker_events,
                     player_event_subscriptions: worker_player_event_subscriptions,

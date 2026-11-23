@@ -342,7 +342,8 @@ pub(super) fn prepare(
         saved_audio_filters,
         history,
     } = prepare_settings(app, &prefs_path, loaded, use_system_services);
-    let plugin_host = match PluginHost::start(&prefs_path, &prefs.recent_media, history.entries()) {
+    let plugin_host = match PluginHost::prepare(&prefs_path, &prefs.recent_media, history.entries())
+    {
         Ok(host) => Some(host),
         Err(error) => {
             app.set_status(error.into());

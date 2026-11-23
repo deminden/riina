@@ -6,7 +6,7 @@ use super::{
     events,
     file_api::install_plugin_file_api,
     menu::PLUGIN_MENU_API,
-    messaging, modules, network,
+    messaging, modules, mpv_api, network,
     network::NetworkWorkerContext,
     output::{menu_js_error, record, record_plugin_menu},
     playlist_api, preferences_api, timers,
@@ -103,12 +103,13 @@ fn initialize_realm(
         global_api_mode,
         module_context,
         file_system,
+        player_mpv,
+        execution,
         preferences,
         events,
         player_event_subscriptions,
         observed_mpv_properties,
         mpv_property_observation_requests,
-        ..
     } = host;
     let globals = ctx.globals();
     let api = Object::new(ctx.clone())?;
@@ -174,6 +175,7 @@ fn initialize_realm(
         network.allowed_domains.clone(),
     )?;
     if global_api_mode != Some(GlobalApiMode::Controller) {
+        mpv_api::install(&api, player_mpv, execution)?;
         playlist_api::install(
             &api,
             &events,

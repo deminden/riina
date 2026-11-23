@@ -12,6 +12,7 @@ use std::{
 // Keep C discriminants as integers so unknown values from newer runtimes stay readable.
 pub(crate) mod event_id {
     pub const NONE: std::ffi::c_int = 0;
+    pub const GET_PROPERTY_REPLY: std::ffi::c_int = 3;
     pub const COMMAND_REPLY: std::ffi::c_int = 5;
     pub const START_FILE: std::ffi::c_int = 6;
     pub const END_FILE: std::ffi::c_int = 7;
@@ -347,6 +348,7 @@ pub struct Api {
     pub destroy: unsafe extern "C" fn(*mut c_void),
     pub option: unsafe extern "C" fn(*mut c_void, *const c_char, *const c_char) -> c_int,
     pub command: unsafe extern "C" fn(*mut c_void, u64, *const *const c_char) -> c_int,
+    pub get_property: unsafe extern "C" fn(*mut c_void, u64, *const c_char, c_int) -> c_int,
     pub observe: unsafe extern "C" fn(*mut c_void, u64, *const c_char, c_int) -> c_int,
     pub wait: unsafe extern "C" fn(*mut c_void, f64) -> *const Event,
     pub event_name: unsafe extern "C" fn(c_int) -> *const c_char,
@@ -421,6 +423,7 @@ impl Api {
                 destroy: symbol!("mpv_terminate_destroy"),
                 option: symbol!("mpv_set_option_string"),
                 command: symbol!("mpv_command_async"),
+                get_property: symbol!("mpv_get_property_async"),
                 observe: symbol!("mpv_observe_property"),
                 wait: symbol!("mpv_wait_event"),
                 event_name: symbol!("mpv_event_name"),

@@ -221,6 +221,7 @@ fn execute_with_files(
         None,
         PluginStorageContext {
             file_system: files,
+            player_mpv: None,
             allowed_domains: Vec::new(),
             preferences: PluginPreferences::temporary(),
         },
@@ -465,6 +466,7 @@ fn core_status_chapter_recent_document_and_version_reads_follow_playback_context
         None,
         PluginStorageContext {
             file_system: files,
+            player_mpv: None,
             allowed_domains: Vec::new(),
             preferences: PluginPreferences::temporary(),
         },

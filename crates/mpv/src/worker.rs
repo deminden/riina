@@ -9,6 +9,7 @@ use crate::{
     ffi::{Api, end_reason, event_id, format},
     pending::{PendingCommand, ReplyKind},
     properties::OBSERVED,
+    property_read::{Pending, Request},
     seek_feedback::{self, SeekFeedback},
 };
 use riina_core::{CapturedFrame, Command, CommandPlan, NoticeSeverity, Phase, Playback};
@@ -102,6 +103,7 @@ impl<N: Fn(Arc<Playback>)> Start<N> {
                         return;
                     }
                     Message::Intent(command) => state.handle_intent(&handle, command),
+                    Message::ReadProperty(request) => state.request_property(&handle, request),
                     Message::Shutdown => return,
                 }
                 state.drain_events(&mut handle);
@@ -221,6 +223,7 @@ struct WorkerState {
     observers: BTreeMap<u64, String>,
     next_observer: u64,
     pending: HashMap<u64, PendingCommand>,
+    property_reads: HashMap<u64, Pending>,
     pending_drop_subtitles: Vec<String>,
     resume_on_load: bool,
     seek_pending: bool,
@@ -408,8 +411,38 @@ impl WorkerState {
         Ok(())
     }
 
+    fn request_property(&mut self, handle: &Handle, request: Request) {
+        const MAX_PENDING_READS: usize = 32;
+        let now = Instant::now();
+        self.property_reads
+            .retain(|_, pending| pending.deadline > now);
+        let error = if request.pending.deadline <= now {
+            EngineError::PropertyReadTimeout
+        } else if self.property_reads.len() >= MAX_PENDING_READS {
+            EngineError::QueueFull
+        } else {
+            self.next_id += 1;
+            match handle.request_property(self.next_id, &request) {
+                Ok(()) => {
+                    self.property_reads.insert(self.next_id, request.pending);
+                    return;
+                }
+                Err(error) => error,
+            }
+        };
+        let _ = request.pending.reply.send(Err(error));
+    }
+
     fn drain_events(&mut self, handle: &mut Handle) {
         while let Some(event) = handle.wait() {
+            if event.id() == event_id::GET_PROPERTY_REPLY {
+                if let Some(pending) = self.property_reads.remove(&event.userdata())
+                    && pending.deadline > Instant::now()
+                {
+                    let _ = pending.reply.send(event.property_reply());
+                }
+                continue;
+            }
             // Native events update playback, retained plugin history, or both.
             self.mark_changed();
             let name = self.event_names.entry(event.id()).or_insert_with(|| {
@@ -459,6 +492,7 @@ impl WorkerState {
                 event.apply_property(&mut self.playback, observer);
             }
             event_id::QUEUE_OVERFLOW => {
+                self.property_reads.clear();
                 record_notice(
                     &mut self.playback,
                     NoticeSeverity::Error,

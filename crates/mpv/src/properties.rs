@@ -68,6 +68,31 @@ pub(super) unsafe fn observed_property_value(
     let node = unsafe { &*property.data.cast::<ffi::Node>() };
     // SAFETY: the worker has not waited for another event, so node-owned data is live.
     let value = unsafe { node.copy_json() }.map_err(ObservedPropertyError::Decode)?;
+    bounded_plugin_value(value)
+}
+
+pub(super) unsafe fn queried_property_value(
+    property: &Property,
+) -> Result<serde_json::Value, ObservedPropertyError> {
+    use serde_json::Value;
+    if property.data.is_null() {
+        return Ok(Value::Null);
+    }
+    // SAFETY: the live reply owns a correctly tagged property value.
+    let value = unsafe { property_value(property) }.map_err(ObservedPropertyError::Decode)?;
+    bounded_plugin_value(match value {
+        Some(PropertyValue::Node(value)) => value,
+        Some(PropertyValue::Flag(flag)) => Value::Bool(flag),
+        Some(PropertyValue::Double(value)) => Value::from(value),
+        Some(PropertyValue::Integer(value)) => Value::from(value),
+        Some(PropertyValue::Text(value)) => Value::String(value),
+        None => Value::Null,
+    })
+}
+
+fn bounded_plugin_value(
+    value: serde_json::Value,
+) -> Result<serde_json::Value, ObservedPropertyError> {
     let encoded = serde_json::to_vec(&value).map_err(ObservedPropertyError::Serialize)?;
     if encoded.len() > 1024 * 1024 {
         return Err(ObservedPropertyError::PluginLimit);

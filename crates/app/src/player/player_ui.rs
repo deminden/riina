@@ -246,7 +246,7 @@ fn configure_with_engine(
     }: SessionStartup,
 ) -> Result<UiSession, Box<dyn std::error::Error>> {
     let startup::PreparedStartup {
-        session,
+        mut session,
         engine_options,
         observation,
     } = startup::prepare(
@@ -275,6 +275,9 @@ fn configure_with_engine(
         .start(native.as_ref(), engine_options, notify)
         .inspect_err(|error| app.set_status(error.clone().into()))
         .map_err(std::io::Error::other)?;
+    if let Some(host) = &mut session.plugin_host {
+        host.attach_player(command_sender.clone());
+    }
     let resize_filter = native
         .is_none()
         .then(|| crate::window_aspect::connect_with_target(app, None, &media_geometry));

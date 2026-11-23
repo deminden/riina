@@ -250,6 +250,7 @@ impl PluginHostHandle {
 
 pub(crate) struct PluginHost {
     handle: PluginHostHandle,
+    player_start: Option<mpsc::SyncSender<Option<riina_mpv::CommandSender>>>,
     worker: Option<JoinHandle<()>>,
 }
 
@@ -263,7 +264,18 @@ pub(crate) fn is_enabled_plugin(preferences_path: &Path, identifier: &str) -> bo
 }
 
 impl PluginHost {
+    #[cfg(test)]
     pub(crate) fn start(
+        preferences_path: &Path,
+        recent_media: &[riina_core::RecentMedia],
+        playback_history: &[riina_core::playback_history::Entry],
+    ) -> Result<Self, String> {
+        let mut host = Self::prepare(preferences_path, recent_media, playback_history)?;
+        host.start_player(None);
+        Ok(host)
+    }
+
+    pub(crate) fn prepare(
         preferences_path: &Path,
         recent_media: &[riina_core::RecentMedia],
         playback_history: &[riina_core::playback_history::Entry],
@@ -272,6 +284,7 @@ impl PluginHost {
         let permissions_path = preferences_path.with_file_name("plugin-permissions.json");
         let enabled_path = preferences_path.with_file_name("plugin-enabled.json");
         let (commands, receiver) = mpsc::sync_channel(64);
+        let (player_start, player_ready) = mpsc::sync_channel(1);
         let messages = Arc::new(Mutex::new(Vec::new()));
         let worker_messages = messages.clone();
         let ui_activity = Arc::new(UiActivity::new());
@@ -281,11 +294,17 @@ impl PluginHost {
             .with_recent_documents(recent_document_values(recent_media))
             .with_playback_history(playback_history_values(playback_history));
         let worker = crate::background::spawn_named("riina-plugin-host", move || {
+            let Ok(player_mpv) = player_ready.recv() else {
+                return;
+            };
             crate::plugin_packages::sweep_staging(&plugins_directory);
             run_host(
-                plugins_directory,
-                permissions_path,
-                enabled_path,
+                PluginHostPaths {
+                    plugins_directory,
+                    permissions_path,
+                    enabled_path,
+                    player_mpv,
+                },
                 worker_messages,
                 initial_player_context,
                 receiver,
@@ -299,6 +318,7 @@ impl PluginHost {
                 messages,
                 ui_activity,
             },
+            player_start: Some(player_start),
             worker: Some(worker),
         })
     }
@@ -306,10 +326,22 @@ impl PluginHost {
     pub(crate) fn handle(&self) -> PluginHostHandle {
         self.handle.clone()
     }
+
+    pub(crate) fn attach_player(&mut self, commands: riina_mpv::CommandSender) {
+        self.start_player(Some(commands));
+    }
+
+    fn start_player(&mut self, commands: Option<riina_mpv::CommandSender>) {
+        if let Some(ready) = self.player_start.take() {
+            let _ = ready.send(commands);
+        }
+    }
 }
 
 impl Drop for PluginHost {
     fn drop(&mut self) {
+        // An engine startup failure closes the gate before joining the host.
+        drop(self.player_start.take());
         // A disconnected receiver means the host has already stopped.
         let _ = self.handle.commands.send(PluginCommand::Shutdown);
         if let Some(worker) = self.worker.take() {
@@ -390,19 +422,12 @@ impl PluginInstanceKey {
 }
 
 fn run_host(
-    plugins_directory: PathBuf,
-    permissions_path: PathBuf,
-    enabled_path: PathBuf,
+    paths: PluginHostPaths,
     messages: Arc<Mutex<Vec<PluginHostMessage>>>,
     initial_player_context: PluginPlayerFileContext,
     commands: mpsc::Receiver<PluginCommand>,
     ui_activity: &UiActivity,
 ) {
-    let paths = PluginHostPaths {
-        plugins_directory,
-        permissions_path,
-        enabled_path,
-    };
     let mut sessions = BTreeMap::<PluginInstanceKey, PluginRuntimeSession>::new();
     let mut plugin_directories = BTreeMap::<String, PluginDirectory>::new();
     let mut player_context = initial_player_context;
@@ -425,7 +450,7 @@ fn run_host(
         if let Err(error) = activate(
             &plugin.manifest,
             &plugin.directory,
-            &paths.permissions_path,
+            &paths,
             &messages,
             &mut sessions,
             &mut plugin_directories,
@@ -486,6 +511,7 @@ struct PluginHostPaths {
     plugins_directory: PathBuf,
     permissions_path: PathBuf,
     enabled_path: PathBuf,
+    player_mpv: Option<riina_mpv::CommandSender>,
 }
 
 struct PluginDirectory {
@@ -510,7 +536,7 @@ fn handle_command(
             if let Err(error) = activate(
                 &manifest,
                 &directory,
-                &paths.permissions_path,
+                paths,
                 messages,
                 sessions,
                 plugin_directories,
@@ -546,7 +572,7 @@ fn handle_command(
             let result = activate(
                 &manifest,
                 &directory,
-                &paths.permissions_path,
+                paths,
                 messages,
                 sessions,
                 plugin_directories,
@@ -750,7 +776,7 @@ fn reload_enabled_plugins(
         match activate(
             &plugin.manifest,
             &plugin.directory,
-            &paths.permissions_path,
+            paths,
             messages,
             sessions,
             plugin_directories,
@@ -982,7 +1008,7 @@ fn read_plugin_order(enabled_path: &Path) -> Vec<String> {
 fn activate(
     manifest: &Manifest,
     directory: &Path,
-    permissions_path: &Path,
+    paths: &PluginHostPaths,
     messages: &Arc<Mutex<Vec<PluginHostMessage>>>,
     sessions: &mut BTreeMap<PluginInstanceKey, PluginRuntimeSession>,
     plugin_directories: &mut BTreeMap<String, PluginDirectory>,
@@ -998,7 +1024,7 @@ fn activate(
             manifest.name
         ));
     }
-    let grants = load_grants(permissions_path, &manifest.identifier)?;
+    let grants = load_grants(&paths.permissions_path, &manifest.identifier)?;
     let global = manifest
         .global_entry
         .as_ref()
@@ -1012,6 +1038,7 @@ fn activate(
         manifest,
         &grants,
         player_context.clone(),
+        paths.player_mpv.clone(),
     )
     .map_err(|error| format!("Could not start {}: {error}", manifest.name))?;
     if let Some(global) = global {

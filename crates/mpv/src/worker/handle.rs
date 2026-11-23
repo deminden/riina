@@ -3,7 +3,8 @@ use super::super::{WakeupContext, diag, trace_shutdown, wakeup};
 use crate::{
     EngineError,
     ffi::{Api, CommandReply, EndFile, Event, Property, event_id},
-    properties::{apply_property, observed_property_value},
+    properties::{apply_property, observed_property_value, queried_property_value},
+    property_read::Request,
 };
 use riina_core::{CapturedFrame, Playback};
 use std::{
@@ -50,6 +51,18 @@ impl Handle {
         // SAFETY: the live core copies the NUL-terminated property name during this call.
         self.api.check("mpv_observe_property", unsafe {
             (self.api.observe)(self.raw.as_ptr(), id, name.as_ptr(), format)
+        })
+    }
+
+    pub(super) fn request_property(&self, id: u64, request: &Request) -> Result<(), EngineError> {
+        // SAFETY: the live core copies the property name and format for the async read.
+        self.api.check("mpv_get_property_async", unsafe {
+            (self.api.get_property)(
+                self.raw.as_ptr(),
+                id,
+                request.name.as_ptr(),
+                request.format.native(),
+            )
         })
     }
 
@@ -120,6 +133,20 @@ pub(super) struct EventRef<'a> {
 }
 
 impl EventRef<'_> {
+    pub(super) fn property_reply(&self) -> Result<serde_json::Value, EngineError> {
+        if self.failed() {
+            return Ok(serde_json::Value::Null);
+        }
+        let Some(property) = self.payload::<Property>(event_id::GET_PROPERTY_REPLY) else {
+            return Ok(serde_json::Value::Null);
+        };
+        // SAFETY: both scalar and node data stay live until the worker waits again.
+        unsafe { queried_property_value(property) }.map_err(|error| EngineError::Native {
+            call: "mpv_get_property_async",
+            message: error.to_string(),
+        })
+    }
+
     pub(super) fn id(&self) -> c_int {
         self.event.id
     }

@@ -47,6 +47,13 @@ impl ExecutionControl {
                 .map_or(true, |deadline| Instant::now() >= *deadline)
     }
 
+    pub(super) fn deadline(&self) -> Option<Instant> {
+        if self.is_cancelled() {
+            return None;
+        }
+        self.deadline.lock().ok().map(|deadline| *deadline)
+    }
+
     pub(super) fn drain_jobs(&self, runtime: &Runtime) -> Result<(), String> {
         let mut failure = None;
         while runtime.is_job_pending() {

@@ -1415,6 +1415,33 @@ covered the new AppKit adapter from Windows. AppKit linking and desktop
 verification, interactive Windows popup selection, and plugin popup
 presentation on Linux remain open.
 
+### Plugin mpv property reads 2026-11-23
+
+The existing native observation test also reads the engine version before
+loading media, then reads the paused flag, duration, path and track list.
+It checks that a missing property returns no value. The plugin host test
+covers the four JavaScript defaults and the absence of the player API from
+global entries.
+
+In isolated Windows and Linux X11 sessions, a player plugin read the real
+mpv version during entry evaluation. During playback of the five-second AVI
+it read pause, duration, source path, and the video and audio tracks. A missing
+property returned `false`, `0`, `null`, and `null` through the four getters.
+Both application processes exited normally. The Windows executable SHA-256
+was `67f10fd6208d7c8f6e2c0e437712928810896dd61c6ee5f8f5a79593ae3b9513`
+with libmpv SHA-256
+`a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`.
+The Linux executable SHA-256 was
+`9fb5e6262425a3f268b29fb30cba6ee980c5cbafa2f624531d70175d3be0bbcb`.
+It used the rebuilt libmpv recorded in the Linux tone-mapping verification.
+
+Windows passed the locked workspace build, strict Clippy, 883 Rust tests,
+78 Python tests and all 57 null-output native tests. Linux x64 passed the
+locked application build, strict workspace Clippy, 844 Rust tests and all 57
+null-output native tests with the provisioned runtime libraries. Strict
+Apple Silicon workspace Clippy passed from Windows. macOS playback and the
+remaining mpv plugin methods still need verification.
+
 ### Plugin sidebar manifest discovery 2026-10-14
 
 Manifest tests cover bounded localized labels. Runtime tests cover confined

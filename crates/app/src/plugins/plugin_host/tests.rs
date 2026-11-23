@@ -319,6 +319,10 @@ fn plugin_menu_actions_from_both_runtime_scopes_reach_their_owner() {
         r"
         iina.event.on('iina.menu-update', () => iina.log('plugin-menu-opened'));
         iina.event.on('iina.window-will-close', () => {});
+        if (iina.mpv.getFlag('missing') !== false || iina.mpv.getNumber('missing') !== 0 ||
+            iina.mpv.getString('missing') !== null || iina.mpv.getNative('missing') !== null) {
+            throw Error('unexpected mpv getter fallback');
+        }
         iina.menu.addItem(iina.menu.item('Run action', () => iina.log('menu-action-ran')));
         iina.playlist.registerMenuItemBuilder(rows => {
             const submenu = iina.menu.item('Tools', null);
@@ -336,7 +340,9 @@ fn plugin_menu_actions_from_both_runtime_scopes_reach_their_owner() {
     std::fs::write(
         directory.join("global.js"),
         r"
-        if (iina.playlist !== undefined) throw Error('unexpected global playlist');
+        if (iina.playlist !== undefined || iina.mpv !== undefined) {
+            throw Error('unexpected global player API');
+        }
         iina.menu.addItem(iina.menu.item('Global action', () => iina.log('global-menu-action-ran')));
         ",
     )

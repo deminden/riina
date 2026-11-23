@@ -1,10 +1,13 @@
 use super::*;
+use riina_mpv::{CommandSender, EngineError, MpvPropertyFormat};
 
 #[test]
 #[ignore = "requires provisioned libmpv; exercises generic property observation"]
-fn dynamic_mpv_property_observation_publishes_generic_node_values() {
+fn dynamic_mpv_property_observation_publishes_generic_node_values() -> Result<(), EngineError> {
     let root = fixture_root();
     let harness = Harness::start(&root).unwrap();
+    let commands = harness.player.command_sender();
+    assert!(read(&commands, "mpv-version", MpvPropertyFormat::Text)?.is_string());
     let startup_versions = harness.wait(|state| {
         state.phase == Phase::Stopped
             && state
@@ -63,7 +66,49 @@ fn dynamic_mpv_property_observation_publishes_generic_node_values() {
         "unexpected native error: {:?}",
         observed.error()
     );
+    harness.send(Command::SetPaused(true)).unwrap();
+    harness.wait(|state| state.paused);
+    verify_direct_reads(&commands)?;
     drop(harness);
+    Ok(())
+}
+
+fn read(
+    commands: &CommandSender,
+    name: &str,
+    format: MpvPropertyFormat,
+) -> Result<serde_json::Value, EngineError> {
+    commands.read_mpv_property(name, format, Instant::now() + Duration::from_secs(2))
+}
+
+fn verify_direct_reads(commands: &CommandSender) -> Result<(), EngineError> {
+    assert_eq!(read(commands, "pause", MpvPropertyFormat::Flag)?, true);
+    let duration = read(commands, "duration", MpvPropertyFormat::Number)?;
+    assert!(
+        duration
+            .as_f64()
+            .is_some_and(|seconds| (seconds - 5.0).abs() < 0.1)
+    );
+    let path = read(commands, "path", MpvPropertyFormat::Text)?;
+    assert!(
+        path.as_str()
+            .is_some_and(|path| path.ends_with("moving-square.avi"))
+    );
+    let tracks = read(commands, "track-list", MpvPropertyFormat::Node)?;
+    assert!(
+        tracks
+            .as_array()
+            .is_some_and(|tracks| tracks.iter().any(|track| track["type"] == "video"))
+    );
+    assert!(
+        read(
+            commands,
+            "riina-missing-test-property",
+            MpvPropertyFormat::Node
+        )?
+        .is_null()
+    );
+    Ok(())
 }
 
 #[test]
