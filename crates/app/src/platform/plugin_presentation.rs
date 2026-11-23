@@ -7,15 +7,15 @@ use crate::{
 use std::{cell::RefCell, rc::Rc};
 
 pub(crate) struct PluginPresenters {
-    #[cfg(target_os = "windows")]
-    overlay: Rc<RefCell<super::PluginOverlayPresenter>>,
+    #[cfg(any(target_os = "windows", target_os = "macos"))]
+    overlay: Rc<RefCell<super::plugin_overlay::Presenter>>,
     pub(crate) sidebar: Rc<RefCell<PluginSidebarPresenter>>,
 }
 
 impl PluginPresenters {
     pub(crate) fn new(app: &PlayerWindow) -> Self {
         Self {
-            #[cfg(target_os = "windows")]
+            #[cfg(any(target_os = "windows", target_os = "macos"))]
             overlay: Rc::default(),
             sidebar: Rc::new(RefCell::new(PluginSidebarPresenter::new(app))),
         }
@@ -26,16 +26,19 @@ impl PluginPresenters {
         native: Option<&NativePresentation>,
         host: &PluginHostHandle,
     ) -> PluginOverlayDelivery {
-        #[cfg(target_os = "windows")]
+        #[cfg(any(target_os = "windows", target_os = "macos"))]
         {
+            #[cfg(target_os = "macos")]
+            let _ = native;
             PluginOverlayDelivery {
-                presenter: self.overlay.clone(),
+                presenter: Rc::downgrade(&self.overlay),
+                #[cfg(target_os = "windows")]
                 parent: native.map(NativePresentation::webview_parent_window),
                 host: host.clone(),
             }
         }
 
-        #[cfg(not(target_os = "windows"))]
+        #[cfg(not(any(target_os = "windows", target_os = "macos")))]
         {
             let _ = (native, host);
             PluginOverlayDelivery {}
@@ -43,29 +46,30 @@ impl PluginPresenters {
     }
 }
 
+#[derive(Clone)]
 pub(crate) struct PluginOverlayDelivery {
-    #[cfg(target_os = "windows")]
-    presenter: Rc<RefCell<super::PluginOverlayPresenter>>,
+    #[cfg(any(target_os = "windows", target_os = "macos"))]
+    presenter: std::rc::Weak<RefCell<super::plugin_overlay::Presenter>>,
     #[cfg(target_os = "windows")]
     parent: Option<std::sync::Arc<slint::winit_030::winit::window::Window>>,
-    #[cfg(target_os = "windows")]
+    #[cfg(any(target_os = "windows", target_os = "macos"))]
     host: PluginHostHandle,
 }
 
 impl PluginOverlayDelivery {
     pub(crate) fn apply(&self, message: PluginHostMessage) -> Result<(), String> {
-        #[cfg(target_os = "windows")]
+        #[cfg(any(target_os = "windows", target_os = "macos"))]
         {
-            let parent = self
-                .parent
-                .as_ref()
-                .ok_or("Plugin video overlays require native video presentation")?;
-            self.presenter
-                .borrow_mut()
-                .apply_host_message(parent, &self.host, message)
-                .map(|_| ())
+            if let Some(presenter) = self.presenter.upgrade() {
+                let mut presenter = presenter.borrow_mut();
+                if presenter.pending.len() >= 512 {
+                    return Err("Plugin overlay presenter has pending updates".into());
+                }
+                presenter.pending.push(message);
+            }
+            Ok(())
         }
-        #[cfg(not(target_os = "windows"))]
+        #[cfg(not(any(target_os = "windows", target_os = "macos")))]
         {
             let _ = message;
             Err("Plugin video overlays are unavailable on this platform".into())
@@ -73,24 +77,87 @@ impl PluginOverlayDelivery {
     }
 
     pub(crate) fn remove(&self, identifier: &str) {
-        #[cfg(target_os = "windows")]
-        self.presenter.borrow_mut().remove(identifier);
-        #[cfg(not(target_os = "windows"))]
+        #[cfg(any(target_os = "windows", target_os = "macos"))]
+        if let Some(presenter) = self.presenter.upgrade() {
+            let mut presenter = presenter.borrow_mut();
+            presenter.pending.retain(|message| match message {
+                PluginHostMessage::Overlay { route, .. } => route.identifier != identifier,
+                PluginHostMessage::RemoveOverlay(plugin_identifier) => {
+                    plugin_identifier != identifier
+                }
+                _ => true,
+            });
+            presenter
+                .pending
+                .push(PluginHostMessage::RemoveOverlay(identifier.into()));
+        }
+        #[cfg(not(any(target_os = "windows", target_os = "macos")))]
         let _ = identifier;
     }
 
     pub(crate) fn update(&self, app: &PlayerWindow) {
-        #[cfg(target_os = "windows")]
+        #[cfg(any(target_os = "windows", target_os = "macos"))]
         {
-            use slint::ComponentHandle;
-            self.presenter.borrow_mut().update(
-                app.get_window_width(),
-                app.get_window_height(),
-                f64::from(app.window().scale_factor()),
+            use slint::{ComponentHandle, winit_030::WinitWindowAccessor};
+            let Some(presenter) = self.presenter.upgrade() else {
+                return;
+            };
+            #[cfg(target_os = "windows")]
+            if let Some(parent) = self.parent.as_deref() {
+                let bounds = super::plugin_overlay::bounds(
+                    0.0,
+                    0.0,
+                    app.get_window_width(),
+                    app.get_window_height(),
+                );
+                self.update_surface(&presenter, parent, bounds, true, app);
+                return;
+            }
+            let bounds = super::plugin_overlay::bounds(
+                app.get_video_origin_x(),
+                app.get_video_origin_y(),
+                app.get_video_width(),
+                app.get_video_height(),
             );
+            let dialog = app.global::<riina_ui::PlayerDialogState>();
+            let allowed = app.get_video_width() > 0.0
+                && app.get_video_height() > 0.0
+                && !app
+                    .global::<riina_ui::PlayerMusicModeState>()
+                    .get_music_mode()
+                && !app.global::<riina_ui::PlayerCropState>().get_crop_editing()
+                && !dialog.get_dialog_open()
+                && !dialog.get_jump_time_dialog_visible()
+                && !dialog.get_url_dialog_visible()
+                && !dialog.get_plugin_interaction_visible();
+            app.window().with_winit_window(|parent| {
+                self.update_surface(&presenter, parent, bounds, allowed, app)
+            });
         }
-        #[cfg(not(target_os = "windows"))]
+        #[cfg(not(any(target_os = "windows", target_os = "macos")))]
         let _ = app;
+    }
+
+    #[cfg(any(target_os = "windows", target_os = "macos"))]
+    fn update_surface(
+        &self,
+        presenter: &RefCell<super::plugin_overlay::Presenter>,
+        parent: &slint::winit_030::winit::window::Window,
+        bounds: wry::Rect,
+        allowed: bool,
+        app: &PlayerWindow,
+    ) {
+        let Ok(mut presenter) = presenter.try_borrow_mut() else {
+            return;
+        };
+        for message in std::mem::take(&mut presenter.pending) {
+            if let Err(error) = presenter.dispatch(parent, &self.host, message, bounds) {
+                crate::diagnostics::report(app, error);
+            }
+        }
+        if let Err(error) = presenter.update(bounds, allowed) {
+            crate::diagnostics::report(app, error);
+        }
     }
 }
 

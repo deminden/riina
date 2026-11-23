@@ -1676,6 +1676,29 @@ tests. The pinned null-output engine passed all 58 native tests in 11.20 s.
 Strict Apple Silicon cross-target Clippy passed. Native macOS and managed-player
 Wayland interaction remain unverified.
 
+### Shared plugin overlay presentation 2026-11-23
+
+Both Windows renderers loaded a confined test page and switched to Simple
+Mode on a private desktop. The WebViews reported the expected opacity, content
+and styles. Both documents emitted their load events and returned messages to
+the plugin. Each player exited normally. The same binary passed the ten
+playback, fullscreen, menu and shutdown checks in 9.215 s. The Windows SHA-256
+was `5f5a9e818ae71ffa1e6033c207e25d1ac70dbc59c0de36fb5ae0a3e1ce8c6933`.
+
+The headless tests cover stale document completion, stale replies after plugin
+reload and hit-test invalidation after a cursor move. The Windows source gate
+passed strict Clippy, 922 Rust tests and 78 Python tests. The failed menu callback
+from the first run reproduced in isolation. The callback passed with a 512 KiB
+QuickJS stack budget, which includes native host frames. The private desktop
+rejected full-screen capture, so pixel and physical pointer evidence remains
+open.
+
+Strict Apple Silicon cross-target Clippy passed. The locked Linux build,
+513 app tests and 53 interaction tests passed. On X11 and Wayland, the shared
+page bridge preserved independent player and global standalone WebViews,
+including close, reopen and Simple Mode while paused. Native macOS overlay
+interaction and Linux overlay presentation remain open.
+
 The locked Windows workspace build, strict Clippy, 883 Rust tests and 78 Python
 tests passed. Linux x64 passed the locked application build, strict workspace
 Clippy and 844 Rust tests. Strict Apple Silicon workspace Clippy passed from

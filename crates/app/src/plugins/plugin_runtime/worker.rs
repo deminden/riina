@@ -356,7 +356,7 @@ fn run_callbacks(
                 ),
                 "playlist menu action",
             ),
-            #[cfg(any(target_os = "windows", test))]
+            #[cfg(any(target_os = "windows", target_os = "macos", test))]
             Some(RuntimeCommand::DeliverOverlayMessage(name, data)) => {
                 // An interrupted subscription update must not admit a message.
                 if !services.overlay.lock().is_ok_and(|state| {

@@ -705,3 +705,69 @@ fn core_ui_visibility_messages_reach_the_player_ui() {
         PluginHostMessage::SetUiVisibility(true)
     );
 }
+
+#[cfg(any(target_os = "windows", target_os = "macos"))]
+#[test]
+fn an_old_overlay_cannot_deliver_messages_to_a_reloaded_plugin() {
+    let scratch = TempDir::new("overlay-realm-routing").unwrap();
+    let root = scratch.path();
+    let identifier = "org.example.overlay";
+    let package = root.join("Plugins/org.example.overlay.iinaplugin");
+    fs::create_dir_all(&package).unwrap();
+    fs::write(package.join("Info.json"), r#"{"name":"Overlay","identifier":"org.example.overlay","version":"1.0.0","author":{"name":"Test"},"entry":"main.js","permissions":["video-overlay"]}"#).unwrap();
+    fs::write(
+        package.join("main.js"),
+        "iina.overlay.simpleMode(); iina.overlay.onMessage('reply', iina.log);",
+    )
+    .unwrap();
+    fs::write(
+        root.join("plugin-enabled.json"),
+        r#"["org.example.overlay"]"#,
+    )
+    .unwrap();
+    fs::write(
+        root.join("plugin-permissions.json"),
+        r#"{"org.example.overlay":["video-overlay"]}"#,
+    )
+    .unwrap();
+    let host = PluginHost::start(&root.join("preferences.json"), &[], &[]).unwrap();
+    let handle = host.handle();
+    let wait_for_route = || {
+        wait_for_host_message(&handle, |message| match message {
+            PluginHostMessage::Overlay {
+                route,
+                effect: OverlayEffect::EnterSimpleMode,
+                ..
+            } => Some(route),
+            _ => None,
+        })
+    };
+    let old = wait_for_route();
+    handle
+        .deliver_overlay_message(
+            old.clone(),
+            "reply".into(),
+            serde_json::json!("first reply"),
+        )
+        .unwrap();
+    wait_for_log(&handle, "first reply");
+    handle.suspend_for_update(identifier.into()).unwrap();
+    handle
+        .activate_after_update(Manifest::load_from_directory(&package).unwrap(), package)
+        .unwrap();
+    let updated = wait_for_route();
+    assert_ne!(old.realm, updated.realm);
+    handle
+        .deliver_overlay_message(old, "reply".into(), serde_json::json!("late reply"))
+        .unwrap();
+    handle
+        .deliver_overlay_message(updated, "reply".into(), serde_json::json!("new reply"))
+        .unwrap();
+    wait_for_host_message(&handle, |message| match message {
+        PluginHostMessage::Log(text) => {
+            assert!(!text.ends_with("late reply"));
+            text.ends_with("new reply").then_some(())
+        }
+        _ => None,
+    });
+}

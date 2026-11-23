@@ -123,6 +123,7 @@ pub(super) fn install(
             handle.ui.windows.clone(),
         )));
         let presenter_weak = Rc::downgrade(&presenter);
+        let overlay = presenters.overlay_delivery(native, handle);
         let global_weak = services
             .as_ref()
             .map(|services| Rc::downgrade(&services.standalone));
@@ -138,6 +139,7 @@ pub(super) fn install(
             let Some(app) = app_weak.upgrade() else {
                 return;
             };
+            overlay.update(&app);
             if let Some(presenter) = developer_weak.as_ref().and_then(std::rc::Weak::upgrade)
                 && let Ok(mut presenter) = presenter.try_borrow_mut()
             {

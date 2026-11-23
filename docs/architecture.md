@@ -256,6 +256,20 @@ discarded, and a reply that arrives after the player has moved on has no effect.
 Text editors, dialogs, crop controls and reserved native menus keep their own
 input paths.
 
+### Plugin video overlays
+
+The player owns each overlay WebView. On native Windows it sits in the video
+host. The shared Windows and AppKit players attach their overlays within the
+video viewport. The shared presenters hide the view during crop edits, modal
+dialogs and Music Mode while retaining its document.
+
+Overlays and standalone plugin windows share the confined page protocol. The
+page origin isolates browser storage and a document ID ties messages to the
+active page. Overlay replies also carry the owning plugin realm so a retired
+WebView cannot send a message to a replacement entry. Hit testing uses the last
+DOM result for the current pointer position. Moving the pointer, changing the
+document or hiding the view invalidates the result.
+
 ### Standalone plugin windows
 
 Each player or global entry owns one standalone window state and a distinct

@@ -19,6 +19,9 @@ pub(crate) mod plugin_dialogs;
 pub(crate) use pip_session::PictureInPictureSession;
 mod player_input;
 pub(crate) mod playlist_menu;
+#[cfg(any(target_os = "windows", target_os = "macos"))]
+mod plugin_overlay;
+mod plugin_page;
 pub(crate) use player_input::{
     PlayerFocus, PlayerScrollMonitor, WinitWheelInput, batched_file_drops, file_drop_position,
     player_gesture_handler, winit_wheel_input,
@@ -1180,8 +1183,8 @@ pub(crate) use unix::SessionExtras;
 pub(crate) use windows::SessionExtras;
 #[cfg(target_os = "windows")]
 pub(crate) use windows::{
-    NativePresentation, NativeVideoMaterialCapture, PluginOverlayPresenter, file_dialog,
-    open_dialog, services::*, window_sizing::WindowSizing,
+    NativePresentation, NativeVideoMaterialCapture, file_dialog, open_dialog, services::*,
+    window_sizing::WindowSizing,
 };
 
 #[cfg(target_os = "macos")]

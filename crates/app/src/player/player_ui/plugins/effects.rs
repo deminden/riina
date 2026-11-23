@@ -168,7 +168,6 @@ impl PluginEffects {
     }
 
     pub(super) fn update_presenters(&self, app: &PlayerWindow) {
-        self.overlay.update(app);
         let selected = if app.global::<riina_ui::PlayerSidebarState>().get_sidebar() == 7
             || app
                 .global::<riina_ui::PlayerSidebarState>()

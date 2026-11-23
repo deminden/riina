@@ -1,5 +1,5 @@
 (() => {
-    const key = "riinaStandaloneDocument";
+    const key = "riinaPluginDocument";
     const tag = new URL(location.href).searchParams.get("riina_document");
     let documentId = tag;
     try {
@@ -15,6 +15,6 @@
             }
         },
         _emit(name, data) { listeners.get(name)?.(data === undefined ? undefined : JSON.parse(data)); },
-        _matchesStandaloneDocument(tag) { return documentId === tag; }
+        _matchesDocument(tag) { return documentId === tag; }
     };
 })();

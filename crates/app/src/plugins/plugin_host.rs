@@ -33,6 +33,12 @@ const MAX_PENDING_MESSAGES: usize = 256;
 // Timers and cross-context callbacks produce events while no host command arrives.
 const HOST_EVENT_POLL_INTERVAL: Duration = Duration::from_millis(25);
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct OverlayRoute {
+    pub(crate) identifier: String,
+    pub(crate) realm: u64,
+}
+
 #[derive(Debug, Clone, PartialEq)]
 pub(crate) enum PluginHostMessage {
     Log(String),
@@ -44,7 +50,7 @@ pub(crate) enum PluginHostMessage {
     WindowAction(WindowAction),
     ObserveMpvProperty(String),
     Overlay {
-        plugin_identifier: String,
+        route: OverlayRoute,
         plugin_directory: PathBuf,
         effect: OverlayEffect,
     },
@@ -139,7 +145,14 @@ impl PluginHostHandle {
 
     pub(crate) fn notify_plugin_overlay_loaded(&self) -> Result<(), String> {
         self.commands
-            .try_send(PluginCommand::PluginOverlayLoaded)
+            .try_send(PluginCommand::PluginOverlayLoaded(None))
+            .map_err(command_error)
+    }
+
+    #[cfg(any(target_os = "windows", target_os = "macos"))]
+    pub(crate) fn notify_video_overlay_loaded(&self, route: OverlayRoute) -> Result<(), String> {
+        self.commands
+            .try_send(PluginCommand::PluginOverlayLoaded(Some(route)))
             .map_err(command_error)
     }
 
@@ -183,19 +196,15 @@ impl PluginHostHandle {
             .change_and_wait(PackageChange::Enable(Arc::new(manifest), directory))
     }
 
-    #[cfg(target_os = "windows")]
+    #[cfg(any(target_os = "windows", target_os = "macos"))]
     pub(crate) fn deliver_overlay_message(
         &self,
-        identifier: String,
+        route: OverlayRoute,
         name: String,
         data: serde_json::Value,
     ) -> Result<(), String> {
         self.commands
-            .try_send(PluginCommand::DeliverOverlayMessage {
-                identifier,
-                name,
-                data,
-            })
+            .try_send(PluginCommand::DeliverOverlayMessage { route, name, data })
             .map_err(|error| match error {
                 mpsc::TrySendError::Full(_) => "Plugin host is busy".to_owned(),
                 mpsc::TrySendError::Disconnected(_) => "Plugin host has stopped".to_owned(),
@@ -422,13 +431,13 @@ enum PluginCommand {
     UpdatePlayerFileContext(PluginPlayerFileContext),
     UpdateWindowProperties(BTreeMap<String, serde_json::Value>),
     WindowLoaded,
-    PluginOverlayLoaded,
+    PluginOverlayLoaded(Option<OverlayRoute>),
     ThumbnailsReady,
     MenuUpdate,
     WindowWillClose(mpsc::SyncSender<()>),
-    #[cfg(target_os = "windows")]
+    #[cfg(any(target_os = "windows", target_os = "macos"))]
     DeliverOverlayMessage {
-        identifier: String,
+        route: OverlayRoute,
         name: String,
         data: serde_json::Value,
     },
@@ -656,8 +665,13 @@ fn handle_command(
                 }
             }
         }
-        PluginCommand::PluginOverlayLoaded => {
-            broadcast_player_event("iina.plugin-overlay-loaded", messages, sessions);
+        PluginCommand::PluginOverlayLoaded(route) => {
+            if route
+                .as_ref()
+                .is_none_or(|route| overlay_session(sessions, route).is_some())
+            {
+                broadcast_player_event("iina.plugin-overlay-loaded", messages, sessions);
+            }
         }
         PluginCommand::ThumbnailsReady => {
             broadcast_player_event("iina.thumbnails-ready", messages, sessions);
@@ -670,13 +684,9 @@ fn handle_command(
             // The caller can finish closing before the acknowledgement arrives.
             let _ = response.send(());
         }
-        #[cfg(target_os = "windows")]
-        PluginCommand::DeliverOverlayMessage {
-            identifier,
-            name,
-            data,
-        } => {
-            if let Some(session) = sessions.get(&PluginInstanceKey::player(&identifier))
+        #[cfg(any(target_os = "windows", target_os = "macos"))]
+        PluginCommand::DeliverOverlayMessage { route, name, data } => {
+            if let Some(session) = overlay_session(sessions, &route)
                 && let Err(error) = session.deliver_overlay_message(name, data)
             {
                 record(messages, PluginHostMessage::Status(error));
@@ -965,7 +975,10 @@ fn pump_session_events(
                         record(
                             messages,
                             PluginHostMessage::Overlay {
-                                plugin_identifier: key.identifier.clone(),
+                                route: OverlayRoute {
+                                    identifier: key.identifier.clone(),
+                                    realm: session.realm,
+                                },
                                 plugin_directory: plugin_directory.path.clone(),
                                 effect,
                             },
@@ -1140,6 +1153,15 @@ fn load_grants(path: &Path, identifier: &str) -> Result<Vec<String>, String> {
         Err(error) => return Err(error.to_string()),
     };
     Ok(grants.get(identifier).cloned().unwrap_or_default())
+}
+
+fn overlay_session<'a>(
+    sessions: &'a BTreeMap<PluginInstanceKey, PluginRuntimeSession>,
+    route: &OverlayRoute,
+) -> Option<&'a PluginRuntimeSession> {
+    sessions
+        .get(&PluginInstanceKey::player(&route.identifier))
+        .filter(|session| session.realm == route.realm)
 }
 
 fn host_message(plugin_name: &str, effect: UiEffect) -> PluginHostMessage {

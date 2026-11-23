@@ -1,14 +1,13 @@
 //! Standalone native WebViews track the lifetime and document of their own realm.
-mod page;
 #[cfg_attr(target_os = "linux", path = "plugin_standalone/gtk_window.rs")]
 #[cfg_attr(not(target_os = "linux"), path = "plugin_standalone/slint_window.rs")]
 pub(super) mod shell;
 
+use super::plugin_page::{self as page, Page};
 use crate::{
     PlayerWindow,
     plugin_runtime::standalone::{Endpoint, Hub},
 };
-use page::Page;
 use riina_core::plugin_window::{Document, Presentation, Properties};
 use shell::Shell;
 use std::{
@@ -125,11 +124,21 @@ impl BrowserWindow {
         endpoint: &Arc<Endpoint>,
         view: Presentation,
     ) -> Result<Self, String> {
-        let page = Page::new(view.document_id, endpoint.origin);
-        let url = page.url(&view)?;
+        let page = Page::standalone(view.document_id, endpoint.origin);
+        let url = page.url(view.document_id, &view.document)?;
         shell.set_properties(&title(&endpoint.name, &view.properties), &view.properties);
         shell.set_frame(view.frame, Default::default());
-        let browser = shell.build_webview(page.builder(endpoint, &url))?;
+        let owner = Arc::downgrade(endpoint);
+        let browser = shell.build_webview(page.builder(
+            endpoint.package_root().map(std::path::Path::to_path_buf),
+            &url,
+            move |document, name, data| {
+                if let Some(owner) = owner.upgrade() {
+                    owner.receive(document, name, data);
+                }
+            },
+            || {},
+        ))?;
         #[cfg(target_os = "linux")]
         {
             use slint::ComponentHandle;
@@ -156,7 +165,7 @@ impl BrowserWindow {
 
     fn apply(&mut self, next: Presentation, name: &str) -> Result<(), String> {
         if self.view.document_id != next.document_id {
-            let url = self.page.url(&next)?;
+            let url = self.page.url(next.document_id, &next.document)?;
             self.page.navigating_to(next.document_id);
             self.browser
                 .load_url(&url)

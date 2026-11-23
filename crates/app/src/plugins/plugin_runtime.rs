@@ -51,7 +51,7 @@ use std::{
     path::Path,
     sync::{
         Arc, Mutex,
-        atomic::AtomicUsize,
+        atomic::{AtomicU64, AtomicUsize, Ordering},
         mpsc::{self, SyncSender},
     },
     thread::JoinHandle,
@@ -60,8 +60,11 @@ use std::{
 use worker::run_entry_worker;
 
 const MAX_ENTRY_BYTES: usize = 1024 * 1024;
+static NEXT_REALM: AtomicU64 = AtomicU64::new(1);
 const MAX_RUNTIME_MEMORY: usize = 32 * 1024 * 1024;
-const MAX_STACK_BYTES: usize = 256 * 1024;
+// QuickJS counts native host bindings as well as JS frames. Leave room for
+// bounded menu trees and event dispatch while retaining a fixed stack limit.
+const MAX_STACK_BYTES: usize = 512 * 1024;
 const MAX_HOST_EVENTS: usize = 128;
 const MAX_MESSAGE_CHARS: usize = 2048;
 const MAX_OVERLAY_INTENT_BYTES: usize = 1024 * 1024;
@@ -90,7 +93,7 @@ pub enum UiEffect {
 
 enum RuntimeCommand {
     EvaluateDeveloper(developer::Request),
-    #[cfg(any(target_os = "windows", test))]
+    #[cfg(any(target_os = "windows", target_os = "macos", test))]
     DeliverOverlayMessage(String, serde_json::Value),
     DeliverSidebarMessage(String, serde_json::Value),
     DeliverPluginMenuAction(String),
@@ -174,6 +177,7 @@ impl PluginStorageContext {
 /// Owns a persistent QuickJS realm on its worker so plugin callbacks never run
 /// on the UI or playback thread.
 pub struct PluginRuntimeSession {
+    pub(crate) realm: u64,
     pub(crate) input: Arc<input::Endpoint>,
     execution: Arc<ExecutionControl>,
     commands: SyncSender<RuntimeCommand>,
@@ -356,6 +360,7 @@ impl PluginRuntimeSession {
         .map_err(|error| format!("Could not start plugin worker: {error}"))?;
         match execution::wait_for_startup(&execution, ready_receiver, Duration::from_secs(3)) {
             Ok(Ok(())) => Ok(Self {
+                realm: NEXT_REALM.fetch_add(1, Ordering::Relaxed),
                 input,
                 execution,
                 commands,
@@ -385,7 +390,7 @@ impl PluginRuntimeSession {
         self.file_system.set_player_context(context);
     }
 
-    #[cfg(any(target_os = "windows", test))]
+    #[cfg(any(target_os = "windows", target_os = "macos", test))]
     pub fn deliver_overlay_message(
         &self,
         name: String,
