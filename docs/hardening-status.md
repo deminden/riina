@@ -40,4 +40,4 @@ source tree is in test code.
 | In progress | Verified progress | Local commits |
 |---|---|---|
 | H14 macOS media timers | Start PiP polling after AVKit controller creation and stop Now Playing updates before player cleanup. The Apple-target source check uses the generated player UI. Native playback and lifecycle verification require macOS. | `d8421ed` |
-| O5 Platform boundary | Native player appearance and session services use platform adapters. The plan's source scan counts 27 target conditionals outside `platform/`. Full macOS application verification remains open. | `7226679`, `e529719`, `47c8f73` |
+| O5 Platform boundary | Native player appearance, session services, track language names and wheel input translation use platform adapters. The plan's source scan counts 26 target conditionals outside `platform/`. Full macOS application verification remains open. | `7226679`, `e529719`, `47c8f73`, `204adaf`, `63c10a6` |

@@ -627,6 +627,10 @@ tests. The native visibility regression covered show, hide, minimize, restore
 and teardown, using a controlled Slint clock for alignment ticks. The locked
 build passed all ten private-desktop checks in 9.156 seconds and exited normally.
 
+At `63c10a6`, the Windows workspace gate passed strict Clippy, 860 Rust tests,
+78 Python tests, and the headless player and Settings pixel comparisons.
+This grouped check covers the track language and mouse wheel adapter moves.
+
 On `954d4d6`, separate private-desktop runs reopened and played media after
 recovering a profile with an invalid setting type, a non-object JSON document,
 or invalid UTF-8. Each run showed the recovery notice, preserved the original
@@ -680,6 +684,10 @@ library tests. The earlier workspace check covered the shared widget suite.
 
 At `d8421ed`, the Linux workspace passed strict Clippy, 821 tests and the
 locked x86-64 application build.
+
+At `63c10a6`, Ubuntu 26.04 in WSL passed strict workspace Clippy, 821
+workspace tests and the locked x86-64 application build with the track
+language and mouse wheel adapters.
 
 At `a83c518`, Ubuntu 26.04 in WSL passed strict workspace Clippy, 814
 workspace tests, and the locked x86-64 application build.
@@ -886,3 +894,13 @@ It verified that the session code type-checks against the current UI and engine
 error types. The full application check from Windows still stopped in
 `objc2-exception-helper` because the Apple Objective-C compiler was unavailable.
 Full application linking and runtime verification require macOS.
+
+### macOS input and locale adapters 2026-11-23
+
+At `63c10a6`, strict `aarch64-apple-darwin` Clippy passed in an isolated
+crate with the current wheel and locale adapters, the generated player UI,
+AppKit gesture and scroll adapters, and Foundation locale formatting. The
+probe supplied default control preferences. In a separate full-workspace
+source check, the Objective-C exception helper's documentation mode let
+compilation continue to `ring`, which still required an Apple-target C
+compiler. Full native application and playback verification remain open.
