@@ -26,6 +26,7 @@ pub(super) fn manifest(entry: PathBuf) -> Manifest {
         github_repo: None,
         github_version: None,
         sidebar_tab_name: None,
+        preference_defaults: serde_json::Map::new(),
     }
 }
 
@@ -221,6 +222,7 @@ fn execute_with_files(
         PluginStorageContext {
             file_system: files,
             allowed_domains: Vec::new(),
+            preferences: PluginPreferences::temporary(),
         },
     )?
     .drain_events()
@@ -464,6 +466,7 @@ fn core_status_chapter_recent_document_and_version_reads_follow_playback_context
         PluginStorageContext {
             file_system: files,
             allowed_domains: Vec::new(),
+            preferences: PluginPreferences::temporary(),
         },
     )
     .unwrap();

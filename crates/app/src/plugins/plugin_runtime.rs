@@ -13,6 +13,8 @@ mod network;
 mod output;
 mod permissions;
 mod playlist_api;
+mod preferences_api;
+mod preferences_store;
 #[cfg(test)]
 mod tests;
 mod timers;
@@ -26,6 +28,7 @@ use messaging::validate_plugin_message;
 use modules::{PluginModuleContext, read_package_script};
 use network::NetworkWorkerContext;
 use permissions::{AvailablePermissions, reviewed_permissions};
+use preferences_api::PluginPreferences;
 use riina_core::{
     Command,
     plugin::{Manifest, OverlayEffect, WindowAction},
@@ -97,6 +100,7 @@ struct PluginWorkerHost {
     global_api_mode: Option<GlobalApiMode>,
     module_context: Option<PluginModuleContext>,
     file_system: PluginFiles,
+    preferences: PluginPreferences,
     events: Arc<Mutex<Vec<HostEvent>>>,
     player_event_subscriptions: Arc<Mutex<BTreeSet<String>>>,
     observed_mpv_properties: Arc<Mutex<BTreeSet<String>>>,
@@ -106,6 +110,17 @@ struct PluginWorkerHost {
 struct PluginStorageContext {
     file_system: PluginFiles,
     allowed_domains: Vec<String>,
+    preferences: PluginPreferences,
+}
+
+impl PluginStorageContext {
+    fn for_package(root: &Path, manifest: &Manifest) -> Result<Self, String> {
+        Ok(Self {
+            file_system: PluginFiles::for_package(root, &manifest.identifier),
+            allowed_domains: manifest.allowed_domains.clone(),
+            preferences: PluginPreferences::for_package(root, manifest)?,
+        })
+    }
 }
 
 /// Owns a persistent QuickJS realm on its worker so plugin callbacks never run
@@ -142,8 +157,8 @@ impl PluginRuntimeSession {
         player_context: PluginPlayerFileContext,
     ) -> Result<Self, String> {
         let (source, module_context) = read_package_script(package_root, &manifest.entry)?;
-        let file_system = PluginFiles::for_package(package_root, &manifest.identifier);
-        file_system.set_player_context(player_context);
+        let storage = PluginStorageContext::for_package(package_root, manifest)?;
+        storage.file_system.set_player_context(player_context);
         Self::start_entry_with_context(
             &source,
             &manifest.identifier,
@@ -151,10 +166,7 @@ impl PluginRuntimeSession {
             granted_permissions,
             manifest.global_entry.as_ref().map(|_| GlobalApiMode::Child),
             Some(module_context),
-            PluginStorageContext {
-                file_system,
-                allowed_domains: manifest.allowed_domains.clone(),
-            },
+            storage,
         )
     }
 
@@ -174,10 +186,7 @@ impl PluginRuntimeSession {
             granted_permissions,
             Some(GlobalApiMode::Controller),
             Some(module_context),
-            PluginStorageContext {
-                file_system: PluginFiles::for_package(package_root, &manifest.identifier),
-                allowed_domains: manifest.allowed_domains.clone(),
-            },
+            PluginStorageContext::for_package(package_root, manifest)?,
         )
     }
 
@@ -198,6 +207,7 @@ impl PluginRuntimeSession {
             PluginStorageContext {
                 file_system: PluginFiles::temporary(plugin_identifier),
                 allowed_domains: Vec::new(),
+                preferences: PluginPreferences::temporary(),
             },
         )
     }
@@ -251,6 +261,7 @@ impl PluginRuntimeSession {
                     global_api_mode,
                     module_context,
                     file_system: storage.file_system,
+                    preferences: storage.preferences,
                     events: worker_events,
                     player_event_subscriptions: worker_player_event_subscriptions,
                     observed_mpv_properties: worker_observed_mpv_properties,

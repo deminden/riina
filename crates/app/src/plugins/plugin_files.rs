@@ -605,7 +605,7 @@ fn normalize_private_relative(relative: &Path) -> Result<PathBuf, String> {
     Ok(normalized)
 }
 
-fn safe_identifier(identifier: &str) -> String {
+pub(crate) fn safe_identifier(identifier: &str) -> String {
     let stem = identifier.split('.').next().unwrap_or_default();
     let reserved = matches!(stem, "con" | "prn" | "aux" | "nul")
         || matches!(

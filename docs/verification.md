@@ -1353,6 +1353,26 @@ The tested libmpv SHA-256 was
 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`.
 [Upstream float-option fix](https://github.com/mpv-player/mpv/commit/ae119448b2c388f4fdee30e59bb1ab84f2cde428).
 
+### Plugin preferences 2026-11-23
+
+QuickJS tests exercised manifest defaults, shared global and player state,
+plugin isolation and explicit persistence. Store tests exercised two
+independent writers, lock contention, retry and malformed-file preservation.
+
+On isolated Windows and Linux X11 desktops, a plugin read its manifest defaults
+and saw a value from its global entry. It saved an updated setting and a nested
+object, then made a second change without syncing. The saved values survived
+a complete restart with the same profile and the pending change was absent.
+All four player instances exited normally. The executable SHA-256 values were
+`c5f89aa2566b8c8007454b508d395733809a219d321f16acd0a0d4b391aaa6a5`
+on Windows and `3c34829bd17ae577d84faa6c400095c8e4ea095d6fa688599792de045f1d9887`
+on Linux. The Linux run used the rebuilt runtime above.
+
+The locked Windows workspace build, strict Clippy, 882 Rust tests and 78 Python
+tests passed. Linux x64 passed the locked application build, strict workspace
+Clippy and 843 Rust tests. Strict Apple Silicon workspace Clippy passed from
+Windows. The plugin settings WebView and macOS desktop verification remain open.
+
 ### Plugin sidebar manifest discovery 2026-10-14
 
 Manifest tests cover bounded localized labels. Runtime tests cover confined

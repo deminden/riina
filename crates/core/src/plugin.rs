@@ -313,6 +313,7 @@ pub struct Manifest {
     pub github_repo: Option<String>,
     pub github_version: Option<u64>,
     pub sidebar_tab_name: Option<String>,
+    pub preference_defaults: serde_json::Map<String, serde_json::Value>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -334,6 +335,8 @@ struct RawManifest {
     github_version: Option<u64>,
     #[serde(rename = "sidebarTab")]
     sidebar_tab: Option<serde_json::Value>,
+    #[serde(rename = "preferenceDefaults")]
+    preference_defaults: Option<serde_json::Value>,
     localized: Option<serde_json::Value>,
 }
 
@@ -403,6 +406,10 @@ impl Manifest {
             github_repo: raw.github_repo,
             github_version: raw.github_version,
             sidebar_tab_name,
+            preference_defaults: match raw.preference_defaults {
+                Some(serde_json::Value::Object(values)) => values,
+                _ => serde_json::Map::new(),
+            },
         })
     }
 

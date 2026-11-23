@@ -9,7 +9,7 @@ use super::{
     messaging, modules, network,
     network::NetworkWorkerContext,
     output::{menu_js_error, record, record_plugin_menu},
-    playlist_api, timers,
+    playlist_api, preferences_api, timers,
     timers::PluginTimers,
     webviews,
 };
@@ -100,6 +100,7 @@ fn initialize_realm(
         global_api_mode,
         module_context,
         file_system,
+        preferences,
         events,
         player_event_subscriptions,
         observed_mpv_properties,
@@ -135,6 +136,7 @@ fn initialize_realm(
         )?;
     }
     globals.set("iina", api.clone())?;
+    preferences_api::install(&api, preferences)?;
     events::install(
         ctx.clone(),
         api.clone(),

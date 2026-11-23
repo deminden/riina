@@ -118,6 +118,12 @@ the native engine and only then releases the callback context.
 
 ## Preferences
 
+Plugin preferences use a separate store per installed identifier and profile.
+Player and global realms share pending values, and each realm uses the
+package's manifest defaults when a key has no override. Explicit sync merges
+pending keys into the latest saved JSON while holding the file lock, then
+uses the same atomic replacement as application settings.
+
 `preference_load` reads and validates the startup settings. Recovery preserves a
 copy of invalid input and loads recoverable fields. `PreferenceModel` holds the
 committed settings on the UI thread and delegates persistence to
