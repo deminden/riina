@@ -13,7 +13,7 @@ use windows::Win32::{
 };
 use winit::raw_window_handle::{HasWindowHandle, RawWindowHandle};
 
-struct SurfaceTimers([Weak<Timer>; 2]);
+struct SurfaceTimers([Weak<Timer>; 3]);
 
 impl SurfaceTimers {
     fn set_drawable(&self, drawable: bool) {
@@ -33,16 +33,9 @@ pub(super) struct VisibilityMonitor {
 }
 
 impl VisibilityMonitor {
-    pub(super) fn install(
-        owner: isize,
-        alignment: &Rc<Timer>,
-        material_policy: &Rc<Timer>,
-    ) -> Result<Self, &'static str> {
+    pub(super) fn install(owner: isize, timers: [&Rc<Timer>; 3]) -> Result<Self, &'static str> {
         let hwnd = HWND(owner as *mut _);
-        let timers = Box::new(SurfaceTimers([
-            Rc::downgrade(alignment),
-            Rc::downgrade(material_policy),
-        ]));
+        let timers = Box::new(SurfaceTimers(timers.map(Rc::downgrade)));
         let pointer = (&*timers as *const SurfaceTimers) as usize;
         // SAFETY: the UI thread owns the stable timer references through subclass removal.
         if !unsafe { SetWindowSubclass(hwnd, Some(visibility_proc), pointer, pointer) }.as_bool() {
@@ -68,7 +61,7 @@ impl Drop for VisibilityMonitor {
         // SAFETY: the handle value can be queried after the native window closes.
         if !removed.as_bool() && unsafe { IsWindow(Some(self.hwnd)) }.as_bool() {
             // An attached subclass must retain valid refdata. Empty its timer references.
-            Box::leak(timers).0 = [Weak::new(), Weak::new()];
+            Box::leak(timers).0 = Default::default();
         }
     }
 }

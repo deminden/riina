@@ -254,7 +254,7 @@ Pause on minimize follows the owning window's minimize and restore events.
 | Settings audio devices | 750 ms | Read the observed audio device list | Starts after show, stops on close or when a tick finds Settings hidden |
 | Settings recovery notice | 250 ms | Wait for the player to show the recovery notice | Until the first visible player status line |
 | Fullscreen clock and battery | 60 s | Update local time and battery capacity | While fullscreen controls and the information card are visible |
-| Native HDR availability | 2 s | Refresh the display HDR state | While native video presentation is active |
+| Native HDR availability | 2 s | Refresh the display HDR state | While the Windows framed owner is visible and restored |
 | macOS picture-in-picture | 100 ms | Sync AVKit state and update the active indicator | After the player creates a PiP controller, until the session ends |
 | Timeline thumbnails | 80 ms | Drain bounded batches of thumbnail frames | One initial pass and a pass on media or settings changes. The timer repeats while extraction runs. Pointer callbacks update hover previews directly |
 | Native video transition | 80 ms | Capture outgoing and incoming frames and settle the handoff | While a playlist request waits for its frame, playback approaches a pending outgoing capture, or the incoming surface is settling |
@@ -271,10 +271,11 @@ Pause on minimize follows the owning window's minimize and restore events.
 | Windows video material sampling | 16 ms | Capture and transform a video sample | While a visible material uses active native video, with one cleanup tick to clear retired samples |
 | Plugin UI | 25 ms | Drain plugin host messages and update overlays | While a player plugin host is installed |
 
-The Windows owner monitors native show-state changes and resumes both surface
-timers at their existing intervals. Winit still receives its move and size
-notifications. If the native monitor cannot attach, the owner logs the failure
-and retains polling. [Win32 window-position notification](https://learn.microsoft.com/windows/win32/winmsg/wm-windowposchanged)
+The Windows owner monitors native show-state changes and resumes surface
+alignment, material policy, and HDR polling at their existing intervals. Winit
+still receives its move and size notifications. If the native monitor cannot
+attach, the owner logs the failure and retains polling.
+[Win32 window-position notification](https://learn.microsoft.com/windows/win32/winmsg/wm-windowposchanged)
 
 The Slint controls also own short presentation delays. Their bindings start
 them for the corresponding interaction and stop them after it settles.

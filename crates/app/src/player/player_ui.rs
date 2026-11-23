@@ -10,7 +10,7 @@ mod features;
 mod feedback;
 #[cfg(test)]
 pub(crate) mod glue_tests;
-pub(crate) mod hdr_output;
+mod hdr_output;
 mod history_session;
 pub(crate) mod lifecycle;
 mod live_text;
@@ -161,7 +161,6 @@ pub(crate) struct UiSession {
     platform_extras: platform::SessionExtras,
     _plugins: plugins::RuntimeSession,
     _presentation: Option<SessionResource<platform::NativePresentation>>,
-    _hdr_display_timer: Option<Rc<slint::Timer>>,
     _live_text_timer: Option<Rc<slint::Timer>>,
     _preference_recovery_notice: Option<Rc<slint::Timer>>,
     _observer_state: observer_state::ObserverRegistration,
@@ -364,7 +363,6 @@ fn configure_with_engine(
         platform_extras,
         _plugins: plugin_runtime,
         _presentation: native.map(SessionResource::Live),
-        _hdr_display_timer: session.hdr_display_timer,
         _live_text_timer: live_text_timer,
         _preference_recovery_notice: session.recovery.and_then(|recovery| recovery.announce(app)),
         _observer_state: observer_state,

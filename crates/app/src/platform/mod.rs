@@ -35,6 +35,17 @@ pub(crate) use system_media_session::SystemMediaSession;
 pub(crate) mod video_materials;
 pub(crate) mod window_sizing;
 
+#[cfg(any(target_os = "windows", test))]
+pub(crate) fn update_hdr_display(app: &PlayerWindow, active: bool) {
+    let video = app.global::<riina_ui::PlaybackVideoState>();
+    if video.get_hdr_display_active() != active {
+        video.set_hdr_display_active(active);
+        // Display observations arrive independently of playback snapshots,
+        // including while paused or after switching Windows HDR off.
+        app.invoke_refresh_hdr_output();
+    }
+}
+
 #[cfg(target_os = "windows")]
 pub(crate) fn show_fatal_error(title: &str, text: &str) {
     use ::windows::{

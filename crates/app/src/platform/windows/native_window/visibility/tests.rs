@@ -40,6 +40,7 @@ fn native_visibility_pauses_and_restores_presentation_timers()
     });
     let alignment = Rc::new(Timer::default());
     let materials = Rc::new(Timer::default());
+    let hdr_display = Rc::new(Timer::default());
     let ticks = Rc::new(Cell::new(0));
     let reported_ticks = ticks.clone();
     let interval = Duration::from_millis(16);
@@ -51,9 +52,16 @@ fn native_visibility_pauses_and_restores_presentation_timers()
         Duration::from_millis(500),
         || {},
     );
-    let monitor = VisibilityMonitor::install(window.0.0 as isize, &alignment, &materials)?;
-    let running = || (alignment.running(), materials.running());
-    assert_eq!(running(), (false, false));
+    let hdr_samples = Rc::new(Cell::new(0));
+    let recorded_samples = hdr_samples.clone();
+    let hdr_interval = Duration::from_secs(2);
+    hdr_display.start(slint::TimerMode::Repeated, hdr_interval, move || {
+        recorded_samples.set(recorded_samples.get() + 1);
+    });
+    let timers = [&alignment, &materials, &hdr_display];
+    let monitor = VisibilityMonitor::install(window.0.0 as isize, timers)?;
+    let running = || timers.map(|timer| timer.running());
+    assert_eq!(running(), [false; 3]);
 
     let show = |action| {
         // ShowWindow returns its prior visibility, which the test checks separately.
@@ -61,27 +69,32 @@ fn native_visibility_pauses_and_restores_presentation_timers()
         let _ = unsafe { ShowWindow(window.0, action) };
     };
     show(SW_SHOWNOACTIVATE);
-    assert_eq!(running(), (true, true));
+    assert_eq!(running(), [true; 3]);
     i_slint_backend_testing::mock_elapsed_time(interval);
     assert_eq!(ticks.get(), 1);
 
     show(SW_SHOWMINNOACTIVE);
-    assert_eq!(running(), (false, false));
-    i_slint_backend_testing::mock_elapsed_time(interval);
+    assert_eq!(running(), [false; 3]);
+    i_slint_backend_testing::mock_elapsed_time(hdr_interval);
     assert_eq!(ticks.get(), 1);
+    assert_eq!(hdr_samples.get(), 0);
 
     show(SW_SHOWNOACTIVATE);
-    assert_eq!(running(), (true, true));
+    assert_eq!(running(), [true; 3]);
     i_slint_backend_testing::mock_elapsed_time(interval);
     assert_eq!(ticks.get(), 2);
+    i_slint_backend_testing::mock_elapsed_time(hdr_interval - interval);
+    assert_eq!(hdr_samples.get(), 1);
 
     show(SW_HIDE);
-    assert_eq!(running(), (false, false));
+    assert_eq!(running(), [false; 3]);
     show(SW_SHOWNOACTIVATE);
-    assert_eq!(running(), (true, true));
+    assert_eq!(running(), [true; 3]);
     drop(monitor);
     show(SW_HIDE);
     show(SW_SHOWNOACTIVATE);
-    assert_eq!(running(), (false, false));
+    assert_eq!(running(), [false; 3]);
+    i_slint_backend_testing::mock_elapsed_time(hdr_interval);
+    assert_eq!(hdr_samples.get(), 1);
     Ok(())
 }

@@ -84,23 +84,11 @@ fn use_display_profile(requested: bool, hdr_source: bool, windows_native: bool) 
     requested && !(hdr_source && windows_native)
 }
 
-pub(crate) fn update_display(app: &PlayerWindow, active: bool) {
-    let video = app.global::<riina_ui::PlaybackVideoState>();
-    if video.get_hdr_display_active() != active {
-        video.set_hdr_display_active(active);
-        // Display observations arrive independently of playback snapshots,
-        // including while paused or after switching Windows HDR off.
-        app.invoke_refresh_hdr_output();
-    }
-}
-
-pub(super) fn install_display_observer(
+pub(super) fn initialize_display(
     app: &PlayerWindow,
     prefs: &riina_core::Preferences,
     native: Option<&crate::platform::NativePresentation>,
-) -> Option<std::rc::Rc<slint::Timer>> {
-    use std::{rc::Rc, time::Duration};
-
+) {
     let video = app.global::<riina_ui::PlaybackVideoState>();
     video.set_hdr_enabled(prefs.hdr_enabled);
     app.global::<riina_ui::PlayerPreferences>()
@@ -110,26 +98,12 @@ pub(super) fn install_display_observer(
     video.set_hdr_display_active(
         native.is_some_and(|presentation| presentation.hdr_display_active()),
     );
-    native.map(|presentation| {
-        let timer = Rc::new(slint::Timer::default());
-        let display = presentation.clone();
-        let weak = app.as_weak();
-        timer.start(
-            slint::TimerMode::Repeated,
-            Duration::from_secs(2),
-            move || {
-                if let Some(app) = weak.upgrade() {
-                    update_display(&app, display.hdr_display_active());
-                }
-            },
-        );
-        timer
-    })
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::platform::update_hdr_display;
     use std::cell::RefCell;
 
     #[test]
@@ -195,12 +169,12 @@ mod tests {
             observed.borrow_mut().push(command);
             Ok(())
         });
-        update_display(&app, true);
+        update_hdr_display(&app, true);
         assert!(video.get_hdr_enabled());
-        update_display(&app, false);
+        update_hdr_display(&app, false);
         assert!(!video.get_hdr_enabled());
-        update_display(&app, false);
-        update_display(&app, true);
+        update_hdr_display(&app, false);
+        update_hdr_display(&app, true);
         let modes: Vec<_> = commands
             .borrow()
             .iter()
@@ -227,11 +201,11 @@ mod tests {
         let video = app.global::<riina_ui::PlaybackVideoState>();
         video.set_hdr_source_detected(true);
         install(&app, |_| Ok(()));
-        update_display(&app, true);
+        update_hdr_display(&app, true);
         app.global::<riina_ui::PlayerSidebarActions>()
             .invoke_set_hdr_enabled(false);
-        update_display(&app, false);
-        update_display(&app, true);
+        update_hdr_display(&app, false);
+        update_hdr_display(&app, true);
         assert!(!video.get_hdr_enabled());
         app.invoke_reset_hdr_output();
         assert!(video.get_hdr_enabled());
@@ -253,7 +227,7 @@ mod tests {
         app.global::<riina_ui::PlayerSidebarActions>()
             .invoke_set_hdr_enabled(true);
         assert!(!video.get_hdr_enabled());
-        update_display(&app, true);
+        update_hdr_display(&app, true);
         assert!(!video.get_hdr_enabled());
         assert!(app.get_status().contains("engine closed"));
     }

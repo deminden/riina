@@ -91,7 +91,7 @@ pub(super) fn install_filter(host: &NativeVideoHost, inputs: FilterInputs) {
                 // strand its compositor image even while UI state advances.
                 dismiss_unaligned_transition_cover(app);
             }
-            crate::player_ui::hdr_output::update_display(
+            crate::platform::update_hdr_display(
                 app,
                 super::super::presentation::hdr_display_active_for_slint(host),
             );

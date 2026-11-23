@@ -65,6 +65,7 @@ struct NativeApp {
     welcome_window: Slot<crate::WelcomeWindow>,
     visibility_monitor: Slot<visibility::VisibilityMonitor>,
     material_policy_timer: Rc<slint::Timer>,
+    hdr_display_timer: Rc<slint::Timer>,
     overlay_hidden_for_alignment: Rc<Cell<bool>>,
     surface_alignment_timer: Rc<slint::Timer>,
     chrome: Slot<PlayerWindow>,
@@ -125,6 +126,7 @@ impl NativeApp {
             surface_alignment_timer: Default::default(),
             overlay_hidden_for_alignment: Default::default(),
             material_policy_timer: Default::default(),
+            hdr_display_timer: Default::default(),
             menu_lifecycle: Default::default(),
             menu_focus: Default::default(),
             placement: Default::default(),
@@ -152,6 +154,7 @@ impl NativeApp {
         let startup_surface_alignment_timer = self.surface_alignment_timer.clone();
         let startup_overlay_hidden = self.overlay_hidden_for_alignment.clone();
         let startup_material_policy_timer = self.material_policy_timer.clone();
+        let startup_hdr_display_timer = self.hdr_display_timer.clone();
         let startup_visibility_monitor = self.visibility_monitor.clone();
         let startup_menu_lifecycle = self.menu_lifecycle.clone();
         let startup_menu_focus = self.menu_focus.clone();
@@ -187,10 +190,14 @@ impl NativeApp {
                     &startup_surface_alignment_timer,
                     &startup_overlay_hidden,
                 );
+                super::presentation::watch_hdr_display(&host, &app, &startup_hdr_display_timer);
                 match visibility::VisibilityMonitor::install(
                     video_hwnd,
-                    &startup_surface_alignment_timer,
-                    &startup_material_policy_timer,
+                    [
+                        &startup_surface_alignment_timer,
+                        &startup_material_policy_timer,
+                        &startup_hdr_display_timer,
+                    ],
                 ) {
                     Ok(monitor) => *startup_visibility_monitor.borrow_mut() = Some(monitor),
                     Err(error) => crate::diagnostics::warn!("{error}"),

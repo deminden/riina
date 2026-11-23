@@ -1,14 +1,14 @@
 //! A presentation owns its native target; the shared controller never handles HWNDs.
 use super::frame_capture::FrameCapture;
-use crate::NativeVideoHost;
+use crate::{NativeVideoHost, PlayerWindow};
 use riina_core::Playback;
 use riina_mpv::Player;
-use slint::winit_030::WinitWindowAccessor;
 use slint::winit_030::winit::{
     raw_window_handle::{HasWindowHandle, RawWindowHandle},
     window::Window,
 };
-use std::sync::Arc;
+use slint::{ComponentHandle, Timer, TimerMode, winit_030::WinitWindowAccessor};
+use std::{sync::Arc, time::Duration};
 use windows::{
     Win32::{
         Foundation::HWND,
@@ -159,4 +159,14 @@ pub(super) fn hdr_display_active_for_slint(window: &slint::Window) -> bool {
     window
         .with_winit_window(hdr_display_active_for)
         .unwrap_or(false)
+}
+
+pub(super) fn watch_hdr_display(host: &NativeVideoHost, app: &PlayerWindow, timer: &Timer) {
+    let host = host.as_weak();
+    let app = app.as_weak();
+    timer.start(TimerMode::Repeated, Duration::from_secs(2), move || {
+        if let (Some(host), Some(app)) = (host.upgrade(), app.upgrade()) {
+            crate::platform::update_hdr_display(&app, hdr_display_active_for_slint(host.window()));
+        }
+    });
 }

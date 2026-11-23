@@ -311,7 +311,6 @@ pub(super) struct PreparedSession {
     pub(super) projection: initial_projection::SessionProjection,
     pub(super) history: Tracking,
     pub(super) recent: SessionRecents,
-    pub(super) hdr_display_timer: Option<Rc<slint::Timer>>,
     pub(super) plugin_ui: plugins::InstalledPluginUi,
     pub(super) plugin_host_handle: Option<PluginHostHandle>,
     pub(super) plugin_host: Option<PluginHost>,
@@ -353,7 +352,7 @@ pub(super) fn prepare(
     let plugin_host_handle = plugin_host.as_ref().map(PluginHost::handle);
     let plugin_ui = plugins::install(app, native, plugin_host_handle.clone());
     live_text::initialize(app, prefs.live_text_enabled, use_system_services);
-    let hdr_display_timer = hdr_output::install_display_observer(app, &prefs, native);
+    hdr_output::initialize_display(app, &prefs, native);
     let recent = SessionRecents::new(&prefs);
     let history = history.start_tracking(&prefs_path, &prefs);
     let engine_options = options_for_session(app, &prefs, &prefs_path)?;
@@ -386,7 +385,6 @@ pub(super) fn prepare(
             projection,
             history,
             recent,
-            hdr_display_timer,
             plugin_ui,
             plugin_host_handle,
             plugin_host,
