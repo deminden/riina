@@ -656,6 +656,12 @@ build, all 55 pinned DLL checks and all ten private-desktop smoke checks
 in 9.336 seconds. The test process exited normally. Physical HDR output was
 outside this run's scope.
 
+At `4f7ee4e`, the Windows workspace gate passed 861 Rust tests and 78
+Python tests, including the headless pixel comparisons. Startup tests covered
+both explicit renderer switches and file order. The locked workspace build
+used the default native launch route for all ten private-desktop smoke checks
+in 9.230 seconds. The test process exited normally.
+
 On `954d4d6`, separate private-desktop runs reopened and played media after
 recovering a profile with an invalid setting type, a non-object JSON document,
 or invalid UTF-8. Each run showed the recovery notice, preserved the original
@@ -713,6 +719,14 @@ locked x86-64 application build.
 At `63c10a6`, Ubuntu 26.04 in WSL passed strict workspace Clippy, 821
 workspace tests and the locked x86-64 application build with the track
 language and mouse wheel adapters.
+
+At `4f7ee4e`, strict application Clippy, all 522 application and widget
+tests, and the locked x86-64 application build passed in WSL. An isolated
+launch with `--shared-gl` opened the moving-square fixture. Playback was
+active in both full 1280 × 800 captures. The first, at 0.417 seconds, showed
+black video while the controls were visible. The second, at 1.5 seconds,
+showed the fixture. Riina exited through Quit and the virtual display
+stopped. First-frame presentation remains intermittent.
 
 At `a83c518`, Ubuntu 26.04 in WSL passed strict workspace Clippy, 814
 workspace tests, and the locked x86-64 application build.
@@ -940,3 +954,10 @@ and `CFLAGS_aarch64_apple_darwin="-O1 -fPIC"` supplied the C build flags.
 The check used the normal Objective-C exception helper and compiled the
 application and test sources. Apple framework linking, test execution and
 desktop playback still need a native macOS verification run.
+
+At `4f7ee4e`, strict workspace Clippy passed with both
+`aarch64-apple-darwin` and `x86_64-apple-darwin` using Rust 1.99.0
+and the same Zig toolchain. For Intel, the C compiler target was
+`x86_64-macos.10.12` and the C compiler and archive-tool settings used the
+`x86_64_apple_darwin` suffix. Both source checks include the platform startup
+adapter and application menu observer. Both still require execution on macOS.

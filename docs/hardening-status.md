@@ -23,6 +23,8 @@ source tree is in test code.
 | H8 Unsafe boundaries | Enforce documented unsafe blocks through workspace Clippy. | `dda8174` |
 | H9 Plugin output routing | Use typed routes for plugin-driven effects and bounded output. | `7bcec50` |
 | H10 Network identity | Share request defaults and versioned application identity across plugin clients. | `7bcec50` |
+| H11 Slint selection and media identity | Use typed track and playlist selection categories and keep the media generation for window sizing in Rust. | `37b5f53`, `5e32e6c` |
+| H12 Renderer request | Use a typed renderer request with the existing command-line argument order and platform defaults. | `4f7ee4e` |
 | H13 Development checks | Enforce strict Clippy, cache supported hosted jobs, add a non-blocking advisory job, and provide separate workspace, scoped, visual and native check commands. | `dda8174`, `9c7f48c`, `b3d8852`, `a73d9f5` |
 | H14 Background task ownership | Name application workers, log panics, report running tasks at exit, centralize weak window delivery, and release discarded playback and rendering callbacks. | `e5f0dc9`, `475d58a`, `845f8c0` |
 | H14 Preview and transition timers | Wake on playback, settings, or navigation events. Keep the 80 ms interval while work is pending and stop when it settles. | `17bd471` |
@@ -40,4 +42,4 @@ source tree is in test code.
 | In progress | Verified progress | Local commits |
 |---|---|---|
 | H14 macOS media timers | Start PiP polling after AVKit controller creation and stop Now Playing updates before player cleanup. The Apple-target source check uses the generated player UI. Native playback and lifecycle verification require macOS. | `d8421ed` |
-| O5 Platform boundary | Native player appearance, session services, track language names and wheel input translation use platform adapters. The plan's source scan counts 26 target conditionals outside `platform/`. Strict Apple Silicon workspace Clippy passes from Windows. Native linking and playback remain open. | `7226679`, `e529719`, `47c8f73`, `204adaf`, `63c10a6`, `a6e9da3` |
+| O5 Platform boundary | Native player appearance, session services, language names, wheel input and renderer startup use platform adapters. The plan's source scan counts 19 target conditionals outside `platform/`. Strict workspace Clippy passes for Apple Silicon and Intel Mac from Windows. Native linking and playback remain open. | `7226679`, `e529719`, `47c8f73`, `204adaf`, `63c10a6`, `a6e9da3`, `4f7ee4e` |
