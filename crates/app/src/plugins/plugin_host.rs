@@ -1028,29 +1028,15 @@ fn enabled_packages(directory: &Path, enabled_path: &Path) -> Vec<InstalledPlugi
         .ok()
         .and_then(|text| serde_json::from_str::<BTreeSet<String>>(&text).ok())
         .unwrap_or_default();
-    let mut plugins = fs::read_dir(directory)
+    let mut plugins = crate::plugin_packages::discover(directory, locale.as_deref())
+        .plugins
         .into_iter()
-        .flatten()
-        .flatten()
-        .filter_map(|entry| {
-            let path = entry.path();
-            (path
-                .extension()
-                .is_some_and(|extension| extension == "iinaplugin"))
-            .then(|| {
-                Manifest::load_from_directory_with_locale(&path, locale.as_deref())
-                    .ok()
-                    .map(|manifest| (path, manifest))
-            })
-            .flatten()
-        })
-        .filter(|(_, manifest)| enabled.contains(&manifest.identifier))
-        .map(|(directory, manifest)| InstalledPlugin {
-            manifest: Arc::new(manifest),
-            directory,
+        .filter(|plugin| enabled.contains(&plugin.manifest.identifier))
+        .map(|plugin| InstalledPlugin {
+            manifest: Arc::new(plugin.manifest),
+            directory: plugin.directory,
         })
         .collect::<Vec<_>>();
-    plugins.sort_by(|left, right| left.manifest.name.cmp(&right.manifest.name));
     let installed = plugins
         .iter()
         .map(|plugin| plugin.manifest.identifier.clone())

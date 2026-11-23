@@ -179,6 +179,13 @@ when there is no saved Riina JSON for that identifier. On the first saved edit,
 Riina writes the merged settings to JSON and preserves the original file.
 Imported dates become UTC timestamp strings and binary data becomes byte arrays.
 
+For plugin development, place a folder or directory link ending in
+`.iinaplugin-dev` in the profile's `Plugins` directory. Open Settings → Plugins
+to review any requested permissions and enable it. The actions menu can open
+its project folder. For an installed package, the same menu offers Uninstall.
+Uninstall closes its plugin windows and keeps the package's saved settings
+and data.
+
 `cargo xtask coverage` is optional. If `cargo-llvm-cov` and the pinned
 toolchain's `llvm-tools` component are installed, it runs the workspace tests
 and reports coverage by crate plus the ten largest uncovered function bodies.

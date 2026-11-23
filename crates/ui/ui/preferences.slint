@@ -292,6 +292,8 @@ export component PreferencesWindow inherits Window {
     callback plugin-enabled-changed(int, bool);
     callback plugin-row-about(int);
     callback plugin-row-actions(int);
+    callback plugin-row-uninstall(int);
+    callback plugin-uninstall-completed();
     callback plugin-row-settings(int);
     callback close-plugin-settings();
     callback plugin-settings-pane-left();
@@ -548,6 +550,7 @@ export component PreferencesWindow inherits Window {
         plugin-enabled-changed(value1, value2) => { root.plugin-enabled-changed(value1, value2); }
         plugin-row-about(value1) => { root.plugin-row-about(value1); }
         plugin-row-actions(value1) => { root.plugin-row-actions(value1); }
+        plugin-row-uninstall(value1) => { root.plugin-row-uninstall(value1); }
         plugin-row-settings(value1) => { root.plugin-row-settings(value1); }
         plugin-reordered(value1, value2) => { root.plugin-reordered(value1, value2); }
     }

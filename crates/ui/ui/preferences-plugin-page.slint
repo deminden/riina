@@ -14,6 +14,7 @@ export component PluginsPreferencesPage inherits Rectangle {
     callback plugin-enabled-changed(int, bool);
     callback plugin-row-about(int);
     callback plugin-row-actions(int);
+    callback plugin-row-uninstall(int);
     callback plugin-row-settings(int);
     callback plugin-reordered(string, string);
 
@@ -59,6 +60,7 @@ export component PluginsPreferencesPage inherits Rectangle {
             enabled-toggled(index, enabled) => { root.plugin-enabled-changed(index, enabled); }
             about-requested(index) => { root.plugin-row-about(index); }
             actions-requested(index) => { root.plugin-row-actions(index); }
+            uninstall-requested(index) => { root.plugin-row-uninstall(index); }
             settings-requested(index) => { root.plugin-row-settings(index); }
             reorder-requested(dragged, target) => { root.plugin-reordered(dragged, target); }
         }

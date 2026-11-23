@@ -26,6 +26,9 @@ pub(super) fn local(window: &PreferencesWindow, app: &PlayerWindow, settings: &P
     let preferences_path = settings.preferences_path.clone();
     window.on_plugin_request_local_install(move || {
         let Some(window) = weak.upgrade() else { return };
+        if window.get_plugin_github_installing() {
+            return;
+        }
         let Some(archive) = FileDialog::new()
             .add_filter("Riina plugin packages", &["iinaplgz"])
             .pick_file()

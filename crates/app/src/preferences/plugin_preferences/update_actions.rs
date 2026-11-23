@@ -231,7 +231,7 @@ pub(super) fn register_about(
         let latest = riina_core::sync::lock(&updates)
             .get(&plugin.manifest.identifier)
             .cloned();
-        if let Some(latest) = latest {
+        if let Some(latest) = latest.filter(|_| plugin.can_update()) {
             if let Some(window) = weak.upgrade()
                 && window.get_plugin_github_installing()
             {

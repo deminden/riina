@@ -199,6 +199,18 @@ changes to those sessions and waits for their acknowledgements before an
 installer can replace an active package. Closing the application retires the
 global entries.
 
+Settings and both plugin hosts share package discovery. Links and development
+folders keep their project location, with permissions and preferences stored
+in the Riina profile. If two packages declare the same identifier, discovery
+assigns the additional copy an identity derived from its installed filename
+while both copies are present.
+
+Uninstall waits for the application and player hosts to retire the plugin
+before moving its installed folder out of the catalog. If saving the disabled
+state fails, Riina restores the package and its grants. The package lock
+serializes installation, replacement, and removal while the profile keeps the
+plugin's data and preferences.
+
 A controller can reserve a player ID and ask the application to open an
 independent playback session. The request uses the same reviewed file and
 network access rules as the player's open API. The player starts its owner's

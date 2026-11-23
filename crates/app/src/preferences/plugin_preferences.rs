@@ -2,26 +2,23 @@
 mod installation;
 mod inventory;
 mod permissions;
+mod removal;
 mod row_actions;
 mod update_actions;
 mod updates;
 
-use crate::{PlayerWindow, PreferencesWindow, plugin_host::PluginHostHandle};
+use crate::{
+    PlayerWindow, PreferencesWindow, plugin_host::PluginHostHandle,
+    plugin_packages::InstalledPlugin,
+};
 pub(crate) use inventory::current_runtime_supports;
 use inventory::{load_enabled, refresh};
-use riina_core::plugin::Manifest;
 use std::{
     cell::RefCell,
     collections::BTreeSet,
     path::{Path, PathBuf},
     rc::Rc,
 };
-
-#[derive(Clone)]
-struct InstalledPlugin {
-    manifest: Manifest,
-    directory: PathBuf,
-}
 
 struct PluginSettings {
     plugins: PathBuf,
@@ -66,7 +63,8 @@ pub(crate) fn connect(
     row_actions::register_reorder(window, &settings);
     update_actions::register_staged(window, &settings, &requests, host.as_ref());
     update_actions::register_completion(window, &settings, &requests);
-    row_actions::register_enabled(window, app, &settings, host.as_ref(), player);
+    row_actions::register_enabled(window, app, &settings, host.as_ref(), player.clone());
+    removal::register(window, app, &settings, host.as_ref(), player);
     update_actions::register_about(window, app, &settings, &requests);
     row_actions::register_open_folder(window, &settings);
     row_actions::register_settings_page(window, &settings);

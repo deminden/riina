@@ -15,6 +15,9 @@ pub(super) fn check_update_status(
     let mut failures = 0;
     let mut checked = 0;
     for plugin in plugins {
+        if !plugin.can_update() {
+            continue;
+        }
         let Some(repository) = plugin.manifest.github_repo.as_deref() else {
             continue;
         };
@@ -86,6 +89,9 @@ pub(super) fn apply_plugin_update(
     host: Option<&crate::plugin_host::PluginHostHandle>,
     should_activate: bool,
 ) -> Result<(), String> {
+    if !previous.can_update() {
+        return Err("This plugin package is managed outside Riina's updater.".into());
+    }
     let identifier = previous.manifest.identifier.clone();
     if staged.manifest.identifier != identifier {
         return Err(

@@ -5,7 +5,8 @@ mod settings_page_test;
 
 use super::{
     PluginSettings,
-    inventory::{load_plugin_order, refresh, save_enabled, save_plugin_order},
+    inventory::{load_enabled, load_plugin_order, refresh, save_plugin_order, set_enabled},
+    permissions::{confirm_permissions, read_plugin_grants, save_granted_permissions},
 };
 use crate::{PlayerWindow, PreferencesWindow, plugin_host::PluginHostHandle};
 use riina_mpv::CommandSender;
@@ -101,6 +102,7 @@ pub(super) fn register_enabled(
     let enabled_plugins = settings.enabled.clone();
     let plugin_host = host.cloned();
     let enabled_file = settings.enabled_path.clone();
+    let preferences = settings.preferences_path.clone();
     let plugins = settings.plugins.clone();
     let plugin_state_parent = app.as_weak();
     window.on_plugin_enabled_changed(move |index, should_enable| {
@@ -111,9 +113,17 @@ pub(super) fn register_enabled(
         let Some(plugin) = entries.borrow().get(index).cloned() else {
             return;
         };
-        let mut updated = enabled_plugins.borrow().clone();
+        if window.get_plugin_github_installing() {
+            refresh(
+                &window,
+                &plugins,
+                &entries,
+                &enabled_plugins.borrow(),
+                runtime_available,
+            );
+            return;
+        }
         let Some(plugin_host) = plugin_host.as_ref() else {
-            window.set_plugin_update_status("Plugin host is unavailable.".into());
             refresh(
                 &window,
                 &plugins,
@@ -121,67 +131,42 @@ pub(super) fn register_enabled(
                 &enabled_plugins.borrow(),
                 false,
             );
+            window.set_plugin_update_status("Plugin host is unavailable.".into());
             return;
         };
-        if should_enable {
-            updated.insert(plugin.manifest.identifier.clone());
-            if let Err(error) = save_enabled(&enabled_file, &updated) {
-                window.set_plugin_update_status(
-                    format!("Could not save plugin state: {error}").into(),
-                );
-                return;
+        let manifest = &plugin.manifest;
+        let identifier = &manifest.identifier;
+        let result: Result<bool, String> = (|| {
+            if should_enable {
+                let grants = read_plugin_grants(&preferences, identifier)?.unwrap_or_default();
+                if manifest
+                    .permissions
+                    .iter()
+                    .any(|name| !grants.contains(name))
+                {
+                    if !confirm_permissions(manifest) {
+                        return Ok(false);
+                    }
+                    save_granted_permissions(&preferences, manifest)?;
+                }
             }
-            if let Err(error) =
-                plugin_host.enable(plugin.manifest.clone(), plugin.directory.clone())
-            {
-                updated.remove(&plugin.manifest.identifier);
-                if let Err(restore_error) = save_enabled(&enabled_file, &updated) {
+            let was_enabled = set_enabled(&enabled_file, identifier, should_enable)?;
+            let changed = if should_enable {
+                plugin_host.enable(manifest.clone(), plugin.directory.clone())
+            } else {
+                plugin_host.disable(identifier.clone())
+            };
+            if let Err(error) = changed {
+                if let Err(restore) = set_enabled(&enabled_file, identifier, was_enabled) {
                     crate::diagnostics::warn!(
-                        "Could not restore the disabled plugin state: {restore_error}"
+                        "Could not restore the previous plugin state: {restore}"
                     );
                 }
-                window.set_plugin_update_status(format!("Could not enable plugin: {error}").into());
-                *enabled_plugins.borrow_mut() = updated;
-                refresh(
-                    &window,
-                    &plugins,
-                    &entries,
-                    &enabled_plugins.borrow(),
-                    runtime_available,
-                );
-                return;
+                return Err(error);
             }
-            *enabled_plugins.borrow_mut() = updated;
-            window.set_plugin_update_status(
-                format!(
-                    "{} is enabled; its runtime is starting.",
-                    plugin.manifest.name
-                )
-                .into(),
-            );
-        } else {
-            updated.remove(&plugin.manifest.identifier);
-            if let Err(error) = save_enabled(&enabled_file, &updated) {
-                window.set_plugin_update_status(
-                    format!("Could not save plugin state: {error}").into(),
-                );
-                return;
-            }
-            if let Err(error) = plugin_host.disable(plugin.manifest.identifier.clone()) {
-                let previous = enabled_plugins.borrow().clone();
-                if let Err(restore_error) = save_enabled(&enabled_file, &previous) {
-                    crate::diagnostics::warn!(
-                        "Could not restore the enabled plugin state: {restore_error}"
-                    );
-                }
-                window.set_plugin_update_status(format!("Could not stop plugin: {error}").into());
-                refresh(&window, &plugins, &entries, &previous, runtime_available);
-                return;
-            }
-            *enabled_plugins.borrow_mut() = updated;
-            window
-                .set_plugin_update_status(format!("{} is disabled.", plugin.manifest.name).into());
-        }
+            Ok(true)
+        })();
+        *enabled_plugins.borrow_mut() = load_enabled(&enabled_file);
         refresh(
             &window,
             &plugins,
@@ -189,6 +174,26 @@ pub(super) fn register_enabled(
             &enabled_plugins.borrow(),
             runtime_available,
         );
+        match result {
+            Ok(true) => window.set_plugin_update_status(
+                format!(
+                    "{} is {}.",
+                    manifest.name,
+                    if should_enable { "enabled" } else { "disabled" }
+                )
+                .into(),
+            ),
+            Ok(false) => {
+                window.set_plugin_update_status("Plugin permission review cancelled.".into());
+                return;
+            }
+            Err(error) => {
+                window.set_plugin_update_status(
+                    format!("Could not change plugin state: {error}").into(),
+                );
+                return;
+            }
+        }
         if plugin.manifest.identifier == "io.iina.ytdl"
             && let Some(app) = plugin_state_parent.upgrade()
         {

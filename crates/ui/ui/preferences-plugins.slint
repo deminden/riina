@@ -3,6 +3,7 @@ import { MotionSettings } from "preferences-controls.slint";
 
 export struct PluginPreferencesRow {
     has-settings: bool,
+    development: bool,
     identifier: string,
     name: string,
     version: string,
@@ -130,6 +131,7 @@ export component PluginPreferencesRowView inherits Rectangle {
     callback enabled-toggled(int, bool);
     callback about-requested(int);
     callback actions-requested(int);
+    callback uninstall-requested(int);
     callback settings-requested(int);
     pure callback plugin-id-transfer(string) -> data-transfer;
     pure callback plugin-id-from-transfer(data-transfer) -> string;
@@ -181,8 +183,21 @@ export component PluginPreferencesRowView inherits Rectangle {
         horizontal-alignment: right; vertical-alignment: center;
     }
     PluginPageIconButton {
-        x: 196px; y: 8px; icon-kind: 0; label: "Plugin actions";
-        activated => { root.actions-requested(root.row-index); }
+        x: 196px; y: 8px; icon-kind: 0; label: "Plugin actions for " + root.entry.name;
+        activated => { actions-menu.show({x: self.x, y: self.y + self.height}); }
+    }
+    actions-menu := ContextMenuArea {
+        width: 0px; height: 0px;
+        Menu {
+            MenuItem {
+                title: "Show in Folder";
+                activated => { root.actions-requested(root.row-index); }
+            }
+            MenuItem {
+                title: "Uninstall…"; enabled: !root.entry.development;
+                activated => { root.uninstall-requested(root.row-index); }
+            }
+        }
     }
     PluginPageIconButton {
         x: parent.width - 34px; y: 28px; icon-kind: 1; label: "Plugin information";

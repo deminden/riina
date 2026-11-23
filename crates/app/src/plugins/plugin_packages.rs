@@ -1,5 +1,8 @@
 //! Safe staging for local IINA-compatible plugin archives.
 
+mod catalog;
+pub(crate) use catalog::{InstalledPlugin, discover};
+
 use riina_core::plugin::Manifest;
 use std::{
     fs::{self, File, OpenOptions},
@@ -15,6 +18,7 @@ const MAX_UNPACKED_BYTES: u64 = 512 * 1024 * 1024;
 const STALE_STAGE_AGE: Duration = Duration::from_secs(24 * 60 * 60);
 const STAGE_PREFIX: &str = ".plugin-stage-";
 const BACKUP_PREFIX: &str = ".plugin-backup-";
+const REMOVAL_PREFIX: &str = ".plugin-removed-";
 static NEXT_STAGE: AtomicU64 = AtomicU64::new(0);
 
 pub(crate) struct StagedPackage {
@@ -58,6 +62,7 @@ impl StagedPackage {
     /// Move the validated package into place only after the user accepts its permissions.
     pub fn install(self, plugins_directory: &Path) -> Result<PathBuf, String> {
         fs::create_dir_all(plugins_directory).map_err(|error| error.to_string())?;
+        let _lock = lock_packages(plugins_directory)?;
         let destination =
             plugins_directory.join(format!("{}.iinaplugin", self.manifest.identifier));
         if destination.exists() {
@@ -73,6 +78,7 @@ impl StagedPackage {
 
     pub fn replace(self, plugins_directory: &Path) -> Result<PackageReplacement, String> {
         fs::create_dir_all(plugins_directory).map_err(|error| error.to_string())?;
+        let lock = lock_packages(plugins_directory)?;
         let destination =
             plugins_directory.join(format!("{}.iinaplugin", self.manifest.identifier));
         let metadata = fs::symlink_metadata(&destination)
@@ -95,6 +101,7 @@ impl StagedPackage {
         Ok(PackageReplacement {
             destination,
             backup: Some(backup),
+            _lock: lock,
         })
     }
 }
@@ -102,6 +109,92 @@ impl StagedPackage {
 pub(crate) struct PackageReplacement {
     destination: PathBuf,
     backup: Option<PathBuf>,
+    _lock: File,
+}
+
+pub(crate) struct PackageRemoval {
+    source: PathBuf,
+    parked: PathBuf,
+    _lock: File,
+}
+
+impl PackageRemoval {
+    pub(crate) fn stage(root: &Path, plugin: &InstalledPlugin) -> Result<Self, String> {
+        let root = root.canonicalize().map_err(|error| error.to_string())?;
+        let lock = lock_packages(&root)?;
+        let source = plugin
+            .directory
+            .canonicalize()
+            .map_err(|error| error.to_string())?;
+        let expected = root.join(plugin.directory.file_name().unwrap_or_default());
+        if plugin.is_development()
+            || source != expected
+            || source.parent() != Some(root.as_path())
+            || source.extension().and_then(|entry| entry.to_str()) != Some("iinaplugin")
+            || !source.is_dir()
+        {
+            return Err("Uninstall is available for installed plugin packages.".into());
+        }
+        let current = Manifest::load_from_directory(&source).map_err(|error| error.to_string())?;
+        if current.identifier != plugin.declared_identifier
+            || current.version != plugin.manifest.version
+        {
+            return Err("The package changed. Refresh Plugins and select it again.".into());
+        }
+        let parked = root.join(unique_directory_name(REMOVAL_PREFIX));
+        fs::rename(&source, &parked).map_err(|error| {
+            format!("Could not move the plugin out of the installed list: {error}")
+        })?;
+        Ok(Self {
+            source,
+            parked,
+            _lock: lock,
+        })
+    }
+
+    pub(crate) fn restore(self) -> Result<(), String> {
+        if !matches!(fs::symlink_metadata(&self.source), Err(error) if error.kind() == io::ErrorKind::NotFound)
+        {
+            return Err(format!(
+                "The original location is occupied. Package saved at {}",
+                self.parked.display()
+            ));
+        }
+        fs::rename(&self.parked, &self.source).map_err(|error| {
+            format!(
+                "Could not restore the plugin from {}: {error}",
+                self.parked.display()
+            )
+        })
+    }
+
+    pub(crate) fn finish(self) -> Result<(), String> {
+        if self.parked.canonicalize().as_ref().ok() != Some(&self.parked) {
+            return Err(format!(
+                "The removal folder changed: {}",
+                self.parked.display()
+            ));
+        }
+        fs::remove_dir_all(&self.parked).map_err(|error| {
+            format!(
+                "Could not clean up the removed package at {}: {error}",
+                self.parked.display()
+            )
+        })
+    }
+}
+
+fn lock_packages(root: &Path) -> Result<File, String> {
+    let lock = OpenOptions::new()
+        .read(true)
+        .write(true)
+        .create(true)
+        .truncate(false)
+        .open(root.join(".plugin-packages.lock"))
+        .map_err(|error| format!("Could not open the plugin package lock: {error}"))?;
+    lock.try_lock()
+        .map_err(|error| format!("Another plugin package change is in progress: {error}"))?;
+    Ok(lock)
 }
 
 impl PackageReplacement {
@@ -531,7 +624,7 @@ mod tests {
         assert!(staged.package_directory.join("main.js").is_file());
         let installed = staged.install(&plugins).unwrap();
         assert!(installed.join("Info.json").is_file());
-        assert_eq!(fs::read_dir(&plugins).unwrap().count(), 1);
+        assert_eq!(discover(&plugins, None).plugins.len(), 1);
     }
 
     #[test]

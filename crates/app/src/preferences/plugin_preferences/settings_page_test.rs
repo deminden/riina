@@ -103,10 +103,10 @@ fn plugin_settings_page_persists_native_form_changes_on_close()
     let path = plugins.join(".preferences/org.example.form.json");
     platform::startup::select_shared_backend(&Default::default())?;
     let owner = PreferencesWindow::new()?;
-    let installed = super::super::InstalledPlugin {
-        manifest,
-        directory: package,
-    };
+    let installed = crate::plugin_packages::discover(&plugins, None)
+        .plugins
+        .pop()
+        .expect("registered test plugin");
     owner.set_plugin_rows(super::super::inventory::plugin_rows(
         std::slice::from_ref(&installed),
         &Default::default(),

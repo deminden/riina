@@ -2293,6 +2293,26 @@ Both used test executable SHA-256
 `d884156f56dadab4ec15fb54b78d5506f876cc34611e83c3d19cfe3a05bbfb85`.
 Native macOS Settings remains unverified.
 
+### Plugin package removal and development links 2026-11-23
+
+The Windows app and UI gate passed 553 app tests, 57 widget tests, the
+software pixel comparison, and the Settings navigation checks. Linux passed
+strict workspace Clippy, a locked application build, 520 app tests and 54
+widget tests. The lifecycle regression starts installed and development
+packages together, retires the installed package, and checks the other
+package, grants, enabled state and retained data. Strict Apple Silicon
+cross-target Clippy passed.
+
+On isolated X11, the Settings actions menu opened during paused playback.
+A controlled confirmation helper returned Cancel and then Yes in two visits.
+The first visit preserved the installed folder. The second removed it, stopped
+its global and player entries, kept its data, and left the linked development
+project running. The exact player exited normally. The executable SHA-256 was
+`fb2f0399fc78a493de28c00cca7c080ad590f1da618a2e97ef5b8c3ef77203d6`.
+An isolated Windows launch verified the installed and linked development
+entries could start together. Native confirmation and menu input on Windows
+and macOS remain open.
+
 ### macOS application menu composition 2026-10-14
 
 The AppKit adapter consolidates application actions in one native menu while
