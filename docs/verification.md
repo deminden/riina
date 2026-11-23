@@ -845,6 +845,18 @@ route. It ran the 48 player interaction tests and the Windows pixel suite in
 4.61 seconds with the workspace build cache primed. The probe measured
 check selection and cache reuse.
 
+At `55fe191`, the Windows workspace gate passed 867 Rust tests and 78 Python
+tests. The plugin regressions verified the idle presenter interval, a wake
+for queued messages and late activation with the original lifecycle events.
+The locked Windows workspace build passed, and the private-desktop smoke
+passed all ten checks in 9.154 seconds before the player exited normally.
+
+At `e84cf67`, the Windows workspace gate passed 868 Rust tests and 78 Python
+tests. A plugin regression reproduced the loss of the loaded flag and window
+frame after a playback update. It passed after the host preserved window
+observations across playback snapshots, both at plugin activation and before
+the closing callback.
+
 On `954d4d6`, separate private-desktop runs reopened and played media after
 recovering a profile with an invalid setting type, a non-object JSON document,
 or invalid UTF-8. Each run showed the recovery notice, preserved the original
@@ -872,6 +884,10 @@ repeated app-file checks took 38.89 and 14.99 seconds with Cargo defaults, and
 the profile change from the later separation of application and UI compilation.
 
 ## Linux x64 application checks
+
+At `55fe191`, strict workspace Clippy, 828 Rust tests and the locked x86-64
+application build passed on Ubuntu 26.04 in WSL. The executable SHA-256 was
+`eff4811dd8c88ee24bfe33e827bb7cc47ac9368d4bb8d85d723ea3f53822b0a2`.
 
 At `96aa8c3`, strict workspace Clippy, 823 Rust tests and the locked x86-64
 application build passed on Ubuntu 26.04 in WSL. The executable SHA-256 was
@@ -1091,6 +1107,13 @@ contained 16,321 pixels of the reply color. A window-manager close request
 ended the player and its WebKit helpers. GTK logged frame-clock warnings.
 Quit from a focused WebView, Wayland embedding and native macOS plugin
 behavior remain unverified.
+
+At `55fe191`, the startup-enabled X11 sidebar again completed the message
+round trip and the window-manager close ended the player. In a separate
+920-pixel-wide player, enabling the same package through Reload All Plugins
+opened the sidebar during playback, but its WebKit surface stayed black.
+The same late-load trial at `63dfb72` showed the black surface too. Both
+players closed normally. Rendering a sidebar after a late load remains open.
 
 ### macOS application menu composition 2026-10-14
 
