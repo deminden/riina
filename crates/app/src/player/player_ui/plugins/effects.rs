@@ -130,14 +130,9 @@ impl PluginEffects {
     }
 
     fn present_sidebar(&self, app: &PlayerWindow, message: PluginHostMessage) {
-        if let PluginHostMessage::Sidebar {
-            plugin_identifier,
-            effect,
-            ..
-        } = &message
-        {
+        if let PluginHostMessage::Sidebar { route, effect, .. } = &message {
             match effect {
-                PluginSidebarEffect::Show => select_plugin_sidebar_tab(app, plugin_identifier),
+                PluginSidebarEffect::Show => select_plugin_sidebar_tab(app, &route.identifier),
                 PluginSidebarEffect::Hide => {
                     if app.global::<riina_ui::PlayerSidebarState>().get_sidebar() == 7 {
                         app.global::<riina_ui::PlayerSidebarState>().set_sidebar(0);

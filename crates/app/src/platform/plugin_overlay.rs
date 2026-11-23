@@ -10,7 +10,7 @@ mod native;
 use super::plugin_page::{self as page, Page};
 #[cfg(target_os = "linux")]
 use super::unix::offscreen_webview::OffscreenWebView as Surface;
-use crate::plugin_host::{OverlayRoute, PluginHostHandle, PluginHostMessage};
+use crate::plugin_host::{PlayerPluginRoute, PluginHostHandle, PluginHostMessage};
 use hit_test::HitTest;
 #[cfg(not(target_os = "linux"))]
 use native::Surface;
@@ -111,7 +111,7 @@ impl Presenter {
         &mut self,
         parent: &Window,
         host: &PluginHostHandle,
-        route: OverlayRoute,
+        route: PlayerPluginRoute,
         directory: PathBuf,
         effect: OverlayEffect,
         bounds: Rect,
@@ -190,7 +190,7 @@ impl Entry {
     fn new(
         parent: &Window,
         host: &PluginHostHandle,
-        route: OverlayRoute,
+        route: PlayerPluginRoute,
         root: PathBuf,
         document: Document,
         bounds: Rect,
@@ -211,7 +211,7 @@ impl Entry {
                     let _ = sender.deliver_overlay_message(receive_route.clone(), name, data);
                 },
                 move || {
-                    let _ = loaded.notify_video_overlay_loaded(route.clone());
+                    let _ = loaded.notify_plugin_page_loaded(route.clone());
                 },
             )
             .with_bounds(bounds)

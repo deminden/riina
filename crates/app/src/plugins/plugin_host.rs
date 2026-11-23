@@ -34,7 +34,7 @@ const MAX_PENDING_MESSAGES: usize = 256;
 const HOST_EVENT_POLL_INTERVAL: Duration = Duration::from_millis(25);
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) struct OverlayRoute {
+pub(crate) struct PlayerPluginRoute {
     pub(crate) identifier: String,
     pub(crate) realm: u64,
 }
@@ -50,13 +50,13 @@ pub(crate) enum PluginHostMessage {
     WindowAction(WindowAction),
     ObserveMpvProperty(String),
     Overlay {
-        route: OverlayRoute,
+        route: PlayerPluginRoute,
         plugin_directory: PathBuf,
         effect: OverlayEffect,
     },
     RemoveOverlay(String),
     Sidebar {
-        plugin_identifier: String,
+        route: PlayerPluginRoute,
         plugin_directory: PathBuf,
         effect: PluginSidebarEffect,
     },
@@ -143,14 +143,15 @@ impl PluginHostHandle {
             .map_err(command_error)
     }
 
-    pub(crate) fn notify_plugin_overlay_loaded(&self) -> Result<(), String> {
+    #[cfg(test)]
+    fn notify_plugin_overlay_loaded(&self) -> Result<(), String> {
         self.commands
             .try_send(PluginCommand::PluginOverlayLoaded(None))
             .map_err(command_error)
     }
 
     #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
-    pub(crate) fn notify_video_overlay_loaded(&self, route: OverlayRoute) -> Result<(), String> {
+    pub(crate) fn notify_plugin_page_loaded(&self, route: PlayerPluginRoute) -> Result<(), String> {
         self.commands
             .try_send(PluginCommand::PluginOverlayLoaded(Some(route)))
             .map_err(command_error)
@@ -199,7 +200,7 @@ impl PluginHostHandle {
     #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
     pub(crate) fn deliver_overlay_message(
         &self,
-        route: OverlayRoute,
+        route: PlayerPluginRoute,
         name: String,
         data: serde_json::Value,
     ) -> Result<(), String> {
@@ -213,16 +214,12 @@ impl PluginHostHandle {
 
     pub(crate) fn deliver_sidebar_message(
         &self,
-        identifier: String,
+        route: PlayerPluginRoute,
         name: String,
         data: serde_json::Value,
     ) -> Result<(), String> {
         self.commands
-            .try_send(PluginCommand::DeliverSidebarMessage {
-                identifier,
-                name,
-                data,
-            })
+            .try_send(PluginCommand::DeliverSidebarMessage { route, name, data })
             .map_err(command_error)
     }
 
@@ -431,18 +428,18 @@ enum PluginCommand {
     UpdatePlayerFileContext(PluginPlayerFileContext),
     UpdateWindowProperties(BTreeMap<String, serde_json::Value>),
     WindowLoaded,
-    PluginOverlayLoaded(Option<OverlayRoute>),
+    PluginOverlayLoaded(Option<PlayerPluginRoute>),
     ThumbnailsReady,
     MenuUpdate,
     WindowWillClose(mpsc::SyncSender<()>),
     #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
     DeliverOverlayMessage {
-        route: OverlayRoute,
+        route: PlayerPluginRoute,
         name: String,
         data: serde_json::Value,
     },
     DeliverSidebarMessage {
-        identifier: String,
+        route: PlayerPluginRoute,
         name: String,
         data: serde_json::Value,
     },
@@ -668,7 +665,7 @@ fn handle_command(
         PluginCommand::PluginOverlayLoaded(route) => {
             if route
                 .as_ref()
-                .is_none_or(|route| overlay_session(sessions, route).is_some())
+                .is_none_or(|route| player_plugin_session(sessions, route).is_some())
             {
                 broadcast_player_event("iina.plugin-overlay-loaded", messages, sessions);
             }
@@ -686,18 +683,14 @@ fn handle_command(
         }
         #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
         PluginCommand::DeliverOverlayMessage { route, name, data } => {
-            if let Some(session) = overlay_session(sessions, &route)
+            if let Some(session) = player_plugin_session(sessions, &route)
                 && let Err(error) = session.deliver_overlay_message(name, data)
             {
                 record(messages, PluginHostMessage::Status(error));
             }
         }
-        PluginCommand::DeliverSidebarMessage {
-            identifier,
-            name,
-            data,
-        } => {
-            if let Some(session) = sessions.get(&PluginInstanceKey::player(&identifier))
+        PluginCommand::DeliverSidebarMessage { route, name, data } => {
+            if let Some(session) = player_plugin_session(sessions, &route)
                 && let Err(error) = session.deliver_sidebar_message(name, data)
             {
                 record(messages, PluginHostMessage::Status(error));
@@ -975,7 +968,7 @@ fn pump_session_events(
                         record(
                             messages,
                             PluginHostMessage::Overlay {
-                                route: OverlayRoute {
+                                route: PlayerPluginRoute {
                                     identifier: key.identifier.clone(),
                                     realm: session.realm,
                                 },
@@ -990,7 +983,10 @@ fn pump_session_events(
                         record(
                             messages,
                             PluginHostMessage::Sidebar {
-                                plugin_identifier: key.identifier.clone(),
+                                route: PlayerPluginRoute {
+                                    identifier: key.identifier.clone(),
+                                    realm: session.realm,
+                                },
                                 plugin_directory: plugin_directory.path.clone(),
                                 effect,
                             },
@@ -1155,9 +1151,9 @@ fn load_grants(path: &Path, identifier: &str) -> Result<Vec<String>, String> {
     Ok(grants.get(identifier).cloned().unwrap_or_default())
 }
 
-fn overlay_session<'a>(
+fn player_plugin_session<'a>(
     sessions: &'a BTreeMap<PluginInstanceKey, PluginRuntimeSession>,
-    route: &OverlayRoute,
+    route: &PlayerPluginRoute,
 ) -> Option<&'a PluginRuntimeSession> {
     sessions
         .get(&PluginInstanceKey::player(&route.identifier))

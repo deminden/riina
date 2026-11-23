@@ -771,3 +771,68 @@ fn an_old_overlay_cannot_deliver_messages_to_a_reloaded_plugin() {
         _ => None,
     });
 }
+
+#[test]
+fn an_old_sidebar_cannot_deliver_messages_to_a_reloaded_plugin() {
+    let scratch = TempDir::new("sidebar-realm-routing").unwrap();
+    let root = scratch.path();
+    let identifier = "org.example.sidebar";
+    let package = root.join("Plugins/org.example.sidebar.iinaplugin");
+    fs::create_dir_all(&package).unwrap();
+    fs::write(
+        package.join("Info.json"),
+        serde_json::json!({
+            "name": "Sidebar", "identifier": identifier, "version": "1.0.0",
+            "author": {"name": "Test"}, "entry": "main.js", "permissions": [],
+            "sidebarTab": {"name": "Sidebar"}
+        })
+        .to_string(),
+    )
+    .unwrap();
+    fs::write(
+        package.join("main.js"),
+        "iina.sidebar.loadFile('index.html'); iina.sidebar.onMessage('reply', iina.log);",
+    )
+    .unwrap();
+    fs::write(package.join("index.html"), "<p>Sidebar</p>").unwrap();
+    fs::write(
+        root.join("plugin-enabled.json"),
+        serde_json::json!([identifier]).to_string(),
+    )
+    .unwrap();
+    let host = PluginHost::start(&root.join("preferences.json"), &[], &[]).unwrap();
+    let handle = host.handle();
+    let wait_for_route = || {
+        wait_for_host_message(&handle, |message| match message {
+            PluginHostMessage::Sidebar {
+                route,
+                effect: PluginSidebarEffect::LoadFile(_),
+                ..
+            } => Some(route),
+            _ => None,
+        })
+    };
+    let send_reply = |route, reply| {
+        handle
+            .deliver_sidebar_message(route, "reply".into(), serde_json::json!(reply))
+            .unwrap();
+    };
+    let old = wait_for_route();
+    send_reply(old.clone(), "first reply");
+    wait_for_log(&handle, "first reply");
+    handle.suspend_for_update(identifier.into()).unwrap();
+    handle
+        .activate_after_update(Manifest::load_from_directory(&package).unwrap(), package)
+        .unwrap();
+    let updated = wait_for_route();
+    assert_ne!(old.realm, updated.realm);
+    send_reply(old, "late reply");
+    send_reply(updated, "new reply");
+    wait_for_host_message(&handle, |message| match message {
+        PluginHostMessage::Log(text) => {
+            assert!(!text.ends_with("late reply"));
+            text.ends_with("new reply").then_some(())
+        }
+        _ => None,
+    });
+}

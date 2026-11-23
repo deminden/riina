@@ -51,7 +51,7 @@ impl PluginSidebarPresenter {
             let view = entry.view.composited()?;
             entry
                 .visible
-                .then_some((identifier, entry.ready.get(), view))
+                .then_some((identifier, entry.page.ready_page().is_some(), view))
         });
         if let Some((identifier, ready, view)) = selected {
             if ready {

@@ -264,6 +264,9 @@ Both menu presenters receive the resolved shortcut and the conflict count.
 ### Plugin sidebar surfaces
 
 Each player owns its plugin sidebar documents and selects one tab for display.
+The sidebar shares the confined package protocol with the overlay and standalone
+windows. It tags each document and routes browser messages to its owning plugin
+instance, so an old page cannot deliver messages after that plugin is reloaded.
 Windows, AppKit and X11 attach native browser children. On Wayland the selected
 WebKitGTK document supplies a transparent image inside the shared sidebar. Its
 pointer and wheel input uses sidebar-local coordinates. While the browser has

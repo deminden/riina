@@ -55,20 +55,24 @@ impl Observation {
 pub(super) struct Page {
     state: Rc<Observation>,
     authority: Arc<str>,
-    simple: &'static [u8],
+    simple: Option<&'static [u8]>,
 }
 
 impl Page {
     pub(super) fn standalone(document: u64, origin: uuid::Uuid) -> Self {
-        Self::new(document, origin, STANDALONE)
+        Self::new(document, origin, Some(STANDALONE))
     }
 
     #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
     pub(super) fn overlay(document: u64) -> Self {
-        Self::new(document, uuid::Uuid::new_v4(), OVERLAY)
+        Self::new(document, uuid::Uuid::new_v4(), Some(OVERLAY))
     }
 
-    fn new(document: u64, origin: uuid::Uuid, simple: &'static [u8]) -> Self {
+    pub(super) fn sidebar(document: u64) -> Self {
+        Self::new(document, uuid::Uuid::new_v4(), None)
+    }
+
+    fn new(document: u64, origin: uuid::Uuid, simple: Option<&'static [u8]>) -> Self {
         Self {
             state: Rc::new(Observation {
                 expected: Cell::new(document),
@@ -113,7 +117,7 @@ impl Page {
                     return unavailable();
                 }
                 match shell_request(&request) {
-                    true => simple_response(simple),
+                    true => simple.map_or_else(unavailable, simple_response),
                     false => root
                         .as_ref()
                         .map_or_else(unavailable, |root| resource_response(root, request)),
@@ -146,7 +150,8 @@ impl Page {
     pub(super) fn url(&self, document_id: u64, document: &Document) -> Result<String, String> {
         let (base, shell) = match document {
             Document::Package(file) => (plugin_file_url(file)?, false),
-            _ => (format!("{SCHEME}://localhost{SHELL}"), true),
+            _ if self.simple.is_some() => (format!("{SCHEME}://localhost{SHELL}"), true),
+            _ => return Err("Plugin sidebar requires a package document".into()),
         };
         let mut url = Url::parse(&base).map_err(|error| error.to_string())?;
         // Keep storage and script origins distinct across realms, including

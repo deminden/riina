@@ -2253,6 +2253,27 @@ Its SHA-256 was
 `de8f0647a9480a89f2eb4443adf10fdb0cd5196cbade0a012808151cbed27262`.
 Native macOS interaction remains unverified.
 
+### Plugin sidebar document lifecycle 2026-11-23
+
+The host regression verified that a retired sidebar cannot send a delayed
+reply to a reloaded plugin, and that the current sidebar can still reply.
+The full Windows gate passed 925 workspace tests and 78 Python tests,
+including the Windows headless pixel comparison. Linux passed strict
+workspace Clippy and the app and widget test groups.
+On isolated Ubuntu 26.04 X11 and Wayland displays, the sidebar exchanged
+messages with the player, retained form text when hidden and reopened, and
+loaded a replacement package document. The replacement received its own
+queued message while the original video stayed open and paused. The X11
+scenario also verified wheel scrolling. Both players closed normally.
+The tested Linux executable SHA-256 was
+`c06ab0f391506d47a759e1a4135715ceb88847cebd38adee8be2d00235999f6f`.
+
+On a private Windows desktop, the sidebar opened and returned the player's
+message before the exact player process exited normally. The tested Windows
+executable SHA-256 was
+`043dda75907de0fde0a862d8d1d61a21fe0a6e979681a5dac26b24cab801d6ec`.
+Wayland wheel scrolling and native macOS interaction remain open.
+
 ### macOS application menu composition 2026-10-14
 
 The AppKit adapter consolidates application actions in one native menu while
