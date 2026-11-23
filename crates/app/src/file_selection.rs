@@ -15,6 +15,7 @@ pub fn prepare(paths: Vec<String>, open_media: bool) -> Result<Vec<String>, Stri
         })
         .collect();
     riina_core::file_selection::prepare(paths, open_media, crate::platform::natural_compare)
+        .map_err(|error| error.to_string())
 }
 
 #[cfg(test)]

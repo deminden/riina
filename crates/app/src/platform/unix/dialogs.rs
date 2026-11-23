@@ -61,6 +61,7 @@ pub fn open(
         if result.as_ref().is_ok_and(Vec::is_empty)
             && let Some(welcome) = welcome.as_ref().and_then(slint::Weak::upgrade)
         {
+            // Continue releasing session resources if the window is closing.
             let _ = app.hide();
             let _ = welcome.show();
             return;

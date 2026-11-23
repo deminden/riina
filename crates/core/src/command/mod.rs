@@ -2,6 +2,8 @@
 mod arguments;
 mod audio;
 mod capture;
+mod error;
+pub use error::CommandError;
 mod filters;
 mod network;
 mod plan;

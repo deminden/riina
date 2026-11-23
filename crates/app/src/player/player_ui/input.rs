@@ -75,7 +75,7 @@ fn dispatch_control_mouse_action(
         }
     };
     if let Err(error) = result {
-        app.set_status(error.into());
+        crate::diagnostics::report(app, error);
     }
 }
 
@@ -238,7 +238,7 @@ fn install_file_drop(
                 && let Err(error) = event_player.set_paused(false)
                 && let Some(app) = event_app.upgrade()
             {
-                app.set_status(error.into());
+                crate::diagnostics::report(&app, error);
             }
         }
         EventResult::Propagate
@@ -329,7 +329,7 @@ fn scroll_action_handler(
                     if let Some(generation) = generation {
                         match player.set_paused(true) {
                             Ok(()) => trackpad_pause_generation.set(Some(generation)),
-                            Err(error) => app.set_status(error.into()),
+                            Err(error) => crate::diagnostics::report(&app, error),
                         }
                     }
                 }
@@ -351,7 +351,7 @@ fn scroll_action_handler(
         app.global::<riina_ui::PlayerControlActions>()
             .invoke_activity();
         if let Err(error) = player.send(command) {
-            app.set_status(error.into());
+            crate::diagnostics::report(&app, error);
         }
         true
     }

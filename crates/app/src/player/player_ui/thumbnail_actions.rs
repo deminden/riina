@@ -40,8 +40,13 @@ pub(super) fn install(
                 thumbnail_tick
                     .borrow_mut()
                     .observe(&app, &state, &settings, &thumbnail_library);
-            if ready && let Some(host) = &thumbnail_plugin_host {
-                let _ = host.notify_thumbnails_ready();
+            if ready
+                && let Some(host) = &thumbnail_plugin_host
+                && let Err(error) = host.notify_thumbnails_ready()
+            {
+                crate::diagnostics::warn!(
+                    "Could not notify plugins that thumbnails are ready: {error}"
+                );
             }
         },
     );

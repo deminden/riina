@@ -1,4 +1,6 @@
 //! Reversible source-pixel projection for the interactive crop surface.
+
+use crate::crop::CropError;
 use crate::{crop::Rectangle, video_controls::Rotation};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -29,7 +31,7 @@ impl From<Rectangle> for SourceRect {
 }
 
 impl SourceRect {
-    fn validate(self, source: (u32, u32)) -> Result<(), String> {
+    fn validate(self, source: (u32, u32)) -> Result<(), CropError> {
         if ![self.x, self.y, self.width, self.height]
             .into_iter()
             .all(f64::is_finite)
@@ -40,12 +42,12 @@ impl SourceRect {
             || self.x + self.width > f64::from(source.0)
             || self.y + self.height > f64::from(source.1)
         {
-            return Err("Crop rectangle is outside the source".into());
+            return Err(CropError::RectangleOutsideSource);
         }
         Ok(())
     }
 
-    pub fn to_native(self, source: (u32, u32)) -> Result<Rectangle, String> {
+    pub fn to_native(self, source: (u32, u32)) -> Result<Rectangle, CropError> {
         self.validate(source)?;
         Ok(Rectangle {
             x: truncate(self.x, source.0),
@@ -75,7 +77,10 @@ pub struct Projection {
 impl Projection {
     /// Interactive mode reserves space for the bottom controls and anchors the
     /// contained picture at the top inset, rather than centering it vertically.
-    pub fn interactive(video: &crate::VideoParameters, size: (f64, f64)) -> Result<Self, String> {
+    pub fn interactive(
+        video: &crate::VideoParameters,
+        size: (f64, f64),
+    ) -> Result<Self, CropError> {
         let mut projection = Self::for_video(
             video,
             DisplayRect {
@@ -92,17 +97,17 @@ impl Projection {
     pub fn for_video(
         video: &crate::VideoParameters,
         viewport: DisplayRect,
-    ) -> Result<Self, String> {
+    ) -> Result<Self, CropError> {
         let display = video
             .dw
             .zip(video.dh)
-            .ok_or("Video display dimensions are unavailable")?;
+            .ok_or(CropError::DisplayDimensionsUnavailable)?;
         let degrees = video
             .rotate
-            .ok_or("Video display rotation is unavailable")?
+            .ok_or(CropError::DisplayRotationUnavailable)?
             .rem_euclid(360);
-        let rotation = Rotation::from_degrees(degrees)
-            .ok_or("This display rotation is not supported by the crop projection")?;
+        let rotation =
+            Rotation::from_degrees(degrees).ok_or(CropError::UnsupportedDisplayRotation)?;
         Self::contain(
             (video.w, video.h),
             (f64::from(display.0), f64::from(display.1)),
@@ -117,7 +122,7 @@ impl Projection {
         display: (f64, f64),
         rotation: Rotation,
         viewport: DisplayRect,
-    ) -> Result<Self, String> {
+    ) -> Result<Self, CropError> {
         if source.0 == 0
             || source.1 == 0
             || ![
@@ -135,7 +140,7 @@ impl Projection {
             || viewport.width <= 0.0
             || viewport.height <= 0.0
         {
-            return Err("Crop projection dimensions are invalid".into());
+            return Err(CropError::InvalidProjectionDimensions);
         }
         let (dw, dh) = if matches!(rotation, Rotation::Clockwise90 | Rotation::Clockwise270) {
             (display.1, display.0)
@@ -164,7 +169,7 @@ impl Projection {
             || width <= 0.0
             || height <= 0.0
         {
-            return Err("Crop projection exceeds the numeric range".into());
+            return Err(CropError::ProjectionOutOfRange);
         }
         Ok(Self {
             source_width: source.0,
@@ -178,11 +183,11 @@ impl Projection {
         self.content
     }
 
-    pub fn project(&self, rectangle: Rectangle) -> Result<DisplayRect, String> {
+    pub fn project(&self, rectangle: Rectangle) -> Result<DisplayRect, CropError> {
         self.project_continuous(rectangle.into())
     }
 
-    pub fn project_continuous(&self, rectangle: SourceRect) -> Result<DisplayRect, String> {
+    pub fn project_continuous(&self, rectangle: SourceRect) -> Result<DisplayRect, CropError> {
         rectangle.validate((self.source_width, self.source_height))?;
         let left = rectangle.x / f64::from(self.source_width);
         let top = rectangle.y / f64::from(self.source_height);
@@ -208,7 +213,7 @@ impl Projection {
         })
     }
 
-    pub fn select(&self, start: Point, end: Point) -> Result<Rectangle, String> {
+    pub fn select(&self, start: Point, end: Point) -> Result<Rectangle, CropError> {
         let clamp = |point: Point| Point {
             x: point
                 .x
@@ -219,23 +224,23 @@ impl Projection {
         };
         let (start, end) = (clamp(start), clamp(end));
         if start.x == end.x || start.y == end.y {
-            return Err("Crop selection has no area".into());
+            return Err(CropError::EmptySelection);
         }
         let rectangle = self
             .select_continuous(start, end)?
             .to_native((self.source_width, self.source_height))?;
         if rectangle.width == 0 || rectangle.height == 0 {
-            return Err("Crop selection has no area".into());
+            return Err(CropError::EmptySelection);
         }
         Ok(rectangle)
     }
 
-    pub fn select_continuous(&self, start: Point, end: Point) -> Result<SourceRect, String> {
+    pub fn select_continuous(&self, start: Point, end: Point) -> Result<SourceRect, CropError> {
         if ![start.x, start.y, end.x, end.y]
             .into_iter()
             .all(f64::is_finite)
         {
-            return Err("Crop pointer position is invalid".into());
+            return Err(CropError::InvalidPointer);
         }
         let source_point = |point: Point| {
             self.rotate(

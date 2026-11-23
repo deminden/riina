@@ -32,6 +32,7 @@ pub(super) fn initialize(app: &PlayerWindow, enabled: bool, use_system_services:
     if use_system_services && text_recognition::SUPPORTED {
         let weak = app.as_weak();
         let _ = text_recognition::check_availability(move |available| {
+            // The result has no recipient once its window or event loop closes.
             let _ = crate::background::to_ui(weak, move |app| {
                 app.set_live_text_available(available);
                 if !available {
@@ -48,7 +49,7 @@ pub(super) fn install_actions(app: &PlayerWindow, prefs_path: &Path) {
         if let Err(error) = crate::platform::clipboard::copy_text(text.as_str())
             && let Some(app) = clipboard_parent.upgrade()
         {
-            app.set_status(format!("Could not copy recognized text: {error}").into());
+            crate::diagnostics::report(&app, format!("Could not copy recognized text: {error}"));
         }
     });
     let live_text_parent = app.as_weak();
@@ -73,9 +74,10 @@ pub(super) fn install_actions(app: &PlayerWindow, prefs_path: &Path) {
             );
             match result {
                 Ok(()) => app.set_live_text_enabled(enabled),
-                Err(error) => {
-                    app.set_status(format!("Could not save Live Text preference: {error}").into())
-                }
+                Err(error) => crate::diagnostics::report(
+                    &app,
+                    format!("Could not save Live Text preference: {error}"),
+                ),
             }
         });
 }
@@ -127,8 +129,9 @@ pub(super) fn install(
                 CaptureAction::Capture => {
                     if let Err(error) = sender.send(Command::CaptureFrame) {
                         capture_state.request_failed();
-                        app.set_status(
-                            format!("Could not capture frame for text recognition: {error}").into(),
+                        crate::diagnostics::report(
+                            &app,
+                            format!("Could not capture frame for text recognition: {error}"),
                         );
                     }
                     return;
@@ -151,6 +154,7 @@ pub(super) fn install(
             let width = frame.width as f32;
             let height = frame.height as f32;
             if let Err(error) = text_recognition::recognize(frame, move |result| {
+                // The window may close before deferred UI work can be delivered.
                 let _ = slint::invoke_from_event_loop(move || {
                     running.store(false, Ordering::Release);
                     let Some(app) = weak_result.upgrade() else {
@@ -186,15 +190,19 @@ pub(super) fn install(
                                     })
                                     .collect::<Vec<_>>(),
                             ))),
-                        Err(error) => {
-                            app.set_status(format!("Text recognition failed: {error}").into())
-                        }
+                        Err(error) => crate::diagnostics::report(
+                            &app,
+                            format!("Text recognition failed: {error}"),
+                        ),
                     }
                 });
             }) {
                 recognition_running.store(false, Ordering::Release);
                 recognized_capture = None;
-                app.set_status(format!("Could not start text recognition: {error}").into());
+                crate::diagnostics::report(
+                    &app,
+                    format!("Could not start text recognition: {error}"),
+                );
             }
         },
     );

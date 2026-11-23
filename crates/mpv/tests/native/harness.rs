@@ -1,4 +1,5 @@
 use super::*;
+use riina_mpv::EngineError;
 
 pub(super) struct Harness {
     pub(super) player: Player,
@@ -6,21 +7,21 @@ pub(super) struct Harness {
 }
 
 impl Harness {
-    pub(super) fn start(root: &std::path::Path) -> Result<Self, String> {
+    pub(super) fn start(root: &std::path::Path) -> Result<Self, EngineError> {
         Self::with_options(root, Vec::new())
     }
 
     pub(super) fn with_options(
         root: &std::path::Path,
         options: Vec<(String, String)>,
-    ) -> Result<Self, String> {
+    ) -> Result<Self, EngineError> {
         Self::at(&test_library(root), options)
     }
 
     pub(super) fn at(
         library: &std::path::Path,
         options: Vec<(String, String)>,
-    ) -> Result<Self, String> {
+    ) -> Result<Self, EngineError> {
         let (sender, receiver) = mpsc::channel();
         let player = start_test_player_with_options(library, true, options, move |state| {
             let _ = sender.send(state);
@@ -33,7 +34,7 @@ impl Harness {
         wait_for(&self.receiver, predicate)
     }
 
-    pub(super) fn send(&self, command: Command) -> Result<(), String> {
+    pub(super) fn send(&self, command: Command) -> Result<(), EngineError> {
         self.player.send(command)
     }
 }
@@ -82,7 +83,7 @@ pub(super) fn start_test_player(
     path: &std::path::Path,
     headless: bool,
     notify: impl Fn(Playback) + Send + 'static,
-) -> Result<Player, String> {
+) -> Result<Player, EngineError> {
     start_test_player_with_options(path, headless, Vec::new(), notify)
 }
 
@@ -91,7 +92,7 @@ pub(super) fn start_test_player_with_options(
     headless: bool,
     mut options: Vec<(String, String)>,
     notify: impl Fn(Playback) + Send + 'static,
-) -> Result<Player, String> {
+) -> Result<Player, EngineError> {
     // Hosted runners have no physical endpoint. An explicit test AO preserves
     // decoding and clocked transport without changing the application's AO.
     if let Some(output) = std::env::var_os("RIINA_TEST_MPV_AUDIO_OUTPUT") {

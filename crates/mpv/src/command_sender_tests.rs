@@ -1,4 +1,4 @@
-use super::{Command, CommandQueue, CommandSender, Message, Owner, WakeupContext};
+use super::{Command, CommandQueue, CommandSender, EngineError, Message, Owner, WakeupContext};
 use std::rc::Rc;
 use std::sync::{atomic::Ordering, mpsc};
 
@@ -136,11 +136,14 @@ fn full_queue_rejects_pause_promptly_and_preserves_accepted_order() {
         done.send(command_sender.toggle_pause()).unwrap();
         command_sender
     });
-    assert!(
-        result
-            .recv_timeout(std::time::Duration::from_secs(1))
-            .unwrap()
-            .is_err()
+    let error = result
+        .recv_timeout(std::time::Duration::from_secs(1))
+        .unwrap()
+        .unwrap_err();
+    assert!(matches!(error, EngineError::QueueFull));
+    assert_eq!(
+        error.to_string(),
+        "Player command was not accepted: sending on a full channel"
     );
     let command_sender = caller.join().unwrap();
     for expected in [
@@ -164,7 +167,9 @@ fn full_queue_rejects_pause_promptly_and_preserves_accepted_order() {
         Ok(Message::Intent(Command::SetPaused(true)))
     ));
     drop(receiver);
-    assert!(command_sender.toggle_pause().is_err());
+    let error = command_sender.toggle_pause().unwrap_err();
+    assert!(matches!(error, EngineError::Stopped));
+    assert_eq!(error.to_string(), "The playback engine has stopped");
 }
 
 #[test]
@@ -211,6 +216,7 @@ fn public_shutdown_is_rejected_without_consuming_a_command_slot() {
         commands
             .send(Command::Shutdown)
             .unwrap_err()
+            .to_string()
             .contains("final owner")
     );
     commands.send(Command::Stop).unwrap();

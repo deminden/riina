@@ -1,9 +1,9 @@
-use super::{Command, cmd, flag, set};
+use super::{Command, CommandError, cmd, flag, set};
 use crate::subtitle_controls;
 use crate::{Playback, TrackKind, valid_path};
 
 impl Command {
-    pub(super) fn subtitles_args(&self) -> Result<Vec<String>, String> {
+    pub(super) fn subtitles_args(&self) -> Result<Vec<String>, CommandError> {
         let args = match self {
             Self::MultiplySubtitleScale(factor) if factor.is_finite() && *factor > 0.0 => {
                 vec!["multiply".into(), "sub-scale".into(), factor.to_string()]
@@ -119,18 +119,24 @@ impl Command {
                 // a UI timestamp search would bypass both timing semantics.
                 vec!["sub-seek".into(), skip.to_string()]
             }
-            _ => return Err("The requested value is out of range or non-finite".into()),
+            _ => {
+                return Err(CommandError::InvalidArgument {
+                    what: "The requested value is out of range or non-finite",
+                });
+            }
         };
         Ok(args)
     }
 }
 
-pub(super) fn encoding(state: &Playback, encoding: &str) -> Result<Vec<Vec<String>>, String> {
+pub(super) fn encoding(state: &Playback, encoding: &str) -> Result<Vec<Vec<String>>, CommandError> {
     if !subtitle_controls::SUBTITLE_ENCODING_CHOICES
         .iter()
         .any(|(_, code)| *code == encoding)
     {
-        return Err("Unsupported subtitle encoding".into());
+        return Err(CommandError::InvalidArgument {
+            what: "Unsupported subtitle encoding",
+        });
     }
     let mut commands = vec![set("sub-codepage", encoding)];
     commands.extend(
@@ -145,8 +151,8 @@ pub(super) fn encoding(state: &Playback, encoding: &str) -> Result<Vec<Vec<Strin
 
 pub(super) fn auto_load(
     preferences: &subtitle_controls::AutoLoadPreferences,
-) -> Result<Vec<Vec<String>>, String> {
-    preferences.validate().map_err(str::to_owned)?;
+) -> Result<Vec<Vec<String>>, CommandError> {
+    preferences.validate().map_err(CommandError::Preference)?;
     let mut commands = vec![set("sub-auto", preferences.mpv_matching_mode())];
     commands.push(set(
         "sub-file-paths",
@@ -155,9 +161,11 @@ pub(super) fn auto_load(
     Ok(commands)
 }
 
-pub(super) fn add(state: &Playback, path: &str) -> Result<Vec<Vec<String>>, String> {
+pub(super) fn add(state: &Playback, path: &str) -> Result<Vec<Vec<String>>, CommandError> {
     if !valid_path(path) {
-        return Err("Invalid subtitle path".into());
+        return Err(CommandError::InvalidArgument {
+            what: "Invalid subtitle path",
+        });
     }
     // Reload an existing external file to avoid duplicate tracks, as IINA does.
     Ok(
@@ -178,16 +186,20 @@ pub(super) fn add(state: &Playback, path: &str) -> Result<Vec<Vec<String>>, Stri
 pub(super) fn add_without_selection(
     state: &Playback,
     paths: &[String],
-) -> Result<Vec<Vec<String>>, String> {
+) -> Result<Vec<Vec<String>>, CommandError> {
     const MAX_SUBTITLES_PER_SCAN: usize = 64;
     if paths.len() > MAX_SUBTITLES_PER_SCAN {
-        return Err("Subtitle search returned too many matching files".into());
+        return Err(CommandError::InvalidArgument {
+            what: "Subtitle search returned too many matching files",
+        });
     }
     let mut added = Vec::<&str>::new();
     let mut commands = Vec::new();
     for path in paths {
         if !valid_path(path) {
-            return Err("Invalid subtitle path".into());
+            return Err(CommandError::InvalidArgument {
+                what: "Invalid subtitle path",
+            });
         }
         let exists = state.tracks.iter().any(|track| {
             track.kind == TrackKind::Sub

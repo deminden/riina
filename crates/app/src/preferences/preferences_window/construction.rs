@@ -108,7 +108,10 @@ fn connect_assrt_instructions(app: &PlayerWindow, window: &PreferencesWindow) {
         if let Err(error) = crate::platform::open_http_url_in_browser("https://2.assrt.net/api/doc")
             && let Some(app) = assrt_token_page_parent.upgrade()
         {
-            app.set_status(format!("Could not open Assrt API instructions: {error}").into());
+            crate::diagnostics::report(
+                &app,
+                format!("Could not open Assrt API instructions: {error}"),
+            );
         }
     });
 }

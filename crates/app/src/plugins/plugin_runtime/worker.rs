@@ -148,7 +148,8 @@ fn initialize_realm(
         Func::from(move |json: String| -> rquickjs::Result<()> {
             let items = serde_json::from_str::<Vec<PluginMenuItem>>(&json)
                 .map_err(|error| menu_js_error(error.to_string()))?;
-            PluginMenuItem::validate_all(&items).map_err(menu_js_error)?;
+            PluginMenuItem::validate_all(&items)
+                .map_err(|error| menu_js_error(error.to_string()))?;
             record_plugin_menu(&menu_events, items).map_err(menu_js_error)
         }),
     )?;

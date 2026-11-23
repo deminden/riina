@@ -131,15 +131,28 @@ impl PackageReplacement {
 impl Drop for PackageReplacement {
     fn drop(&mut self) {
         if let Some(backup) = self.backup.take() {
-            let _ = fs::remove_dir_all(&self.destination);
-            let _ = fs::rename(backup, &self.destination);
+            if let Err(error) = fs::remove_dir_all(&self.destination)
+                && error.kind() != io::ErrorKind::NotFound
+            {
+                crate::diagnostics::warn!("Could not remove an incomplete plugin update: {error}");
+            }
+            if let Err(error) = fs::rename(backup, &self.destination) {
+                crate::diagnostics::warn!(
+                    "Could not restore the previous plugin after an incomplete update: {error}"
+                );
+            }
         }
     }
 }
 
 impl Drop for StagedPackage {
     fn drop(&mut self) {
-        let _ = fs::remove_dir_all(&self.stage_directory);
+        // A successful install can already have moved the staging directory.
+        if let Err(error) = fs::remove_dir_all(&self.stage_directory)
+            && error.kind() != io::ErrorKind::NotFound
+        {
+            crate::diagnostics::warn!("Could not remove the staged plugin directory: {error}");
+        }
     }
 }
 
@@ -178,6 +191,7 @@ fn stage(source: impl Read + Seek, plugins_directory: &Path) -> Result<StagedPac
     let result = extract_validate(source, &stage_directory).and_then(|package_directory| {
         Manifest::load_from_directory_with_locale(&package_directory, locale.as_deref())
             .map(|manifest| (package_directory, manifest))
+            .map_err(|error| error.to_string())
     });
     match result {
         Ok((package_directory, manifest)) => Ok(StagedPackage {

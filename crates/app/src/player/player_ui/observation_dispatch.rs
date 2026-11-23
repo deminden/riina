@@ -143,6 +143,7 @@ impl PlaybackNotification {
         let latest = self.latest.clone();
         let queued = self.queued.clone();
         let window = self.delivery.clone();
+        // The window may close before deferred UI work can be delivered.
         let _ = slint::invoke_from_event_loop(move || {
             queued.store(false, Ordering::Release);
             window.deliver(&latest);
@@ -169,8 +170,12 @@ impl HistoryObservation {
             self.session_id,
         );
         if let Some(error) = history_error {
+            // The result has no recipient once its window or event loop closes.
             let _ = crate::background::to_ui(app.clone(), move |app| {
-                app.set_status(format!("Could not save playback history: {error}").into());
+                crate::diagnostics::report(
+                    &app,
+                    format!("Could not save playback history: {error}"),
+                );
             });
         }
         let mut last_context = lock(&self.last_plugin_context);
@@ -248,7 +253,7 @@ impl WindowDelivery {
                 app.global::<PlayerMenuActions>().invoke_toggle_fullscreen();
             }
             if let Some(error) = clipboard_error {
-                app.set_status(format!("Could not copy screenshot: {error}").into());
+                crate::diagnostics::report(&app, format!("Could not copy screenshot: {error}"));
             }
         }
     }

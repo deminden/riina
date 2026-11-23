@@ -1,5 +1,8 @@
 //! Source-pixel crop geometry, independent of presentation aspect and rotation.
 
+mod error;
+pub use error::CropError;
+
 pub const FILTER_LABEL: &str = "riina-crop";
 pub const LABELS: [&str; 7] = ["None", "4:3", "16:9", "16:10", "21:9", "5:4", "Custom…"];
 // The reference menu and quick-settings panel intentionally offer different lists.
@@ -73,16 +76,16 @@ pub struct Rectangle {
 }
 
 impl Rectangle {
-    pub fn filter(self, source_width: u32, source_height: u32) -> Result<String, String> {
+    pub fn filter(self, source_width: u32, source_height: u32) -> Result<String, CropError> {
         if self.width == 0 || self.height == 0 {
-            return Err("The crop rectangle has no area".into());
+            return Err(CropError::EmptyRectangle);
         }
         self.editor_filter(source_width, source_height)
     }
 
     /// Interactive confirmation forwards zero dimensions to the engine, as
     /// the reference does; preset geometry still requires a nonempty rectangle.
-    pub fn editor_filter(self, source_width: u32, source_height: u32) -> Result<String, String> {
+    pub fn editor_filter(self, source_width: u32, source_height: u32) -> Result<String, CropError> {
         // Validate against the source at dispatch, not the UI's possibly stale
         // frame. Subtraction after checking the origin avoids coordinate overflow.
         if source_width == 0
@@ -92,7 +95,7 @@ impl Rectangle {
             || self.width > source_width - self.x
             || self.height > source_height - self.y
         {
-            return Err("The crop rectangle is outside the source video".into());
+            return Err(CropError::RectangleOutsideVideo);
         }
         Ok(format!(
             "@{FILTER_LABEL}:crop={}:{}:{}:{}",
@@ -150,7 +153,7 @@ impl Preset {
         }
     }
 
-    pub fn dimensions(self, width: u32, height: u32) -> Result<(u32, u32), String> {
+    pub fn dimensions(self, width: u32, height: u32) -> Result<(u32, u32), CropError> {
         let (numerator, denominator): (u64, u64) = match self {
             Self::FourThree => (4, 3),
             Self::SixteenNine => (16, 9),
@@ -171,12 +174,12 @@ impl Preset {
             (width, (u64::from(width) * denominator / numerator) as u32)
         };
         if w == 0 || h == 0 {
-            return Err("The source is too small for this crop".into());
+            return Err(CropError::SourceTooSmall);
         }
         Ok((w, h))
     }
 
-    pub fn filter(self, width: u32, height: u32) -> Result<String, String> {
+    pub fn filter(self, width: u32, height: u32) -> Result<String, CropError> {
         let (w, h) = self.dimensions(width, height)?;
         Ok(format!("@{FILTER_LABEL}:crop={w}:{h}"))
     }

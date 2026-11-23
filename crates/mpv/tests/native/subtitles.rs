@@ -66,7 +66,7 @@ fn last_cue_navigation_does_not_label_a_later_automatic_loop() {
         baseline.completed_navigation_seeks
     );
     assert_eq!(looped.volume, 37.0);
-    assert!(looped.error.is_none(), "{:?}", looped.error);
+    assert!(looped.error().is_none(), "{:?}", looped.error());
 }
 
 #[test]
@@ -109,7 +109,7 @@ fn no_cue_navigation_does_not_arm_automatic_loop_feedback() {
         baseline.completed_navigation_seeks
     );
     assert_eq!(looped.volume, 37.0);
-    assert!(looped.error.is_none(), "{:?}", looped.error);
+    assert!(looped.error().is_none(), "{:?}", looped.error());
 }
 
 #[test]
@@ -130,7 +130,7 @@ fn subtitle_colors_preserve_alpha_and_other_style_options() {
             && state.subtitle_spacing == Some(0.0)
             && state.subtitle_shadow_offset == Some(0.0)
     });
-    assert_eq!(defaults.error, None);
+    assert_eq!(defaults.error(), None);
     harness
         .send(Command::Load(
             root.join("tests/fixtures/catalog.mkv")
@@ -182,7 +182,7 @@ fn subtitle_colors_preserve_alpha_and_other_style_options() {
     assert!(shaded.paused);
     assert_eq!(selected_track(&shaded, TrackKind::Sub), subtitle_id);
     assert_eq!(shaded.subtitle_delay, 0.0);
-    assert_eq!(shaded.error, None);
+    assert_eq!(shaded.error(), None);
     for command in [
         Command::SubtitleBold(true),
         Command::SubtitleItalic(true),
@@ -206,7 +206,7 @@ fn subtitle_colors_preserve_alpha_and_other_style_options() {
     assert_eq!(styled.subtitle_shadow_color, Some(shadow));
     assert!(styled.paused);
     assert_eq!(selected_track(&styled, TrackKind::Sub), subtitle_id);
-    assert_eq!(styled.error, None);
+    assert_eq!(styled.error(), None);
     for command in [
         Command::SubtitleBold(false),
         Command::SubtitleItalic(false),
@@ -241,7 +241,7 @@ fn subtitle_colors_preserve_alpha_and_other_style_options() {
     });
     assert!(restored.paused);
     assert_eq!(selected_track(&restored, TrackKind::Sub), subtitle_id);
-    assert_eq!(restored.error, None);
+    assert_eq!(restored.error(), None);
 }
 
 #[test]
@@ -300,7 +300,7 @@ fn subtitle_font_selection_preserves_other_style_options() {
         assert_eq!(changed.subtitle_border_color, before.subtitle_border_color);
         assert_eq!(changed.subtitle_shadow_color, before.subtitle_shadow_color);
         assert_eq!(changed.subtitle_delay, before.subtitle_delay);
-        assert_eq!(changed.error, None);
+        assert_eq!(changed.error(), None);
     }
 }
 
@@ -338,7 +338,7 @@ fn subtitle_style_warning_follows_selected_ass_lanes() {
             .is_some_and(|text| text.contains("Styled first cue"))
     });
     assert!(decoded.paused);
-    assert_eq!(decoded.error, None);
+    assert_eq!(decoded.error(), None);
     harness
         .send(Command::AddSubtitle(fixture("manual-captions.srt")))
         .unwrap();
@@ -353,7 +353,7 @@ fn subtitle_style_warning_follows_selected_ass_lanes() {
     assert_eq!(selected_track(&mixed, TrackKind::Sub), Some(plain_id));
     assert!(mixed.subtitle_style_availability().text_controls);
     assert!(mixed.paused);
-    assert_eq!(mixed.error, None);
+    assert_eq!(mixed.error(), None);
     harness
         .send(Command::SelectTrack {
             kind: TrackKind::Sub,
@@ -368,7 +368,7 @@ fn subtitle_style_warning_follows_selected_ass_lanes() {
     let disabled = harness.wait(|state| !state.subtitle_style_availability().ass_warning);
     assert!(disabled.subtitle_style_availability().text_controls);
     assert!(disabled.paused);
-    assert_eq!(disabled.error, None);
+    assert_eq!(disabled.error(), None);
 }
 
 #[test]
@@ -460,7 +460,7 @@ fn secondary_subtitles_keep_selection_and_visibility_independent() {
     });
     assert_eq!(shifted.subtitle_delay, both.subtitle_delay);
     assert_eq!(selected_track(&shifted, TrackKind::Sub), Some(primary_id));
-    assert_eq!(shifted.error, None);
+    assert_eq!(shifted.error(), None);
     for position in [25.0, 0.0, 150.0, 100.0] {
         harness
             .send(Command::SecondarySubtitlePosition(position))
@@ -474,7 +474,7 @@ fn secondary_subtitles_keep_selection_and_visibility_independent() {
             selected_track(&positioned, TrackKind::Sub),
             Some(primary_id)
         );
-        assert_eq!(positioned.error, None);
+        assert_eq!(positioned.error(), None);
     }
     // Exercise the opposite lane after secondary edits to catch target aliasing.
     for position in [40.0, 0.0, 150.0, 100.0] {
@@ -494,7 +494,7 @@ fn secondary_subtitles_keep_selection_and_visibility_independent() {
                 && track.selected
                 && track.main_selection == Some(1)
         }));
-        assert_eq!(positioned.error, None);
+        assert_eq!(positioned.error(), None);
     }
     // Numeric entry can exceed the visual slider's range in either lane.
     harness.send(Command::SubtitleDelay(6.125)).unwrap();
@@ -509,7 +509,7 @@ fn secondary_subtitles_keep_selection_and_visibility_independent() {
         selected_track(&wide_delays, TrackKind::Sub),
         Some(primary_id)
     );
-    assert_eq!(wide_delays.error, None);
+    assert_eq!(wide_delays.error(), None);
     harness
         .send(Command::SubtitleDelay(both.subtitle_delay))
         .unwrap();
@@ -575,7 +575,7 @@ fn secondary_subtitles_keep_selection_and_visibility_independent() {
             })
     });
     assert!(secondary_only.paused);
-    assert_eq!(secondary_only.error, None);
+    assert_eq!(secondary_only.error(), None);
     harness
         .send(Command::SelectSecondarySubtitle(None))
         .unwrap();
@@ -586,7 +586,7 @@ fn secondary_subtitles_keep_selection_and_visibility_independent() {
             .any(|t| t.kind == TrackKind::Sub && t.selected)
     });
     assert!(off.paused);
-    assert_eq!(off.error, None);
+    assert_eq!(off.error(), None);
     harness.send(Command::Load(fixture("catalog.mkv"))).unwrap();
     let replaced = harness.wait(|state| {
         state.generation > both.generation
@@ -599,7 +599,7 @@ fn secondary_subtitles_keep_selection_and_visibility_independent() {
             .as_deref()
             .is_some_and(|s| s.contains("bonjour"))
     );
-    assert_eq!(replaced.error, None);
+    assert_eq!(replaced.error(), None);
 }
 
 #[test]
@@ -665,7 +665,7 @@ fn subtitle_navigation_seeks_cues_without_changing_delay() {
     });
     assert_eq!(second.subtitle_delay, first.subtitle_delay);
     assert!(second.completed_navigation_seeks > first.completed_navigation_seeks);
-    assert_eq!(second.error, None);
+    assert_eq!(second.error(), None);
     harness.send(Command::SubtitleSeek(-1)).unwrap();
     let returned = harness.wait(|state| {
         state.paused
@@ -679,7 +679,7 @@ fn subtitle_navigation_seeks_cues_without_changing_delay() {
     });
     assert_eq!(returned.subtitle_delay, first.subtitle_delay);
     assert!(returned.completed_navigation_seeks > second.completed_navigation_seeks);
-    assert_eq!(returned.error, None);
+    assert_eq!(returned.error(), None);
     harness.send(Command::SubtitleDelay(0.25)).unwrap();
     harness.wait(|state| (state.subtitle_delay - 0.25).abs() < 0.001);
     harness
@@ -730,7 +730,7 @@ fn subtitle_navigation_seeks_cues_without_changing_delay() {
             && state.position.is_some_and(|p| (2.15..2.4).contains(&p))
     });
     assert!((restarted.subtitle_delay - 0.25).abs() < 0.001);
-    assert_eq!(restarted.error, None);
+    assert_eq!(restarted.error(), None);
 
     // Queue the burst without reading snapshots: each adjustment must use the
     // decoder's current delay rather than the UI's last observed value.
@@ -739,7 +739,7 @@ fn subtitle_navigation_seeks_cues_without_changing_delay() {
     }
     let increased = harness.wait(|state| (state.subtitle_delay - 2.25).abs() < 0.001);
     assert!(increased.paused);
-    assert_eq!(increased.error, None);
+    assert_eq!(increased.error(), None);
     for _ in 0..4 {
         harness.send(Command::AdjustSubtitleDelay(-0.5)).unwrap();
     }
@@ -748,7 +748,7 @@ fn subtitle_navigation_seeks_cues_without_changing_delay() {
     harness.send(Command::SubtitleDelay(0.0)).unwrap();
     let reset = harness.wait(|state| state.subtitle_delay.abs() < 0.001);
     assert!(reset.paused);
-    assert_eq!(reset.error, None);
+    assert_eq!(reset.error(), None);
     harness.wait(|state| {
         state
             .subtitle_scale
@@ -811,7 +811,7 @@ fn subtitle_navigation_seeks_cues_without_changing_delay() {
         assert!(resized.paused);
         assert_eq!(resized.subtitle_position, Some(100.0));
         assert!(resized.subtitle_delay.abs() < 0.001);
-        assert_eq!(resized.error, None);
+        assert_eq!(resized.error(), None);
     }
     for width in [0.0, 0.25, 5.0, 3.0] {
         harness.send(Command::SubtitleOutlineSize(width)).unwrap();
@@ -820,7 +820,7 @@ fn subtitle_navigation_seeks_cues_without_changing_delay() {
         assert_eq!(outlined.subtitle_font_size, Some(55.0));
         assert_eq!(outlined.subtitle_position, Some(100.0));
         assert!(outlined.subtitle_delay.abs() < 0.001);
-        assert_eq!(outlined.error, None);
+        assert_eq!(outlined.error(), None);
     }
     for scale in [1.0 / 6.0, 6.0, 1.0] {
         harness.send(Command::SubtitleScale(scale)).unwrap();
@@ -838,7 +838,7 @@ fn subtitle_navigation_seeks_cues_without_changing_delay() {
                 .iter()
                 .any(|t| t.kind == TrackKind::Sub && t.external && t.selected)
         );
-        assert_eq!(scaled.error, None);
+        assert_eq!(scaled.error(), None);
     }
     for (delta, expected) in [(-1000.0, 0.0), (1000.0, 150.0), (-50.0, 100.0)] {
         harness
@@ -846,7 +846,7 @@ fn subtitle_navigation_seeks_cues_without_changing_delay() {
             .unwrap();
         let adjusted = harness.wait(|state| state.subtitle_position == Some(expected));
         assert!(adjusted.paused);
-        assert_eq!(adjusted.error, None);
+        assert_eq!(adjusted.error(), None);
         assert!((adjusted.subtitle_delay).abs() < 0.001);
         assert!(
             adjusted

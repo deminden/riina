@@ -49,15 +49,19 @@ mod media_catalog;
 mod playback;
 mod preferences;
 
-pub use captured_frame::CapturedFrame;
-pub use command::{AbLoopPoint, Command, CommandPlan};
+pub use captured_frame::{CapturedFrame, FrameError};
+pub use command::{AbLoopPoint, Command, CommandError, CommandPlan};
 pub use loop_mode::{DefaultRepeatMode, LoopMode};
 pub use media_catalog::{Chapter, PlaylistEntry, Track, TrackKind};
+mod engine_notice;
+pub use engine_notice::{EngineNotice, EngineNotices, NoticeSeverity};
 pub use playback::{
     FrameSlot, MAX_RETAINED_MPV_EVENTS, MpvEventRecord, Phase, Playback, SubtitleStyleAvailability,
     VideoFrameInfo, VideoParameters, time_label,
 };
-pub use preferences::{ActionAfterLaunch, Preferences, RecentMedia, Rejection, ThemeMaterial};
+pub use preferences::{
+    ActionAfterLaunch, PreferenceError, Preferences, RecentMedia, Rejection, ThemeMaterial,
+};
 
 pub const MAX_PLUGIN_OBSERVED_MPV_PROPERTIES: usize = 128;
 

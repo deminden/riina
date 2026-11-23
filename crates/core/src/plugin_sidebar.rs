@@ -1,6 +1,8 @@
 //! Portable state transitions for plugin-owned sidebar webviews.
 
-use crate::plugin::{validate_message_data, validate_message_name, validate_plugin_relative_path};
+use crate::plugin::{
+    PluginSurfaceError, validate_message_data, validate_message_name, validate_plugin_relative_path,
+};
 use serde_json::Value;
 use std::{collections::BTreeSet, path::PathBuf};
 
@@ -42,7 +44,7 @@ impl PluginSidebarState {
     pub fn apply(
         &mut self,
         intent: PluginSidebarIntent,
-    ) -> Result<Option<PluginSidebarEffect>, String> {
+    ) -> Result<Option<PluginSidebarEffect>, PluginSurfaceError> {
         let effect = match intent {
             PluginSidebarIntent::LoadFile(path) => {
                 validate_plugin_relative_path(&path)?;
@@ -83,7 +85,7 @@ impl PluginSidebarState {
         &self,
         name: String,
         data: Value,
-    ) -> Result<Option<PluginSidebarEffect>, String> {
+    ) -> Result<Option<PluginSidebarEffect>, PluginSurfaceError> {
         validate_message_name(&name)?;
         validate_message_data(&data)?;
         Ok(self

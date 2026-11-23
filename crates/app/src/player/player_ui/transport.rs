@@ -19,7 +19,7 @@ pub(super) fn install_seek(app: &PlayerWindow, command_sender: &CommandSender) {
                 absolute,
             }) && let Some(app) = weak.upgrade()
             {
-                app.set_status(error.into());
+                crate::diagnostics::report(&app, error);
             }
         };
         if absolute {
@@ -41,7 +41,7 @@ pub(super) fn install_relative_speed(app: &PlayerWindow, command_sender: &Comman
         if let Err(error) = speed_player.send(Command::MultiplySpeed(factor as f64))
             && let Some(app) = weak.upgrade()
         {
-            app.set_status(error.into());
+            crate::diagnostics::report(&app, error);
         }
     });
 }
@@ -132,7 +132,7 @@ pub(super) fn install_speed(app: &PlayerWindow, context: &PlayerContext) {
                     .invoke_activity();
                 match riina_core::speed_controls::from_slider(position.into()) {
                     Ok(command) => ctx.send(command),
-                    Err(error) => ctx.report(error.to_owned()),
+                    Err(error) => ctx.report(error.to_string()),
                 }
             }
         }
@@ -143,8 +143,8 @@ pub(super) fn install_speed(app: &PlayerWindow, context: &PlayerContext) {
         on_set_speed_text,
         |ctx, text| {
             let result = riina_core::speed_controls::from_text(text.as_str())
-                .map_err(str::to_owned)
-                .and_then(|command| ctx.commands().send(command));
+                .map_err(|error| error.to_string())
+                .and_then(|command| ctx.commands().send(command).map_err(String::from));
             if let Some(app) = ctx.app() {
                 app.global::<riina_ui::PlayerControlActions>()
                     .invoke_activity();

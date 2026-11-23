@@ -1,4 +1,6 @@
 //! Typed construction and removal for the interactive logo-removal filter.
+
+use crate::crop::CropError;
 use crate::crop::Rectangle;
 
 pub const FILTER_LABEL: &str = "riina-delogo";
@@ -7,13 +9,13 @@ pub fn rectangle_filter(
     rectangle: Rectangle,
     source_width: u32,
     source_height: u32,
-) -> Result<Vec<Vec<String>>, String> {
+) -> Result<Vec<Vec<String>>, CropError> {
     if rectangle.width == 0
         || rectangle.height == 0
         || rectangle.x.saturating_add(rectangle.width) > source_width
         || rectangle.y.saturating_add(rectangle.height) > source_height
     {
-        return Err("The delogo selection is outside the source video".into());
+        return Err(CropError::DelogoOutsideVideo);
     }
     Ok(vec![vec![
         "vf".into(),

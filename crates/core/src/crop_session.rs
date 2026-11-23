@@ -1,5 +1,5 @@
 //! Ownership of one interactive crop edit, tied to its source generation.
-use crate::{Command, Phase, Playback, crop::Rectangle};
+use crate::{Command, CommandError, Phase, Playback, crop::Rectangle};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Session {
@@ -11,25 +11,26 @@ pub struct Session {
 }
 
 impl Session {
-    pub fn begin(state: &Playback) -> Result<Self, String> {
+    pub fn begin(state: &Playback) -> Result<Self, CommandError> {
         Self::begin_with_tool(state, false)
     }
 
-    pub fn begin_delogo(state: &Playback) -> Result<Self, String> {
+    pub fn begin_delogo(state: &Playback) -> Result<Self, CommandError> {
         Self::begin_with_tool(state, true)
     }
 
-    fn begin_with_tool(state: &Playback, delogo: bool) -> Result<Self, String> {
-        let video = state
-            .video
-            .as_ref()
-            .ok_or("Source video dimensions are unavailable")?;
+    fn begin_with_tool(state: &Playback, delogo: bool) -> Result<Self, CommandError> {
+        let video = state.video.as_ref().ok_or(CommandError::Unavailable {
+            what: "Source video dimensions are unavailable",
+        })?;
         if video.w == 0
             || video.h == 0
             || state.video_filters.is_none()
             || matches!(state.phase, Phase::Loading | Phase::Stopped | Phase::Failed)
         {
-            return Err("The source video is not ready for cropping".into());
+            return Err(CommandError::InvalidState {
+                reason: "The source video is not ready for cropping",
+            });
         }
         Ok(Self {
             generation: state.generation,
@@ -49,13 +50,15 @@ impl Session {
         }
     }
 
-    pub fn validate(&self, state: &Playback) -> Result<(), String> {
+    pub fn validate(&self, state: &Playback) -> Result<(), CommandError> {
         if state.generation != self.generation
             || state.video.as_ref().map(|video| (video.w, video.h))
                 != Some((self.width, self.height))
             || matches!(state.phase, Phase::Loading | Phase::Stopped | Phase::Failed)
         {
-            return Err("The video changed while cropping".into());
+            return Err(CommandError::InvalidState {
+                reason: "The video changed while cropping",
+            });
         }
         Ok(())
     }
@@ -71,7 +74,7 @@ impl Session {
                 }))
     }
 
-    pub fn enter_commands(&self, state: &Playback) -> Result<Vec<Vec<String>>, String> {
+    pub fn enter_commands(&self, state: &Playback) -> Result<Vec<Vec<String>>, CommandError> {
         self.validate(state)?;
         let mut commands = if self.delogo {
             Vec::new()
@@ -86,11 +89,12 @@ impl Session {
         &self,
         state: &Playback,
         rectangle: Option<Rectangle>,
-    ) -> Result<Vec<Vec<String>>, String> {
+    ) -> Result<Vec<Vec<String>>, CommandError> {
         self.validate(state)?;
         let mut commands = match rectangle {
             Some(rectangle) if self.delogo => {
-                crate::delogo::rectangle_filter(rectangle, self.width, self.height)?
+                crate::delogo::rectangle_filter(rectangle, self.width, self.height)
+                    .map_err(CommandError::Crop)?
             }
             Some(rectangle) => Command::VideoCropRectangle(rectangle).plan(state)?.commands,
             // Entry already cleared the old crop. Cancel must not reapply it.

@@ -33,10 +33,16 @@ impl Axis {
         })
     }
 
-    pub fn commands(self, enabled: bool, state: &Playback) -> Result<Vec<Vec<String>>, String> {
-        let current = self
-            .observed(state.video_filters.as_deref())
-            .ok_or("Video filters are unavailable")?;
+    pub fn commands(
+        self,
+        enabled: bool,
+        state: &Playback,
+    ) -> Result<Vec<Vec<String>>, crate::CommandError> {
+        let current = self.observed(state.video_filters.as_deref()).ok_or(
+            crate::CommandError::Unavailable {
+                what: "Video filters are unavailable",
+            },
+        )?;
         if current == enabled {
             return Ok(Vec::new());
         }

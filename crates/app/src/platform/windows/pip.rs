@@ -182,20 +182,26 @@ impl Controller {
         let weak_player = player_weak.clone();
         let play_commands = controller.borrow().commands.clone();
         controller.borrow().pip.on_play_pause(move || {
-            if let Some(player) = weak_player.upgrade() {
-                let _ = play_commands.send(Command::SetPaused(!player.get_paused()));
+            if let Some(player) = weak_player.upgrade()
+                && let Err(error) = play_commands.send(Command::SetPaused(!player.get_paused()))
+            {
+                crate::diagnostics::report(&player, error);
             }
         });
         let stop_commands = controller.borrow().commands.clone();
         controller.borrow().pip.on_stop(move || {
-            let _ = stop_commands.send(Command::SetPaused(true));
+            if let Err(error) = stop_commands.send(Command::SetPaused(true)) {
+                crate::diagnostics::warn!("Could not pause Picture-in-Picture playback: {error}");
+            }
         });
         let skip_commands = controller.borrow().commands.clone();
         controller.borrow().pip.on_skip(move |seconds| {
-            let _ = skip_commands.send(Command::Seek {
+            if let Err(error) = skip_commands.send(Command::Seek {
                 seconds: f64::from(seconds),
                 absolute: false,
-            });
+            }) {
+                crate::diagnostics::warn!("Could not seek in Picture-in-Picture: {error}");
+            }
         });
         let weak_controller = Rc::downgrade(&controller);
         controller.borrow().pip.on_exit_picture_in_picture(move || {
@@ -402,9 +408,13 @@ fn toggle(controller: Rc<RefCell<Controller>>) {
                         if let Err(error) = player.window().hide() {
                             // A rejected hide may leave the window state uncertain. Restore
                             // the visible entry surface and the pause state before aborting.
-                            let _ = player.window().show();
-                            if effects.pause_playback && !was_paused {
-                                let _ = commands.send(Command::SetPaused(false));
+                            if let Err(restore_error) = player.window().show() {
+                                crate::diagnostics::warn!("Could not restore the player after rejected Picture-in-Picture entry: {restore_error}");
+                            }
+                            if effects.pause_playback && !was_paused
+                                && let Err(restore_error) = commands.send(Command::SetPaused(false))
+                            {
+                                crate::diagnostics::warn!("Could not restore playback after rejected Picture-in-Picture entry: {restore_error}");
                             }
                             return Err(error.to_string());
                         }
@@ -447,6 +457,7 @@ fn toggle(controller: Rc<RefCell<Controller>>) {
                     player.set_status(error.into());
                 }
                 if let Some(pip) = pip_weak.upgrade() {
+                    // Continue releasing session resources if the window is closing.
                     let _ = pip.hide();
                 }
             }
@@ -469,6 +480,7 @@ fn exit(controller: Rc<RefCell<Controller>>) {
     };
     let effects = session.lifecycle.exit();
     if let Some(pip) = pip.upgrade() {
+        // Continue releasing session resources if the window is closing.
         let _ = pip.hide();
     }
     if let Some(host) = host_weak.upgrade() {
@@ -489,8 +501,12 @@ fn exit(controller: Rc<RefCell<Controller>>) {
                 window.set_minimized(false);
             }
         });
-        if effects.restore_main_window {
-            let _ = player.window().show();
+        if effects.restore_main_window
+            && let Err(error) = player.window().show()
+        {
+            crate::diagnostics::warn!(
+                "Could not restore the player after closing Picture-in-Picture: {error}"
+            );
         }
         player
             .window()

@@ -89,7 +89,11 @@ pub(super) fn register_enabled(
                 plugin_host.enable(plugin.manifest.clone(), plugin.directory.clone())
             {
                 updated.remove(&plugin.manifest.identifier);
-                let _ = save_enabled(&enabled_file, &updated);
+                if let Err(restore_error) = save_enabled(&enabled_file, &updated) {
+                    crate::diagnostics::warn!(
+                        "Could not restore the disabled plugin state: {restore_error}"
+                    );
+                }
                 window.set_plugin_update_status(format!("Could not enable plugin: {error}").into());
                 *enabled_plugins.borrow_mut() = updated;
                 refresh(
@@ -119,7 +123,11 @@ pub(super) fn register_enabled(
             }
             if let Err(error) = plugin_host.disable(plugin.manifest.identifier.clone()) {
                 let previous = enabled_plugins.borrow().clone();
-                let _ = save_enabled(&enabled_file, &previous);
+                if let Err(restore_error) = save_enabled(&enabled_file, &previous) {
+                    crate::diagnostics::warn!(
+                        "Could not restore the enabled plugin state: {restore_error}"
+                    );
+                }
                 window.set_plugin_update_status(format!("Could not stop plugin: {error}").into());
                 refresh(&window, &plugins, &entries, &previous, runtime_available);
                 return;

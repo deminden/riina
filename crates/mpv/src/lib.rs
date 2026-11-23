@@ -2,6 +2,8 @@
 mod auto_seek;
 #[cfg(test)]
 mod demuxer_tests;
+mod error;
+pub use error::EngineError;
 mod ffi;
 pub mod gl_support;
 mod pending;
@@ -44,6 +46,11 @@ fn diag(message: &str) {
         use std::io::Write;
         let _ = writeln!(std::io::stderr(), "{message}");
     }
+}
+
+fn record_notice(playback: &mut Playback, severity: riina_core::NoticeSeverity, message: String) {
+    diag(&format!("[{severity:?}] {message}"));
+    playback.notices.push(severity, message);
 }
 
 macro_rules! diagnostic {
@@ -124,12 +131,12 @@ pub struct CommandSender {
 }
 
 impl CommandSender {
-    pub fn send(&self, command: Command) -> Result<(), String> {
+    pub fn send(&self, command: Command) -> Result<(), EngineError> {
         if command == Command::Shutdown {
-            return Err("Player shutdown is reserved for its final owner".into());
+            return Err(EngineError::ReservedShutdown);
         }
         if self.stopped.load(Ordering::Acquire) {
-            return Err("The playback engine has stopped".into());
+            return Err(EngineError::Stopped);
         }
         match &self.sender {
             CommandQueue::Native(sender) => sender
@@ -142,19 +149,19 @@ impl CommandSender {
 
     /// All accepted intents use the same FIFO; a full queue rejects explicitly.
     /// Never defer an action on an independent thread where later input can pass it.
-    pub fn toggle_pause(&self) -> Result<(), String> {
+    pub fn toggle_pause(&self) -> Result<(), EngineError> {
         self.send(Command::TogglePause)
     }
 
-    pub fn set_paused(&self, paused: bool) -> Result<(), String> {
+    pub fn set_paused(&self, paused: bool) -> Result<(), EngineError> {
         self.send(Command::SetPaused(paused))
     }
 }
 
-fn send_error<T>(error: mpsc::TrySendError<T>) -> String {
+fn send_error<T>(error: mpsc::TrySendError<T>) -> EngineError {
     match error {
-        mpsc::TrySendError::Full(_) => format!("Player command was not accepted: {error}"),
-        mpsc::TrySendError::Disconnected(_) => "The playback engine has stopped".into(),
+        mpsc::TrySendError::Full(_) => EngineError::QueueFull,
+        mpsc::TrySendError::Disconnected(_) => EngineError::Stopped,
     }
 }
 
@@ -170,7 +177,7 @@ impl Player {
         path: &Path,
         headless: bool,
         notify: impl Fn(Arc<Playback>) + Send + 'static,
-    ) -> Result<Self, String> {
+    ) -> Result<Self, EngineError> {
         Self::start_with_options(path, headless, Vec::new(), notify)
     }
 
@@ -179,7 +186,7 @@ impl Player {
         headless: bool,
         options: Vec<(String, String)>,
         notify: impl Fn(Arc<Playback>) + Send + 'static,
-    ) -> Result<Self, String> {
+    ) -> Result<Self, EngineError> {
         Self::start_options(path, headless, options, notify)
     }
 
@@ -191,9 +198,11 @@ impl Player {
         window: u32,
         mut options: Vec<(String, String)>,
         notify: impl Fn(Arc<Playback>) + Send + 'static,
-    ) -> Result<Self, String> {
+    ) -> Result<Self, EngineError> {
         if window == 0 {
-            return Err("Native output requires a live HWND".into());
+            return Err(EngineError::InvalidArgument {
+                reason: "Native output requires a live HWND",
+            });
         }
         options.extend([
             ("vo".into(), "gpu-next".into()),
@@ -216,7 +225,7 @@ impl Player {
         headless: bool,
         options: Vec<(String, String)>,
         notify: impl Fn(Arc<Playback>) + Send + 'static,
-    ) -> Result<Self, String> {
+    ) -> Result<Self, EngineError> {
         let api = Api::load(path)?;
         let (sender, receiver) = mpsc::sync_channel(64);
         let stopped = Arc::new(AtomicBool::new(false));
@@ -234,8 +243,8 @@ impl Player {
         let thread = std::thread::Builder::new()
             .name("mpv-events".into())
             .spawn(move || worker.run())
-            .map_err(|error| error.to_string())?;
-        let handle = started.recv().map_err(|error| error.to_string())??;
+            .map_err(EngineError::WorkerStart)?;
+        let handle = started.recv().map_err(EngineError::WorkerHandshake)??;
         Ok(Self {
             owner: Rc::new(Owner {
                 sender,
@@ -247,7 +256,7 @@ impl Player {
         })
     }
 
-    pub fn send(&self, command: Command) -> Result<(), String> {
+    pub fn send(&self, command: Command) -> Result<(), EngineError> {
         self.command_sender().send(command)
     }
 

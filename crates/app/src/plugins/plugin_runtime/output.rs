@@ -39,7 +39,8 @@ pub(super) fn record_overlay(
     let effects = state
         .lock()
         .map_err(|_| "Plugin overlay state was poisoned".to_owned())?
-        .apply(intent)?;
+        .apply(intent)
+        .map_err(|error| error.to_string())?;
     let mut events = riina_core::sync::lock(events);
     let current_bytes = events.iter().map(host_event_size).sum::<usize>();
     let requested_bytes = effects.iter().map(overlay_effect_size).sum::<usize>();
@@ -83,7 +84,8 @@ pub(super) fn record_plugin_sidebar(
     let effect = state
         .lock()
         .map_err(|_| "Plugin sidebar state was poisoned".to_owned())?
-        .apply(intent)?;
+        .apply(intent)
+        .map_err(|error| error.to_string())?;
     let Some(effect) = effect else {
         return Ok(());
     };
@@ -117,7 +119,7 @@ pub(super) fn record_plugin_menu(
     events: &Mutex<Vec<HostEvent>>,
     items: Vec<PluginMenuItem>,
 ) -> Result<(), String> {
-    PluginMenuItem::validate_all(&items)?;
+    PluginMenuItem::validate_all(&items).map_err(|error| error.to_string())?;
     let bytes = serde_json::to_vec(&items)
         .map_err(|error| format!("Plugin menu is not valid JSON: {error}"))?
         .len();

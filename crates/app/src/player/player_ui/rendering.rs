@@ -105,7 +105,10 @@ impl RenderSession {
                 if let Err(error) = unsafe { self.extras.configure_rendering(get_proc_address) }
                     && let Some(app) = self.app.upgrade()
                 {
-                    app.set_status(format!("PiP renderer initialization failed: {error}").into());
+                    crate::diagnostics::report(
+                        &app,
+                        format!("PiP renderer initialization failed: {error}"),
+                    );
                 }
                 self.surface = Some(video);
                 if let Some(app) = self.app.upgrade() {
@@ -114,7 +117,10 @@ impl RenderSession {
             }
             Err(error) => {
                 if let Some(app) = self.app.upgrade() {
-                    app.set_status(format!("Video initialization failed: {error}").into());
+                    crate::diagnostics::report(
+                        &app,
+                        format!("Video initialization failed: {error}"),
+                    );
                 }
             }
         }
@@ -130,7 +136,7 @@ impl RenderSession {
         let height = (app.get_render_height() * scale).clamp(1.0, 8192.0) as u32;
         // SAFETY: BeforeRendering holds this surface's GL context.
         if let Err(error) = unsafe { video.render(width, height) } {
-            app.set_status(format!("Video rendering failed: {error}").into());
+            crate::diagnostics::report(&app, format!("Video rendering failed: {error}"));
             return;
         }
         project_blur(&app, self.blur_surface.as_mut(), video, width, height);
@@ -147,7 +153,7 @@ impl RenderSession {
             .set_video_frame(image);
         // SAFETY: all presentation work uses this window's current GL context.
         if let Err(error) = unsafe { self.extras.render_pip(video) } {
-            app.set_status(format!("PiP frame rendering failed: {error}").into());
+            crate::diagnostics::report(&app, format!("PiP frame rendering failed: {error}"));
         }
         self.start_playback(&app);
     }
@@ -207,6 +213,7 @@ fn request_frame(weak: &Weak<PlayerWindow>, pending: &Arc<AtomicBool>) {
     }
     let weak = weak.clone();
     let pending = pending.clone();
+    // The window may close before deferred UI work can be delivered.
     let _ = slint::invoke_from_event_loop(move || {
         pending.store(false, Ordering::Release);
         if let Some(app) = weak.upgrade() {

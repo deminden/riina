@@ -14,6 +14,7 @@ pub(crate) fn pick(
         let restore = owner.clone();
         let started = crate::background::spawn_named("screenshot-folder-picker", move || {
             let result = super::file_dialog::pick_folder(&token);
+            // The window may close before deferred UI work can be delivered.
             let _ = slint::invoke_from_event_loop(move || {
                 owner.set_enable(true);
                 owner.focus_window();

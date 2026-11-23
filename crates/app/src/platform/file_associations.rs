@@ -12,6 +12,7 @@ pub(crate) fn set_for_media(window: &PreferencesWindow, video: bool, audio: bool
             Err(error) => format!("Could not register Riina file types: {error}"),
         };
         // A detached utility window no longer has a status line to update.
+        // The result has no recipient once its window or event loop closes.
         let _ = crate::background::to_ui(weak, move |window| set_status(&window, message));
     });
     if let Err(error) = worker {

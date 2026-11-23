@@ -178,38 +178,81 @@ pub fn default_audio_parameter_values(index: usize) -> Option<Vec<String>> {
     )
 }
 
-pub fn build_preset_filter(index: usize, values: &[String]) -> Result<String, &'static str> {
-    let parameters = preset_parameters(index).ok_or("Unknown video filter preset")?;
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FilterPresetError {
+    UnknownVideoPreset,
+    InvalidParameterCount,
+    ControlCharacter,
+    InvalidInteger,
+    InvalidIntegerStep,
+    InvalidNumber,
+    InvalidRange,
+    InvalidChoice,
+    MissingLutFile,
+    InvalidName,
+    InvalidSharpenAmount,
+    InvalidValues,
+    UnknownAudioPreset,
+}
+
+impl std::fmt::Display for FilterPresetError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(match self {
+            Self::UnknownVideoPreset => "Unknown video filter preset",
+            Self::InvalidParameterCount => "The video filter preset parameter count is invalid",
+            Self::ControlCharacter => "Video filter parameters cannot contain control characters",
+            Self::InvalidInteger => "The filter parameter must be an integer",
+            Self::InvalidIntegerStep => {
+                "The integer filter parameter is outside its supported steps"
+            }
+            Self::InvalidNumber => "The filter parameter must be a number",
+            Self::InvalidRange => "The numeric filter parameter is outside its supported range",
+            Self::InvalidChoice => "The filter parameter choice is invalid",
+            Self::MissingLutFile => "Choose a 3D LUT file",
+            Self::InvalidName => "The filter name is empty or invalid",
+            Self::InvalidSharpenAmount => "The sharpen amount must be a number",
+            Self::InvalidValues => {
+                "The video filter preset is missing required values or is invalid"
+            }
+            Self::UnknownAudioPreset => "Unknown audio filter preset",
+        })
+    }
+}
+
+impl std::error::Error for FilterPresetError {}
+
+pub fn build_preset_filter(index: usize, values: &[String]) -> Result<String, FilterPresetError> {
+    let parameters = preset_parameters(index).ok_or(FilterPresetError::UnknownVideoPreset)?;
     if parameters.len() != values.len() {
-        return Err("The video filter preset parameter count is invalid");
+        return Err(FilterPresetError::InvalidParameterCount);
     }
     for (parameter, value) in parameters.iter().zip(values) {
         if value.chars().any(char::is_control) {
-            return Err("Video filter parameters cannot contain control characters");
+            return Err(FilterPresetError::ControlCharacter);
         }
         match parameter.kind {
             ParameterKind::Integer => {
                 let value = value
                     .parse::<i64>()
-                    .map_err(|_| "The filter parameter must be an integer")?;
+                    .map_err(|_| FilterPresetError::InvalidInteger)?;
                 let value = value as f64;
                 if value < parameter.minimum
                     || value > parameter.maximum
                     || (value - parameter.minimum) % parameter.step != 0.0
                 {
-                    return Err("The integer filter parameter is outside its supported steps");
+                    return Err(FilterPresetError::InvalidIntegerStep);
                 }
             }
             ParameterKind::Float => {
                 let value = value
                     .parse::<f64>()
-                    .map_err(|_| "The filter parameter must be a number")?;
+                    .map_err(|_| FilterPresetError::InvalidNumber)?;
                 if !value.is_finite() || value < parameter.minimum || value > parameter.maximum {
-                    return Err("The numeric filter parameter is outside its supported range");
+                    return Err(FilterPresetError::InvalidRange);
                 }
             }
             ParameterKind::Choose if !parameter.choices.contains(&value.as_str()) => {
-                return Err("The filter parameter choice is invalid");
+                return Err(FilterPresetError::InvalidChoice);
             }
             ParameterKind::Text | ParameterKind::Choose => {}
         }
@@ -221,10 +264,10 @@ pub fn build_preset_filter(index: usize, values: &[String]) -> Result<String, &'
             .map_or("", |index| values[index].as_str())
     };
     if index == 8 && value("file").trim().is_empty() {
-        return Err("Choose a 3D LUT file");
+        return Err(FilterPresetError::MissingLutFile);
     }
     if matches!(index, 9..=10) && !valid_filter_name(value("name")) {
-        return Err("The filter name is empty or invalid");
+        return Err(FilterPresetError::InvalidName);
     }
     let filter = match index {
         0 => format!(
@@ -247,7 +290,7 @@ pub fn build_preset_filter(index: usize, values: &[String]) -> Result<String, &'
             let size = value("msize");
             let amount = value("amount")
                 .parse::<f64>()
-                .map_err(|_| "The sharpen amount must be a number")?;
+                .map_err(|_| FilterPresetError::InvalidSharpenAmount)?;
             let amount = if index == 3 { -amount } else { amount };
             format!("lavfi=[unsharp={size}:{size}:{amount}:{size}:{size}:{amount}]")
         }
@@ -269,17 +312,20 @@ pub fn build_preset_filter(index: usize, values: &[String]) -> Result<String, &'
         ),
         9 => format!("{}={}", value("name"), value("string")),
         10 => format!("lavfi=[{}={}]", value("name"), value("string")),
-        _ => return Err("Unknown video filter preset"),
+        _ => return Err(FilterPresetError::UnknownVideoPreset),
     };
     if !valid_filter_string(&filter) {
-        return Err("The video filter preset is missing required values or is invalid");
+        return Err(FilterPresetError::InvalidValues);
     }
     Ok(filter)
 }
 
-pub fn build_audio_preset_filter(index: usize, values: &[String]) -> Result<String, &'static str> {
+pub fn build_audio_preset_filter(
+    index: usize,
+    values: &[String],
+) -> Result<String, FilterPresetError> {
     if audio_preset_parameters(index).is_none() {
-        return Err("Unknown audio filter preset");
+        return Err(FilterPresetError::UnknownAudioPreset);
     }
     build_preset_filter(index + 9, values)
 }
@@ -302,8 +348,37 @@ pub struct Settings {
     pub saved: Vec<SavedFilter>,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SavedFilterError {
+    InvalidSavedFilter,
+    NonUniqueNames,
+    InvalidName,
+    InvalidFilter,
+    InvalidShortcut,
+    DuplicateName,
+    Capacity,
+    MissingFilter,
+}
+
+impl std::fmt::Display for SavedFilterError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(match self {
+            Self::InvalidSavedFilter => "Saved filters contain an invalid name or filter string",
+            Self::NonUniqueNames => "Saved filter names must be unique",
+            Self::InvalidName => "Filter names must be 1 to 64 printable characters",
+            Self::InvalidFilter => "The filter string is empty or invalid",
+            Self::InvalidShortcut => "The saved-filter shortcut is invalid",
+            Self::DuplicateName => "A saved filter already has that name",
+            Self::Capacity => "No more than 128 filters can be saved",
+            Self::MissingFilter => "The selected saved filter no longer exists",
+        })
+    }
+}
+
+impl std::error::Error for SavedFilterError {}
+
 impl Settings {
-    pub fn validate(&self) -> Result<(), &'static str> {
+    pub fn validate(&self) -> Result<(), SavedFilterError> {
         if self.saved.len() > 128
             || self.saved.iter().any(|filter| {
                 !valid_name(&filter.name)
@@ -311,20 +386,20 @@ impl Settings {
                     || !valid_shortcut(&filter.shortcut_key, filter.shortcut_modifiers)
             })
         {
-            return Err("Saved filters contain an invalid name or filter string");
+            return Err(SavedFilterError::InvalidSavedFilter);
         }
         for (index, filter) in self.saved.iter().enumerate() {
             if self.saved[..index]
                 .iter()
                 .any(|previous| previous.name == filter.name)
             {
-                return Err("Saved filter names must be unique");
+                return Err(SavedFilterError::NonUniqueNames);
             }
         }
         Ok(())
     }
 
-    pub fn save(&mut self, name: &str, filter: &str) -> Result<(), &'static str> {
+    pub fn save(&mut self, name: &str, filter: &str) -> Result<(), SavedFilterError> {
         self.save_with_shortcut(name, filter, "", 0)
     }
 
@@ -334,7 +409,7 @@ impl Settings {
         filter: &str,
         shortcut_key: &str,
         shortcut_modifiers: u8,
-    ) -> Result<(), &'static str> {
+    ) -> Result<(), SavedFilterError> {
         let filter = SavedFilter {
             name: name.trim().to_owned(),
             filter: filter.trim().to_owned(),
@@ -342,37 +417,42 @@ impl Settings {
             shortcut_modifiers,
         };
         if !valid_name(&filter.name) {
-            return Err("Filter names must be 1 to 64 printable characters");
+            return Err(SavedFilterError::InvalidName);
         }
         if !valid_filter_string(&filter.filter) {
-            return Err("The filter string is empty or invalid");
+            return Err(SavedFilterError::InvalidFilter);
         }
         if !valid_shortcut(&filter.shortcut_key, filter.shortcut_modifiers) {
-            return Err("The saved-filter shortcut is invalid");
+            return Err(SavedFilterError::InvalidShortcut);
         }
         if self.saved.iter().any(|saved| saved.name == filter.name) {
-            return Err("A saved filter already has that name");
+            return Err(SavedFilterError::DuplicateName);
         }
         if self.saved.len() == 128 {
-            return Err("No more than 128 filters can be saved");
+            return Err(SavedFilterError::Capacity);
         }
         self.saved.push(filter);
         Ok(())
     }
 
-    pub fn remove(&mut self, index: usize) -> Result<SavedFilter, &'static str> {
+    pub fn remove(&mut self, index: usize) -> Result<SavedFilter, SavedFilterError> {
         if index >= self.saved.len() {
-            return Err("The selected saved filter no longer exists");
+            return Err(SavedFilterError::MissingFilter);
         }
         Ok(self.saved.remove(index))
     }
 
-    pub fn update(&mut self, index: usize, name: &str, filter: &str) -> Result<(), &'static str> {
+    pub fn update(
+        &mut self,
+        index: usize,
+        name: &str,
+        filter: &str,
+    ) -> Result<(), SavedFilterError> {
         let (shortcut_key, shortcut_modifiers) = self
             .saved
             .get(index)
             .map(|saved| (saved.shortcut_key.clone(), saved.shortcut_modifiers))
-            .ok_or("The selected saved filter no longer exists")?;
+            .ok_or(SavedFilterError::MissingFilter)?;
         self.update_with_shortcut(index, name, filter, &shortcut_key, shortcut_modifiers)
     }
 
@@ -383,20 +463,20 @@ impl Settings {
         filter: &str,
         shortcut_key: &str,
         shortcut_modifiers: u8,
-    ) -> Result<(), &'static str> {
+    ) -> Result<(), SavedFilterError> {
         let name = name.trim();
         let filter = filter.trim();
         if index >= self.saved.len() {
-            return Err("The selected saved filter no longer exists");
+            return Err(SavedFilterError::MissingFilter);
         }
         if !valid_name(name) {
-            return Err("Filter names must be 1 to 64 printable characters");
+            return Err(SavedFilterError::InvalidName);
         }
         if !valid_filter_string(filter) {
-            return Err("The filter string is empty or invalid");
+            return Err(SavedFilterError::InvalidFilter);
         }
         if !valid_shortcut(shortcut_key, shortcut_modifiers) {
-            return Err("The saved-filter shortcut is invalid");
+            return Err(SavedFilterError::InvalidShortcut);
         }
         if self
             .saved
@@ -404,7 +484,7 @@ impl Settings {
             .enumerate()
             .any(|(current, saved)| current != index && saved.name == name)
         {
-            return Err("A saved filter already has that name");
+            return Err(SavedFilterError::DuplicateName);
         }
         self.saved[index] = SavedFilter {
             name: name.to_owned(),

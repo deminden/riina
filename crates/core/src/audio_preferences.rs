@@ -1,4 +1,5 @@
 //! Shared audio preferences that map to documented libmpv options.
+use crate::PreferenceError;
 
 use serde::{Deserialize, Serialize};
 
@@ -41,36 +42,51 @@ impl Default for Settings {
 }
 
 impl Settings {
-    pub fn validate(&self) -> Result<(), &'static str> {
+    pub fn validate(&self) -> Result<(), PreferenceError> {
         if self.audio_threads > 16 {
-            return Err("Audio threads must be between 0 and 16");
+            return Err(PreferenceError::new(
+                "audio",
+                "Audio threads must be between 0 and 16",
+            ));
         }
         if self.initial_volume > 1000 {
-            return Err("Initial volume must be between 0 and 1000");
+            return Err(PreferenceError::new(
+                "audio",
+                "Initial volume must be between 0 and 1000",
+            ));
         }
         if !self.replay_gain_preamp.is_finite()
             || !(-15.0..=15.0).contains(&self.replay_gain_preamp)
         {
-            return Err("ReplayGain preamp must be between -15 and 15 dB");
+            return Err(PreferenceError::new(
+                "audio",
+                "ReplayGain preamp must be between -15 and 15 dB",
+            ));
         }
         if !self.replay_gain_fallback.is_finite()
             || !(-20.0..=6.0).contains(&self.replay_gain_fallback)
         {
-            return Err("ReplayGain fallback must be between -20 and 6 dB");
+            return Err(PreferenceError::new(
+                "audio",
+                "ReplayGain fallback must be between -20 and 6 dB",
+            ));
         }
         if self.device.contains('\0')
             || self.device_description.contains('\0')
             || self.preferred_languages.contains('\0')
         {
-            return Err("Audio preferences cannot contain a NUL character");
+            return Err(PreferenceError::new(
+                "audio",
+                "Audio preferences cannot contain a NUL character",
+            ));
         }
         Ok(())
     }
 
     /// Options are validated before reaching libmpv so invalid fields cannot
     /// leave a partially configured player during startup.
-    pub fn engine_options(&self) -> Result<Vec<(String, String)>, String> {
-        self.validate().map_err(str::to_owned)?;
+    pub fn engine_options(&self) -> Result<Vec<(String, String)>, PreferenceError> {
+        self.validate()?;
         let mut options = vec![
             ("ad-lavc-threads".into(), self.audio_threads.to_string()),
             ("alang".into(), self.preferred_languages.clone()),

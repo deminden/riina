@@ -61,6 +61,7 @@ impl Editor {
                 f64::from(app.get_video_height()),
             ),
         )
+        .map_err(|error| error.to_string())
     }
 
     fn refresh(&self, app: &PlayerWindow) {
@@ -156,7 +157,7 @@ impl Editor {
                     Ok(()) => data.viewport = Some(viewport),
                     Err(error) => {
                         drop(data);
-                        app.set_status(error.into());
+                        crate::diagnostics::report(app, error);
                     }
                 }
             }
@@ -222,9 +223,9 @@ impl Editor {
             let state = data.latest.as_ref().ok_or("Source video is unavailable")?;
             Self::projection(&data, app)?;
             let session = if delogo {
-                Session::begin_delogo(state)?
+                Session::begin_delogo(state).map_err(|error| error.to_string())?
             } else {
-                Session::begin(state)?
+                Session::begin(state).map_err(|error| error.to_string())?
             };
             sender.send(Command::EnterCrop(session.clone()))?;
             data.rectangle = (!delogo).then(|| session.whole_source().into());
@@ -256,12 +257,15 @@ impl Editor {
                 Some(
                     data.rectangle
                         .ok_or("The crop selection is unavailable")?
-                        .to_native((whole.width, whole.height))?,
+                        .to_native((whole.width, whole.height))
+                        .map_err(|error| error.to_string())?,
                 )
             } else {
                 None
             };
-            session.exit_commands(state, rectangle)?;
+            session
+                .exit_commands(state, rectangle)
+                .map_err(|error| error.to_string())?;
             if app.get_native_video() {
                 // Exit can resume a playing source. Restore its full picture
                 // area first so that resumed frames do not use editor margins.

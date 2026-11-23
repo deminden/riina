@@ -127,7 +127,7 @@ pub(crate) fn current_player(app: &PlayerWindow) -> Result<Settings, String> {
         speed_sensitivity: u8::try_from(player_preferences.get_control_speed_sensitivity())
             .map_err(|_| "Invalid speed sensitivity")?,
     };
-    settings.validate().map_err(str::to_owned)?;
+    settings.validate().map_err(|error| error.to_string())?;
     Ok(settings)
 }
 
@@ -203,7 +203,7 @@ pub(crate) fn current_window(window: &PreferencesWindow) -> Result<Settings, Str
         speed_sensitivity: u8::try_from(controls.get_control_speed_sensitivity())
             .map_err(|_| "Invalid speed sensitivity")?,
     };
-    settings.validate().map_err(str::to_owned)?;
+    settings.validate().map_err(|error| error.to_string())?;
     Ok(settings)
 }
 

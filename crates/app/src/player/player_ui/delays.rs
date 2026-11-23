@@ -29,7 +29,7 @@ pub(super) fn install_sliders(app: &PlayerWindow, player: &CommandSender) {
                 app.global::<riina_ui::PlayerControlActions>()
                     .invoke_activity();
                 if let Err(error) = delay_player.send(command) {
-                    app.set_status(error.into());
+                    crate::diagnostics::report(&app, error);
                 }
             }
         });
@@ -55,16 +55,18 @@ pub(super) fn install_text(app: &PlayerWindow, player: &CommandSender) {
                     DelayLane::Audio => {
                         riina_core::timing_controls::parse_delay_seconds(&normalized)
                             .map(Command::AudioDelay)
-                            .map_err(str::to_owned)
+                            .map_err(|error| error.to_string())
                     }
                     DelayLane::PrimarySubtitle => SubtitleLane::Primary
                         .delay_from_text(&normalized)
-                        .map_err(str::to_owned),
+                        .map_err(|error| error.to_string()),
                     DelayLane::SecondarySubtitle => SubtitleLane::Secondary
                         .delay_from_text(&normalized)
-                        .map_err(str::to_owned),
+                        .map_err(|error| error.to_string()),
                 };
-                if let Err(error) = command.and_then(|command| text_delay_player.send(command)) {
+                if let Err(error) = command
+                    .and_then(|command| text_delay_player.send(command).map_err(String::from))
+                {
                     app.set_status(error.into());
                     return false;
                 }

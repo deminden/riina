@@ -53,25 +53,7 @@ fn install_platform(app: &PlayerWindow, prefs: &Preferences) {
         .set_auto_switch_to_music_mode(prefs.auto_switch_to_music_mode);
     app.global::<riina_ui::PlayerPreferences>()
         .set_disable_animations(prefs.disable_animations);
-    app.global::<riina_ui::PlayerAppearance>()
-        .set_system_reduce_motion(crate::platform::system_reduce_motion_enabled());
-    app.global::<riina_ui::PlayerAppearance>()
-        .set_platform_macos(cfg!(target_os = "macos"));
-    app.global::<riina_ui::PlayerAppearance>()
-        .set_platform_windows(cfg!(target_os = "windows"));
-    #[cfg(target_os = "windows")]
-    {
-        app.global::<riina_ui::PlayerAppearance>()
-            .set_system_materials_enabled(crate::platform::native_materials_enabled());
-        if let Some(accent) = crate::platform::windows_accent_color() {
-            app.global::<riina_ui::PlayerAppearance>()
-                .set_windows_accent_color(accent);
-        }
-        if let Some(foreground) = crate::platform::windows_accent_foreground() {
-            app.global::<riina_ui::PlayerAppearance>()
-                .set_windows_accent_foreground(foreground);
-        }
-    }
+    crate::platform::configure_player_appearance(app);
     crate::appearance_preferences::install_system_typography(app);
     app.global::<riina_ui::PlayerMusicModeState>()
         .set_music_mode_show_playlist(prefs.music_mode_show_playlist);

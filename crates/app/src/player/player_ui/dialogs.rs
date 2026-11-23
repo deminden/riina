@@ -85,7 +85,7 @@ pub(super) fn install_time_and_url(app: &PlayerWindow, command_sender: &CommandS
                 }
                 Err(error) => app
                     .global::<riina_ui::PlayerDialogState>()
-                    .set_jump_time_error(error.into()),
+                    .set_jump_time_error(error.to_string().into()),
             }
         });
 }

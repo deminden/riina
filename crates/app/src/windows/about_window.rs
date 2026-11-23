@@ -33,7 +33,7 @@ pub(crate) fn connect(app: &PlayerWindow, playback: crate::PlaybackStore) {
             .map(|state| refresh_engine_versions(&window, &state))
             .unwrap_or_else(|_| refresh_engine_versions(&window, &Playback::default()));
         if let Err(error) = window.show() {
-            app.set_status(format!("Could not show About Riina: {error}").into());
+            crate::diagnostics::report(&app, format!("Could not show About Riina: {error}"));
             return;
         }
         crate::platform::enable_about_acrylic(&window);
@@ -115,7 +115,7 @@ fn connect_links(window: &AboutWindow, weak_app: slint::Weak<PlayerWindow>) {
 fn open_link(app: &slint::Weak<PlayerWindow>, url: &str) {
     let Some(app) = app.upgrade() else { return };
     if let Err(error) = crate::platform::open_http_url_in_browser(url) {
-        app.set_status(format!("Could not open the project link: {error}").into());
+        crate::diagnostics::report(&app, format!("Could not open the project link: {error}"));
     }
 }
 

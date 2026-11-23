@@ -4,15 +4,8 @@ use super::*;
 #[ignore = "requires provisioned libmpv; verifies original woven fields and 25-to-50 Hz cadence"]
 fn interlaced_fields_decode_and_deinterlace_at_field_cadence() {
     let root = fixture_root();
-    let output = root.join("tools/interlaced-native-test").join(format!(
-        "{}-{}",
-        std::process::id(),
-        std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_nanos()
-    ));
-    std::fs::create_dir_all(&output).unwrap();
+    let output_dir = riina_test_support::TempDir::new("interlaced-native-test").unwrap();
+    let output = output_dir.path().to_path_buf();
     let mut captures = Vec::new();
     for name in [
         "interlaced-tff.mkv",
@@ -70,7 +63,7 @@ fn interlaced_fields_decode_and_deinterlace_at_field_cadence() {
                     (delta - expected).abs() < 0.002,
                     "{name}: enabled={enabled}, step={delta}"
                 );
-                assert_eq!(next.error, None);
+                assert_eq!(next.error(), None);
                 assert_eq!(
                     next.video_output.as_ref().map(|video| (video.w, video.h)),
                     Some((96, 64))
@@ -84,9 +77,9 @@ fn interlaced_fields_decode_and_deinterlace_at_field_cadence() {
                     .unwrap();
                 let captured = wait_for(&receiver, |state| {
                     state.completed_screenshots > next.completed_screenshots
-                        || state.error.is_some()
+                        || state.error().is_some()
                 });
-                assert_eq!(captured.error, None);
+                assert_eq!(captured.error(), None);
                 assert!(captured.paused);
                 assert_eq!(captured.position, next.position);
                 captures.push(serde_json::json!({
@@ -156,7 +149,7 @@ fn deinterlace_preserves_filters_playback_and_two_state_toggles() {
             changed.completed_navigation_seeks,
             initial.completed_navigation_seeks
         );
-        assert_eq!(changed.error, None);
+        assert_eq!(changed.error(), None);
         assert_eq!(riina_core::crop::observed_index(&changed), Some(1));
         assert_eq!(
             Axis::Horizontal.observed(changed.video_filters.as_deref()),
@@ -178,7 +171,7 @@ fn deinterlace_preserves_filters_playback_and_two_state_toggles() {
     });
     assert!(toggled.paused);
     assert_eq!(toggled.volume, 37.0);
-    assert_eq!(toggled.error, None);
+    assert_eq!(toggled.error(), None);
     assert_eq!(
         toggled.completed_navigation_seeks,
         initial.completed_navigation_seeks
@@ -198,7 +191,7 @@ fn deinterlace_preserves_filters_playback_and_two_state_toggles() {
             && state.deinterlace_active == Some(true)
     });
     assert_eq!(replaced.volume, 37.0);
-    assert_eq!(replaced.error, None);
+    assert_eq!(replaced.error(), None);
 }
 
 #[test]
@@ -231,7 +224,7 @@ fn video_equalizer_preserves_other_channels_and_playback_options() {
         assert!(state.paused);
         assert_eq!(state.volume, 37.0);
         assert_eq!(state.speed, 1.5);
-        assert!(state.error.is_none(), "{:?}", state.error);
+        assert!(state.error().is_none(), "{:?}", state.error());
     }
     for option in Equalizer::ALL {
         expected[option.index()] = Some(0);
@@ -242,6 +235,6 @@ fn video_equalizer_preserves_other_channels_and_playback_options() {
         assert!(state.paused);
         assert_eq!(state.volume, 37.0);
         assert_eq!(state.speed, 1.5);
-        assert!(state.error.is_none(), "{:?}", state.error);
+        assert!(state.error().is_none(), "{:?}", state.error());
     }
 }

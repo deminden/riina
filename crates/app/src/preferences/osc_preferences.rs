@@ -96,7 +96,7 @@ pub(crate) fn current_preferences(window: &PreferencesWindow) -> Result<Settings
         toolbar_order,
     }
     .validate()
-    .map_err(str::to_owned)
+    .map_err(|error| error.to_string())
 }
 
 pub(crate) fn install_player(window: &PlayerWindow, settings: Settings) {

@@ -16,7 +16,7 @@ pub(crate) fn install_player(
     let mappings = match mappings_for(&settings.current_profile) {
         Ok(mappings) => mappings,
         Err(error) => {
-            app.set_status(format!("Could not load input profile: {error}").into());
+            crate::diagnostics::report(app, format!("Could not load input profile: {error}"));
             Vec::new()
         }
     };
@@ -244,7 +244,10 @@ pub(crate) fn system_skip_intervals_for_profile(profile: &str) -> (Option<f64>, 
 
 fn dispatch_mapping(app: &PlayerWindow, mapping: &Mapping, latest_playback: &crate::PlaybackStore) {
     let Some(action) = runtime_action(mapping) else {
-        app.set_status(format!("Input action is not supported yet: {}", mapping.action).into());
+        crate::diagnostics::report(
+            app,
+            format!("Input action is not supported yet: {}", mapping.action),
+        );
         return;
     };
     match action {
@@ -365,7 +368,10 @@ pub(crate) fn reveal_current_media(app: &PlayerWindow, latest_playback: &crate::
         return;
     }
     if let Err(error) = crate::platform::reveal_file(&path) {
-        app.set_status(format!("Could not reveal the current media file: {error}").into());
+        crate::diagnostics::report(
+            app,
+            format!("Could not reveal the current media file: {error}"),
+        );
     }
 }
 

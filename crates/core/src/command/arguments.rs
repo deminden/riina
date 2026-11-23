@@ -1,12 +1,17 @@
 use super::Command;
+use super::CommandError;
 use crate::key_bindings;
 
 impl Command {
-    pub fn mpv_args(&self) -> Result<Vec<String>, String> {
+    pub fn mpv_args(&self) -> Result<Vec<String>, CommandError> {
         let args: Vec<String> = match self {
-            Self::MpvInputAction(action) => key_bindings::mpv_action_args(action)?,
+            Self::MpvInputAction(action) => {
+                key_bindings::mpv_action_args(action).map_err(CommandError::InputBinding)?
+            }
             Self::ObserveMpvProperty(_) => {
-                return Err("mpv property observation is handled by the player worker".into());
+                return Err(CommandError::InvalidState {
+                    reason: "mpv property observation is handled by the player worker",
+                });
             }
             Self::Load(_)
             | Self::LoadAtPosition { .. }
@@ -125,10 +130,20 @@ impl Command {
             | Self::RemovePlaylistId(_)
             | Self::RemovePlaylistIds(_)
             | Self::MovePlaylistId { .. } => {
-                return Err("This intent requires a command plan".into());
+                return Err(CommandError::InvalidState {
+                    reason: "This intent requires a command plan",
+                });
             }
-            Self::Shutdown => return Err("Shutdown is a lifecycle command".into()),
-            _ => return Err("The requested value is out of range or non-finite".into()),
+            Self::Shutdown => {
+                return Err(CommandError::InvalidState {
+                    reason: "Shutdown is a lifecycle command",
+                });
+            }
+            _ => {
+                return Err(CommandError::InvalidArgument {
+                    what: "The requested value is out of range or non-finite",
+                });
+            }
         };
         Ok(args)
     }

@@ -8,6 +8,33 @@ pub const MAX_PLUGIN_MENU_DEPTH: usize = 8;
 const MAX_TITLE_BYTES: usize = 256;
 const MAX_SHORTCUT_BYTES: usize = 64;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PluginMenuError {
+    Count,
+    Depth,
+    Identifier,
+    Title,
+    Binding,
+    Separator,
+}
+
+impl std::fmt::Display for PluginMenuError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(match self {
+            Self::Count => "Plugin menu exceeds the 128 item limit",
+            Self::Depth => "Plugin menu nesting exceeds the 8 level limit",
+            Self::Identifier => "Plugin menu item identifier is invalid or duplicated",
+            Self::Title => "Plugin menu title exceeds 256 bytes or contains control characters",
+            Self::Binding => {
+                "Plugin menu key binding exceeds 64 bytes or contains control characters"
+            }
+            Self::Separator => "Plugin menu separators cannot have a title or submenu",
+        })
+    }
+}
+
+impl std::error::Error for PluginMenuError {}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct PluginMenuItem {
@@ -30,7 +57,7 @@ fn default_enabled() -> bool {
 }
 
 impl PluginMenuItem {
-    pub fn validate_all(items: &[Self]) -> Result<(), String> {
+    pub fn validate_all(items: &[Self]) -> Result<(), PluginMenuError> {
         let mut identifiers = BTreeSet::new();
         let mut count = 0usize;
         for item in items {
@@ -45,13 +72,13 @@ fn validate_item(
     depth: usize,
     count: &mut usize,
     identifiers: &mut BTreeSet<String>,
-) -> Result<(), String> {
+) -> Result<(), PluginMenuError> {
     *count = count.saturating_add(1);
     if *count > MAX_PLUGIN_MENU_ITEMS {
-        return Err("Plugin menu exceeds the 128 item limit".into());
+        return Err(PluginMenuError::Count);
     }
     if depth > MAX_PLUGIN_MENU_DEPTH {
-        return Err("Plugin menu nesting exceeds the 8 level limit".into());
+        return Err(PluginMenuError::Depth);
     }
     if item.id.is_empty()
         || item.id.len() > 64
@@ -61,22 +88,20 @@ fn validate_item(
             .all(|byte| byte.is_ascii_alphanumeric() || byte == b'-' || byte == b'_')
         || !identifiers.insert(item.id.clone())
     {
-        return Err("Plugin menu item identifier is invalid or duplicated".into());
+        return Err(PluginMenuError::Identifier);
     }
     if item.title.len() > MAX_TITLE_BYTES || item.title.chars().any(char::is_control) {
-        return Err("Plugin menu title exceeds 256 bytes or contains control characters".into());
+        return Err(PluginMenuError::Title);
     }
     if item
         .key_binding
         .as_ref()
         .is_some_and(|key| key.len() > MAX_SHORTCUT_BYTES || key.chars().any(char::is_control))
     {
-        return Err(
-            "Plugin menu key binding exceeds 64 bytes or contains control characters".into(),
-        );
+        return Err(PluginMenuError::Binding);
     }
     if item.separator && (!item.items.is_empty() || !item.title.is_empty()) {
-        return Err("Plugin menu separators cannot have a title or submenu".into());
+        return Err(PluginMenuError::Separator);
     }
     for child in &item.items {
         validate_item(child, depth + 1, count, identifiers)?;

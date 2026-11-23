@@ -26,7 +26,7 @@ impl SeekOsd {
         let key = (state.generation, state.completed_navigation_seeks);
         if self.consumed.is_none_or(|old| old.0 != key.0)
             || matches!(state.phase, Phase::Stopped | Phase::Loading | Phase::Failed)
-            || state.error.is_some()
+            || state.error().is_some()
         {
             self.consumed = Some(key);
             return Change::Hide;
@@ -137,9 +137,11 @@ mod tests {
         state.duration = Some(5.0);
         assert_eq!(osd.observe(&state), Change::Keep);
         state.completed_navigation_seeks += 1;
-        state.error = Some("seek failed".into());
+        state
+            .notices
+            .push(riina_core::NoticeSeverity::Error, "seek failed".into());
         assert_eq!(osd.observe(&state), Change::Hide);
-        state.error = None;
+        state.notices.clear_current();
         assert_eq!(osd.observe(&state), Change::Keep);
         state.phase = Phase::Stopped;
         assert_eq!(osd.observe(&state), Change::Hide);

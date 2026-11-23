@@ -67,7 +67,10 @@ fn apply(
             true
         }
         Err(error) => {
-            app.set_status(format!("Could not apply the HDR output preference: {error}").into());
+            crate::diagnostics::report(
+                app,
+                format!("Could not apply the HDR output preference: {error}"),
+            );
             false
         }
     }

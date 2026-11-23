@@ -265,8 +265,10 @@ impl NativeApp {
                     &startup_pip,
                     startup_chrome.borrow().as_ref(),
                 );
+                // Continue releasing session resources if the window is closing.
                 let _ = host.hide();
                 *initialization_failure.borrow_mut() = Some(error);
+                // Shutdown may already have ended the event loop.
                 let _ = slint::quit_event_loop();
             }
         })?;
@@ -310,9 +312,11 @@ impl NativeApp {
             });
             close(&close_session, &close_pip, chrome.as_ref());
             if let Some(app) = chrome.as_ref() {
+                // Continue releasing session resources if the window is closing.
                 let _ = app.hide();
             }
             if should_quit {
+                // Shutdown may already have ended the event loop.
                 let _ = slint::quit_event_loop();
             }
             slint::CloseRequestResponse::HideWindow
@@ -428,6 +432,7 @@ fn restore_recreated_chrome(
                 // Welcome/dialog recovery can destroy and recreate the
                 // chrome HWND. Restore each realized surface, after renderer
                 // setup has released its internal borrows.
+                // The window may close before deferred UI work can be delivered.
                 let _ = slint::invoke_from_event_loop(move || {
                     if let (Some(app), Some(host)) = (weak_app.upgrade(), weak_host.upgrade()) {
                         app.window().with_winit_window(|window| {
@@ -459,6 +464,7 @@ fn keep_player_after_welcome_close(
         });
         let should_quit = crate::player_manager::should_quit_after_last_window_closed(setting, 0);
         if should_quit {
+            // Shutdown may already have ended the event loop.
             let _ = slint::quit_event_loop();
         } else if let (Some(app), Some(host)) =
             (close_welcome_app.upgrade(), close_welcome_host.upgrade())
@@ -563,9 +569,11 @@ fn install_chrome_close_handlers(
         );
         close(&close_session, &close_pip, app.as_ref());
         if let Some(host) = close_host.upgrade() {
+            // Continue releasing session resources if the window is closing.
             let _ = host.hide();
         }
         if should_quit {
+            // Shutdown may already have ended the event loop.
             let _ = slint::quit_event_loop();
         }
         slint::CloseRequestResponse::HideWindow
@@ -585,9 +593,11 @@ fn install_chrome_close_handlers(
         });
         close(&close_button_session, &close_button_pip, chrome.as_ref());
         if let Some(host) = close_button_host.upgrade() {
+            // Continue releasing session resources if the window is closing.
             let _ = host.hide();
         }
         if should_quit {
+            // Shutdown may already have ended the event loop.
             let _ = slint::quit_event_loop();
         }
     });
@@ -596,6 +606,7 @@ fn install_chrome_close_handlers(
         if let Some(app) = quit_app.upgrade() {
             app.global::<PlayerMenuActions>().invoke_close_player();
         }
+        // Shutdown may already have ended the event loop.
         let _ = slint::quit_event_loop();
     });
 }

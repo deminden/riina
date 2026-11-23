@@ -51,6 +51,7 @@ pub fn selection_in_new_player(app: &PlayerWindow, paths: Vec<String>) {
     let failure = weak.clone();
     let started = crate::background::spawn_named("new-player-media-discovery", move || {
         let result = file_selection::prepare(paths, true);
+        // The result has no recipient once its window or event loop closes.
         let _ = crate::background::to_ui(weak, move |app| {
             if let Err(error) = result.and_then(|paths| {
                 if paths.is_empty() {
@@ -291,7 +292,7 @@ pub fn url(app: &PlayerWindow, value: &str, sender: CommandSender) {
     let value = match validate_url(value) {
         Ok(value) => value,
         Err(error) => {
-            app.set_status(error.into());
+            app.set_status(error.to_string().into());
             return;
         }
     };
@@ -306,7 +307,7 @@ pub fn url(app: &PlayerWindow, value: &str, sender: CommandSender) {
     invalidate(app);
     app.set_status("Opening…".into());
     if let Err(error) = sender.send(Command::Load(value.to_owned())) {
-        app.set_status(error.into());
+        crate::diagnostics::report(app, error);
     } else if let Err(error) = apply_manual_open_repeat(app, &sender) {
         app.set_status(error.into());
     }
@@ -327,7 +328,7 @@ pub fn resume(app: &PlayerWindow, media: riina_core::RecentMedia, sender: Comman
         path: media.path,
         position: media.position,
     }) {
-        app.set_status(error.into());
+        crate::diagnostics::report(app, error);
     } else if let Err(error) = apply_manual_open_repeat(app, &sender) {
         app.set_status(error.into());
     }
@@ -354,13 +355,13 @@ pub fn open_recent(
     invalidate(app);
     app.set_status("Opening…".into());
     if let Err(error) = sender.send(Command::Load(media.path)) {
-        app.set_status(error.into());
+        crate::diagnostics::report(app, error);
     } else if let Err(error) = apply_manual_open_repeat(app, &sender) {
         app.set_status(error.into());
     }
 }
 
-pub fn validate_url(value: &str) -> Result<&str, &'static str> {
+pub fn validate_url(value: &str) -> Result<&str, riina_core::media_reference::NetworkUrlError> {
     riina_core::media_reference::validate_network_url(value)
 }
 
@@ -442,6 +443,7 @@ fn selection_at(
                 }
             }
         });
+        // The result has no recipient once its window or event loop closes.
         let _ = crate::background::to_ui(weak, move |app| {
             // A newer accepted selection or Stop owns the player now.
             if app.get_media_request_generation() == generation
@@ -552,7 +554,7 @@ fn parse_internet_shortcut(contents: &str) -> Result<&str, String> {
         }
     }
     let url = url.ok_or_else(|| "The dropped internet shortcut has no URL".to_owned())?;
-    validate_url(url).map_err(str::to_owned)
+    validate_url(url).map_err(|error| error.to_string())
 }
 
 #[cfg(test)]

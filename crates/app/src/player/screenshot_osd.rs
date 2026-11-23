@@ -59,12 +59,14 @@ mod tests {
         state.screenshot_file = Some("second.png".into());
         assert_eq!(feedback.observe(&state), Change::Show("second.png".into()));
         assert_eq!(feedback.observe(&state), Change::Keep);
-        state.error = Some("capture failed".into());
+        state
+            .notices
+            .push(riina_core::NoticeSeverity::Error, "capture failed".into());
         assert_eq!(feedback.observe(&state), Change::Keep);
         state.completed_screenshots = 3;
         state.screenshot_file = Some("retry.png".into());
         assert_eq!(feedback.observe(&state), Change::Show("retry.png".into()));
-        state.error = None;
+        state.notices.clear_current();
         assert_eq!(feedback.observe(&state), Change::Keep);
         state.generation = 2;
         state.completed_screenshots = 4;

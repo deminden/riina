@@ -1,18 +1,22 @@
 use super::{
-    Command, CommandPlan, audio, filters::FilterChain, flag, network, playback, playlist,
-    screenshot_plan, seek, set, subtitles, video,
+    Command, CommandError, CommandPlan, audio, filters::FilterChain, flag, network, playback,
+    playlist, screenshot_plan, seek, set, subtitles, video,
 };
 use crate::{Phase, Playback, hdr_preferences, key_bindings, video_viewport};
 
 impl Command {
-    pub fn plan(&self, state: &Playback) -> Result<CommandPlan, String> {
+    pub fn plan(&self, state: &Playback) -> Result<CommandPlan, CommandError> {
         self.validate_capture(state)?;
         let commands = match self {
             Self::ObserveMpvProperty(property) if valid_mpv_property_name(property) => Vec::new(),
             Self::ObserveMpvProperty(_) => {
-                return Err("Invalid mpv property name".into());
+                return Err(CommandError::InvalidArgument {
+                    what: "Invalid mpv property name",
+                });
             }
-            Self::MpvInputAction(action) => key_bindings::mpv_action_commands(action)?,
+            Self::MpvInputAction(action) => {
+                key_bindings::mpv_action_commands(action).map_err(CommandError::InputBinding)?
+            }
             Self::AudioEqualizer(gains) => audio::equalizer(state, gains)?,
             Self::SubtitleLetterboxMargins(enabled) => {
                 let value = flag(*enabled);
@@ -26,7 +30,9 @@ impl Command {
             Self::TogglePause | Self::SetPaused(false) if state.phase == Phase::Ended => {
                 playback::replay_from_eof()
             }
-            Self::NetworkCache(preferences) => preferences.commands()?,
+            Self::NetworkCache(preferences) => {
+                preferences.commands().map_err(CommandError::Preference)?
+            }
             Self::NetworkOnlineVideos(preferences) => network::online_videos(preferences)?,
             Self::Screenshot {
                 directory,
@@ -65,7 +71,9 @@ impl Command {
             }
             Self::SetAbLoop { a, b } => seek::set_loop_points(*a, *b)?,
             Self::SetAbLoopPoint { point, value } => seek::set_loop_point(*point, *value)?,
-            Self::SetToneMapping(settings) => settings.engine_commands()?,
+            Self::SetToneMapping(settings) => settings
+                .engine_commands()
+                .map_err(CommandError::Preference)?,
             Self::SetIccProfileAuto(enabled) => vec![set("icc-profile-auto", flag(*enabled))],
             Self::SetHdrEnabled(enabled) => {
                 hdr_preferences::output_commands(*enabled, video::hdr_primaries(state, *enabled)?)?
@@ -82,7 +90,9 @@ impl Command {
                 vec![set("vd-lavc-threads", threads.to_string())]
             }
             Self::VideoThreads(_) => {
-                return Err("Video decoder threads must be between 0 and 2,147,483,647".into());
+                return Err(CommandError::InvalidArgument {
+                    what: "Video decoder threads must be between 0 and 2,147,483,647",
+                });
             }
             Self::TogglePlaylistShuffle => vec![vec![
                 if state.playlist_shuffled {

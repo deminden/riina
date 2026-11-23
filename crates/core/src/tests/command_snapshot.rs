@@ -264,7 +264,7 @@ fn every_command_variant_keeps_its_native_plan() {
                 "mpv": plan.commands,
                 "resume_on_load": plan.resume_on_load,
             }),
-            Err(error) => serde_json::json!({ "command": name, "error": error }),
+            Err(error) => serde_json::json!({ "command": name, "error": error.to_string() }),
         };
         assert_eq!(row.to_string(), expected_row, "{name}");
     }

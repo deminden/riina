@@ -27,7 +27,7 @@ fn play_restarts_media_after_end_of_file() {
     let restarted = harness.wait(|state| {
         state.phase == Phase::Playing && !state.paused && state.position.is_some_and(|p| p < 1.0)
     });
-    assert_eq!(restarted.error, None);
+    assert_eq!(restarted.error(), None);
 }
 
 #[test]
@@ -77,7 +77,7 @@ fn file_repeat_wraps_and_preserves_playlist_repeat() {
             && state.position.is_some_and(|p| p < 0.5)
             && state.generation == near_end.generation
     });
-    assert_eq!(wrapped.error, None);
+    assert_eq!(wrapped.error(), None);
     assert_eq!(wrapped.loop_file.as_deref(), Some("inf"));
     assert_eq!(wrapped.loop_playlist.as_deref(), Some("inf"));
     harness.send(Command::TogglePause).unwrap();
@@ -88,7 +88,7 @@ fn file_repeat_wraps_and_preserves_playlist_repeat() {
     });
     assert!(file_off.paused);
     assert_eq!(file_off.loop_mode(), riina_core::LoopMode::Playlist);
-    assert_eq!(file_off.error, None);
+    assert_eq!(file_off.error(), None);
     harness.send(Command::CycleLoop).unwrap();
     harness.wait(|state| state.loop_mode() == riina_core::LoopMode::Off);
     harness.send(Command::ToggleFileLoop).unwrap();
@@ -101,7 +101,7 @@ fn file_repeat_wraps_and_preserves_playlist_repeat() {
         state.loop_file.as_deref() == Some("no") && state.loop_playlist.as_deref() == Some("no")
     });
     assert!(all_off.paused);
-    assert_eq!(all_off.error, None);
+    assert_eq!(all_off.error(), None);
 }
 
 #[test]
@@ -138,7 +138,7 @@ fn multi_file_open_replaces_old_playlist_and_resumes() {
             && state.position.is_some_and(|p| p > 0.1)
             && !state.paused
     });
-    assert_eq!(opened.error, None);
+    assert_eq!(opened.error(), None);
     assert_eq!(
         opened
             .playlist
@@ -156,7 +156,7 @@ fn multi_file_open_replaces_old_playlist_and_resumes() {
                 .is_some_and(|video| video.gamma.as_deref() == Some("hlg"))
             && state.position.is_some_and(|p| p > 0.1)
     });
-    assert_eq!(next.error, None);
+    assert_eq!(next.error(), None);
     assert!(!next.paused);
     drop(harness);
 }
@@ -258,7 +258,7 @@ fn chapters_external_tracks_and_playlist_editing() {
     }
     let delayed = harness.wait(|state| (state.audio_delay - 1.0).abs() < 0.001);
     assert!(delayed.paused);
-    assert_eq!(delayed.error, None);
+    assert_eq!(delayed.error(), None);
     for _ in 0..2 {
         harness.send(Command::AdjustAudioDelay(-0.5)).unwrap();
     }
@@ -269,7 +269,7 @@ fn chapters_external_tracks_and_playlist_editing() {
     harness.send(Command::AudioDelay(0.0)).unwrap();
     let reset = harness.wait(|state| state.audio_delay.abs() < 0.001);
     assert!(reset.paused);
-    assert_eq!(reset.error, None);
+    assert_eq!(reset.error(), None);
     harness.send(Command::SelectChapter(1)).unwrap();
     let selected_chapter = harness.wait(|state| {
         !state.paused
@@ -286,7 +286,7 @@ fn chapters_external_tracks_and_playlist_editing() {
             && state.completed_seeks > selected_chapter.completed_seeks
             && state.position.is_some_and(|p| p < 0.1)
     });
-    assert_eq!(previous_chapter.error, None);
+    assert_eq!(previous_chapter.error(), None);
     harness.send(Command::AdjustChapter(1)).unwrap();
     let next_chapter = harness.wait(|state| {
         state.paused
@@ -294,7 +294,7 @@ fn chapters_external_tracks_and_playlist_editing() {
             && state.completed_seeks > previous_chapter.completed_seeks
             && state.position.is_some_and(|p| (p - 2.0).abs() < 0.05)
     });
-    assert_eq!(next_chapter.error, None);
+    assert_eq!(next_chapter.error(), None);
     harness.send(Command::AdjustChapter(-1)).unwrap();
     let first_chapter = harness.wait(|state| {
         state.paused
@@ -322,7 +322,7 @@ fn chapters_external_tracks_and_playlist_editing() {
             && state.position.is_some_and(|p| p < 0.1)
     });
     assert_eq!(boundary.generation, loaded.generation);
-    assert_eq!(boundary.error, None);
+    assert_eq!(boundary.error(), None);
     harness
         .send(Command::AppendFiles(vec![
             fixture("moving-square.avi"),
@@ -394,9 +394,9 @@ fn chapters_external_tracks_and_playlist_editing() {
         "Clear keeps the playing entry, as in IINA"
     );
     assert!(
-        cleared.error.is_none(),
+        cleared.error().is_none(),
         "Unexpected native error: {:?}",
-        cleared.error
+        cleared.error()
     );
     drop(harness);
 }

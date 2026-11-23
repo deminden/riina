@@ -137,7 +137,7 @@ pub(crate) fn connect_actions(
         if let Err(error) = crate::platform::open_directory(&log_directory)
             && let Some(app) = app_weak.upgrade()
         {
-            app.set_status(format!("Could not open the log directory: {error}").into());
+            crate::diagnostics::report(&app, format!("Could not open the log directory: {error}"));
         }
     });
 

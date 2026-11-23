@@ -42,7 +42,7 @@ fn zero_size_crop_offsets_preserve_requested_parameters() {
         });
         assert!(state.paused);
         assert_eq!(state.volume, 37.0);
-        assert_eq!(state.error, None);
+        assert_eq!(state.error(), None);
         completed = state.completed_seeks;
         assert_eq!(
             state.completed_navigation_seeks,
@@ -64,7 +64,7 @@ fn zero_size_crop_offsets_preserve_requested_parameters() {
     }
     harness.send(Command::VideoCrop(None)).unwrap();
     let reset = harness.wait(|state| riina_core::crop::observed_index(state) == Some(0));
-    assert_eq!(reset.error, None);
+    assert_eq!(reset.error(), None);
 }
 
 #[test]
@@ -99,7 +99,7 @@ fn zero_size_crop_uses_native_full_source_dimensions() {
         })
     });
     assert!(state.paused);
-    assert_eq!(state.error, None);
+    assert_eq!(state.error(), None);
     assert_eq!(
         state.video_output.as_ref().map(|video| (video.w, video.h)),
         Some((320, 180))
@@ -107,7 +107,7 @@ fn zero_size_crop_uses_native_full_source_dimensions() {
     assert_eq!(riina_core::crop::observed_index(&state), Some(6));
     harness.send(Command::VideoCrop(None)).unwrap();
     let reset = harness.wait(|state| riina_core::crop::observed_index(state) == Some(0));
-    assert_eq!(reset.error, None);
+    assert_eq!(reset.error(), None);
 }
 
 #[test]
@@ -158,7 +158,7 @@ fn crop_presets_replace_the_managed_crop_and_restore_source_output() {
         });
         assert!(changed.paused);
         assert_eq!(changed.volume, 37.0);
-        assert_eq!(changed.error, None);
+        assert_eq!(changed.error(), None);
         let crop = changed
             .video_filters
             .as_ref()
@@ -204,7 +204,7 @@ fn crop_presets_replace_the_managed_crop_and_restore_source_output() {
     });
     assert!(reset.paused);
     assert_eq!(reset.volume, 37.0);
-    assert_eq!(reset.error, None);
+    assert_eq!(reset.error(), None);
     // Display overrides must not become the coordinate system for later crop
     // requests: every quarter turn still crops the original 320×180 pixels.
     harness
@@ -240,7 +240,7 @@ fn crop_presets_replace_the_managed_crop_and_restore_source_output() {
             assert_eq!(changed.video_rotation, Some(rotation));
             assert!(changed.paused);
             assert_eq!(changed.volume, 37.0);
-            assert_eq!(changed.error, None);
+            assert_eq!(changed.error(), None);
         }
         harness.send(Command::VideoCrop(None)).unwrap();
         let cleared = harness.wait(|state| {
@@ -252,7 +252,7 @@ fn crop_presets_replace_the_managed_crop_and_restore_source_output() {
         });
         assert_eq!(cleared.video_aspect_override, Some(1.0));
         assert_eq!(cleared.video_rotation, Some(rotation));
-        assert_eq!(cleared.error, None);
+        assert_eq!(cleared.error(), None);
     }
     let rectangle = riina_core::crop::Rectangle {
         x: 10,
@@ -279,7 +279,7 @@ fn crop_presets_replace_the_managed_crop_and_restore_source_output() {
     assert!(custom.paused);
     assert_eq!(custom.volume, 37.0);
     assert_eq!(custom.video_aspect_override, Some(1.0));
-    assert_eq!(custom.error, None);
+    assert_eq!(custom.error(), None);
     assert_eq!(riina_core::crop::observed_index(&custom), Some(6));
     harness
         .send(Command::VideoCropRectangle(riina_core::crop::Rectangle {
@@ -302,7 +302,7 @@ fn crop_presets_replace_the_managed_crop_and_restore_source_output() {
     });
     harness.send(Command::VideoCrop(None)).unwrap();
     harness.send(Command::Volume(38.0)).unwrap();
-    assert_eq!(harness.wait(|state| state.volume == 38.0).error, None);
+    assert_eq!(harness.wait(|state| state.volume == 38.0).error(), None);
 }
 
 #[test]
@@ -348,7 +348,7 @@ fn interactive_crop_session_restores_pause_on_done_and_cancel() {
         let editing = harness.wait(|state| session.ready(state));
         assert_eq!(editing.volume, 37.0);
         assert_eq!(editing.speed, 1.5);
-        assert_eq!(editing.error, None);
+        assert_eq!(editing.error(), None);
         let rectangle = confirm.then_some(Rectangle {
             x: 10,
             y: 12,
@@ -372,7 +372,7 @@ fn interactive_crop_session_restores_pause_on_done_and_cancel() {
                 })
         });
         assert_eq!(state.volume, 37.0);
-        assert_eq!(state.error, None);
+        assert_eq!(state.error(), None);
         if confirm {
             let filter = state
                 .video_filters
@@ -412,8 +412,7 @@ fn interactive_crop_session_restores_pause_on_done_and_cancel() {
             }),
         })
         .unwrap();
-    let rejected =
-        harness.wait(|state| state.error.as_deref() == Some("The video changed while cropping"));
+    let rejected = harness.wait(|state| state.error() == Some("The video changed while cropping"));
     assert_eq!(rejected.generation, replacement.generation);
     assert!(!rejected.paused);
     assert_eq!(rejected.volume, 37.0);
@@ -501,7 +500,7 @@ fn crop_projection_preserves_source_selection_under_native_display_overrides() {
                 rectangle
             );
             assert!(state.paused);
-            assert_eq!(state.error, None);
+            assert_eq!(state.error(), None);
         }
     }
 }

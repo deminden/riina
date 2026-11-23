@@ -1,9 +1,9 @@
-use super::{Command, cmd};
+use super::{Command, CommandError, cmd};
 use super::{CommandPlan, flag, set};
 use crate::{Playback, PlaylistEntry, hdr_preferences, playlist, valid_path};
 
 impl Command {
-    pub(super) fn playlist_args(&self) -> Result<Vec<String>, String> {
+    pub(super) fn playlist_args(&self) -> Result<Vec<String>, CommandError> {
         let args = match self {
             Self::PlaylistNext => cmd(["playlist-next", "weak"]),
             Self::PlaylistPrevious => cmd(["playlist-prev", "weak"]),
@@ -16,7 +16,11 @@ impl Command {
                 vec!["playlist-move".into(), from.to_string(), to.to_string()]
             }
             Self::ClearPlaylist => cmd(["playlist-clear"]),
-            _ => return Err("This intent requires a command plan".into()),
+            _ => {
+                return Err(CommandError::InvalidState {
+                    reason: "This intent requires a command plan",
+                });
+            }
         };
         Ok(args)
     }
@@ -27,13 +31,15 @@ impl Command {
         &self,
         state: &Playback,
         id: i64,
-    ) -> Result<CommandPlan, String> {
+    ) -> Result<CommandPlan, CommandError> {
         // Stable native IDs survive inserts/reorders while a UI intent is queued.
         let index = state
             .playlist
             .iter()
             .position(|entry| entry.id == id)
-            .ok_or("The playlist entry is no longer available")?;
+            .ok_or(CommandError::Unavailable {
+                what: "The playlist entry is no longer available",
+            })?;
         let command = match self {
             Self::SelectPlaylistId(_) => Self::SelectPlaylistEntry(index),
             Self::RemovePlaylistId(_) => Self::RemovePlaylistEntry(index),
@@ -48,7 +54,9 @@ impl Command {
                 }
             }
             Self::MovePlaylistId { .. } => {
-                return Err("The playlist entry cannot move in that direction".into());
+                return Err(CommandError::InvalidState {
+                    reason: "The playlist entry cannot move in that direction",
+                });
             }
             _ => unreachable!(),
         };
@@ -56,17 +64,21 @@ impl Command {
     }
 }
 
-pub(super) fn remove_ids(state: &Playback, ids: &[i64]) -> Result<Vec<Vec<String>>, String> {
+pub(super) fn remove_ids(state: &Playback, ids: &[i64]) -> Result<Vec<Vec<String>>, CommandError> {
     let mut indices = Vec::with_capacity(ids.len());
     for id in ids {
         let Some(index) = state.playlist.iter().position(|entry| entry.id == *id) else {
-            return Err("A selected playlist entry is no longer available".into());
+            return Err(CommandError::Unavailable {
+                what: "A selected playlist entry is no longer available",
+            });
         };
         indices.push(index);
     }
     indices.sort_unstable();
     if indices.windows(2).any(|pair| pair[0] == pair[1]) {
-        return Err("A playlist entry was selected more than once".into());
+        return Err(CommandError::InvalidArgument {
+            what: "A playlist entry was selected more than once",
+        });
     }
     // IINA removes ascending index sets while accounting for each prior
     // removal; stable IDs are resolved before any native row can shift.
@@ -81,16 +93,20 @@ pub(super) fn open_files(
     state: &Playback,
     command: &Command,
     paths: &[String],
-) -> Result<Vec<Vec<String>>, String> {
+) -> Result<Vec<Vec<String>>, CommandError> {
     if paths.is_empty() || paths.iter().any(|path| !valid_path(path)) {
-        return Err("No valid files were supplied".into());
+        return Err(CommandError::InvalidArgument {
+            what: "No valid files were supplied",
+        });
     }
     if let Command::OpenFilesWithSubtitles { subtitles, .. } = command
         && (subtitles.is_empty()
             || subtitles.len() > 64
             || subtitles.iter().any(|path| !valid_path(path)))
     {
-        return Err("Invalid dropped subtitle files were supplied".into());
+        return Err(CommandError::InvalidArgument {
+            what: "Invalid dropped subtitle files were supplied",
+        });
     }
     let mut commands: Vec<Vec<String>> = paths
         .iter()
@@ -116,12 +132,14 @@ pub(super) fn insert_files(
     state: &Playback,
     paths: &[String],
     index: usize,
-) -> Result<Vec<Vec<String>>, String> {
+) -> Result<Vec<Vec<String>>, CommandError> {
     if paths.is_empty()
         || paths.iter().any(|path| !valid_path(path))
         || index > state.playlist.len()
     {
-        return Err("Playlist items or insertion position are invalid".into());
+        return Err(CommandError::InvalidArgument {
+            what: "Playlist items or insertion position are invalid",
+        });
     }
     let first_new = state.playlist.len();
     let mut commands = Vec::with_capacity(paths.len() * 2);
@@ -144,17 +162,21 @@ pub(super) fn insert_files_around_current(
     state: &Playback,
     before: &[String],
     after: &[String],
-) -> Result<Vec<Vec<String>>, String> {
+) -> Result<Vec<Vec<String>>, CommandError> {
     if before.is_empty() && after.is_empty()
         || before.iter().chain(after).any(|path| !valid_path(path))
     {
-        return Err("No valid folder media files were supplied".into());
+        return Err(CommandError::InvalidArgument {
+            what: "No valid folder media files were supplied",
+        });
     }
     let current_index = state
         .playlist
         .iter()
         .position(|entry| entry.current)
-        .ok_or_else(|| "The current playlist item is no longer available".to_owned())?;
+        .ok_or(CommandError::Unavailable {
+            what: "The current playlist item is no longer available",
+        })?;
     let first_new = state.playlist.len();
     let mut commands = Vec::with_capacity(before.len() * 2 + after.len());
     for (offset, path) in before.iter().enumerate() {
@@ -178,12 +200,17 @@ pub(super) fn insert_files_around_current(
 }
 
 impl Command {
-    pub(super) fn plan_playlist_navigation(&self, state: &Playback) -> Result<CommandPlan, String> {
+    pub(super) fn plan_playlist_navigation(
+        &self,
+        state: &Playback,
+    ) -> Result<CommandPlan, CommandError> {
         let mut resume_on_load = false;
         let commands = match self {
             Self::SelectPlaylistEntry(index) => {
                 if *index >= state.playlist.len() {
-                    return Err("The playlist entry is no longer available".into());
+                    return Err(CommandError::Unavailable {
+                        what: "The playlist entry is no longer available",
+                    });
                 }
                 resume_on_load = true;
                 vec![set("pause", "yes"), self.mpv_args()?]
@@ -196,12 +223,16 @@ impl Command {
                 vec![set("pause", "yes"), self.mpv_args()?]
             }
             Self::RemovePlaylistEntry(index) if *index >= state.playlist.len() => {
-                return Err("The playlist entry is no longer available".into());
+                return Err(CommandError::Unavailable {
+                    what: "The playlist entry is no longer available",
+                });
             }
             Self::MovePlaylistEntry { from, to }
                 if *from >= state.playlist.len() || *to > state.playlist.len() =>
             {
-                return Err("The playlist entry is no longer available".into());
+                return Err(CommandError::Unavailable {
+                    what: "The playlist entry is no longer available",
+                });
             }
             _ => vec![self.mpv_args()?],
         };
@@ -215,7 +246,7 @@ impl Command {
 pub(super) fn reorder(
     entries: &[PlaylistEntry],
     sort: playlist::PlaylistSort,
-) -> Result<Vec<Vec<String>>, String> {
+) -> Result<Vec<Vec<String>>, CommandError> {
     let desired = playlist::sorted_ids(entries, sort);
     let mut current = entries.iter().map(|entry| entry.id).collect::<Vec<_>>();
     let mut commands = Vec::new();
@@ -223,7 +254,9 @@ pub(super) fn reorder(
         let from = current
             .iter()
             .position(|candidate| *candidate == id)
-            .ok_or("The playlist changed before sorting")?;
+            .ok_or(CommandError::InvalidState {
+                reason: "The playlist changed before sorting",
+            })?;
         if from == target {
             continue;
         }

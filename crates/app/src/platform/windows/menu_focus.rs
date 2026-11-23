@@ -260,7 +260,7 @@ fn refresh_popup(app: &PlayerWindow, hwnd: HWND, wparam: WPARAM) {
     ];
     for (prefix, label) in information {
         if let Err(error) = update_information_label(HMENU(wparam.0 as *mut _), prefix, &label) {
-            app.set_status(format!("Could not refresh playback menu: {error}").into());
+            crate::diagnostics::report(app, format!("Could not refresh playback menu: {error}"));
         }
     }
     let plugin_menu = plugin_menu_handle(hwnd);

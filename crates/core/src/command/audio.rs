@@ -1,8 +1,8 @@
-use super::{Command, cmd, flag, set};
+use super::{Command, CommandError, cmd, flag, set};
 use crate::{Playback, audio_equalizer};
 
 impl Command {
-    pub(super) fn audio_args(&self) -> Result<Vec<String>, String> {
+    pub(super) fn audio_args(&self) -> Result<Vec<String>, CommandError> {
         let args = match self {
             Self::Volume(value) if value.is_finite() && (0.0..=200.0).contains(value) => {
                 set("volume", value.to_string())
@@ -11,18 +11,27 @@ impl Command {
                 set("audio-device", name.clone())
             }
             Self::AudioDevice(_) => {
-                return Err("The audio device name is empty or contains a NUL byte".into());
+                return Err(CommandError::InvalidArgument {
+                    what: "The audio device name is empty or contains a NUL byte",
+                });
             }
             Self::ToggleMute => cmd(["cycle", "mute"]),
             Self::SetMuted(muted) => set("mute", flag(*muted)),
-            _ => return Err("The requested value is out of range or non-finite".into()),
+            _ => {
+                return Err(CommandError::InvalidArgument {
+                    what: "The requested value is out of range or non-finite",
+                });
+            }
         };
         Ok(args)
     }
 }
 
-pub(super) fn equalizer(state: &Playback, gains: &[f64; 10]) -> Result<Vec<Vec<String>>, String> {
-    let filter = audio_equalizer::lavfi_filter(gains).map_err(str::to_owned)?;
+pub(super) fn equalizer(
+    state: &Playback,
+    gains: &[f64; 10],
+) -> Result<Vec<Vec<String>>, CommandError> {
+    let filter = audio_equalizer::lavfi_filter(gains).map_err(CommandError::AudioEqualizer)?;
     let mut commands = Vec::new();
     if state
         .audio_equalizer
@@ -40,9 +49,11 @@ pub(super) fn equalizer(state: &Playback, gains: &[f64; 10]) -> Result<Vec<Vec<S
     Ok(commands)
 }
 
-pub(super) fn adjust_volume(delta: f64, boost: bool) -> Result<Vec<Vec<String>>, String> {
+pub(super) fn adjust_volume(delta: f64, boost: bool) -> Result<Vec<Vec<String>>, CommandError> {
     if !delta.is_finite() {
-        return Err("The volume adjustment must be finite".into());
+        return Err(CommandError::InvalidArgument {
+            what: "The volume adjustment must be finite",
+        });
     }
     Ok(volume_adjustment(delta, boost))
 }

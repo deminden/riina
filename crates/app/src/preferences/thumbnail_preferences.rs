@@ -76,7 +76,7 @@ fn current(
             .parse()
             .map_err(|_| "Thumbnail width must be a whole number of points".to_owned())?,
     };
-    settings.validate().map_err(str::to_owned)?;
+    settings.validate().map_err(|error| error.to_string())?;
     Ok(settings)
 }
 

@@ -8,6 +8,45 @@ pub const MIN_GAIN_DB: f64 = -12.0;
 pub const MAX_GAIN_DB: f64 = 12.0;
 pub const FILTER_LABEL: &str = "riina-audio-equalizer";
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum AudioEqualizerError {
+    InvalidSavedProfile,
+    MissingSelectedProfile,
+    AmbiguousName,
+    UnknownProfile,
+    InvalidName,
+    BuiltinNameConflict,
+    SavedNameConflict,
+    NotRemovable,
+    MissingSavedProfile,
+    NotRenameable,
+    NameConflict,
+    InvalidGain,
+}
+
+impl std::fmt::Display for AudioEqualizerError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(match self {
+            Self::InvalidSavedProfile => "Audio equalizer profiles have an invalid name or gain",
+            Self::MissingSelectedProfile => "Selected audio equalizer profile does not exist",
+            Self::AmbiguousName => {
+                "Profile name is ambiguous; select the preset or saved profile by ID"
+            }
+            Self::UnknownProfile => "Unknown audio equalizer profile",
+            Self::InvalidName => "Profile name must be 1 to 64 printable characters",
+            Self::BuiltinNameConflict => "A built-in profile already has that name",
+            Self::SavedNameConflict => "A saved profile already has that name",
+            Self::NotRemovable => "Only saved audio equalizer profiles can be removed",
+            Self::MissingSavedProfile => "Saved audio equalizer profile disappeared",
+            Self::NotRenameable => "Only saved audio equalizer profiles can be renamed",
+            Self::NameConflict => "An audio equalizer profile already has that name",
+            Self::InvalidGain => "Audio equalizer gains must be finite and between -12 and +12 dB",
+        })
+    }
+}
+
+impl std::error::Error for AudioEqualizerError {}
+
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum ProfileId {
     Manual,
@@ -40,20 +79,20 @@ impl Default for Settings {
 }
 
 impl Settings {
-    pub fn validate(&self) -> Result<(), &'static str> {
+    pub fn validate(&self) -> Result<(), AudioEqualizerError> {
         validate_gains(&self.gains_db)?;
         if self.user_profiles.iter().any(|(name, gains)| {
             !valid_profile_name(name) || name == "custom" || validate_gains(gains).is_err()
         }) {
-            return Err("Audio equalizer profiles have an invalid name or gain");
+            return Err(AudioEqualizerError::InvalidSavedProfile);
         }
         if self.selected_profile.is_some() && self.selected_profile_index().is_none() {
-            return Err("Selected audio equalizer profile does not exist");
+            return Err(AudioEqualizerError::MissingSelectedProfile);
         }
         Ok(())
     }
 
-    pub fn select(&mut self, name: &str) -> Result<(), &'static str> {
+    pub fn select(&mut self, name: &str) -> Result<(), AudioEqualizerError> {
         if name == "custom" {
             self.selected_profile = Some(name.to_owned());
             self.selected_profile_is_user = false;
@@ -61,7 +100,7 @@ impl Settings {
         }
         if let Some(gains) = preset(name) {
             if self.user_profiles.contains_key(name) {
-                return Err("Profile name is ambiguous; select the preset or saved profile by ID");
+                return Err(AudioEqualizerError::AmbiguousName);
             }
             self.gains_db = gains;
             self.selected_profile = Some(name.to_owned());
@@ -71,7 +110,7 @@ impl Settings {
         self.select_user_profile(name)
     }
 
-    pub fn select_id(&mut self, id: &ProfileId) -> Result<(), &'static str> {
+    pub fn select_id(&mut self, id: &ProfileId) -> Result<(), AudioEqualizerError> {
         match id {
             ProfileId::Manual => {
                 self.selected_profile = Some("custom".to_owned());
@@ -79,7 +118,7 @@ impl Settings {
                 Ok(())
             }
             ProfileId::Preset(name) => {
-                let gains = preset(name).ok_or("Unknown audio equalizer profile")?;
+                let gains = preset(name).ok_or(AudioEqualizerError::UnknownProfile)?;
                 self.gains_db = gains;
                 self.selected_profile = Some(name.to_owned());
                 self.selected_profile_is_user = false;
@@ -89,12 +128,12 @@ impl Settings {
         }
     }
 
-    fn select_user_profile(&mut self, name: &str) -> Result<(), &'static str> {
+    fn select_user_profile(&mut self, name: &str) -> Result<(), AudioEqualizerError> {
         let gains = self
             .user_profiles
             .get(name)
             .copied()
-            .ok_or("Unknown audio equalizer profile")?;
+            .ok_or(AudioEqualizerError::UnknownProfile)?;
         self.gains_db = gains;
         self.selected_profile = Some(name.to_owned());
         self.selected_profile_is_user = true;
@@ -136,29 +175,29 @@ impl Settings {
         self.selected_profile_index() == Some(0)
     }
 
-    pub fn select_profile_at(&mut self, index: usize) -> Result<(), &'static str> {
+    pub fn select_profile_at(&mut self, index: usize) -> Result<(), AudioEqualizerError> {
         let id = self
             .profile_ids()
             .get(index)
             .cloned()
-            .ok_or("Unknown audio equalizer profile")?;
+            .ok_or(AudioEqualizerError::UnknownProfile)?;
         self.select_id(&id)
     }
 
-    pub fn validate_new_profile_name(&self, name: &str) -> Result<(), &'static str> {
+    pub fn validate_new_profile_name(&self, name: &str) -> Result<(), AudioEqualizerError> {
         if !valid_profile_name(name) {
-            return Err("Profile name must be 1 to 64 printable characters");
+            return Err(AudioEqualizerError::InvalidName);
         }
         if name == "custom" {
-            return Err("A built-in profile already has that name");
+            return Err(AudioEqualizerError::BuiltinNameConflict);
         }
         if self.user_profiles.contains_key(name) {
-            return Err("A saved profile already has that name");
+            return Err(AudioEqualizerError::SavedNameConflict);
         }
         Ok(())
     }
 
-    pub fn save_profile(&mut self, name: &str) -> Result<(), &'static str> {
+    pub fn save_profile(&mut self, name: &str) -> Result<(), AudioEqualizerError> {
         self.validate_new_profile_name(name)?;
         validate_gains(&self.gains_db)?;
         self.user_profiles.insert(name.to_owned(), self.gains_db);
@@ -167,21 +206,25 @@ impl Settings {
         Ok(())
     }
 
-    pub fn remove_profile(&mut self, name: &str) -> Result<(), &'static str> {
+    pub fn remove_profile(&mut self, name: &str) -> Result<(), AudioEqualizerError> {
         if self.user_profiles.remove(name).is_none() {
-            return Err("Only saved audio equalizer profiles can be removed");
+            return Err(AudioEqualizerError::NotRemovable);
         }
         self.selected_profile = Some("custom".into());
         self.selected_profile_is_user = false;
         Ok(())
     }
 
-    pub fn rename_profile(&mut self, current: &str, replacement: &str) -> Result<(), &'static str> {
+    pub fn rename_profile(
+        &mut self,
+        current: &str,
+        replacement: &str,
+    ) -> Result<(), AudioEqualizerError> {
         self.validate_renamed_profile_name(current, replacement)?;
         let gains = self
             .user_profiles
             .remove(current)
-            .ok_or("Saved audio equalizer profile disappeared")?;
+            .ok_or(AudioEqualizerError::MissingSavedProfile)?;
         self.user_profiles.insert(replacement.to_owned(), gains);
         self.selected_profile = Some(replacement.to_owned());
         self.selected_profile_is_user = true;
@@ -192,15 +235,15 @@ impl Settings {
         &self,
         current: &str,
         replacement: &str,
-    ) -> Result<(), &'static str> {
+    ) -> Result<(), AudioEqualizerError> {
         if !self.user_profiles.contains_key(current) {
-            return Err("Only saved audio equalizer profiles can be renamed");
+            return Err(AudioEqualizerError::NotRenameable);
         }
         if !valid_profile_name(replacement) {
-            return Err("Profile name must be 1 to 64 printable characters");
+            return Err(AudioEqualizerError::InvalidName);
         }
         if replacement == "custom" || self.user_profiles.contains_key(replacement) {
-            return Err("An audio equalizer profile already has that name");
+            return Err(AudioEqualizerError::NameConflict);
         }
         Ok(())
     }
@@ -333,19 +376,19 @@ fn valid_profile_name(name: &str) -> bool {
     !name.is_empty() && name.len() <= 64 && name.chars().all(|character| !character.is_control())
 }
 
-fn validate_gains(gains: &[f64; 10]) -> Result<(), &'static str> {
+fn validate_gains(gains: &[f64; 10]) -> Result<(), AudioEqualizerError> {
     if gains
         .iter()
         .any(|gain| !gain.is_finite() || !(MIN_GAIN_DB..=MAX_GAIN_DB).contains(gain))
     {
-        Err("Audio equalizer gains must be finite and between -12 and +12 dB")
+        Err(AudioEqualizerError::InvalidGain)
     } else {
         Ok(())
     }
 }
 
 /// Build the labeled FFmpeg filter used by libmpv. A flat curve means removal.
-pub fn lavfi_filter(gains_db: &[f64; 10]) -> Result<Option<String>, &'static str> {
+pub fn lavfi_filter(gains_db: &[f64; 10]) -> Result<Option<String>, AudioEqualizerError> {
     validate_gains(gains_db)?;
     if gains_db.iter().all(|gain| *gain == 0.0) {
         return Ok(None);
@@ -392,7 +435,7 @@ mod tests {
         settings.select("My mix").unwrap();
         assert_eq!(
             settings.rename_profile("My mix", "My mix"),
-            Err("An audio equalizer profile already has that name")
+            Err(AudioEqualizerError::NameConflict)
         );
         assert_eq!(settings.gains_db[0], 1.5);
         settings.rename_profile("My mix", "Renamed").unwrap();
@@ -427,7 +470,7 @@ mod tests {
         assert!(settings.selected_profile_is_user());
         assert_eq!(
             settings.select("rock"),
-            Err("Profile name is ambiguous; select the preset or saved profile by ID")
+            Err(AudioEqualizerError::AmbiguousName)
         );
 
         let ids = settings.profile_ids();

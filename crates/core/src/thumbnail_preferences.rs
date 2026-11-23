@@ -1,4 +1,5 @@
 //! Thumbnail generation preferences shared by the player and settings UI.
+use crate::PreferenceError;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -22,12 +23,18 @@ impl Default for Settings {
 }
 
 impl Settings {
-    pub fn validate(&self) -> Result<(), &'static str> {
+    pub fn validate(&self) -> Result<(), PreferenceError> {
         if self.maximum_cache_size_mb > i64::MAX as u64 {
-            return Err("Thumbnail cache size is out of range");
+            return Err(PreferenceError::new(
+                "thumbnail_preview",
+                "Thumbnail cache size is out of range",
+            ));
         }
         if !(1..=2000).contains(&self.width) {
-            return Err("Thumbnail width must be between 1 and 2000 points");
+            return Err(PreferenceError::new(
+                "thumbnail_preview",
+                "Thumbnail width must be between 1 and 2000 points",
+            ));
         }
         Ok(())
     }

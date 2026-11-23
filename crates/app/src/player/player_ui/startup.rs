@@ -60,7 +60,7 @@ pub(super) fn prepare_settings(
             recovery.is_none(),
         )
     {
-        app.set_status(format!("OpenSubtitles credential storage: {error}").into());
+        crate::diagnostics::report(app, format!("OpenSubtitles credential storage: {error}"));
     }
     let audio_equalizer = Arc::new(Mutex::new(prefs.audio_equalizer.clone()));
     let saved_video_filters = Arc::new(Mutex::new(prefs.video_filters.clone()));

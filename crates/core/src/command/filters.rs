@@ -1,3 +1,4 @@
+use super::CommandError;
 use super::cmd;
 use crate::{Playback, crop::VideoFilter, video_filters};
 
@@ -15,16 +16,20 @@ impl FilterChain {
         }
     }
 
-    fn filters(self, state: &Playback) -> Result<&[VideoFilter], &'static str> {
+    fn filters(self, state: &Playback) -> Result<&[VideoFilter], CommandError> {
         match self {
             Self::Video => state
                 .video_filters
                 .as_ref()
-                .ok_or("Video filters are unavailable"),
+                .ok_or(CommandError::Unavailable {
+                    what: "Video filters are unavailable",
+                }),
             Self::Audio => state
                 .audio_filters
                 .as_ref()
-                .ok_or("Audio filters are unavailable"),
+                .ok_or(CommandError::Unavailable {
+                    what: "Audio filters are unavailable",
+                }),
         }
         .map(Vec::as_slice)
     }
@@ -43,13 +48,18 @@ impl FilterChain {
         }
     }
 
-    pub(super) fn toggle(self, state: &Playback, filter: &str) -> Result<Vec<Vec<String>>, String> {
+    pub(super) fn toggle(
+        self,
+        state: &Playback,
+        filter: &str,
+    ) -> Result<Vec<Vec<String>>, CommandError> {
         if !video_filters::valid_filter_string(filter) {
-            return Err(match self {
-                Self::Video => "The saved video filter string is invalid",
-                Self::Audio => "The saved audio filter string is invalid",
-            }
-            .into());
+            return Err(CommandError::InvalidArgument {
+                what: match self {
+                    Self::Video => "The saved video filter string is invalid",
+                    Self::Audio => "The saved audio filter string is invalid",
+                },
+            });
         }
         let filters = self.filters(state)?;
         let selected = filters.iter().position(|candidate| {
@@ -63,9 +73,11 @@ impl FilterChain {
         Ok(vec![action])
     }
 
-    pub(super) fn add(self, filter: &str) -> Result<Vec<Vec<String>>, String> {
+    pub(super) fn add(self, filter: &str) -> Result<Vec<Vec<String>>, CommandError> {
         if !video_filters::valid_filter_string(filter) {
-            return Err(self.invalid().into());
+            return Err(CommandError::InvalidArgument {
+                what: self.invalid(),
+            });
         }
         Ok(vec![cmd([self.property(), "add", filter])])
     }
@@ -74,12 +86,14 @@ impl FilterChain {
         self,
         state: &Playback,
         selected: &VideoFilter,
-    ) -> Result<Vec<Vec<String>>, String> {
+    ) -> Result<Vec<Vec<String>>, CommandError> {
         let index = self
             .filters(state)?
             .iter()
             .position(|candidate| candidate == selected)
-            .ok_or(self.inactive())?;
+            .ok_or(CommandError::Unavailable {
+                what: self.inactive(),
+            })?;
         Ok(vec![cmd([self.property(), "del", &index.to_string()])])
     }
 
@@ -88,13 +102,17 @@ impl FilterChain {
         state: &Playback,
         index: usize,
         filter: &str,
-    ) -> Result<Vec<Vec<String>>, String> {
+    ) -> Result<Vec<Vec<String>>, CommandError> {
         if !video_filters::valid_filter_string(filter) {
-            return Err(self.invalid().into());
+            return Err(CommandError::InvalidArgument {
+                what: self.invalid(),
+            });
         }
         let filters = self.filters(state)?;
         if index >= filters.len() {
-            return Err(self.inactive().into());
+            return Err(CommandError::Unavailable {
+                what: self.inactive(),
+            });
         }
         let mut chain: Vec<_> = filters.iter().map(video_filters::format_filter).collect();
         chain[index] = filter.to_owned();

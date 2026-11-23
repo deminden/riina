@@ -68,7 +68,7 @@ fn multilingual_tracks_preserve_language_metadata_across_subtitle_lanes() {
     });
     assert_eq!(selected_track(&both, TrackKind::Sub), Some(primary));
     assert!(both.paused);
-    assert_eq!(both.error, None);
+    assert_eq!(both.error(), None);
     for track in loaded.tracks.iter() {
         // mpv numbers each track kind independently; ID alone is not identity.
         let observed = both
@@ -119,7 +119,7 @@ fn track_cycling_includes_disabled_and_external_tracks() {
         harness.send(Command::CycleTrack(TrackKind::Audio)).unwrap();
         let cycled = harness.wait(|state| selected_track(state, TrackKind::Audio) == expected);
         assert!(cycled.paused);
-        assert_eq!(cycled.error, None);
+        assert_eq!(cycled.error(), None);
         assert_eq!(selected_track(&cycled, TrackKind::Video), Some(video));
     }
     harness
@@ -136,7 +136,7 @@ fn track_cycling_includes_disabled_and_external_tracks() {
         harness.send(Command::CycleTrack(TrackKind::Sub)).unwrap();
         let cycled = harness.wait(|state| selected_track(state, TrackKind::Sub) == expected);
         assert!(cycled.paused);
-        assert_eq!(cycled.error, None);
+        assert_eq!(cycled.error(), None);
         assert_eq!(
             selected_track(&cycled, TrackKind::Audio),
             Some(external_audio)
@@ -146,7 +146,7 @@ fn track_cycling_includes_disabled_and_external_tracks() {
         harness.send(Command::CycleTrack(TrackKind::Video)).unwrap();
         let cycled = harness.wait(|state| selected_track(state, TrackKind::Video) == expected);
         assert!(cycled.paused);
-        assert_eq!(cycled.error, None);
+        assert_eq!(cycled.error(), None);
         assert_eq!(
             selected_track(&cycled, TrackKind::Audio),
             Some(external_audio)

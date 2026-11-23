@@ -17,9 +17,10 @@ fn dynamic_mpv_property_observation_publishes_generic_node_values() {
                 .is_some_and(|version| !version.trim().is_empty())
     });
     assert_eq!(
-        startup_versions.error, None,
+        startup_versions.error(),
+        None,
         "unexpected native error while observing engine versions before media: {:?}",
-        startup_versions.error
+        startup_versions.error()
     );
     harness
         .send(Command::Load(
@@ -42,9 +43,10 @@ fn dynamic_mpv_property_observation_publishes_generic_node_values() {
                 .is_some_and(|version| !version.trim().is_empty())
     });
     assert_eq!(
-        versions.error, None,
+        versions.error(),
+        None,
         "unexpected native error while observing engine versions: {:?}",
-        versions.error
+        versions.error()
     );
     harness
         .send(Command::ObserveMpvProperty("container-fps".into()))
@@ -56,9 +58,10 @@ fn dynamic_mpv_property_observation_publishes_generic_node_values() {
             .is_some_and(|value| value.as_f64().is_some_and(|fps| fps > 0.0))
     });
     assert_eq!(
-        observed.error, None,
+        observed.error(),
+        None,
         "unexpected native error: {:?}",
-        observed.error
+        observed.error()
     );
     drop(harness);
 }

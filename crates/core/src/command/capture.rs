@@ -1,9 +1,9 @@
-use super::{Command, cmd};
+use super::{Command, CommandError, cmd};
 use crate::valid_path;
 use crate::{Phase, Playback};
 
 impl Command {
-    pub(super) fn capture_args(&self) -> Result<Vec<String>, String> {
+    pub(super) fn capture_args(&self) -> Result<Vec<String>, CommandError> {
         let args = match self {
             Self::CaptureFrame => cmd(["screenshot-raw", "video", "rgba"]),
             Self::CaptureTransitionFrame => cmd(["screenshot-raw", "video", "rgba"]),
@@ -14,16 +14,22 @@ impl Command {
                 path.clone(),
                 content.native_value().into(),
             ],
-            _ => return Err("The requested value is out of range or non-finite".into()),
+            _ => {
+                return Err(CommandError::InvalidArgument {
+                    what: "The requested value is out of range or non-finite",
+                });
+            }
         };
         Ok(args)
     }
 }
 
 impl Command {
-    pub(super) fn validate_capture(&self, state: &Playback) -> Result<(), String> {
+    pub(super) fn validate_capture(&self, state: &Playback) -> Result<(), CommandError> {
         if matches!(self, Self::CaptureFrame) && state.phase != Phase::Paused {
-            return Err("Text recognition is available only while video is paused".into());
+            return Err(CommandError::InvalidState {
+                reason: "Text recognition is available only while video is paused",
+            });
         }
         if matches!(
             self,
@@ -33,7 +39,9 @@ impl Command {
         ) && (state.video.is_none()
             || matches!(state.phase, Phase::Loading | Phase::Stopped | Phase::Failed))
         {
-            return Err("A transition image requires an active video".into());
+            return Err(CommandError::InvalidState {
+                reason: "A transition image requires an active video",
+            });
         }
         Ok(())
     }

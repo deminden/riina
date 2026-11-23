@@ -16,11 +16,11 @@ fn http_url_opens_and_plays_a_local_media_fixture() {
         .send(Command::Load(format!("http://{address}/moving-square.avi")))
         .unwrap();
     let loaded = harness.wait(|state| {
-        state.error.is_some()
+        state.error().is_some()
             || (state.phase == Phase::Playing
                 && state.position.is_some_and(|position| position > 0.1))
     });
-    assert_eq!(loaded.error, None);
+    assert_eq!(loaded.error(), None);
     assert!(
         loaded
             .duration

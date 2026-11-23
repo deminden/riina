@@ -79,11 +79,7 @@ fn write_to(directory: &Path, playback: &Playback) -> io::Result<PathBuf> {
         "Hardware decoder: {:?}",
         clipped_option(&playback.hardware_decoder)
     )?;
-    writeln!(
-        file,
-        "Playback error: {:?}",
-        clipped_option(&playback.error)
-    )?;
+    writeln!(file, "Playback error: {:?}", playback.error().map(clipped))?;
     if let Some(video) = &playback.video {
         writeln!(
             file,

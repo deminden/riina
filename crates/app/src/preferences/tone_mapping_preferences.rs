@@ -57,7 +57,7 @@ pub(crate) fn current_window(window: &PreferencesWindow) -> Result<Settings, Str
         param_override_enabled: video.get_tone_mapping_param_enabled(),
         param,
     };
-    settings.validate().map_err(str::to_owned)?;
+    settings.validate().map_err(|error| error.to_string())?;
     Ok(settings)
 }
 

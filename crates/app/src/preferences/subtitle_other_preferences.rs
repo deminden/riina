@@ -56,7 +56,7 @@ pub(crate) fn current_player(app: &crate::PlayerWindow) -> Result<OtherPreferenc
             .get_subtitle_default_encoding()
             .to_string(),
     };
-    preferences.validate().map_err(str::to_owned)?;
+    preferences.validate().map_err(|error| error.to_string())?;
     Ok(preferences)
 }
 
@@ -76,7 +76,7 @@ pub(crate) fn current_window(
             .to_string(),
         default_encoding: encoding.into(),
     };
-    preferences.validate().map_err(str::to_owned)?;
+    preferences.validate().map_err(|error| error.to_string())?;
     Ok(preferences)
 }
 
@@ -125,8 +125,8 @@ pub(crate) fn apply(
     previous: &OtherPreferences,
     selected: &OtherPreferences,
 ) -> Result<(), String> {
-    selected.validate().map_err(str::to_owned)?;
-    previous.validate().map_err(str::to_owned)?;
+    selected.validate().map_err(|error| error.to_string())?;
+    previous.validate().map_err(|error| error.to_string())?;
     let languages_changed = selected.preferred_languages != previous.preferred_languages;
     if languages_changed
         && let Err(error) = player.send(riina_core::Command::SubtitlePreferredLanguages(
@@ -141,9 +141,12 @@ pub(crate) fn apply(
         ))
     {
         if languages_changed {
-            let _ = player.send(riina_core::Command::SubtitlePreferredLanguages(
-                previous.preferred_languages.clone(),
-            ));
+            crate::preferences::restore_playback(
+                player,
+                riina_core::Command::SubtitlePreferredLanguages(
+                    previous.preferred_languages.clone(),
+                ),
+            );
         }
         return Err(error.to_string());
     }

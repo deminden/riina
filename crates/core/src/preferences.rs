@@ -208,6 +208,35 @@ pub struct RecentMedia {
     pub position: f64,
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct PreferenceError {
+    pub key: &'static str,
+    pub reason: String,
+}
+
+impl PreferenceError {
+    pub(crate) fn new(key: &'static str, reason: impl Into<String>) -> Self {
+        Self {
+            key,
+            reason: reason.into(),
+        }
+    }
+}
+
+impl std::fmt::Display for PreferenceError {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str(&self.reason)
+    }
+}
+
+impl std::error::Error for PreferenceError {}
+
+impl From<PreferenceError> for String {
+    fn from(error: PreferenceError) -> Self {
+        error.reason
+    }
+}
+
 #[derive(Debug, PartialEq, Eq)]
 pub struct Rejection {
     /// A serialized preference key, or `$` for the entire document.
@@ -334,8 +363,9 @@ impl Preferences {
         self.recent_media.truncate(10);
     }
 
-    pub fn parse(text: &str) -> Result<Self, String> {
-        let prefs: Self = serde_json::from_str(text).map_err(|e| e.to_string())?;
+    pub fn parse(text: &str) -> Result<Self, PreferenceError> {
+        let prefs: Self = serde_json::from_str(text)
+            .map_err(|error| PreferenceError::new("$", error.to_string()))?;
         prefs.validated()
     }
 
@@ -351,7 +381,7 @@ impl Preferences {
             if let Err(reason) = Self::validate_recovered(entry) {
                 rejected.push(Rejection {
                     key: key.clone(),
-                    reason,
+                    reason: reason.reason,
                 });
                 false
             } else {
@@ -370,91 +400,149 @@ impl Preferences {
                 }
                 (prefs, rejected)
             }
-            Err(reason) => rejected_document(reason),
+            Err(reason) => rejected_document(reason.reason),
         }
     }
 
     fn validate_recovered<'de>(
         map: impl serde::Deserializer<'de, Error = serde_json::Error>,
-    ) -> Result<Self, String> {
+    ) -> Result<Self, PreferenceError> {
         // Serde type errors can echo private values. Recovery reasons go in the log.
         Self::deserialize(map)
-            .map_err(|_| "Invalid value or structure".to_owned())?
+            .map_err(|_| PreferenceError::new("$", "Invalid value or structure"))?
             .validated()
     }
 
-    fn validated(mut self) -> Result<Self, String> {
+    fn validated(mut self) -> Result<Self, PreferenceError> {
         if self.schema_version != 1 {
-            return Err(format!(
-                "Unsupported preference schema version {}",
-                self.schema_version
+            return Err(PreferenceError::new(
+                "schema_version",
+                format!(
+                    "Unsupported preference schema version {}",
+                    self.schema_version
+                ),
             ));
         }
         if !self.volume.is_finite() || !(0.0..=200.0).contains(&self.volume) {
-            return Err("Volume must be between 0 and 200".into());
+            return Err(PreferenceError::new(
+                "volume",
+                "Volume must be between 0 and 200",
+            ));
         }
         if self.video_threads > i32::MAX as u32 {
-            return Err("Video thread count exceeds the supported range".into());
+            return Err(PreferenceError::new(
+                "video_threads",
+                "Video thread count exceeds the supported range",
+            ));
         }
         if !subtitle_controls::valid_preference_font_size(self.subtitle_font_size) {
-            return Err("Subtitle font size is outside the supported range".into());
+            return Err(PreferenceError::new(
+                "subtitle_font_size",
+                "Subtitle font size is outside the supported range",
+            ));
         }
         if !subtitle_controls::valid_font_name(&self.subtitle_font) {
-            return Err("Subtitle font name is invalid".into());
+            return Err(PreferenceError::new(
+                "subtitle_font",
+                "Subtitle font name is invalid",
+            ));
         }
-        self.subtitle_text_style.validate().map_err(str::to_owned)?;
-        self.subtitle_position.validate().map_err(str::to_owned)?;
-        self.network_cache.validate().map_err(str::to_owned)?;
-        self.thumbnail_preview.validate().map_err(str::to_owned)?;
-        self.network.validate().map_err(str::to_owned)?;
-        self.network_online_videos
-            .validate()
-            .map_err(str::to_owned)?;
-        self.audio.validate().map_err(str::to_owned)?;
-        self.audio_equalizer.validate().map_err(str::to_owned)?;
-        self.video_filters.validate().map_err(str::to_owned)?;
-        self.audio_filters.validate().map_err(str::to_owned)?;
-        self.hdr_tone_mapping.validate().map_err(str::to_owned)?;
-        self.advanced.validate()?;
-        self.controls.validate().map_err(str::to_owned)?;
-        self.control_bar.validate().map_err(str::to_owned)?;
-        self.key_bindings.validate().map_err(str::to_owned)?;
-        self.subtitle_other.validate().map_err(str::to_owned)?;
-        self.subtitle_auto_load.validate().map_err(str::to_owned)?;
-        self.online_subtitles.validate().map_err(str::to_owned)?;
+        self.validate_sections()?;
         // Old settings keep their default cap unless boosting was explicitly enabled.
         self.volume = self.volume.min(self.volume_limit());
         self.leading_sidebar_width = self.leading_sidebar_width.clamp(300, 500);
         self.trailing_sidebar_width = self.trailing_sidebar_width.clamp(300, 500);
         if self.osc_position > 2 {
-            return Err("Unsupported on-screen controller position".into());
+            return Err(PreferenceError::new(
+                "osc_position",
+                "Unsupported on-screen controller position",
+            ));
         }
-        if !(0.0..=1.0).contains(&self.control_bar_position_horizontal)
-            || !(0.0..=1.0).contains(&self.control_bar_position_vertical)
-        {
-            return Err("Floating control bar position must be between 0 and 1".into());
+        for (key, position) in [
+            (
+                "control_bar_position_horizontal",
+                self.control_bar_position_horizontal,
+            ),
+            (
+                "control_bar_position_vertical",
+                self.control_bar_position_vertical,
+            ),
+        ] {
+            if !(0.0..=1.0).contains(&position) {
+                return Err(PreferenceError::new(
+                    key,
+                    "Floating control bar position must be between 0 and 1",
+                ));
+            }
         }
-        self.screenshot.validate()?;
+        self.screenshot
+            .validate()
+            .map_err(|reason| PreferenceError::new("screenshot", reason))?;
         if !valid_recent_media(&self.recent_media) {
-            return Err("Recent media history is invalid".into());
+            return Err(PreferenceError::new(
+                "recent_media",
+                "Recent media history is invalid",
+            ));
         }
         if !valid_recent_media(&self.recent_open_documents) {
-            return Err("Open Recent documents are invalid".into());
+            return Err(PreferenceError::new(
+                "recent_open_documents",
+                "Open Recent documents are invalid",
+            ));
         }
         if self.playback_history.iter().any(|entry| !entry.is_valid()) {
-            return Err("Playback history is invalid".into());
+            return Err(PreferenceError::new(
+                "playback_history",
+                "Playback history is invalid",
+            ));
         }
         // Persisted values must be representable by the event-loop timer. Do not
         // silently turn an invalid duration into an immediate or endless OSD.
-        let timeout = std::time::Duration::try_from_secs_f64(self.osd_timeout_secs)
-            .map_err(|_| "Invalid on-screen display timeout")?;
+        let timeout =
+            std::time::Duration::try_from_secs_f64(self.osd_timeout_secs).map_err(|_| {
+                PreferenceError::new("osd_timeout_secs", "Invalid on-screen display timeout")
+            })?;
         if timeout.as_millis() > u64::MAX as u128 {
-            return Err("On-screen display timeout exceeds timer capacity".into());
+            return Err(PreferenceError::new(
+                "osd_timeout_secs",
+                "On-screen display timeout exceeds timer capacity",
+            ));
         }
         if !(5.0..=500.0).contains(&self.osd_text_size) {
-            return Err("On-screen display text size must be between 5 and 500 points".into());
+            return Err(PreferenceError::new(
+                "osd_text_size",
+                "On-screen display text size must be between 5 and 500 points",
+            ));
         }
         Ok(self)
+    }
+
+    fn validate_sections(&self) -> Result<(), PreferenceError> {
+        self.subtitle_text_style.validate()?;
+        self.subtitle_position.validate()?;
+        self.network_cache.validate()?;
+        self.thumbnail_preview.validate()?;
+        self.network.validate()?;
+        self.network_online_videos.validate()?;
+        self.audio.validate()?;
+        self.audio_equalizer
+            .validate()
+            .map_err(|reason| PreferenceError::new("audio_equalizer", reason.to_string()))?;
+        self.video_filters
+            .validate()
+            .map_err(|reason| PreferenceError::new("video_filters", reason.to_string()))?;
+        self.audio_filters
+            .validate()
+            .map_err(|reason| PreferenceError::new("audio_filters", reason.to_string()))?;
+        self.hdr_tone_mapping.validate()?;
+        self.advanced.validate()?;
+        self.controls.validate()?;
+        self.control_bar.validate()?;
+        self.key_bindings.validate()?;
+        self.subtitle_other.validate()?;
+        self.subtitle_auto_load.validate()?;
+        self.online_subtitles.validate()?;
+        Ok(())
     }
 }
 

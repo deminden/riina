@@ -310,7 +310,7 @@ pub(crate) fn connect(
             let viewer = match LogViewerWindow::new() {
                 Ok(viewer) => viewer,
                 Err(error) => {
-                    app.set_status(format!("Could not open Log Viewer: {error}").into());
+                    crate::diagnostics::report(&app, format!("Could not open Log Viewer: {error}"));
                     return;
                 }
             };
@@ -328,7 +328,7 @@ pub(crate) fn connect(
         };
         refresh_view(&viewer, &show_reader, &show_subsystems);
         if let Err(error) = viewer.show() {
-            app.set_status(format!("Could not show Log Viewer: {error}").into());
+            crate::diagnostics::report(&app, format!("Could not show Log Viewer: {error}"));
         } else {
             crate::platform::enable_log_viewer_acrylic(&viewer);
             follow_while_visible(&viewer, &timer, &show_reader, &show_subsystems);
@@ -380,7 +380,7 @@ fn connect_window(
         if let Err(error) = crate::platform::clipboard::copy_text(text.as_str())
             && let Some(app) = clipboard_app.upgrade()
         {
-            app.set_status(format!("Could not copy log entry: {error}").into());
+            crate::diagnostics::report(&app, format!("Could not copy log entry: {error}"));
         }
     });
 
@@ -390,7 +390,7 @@ fn connect_window(
         if let Err(error) = crate::platform::open_directory(&log_directory)
             && let Some(app) = folder_app.upgrade()
         {
-            app.set_status(format!("Could not open the log directory: {error}").into());
+            crate::diagnostics::report(&app, format!("Could not open the log directory: {error}"));
         }
     });
 

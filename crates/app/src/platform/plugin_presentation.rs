@@ -101,8 +101,9 @@ impl PluginMenuObservation {
                     match super::MacPluginMenuObserver::new(app, host.clone()) {
                         Ok(observer) => Some(observer),
                         Err(error) => {
-                            app.set_status(
-                                format!("Could not observe the Plugin menu: {error}").into(),
+                            crate::diagnostics::report(
+                                app,
+                                format!("Could not observe the Plugin menu: {error}"),
                             );
                             None
                         }

@@ -80,10 +80,13 @@ pub(super) fn remember_recent_open_document(
     app.global::<riina_ui::PlayerMenuActions>()
         .invoke_video_menu_changed();
     if let Err(error) = persist_recent_open_documents(preferences_path, &recent) {
-        app.set_status(format!("Could not save Open Recent: {error}").into());
+        crate::diagnostics::report(app, format!("Could not save Open Recent: {error}"));
     }
     if let Err(error) = platform::remember_recent_document(&native_path) {
-        app.set_status(format!("Could not update the system recent documents: {error}").into());
+        crate::diagnostics::report(
+            app,
+            format!("Could not update the system recent documents: {error}"),
+        );
     }
 }
 

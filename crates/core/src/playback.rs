@@ -1,7 +1,7 @@
 //! Observed playback state; the backend remains the only playback clock.
 use crate::{
-    CapturedFrame, Chapter, LoopMode, PlaylistEntry, Track, TrackKind, audio_preferences, crop,
-    music_mode, subtitle_color, video_controls,
+    CapturedFrame, Chapter, EngineNotices, LoopMode, PlaylistEntry, Track, TrackKind,
+    audio_preferences, crop, music_mode, subtitle_color, video_controls,
 };
 use serde::Deserialize;
 use std::{
@@ -105,7 +105,7 @@ pub struct Playback {
     pub title: String,
     pub artist: Option<String>,
     pub album: Option<String>,
-    pub error: Option<String>,
+    pub notices: EngineNotices,
     pub tracks: Arc<Vec<Track>>,
     /// Whether mpv reported the incoming file's track list, including an empty list.
     pub track_list_observed: bool,
@@ -186,6 +186,10 @@ pub struct MpvEventRecord {
 }
 
 impl Playback {
+    pub fn error(&self) -> Option<&str> {
+        self.notices.current().map(|notice| notice.message.as_str())
+    }
+
     pub fn record_mpv_event(&mut self, name: Arc<str>) {
         self.mpv_event_sequence = self.mpv_event_sequence.wrapping_add(1).max(1);
         let events = Arc::make_mut(&mut self.mpv_events);
@@ -320,7 +324,7 @@ impl Playback {
         self.seekable = false;
         self.ab_loop_a = None;
         self.ab_loop_b = None;
-        self.error = None;
+        self.notices.clear_current();
         // Track IDs belong to one file; never offer a stale selector during replacement.
         self.tracks = Arc::default();
         self.track_list_observed = false;

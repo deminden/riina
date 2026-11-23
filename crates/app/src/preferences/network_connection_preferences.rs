@@ -51,7 +51,7 @@ pub(crate) fn current_window(window: &crate::PreferencesWindow) -> Result<Connec
         rtsp_transport: transport(form.get_network_rtsp_transport_index())
             .ok_or_else(|| "Invalid RTSP transport selection".to_owned())?,
     };
-    preferences.validate().map_err(str::to_owned)?;
+    preferences.validate().map_err(|error| error.to_string())?;
     Ok(preferences)
 }
 

@@ -152,7 +152,9 @@ fn feedback_requires_confirmed_changes_in_the_same_media_generation() {
     state.generation += 1;
     assert_eq!(changed(Some(&old), &state), None);
     state.generation = old.generation;
-    state.error = Some("Rejected command".into());
+    state
+        .notices
+        .push(riina_core::NoticeSeverity::Error, "Rejected command".into());
     assert_eq!(changed(Some(&old), &state), None);
 }
 
@@ -330,7 +332,10 @@ fn aspect_feedback_retains_raw_text_repeats_and_native_failures() {
     for text in ["8:6", "8:6", "Default", "invalid", "١٦:٩"] {
         state.video_aspect = AspectRatio::from_text(text);
         state.aspect_requests += 1;
-        state.error = Some("Native parse failure".into());
+        state.notices.push(
+            riina_core::NoticeSeverity::Error,
+            "Native parse failure".into(),
+        );
         assert_eq!(
             feedback.observe(&state),
             Some(Message {
@@ -370,9 +375,12 @@ fn deinterlace_feedback_uses_confirmed_changes_not_filter_activity() {
     state.deinterlace = None;
     assert_eq!(feedback.observe(&state), None);
     state.deinterlace = Some(true);
-    state.error = Some("Native command failure".into());
+    state.notices.push(
+        riina_core::NoticeSeverity::Error,
+        "Native command failure".into(),
+    );
     assert_eq!(feedback.observe(&state), None);
-    state.error = None;
+    state.notices.clear_current();
     assert_eq!(feedback.observe(&state), None);
     state.generation += 1;
     state.deinterlace = Some(false);

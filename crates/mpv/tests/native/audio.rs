@@ -6,7 +6,7 @@ fn audio_device_selection_updates_the_live_engine() {
     let root = fixture_root();
     let harness = Harness::with_options(&root, vec![("ao".into(), "null".into())]).unwrap();
     let initial = harness.wait(|state| state.audio_device.is_some());
-    assert_eq!(initial.error, None);
+    assert_eq!(initial.error(), None);
     eprintln!(
         "audio output driver: {:?}; observed devices: {}",
         initial.audio_output,
@@ -39,7 +39,7 @@ fn audio_device_selection_updates_the_live_engine() {
             .unwrap();
         let changed =
             harness.wait(|state| state.audio_device.as_deref() == Some(selected.as_str()));
-        assert_eq!(changed.error, None);
+        assert_eq!(changed.error(), None);
     }
     drop(harness);
 }
@@ -57,16 +57,17 @@ fn audio_equalizer_applies_updates_and_returns_to_flat() {
         ))
         .unwrap();
     let loaded = harness.wait(|state| {
-        state.error.is_some() || (state.phase == Phase::Playing && state.audio_equalizer.is_some())
+        state.error().is_some()
+            || (state.phase == Phase::Playing && state.audio_equalizer.is_some())
     });
-    assert_eq!(loaded.error, None);
+    assert_eq!(loaded.error(), None);
     assert_eq!(loaded.audio_equalizer, Some([0.; 10]));
 
     let mut gains = [0.; 10];
     gains[4] = 4.5;
     harness.send(Command::AudioEqualizer(gains)).unwrap();
     let applied = harness.wait(|state| {
-        state.error.is_some()
+        state.error().is_some()
             || state.audio_equalizer.is_some_and(|observed| {
                 observed
                     .iter()
@@ -74,11 +75,11 @@ fn audio_equalizer_applies_updates_and_returns_to_flat() {
                     .all(|(actual, expected)| (actual - expected).abs() < 0.01)
             })
     });
-    assert_eq!(applied.error, None);
+    assert_eq!(applied.error(), None);
 
     harness.send(Command::AudioEqualizer([0.; 10])).unwrap();
     let reset =
-        harness.wait(|state| state.error.is_some() || state.audio_equalizer == Some([0.; 10]));
-    assert_eq!(reset.error, None);
+        harness.wait(|state| state.error().is_some() || state.audio_equalizer == Some([0.; 10]));
+    assert_eq!(reset.error(), None);
     drop(harness);
 }

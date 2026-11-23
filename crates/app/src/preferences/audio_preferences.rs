@@ -119,7 +119,7 @@ pub(crate) fn current_window(window: &crate::PreferencesWindow) -> Result<Settin
         preferences.device_description = "Autoselect device".into();
         audio.set_audio_device_index(0);
     }
-    preferences.validate().map_err(str::to_owned)?;
+    preferences.validate().map_err(|error| error.to_string())?;
     Ok(preferences)
 }
 

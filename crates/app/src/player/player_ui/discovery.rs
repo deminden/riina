@@ -67,13 +67,17 @@ pub(super) fn install(
                             &riina_core::sync::lock(&playback),
                         );
                         if still_current && let Err(error) = sender.send(command) {
+                            // The result has no recipient once its window or event loop closes.
                             let _ = crate::background::to_ui(weak_app, move |app| {
-                                app.set_status(error.into());
+                                crate::diagnostics::report(&app, error);
                             });
                         }
                     });
                 if let Err(error) = started {
-                    app.set_status(format!("Could not start playlist discovery: {error}").into());
+                    crate::diagnostics::report(
+                        &app,
+                        format!("Could not start playlist discovery: {error}"),
+                    );
                 }
             }
             if let Some((generation, media_path)) = subtitle_discovery_state
@@ -116,15 +120,19 @@ pub(super) fn install(
                             ))
                         {
                             let weak_app = weak_app.clone();
+                            // The result has no recipient once its window or event loop closes.
                             let _ = crate::background::to_ui(weak_app, move |app| {
-                                app.set_status(error.into());
+                                crate::diagnostics::report(&app, error);
                             });
                         }
                         ready.complete(request);
                     });
                 if let Err(error) = started {
                     subtitle_discovery_ready_controller.complete(request);
-                    app.set_status(format!("Could not start subtitle discovery: {error}").into());
+                    crate::diagnostics::report(
+                        &app,
+                        format!("Could not start subtitle discovery: {error}"),
+                    );
                 }
             }
             let selected = priority_controller
@@ -136,7 +144,7 @@ pub(super) fn install(
                     id: Some(id),
                 })
             {
-                app.set_status(error.into());
+                crate::diagnostics::report(&app, error);
             }
         },
     );

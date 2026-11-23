@@ -1,6 +1,7 @@
 //! Hand-written ABI subset, checked against IINA's pinned deps/include/mpv headers.
 //! No foreign event pointer escapes the call to `mpv_wait_event` that owns it.
 
+use crate::EngineError;
 use libloading::Library;
 use std::{
     ffi::{CStr, c_char, c_int, c_void},
@@ -96,16 +97,41 @@ pub struct NodeByteArray {
     pub size: usize,
 }
 
+#[derive(Debug, PartialEq, Eq)]
+pub(crate) enum NodeDecodeError {
+    NestingLimit,
+    InvalidCount,
+    MissingStorage,
+    MissingKey,
+    UnsupportedFormat(c_int),
+}
+
+impl std::fmt::Display for NodeDecodeError {
+    fn fmt(&self, output: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::NestingLimit => output.write_str("mpv property nesting exceeds 32 levels"),
+            Self::InvalidCount => output.write_str("Invalid mpv node count"),
+            Self::MissingStorage => output.write_str("Missing mpv node storage"),
+            Self::MissingKey => output.write_str("Missing mpv node key"),
+            Self::UnsupportedFormat(format) => {
+                write!(output, "Unsupported mpv node format {format}")
+            }
+        }
+    }
+}
+
+impl std::error::Error for NodeDecodeError {}
+
 impl Node {
     /// Copy an event-owned node before the next wait_event invalidates its storage.
     /// Unsupported formats fail rather than interpreting an inactive union member.
-    pub unsafe fn copy_json(&self) -> Result<serde_json::Value, String> {
+    pub(crate) unsafe fn copy_json(&self) -> Result<serde_json::Value, NodeDecodeError> {
         // SAFETY: the caller keeps the mpv node and its referenced data live for the copy.
         unsafe { self.copy_json_at(0) }
     }
 
     /// Copies a screenshot-raw reply while its command event still owns the node.
-    pub unsafe fn copy_rgba_frame(&self) -> Result<riina_core::CapturedFrame, String> {
+    pub unsafe fn copy_rgba_frame(&self) -> Result<riina_core::CapturedFrame, EngineError> {
         let list = if self.format == format::NODE_MAP {
             // SAFETY: MPV_FORMAT_NODE_MAP selects the list arm of this live reply.
             unsafe { self.value.list }
@@ -113,14 +139,18 @@ impl Node {
             std::ptr::null()
         };
         if list.is_null() {
-            return Err("mpv returned an invalid screenshot-raw map".into());
+            return Err(EngineError::InvalidFrameReply {
+                reason: "mpv returned an invalid screenshot-raw map",
+            });
         }
         // SAFETY: the caller guarantees this is the live event-owned reply node.
         let list = unsafe { &*list };
         if !(0..=64).contains(&list.count)
             || (list.count > 0 && (list.values.is_null() || list.keys.is_null()))
         {
-            return Err("mpv returned incomplete screenshot-raw fields".into());
+            return Err(EngineError::InvalidFrameReply {
+                reason: "mpv returned incomplete screenshot-raw fields",
+            });
         }
 
         let mut width = None;
@@ -132,7 +162,9 @@ impl Node {
             // SAFETY: every key/value lies in the validated event-owned node list.
             let key = unsafe { *list.keys.add(index) };
             if key.is_null() {
-                return Err("mpv returned a null screenshot-raw key".into());
+                return Err(EngineError::InvalidFrameReply {
+                    reason: "mpv returned a null screenshot-raw key",
+                });
             }
             // SAFETY: mpv node-map keys are NUL-terminated for the event lifetime.
             let key = unsafe { CStr::from_ptr(key) }.to_bytes();
@@ -171,30 +203,42 @@ impl Node {
             }
         }
         if format != Some(b"rgba".as_slice()) {
-            return Err("mpv returned an unexpected screenshot pixel format".into());
+            return Err(EngineError::InvalidFrameReply {
+                reason: "mpv returned an unexpected screenshot pixel format",
+            });
         }
-        let width = width
-            .and_then(|value| u32::try_from(value).ok())
-            .ok_or("mpv returned an invalid screenshot width")?;
-        let height = height
-            .and_then(|value| u32::try_from(value).ok())
-            .ok_or("mpv returned an invalid screenshot height")?;
-        let stride = stride
-            .and_then(|value| usize::try_from(value).ok())
-            .ok_or("mpv returned an invalid screenshot stride")?;
-        let bytes = bytes.ok_or("mpv returned no screenshot pixels")?;
+        let width = width.and_then(|value| u32::try_from(value).ok()).ok_or(
+            EngineError::InvalidFrameReply {
+                reason: "mpv returned an invalid screenshot width",
+            },
+        )?;
+        let height = height.and_then(|value| u32::try_from(value).ok()).ok_or(
+            EngineError::InvalidFrameReply {
+                reason: "mpv returned an invalid screenshot height",
+            },
+        )?;
+        let stride = stride.and_then(|value| usize::try_from(value).ok()).ok_or(
+            EngineError::InvalidFrameReply {
+                reason: "mpv returned an invalid screenshot stride",
+            },
+        )?;
+        let bytes = bytes.ok_or(EngineError::InvalidFrameReply {
+            reason: "mpv returned no screenshot pixels",
+        })?;
         if bytes.size > 512 * 1024 * 1024 || bytes.data.is_null() {
-            return Err("mpv returned an invalid screenshot buffer".into());
+            return Err(EngineError::InvalidFrameReply {
+                reason: "mpv returned an invalid screenshot buffer",
+            });
         }
         // SAFETY: screenshot-raw owns `size` readable bytes until the next wait_event.
         let pixels = unsafe { std::slice::from_raw_parts(bytes.data.cast::<u8>(), bytes.size) };
-        riina_core::CapturedFrame::new(width, height, stride, pixels)
+        riina_core::CapturedFrame::new(width, height, stride, pixels).map_err(EngineError::Frame)
     }
 
-    unsafe fn copy_json_at(&self, depth: usize) -> Result<serde_json::Value, String> {
+    unsafe fn copy_json_at(&self, depth: usize) -> Result<serde_json::Value, NodeDecodeError> {
         use serde_json::Value;
         if depth > 32 {
-            return Err("mpv property nesting exceeds 32 levels".into());
+            return Err(NodeDecodeError::NestingLimit);
         }
         // SAFETY: caller provides a live mpv node; each union access follows its tag.
         unsafe {
@@ -216,13 +260,13 @@ impl Node {
                 format::NODE_ARRAY | format::NODE_MAP if !self.value.list.is_null() => {
                     let list = &*self.value.list;
                     if !(0..=100_000).contains(&list.count) {
-                        return Err("Invalid mpv node count".into());
+                        return Err(NodeDecodeError::InvalidCount);
                     }
                     if list.count > 0
                         && (list.values.is_null()
                             || (self.format == format::NODE_MAP && list.keys.is_null()))
                     {
-                        return Err("Missing mpv node storage".into());
+                        return Err(NodeDecodeError::MissingStorage);
                     }
                     let mut array = Vec::new();
                     let mut map = serde_json::Map::new();
@@ -233,7 +277,7 @@ impl Node {
                         } else {
                             let key = *list.keys.add(index);
                             if key.is_null() {
-                                return Err("Missing mpv node key".into());
+                                return Err(NodeDecodeError::MissingKey);
                             }
                             map.insert(CStr::from_ptr(key).to_string_lossy().into_owned(), value);
                         }
@@ -244,7 +288,7 @@ impl Node {
                         Value::Object(map)
                     }
                 }
-                _ => return Err(format!("Unsupported mpv node format {}", self.format)),
+                _ => return Err(NodeDecodeError::UnsupportedFormat(self.format)),
             })
         }
     }
@@ -319,13 +363,9 @@ pub struct Api {
 }
 
 impl Api {
-    pub fn load(path: &Path) -> Result<Self, String> {
+    pub fn load(path: &Path) -> Result<Self, EngineError> {
         if !path.is_absolute() || !path.is_file() {
-            #[cfg(windows)]
-            let remedy = "Run scripts/fetch-mpv.ps1.";
-            #[cfg(not(windows))]
-            let remedy = "Install libmpv or place the matching library beside Riina.";
-            return Err(format!("libmpv is missing at {}. {remedy}", path.display()));
+            return Err(EngineError::LibraryMissing(path.to_path_buf()));
         }
         // IINA links the engine for the application's lifetime. Retain the same
         // ownership boundary here: closing a player destroys its core, while
@@ -334,11 +374,11 @@ impl Api {
         static LOADED: std::sync::OnceLock<
             std::sync::Mutex<std::collections::HashMap<std::path::PathBuf, Api>>,
         > = std::sync::OnceLock::new();
-        let path = path.canonicalize().map_err(|error| error.to_string())?;
+        let path = path.canonicalize().map_err(EngineError::LibraryPath)?;
         let mut loaded = LOADED
             .get_or_init(Default::default)
             .lock()
-            .map_err(|_| "The native engine library registry is unavailable".to_owned())?;
+            .map_err(|_| EngineError::LibraryRegistryUnavailable)?;
         if let Some(api) = loaded.get(&path) {
             return Ok(api.clone());
         }
@@ -347,7 +387,7 @@ impl Api {
         Ok(api)
     }
 
-    fn load_uncached(path: &Path) -> Result<Self, String> {
+    fn load_uncached(path: &Path) -> Result<Self, EngineError> {
         // SAFETY: explicit absolute installation path; never search a media directory.
         // The selected binary's ABI is checked before any player handle is created.
         unsafe {
@@ -356,25 +396,23 @@ impl Api {
                 path,
                 0x00000100 | 0x00000800, // DLL_LOAD_DIR | SYSTEM32
             )
-            .map_err(|e| e.to_string())?
+            .map_err(EngineError::LibraryLoad)?
             .into();
             #[cfg(not(windows))]
-            let library = Library::new(path).map_err(|e| e.to_string())?;
+            let library = Library::new(path).map_err(EngineError::LibraryLoad)?;
             let library = Arc::new(library);
             let version = *library
                 .get::<unsafe extern "C" fn() -> u64>(b"mpv_client_api_version\0")
-                .map_err(|e| e.to_string())?;
+                .map_err(EngineError::LibraryLoad)?;
             let version = version();
             if version >> 16 != 2 || version & 0xffff < 5 {
-                return Err(format!(
-                    "Unsupported libmpv client API {version:#x}; require 2.5 or a compatible newer 2.x"
-                ));
+                return Err(EngineError::UnsupportedApi(version));
             }
             macro_rules! symbol {
                 ($name:literal) => {
                     *library
                         .get(concat!($name, "\0").as_bytes())
-                        .map_err(|e| e.to_string())?
+                        .map_err(EngineError::LibraryLoad)?
                 };
             }
             Ok(Self {
@@ -404,14 +442,15 @@ impl Api {
         }
     }
 
-    pub fn check(&self, result: c_int) -> Result<(), String> {
+    pub fn check(&self, call: &'static str, result: c_int) -> Result<(), EngineError> {
         if result >= 0 {
             return Ok(());
         }
         // SAFETY: mpv_error_string returns an immutable process-lifetime C string.
-        Err(unsafe { CStr::from_ptr((self.error)(result)) }
+        let message = unsafe { CStr::from_ptr((self.error)(result)) }
             .to_string_lossy()
-            .into_owned())
+            .into_owned();
+        Err(EngineError::Native { call, message })
     }
 }
 
@@ -577,6 +616,10 @@ mod tests {
             format: 999,
         };
         // SAFETY: the local node has an unsupported tag, so the copy reads no union member.
-        assert!(unsafe { unknown.copy_json() }.is_err());
+        let result = unsafe { unknown.copy_json() };
+        assert_eq!(
+            result,
+            Err(NodeDecodeError::UnsupportedFormat(unknown.format))
+        );
     }
 }

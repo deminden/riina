@@ -1,29 +1,50 @@
 //! Playback speed edits retain double precision across the UI boundary.
 use crate::Command;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SpeedInputError {
+    NonFinitePosition,
+    InvalidNumber,
+    BelowMinimum,
+    UnsupportedRange,
+}
+
+impl std::fmt::Display for SpeedInputError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(match self {
+            Self::NonFinitePosition => "Enter a finite speed position",
+            Self::InvalidNumber => "Enter a numeric playback speed",
+            Self::BelowMinimum => "Enter a playback speed of at least 0.01",
+            Self::UnsupportedRange => "Playback speed is outside the supported range",
+        })
+    }
+}
+
+impl std::error::Error for SpeedInputError {}
+
 pub fn slider_position(speed: f64) -> f64 {
     (speed / 0.25).ln() / 64.0_f64.ln() * 24.0
 }
 
-pub fn from_slider(position: f64) -> Result<Command, &'static str> {
+pub fn from_slider(position: f64) -> Result<Command, SpeedInputError> {
     if !position.is_finite() {
-        return Err("Enter a finite speed position");
+        return Err(SpeedInputError::NonFinitePosition);
     }
     let tick = position.clamp(0.0, 24.0).round();
     let speed = 0.25 * 64.0_f64.powf(tick / 24.0);
     Ok(Command::Speed((speed * 100.0).round() / 100.0))
 }
 
-pub fn from_text(text: &str) -> Result<Command, &'static str> {
+pub fn from_text(text: &str) -> Result<Command, SpeedInputError> {
     let text = text.trim();
     let speed = if text.is_empty() {
         1.0
     } else {
         text.parse::<f64>()
-            .map_err(|_| "Enter a numeric playback speed")?
+            .map_err(|_| SpeedInputError::InvalidNumber)?
     };
     if !speed.is_finite() || speed < 0.01 {
-        return Err("Enter a playback speed of at least 0.01");
+        return Err(SpeedInputError::BelowMinimum);
     }
     // Positive half-down rounding limits custom precision before dispatch;
     // libmpv can echo an unrounded request despite using six decimal places.
@@ -38,7 +59,7 @@ pub fn from_text(text: &str) -> Result<Command, &'static str> {
     let command = Command::Speed(speed);
     command
         .mpv_args()
-        .map_err(|_| "Playback speed is outside the supported range")?;
+        .map_err(|_| SpeedInputError::UnsupportedRange)?;
     Ok(command)
 }
 

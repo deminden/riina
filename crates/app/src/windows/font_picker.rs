@@ -162,6 +162,7 @@ pub fn connect(app: &PlayerWindow) {
     app.on_dismiss_font_picker(move || {
         if let Some(picker) = owned.borrow_mut().take() {
             picker.set_picker_active(false);
+            // Continue releasing session resources if the window is closing.
             let _ = picker.hide();
         }
     });
@@ -239,6 +240,7 @@ fn install_lifecycle(picker: &FontPicker, app: &PlayerWindow) {
         app.invoke_subtitle_font_selected(selected.into());
         if let Some(window) = window.upgrade() {
             window.set_picker_active(false);
+            // Continue releasing session resources if the window is closing.
             let _ = window.hide();
         }
         app.global::<riina_ui::PlayerControlActions>()
@@ -249,6 +251,7 @@ fn install_lifecycle(picker: &FontPicker, app: &PlayerWindow) {
     picker.on_cancel(move || {
         if let Some(window) = window.upgrade() {
             window.set_picker_active(false);
+            // Continue releasing session resources if the window is closing.
             let _ = window.hide();
         }
         if let Some(app) = parent.upgrade() {
@@ -276,6 +279,7 @@ fn discover_catalog(app: &PlayerWindow, window: slint::Weak<FontPicker>) {
     let failure = window.clone();
     if let Err(error) = crate::background::spawn_named("font-discovery", move || {
         let families = font_catalog::installed_families();
+        // The result has no recipient once its window or event loop closes.
         let _ = crate::background::to_ui(window, move |picker| {
             catalog::install(&picker, families);
         });

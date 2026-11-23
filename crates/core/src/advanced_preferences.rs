@@ -1,4 +1,5 @@
 //! Persist the opt-in mpv controls separately from Riina's playback defaults.
+use crate::PreferenceError;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
@@ -45,11 +46,14 @@ impl Default for Settings {
 }
 
 impl Settings {
-    pub fn validate(&self) -> Result<(), String> {
+    pub fn validate(&self) -> Result<(), PreferenceError> {
         if self.config_directory.contains('\0')
             || (self.use_config_directory && self.config_directory.trim().is_empty())
         {
-            return Err("The mpv configuration directory is invalid".into());
+            return Err(PreferenceError::new(
+                "advanced",
+                "The mpv configuration directory is invalid",
+            ));
         }
         if self.user_options.len() > 256
             || self.user_options.iter().any(|option| {
@@ -60,7 +64,10 @@ impl Settings {
                     || option.value.contains('\0')
             })
         {
-            return Err("An additional mpv option is invalid".into());
+            return Err(PreferenceError::new(
+                "advanced",
+                "An additional mpv option is invalid",
+            ));
         }
         Ok(())
     }

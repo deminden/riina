@@ -35,6 +35,9 @@ by UI callbacks. It does not own the native player.
 
 `riina-core::Command::plan` routes intents to the playback, seek, audio, video,
 filter, subtitle, playlist, track, capture, network and screenshot modules.
+Command, preference and plugin-manifest errors retain their structured data
+until a caller needs a message for the user or plugin. The engine returns
+distinct errors when its command queue is full or its worker has stopped.
 See [Add a playback command](recipes/add-a-command.md).
 
 ## Playback and threading
@@ -63,11 +66,16 @@ until the worker replaces or updates them. `playback_mailbox` coalesces pending
 updates to the UI thread.
 Screenshot and frame completions travel alongside the snapshot so coalescing
 cannot discard their side effects. `observations` projects playback state and
-catalogs into Slint. Each player owns its audio, video, subtitle, timeline, and
-feedback state. The controller, sidebars, and menus use the same window's
-observations. Keyboard input and both menu presentations invoke the actions
+catalogs into Slint. Each player owns its audio, video, subtitle, timeline,
+catalog and feedback state. The sidebar, layout, controls and dialog components
+read state from the owning window. Rendered frames and material samples share
+that lifetime. Keyboard input and both menu presentations invoke the actions
 registered for that player. Plugin entry workers have a separate runtime and
-send player intents through the existing command path.
+send intents through the existing command path.
+
+Each player retains its latest 16 engine notices. The status line and the
+plugin snapshot expose the active notice. Clearing it leaves prior notices in
+the history, and the engine logs each new notice when it occurs.
 
 The app's named background tasks register until their work returns. Their
 owners retain join handles where teardown depends on the work completing.

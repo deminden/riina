@@ -24,7 +24,7 @@ fn live_text_capture_returns_a_tightly_packed_frame_only_while_paused() {
         rejected.captured_frame.revision,
         playing.captured_frame.revision
     );
-    assert!(rejected.error.is_some());
+    assert!(rejected.error().is_some());
     player.send(Command::SetPaused(true)).unwrap();
     let paused = wait_for(&receiver, |state| state.phase == Phase::Paused);
     player.send(Command::CaptureFrame).unwrap();
@@ -151,14 +151,14 @@ fn picture_viewport_preserves_pause_volume_and_source_geometry() {
             state.completed_navigation_seeks,
             paused.completed_navigation_seeks
         );
-        assert_eq!(state.error, None);
+        assert_eq!(state.error(), None);
     }
     harness.send(Command::VideoViewport(None)).unwrap();
     harness.send(Command::Speed(1.0)).unwrap();
     let reset = harness.wait(|state| state.speed == 1.0);
     assert!(reset.paused);
     assert_eq!(reset.volume, 37.0);
-    assert_eq!(reset.error, None);
+    assert_eq!(reset.error(), None);
 }
 
 #[test]
@@ -206,7 +206,7 @@ fn video_reflection_axes_preserve_crop_and_playback() {
             state.completed_navigation_seeks,
             cropped.completed_navigation_seeks
         );
-        assert_eq!(state.error, None);
+        assert_eq!(state.error(), None);
         // Repeated explicit state is idempotent, including removal of absent labels.
         harness
             .send(Command::VideoReflection { axis, enabled })
@@ -214,7 +214,7 @@ fn video_reflection_axes_preserve_crop_and_playback() {
     }
     harness.send(Command::Speed(1.25)).unwrap();
     let settled = harness.wait(|state| state.speed == 1.25);
-    assert_eq!(settled.error, None);
+    assert_eq!(settled.error(), None);
     assert_eq!(
         settled
             .video_output
@@ -256,7 +256,7 @@ fn video_reflection_axes_preserve_crop_and_playback() {
         toggled.completed_navigation_seeks,
         cropped.completed_navigation_seeks
     );
-    assert_eq!(toggled.error, None);
+    assert_eq!(toggled.error(), None);
 }
 
 #[test]
@@ -280,7 +280,7 @@ fn excessive_custom_speed_reports_native_error_without_changing_playback() {
     harness.wait(|state| state.speed == 1.25);
     let request = riina_core::speed_controls::from_text("101").unwrap();
     harness.send(request).unwrap();
-    let rejected = harness.wait(|state| state.error.is_some());
+    let rejected = harness.wait(|state| state.error().is_some());
     assert_eq!(rejected.speed, 1.25);
     assert!(rejected.paused);
     assert_eq!(rejected.volume, 37.0);
@@ -319,7 +319,7 @@ fn speed_controls_preserve_pause_volume_and_custom_precision() {
         let state = harness.wait(|state| (state.speed - expected).abs() < 0.0000001);
         assert!(state.paused);
         assert_eq!(state.volume, 37.0);
-        assert!(state.error.is_none(), "{:?}", state.error);
+        assert!(state.error().is_none(), "{:?}", state.error());
     }
 }
 
@@ -349,7 +349,7 @@ fn hardware_decoding_policy_survives_fallback_and_file_replacement() {
             harness.wait(|state| state.hardware_decoding.as_deref() == Some(mode.native_value()));
         assert!(state.paused);
         assert_eq!(state.volume, 37.0);
-        assert!(state.error.is_none(), "{:?}", state.error);
+        assert!(state.error().is_none(), "{:?}", state.error());
         // Headless MJPEG has no hardware presentation. The configured switch
         // must still be on for auto modes instead of following fallback state.
         assert!(matches!(
@@ -368,7 +368,7 @@ fn hardware_decoding_policy_survives_fallback_and_file_replacement() {
     // Explicit replacement resumes playback by contract; the decoding policy
     // must survive that transition rather than resetting to startup defaults.
     assert_eq!(replaced.volume, 37.0);
-    assert!(replaced.error.is_none(), "{:?}", replaced.error);
+    assert!(replaced.error().is_none(), "{:?}", replaced.error());
 }
 
 #[test]
@@ -417,7 +417,7 @@ fn unicode_aspect_input_preserves_text_and_native_failure_state() {
     harness
         .send(Command::VideoAspect(AspectRatio::from_text("١٦:٩")))
         .unwrap();
-    let rejected = harness.wait(|state| state.error.is_some());
+    let rejected = harness.wait(|state| state.error().is_some());
     assert_eq!(rejected.video_aspect.label(), "١٦:٩");
     assert_eq!(rejected.video_aspect.requested_text(), "١٦:٩");
     assert_eq!(rejected.aspect_requests, accepted.aspect_requests + 1);
@@ -439,7 +439,7 @@ fn unicode_aspect_input_preserves_text_and_native_failure_state() {
     });
     assert_eq!(replaced.video_aspect.label(), "١٦:٩");
     assert_eq!(replaced.aspect_requests, rejected.aspect_requests);
-    assert_eq!(replaced.error, None);
+    assert_eq!(replaced.error(), None);
 }
 
 #[test]
@@ -505,7 +505,7 @@ fn video_geometry_controls_preserve_pause_and_unrelated_options() {
         assert!(changed.paused);
         assert_eq!(changed.volume, 37.0);
         assert_eq!(changed.video_rotation, Some(0));
-        assert_eq!(changed.error, None);
+        assert_eq!(changed.error(), None);
         assert_eq!(
             changed
                 .tracks
@@ -532,7 +532,7 @@ fn video_geometry_controls_preserve_pause_and_unrelated_options() {
         assert!(changed.paused);
         assert_eq!(changed.volume, 37.0);
         assert_eq!(changed.video_aspect_override, Some(-1.0));
-        assert_eq!(changed.error, None);
+        assert_eq!(changed.error(), None);
         assert_eq!(
             changed
                 .tracks
@@ -574,7 +574,7 @@ fn hdr_metadata_replacement_and_stop() {
                     .is_some_and(|video| video.pixelformat.is_some())
         });
         generation = loaded.generation;
-        assert_eq!(loaded.error, None);
+        assert_eq!(loaded.error(), None);
         let video = loaded.video.unwrap();
         assert_eq!(video.is_hdr(), file.starts_with("hdr-"));
         println!("{file}: {video:?}");
@@ -590,6 +590,6 @@ fn hdr_metadata_replacement_and_stop() {
     }
     harness.send(Command::Stop).unwrap();
     let stopped = harness.wait(|state| state.phase == Phase::Stopped && state.video.is_none());
-    assert_eq!(stopped.error, None);
+    assert_eq!(stopped.error(), None);
     drop(harness);
 }

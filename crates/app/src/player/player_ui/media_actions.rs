@@ -82,7 +82,7 @@ pub(super) fn install_resume_preference(
         if let Err(error) = resume_player.send(Command::SetResumeLastPosition(enabled))
             && let Some(app) = resume_app.upgrade()
         {
-            app.set_status(error.into());
+            crate::diagnostics::report(&app, error);
         }
         if let Some(welcome) = resume_welcome.as_ref().and_then(slint::Weak::upgrade) {
             recent::refresh_welcome_history(&welcome, &recent_media_for_resume.borrow(), enabled);
@@ -97,7 +97,7 @@ pub(super) fn install_pause_on_open(app: &PlayerWindow, commands: &CommandSender
         if let Err(error) = opening_player.send(Command::SetPauseWhenOpen(pause))
             && let Some(app) = opening_app.upgrade()
         {
-            app.set_status(error.into());
+            crate::diagnostics::report(&app, error);
         }
     });
 }
@@ -213,6 +213,7 @@ fn install_file_open(
                     return;
                 }
                 if let Some(welcome) = file_welcome.as_ref().and_then(slint::Weak::upgrade) {
+                    // Continue releasing session resources if the window is closing.
                     let _ = welcome.hide();
                 }
             }
@@ -305,11 +306,15 @@ fn install_open_recent_menu(app: &PlayerWindow, context: &Context<'_>) {
                     &clear_preferences_path,
                     &clear_recent_documents.borrow(),
                 ) {
-                    app.set_status(format!("Could not clear Open Recent: {error}").into());
+                    crate::diagnostics::report(
+                        &app,
+                        format!("Could not clear Open Recent: {error}"),
+                    );
                 }
                 if let Err(error) = platform::clear_recent_documents() {
-                    app.set_status(
-                        format!("Could not clear system recent documents: {error}").into(),
+                    crate::diagnostics::report(
+                        &app,
+                        format!("Could not clear system recent documents: {error}"),
                     );
                 }
             }
@@ -339,7 +344,7 @@ fn install_url_open(
                 if from_welcome {
                     if let Err(error) = media_open::validate_url(value.as_str()) {
                         if let Some(welcome) = url_welcome.as_ref().and_then(slint::Weak::upgrade) {
-                            welcome.set_url_error(error.into());
+                            welcome.set_url_error(error.to_string().into());
                         }
                         return;
                     }
@@ -350,6 +355,7 @@ fn install_url_open(
                     }
                     if let Some(welcome) = url_welcome.as_ref().and_then(slint::Weak::upgrade) {
                         welcome.set_url_error("".into());
+                        // Continue releasing session resources if the window is closing.
                         let _ = welcome.hide();
                     }
                     let request = PendingWelcomeOpen::Url(value.to_string());
@@ -376,7 +382,7 @@ fn install_help_and_debug(app: &PlayerWindow, latest_playback: &crate::PlaybackS
                 return;
             };
             if let Err(error) = crate::platform::open_http_url_in_browser(url) {
-                app.set_status(format!("Could not open the Help link: {error}").into());
+                crate::diagnostics::report(&app, format!("Could not open the Help link: {error}"));
             }
         });
     let weak = app.as_weak();
@@ -403,7 +409,7 @@ fn install_help_and_debug(app: &PlayerWindow, latest_playback: &crate::PlaybackS
                     .set_buttons(rfd::MessageButtons::Ok)
                     .show();
             }
-            Err(error) => app.set_status(format!("Could not save debug information: {error}").into()),
+            Err(error) => crate::diagnostics::report(&app, format!("Could not save debug information: {error}")),
         }
     });
 }
@@ -440,6 +446,7 @@ fn install_welcome_recent(
                     return;
                 }
                 if let Some(welcome) = recent_welcome.as_ref().and_then(slint::Weak::upgrade) {
+                    // Continue releasing session resources if the window is closing.
                     let _ = welcome.hide();
                 }
                 let request = PendingWelcomeOpen::Recent(
@@ -487,6 +494,7 @@ fn install_media_opened(app: &PlayerWindow, context: &Context<'_>, welcome_windo
             );
         }
         if let Some(welcome) = opened_welcome.as_ref().and_then(slint::Weak::upgrade) {
+            // Continue releasing session resources if the window is closing.
             let _ = welcome.hide();
         }
     });

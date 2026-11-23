@@ -89,7 +89,7 @@ mod macos {
             *self.manager.borrow_mut() = match manager {
                 Ok(manager) => Some(manager),
                 Err(error) => {
-                    app.set_status(format!("macOS PiP unavailable: {error}").into());
+                    crate::diagnostics::report(app, format!("macOS PiP unavailable: {error}"));
                     None
                 }
             };

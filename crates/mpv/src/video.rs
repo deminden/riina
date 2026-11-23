@@ -1,6 +1,6 @@
 //! GPU-only SDR feasibility surface. All methods must run with Slint's GL context current.
 use crate::{
-    Player,
+    EngineError, Player,
     ffi::{Fbo, GlInit, Param, render_param},
     gl_support::{FramebufferBindings, allocate_rgba8_texture, attach_texture},
 };
@@ -52,7 +52,7 @@ impl VideoSurface {
         player: Player,
         loader: &dyn Fn(&CStr) -> *const c_void,
         repaint_callback: Repaint,
-    ) -> Result<Self, String> {
+    ) -> Result<Self, EngineError> {
         // SAFETY: the caller supplies the current Slint GL context and its symbol loader.
         let gl = Rc::new(unsafe { glow::Context::from_loader_function_cstr(|name| loader(name)) });
         let mut resolver = Resolver { callback: loader };
@@ -76,11 +76,14 @@ impl VideoSurface {
         // SAFETY: the player retains the live handle. The init parameters and
         // resolver stay alive for this call on the current GL thread.
         unsafe {
-            player.api.check((player.api.render_create)(
-                &mut context,
-                player.handle as *mut c_void,
-                params.as_mut_ptr(),
-            ))?;
+            player.api.check(
+                "mpv_render_context_create",
+                (player.api.render_create)(
+                    &mut context,
+                    player.handle as *mut c_void,
+                    params.as_mut_ptr(),
+                ),
+            )?;
         }
         // SAFETY: the host GL context remains current on this thread.
         let texture = match unsafe { gl.create_texture() } {
@@ -90,7 +93,10 @@ impl VideoSurface {
                 unsafe {
                     (player.api.render_free)(context);
                 }
-                return Err(error);
+                return Err(EngineError::Render {
+                    call: "glCreateTexture",
+                    message: error,
+                });
             }
         };
         // SAFETY: the host GL context remains current on this thread.
@@ -102,7 +108,10 @@ impl VideoSurface {
                     gl.delete_texture(texture);
                     (player.api.render_free)(context);
                 }
-                return Err(error);
+                return Err(EngineError::Render {
+                    call: "glCreateFramebuffer",
+                    message: error,
+                });
             }
         };
         let mut repaint = Box::new(repaint_callback);
@@ -131,16 +140,21 @@ impl VideoSurface {
     ///
     /// # Safety
     /// Call only from the same current GL context used to create this surface.
-    pub unsafe fn set_icc_profile(&mut self, profile: &[u8]) -> Result<(), String> {
+    pub unsafe fn set_icc_profile(&mut self, profile: &[u8]) -> Result<(), EngineError> {
         if self.icc_profile.as_deref() == Some(profile) {
             return Ok(());
         }
         let set_parameter =
-            self.player.api.render_set_parameter.ok_or_else(|| {
-                "The native engine does not support render ICC profiles".to_owned()
-            })?;
+            self.player
+                .api
+                .render_set_parameter
+                .ok_or(EngineError::InvalidArgument {
+                    reason: "The native engine does not support render ICC profiles",
+                })?;
         if profile.is_empty() {
-            return Err("The active display returned an empty ICC profile".into());
+            return Err(EngineError::InvalidArgument {
+                reason: "The active display returned an empty ICC profile",
+            });
         }
         let mut bytes = crate::ffi::ByteArray {
             data: profile.as_ptr().cast_mut().cast(),
@@ -153,7 +167,9 @@ impl VideoSurface {
         // SAFETY: libmpv copies the profile during this call on the current render
         // thread. The descriptor and the borrowed profile remain live until it returns.
         let result = unsafe { set_parameter(self.context, parameter) };
-        self.player.api.check(result)?;
+        self.player
+            .api
+            .check("mpv_render_context_set_parameter", result)?;
         self.icc_profile = Some(profile.to_vec());
         Ok(())
     }
@@ -164,7 +180,7 @@ impl VideoSurface {
 
     /// # Safety
     /// Call only from the same current GL context used at construction.
-    pub unsafe fn render(&mut self, width: u32, height: u32) -> Result<(), String> {
+    pub unsafe fn render(&mut self, width: u32, height: u32) -> Result<(), EngineError> {
         let width = width.clamp(1, 8192);
         let height = height.clamp(1, 8192);
         // SAFETY: this surface owns the framebuffer. Its attachment is prepared by
@@ -185,7 +201,7 @@ impl VideoSurface {
         width: u32,
         height: u32,
         format: i32,
-    ) -> Result<(), String> {
+    ) -> Result<(), EngineError> {
         let width = width.clamp(1, 8192);
         let height = height.clamp(1, 8192);
         let framebuffer = glow::NativeFramebuffer(framebuffer);
@@ -209,7 +225,7 @@ impl VideoSurface {
         width: u32,
         height: u32,
         format: i32,
-    ) -> Result<(), String> {
+    ) -> Result<(), EngineError> {
         let gl = &self.gl;
         // mpv documents the state it does not restore in render_gl.h. Preserve it
         // together with bindings affected by our texture allocation.
@@ -237,7 +253,10 @@ impl VideoSurface {
                     gl.bind_texture(glow::TEXTURE_2D, Some(self.texture));
                     allocate_rgba8_texture(gl, width, height);
                     if !attach_texture(gl, self.texture) {
-                        return Err("The video framebuffer is incomplete".into());
+                        return Err(EngineError::Render {
+                            call: "glCheckFramebufferStatus",
+                            message: "The video framebuffer is incomplete".into(),
+                        });
                     }
                     self.size = (width, height);
                 }
@@ -261,9 +280,10 @@ impl VideoSurface {
                     },
                     Param::end(),
                 ];
-                self.player
-                    .api
-                    .check((self.player.api.render)(self.context, params.as_mut_ptr()))
+                self.player.api.check(
+                    "mpv_render_context_render",
+                    (self.player.api.render)(self.context, params.as_mut_ptr()),
+                )
             })();
             bindings.restore(gl);
             gl.bind_texture(glow::TEXTURE_2D, texture);

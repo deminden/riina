@@ -1,4 +1,8 @@
 //! Portable parser for user-editable mpv key mapping profiles.
+use crate::PreferenceError;
+
+mod action_error;
+pub use action_error::InputActionError;
 
 use std::fmt;
 
@@ -37,7 +41,7 @@ impl Default for Settings {
 }
 
 impl Settings {
-    pub fn validate(&self) -> Result<(), &'static str> {
+    pub fn validate(&self) -> Result<(), PreferenceError> {
         let profile = self.current_profile.as_str();
         if profile.trim().is_empty()
             || profile.len() > 120
@@ -50,7 +54,10 @@ impl Settings {
                     )
             })
         {
-            return Err("Invalid input profile name");
+            return Err(PreferenceError::new(
+                "key_bindings",
+                "Invalid input profile name",
+            ));
         }
         Ok(())
     }
@@ -175,9 +182,9 @@ pub fn serialize(mappings: &[Mapping]) -> Result<String, ParseError> {
 /// Input flags describe mpv's input layer rather than a command and are removed
 /// here; shell parsing is deliberately avoided so profile text is never executed
 /// by the operating system.
-pub fn mpv_action_args(action: &str) -> Result<Vec<String>, String> {
+pub fn mpv_action_args(action: &str) -> Result<Vec<String>, InputActionError> {
     if action.is_empty() || action.len() > 8192 || action.contains('\0') {
-        return Err("Key binding action is empty, oversized, or contains a NUL byte".into());
+        return Err(InputActionError::InvalidAction);
     }
 
     let mut args = Vec::new();
@@ -216,7 +223,7 @@ pub fn mpv_action_args(action: &str) -> Result<Vec<String>, String> {
                     args.push(std::mem::take(&mut current));
                     token_started = false;
                     if args.len() > 64 {
-                        return Err("Key binding action exceeds the 64 argument limit".into());
+                        return Err(InputActionError::TooManyArguments);
                     }
                 }
             }
@@ -226,20 +233,20 @@ pub fn mpv_action_args(action: &str) -> Result<Vec<String>, String> {
             }
         }
         if current.len() > 4096 {
-            return Err("Key binding argument exceeds the 4 KiB limit".into());
+            return Err(InputActionError::ArgumentTooLarge);
         }
     }
     if escaped || quote.is_some() {
-        return Err("Key binding action has an unfinished escape or quote".into());
+        return Err(InputActionError::UnfinishedEscapeOrQuote);
     }
     if token_started {
         args.push(current);
     }
     if args.len() > 64 {
-        return Err("Key binding action exceeds the 64 argument limit".into());
+        return Err(InputActionError::TooManyArguments);
     }
     if args.iter().any(|argument| argument.len() > 4096) {
-        return Err("Key binding argument exceeds the 4 KiB limit".into());
+        return Err(InputActionError::ArgumentTooLarge);
     }
 
     while args.first().is_some_and(|argument| {
@@ -261,13 +268,13 @@ pub fn mpv_action_args(action: &str) -> Result<Vec<String>, String> {
         .first()
         .is_some_and(|argument| argument.starts_with('{') && argument.ends_with('}'))
     {
-        return Err("Key binding uses an unsupported input section".into());
+        return Err(InputActionError::UnsupportedInputSection);
     }
     if args.is_empty() {
-        return Err("Key binding action contains no mpv command".into());
+        return Err(InputActionError::NoMpvCommand);
     }
     if matches!(args[0].as_str(), "run" | "subprocess") {
-        return Err("Key binding actions cannot launch external processes".into());
+        return Err(InputActionError::ExternalProcess);
     }
     Ok(args)
 }
@@ -275,9 +282,9 @@ pub fn mpv_action_args(action: &str) -> Result<Vec<String>, String> {
 /// Convert an input mapping that chains commands with semicolons into separate
 /// libmpv command argument lists. A semicolon inside a quoted or escaped token
 /// remains data, matching input.conf's command separator behavior.
-pub fn mpv_action_commands(action: &str) -> Result<Vec<Vec<String>>, String> {
+pub fn mpv_action_commands(action: &str) -> Result<Vec<Vec<String>>, InputActionError> {
     if action.is_empty() || action.len() > 8192 || action.contains('\0') {
-        return Err("Key binding action is empty, oversized, or contains a NUL byte".into());
+        return Err(InputActionError::InvalidAction);
     }
 
     let mut commands = Vec::new();
@@ -314,11 +321,11 @@ pub fn mpv_action_commands(action: &str) -> Result<Vec<Vec<String>>, String> {
         }
     }
     if escaped || quote.is_some() {
-        return Err("Key binding action has an unfinished escape or quote".into());
+        return Err(InputActionError::UnfinishedEscapeOrQuote);
     }
     push_mpv_action_command(&mut commands, &mut current)?;
     if commands.is_empty() {
-        return Err("Key binding action contains no mpv command".into());
+        return Err(InputActionError::NoMpvCommand);
     }
     Ok(commands)
 }
@@ -326,12 +333,12 @@ pub fn mpv_action_commands(action: &str) -> Result<Vec<Vec<String>>, String> {
 fn push_mpv_action_command(
     commands: &mut Vec<Vec<String>>,
     current: &mut String,
-) -> Result<(), String> {
+) -> Result<(), InputActionError> {
     if current.trim().is_empty() {
-        return Err("Key binding action contains an empty command".into());
+        return Err(InputActionError::EmptyCommand);
     }
     if commands.len() >= 32 {
-        return Err("Key binding action exceeds the 32 command limit".into());
+        return Err(InputActionError::TooManyCommands);
     }
     commands.push(mpv_action_args(current.trim())?);
     current.clear();

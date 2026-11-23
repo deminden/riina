@@ -41,7 +41,7 @@ pub(super) fn install(
                 settings.clone()
             };
             if let Err(error) = audio_eq_player.send(Command::AudioEqualizer(settings.gains_db)) {
-                app.set_status(error.into());
+                crate::diagnostics::report(&app, error);
                 return;
             }
             set_audio_equalizer_controls(&app, &settings);
@@ -60,7 +60,7 @@ pub(super) fn install(
                 return;
             };
             if let Err(error) = settings.select_profile_at(index) {
-                app.set_status(error.into());
+                crate::diagnostics::report(&app, error.to_string());
                 return;
             }
             let snapshot = settings.clone();
@@ -68,7 +68,7 @@ pub(super) fn install(
             if let Err(error) =
                 audio_eq_player_for_profile.send(Command::AudioEqualizer(snapshot.gains_db))
             {
-                app.set_status(error.into());
+                crate::diagnostics::report(&app, error);
                 return;
             }
             set_audio_equalizer_controls(&app, &snapshot);
@@ -93,7 +93,11 @@ pub(super) fn install(
                 }
                 _ => return "".into(),
             };
-            validation.err().unwrap_or("").into()
+            validation
+                .err()
+                .map_or_else(slint::SharedString::default, |error| {
+                    error.to_string().into()
+                })
         });
     let audio_eq_settings_for_save = audio_equalizer.clone();
     let weak = app.as_weak();
@@ -109,7 +113,7 @@ pub(super) fn install(
             }
             let mut settings = riina_core::sync::lock(&audio_eq_settings_for_save);
             if let Err(error) = settings.save_profile(name.as_str()) {
-                app.set_status(error.into());
+                crate::diagnostics::report(&app, error.to_string());
                 return false;
             }
             set_audio_equalizer_controls(&app, &settings);
@@ -130,7 +134,7 @@ pub(super) fn install(
             let mut settings = riina_core::sync::lock(&audio_eq_settings_for_rename);
             let current = settings.selected_profile.clone().unwrap_or_default();
             if let Err(error) = settings.rename_profile(&current, replacement.as_str()) {
-                app.set_status(error.into());
+                crate::diagnostics::report(&app, error.to_string());
                 return false;
             }
             set_audio_equalizer_controls(&app, &settings);
@@ -144,7 +148,7 @@ pub(super) fn install(
             let mut settings = riina_core::sync::lock(&audio_eq_settings_for_delete);
             let selected = settings.selected_profile.clone().unwrap_or_default();
             if let Err(error) = settings.remove_profile(&selected) {
-                app.set_status(error.into());
+                crate::diagnostics::report(&app, error.to_string());
                 return;
             }
             set_audio_equalizer_controls(&app, &settings);
@@ -231,7 +235,7 @@ pub(super) fn install_volume(app: &PlayerWindow, command_sender: &CommandSender)
                         app.global::<riina_ui::PlaybackAudioState>()
                             .set_volume(volume);
                     }
-                    Err(error) => app.set_status(error.into()),
+                    Err(error) => crate::diagnostics::report(&app, error),
                 }
                 app.global::<riina_ui::PlayerControlActions>()
                     .invoke_activity();
@@ -255,7 +259,7 @@ pub(super) fn install_volume(app: &PlayerWindow, command_sender: &CommandSender)
             if let Err(error) = volume_player.send(Command::Volume((volume as f64).min(limit)))
                 && let Some(app) = weak.upgrade()
             {
-                app.set_status(error.into());
+                crate::diagnostics::report(&app, error);
             }
         });
 }
@@ -274,7 +278,7 @@ pub(super) fn install_volume_adjustment(app: &PlayerWindow, command_sender: &Com
                     .global::<riina_ui::PlayerPreferences>()
                     .get_volume_boost(),
             }) {
-                app.set_status(error.into());
+                crate::diagnostics::report(&app, error);
             }
         });
 }
@@ -304,7 +308,7 @@ pub(super) fn install_audio_device(
             app.global::<riina_ui::PlayerControlActions>()
                 .invoke_activity();
             if let Err(error) = audio_device_player.send(Command::AudioDevice(device)) {
-                app.set_status(error.into());
+                crate::diagnostics::report(&app, error);
             }
         });
 }

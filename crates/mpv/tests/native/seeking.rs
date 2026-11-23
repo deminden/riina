@@ -69,7 +69,7 @@ fn navigation_completions_follow_explicit_seek_and_same_position_reseek() {
         });
         assert!(completed.completed_seeks > previous.completed_seeks);
         assert!(completed.paused);
-        assert!(completed.error.is_none(), "{:?}", completed.error);
+        assert!(completed.error().is_none(), "{:?}", completed.error());
         previous = completed;
     }
 }
@@ -123,7 +123,7 @@ fn long_relative_seeks_preserve_pause_and_volume() {
         });
         assert!(sought.paused);
         assert!((sought.volume - 37.0).abs() < 0.01);
-        assert_eq!(sought.error, None);
+        assert_eq!(sought.error(), None);
     }
 }
 
@@ -177,7 +177,7 @@ fn ab_repeat_observes_points_and_wraps_playback() {
             && state.position.is_some_and(|p| p < 0.2)
     });
     eprintln!("ab-repeat: playback wrapped");
-    assert_eq!(wrapped.error, None);
+    assert_eq!(wrapped.error(), None);
     player.send(Command::TogglePause).unwrap();
     wait_for(&receiver, |state| state.paused);
     eprintln!("ab-repeat: wrapped playback paused");
@@ -215,7 +215,7 @@ fn ab_repeat_observes_points_and_wraps_playback() {
     let cleared = wait_for(&receiver, |state| {
         state.ab_loop_a.is_none() && state.ab_loop_b.is_none()
     });
-    assert_eq!(cleared.error, None);
+    assert_eq!(cleared.error(), None);
     eprintln!("ab-repeat: loop cleared; shutting down player");
     drop(player);
     eprintln!("ab-repeat: player shut down");
@@ -266,7 +266,7 @@ fn frame_navigation_moves_one_frame_and_retains_pause() {
                     .is_some_and(|p| (p - from) * direction > 0.02)
         });
         assert!(((next.position.unwrap() - from) * direction - 1.0 / 24.0).abs() < 0.002);
-        assert_eq!(next.error, None);
+        assert_eq!(next.error(), None);
         previous = next;
     }
     assert!((previous.position.unwrap() - 2.0).abs() < 0.002);
@@ -304,7 +304,7 @@ fn ab_repeat_resets_on_replacement_and_stop() {
             && state.position.is_some_and(|p| p > 1.0)
     });
     assert!(replacement.ab_loop_a.is_none() && replacement.ab_loop_b.is_none());
-    assert_eq!(replacement.error, None);
+    assert_eq!(replacement.error(), None);
     harness
         .send(Command::SetAbLoop {
             a: Some(0.8),
@@ -322,7 +322,7 @@ fn ab_repeat_resets_on_replacement_and_stop() {
             && state.position.is_some_and(|p| p > 2.0)
     });
     assert!(reopened.ab_loop_a.is_none() && reopened.ab_loop_b.is_none());
-    assert_eq!(reopened.error, None);
+    assert_eq!(reopened.error(), None);
     harness
         .send(Command::SetAbLoop {
             a: Some(0.8),
@@ -345,5 +345,5 @@ fn ab_repeat_resets_on_replacement_and_stop() {
             && state.position.is_some_and(|p| p > 2.0)
     });
     assert!(advanced.ab_loop_a.is_none() && advanced.ab_loop_b.is_none());
-    assert_eq!(advanced.error, None);
+    assert_eq!(advanced.error(), None);
 }

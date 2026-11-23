@@ -7,17 +7,42 @@ const STREAM_SCHEMES: &[&str] = &[
     "rtmpte", "rtmpts", "rtp", "rtsp", "rtsps", "smb", "srt", "srtp", "tcp", "udp", "ytdl",
 ];
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum NetworkUrlError {
+    Parse(url::ParseError),
+    InvalidCharacters,
+    UnsupportedScheme,
+    MissingHost,
+}
+
+impl std::fmt::Display for NetworkUrlError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("Enter a valid supported stream URL")
+    }
+}
+
+impl std::error::Error for NetworkUrlError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            Self::Parse(error) => Some(error),
+            _ => None,
+        }
+    }
+}
+
 /// Validate a network media URL while preserving its original spelling and
 /// escaping for the native playback engine.
-pub fn validate_network_url(value: &str) -> Result<&str, &'static str> {
+pub fn validate_network_url(value: &str) -> Result<&str, NetworkUrlError> {
     let value = value.trim();
-    let parsed = Url::parse(value).map_err(|_| "Enter a valid supported stream URL")?;
-    if value.contains('\0')
-        || value.chars().any(char::is_whitespace)
-        || !STREAM_SCHEMES.contains(&parsed.scheme())
-        || parsed.host_str().is_none_or(str::is_empty)
-    {
-        return Err("Enter a valid supported stream URL");
+    let parsed = Url::parse(value).map_err(NetworkUrlError::Parse)?;
+    if value.contains('\0') || value.chars().any(char::is_whitespace) {
+        return Err(NetworkUrlError::InvalidCharacters);
+    }
+    if !STREAM_SCHEMES.contains(&parsed.scheme()) {
+        return Err(NetworkUrlError::UnsupportedScheme);
+    }
+    if parsed.host_str().is_none_or(str::is_empty) {
+        return Err(NetworkUrlError::MissingHost);
     }
     Ok(value)
 }

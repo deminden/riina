@@ -1,4 +1,5 @@
 //! Subtitle edit intent shared by native application frontends.
+use crate::PreferenceError;
 
 use crate::Command;
 use serde::{Deserialize, Serialize};
@@ -58,10 +59,13 @@ impl Default for AutoLoadPreferences {
 }
 
 impl AutoLoadPreferences {
-    pub fn validate(&self) -> Result<(), &'static str> {
+    pub fn validate(&self) -> Result<(), PreferenceError> {
         for value in [&self.priority_keywords, &self.search_paths] {
             if value.len() > 4096 || value.chars().any(char::is_control) {
-                return Err("Subtitle auto-load preferences contain invalid text");
+                return Err(PreferenceError::new(
+                    "subtitle_auto_load",
+                    "Subtitle auto-load preferences contain invalid text",
+                ));
             }
         }
         Ok(())
@@ -163,17 +167,23 @@ impl Default for OtherPreferences {
 }
 
 impl OtherPreferences {
-    pub fn validate(&self) -> Result<(), &'static str> {
+    pub fn validate(&self) -> Result<(), PreferenceError> {
         if self.preferred_languages.len() > 256
             || self.preferred_languages.chars().any(char::is_control)
         {
-            return Err("Preferred subtitle languages contain invalid text");
+            return Err(PreferenceError::new(
+                "subtitle_other",
+                "Preferred subtitle languages contain invalid text",
+            ));
         }
         if !SUBTITLE_ENCODING_CHOICES
             .iter()
             .any(|(_, code)| *code == self.default_encoding)
         {
-            return Err("Unsupported subtitle encoding");
+            return Err(PreferenceError::new(
+                "subtitle_other",
+                "Unsupported subtitle encoding",
+            ));
         }
         Ok(())
     }
@@ -259,15 +269,21 @@ impl Default for PositionPreferences {
 }
 
 impl PositionPreferences {
-    pub fn validate(self) -> Result<(), &'static str> {
+    pub fn validate(self) -> Result<(), PreferenceError> {
         if !self.position.is_finite() || !(0.0..=100.0).contains(&self.position) {
-            return Err("Subtitle vertical position must be between zero and one hundred");
+            return Err(PreferenceError::new(
+                "subtitle_position",
+                "Subtitle vertical position must be between zero and one hundred",
+            ));
         }
         if [self.margin_x, self.margin_y]
             .into_iter()
             .any(|margin| !margin.is_finite() || !(0.0..=2_000_000_000.0).contains(&margin))
         {
-            return Err("Subtitle margins must be finite and non-negative");
+            return Err(PreferenceError::new(
+                "subtitle_position",
+                "Subtitle margins must be finite and non-negative",
+            ));
         }
         Ok(())
     }
@@ -316,18 +332,30 @@ impl Default for TextStylePreferences {
 }
 
 impl TextStylePreferences {
-    pub fn validate(self) -> Result<(), &'static str> {
+    pub fn validate(self) -> Result<(), PreferenceError> {
         if !self.blur.is_finite() || !(0.0..=20.0).contains(&self.blur) {
-            return Err("Subtitle blur must be between zero and twenty");
+            return Err(PreferenceError::new(
+                "subtitle_text_style",
+                "Subtitle blur must be between zero and twenty",
+            ));
         }
         if !self.spacing.is_finite() {
-            return Err("Subtitle spacing must be finite");
+            return Err(PreferenceError::new(
+                "subtitle_text_style",
+                "Subtitle spacing must be finite",
+            ));
         }
         if !self.outline_size.is_finite() || self.outline_size < 0.0 {
-            return Err("Subtitle outline size must be finite and non-negative");
+            return Err(PreferenceError::new(
+                "subtitle_text_style",
+                "Subtitle outline size must be finite and non-negative",
+            ));
         }
         if !self.shadow_offset.is_finite() || self.shadow_offset < 0.0 {
-            return Err("Subtitle shadow offset must be finite and non-negative");
+            return Err(PreferenceError::new(
+                "subtitle_text_style",
+                "Subtitle shadow offset must be finite and non-negative",
+            ));
         }
         Ok(())
     }
@@ -386,7 +414,18 @@ pub fn valid_font_name(name: &str) -> bool {
     !name.is_empty() && !name.chars().any(char::is_control)
 }
 
-pub fn font_from_text(text: &str) -> Result<Command, &'static str> {
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SubtitleFontError;
+
+impl std::fmt::Display for SubtitleFontError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("Enter a font name without control characters")
+    }
+}
+
+impl std::error::Error for SubtitleFontError {}
+
+pub fn font_from_text(text: &str) -> Result<Command, SubtitleFontError> {
     // The reference's custom field permits names not present in the installed
     // font list. Resolution/fallback belongs to libass, not the UI catalog.
     let name = if text.is_empty() {
@@ -395,7 +434,7 @@ pub fn font_from_text(text: &str) -> Result<Command, &'static str> {
         text
     };
     if !valid_font_name(name) {
-        return Err("Enter a font name without control characters");
+        return Err(SubtitleFontError);
     }
     Ok(Command::SubtitleFont(name.to_owned()))
 }
@@ -407,7 +446,10 @@ pub enum SubtitleLane {
 }
 
 impl SubtitleLane {
-    pub fn delay_from_text(self, text: &str) -> Result<Command, &'static str> {
+    pub fn delay_from_text(
+        self,
+        text: &str,
+    ) -> Result<Command, crate::timing_controls::DelayInputError> {
         // Keep numeric editing in native double precision rather than rounding
         // through the UI toolkit's single-precision property.
         let delay = crate::timing_controls::parse_delay_seconds(text)?;

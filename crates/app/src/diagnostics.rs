@@ -27,8 +27,54 @@ impl Level {
     }
 }
 
+/// An action failure with a presentation message and log severity.
+pub(crate) struct UserMessage {
+    text: String,
+    level: Level,
+}
+
+impl UserMessage {
+    pub(crate) fn info(text: String) -> Self {
+        Self {
+            text,
+            level: Level::Info,
+        }
+    }
+}
+
+impl From<String> for UserMessage {
+    fn from(text: String) -> Self {
+        Self {
+            text,
+            level: Level::Warning,
+        }
+    }
+}
+
+impl From<riina_mpv::EngineError> for UserMessage {
+    fn from(error: riina_mpv::EngineError) -> Self {
+        use riina_mpv::EngineError;
+        let level = match error {
+            EngineError::QueueFull => Level::Warning,
+            EngineError::Stopped => Level::Error,
+            _ => Level::Warning,
+        };
+        Self {
+            text: error.to_string(),
+            level,
+        }
+    }
+}
+
+pub(crate) fn report(app: &crate::PlayerWindow, message: impl Into<UserMessage>) {
+    let message = message.into();
+    log(message.level, "player", &message.text);
+    app.set_status(message.text.into());
+}
+
 pub(crate) fn init(profile: &Path) -> io::Result<()> {
     let file = open_log(profile)?;
+    // The first successful initialization owns logging for the process.
     let _ = LOG.set(Mutex::new(file));
     Ok(())
 }
@@ -54,6 +100,7 @@ pub(crate) fn log(level: Level, component: &str, message: &str) {
     let message = redact(message);
     let timestamp = chrono::Utc::now().format("%Y-%m-%dT%H:%M:%SZ");
     let record = format!("{timestamp} {} [{component}] {message}\n", level.label());
+    // These sinks cannot report their own write errors through the logger.
     if let Some(log) = LOG.get() {
         let mut file = log
             .lock()
@@ -148,6 +195,19 @@ mod tests {
     use super::*;
 
     use riina_test_support::TempDir;
+
+    #[test]
+    fn playback_send_errors_have_distinct_severities_and_keep_their_text() {
+        let full = UserMessage::from(riina_mpv::EngineError::QueueFull);
+        let stopped = UserMessage::from(riina_mpv::EngineError::Stopped);
+        assert!(matches!(full.level, Level::Warning));
+        assert!(matches!(stopped.level, Level::Error));
+        assert_eq!(
+            full.text,
+            "Player command was not accepted: sending on a full channel"
+        );
+        assert_eq!(stopped.text, "The playback engine has stopped");
+    }
 
     #[test]
     fn rotates_only_above_the_threshold_and_replaces_the_previous_log() {

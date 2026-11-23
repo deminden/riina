@@ -5,15 +5,8 @@ use super::*;
 fn screenshot_content_respects_active_subtitle_visibility() {
     use riina_core::screenshot::Content;
     let root = fixture_root();
-    let output = root.join("tools/screenshot-subtitles").join(format!(
-        "{}-{}",
-        std::process::id(),
-        std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_nanos()
-    ));
-    std::fs::create_dir_all(&output).unwrap();
+    let output_dir = riina_test_support::TempDir::new("screenshot-subtitles").unwrap();
+    let output = output_dir.path().to_path_buf();
     let harness = Harness::start(&root).unwrap();
     harness
         .send(Command::Load(
@@ -50,7 +43,7 @@ fn screenshot_content_respects_active_subtitle_visibility() {
                 .is_some_and(|text| text.contains("Styled first cue"))
     });
     assert!(paused.subtitle_visible);
-    assert_eq!(paused.error, None);
+    assert_eq!(paused.error(), None);
     // Three captures share one paused frame. Hiding the cue must make the
     // subtitles mode equivalent to video-only, without changing capture mode.
     for (index, (name, content)) in [
@@ -75,9 +68,10 @@ fn screenshot_content_respects_active_subtitle_visibility() {
                 content,
             })
             .unwrap();
-        let saved = harness
-            .wait(|state| state.completed_screenshots == index as u64 + 1 || state.error.is_some());
-        assert_eq!(saved.error, None);
+        let saved = harness.wait(|state| {
+            state.completed_screenshots == index as u64 + 1 || state.error().is_some()
+        });
+        assert_eq!(saved.error(), None);
         assert_eq!(saved.screenshot_file.as_deref(), Some(path.as_str()));
         assert!(saved.paused);
         assert_eq!(saved.position, paused.position);
@@ -94,15 +88,8 @@ fn screenshot_content_respects_active_subtitle_visibility() {
 )]
 fn screenshots_complete_only_after_native_success() {
     let root = fixture_root();
-    let output = root.join("tools/screenshot-test").join(format!(
-        "{}-{}",
-        std::process::id(),
-        std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_nanos()
-    ));
-    std::fs::create_dir_all(&output).unwrap();
+    let output_dir = riina_test_support::TempDir::new("screenshot-test").unwrap();
+    let output = output_dir.path().to_path_buf();
     let harness = Harness::start(&root).unwrap();
     // Failure before any frame exists cannot advertise a saved image.
     harness
@@ -111,7 +98,7 @@ fn screenshots_complete_only_after_native_success() {
             content: riina_core::screenshot::Content::Video,
         })
         .unwrap();
-    let failed = harness.wait(|state| state.error.is_some());
+    let failed = harness.wait(|state| state.error().is_some());
     assert_eq!(failed.completed_screenshots, 0);
     assert_eq!(failed.screenshot_file, None);
     harness
@@ -141,9 +128,10 @@ fn screenshots_complete_only_after_native_success() {
                 content,
             })
             .unwrap();
-        let saved = harness
-            .wait(|state| state.completed_screenshots == index as u64 + 1 || state.error.is_some());
-        assert_eq!(saved.error, None);
+        let saved = harness.wait(|state| {
+            state.completed_screenshots == index as u64 + 1 || state.error().is_some()
+        });
+        assert_eq!(saved.error(), None);
         assert_eq!(saved.screenshot_file.as_deref(), Some(path.as_str()));
         assert!(saved.paused);
         assert_eq!(saved.position, paused.position);
@@ -167,9 +155,10 @@ fn screenshots_complete_only_after_native_success() {
                 encoding: riina_core::screenshot::Encoding::default(),
             })
             .unwrap();
-        let saved = harness
-            .wait(|state| state.completed_screenshots == index as u64 + 3 || state.error.is_some());
-        assert_eq!(saved.error, None);
+        let saved = harness.wait(|state| {
+            state.completed_screenshots == index as u64 + 3 || state.error().is_some()
+        });
+        assert_eq!(saved.error(), None);
         let path = PathBuf::from(saved.screenshot_file.unwrap());
         assert_eq!(path, directory.join(format!("interlaced-tff-{number}.png")));
         assert_eq!(&std::fs::read(&path).unwrap()[..8], b"\x89PNG\r\n\x1a\n");
@@ -190,7 +179,7 @@ fn screenshots_complete_only_after_native_success() {
             },
         })
         .unwrap();
-    let rejected = harness.wait(|state| state.error.is_some());
+    let rejected = harness.wait(|state| state.error().is_some());
     assert_eq!(rejected.completed_screenshots, 4);
     assert!(
         rejected
@@ -237,9 +226,10 @@ fn screenshots_complete_only_after_native_success() {
                 },
             })
             .unwrap();
-        let saved = harness
-            .wait(|state| state.completed_screenshots == index as u64 + 5 || state.error.is_some());
-        assert_eq!(saved.error, None, "{format:?}");
+        let saved = harness.wait(|state| {
+            state.completed_screenshots == index as u64 + 5 || state.error().is_some()
+        });
+        assert_eq!(saved.error(), None, "{format:?}");
         let path = PathBuf::from(saved.screenshot_file.unwrap());
         assert!(path.is_file());
         assert!(std::fs::metadata(&path).unwrap().len() > 20);
@@ -260,7 +250,7 @@ fn screenshots_complete_only_after_native_success() {
                 && matches!(state.phase, Phase::Playing | Phase::Ended))
                 || state.phase == Phase::Failed
         });
-        assert_eq!(decoded.error, None, "decode {format:?}");
+        assert_eq!(decoded.error(), None, "decode {format:?}");
         assert_eq!(
             decoded.video.as_ref().map(|video| (video.w, video.h)),
             Some((96, 64))
@@ -273,9 +263,9 @@ fn screenshots_complete_only_after_native_success() {
             })
             .unwrap();
         let captured = wait_for(&decode_receiver, |state| {
-            state.completed_screenshots == 1 || state.error.is_some()
+            state.completed_screenshots == 1 || state.error().is_some()
         });
-        assert_eq!(captured.error, None, "decoded frame capture {format:?}");
+        assert_eq!(captured.error(), None, "decoded frame capture {format:?}");
         assert_eq!(
             &std::fs::read(&round_trip).unwrap()[..8],
             b"\x89PNG\r\n\x1a\n"

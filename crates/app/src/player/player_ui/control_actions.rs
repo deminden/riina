@@ -54,7 +54,9 @@ pub(super) fn install(app: &PlayerWindow, inputs: Inputs<'_>) {
         Command::ToggleMute
     );
     let hdr_player = command_sender.clone();
-    hdr_output::install(app, move |command| hdr_player.send(command));
+    hdr_output::install(app, move |command| {
+        hdr_player.send(command).map_err(String::from)
+    });
     transport::install_stop_and_steps(app, context);
     playlist_actions::install_navigation(
         app,

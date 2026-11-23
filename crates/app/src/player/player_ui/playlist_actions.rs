@@ -67,7 +67,10 @@ fn install_actions(
                         playlist_capture_transition_first,
                     ),
                     Err(error) => {
-                        window.set_status(format!("Invalid playlist item: {error}").into());
+                        crate::diagnostics::report(
+                            &window,
+                            format!("Invalid playlist item: {error}"),
+                        );
                     }
                 }
                 return;
@@ -92,7 +95,9 @@ fn install_actions(
             window
                 .global::<riina_ui::PlayerControlActions>()
                 .invoke_activity();
-            if let Err(error) = command.and_then(|command| playlist_player.send(command)) {
+            if let Err(error) =
+                command.and_then(|command| playlist_player.send(command).map_err(String::from))
+            {
                 window.set_status(error.into());
             } else if action == 4 {
                 let message = crate::video_osd::action_message(
@@ -133,8 +138,11 @@ fn handle_playlist_external_action(
             } else {
                 crate::platform::clipboard::copy_playlist_references(&paths).and_then(|()| {
                     if action == 7 {
-                        selected_playlist_ids(window, token)
-                            .and_then(|ids| playlist_player.send(Command::RemovePlaylistIds(ids)))
+                        selected_playlist_ids(window, token).and_then(|ids| {
+                            playlist_player
+                                .send(Command::RemovePlaylistIds(ids))
+                                .map_err(String::from)
+                        })
                     } else {
                         Ok(())
                     }
@@ -149,6 +157,7 @@ fn handle_playlist_external_action(
             let count = paths.len();
             playlist_player
                 .send(Command::InsertPlaylistFiles { paths, index })
+                .map_err(String::from)
                 .map(|()| {
                     let message = crate::video_osd::action_message(
                         crate::video_osd::ActionFeedback::PlaylistAdded(count),
@@ -298,7 +307,7 @@ fn install_selection(app: &PlayerWindow, command_sender: &CommandSender) {
             };
             for (from, to) in plan {
                 if let Err(error) = reorder_player.send(Command::MovePlaylistEntry { from, to }) {
-                    app.set_status(error.into());
+                    crate::diagnostics::report(&app, error);
                     break;
                 }
             }
@@ -311,7 +320,7 @@ fn install_selection(app: &PlayerWindow, command_sender: &CommandSender) {
                 app.global::<riina_ui::PlayerControlActions>()
                     .invoke_activity();
                 if let Err(error) = shuffle_player.send(Command::TogglePlaylistShuffle) {
-                    app.set_status(error.into());
+                    crate::diagnostics::report(&app, error);
                 }
             }
         });
@@ -331,7 +340,11 @@ fn install_selection(app: &PlayerWindow, command_sender: &CommandSender) {
                     .invoke_activity();
                 let result = sort.map_or_else(
                     || Err("Unknown playlist sort order".to_owned()),
-                    |sort| sort_player.send(Command::SortPlaylist(sort)),
+                    |sort| {
+                        sort_player
+                            .send(Command::SortPlaylist(sort))
+                            .map_err(String::from)
+                    },
                 );
                 if let Err(error) = result {
                     app.set_status(error.into());

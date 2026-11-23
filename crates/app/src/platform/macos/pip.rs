@@ -44,7 +44,9 @@ define_class!(
             _controller: &AVPictureInPictureController,
             playing: bool,
         ) {
-            let _ = self.ivars().commands.send(Command::SetPaused(!playing));
+            if let Err(error) = self.ivars().commands.send(Command::SetPaused(!playing)) {
+                crate::diagnostics::warn!("Could not change Picture-in-Picture playback: {error}");
+            }
         }
 
         #[unsafe(method(pictureInPictureControllerTimeRangeForPlayback:))]
@@ -102,11 +104,14 @@ define_class!(
         ) {
             // SAFETY: AVKit supplies a CMTime by value for this callback.
             let seconds = unsafe { interval.seconds() };
-            if seconds.is_finite() && seconds != 0.0 {
-                let _ = self.ivars().commands.send(Command::Seek {
+            if seconds.is_finite()
+                && seconds != 0.0
+                && let Err(error) = self.ivars().commands.send(Command::Seek {
                     seconds,
                     absolute: false,
-                });
+                })
+            {
+                crate::diagnostics::warn!("Could not seek in Picture-in-Picture: {error}");
             }
             completion_handler.call(());
         }

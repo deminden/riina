@@ -90,7 +90,7 @@ impl NativePresentation {
         &self,
         options: Vec<(String, String)>,
         notify: impl Fn(Arc<Playback>) + Send + 'static,
-    ) -> Result<Player, String> {
+    ) -> Result<Player, riina_mpv::EngineError> {
         Player::start_native_window(
             &super::services::playback_library(),
             self.wid,

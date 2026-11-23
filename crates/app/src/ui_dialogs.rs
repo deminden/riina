@@ -72,6 +72,6 @@ pub(crate) fn dispatch_selection(
         }
         Purpose::Audio | Purpose::Subtitle => purpose
             .command(paths)
-            .map_or(Ok(()), |command| sender.send(command)),
+            .map_or(Ok(()), |command| sender.send(command).map_err(String::from)),
     }
 }

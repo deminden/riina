@@ -192,17 +192,26 @@ impl Draft {
         applied: &Applied,
     ) {
         if applied.end_policy {
-            let _ = sender.send(Command::SetPlaybackEndPolicy {
-                keep_open_on_file_end: general.previous.keep_open_on_file_end,
-                playlist_auto_play_next: general.previous.playlist_auto_play_next,
-            });
+            crate::preferences::restore_playback(
+                sender,
+                Command::SetPlaybackEndPolicy {
+                    keep_open_on_file_end: general.previous.keep_open_on_file_end,
+                    playlist_auto_play_next: general.previous.playlist_auto_play_next,
+                },
+            );
         }
         if applied.video_threads {
-            let _ = sender.send(Command::VideoThreads(self.previous_video_threads));
+            crate::preferences::restore_playback(
+                sender,
+                Command::VideoThreads(self.previous_video_threads),
+            );
             window.set_video_threads_text(self.previous_video_threads.to_string().into());
         }
         if applied.tone_mapping {
-            let _ = sender.send(Command::SetToneMapping(self.previous_tone_mapping.clone()));
+            crate::preferences::restore_playback(
+                sender,
+                Command::SetToneMapping(self.previous_tone_mapping.clone()),
+            );
         }
         crate::network_ytdl_preferences::restore(
             sender,

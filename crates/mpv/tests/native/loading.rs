@@ -159,14 +159,14 @@ fn opening_dropped_media_with_subtitles_attaches_them_to_the_new_file() {
         })
         .unwrap();
     let loaded = harness.wait(|state| {
-        state.error.is_some()
+        state.error().is_some()
             || state.tracks.iter().any(|track| {
                 track.kind == TrackKind::Sub
                     && track.external
                     && track.title.as_deref() == Some("manual-captions.srt")
             })
     });
-    assert_eq!(loaded.error, None);
+    assert_eq!(loaded.error(), None);
     assert!(loaded.tracks.iter().any(|track| {
         track.kind == TrackKind::Sub
             && track.external
@@ -206,7 +206,7 @@ fn ui_open_files_command_starts_real_media() {
             .iter()
             .any(|track| track.kind == TrackKind::Video)
     );
-    assert_eq!(playing.error, None);
+    assert_eq!(playing.error(), None);
 
     let overridden = riina_core::hdr_preferences::Settings {
         target_peak_override_enabled: true,
@@ -227,12 +227,12 @@ fn ui_open_files_command_starts_real_media() {
         ))
         .unwrap();
     let tone_mapping_updated = harness.wait(|state| {
-        state.error.is_some()
+        state.error().is_some()
             || state
                 .position
                 .is_some_and(|position| position > playing.position.unwrap_or_default() + 0.5)
     });
-    assert_eq!(tone_mapping_updated.error, None);
+    assert_eq!(tone_mapping_updated.error(), None);
 }
 
 #[test]
@@ -244,8 +244,7 @@ fn invalid_optional_startup_option_keeps_media_playable() {
             .expect("invalid user options must not fail player initialization");
     let warning = wait_for(&receiver, |state| {
         state
-            .error
-            .as_deref()
+            .error()
             .is_some_and(|error| error.contains("riina-invalid-option"))
     });
     player
@@ -260,6 +259,6 @@ fn invalid_optional_startup_option_keeps_media_playable() {
         state.phase == Phase::Playing && state.position.is_some_and(|position| position > 0.2)
     });
     assert!(playing.audio_output.is_some());
-    assert!(playing.error.is_none());
-    assert!(warning.error.unwrap().contains("riina-invalid-option"));
+    assert!(playing.error().is_none());
+    assert!(warning.error().unwrap().contains("riina-invalid-option"));
 }

@@ -23,7 +23,7 @@ pub(super) fn install(app: &PlayerWindow, player: &CommandSender) {
                 magnitude
             };
             if let Err(error) = absolute_scale_player.send(Command::SubtitleScale(scale)) {
-                app.set_status(error.into());
+                crate::diagnostics::report(&app, error);
             }
         }
     });
@@ -37,7 +37,7 @@ pub(super) fn install(app: &PlayerWindow, player: &CommandSender) {
             if let Err(error) = scale_player.send(Command::AdjustSubtitleScale(delta as f64))
                 && let Some(app) = weak.upgrade()
             {
-                app.set_status(error.into());
+                crate::diagnostics::report(&app, error);
             }
         });
     let multiply_scale_player = player.clone();
@@ -51,7 +51,7 @@ pub(super) fn install(app: &PlayerWindow, player: &CommandSender) {
             multiply_scale_player.send(Command::MultiplySubtitleScale(factor as f64))
             && let Some(app) = weak.upgrade()
         {
-            app.set_status(error.into());
+            crate::diagnostics::report(&app, error);
         }
     });
     let position_player = player.clone();
@@ -65,7 +65,7 @@ pub(super) fn install(app: &PlayerWindow, player: &CommandSender) {
             if let Err(error) = position_player.send(Command::AdjustSubtitlePosition(delta as f64))
                 && let Some(app) = weak.upgrade()
             {
-                app.set_status(error.into());
+                crate::diagnostics::report(&app, error);
             }
         });
     let audio_delay_player = player.clone();
@@ -78,7 +78,7 @@ pub(super) fn install(app: &PlayerWindow, player: &CommandSender) {
         if let Err(error) = audio_delay_player.send(Command::AdjustAudioDelay(delta as f64))
             && let Some(app) = weak.upgrade()
         {
-            app.set_status(error.into());
+            crate::diagnostics::report(&app, error);
         }
     });
     let delay_player = player.clone();
@@ -95,7 +95,7 @@ pub(super) fn install(app: &PlayerWindow, player: &CommandSender) {
                 } else {
                     Command::SubtitlePosition(value as f64)
                 }) {
-                    app.set_status(error.into());
+                    crate::diagnostics::report(&app, error);
                 }
             }
         });
@@ -108,7 +108,7 @@ pub(super) fn install(app: &PlayerWindow, player: &CommandSender) {
         if let Err(error) = delay_player.send(Command::AdjustSubtitleDelay(delta as f64))
             && let Some(app) = weak.upgrade()
         {
-            app.set_status(error.into());
+            crate::diagnostics::report(&app, error);
         }
     });
 }
@@ -136,7 +136,7 @@ fn install_appearance(app: &PlayerWindow, player: &CommandSender) {
                 app.global::<riina_ui::PlayerControlActions>()
                     .invoke_activity();
                 if let Err(error) = color_player.send(command) {
-                    app.set_status(error.into());
+                    crate::diagnostics::report(&app, error);
                 } else {
                     match target {
                         1 => app
@@ -165,7 +165,7 @@ fn install_appearance(app: &PlayerWindow, player: &CommandSender) {
                 if let Err(error) =
                     outline_size_player.send(Command::SubtitleOutlineSize(value as f64))
                 {
-                    app.set_status(error.into());
+                    crate::diagnostics::report(&app, error);
                 } else {
                     app.global::<riina_ui::PlayerPreferences>()
                         .set_subtitle_outline_size_preference(value);
@@ -179,7 +179,7 @@ fn install_appearance(app: &PlayerWindow, player: &CommandSender) {
                 app.global::<riina_ui::PlayerControlActions>()
                     .invoke_activity();
                 if let Err(error) = font_size_player.send(Command::SubtitleFontSize(value as f64)) {
-                    app.set_status(error.into());
+                    crate::diagnostics::report(&app, error);
                 } else {
                     app.global::<riina_ui::PlayerPreferences>()
                         .set_subtitle_font_size_preference(value);
@@ -208,7 +208,7 @@ pub(super) fn install_encoding(app: &PlayerWindow, player: &CommandSender) {
                 Ok(()) => app
                     .global::<riina_ui::PlayerPreferences>()
                     .set_subtitle_default_encoding(encoding.into()),
-                Err(error) => app.set_status(error.into()),
+                Err(error) => crate::diagnostics::report(&app, error),
             }
         });
 }

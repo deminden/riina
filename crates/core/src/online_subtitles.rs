@@ -1,4 +1,5 @@
 //! OpenSubtitles behavior preferences shared by the application frontends.
+use crate::PreferenceError;
 
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
@@ -136,15 +137,24 @@ impl std::fmt::Debug for Preferences {
 }
 
 impl Preferences {
-    pub fn validate(&self) -> Result<(), &'static str> {
+    pub fn validate(&self) -> Result<(), PreferenceError> {
         if self.api_key.len() > 512 || self.api_key.chars().any(char::is_control) {
-            return Err("OpenSubtitles API key contains invalid text");
+            return Err(PreferenceError::new(
+                "online_subtitles",
+                "OpenSubtitles API key contains invalid text",
+            ));
         }
         if self.assrt_token.len() > 512 || self.assrt_token.chars().any(char::is_control) {
-            return Err("Assrt token contains invalid text");
+            return Err(PreferenceError::new(
+                "online_subtitles",
+                "Assrt token contains invalid text",
+            ));
         }
         if !(1..=1440).contains(&self.auto_search_threshold_minutes) {
-            return Err("Online subtitle search threshold must be between 1 and 1440 minutes");
+            return Err(PreferenceError::new(
+                "online_subtitles",
+                "Online subtitle search threshold must be between 1 and 1440 minutes",
+            ));
         }
         Ok(())
     }

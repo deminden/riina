@@ -1,4 +1,5 @@
 //! Capture content is distinct from the eventual file/clipboard destination.
+use crate::PreferenceError;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
@@ -87,14 +88,17 @@ impl Destinations {
 }
 
 impl Settings {
-    pub fn validate(&self) -> Result<(), String> {
+    pub fn validate(&self) -> Result<(), PreferenceError> {
         if self.encoding.template.contains('\0')
             || self
                 .directory
                 .as_ref()
                 .is_some_and(|path| path.contains('\0'))
         {
-            return Err("Screenshot settings contain a NUL byte".into());
+            return Err(PreferenceError::new(
+                "screenshot",
+                "Screenshot settings contain a NUL byte",
+            ));
         }
         Ok(())
     }

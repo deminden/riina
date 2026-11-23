@@ -1,4 +1,5 @@
 //! Shared policy for when the on-screen controller fades after interaction.
+use crate::PreferenceError;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
@@ -40,16 +41,26 @@ impl Settings {
 }
 
 impl Settings {
-    pub fn validate(self) -> Result<Self, &'static str> {
-        std::time::Duration::try_from_secs_f64(self.auto_hide_timeout_secs)
-            .map_err(|_| "The control-bar auto-hide time must be a finite nonnegative duration")?;
+    pub fn validate(self) -> Result<Self, PreferenceError> {
+        std::time::Duration::try_from_secs_f64(self.auto_hide_timeout_secs).map_err(|_| {
+            PreferenceError::new(
+                "control_bar",
+                "The control-bar auto-hide time must be a finite nonnegative duration",
+            )
+        })?;
         if self.toolbar_buttons & !Self::TOOLBAR_ALL != 0 {
-            return Err("The control-bar toolbar selection contains an unknown action");
+            return Err(PreferenceError::new(
+                "control_bar",
+                "The control-bar toolbar selection contains an unknown action",
+            ));
         }
         let mut seen = 0_u16;
         for action in self.toolbar_order {
             if action >= 9 || seen & (1 << action) != 0 {
-                return Err("The control-bar toolbar order must contain every action once");
+                return Err(PreferenceError::new(
+                    "control_bar",
+                    "The control-bar toolbar order must contain every action once",
+                ));
             }
             seen |= 1 << action;
         }

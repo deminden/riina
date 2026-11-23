@@ -26,7 +26,7 @@ pub(crate) fn save_downloaded_subtitle(
     let contents = match std::fs::read(&path) {
         Ok(contents) => contents,
         Err(error) => {
-            app.set_status(format!("Could not read downloaded subtitle: {error}").into());
+            crate::diagnostics::report(app, format!("Could not read downloaded subtitle: {error}"));
             return;
         }
     };
@@ -80,9 +80,10 @@ pub(crate) fn save_downloaded_subtitle(
         match saved {
             Ok(true) => app.set_status("Downloaded subtitle saved".into()),
             Ok(false) => {}
-            Err(error) => {
-                app.set_status(format!("Could not save downloaded subtitle: {error}").into())
-            }
+            Err(error) => crate::diagnostics::report(
+                &app,
+                format!("Could not save downloaded subtitle: {error}"),
+            ),
         }
     });
     if let Err(error) = started
@@ -125,12 +126,12 @@ pub(crate) fn delete_current_media(
             return;
         }
         CurrentMediaLocation::NonLocal => {
-            app.set_status(
+            crate::diagnostics::report(
+                app,
                 format!(
                     "Only local media files can be moved to the {}",
                     crate::platform::system_trash_name()
-                )
-                .into(),
+                ),
             );
             return;
         }
@@ -143,9 +144,13 @@ pub(crate) fn delete_current_media(
     let weak_app = app.as_weak();
     let observed_playback = latest_playback.clone();
     let trash_name = crate::platform::system_trash_name();
-    app.set_status(format!("Moving current media to the {trash_name}…").into());
+    crate::diagnostics::report(
+        app,
+        crate::diagnostics::UserMessage::info(format!("Moving current media to the {trash_name}…")),
+    );
     let started = crate::background::spawn_named("riina-file-trash", move || {
         let result = trash::delete(&path).map_err(|error| error.to_string());
+        // The result has no recipient once its window or event loop closes.
         let _ = crate::background::to_ui(weak_app, move |app| match result {
             Ok(()) => {
                 let still_listed = lock(&observed_playback)
@@ -154,19 +159,31 @@ pub(crate) fn delete_current_media(
                     .any(|entry| entry.id == entry_id && entry.filename == filename);
                 if still_listed && let Err(error) = player.send(Command::RemovePlaylistId(entry_id))
                 {
-                    app.set_status(format!(
-                                "File moved to the {trash_name}, but its playlist item could not be removed: {error}"
-                            ).into());
+                    crate::diagnostics::report(
+                        &app,
+                        format!(
+                            "File moved to the {trash_name}, but its playlist item could not be removed: {error}"
+                        ),
+                    );
                     return;
                 }
-                app.set_status(format!("Moved current media to the {trash_name}").into());
+                crate::diagnostics::report(
+                    &app,
+                    crate::diagnostics::UserMessage::info(format!(
+                        "Moved current media to the {trash_name}"
+                    )),
+                );
             }
-            Err(error) => app.set_status(
-                format!("Could not move the current media to the {trash_name}: {error}").into(),
+            Err(error) => crate::diagnostics::report(
+                &app,
+                format!("Could not move the current media to the {trash_name}: {error}"),
             ),
         });
     });
     if let Err(error) = started {
-        app.set_status(format!("Could not start the file Trash operation: {error}").into());
+        crate::diagnostics::report(
+            app,
+            format!("Could not start the file Trash operation: {error}"),
+        );
     }
 }

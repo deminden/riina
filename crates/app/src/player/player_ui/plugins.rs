@@ -151,7 +151,10 @@ fn bind_lifecycle(
                 host.activate_plugin_menu_item(identifier.into(), global, item_id.into())
                 && let Some(app) = menu_action_app.upgrade()
             {
-                app.set_status(format!("Could not run plugin menu action: {error}").into());
+                crate::diagnostics::report(
+                    &app,
+                    format!("Could not run plugin menu action: {error}"),
+                );
             }
         });
     let menu_update_host = plugin_host_handle.cloned();
@@ -161,8 +164,9 @@ fn bind_lifecycle(
             && let Err(error) = host.notify_menu_update()
             && let Some(app) = menu_update_app.upgrade()
         {
-            app.set_status(
-                format!("Could not notify plugins that their menu is opening: {error}").into(),
+            crate::diagnostics::report(
+                &app,
+                format!("Could not notify plugins that their menu is opening: {error}"),
             );
         }
     });
@@ -179,7 +183,7 @@ fn bind_lifecycle(
             if let Err(error) = host.reload_all()
                 && let Some(app) = reload_plugins_app.upgrade()
             {
-                app.set_status(format!("Could not reload plugins: {error}").into());
+                crate::diagnostics::report(&app, format!("Could not reload plugins: {error}"));
             }
         });
     let close_event_sent = Rc::new(Cell::new(false));
@@ -194,7 +198,10 @@ fn bind_lifecycle(
             && let Err(error) = host.notify_window_will_close()
             && let Some(app) = weak.upgrade()
         {
-            app.set_status(format!("Could not notify plugins before closing: {error}").into());
+            crate::diagnostics::report(
+                &app,
+                format!("Could not notify plugins before closing: {error}"),
+            );
         }
     });
 }

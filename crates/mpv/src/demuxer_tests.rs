@@ -15,7 +15,7 @@ fn wait(
         let state = receiver
             .recv_timeout(until.saturating_duration_since(Instant::now()))
             .unwrap();
-        assert_eq!(state.error, None);
+        assert_eq!(state.error(), None);
         if predicate(&state) {
             return Arc::unwrap_or_clone(state);
         }

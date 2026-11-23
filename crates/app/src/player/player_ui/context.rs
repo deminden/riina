@@ -76,9 +76,9 @@ impl PlayerContext {
         }
     }
 
-    pub(super) fn report(&self, error: String) {
+    pub(super) fn report(&self, error: impl Into<crate::diagnostics::UserMessage>) {
         if let Some(app) = self.app() {
-            app.set_status(error.into());
+            crate::diagnostics::report(&app, error);
         }
     }
 

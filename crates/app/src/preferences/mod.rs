@@ -30,3 +30,10 @@ pub(crate) mod thumbnail_preferences;
 pub(crate) mod tone_mapping_preferences;
 pub(crate) mod utilities_preferences;
 pub(crate) mod window_resize_preferences;
+
+/// Keep trying the remaining rollback commands if the decoder rejects one.
+fn restore_playback(sender: &riina_mpv::CommandSender, command: riina_core::Command) {
+    if let Err(error) = sender.send(command) {
+        crate::diagnostics::warn!("Could not restore a live playback preference: {error}");
+    }
+}

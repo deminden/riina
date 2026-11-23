@@ -23,7 +23,7 @@ fn install_aspect_and_crop(app: &PlayerWindow, player: &CommandSender) {
                 app.global::<riina_ui::PlayerControlActions>()
                     .invoke_activity();
                 if let Err(error) = aspect_player.send(Command::VideoAspect(aspect)) {
-                    app.set_status(error.into());
+                    crate::diagnostics::report(&app, error);
                 }
             }
         });
@@ -76,7 +76,7 @@ fn install_aspect_and_crop(app: &PlayerWindow, player: &CommandSender) {
                 app.global::<riina_ui::PlayerControlActions>()
                     .invoke_activity();
                 if let Err(error) = crop_player.send(Command::VideoCrop(preset)) {
-                    app.set_status(error.into());
+                    crate::diagnostics::report(&app, error);
                 }
             }
         });
@@ -96,7 +96,7 @@ fn install_aspect_and_crop(app: &PlayerWindow, player: &CommandSender) {
             .invoke_activity();
         if app.get_delogo_active() {
             if let Err(error) = delogo_player.send(Command::RemoveDelogo) {
-                app.set_status(error.into());
+                crate::diagnostics::report(&app, error);
             }
         } else {
             app.invoke_begin_delogo();
@@ -137,7 +137,7 @@ fn install_aspect_and_crop(app: &PlayerWindow, player: &CommandSender) {
             app.global::<riina_ui::PlayerControlActions>()
                 .invoke_activity();
             if let Err(error) = menu_crop_player.send(Command::VideoCrop(preset)) {
-                app.set_status(error.into());
+                crate::diagnostics::report(&app, error);
             }
         });
 }
@@ -154,7 +154,7 @@ fn install_rotation_and_picture(app: &PlayerWindow, player: &CommandSender) {
                 app.global::<riina_ui::PlayerControlActions>()
                     .invoke_activity();
                 if let Err(error) = rotation_player.send(Command::VideoRotation(rotation)) {
-                    app.set_status(error.into());
+                    crate::diagnostics::report(&app, error);
                 }
             }
         });
@@ -182,7 +182,7 @@ fn install_rotation_and_picture(app: &PlayerWindow, player: &CommandSender) {
             app.global::<riina_ui::PlayerControlActions>()
                 .invoke_activity();
             if let Err(error) = menu_rotation_player.send(Command::VideoRotation(rotation)) {
-                app.set_status(error.into());
+                crate::diagnostics::report(&app, error);
             }
         });
     let hardware_player = player.clone();
@@ -202,7 +202,7 @@ fn install_rotation_and_picture(app: &PlayerWindow, player: &CommandSender) {
                     riina_core::video_controls::HardwareDecoder::Disabled
                 };
                 if let Err(error) = hardware_player.send(Command::HardwareDecoding(mode)) {
-                    app.set_status(error.into());
+                    crate::diagnostics::report(&app, error);
                 }
             }
         });
@@ -228,7 +228,7 @@ fn install_rotation_and_picture(app: &PlayerWindow, player: &CommandSender) {
                     option,
                     value: value as i64,
                 }) {
-                    app.set_status(error.into());
+                    crate::diagnostics::report(&app, error);
                 }
             }
         });
@@ -273,7 +273,7 @@ pub(super) fn install_reflection(app: &PlayerWindow, player: &CommandSender) {
                     riina_core::video_reflection::Axis::Vertical
                 };
                 if let Err(error) = reflection_player.send(Command::ToggleVideoReflection(axis)) {
-                    app.set_status(error.into());
+                    crate::diagnostics::report(&app, error);
                 }
             }
         });
@@ -298,7 +298,7 @@ pub(super) fn install_deinterlace(app: &PlayerWindow, player: &CommandSender) {
             app.global::<riina_ui::PlayerControlActions>()
                 .invoke_activity();
             if let Err(error) = deinterlace_player.send(Command::ToggleDeinterlace) {
-                app.set_status(error.into());
+                crate::diagnostics::report(&app, error);
             }
         });
 }

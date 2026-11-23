@@ -415,7 +415,8 @@ pub(super) fn plugin_media_reference(
     allowed_domains: &[String],
 ) -> Result<String, String> {
     if riina_core::media_reference::is_network_url_candidate(value) {
-        riina_core::media_reference::validate_network_url(value).map_err(str::to_owned)?;
+        riina_core::media_reference::validate_network_url(value)
+            .map_err(|error| error.to_string())?;
         if !network_granted || !plugin_media_url_allowed(value, allowed_domains) {
             return Err("Network permission and an allowed domain are required".into());
         }

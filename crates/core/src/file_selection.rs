@@ -1,4 +1,5 @@
 //! Local-file selection rules from the pinned PlayerCore/DraggingDetect workflow.
+use crate::media_reference::NetworkUrlError;
 use std::{cmp::Ordering, collections::HashSet, fs, path::Path};
 
 // Utility.blacklistExt also excludes multi-file playlists from directory scans.
@@ -18,22 +19,53 @@ pub const SUPPORTED_AUDIO_EXTENSIONS: &[&str] = &[
     "aiff", "aif", "ape", "tta", "tak",
 ];
 
+#[derive(Debug)]
+pub enum SelectionError {
+    InvalidPath,
+    InvalidUnicode,
+    Url(NetworkUrlError),
+    ScanFolder(std::io::Error),
+    ReadEntry(std::io::Error),
+}
+
+impl std::fmt::Display for SelectionError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::InvalidPath => f.write_str("The media path is empty or contains a NUL byte"),
+            Self::InvalidUnicode => f.write_str("The path contains invalid Unicode"),
+            Self::Url(error) => error.fmt(f),
+            Self::ScanFolder(error) => write!(f, "Cannot scan folder: {error}"),
+            Self::ReadEntry(error) => error.fmt(f),
+        }
+    }
+}
+
+impl std::error::Error for SelectionError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            Self::Url(error) => Some(error),
+            Self::ScanFolder(error) | Self::ReadEntry(error) => Some(error),
+            Self::InvalidPath | Self::InvalidUnicode => None,
+        }
+    }
+}
+
 pub fn prepare(
     paths: Vec<String>,
     open_media: bool,
     compare_names: impl Fn(&str, &str) -> Ordering,
-) -> Result<Vec<String>, String> {
+) -> Result<Vec<String>, SelectionError> {
     if paths
         .iter()
         .any(|path| path.is_empty() || path.contains('\0'))
     {
-        return Err("The media path is empty or contains a NUL byte".into());
+        return Err(SelectionError::InvalidPath);
     }
     if open_media && paths.len() == 1 && crate::media_reference::is_network_url_candidate(&paths[0])
     {
         return Ok(vec![
             crate::media_reference::validate_network_url(&paths[0])
-                .map_err(str::to_owned)?
+                .map_err(SelectionError::Url)?
                 .to_owned(),
         ]);
     }
@@ -58,7 +90,7 @@ pub fn prepare(
             // slashes as directories or reorder them with local selections.
             flush_local_files(&mut local_files, &mut files, &mut seen, &compare_names);
             let url = crate::media_reference::validate_network_url(&path)
-                .map_err(str::to_owned)?
+                .map_err(SelectionError::Url)?
                 .to_owned();
             if seen.insert(url.clone()) {
                 files.push(url);
@@ -125,29 +157,28 @@ fn is_bluray_folder(path: &Path) -> bool {
         })
 }
 
-fn discover(root: &Path, files: &mut Vec<String>) -> Result<(), String> {
+fn discover(root: &Path, files: &mut Vec<String>) -> Result<(), SelectionError> {
     // Iterative traversal bounds call-stack use for deep libraries. Do not follow
     // directory links into cycles or another tree; explicitly selected roots work.
     let mut pending = vec![(root.to_path_buf(), true)];
     while let Some((folder, is_root)) = pending.pop() {
-        let entries =
-            fs::read_dir(&folder).map_err(|error| format!("Cannot scan folder: {error}"))?;
+        let entries = fs::read_dir(&folder).map_err(SelectionError::ScanFolder)?;
         for entry in entries {
-            let entry = entry.map_err(|error| error.to_string())?;
+            let entry = entry.map_err(SelectionError::ReadEntry)?;
             if is_root && entry.file_name().to_string_lossy().starts_with('.') {
                 // The compatibility rule checks the root-relative prefix, rather
                 // than every component: visible/.nested/video.mkv remains eligible.
                 continue;
             }
             let path = entry.path();
-            let kind = entry.file_type().map_err(|error| error.to_string())?;
+            let kind = entry.file_type().map_err(SelectionError::ReadEntry)?;
             if kind.is_dir() {
                 pending.push((path, false));
             } else if !kind.is_symlink() {
                 let path = path
                     .into_os_string()
                     .into_string()
-                    .map_err(|_| "The path contains invalid Unicode")?;
+                    .map_err(|_| SelectionError::InvalidUnicode)?;
                 if is_supported_media(&path) {
                     files.push(path);
                 }
@@ -167,7 +198,8 @@ fn extension(path: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    fn prepare(paths: Vec<String>, open_media: bool) -> Result<Vec<String>, String> {
+    use super::SelectionError;
+    fn prepare(paths: Vec<String>, open_media: bool) -> Result<Vec<String>, SelectionError> {
         // Synthetic ordering verifies comparator injection without pretending that
         // a portable test reproduces a native locale's filename collation.
         super::prepare(paths, open_media, |left, right| {

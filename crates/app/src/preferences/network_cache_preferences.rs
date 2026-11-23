@@ -43,7 +43,7 @@ fn parse_number<T: std::str::FromStr>(text: &str, label: &str) -> Result<T, Stri
 }
 
 fn validate(cache: Cache) -> Result<Cache, String> {
-    cache.validate().map_err(str::to_owned)?;
+    cache.validate().map_err(|error| error.to_string())?;
     Ok(cache)
 }
 

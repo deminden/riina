@@ -70,7 +70,8 @@ fn style_color_from_ui(
 ) -> Result<riina_core::subtitle_color::SubtitleColor, String> {
     let channels = [color.red(), color.green(), color.blue(), color.alpha()]
         .map(|channel| f64::from(channel) / 255.0);
-    riina_core::subtitle_color::SubtitleColor::from_rgba(channels).map_err(str::to_owned)
+    riina_core::subtitle_color::SubtitleColor::from_rgba(channels)
+        .map_err(|error| error.to_string())
 }
 
 pub(crate) fn install_style(
@@ -117,7 +118,7 @@ pub(crate) fn current_style(
             player_preferences.get_subtitle_shadow_preference_color(),
         )?,
     };
-    style.validate().map_err(str::to_owned)?;
+    style.validate().map_err(|error| error.to_string())?;
     Ok(style)
 }
 
@@ -173,7 +174,7 @@ pub(crate) fn current_window_style(
                 .get_subtitle_shadow_color(),
         )?,
     };
-    style.validate().map_err(str::to_owned)?;
+    style.validate().map_err(|error| error.to_string())?;
     Ok(style)
 }
 

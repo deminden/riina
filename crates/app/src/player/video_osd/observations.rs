@@ -83,7 +83,7 @@ pub(super) fn changed_one(previous: Option<&Playback>, state: &Playback) -> Opti
         return None;
     }
     let immediate = immediate_feedback(previous, state);
-    if immediate.is_some() || state.error.is_some() {
+    if immediate.is_some() || state.error().is_some() {
         return immediate;
     }
 

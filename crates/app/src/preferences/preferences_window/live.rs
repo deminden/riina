@@ -9,7 +9,7 @@ pub(super) fn apply_text_style(
     previous: riina_core::subtitle_controls::TextStylePreferences,
     selected: riina_core::subtitle_controls::TextStylePreferences,
 ) -> Result<(), String> {
-    selected.validate().map_err(str::to_owned)?;
+    selected.validate().map_err(|error| error.to_string())?;
     let previous_commands = crate::subtitle_preferences::commands(previous);
     let selected_commands = crate::subtitle_preferences::commands(selected);
     let mut applied = Vec::<usize>::new();
@@ -24,7 +24,7 @@ pub(super) fn apply_text_style(
         if let Err(error) = player.send(new) {
             let rollback = crate::subtitle_preferences::commands(previous);
             for applied_index in applied.into_iter().rev() {
-                let _ = player.send(rollback[applied_index].clone());
+                crate::preferences::restore_playback(player, rollback[applied_index].clone());
             }
             return Err(error.to_string());
         }
@@ -42,7 +42,7 @@ pub(super) fn restore_text_style(
 ) {
     if previous != selected {
         for command in crate::subtitle_preferences::commands(previous) {
-            let _ = player.send(command);
+            crate::preferences::restore_playback(player, command);
         }
     }
     crate::subtitle_preferences::install_style(app, previous);
@@ -56,8 +56,8 @@ pub(super) fn apply_subtitle_text_preferences(
     selected_font: &str,
     selected_size: f64,
 ) -> Result<(String, f64), String> {
-    let font_command =
-        riina_core::subtitle_controls::font_from_text(selected_font).map_err(str::to_owned)?;
+    let font_command = riina_core::subtitle_controls::font_from_text(selected_font)
+        .map_err(|error| error.to_string())?;
     let font = match font_command {
         Command::SubtitleFont(value) => value,
         _ => return Err("Invalid subtitle font".into()),
@@ -71,7 +71,7 @@ pub(super) fn apply_subtitle_text_preferences(
         && let Err(error) = player.send(Command::SubtitleFont(font.clone()))
     {
         if (selected_size - previous_size).abs() > f64::EPSILON {
-            let _ = player.send(Command::SubtitleFontSize(previous_size));
+            crate::preferences::restore_playback(player, Command::SubtitleFontSize(previous_size));
         }
         return Err(error.to_string());
     }
@@ -91,10 +91,13 @@ pub(super) fn restore_subtitle_text_preferences(
     selected_size: f64,
 ) {
     if selected_size != previous_size {
-        let _ = player.send(Command::SubtitleFontSize(previous_size));
+        crate::preferences::restore_playback(player, Command::SubtitleFontSize(previous_size));
     }
     if selected_font != previous_font {
-        let _ = player.send(Command::SubtitleFont(previous_font.to_owned()));
+        crate::preferences::restore_playback(
+            player,
+            Command::SubtitleFont(previous_font.to_owned()),
+        );
     }
     app.global::<riina_ui::PlaybackSubtitleState>()
         .set_subtitle_font(previous_font.into());
@@ -137,10 +140,13 @@ pub(super) fn apply_ass_override(
         if selected.0 != previous.0
             && let Some(previous_level) = AssOverrideLevel::from_slider_index(previous.0)
         {
-            let _ = player.send(Command::SubtitleAssOverride {
-                lane: SubtitleLane::Primary,
-                level: previous_level,
-            });
+            crate::preferences::restore_playback(
+                player,
+                Command::SubtitleAssOverride {
+                    lane: SubtitleLane::Primary,
+                    level: previous_level,
+                },
+            );
         }
         return Err(error.to_string());
     }
@@ -162,18 +168,24 @@ pub(super) fn restore_ass_override(
     if selected.0 != previous.0
         && let Some(level) = AssOverrideLevel::from_slider_index(previous.0)
     {
-        let _ = player.send(Command::SubtitleAssOverride {
-            lane: SubtitleLane::Primary,
-            level,
-        });
+        crate::preferences::restore_playback(
+            player,
+            Command::SubtitleAssOverride {
+                lane: SubtitleLane::Primary,
+                level,
+            },
+        );
     }
     if selected.1 != previous.1
         && let Some(level) = AssOverrideLevel::from_slider_index(previous.1)
     {
-        let _ = player.send(Command::SubtitleAssOverride {
-            lane: SubtitleLane::Secondary,
-            level,
-        });
+        crate::preferences::restore_playback(
+            player,
+            Command::SubtitleAssOverride {
+                lane: SubtitleLane::Secondary,
+                level,
+            },
+        );
     }
     app.global::<riina_ui::PlayerPreferences>()
         .set_subtitle_ass_override_index(previous.0);
@@ -214,8 +226,11 @@ impl AppliedDecoderSettings {
                 if capped_volume != applied.previous.volume
                     && let Err(error) = sender.send(Command::Volume(f64::from(capped_volume)))
                 {
-                    let _ = sender.send(Command::SetVolumeBoost(applied.previous.boost));
-                    return Err(error);
+                    crate::preferences::restore_playback(
+                        sender,
+                        Command::SetVolumeBoost(applied.previous.boost),
+                    );
+                    return Err(error.into());
                 }
                 app.global::<riina_ui::PlaybackAudioState>()
                     .set_volume(capped_volume);
@@ -227,7 +242,7 @@ impl AppliedDecoderSettings {
         if decoder_index != applied.previous.decoder_index {
             if let Err(error) = sender.send(Command::HardwareDecoding(decoder)) {
                 applied.restore(app, sender);
-                return Err(error);
+                return Err(error.into());
             }
             app.global::<riina_ui::PlayerPreferences>()
                 .set_hardware_decoder_index(decoder_index);
@@ -238,9 +253,15 @@ impl AppliedDecoderSettings {
 
     pub(super) fn restore(&self, app: &PlayerWindow, sender: &riina_mpv::CommandSender) {
         if self.boost_changed {
-            let _ = sender.send(Command::SetVolumeBoost(self.previous.boost));
+            crate::preferences::restore_playback(
+                sender,
+                Command::SetVolumeBoost(self.previous.boost),
+            );
             if self.previous.volume != app.global::<riina_ui::PlaybackAudioState>().get_volume() {
-                let _ = sender.send(Command::Volume(f64::from(self.previous.volume)));
+                crate::preferences::restore_playback(
+                    sender,
+                    Command::Volume(f64::from(self.previous.volume)),
+                );
             }
             app.global::<riina_ui::PlayerPreferences>()
                 .set_volume_boost(self.previous.boost);
@@ -251,7 +272,10 @@ impl AppliedDecoderSettings {
             if let Some(previous_mode) =
                 crate::codec_preferences::hardware_decoder(self.previous.decoder_index)
             {
-                let _ = sender.send(Command::HardwareDecoding(previous_mode));
+                crate::preferences::restore_playback(
+                    sender,
+                    Command::HardwareDecoding(previous_mode),
+                );
             }
             app.global::<riina_ui::PlayerPreferences>()
                 .set_hardware_decoder_index(self.previous.decoder_index);

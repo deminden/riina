@@ -1,6 +1,7 @@
 //! The event thread owns the core and every borrowed native event.
 use super::super::{WakeupContext, diag, trace_shutdown, wakeup};
 use crate::{
+    EngineError,
     ffi::{Api, CommandReply, EndFile, Event, Property, event_id},
     properties::{apply_property, observed_property_value},
 };
@@ -18,32 +19,38 @@ pub(super) struct Handle {
 }
 
 impl Handle {
-    pub(super) fn new(api: Api) -> Result<Self, String> {
+    pub(super) fn new(api: Api) -> Result<Self, EngineError> {
         // SAFETY: this creates a new core owned solely by this worker.
         let raw = unsafe { (api.create)() };
         Ok(Self {
             api,
-            raw: NonNull::new(raw).ok_or("mpv_create failed")?,
+            raw: NonNull::new(raw).ok_or_else(|| EngineError::Native {
+                call: "mpv_create",
+                message: "mpv_create failed".into(),
+            })?,
             callback: None,
         })
     }
 
-    pub(super) fn set_option(&self, key: &CStr, value: &CStr) -> Result<(), String> {
+    pub(super) fn set_option(&self, key: &CStr, value: &CStr) -> Result<(), EngineError> {
         // SAFETY: the core is live and both strings remain valid until mpv copies them.
-        self.api
-            .check(unsafe { (self.api.option)(self.raw.as_ptr(), key.as_ptr(), value.as_ptr()) })
+        self.api.check("mpv_set_option_string", unsafe {
+            (self.api.option)(self.raw.as_ptr(), key.as_ptr(), value.as_ptr())
+        })
     }
 
-    pub(super) fn initialize(&self) -> Result<(), String> {
+    pub(super) fn initialize(&self) -> Result<(), EngineError> {
         // SAFETY: the worker calls this once after configuration and before using the client.
-        self.api
-            .check(unsafe { (self.api.initialize)(self.raw.as_ptr()) })
+        self.api.check("mpv_initialize", unsafe {
+            (self.api.initialize)(self.raw.as_ptr())
+        })
     }
 
-    pub(super) fn observe(&self, id: u64, name: &CStr, format: c_int) -> Result<(), String> {
+    pub(super) fn observe(&self, id: u64, name: &CStr, format: c_int) -> Result<(), EngineError> {
         // SAFETY: the live core copies the NUL-terminated property name during this call.
-        self.api
-            .check(unsafe { (self.api.observe)(self.raw.as_ptr(), id, name.as_ptr(), format) })
+        self.api.check("mpv_observe_property", unsafe {
+            (self.api.observe)(self.raw.as_ptr(), id, name.as_ptr(), format)
+        })
     }
 
     pub(super) fn register_wakeup(&mut self, mut callback: Box<WakeupContext>) {
@@ -64,12 +71,13 @@ impl Handle {
         self.raw.as_ptr() as usize
     }
 
-    pub(super) fn command(&self, id: u64, args: &[CString]) -> Result<(), String> {
+    pub(super) fn command(&self, id: u64, args: &[CString]) -> Result<(), EngineError> {
         let mut pointers: Vec<_> = args.iter().map(|arg| arg.as_ptr()).collect();
         pointers.push(ptr::null());
         // SAFETY: the live core copies the NUL-terminated array and strings before returning.
-        self.api
-            .check(unsafe { (self.api.command)(self.raw.as_ptr(), id, pointers.as_ptr()) })
+        self.api.check("mpv_command_async", unsafe {
+            (self.api.command)(self.raw.as_ptr(), id, pointers.as_ptr())
+        })
     }
 
     pub(super) fn stop_after_panic(&self) {
@@ -125,7 +133,10 @@ impl EventRef<'_> {
     }
 
     pub(super) fn error(&self) -> Option<String> {
-        self.api.check(self.event.error).err()
+        self.api
+            .check("mpv_wait_event", self.event.error)
+            .err()
+            .map(String::from)
     }
 
     pub(super) fn error_code(&self) -> c_int {
@@ -153,7 +164,10 @@ impl EventRef<'_> {
     }
 
     pub(super) fn end_error(&self, end: &EndFile) -> Option<String> {
-        self.api.check(end.error).err()
+        self.api
+            .check("mpv_end_file", end.error)
+            .err()
+            .map(String::from)
     }
 
     pub(super) fn apply_property(&self, state: &mut Playback, observer: Option<String>) {
@@ -173,7 +187,7 @@ impl EventRef<'_> {
         unsafe { apply_property(state, property) };
     }
 
-    pub(super) fn frame(&self) -> Option<Result<CapturedFrame, String>> {
+    pub(super) fn frame(&self) -> Option<Result<CapturedFrame, EngineError>> {
         let reply = self.payload::<CommandReply>(event_id::COMMAND_REPLY)?;
         // SAFETY: the event keeps the screenshot-raw node live through this copy.
         Some(unsafe { reply.result.copy_rgba_frame() })

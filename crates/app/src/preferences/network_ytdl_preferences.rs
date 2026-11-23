@@ -29,7 +29,7 @@ impl PreferenceSection for OnlineVideos {
 }
 
 fn validate(preferences: OnlineVideos) -> Result<OnlineVideos, String> {
-    preferences.validate().map_err(str::to_owned)?;
+    preferences.validate().map_err(|error| error.to_string())?;
     Ok(preferences)
 }
 
@@ -120,7 +120,10 @@ pub(crate) fn restore(
         {
             effective.enabled = false;
         }
-        let _ = player.send(riina_core::Command::NetworkOnlineVideos(effective));
+        crate::preferences::restore_playback(
+            player,
+            riina_core::Command::NetworkOnlineVideos(effective),
+        );
         install_player(app, previous);
     }
 }

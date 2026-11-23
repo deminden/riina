@@ -1,3 +1,4 @@
+use super::CommandError;
 use super::set;
 use crate::{screenshot, valid_path};
 
@@ -5,9 +6,11 @@ pub(super) fn plan(
     directory: &str,
     content: screenshot::Content,
     encoding: &screenshot::Encoding,
-) -> Result<Vec<Vec<String>>, String> {
+) -> Result<Vec<Vec<String>>, CommandError> {
     if !valid_path(directory) || encoding.template.contains('\0') {
-        return Err("Screenshot directory is empty or settings contain a NUL byte".into());
+        return Err(CommandError::InvalidArgument {
+            what: "Screenshot directory is empty or settings contain a NUL byte",
+        });
     }
     Ok(vec![
         set("screenshot-format", encoding.format.native_value()),

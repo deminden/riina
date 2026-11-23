@@ -1,11 +1,22 @@
 //! Native presentation margins, independent of physical pixels and DPI.
 use crate::crop_geometry::DisplayRect;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ViewportError;
+
+impl std::fmt::Display for ViewportError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("Video viewport is outside the window")
+    }
+}
+
+impl std::error::Error for ViewportError {}
+
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Viewport([f64; 4]);
 
 impl Viewport {
-    pub fn new(size: (f64, f64), picture: DisplayRect) -> Result<Self, String> {
+    pub fn new(size: (f64, f64), picture: DisplayRect) -> Result<Self, ViewportError> {
         if ![
             size.0,
             size.1,
@@ -25,7 +36,7 @@ impl Viewport {
             || picture.x + picture.width > size.0
             || picture.y + picture.height > size.1
         {
-            return Err("Video viewport is outside the window".into());
+            return Err(ViewportError);
         }
         Ok(Self([
             picture.x / size.0,

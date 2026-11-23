@@ -1,4 +1,5 @@
 //! Typed network-cache settings shared by the UI, persistence, and player.
+use crate::PreferenceError;
 
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
@@ -23,15 +24,18 @@ impl Default for OnlineVideos {
 }
 
 impl OnlineVideos {
-    pub fn validate(&self) -> Result<(), &'static str> {
+    pub fn validate(&self) -> Result<(), PreferenceError> {
         if self.search_path.contains('\0') || self.raw_options.contains('\0') {
-            return Err("Online video options cannot contain a NUL character");
+            return Err(PreferenceError::new(
+                "network_online_videos",
+                "Online video options cannot contain a NUL character",
+            ));
         }
         Ok(())
     }
 
-    pub fn engine_options(&self) -> Result<Vec<(String, String)>, String> {
-        self.validate().map_err(str::to_owned)?;
+    pub fn engine_options(&self) -> Result<Vec<(String, String)>, PreferenceError> {
+        self.validate()?;
         Ok(vec![
             (
                 "ytdl".into(),
@@ -46,8 +50,8 @@ impl OnlineVideos {
         &self,
         executable: &Path,
         inherited: Option<&std::ffi::OsStr>,
-    ) -> Result<std::ffi::OsString, String> {
-        self.validate().map_err(str::to_owned)?;
+    ) -> Result<std::ffi::OsString, PreferenceError> {
+        self.validate()?;
         let mut paths: Vec<PathBuf> = Vec::new();
         if !self.search_path.is_empty() {
             paths.push(PathBuf::from(&self.search_path));
@@ -58,7 +62,9 @@ impl OnlineVideos {
         if let Some(inherited) = inherited {
             paths.extend(std::env::split_paths(inherited));
         }
-        std::env::join_paths(paths).map_err(|_| "Invalid online video search path".into())
+        std::env::join_paths(paths).map_err(|_| {
+            PreferenceError::new("network_online_videos", "Invalid online video search path")
+        })
     }
 }
 
@@ -178,19 +184,25 @@ impl Default for Connection {
 }
 
 impl Connection {
-    pub fn validate(&self) -> Result<(), &'static str> {
+    pub fn validate(&self) -> Result<(), PreferenceError> {
         if self.user_agent.contains('\0') {
-            return Err("User agent cannot contain a NUL character");
+            return Err(PreferenceError::new(
+                "network",
+                "User agent cannot contain a NUL character",
+            ));
         }
         if self.http_proxy.contains('\0') {
-            return Err("HTTP proxy cannot contain a NUL character");
+            return Err(PreferenceError::new(
+                "network",
+                "HTTP proxy cannot contain a NUL character",
+            ));
         }
         Ok(())
     }
 
     /// Empty overrides stay unset so libmpv retains its own defaults.
-    pub fn engine_options(&self) -> Result<Vec<(String, String)>, String> {
-        self.validate().map_err(str::to_owned)?;
+    pub fn engine_options(&self) -> Result<Vec<(String, String)>, PreferenceError> {
+        self.validate()?;
         let mut options = Vec::with_capacity(3);
         if !self.user_agent.is_empty() {
             options.push(("user-agent".into(), self.user_agent.clone()));
@@ -268,26 +280,35 @@ impl Default for Cache {
 }
 
 impl Cache {
-    pub fn validate(&self) -> Result<(), &'static str> {
+    pub fn validate(&self) -> Result<(), PreferenceError> {
         if !self.pause_wait_secs.is_finite()
             || !(0.0..=2_000_000_000.0).contains(&self.pause_wait_secs)
         {
-            return Err("Buffer-before-start duration is out of range");
+            return Err(PreferenceError::new(
+                "network_cache",
+                "Buffer-before-start duration is out of range",
+            ));
         }
         if !self.prefetch_secs.is_finite() || !(0.0..=2_000_000_000.0).contains(&self.prefetch_secs)
         {
-            return Err("Prefetch duration is out of range");
+            return Err(PreferenceError::new(
+                "network_cache",
+                "Prefetch duration is out of range",
+            ));
         }
         if !self.buffer_size_kib.is_finite()
             || !(0.0..=2_000_000_000.0).contains(&self.buffer_size_kib)
         {
-            return Err("Cache buffer size is out of range");
+            return Err(PreferenceError::new(
+                "network_cache",
+                "Cache buffer size is out of range",
+            ));
         }
         Ok(())
     }
 
-    pub fn commands(&self) -> Result<Vec<Vec<String>>, String> {
-        self.validate().map_err(str::to_owned)?;
+    pub fn commands(&self) -> Result<Vec<Vec<String>>, PreferenceError> {
+        self.validate()?;
         let enabled = if self.enabled { "yes" } else { "no" };
         let pause_initial = if self.pause_initial { "yes" } else { "no" };
         Ok(vec![
@@ -315,8 +336,8 @@ impl Cache {
         ])
     }
 
-    pub fn engine_options(&self) -> Result<Vec<(String, String)>, String> {
-        self.validate().map_err(str::to_owned)?;
+    pub fn engine_options(&self) -> Result<Vec<(String, String)>, PreferenceError> {
+        self.validate()?;
         Ok(vec![
             (
                 "cache".into(),

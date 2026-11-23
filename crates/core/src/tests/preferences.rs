@@ -922,3 +922,17 @@ fn amplified_volume_round_trips_and_rejects_invalid_values() {
         100.0
     );
 }
+
+#[test]
+fn strict_preference_errors_preserve_section_identity_and_current_wording() {
+    let volume = Preferences::parse(r#"{"volume":201}"#).err().unwrap();
+    assert_eq!(volume.key, "volume");
+    assert_eq!(volume.to_string(), "Volume must be between 0 and 200");
+
+    let schema = Preferences::parse(r#"{"schema_version":2}"#).err().unwrap();
+    assert_eq!(schema.key, "schema_version");
+    assert_eq!(
+        schema.to_string(),
+        "Unsupported preference schema version 2"
+    );
+}

@@ -100,8 +100,9 @@ pub(crate) fn connect_player(
                 let window = match OnlineSubtitlesWindow::new() {
                     Ok(window) => window,
                     Err(error) => {
-                        app.set_status(
-                            format!("Could not open online subtitle search: {error}").into(),
+                        crate::diagnostics::report(
+                            &app,
+                            format!("Could not open online subtitle search: {error}"),
                         );
                         return;
                     }
@@ -125,7 +126,10 @@ pub(crate) fn connect_player(
                 format!("Search {} by title or filename.", provider_name(provider)).into()
             });
             if let Err(error) = window.show() {
-                app.set_status(format!("Could not show online subtitle search: {error}").into());
+                crate::diagnostics::report(
+                    &app,
+                    format!("Could not show online subtitle search: {error}"),
+                );
             } else {
                 crate::platform::enable_online_subtitles_acrylic(&window);
                 if should_search_after_open {
@@ -213,6 +217,7 @@ fn install_search(app: &PlayerWindow, window: &OnlineSubtitlesWindow, state: &Se
                 &query,
                 &search_context.languages,
             );
+            // The result has no recipient once its window or event loop closes.
             let _ = crate::background::to_ui(weak_window, move |window| {
                 window.set_searching(false);
                 match result {
@@ -359,6 +364,7 @@ fn install_download(
                     }
                 }
             }
+            // The result has no recipient once its window or event loop closes.
             let _ = crate::background::to_ui(weak_window, move |window| {
                 let mut queued = 0_usize;
                 let mut load_error = None;
@@ -380,6 +386,7 @@ fn install_download(
                     window.set_status_text(format!("Downloaded and queued {queued} of {total}. {error}").into());
                 } else {
                     window.set_status_text(format!("Downloaded and queued {queued} subtitle{}.", if queued == 1 { "" } else { "s" }).into());
+                    // Continue releasing session resources if the window is closing.
                     let _ = window.hide();
                 }
                 if let Some(app) = weak_app.upgrade() {
@@ -398,6 +405,7 @@ fn install_auxiliary_actions(app: &PlayerWindow, window: &OnlineSubtitlesWindow)
     let weak_window = window.as_weak();
     window.on_cancel(move || {
         if let Some(window) = weak_window.upgrade() {
+            // Continue releasing session resources if the window is closing.
             let _ = window.hide();
         }
     });
@@ -406,7 +414,7 @@ fn install_auxiliary_actions(app: &PlayerWindow, window: &OnlineSubtitlesWindow)
         if let Some(app) = weak_app.upgrade()
             && let Err(error) = crate::platform::open_http_url_in_browser("https://assrt.net")
         {
-            app.set_status(format!("Could not open Assrt.net: {error}").into());
+            crate::diagnostics::report(&app, format!("Could not open Assrt.net: {error}"));
         }
     });
     let weak_app = app.as_weak();
@@ -414,7 +422,7 @@ fn install_auxiliary_actions(app: &PlayerWindow, window: &OnlineSubtitlesWindow)
         if let Some(app) = weak_app.upgrade()
             && let Err(error) = crate::platform::open_http_url_in_browser("https://www.shooter.cn")
         {
-            app.set_status(format!("Could not open Shooter.cn: {error}").into());
+            crate::diagnostics::report(&app, format!("Could not open Shooter.cn: {error}"));
         }
     });
 }

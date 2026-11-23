@@ -56,7 +56,7 @@ pub(crate) fn current_player(app: &crate::PlayerWindow) -> Result<Preferences, S
                 "Online subtitle threshold must be a whole number of minutes".to_owned()
             })?,
     };
-    preferences.validate().map_err(str::to_owned)?;
+    preferences.validate().map_err(|error| error.to_string())?;
     Ok(preferences)
 }
 
@@ -87,7 +87,7 @@ pub(crate) fn current_window(window: &crate::PreferencesWindow) -> Result<Prefer
                 "Online subtitle threshold must be a whole number of minutes".to_owned()
             })?,
     };
-    preferences.validate().map_err(str::to_owned)?;
+    preferences.validate().map_err(|error| error.to_string())?;
     Ok(preferences)
 }
 

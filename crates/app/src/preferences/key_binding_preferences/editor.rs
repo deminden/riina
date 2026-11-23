@@ -265,7 +265,7 @@ pub(crate) fn current_player(app: &PlayerWindow) -> Result<Settings, String> {
         use_system_media_controls: player_preferences.get_key_binding_use_system_media_controls(),
         display_raw_values: player_preferences.get_key_binding_display_raw_values(),
     };
-    settings.validate().map_err(str::to_owned)?;
+    settings.validate().map_err(|error| error.to_string())?;
     Ok(settings)
 }
 
@@ -325,7 +325,7 @@ pub(crate) fn current_window(window: &PreferencesWindow) -> Result<Settings, Str
             .global::<riina_ui::KeyBindingSettingsState>()
             .get_key_binding_display_raw_values(),
     };
-    settings.validate().map_err(str::to_owned)?;
+    settings.validate().map_err(|error| error.to_string())?;
     Ok(settings)
 }
 

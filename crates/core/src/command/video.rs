@@ -1,8 +1,8 @@
-use super::{Command, cmd, flag, set};
+use super::{Command, CommandError, cmd, flag, set};
 use crate::{Playback, crop, delogo};
 
 impl Command {
-    pub(super) fn video_args(&self) -> Result<Vec<String>, String> {
+    pub(super) fn video_args(&self) -> Result<Vec<String>, CommandError> {
         let args = match self {
             Self::VideoAspect(aspect) => set("video-aspect-override", aspect.native_value()),
             // Read the native chain at execution; rapid activations must not
@@ -17,17 +17,23 @@ impl Command {
             Self::VideoEqualizer { option, value } if (-100..=100).contains(value) => {
                 set(option.property(), value.to_string())
             }
-            _ => return Err("The requested value is out of range or non-finite".into()),
+            _ => {
+                return Err(CommandError::InvalidArgument {
+                    what: "The requested value is out of range or non-finite",
+                });
+            }
         };
         Ok(args)
     }
 }
 
-pub(super) fn remove_delogo(state: &Playback) -> Result<Vec<Vec<String>>, String> {
+pub(super) fn remove_delogo(state: &Playback) -> Result<Vec<Vec<String>>, CommandError> {
     let filters = state
         .video_filters
         .as_ref()
-        .ok_or("Video filters are unavailable")?;
+        .ok_or(CommandError::Unavailable {
+            what: "Video filters are unavailable",
+        })?;
     Ok(
         if filters
             .iter()
@@ -43,11 +49,10 @@ pub(super) fn remove_delogo(state: &Playback) -> Result<Vec<Vec<String>>, String
 pub(super) fn crop_rectangle(
     state: &Playback,
     rectangle: &crop::Rectangle,
-) -> Result<Vec<Vec<String>>, String> {
-    let source = state
-        .video
-        .as_ref()
-        .ok_or("Source video dimensions are unavailable")?;
+) -> Result<Vec<Vec<String>>, CommandError> {
+    let source = state.video.as_ref().ok_or(CommandError::Unavailable {
+        what: "Source video dimensions are unavailable",
+    })?;
     if rectangle.x == 0
         && rectangle.y == 0
         && rectangle.width != 0
@@ -60,31 +65,36 @@ pub(super) fn crop_rectangle(
     Ok(vec![vec![
         "vf".into(),
         "add".into(),
-        rectangle.editor_filter(source.w, source.h)?,
+        rectangle
+            .editor_filter(source.w, source.h)
+            .map_err(CommandError::Crop)?,
     ]])
 }
 
 pub(super) fn crop_preset(
     state: &Playback,
     preset: Option<crop::Preset>,
-) -> Result<Vec<Vec<String>>, String> {
+) -> Result<Vec<Vec<String>>, CommandError> {
     let commands = match preset {
         Some(preset) => {
-            let source = state
-                .video
-                .as_ref()
-                .ok_or("Source video dimensions are unavailable")?;
+            let source = state.video.as_ref().ok_or(CommandError::Unavailable {
+                what: "Source video dimensions are unavailable",
+            })?;
             vec![vec![
                 "vf".into(),
                 "add".into(),
-                preset.filter(source.w, source.h)?,
+                preset
+                    .filter(source.w, source.h)
+                    .map_err(CommandError::Crop)?,
             ]]
         }
         None => {
             let filters = state
                 .video_filters
                 .as_ref()
-                .ok_or("Video filters are unavailable")?;
+                .ok_or(CommandError::Unavailable {
+                    what: "Video filters are unavailable",
+                })?;
             if filters
                 .iter()
                 .any(|filter| filter.label.as_deref() == Some(crop::FILTER_LABEL))
@@ -102,7 +112,7 @@ pub(super) fn crop_preset(
     Ok(commands)
 }
 
-pub(super) fn hdr_primaries(state: &Playback, enabled: bool) -> Result<Option<&str>, String> {
+pub(super) fn hdr_primaries(state: &Playback, enabled: bool) -> Result<Option<&str>, CommandError> {
     let primaries = if enabled {
         let source = state
             .video
@@ -110,7 +120,9 @@ pub(super) fn hdr_primaries(state: &Playback, enabled: bool) -> Result<Option<&s
             .or(state.video_target.as_ref())
             .or(state.video_output.as_ref())
             .filter(|video| video.is_hdr())
-            .ok_or("HDR output is available only for a recognized HDR source")?;
+            .ok_or(CommandError::Unavailable {
+                what: "HDR output is available only for a recognized HDR source",
+            })?;
         source.primaries.as_deref()
     } else {
         None

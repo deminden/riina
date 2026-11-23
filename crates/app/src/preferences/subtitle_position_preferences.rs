@@ -79,7 +79,7 @@ pub(crate) fn current_player(app: &crate::PlayerWindow) -> Result<PositionPrefer
             "vertical subtitle margin",
         )?,
     };
-    preferences.validate().map_err(str::to_owned)?;
+    preferences.validate().map_err(|error| error.to_string())?;
     Ok(preferences)
 }
 
@@ -127,7 +127,7 @@ pub(crate) fn current_window(
             "vertical subtitle margin",
         )?,
     };
-    preferences.validate().map_err(str::to_owned)?;
+    preferences.validate().map_err(|error| error.to_string())?;
     Ok(preferences)
 }
 
@@ -198,7 +198,7 @@ pub(crate) fn apply(
     previous: PositionPreferences,
     selected: PositionPreferences,
 ) -> Result<(), String> {
-    selected.validate().map_err(str::to_owned)?;
+    selected.validate().map_err(|error| error.to_string())?;
     let old = previous.commands();
     let new = selected.commands();
     let mut applied = Vec::<usize>::new();
@@ -209,7 +209,7 @@ pub(crate) fn apply(
         if let Err(error) = player.send(new) {
             let rollback = previous.commands();
             for index in applied.into_iter().rev() {
-                let _ = player.send(rollback[index].clone());
+                crate::preferences::restore_playback(player, rollback[index].clone());
             }
             return Err(error.to_string());
         }

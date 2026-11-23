@@ -1,14 +1,18 @@
-use super::{Command, cmd, flag, set};
+use super::{Command, CommandError, cmd, flag, set};
 use crate::{LoopMode, Phase, Playback, hdr_preferences};
 use crate::{playlist_end_policy, valid_path};
 
 impl Command {
-    pub(super) fn playback_args(&self) -> Result<Vec<String>, String> {
+    pub(super) fn playback_args(&self) -> Result<Vec<String>, CommandError> {
         let args = match self {
             Self::Load(path) if !path.is_empty() && !path.contains('\0') => {
                 vec!["loadfile".into(), path.clone(), "replace".into()]
             }
-            Self::Load(_) => return Err("The media path is empty or contains a NUL byte".into()),
+            Self::Load(_) => {
+                return Err(CommandError::InvalidArgument {
+                    what: "The media path is empty or contains a NUL byte",
+                });
+            }
             Self::LoadAtPosition { path, position }
                 if valid_path(path) && position.is_finite() && *position >= 0.0 =>
             {
@@ -21,7 +25,9 @@ impl Command {
                 ]
             }
             Self::LoadAtPosition { .. } => {
-                return Err("The resume file or position is invalid".into());
+                return Err(CommandError::InvalidArgument {
+                    what: "The resume file or position is invalid",
+                });
             }
             Self::SetPaused(paused) => set("pause", flag(*paused)),
             Self::TogglePause => cmd(["cycle", "pause"]),
@@ -50,7 +56,11 @@ impl Command {
                 // setting survives while file repeat temporarily takes priority.
                 cmd(["cycle-values", "loop-file", "inf", "no"])
             }
-            _ => return Err("The requested value is out of range or non-finite".into()),
+            _ => {
+                return Err(CommandError::InvalidArgument {
+                    what: "The requested value is out of range or non-finite",
+                });
+            }
         };
         Ok(args)
     }
@@ -69,7 +79,7 @@ pub(super) fn stop(state: &Playback) -> Vec<Vec<String>> {
     commands
 }
 
-pub(super) fn load(state: &Playback, intent: &Command) -> Result<Vec<Vec<String>>, String> {
+pub(super) fn load(state: &Playback, intent: &Command) -> Result<Vec<Vec<String>>, CommandError> {
     let mut commands = hdr_preferences::output_commands(false, None)?;
     commands.extend([
         set("pause", flag(state.pause_when_open)),

@@ -162,7 +162,9 @@ impl Draft {
     pub(super) fn apply_tracks(&self, sender: &CommandSender) -> Result<(), String> {
         crate::subtitle_position_preferences::apply(sender, self.previous_position, self.position)?;
         crate::subtitle_other_preferences::apply(sender, &self.previous_other, &self.other)?;
-        sender.send(Command::SubtitleAutoLoad(self.auto_load.clone()))
+        sender
+            .send(Command::SubtitleAutoLoad(self.auto_load.clone()))
+            .map_err(String::from)
     }
 
     pub(super) fn project_tracks(&self, app: &PlayerWindow) {
@@ -178,15 +180,24 @@ impl Draft {
     }
 
     pub(super) fn restore_tracks(&self, app: &PlayerWindow, sender: &CommandSender) {
-        let _ = sender.send(Command::SubtitleAutoLoad(self.previous_auto_load.clone()));
-        let _ = crate::subtitle_other_preferences::apply(sender, &self.other, &self.previous_other);
+        crate::preferences::restore_playback(
+            sender,
+            Command::SubtitleAutoLoad(self.previous_auto_load.clone()),
+        );
+        if let Err(error) =
+            crate::subtitle_other_preferences::apply(sender, &self.other, &self.previous_other)
+        {
+            crate::diagnostics::warn!("Could not restore the previous subtitle settings: {error}");
+        }
         self.previous_other.write_player(app);
         self.previous_auto_load.write_player(app);
-        let _ = crate::subtitle_position_preferences::apply(
+        if let Err(error) = crate::subtitle_position_preferences::apply(
             sender,
             self.position,
             self.previous_position,
-        );
+        ) {
+            crate::diagnostics::warn!("Could not restore the previous subtitle position: {error}");
+        }
         self.previous_position.write_player(app);
     }
 }

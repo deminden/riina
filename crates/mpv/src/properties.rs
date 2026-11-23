@@ -18,26 +18,59 @@ fn decode_audio_devices(
     Ok(devices)
 }
 
+#[derive(Debug)]
+pub(super) enum ObservedPropertyError {
+    UnexpectedFormat(std::ffi::c_int),
+    Decode(ffi::NodeDecodeError),
+    Serialize(serde_json::Error),
+    PluginLimit,
+}
+
+impl std::fmt::Display for ObservedPropertyError {
+    fn fmt(&self, output: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::UnexpectedFormat(format) => {
+                write!(
+                    output,
+                    "mpv returned format {format} instead of a generic node"
+                )
+            }
+            Self::Decode(error) => error.fmt(output),
+            Self::Serialize(error) => error.fmt(output),
+            Self::PluginLimit => {
+                output.write_str("mpv property value exceeds the 1 MiB plugin event limit")
+            }
+        }
+    }
+}
+
+impl std::error::Error for ObservedPropertyError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            Self::Decode(error) => Some(error),
+            Self::Serialize(error) => Some(error),
+            _ => None,
+        }
+    }
+}
+
 pub(super) unsafe fn observed_property_value(
     property: &Property,
-) -> Result<serde_json::Value, String> {
+) -> Result<serde_json::Value, ObservedPropertyError> {
     if property.data.is_null() {
         return Ok(serde_json::Value::Null);
     }
     if property.format != format::NODE {
-        return Err(format!(
-            "mpv returned format {} instead of a generic node",
-            property.format
-        ));
+        return Err(ObservedPropertyError::UnexpectedFormat(property.format));
     }
     // SAFETY: MPV_FORMAT_NODE selects the live node arm and the callback copies
     // it before the current mpv_wait_event result is replaced.
     let node = unsafe { &*property.data.cast::<ffi::Node>() };
     // SAFETY: the worker has not waited for another event, so node-owned data is live.
-    let value = unsafe { node.copy_json()? };
-    let encoded = serde_json::to_vec(&value).map_err(|error| error.to_string())?;
+    let value = unsafe { node.copy_json() }.map_err(ObservedPropertyError::Decode)?;
+    let encoded = serde_json::to_vec(&value).map_err(ObservedPropertyError::Serialize)?;
     if encoded.len() > 1024 * 1024 {
-        return Err("mpv property value exceeds the 1 MiB plugin event limit".into());
+        return Err(ObservedPropertyError::PluginLimit);
     }
     Ok(value)
 }
@@ -731,24 +764,32 @@ pub(super) unsafe fn apply_property(state: &mut Playback, property: &Property) {
         return;
     }
     // SAFETY: the pointer and any borrowed node contents are live through this call.
-    let result = unsafe { property_value(property) }.and_then(|value| {
-        if let (Some(row), Some(value)) = (row, value) {
-            if row.format == format::DOUBLE
-                && matches!(&value, PropertyValue::Double(number) if !number.is_finite())
-            {
-                (row.clear)(state);
-            } else {
-                (row.apply)(state, value)?;
+    let result = unsafe { property_value(property) }
+        .map_err(|error| error.to_string())
+        .and_then(|value| {
+            if let (Some(row), Some(value)) = (row, value) {
+                if row.format == format::DOUBLE
+                    && matches!(&value, PropertyValue::Double(number) if !number.is_finite())
+                {
+                    (row.clear)(state);
+                } else {
+                    (row.apply)(state, value)?;
+                }
             }
-        }
-        Ok(())
-    });
+            Ok(())
+        });
     if let Err(error) = result {
-        state.error = Some(format!("Cannot decode mpv property: {error}"));
+        crate::record_notice(
+            state,
+            riina_core::NoticeSeverity::Error,
+            format!("Cannot decode mpv property: {error}"),
+        );
     }
 }
 
-unsafe fn property_value(property: &Property) -> Result<Option<PropertyValue>, String> {
+unsafe fn property_value(
+    property: &Property,
+) -> Result<Option<PropertyValue>, ffi::NodeDecodeError> {
     let value = match property.format {
         format::NODE => {
             // SAFETY: this live non-null payload is tagged as an mpv_node.
@@ -1052,7 +1093,7 @@ mod clock_property_tests {
                     (value.is_finite() && value >= 0.0).then_some(value),
                     "{property_name}: {value}"
                 );
-                assert_eq!(state.error, None);
+                assert_eq!(state.error(), None);
             }
         }
     }

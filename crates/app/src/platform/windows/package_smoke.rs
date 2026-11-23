@@ -286,6 +286,7 @@ pub(super) fn start(app: &PlayerWindow, host: &NativeVideoHost) -> Option<SmokeR
     let output = PathBuf::from(std::env::var_os("RIINA_GUI_SMOKE_REPORT")?);
     if !output.is_absolute() {
         crate::diagnostics::warn!("GUI smoke report must be absolute");
+        // Shutdown may already have ended the event loop.
         let _ = slint::quit_event_loop();
         return None;
     }

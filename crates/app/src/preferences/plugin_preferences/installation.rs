@@ -68,7 +68,13 @@ pub(super) fn local(window: &PreferencesWindow, app: &PlayerWindow, settings: &P
                     .into(),
                 );
                 if let Some(app) = parent.upgrade() {
-                    app.set_status(format!("Installed plugin {}", manifest.name).into());
+                    crate::diagnostics::report(
+                        &app,
+                        crate::diagnostics::UserMessage::info(format!(
+                            "Installed plugin {}",
+                            manifest.name
+                        )),
+                    );
                 }
             }
             Err(error) => window.set_plugin_update_status(error.into()),
@@ -107,6 +113,7 @@ pub(super) fn github(window: &PreferencesWindow, app: &PlayerWindow, settings: &
         let started = crate::background::spawn_named("plugin-github-install", move || {
             let result = crate::plugin_github::stage_repository(&source, &plugins);
             riina_core::sync::lock(&results).insert(id, result);
+            // The result has no recipient once its window or event loop closes.
             let _ = crate::background::to_ui(weak_result, move |window| {
                 window.invoke_plugin_github_install_completed(id as i32);
             });
@@ -179,7 +186,13 @@ pub(super) fn github(window: &PreferencesWindow, app: &PlayerWindow, settings: &
                     .into(),
                 );
                 if let Some(app) = github_parent.upgrade() {
-                    app.set_status(format!("Installed plugin {}", manifest.name).into());
+                    crate::diagnostics::report(
+                        &app,
+                        crate::diagnostics::UserMessage::info(format!(
+                            "Installed plugin {}",
+                            manifest.name
+                        )),
+                    );
                 }
             }
             Err(error) => window.set_plugin_update_status(error.into()),

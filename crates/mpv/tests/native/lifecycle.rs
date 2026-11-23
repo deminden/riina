@@ -26,13 +26,12 @@ fn a_panicking_observer_reports_failure_then_joins_on_final_owner_drop() {
         .unwrap();
     let failed = wait_for(&receiver, |state| state.phase == Phase::Failed);
     assert_eq!(
-        failed.error.as_deref(),
+        failed.error(),
         Some("The playback engine stopped unexpectedly; reopen the file")
     );
-    assert_eq!(
-        commands.send(Command::Stop).unwrap_err(),
-        "The playback engine has stopped"
-    );
+    let error = commands.send(Command::Stop).unwrap_err();
+    assert!(matches!(error, riina_mpv::EngineError::Stopped));
+    assert_eq!(error.to_string(), "The playback engine has stopped");
     drop(player);
     assert!(matches!(
         receiver.try_recv(),
@@ -58,9 +57,9 @@ fn closing_with_queued_frame_work_terminates_and_reopens() {
             .send(Command::Load(media.to_str().unwrap().into()))
             .unwrap();
         let loaded = wait_for(&receiver, |state| {
-            state.error.is_some() || (state.paused && state.position.is_some())
+            state.error().is_some() || (state.paused && state.position.is_some())
         });
-        assert_eq!(loaded.error, None);
+        assert_eq!(loaded.error(), None);
         // Close while frame work is queued rather than waiting for every reply.
         // This is a normal window-close path, including a close during capture.
         for _ in 0..12 {
@@ -85,11 +84,11 @@ fn independent_players_survive_peer_shutdown_and_reopen() {
             .send(Command::Load(media.to_str().unwrap().into()))
             .unwrap();
         let loaded = wait_for(&receiver, |state| {
-            state.error.is_some()
+            state.error().is_some()
                 || (state.phase == Phase::Playing
                     && state.position.is_some_and(|position| position > 0.1))
         });
-        assert_eq!(loaded.error, None);
+        assert_eq!(loaded.error(), None);
         player.send(Command::SetPaused(true)).unwrap();
         wait_for(&receiver, |state| state.paused);
         (player, receiver)
@@ -107,9 +106,9 @@ fn independent_players_survive_peer_shutdown_and_reopen() {
         })
         .unwrap();
     let sought = wait_for(&receiver, |state| {
-        state.error.is_some() || state.position.is_some_and(|position| position >= 1.9)
+        state.error().is_some() || state.position.is_some_and(|position| position >= 1.9)
     });
-    assert_eq!(sought.error, None);
+    assert_eq!(sought.error(), None);
     assert!(sought.paused);
     drop(second);
 
@@ -119,7 +118,7 @@ fn independent_players_survive_peer_shutdown_and_reopen() {
     let playing = wait_for(&receiver, |state| {
         state.phase == Phase::Playing && !state.paused
     });
-    assert_eq!(playing.error, None);
+    assert_eq!(playing.error(), None);
     drop(reopened);
 }
 
@@ -144,9 +143,9 @@ fn public_shutdown_cannot_invalidate_a_retained_player() {
         ))
         .unwrap();
     let loaded = wait_for(&receiver, |state| {
-        state.error.is_some() || (state.phase == Phase::Paused && state.position.is_some())
+        state.error().is_some() || (state.phase == Phase::Paused && state.position.is_some())
     });
-    assert_eq!(loaded.error, None);
+    assert_eq!(loaded.error(), None);
     drop(retained);
     assert!(commands.send(Command::SetPaused(false)).is_err());
 }

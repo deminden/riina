@@ -98,8 +98,13 @@ pub(super) fn apply_plugin_update(
             return Err("The plugin host is unavailable for an active plugin update.".into());
         };
         if let Err(error) = host.suspend_for_update(identifier.clone()) {
-            let _ =
-                host.activate_after_update(previous.manifest.clone(), previous.directory.clone());
+            if let Err(restart_error) =
+                host.activate_after_update(previous.manifest.clone(), previous.directory.clone())
+            {
+                crate::diagnostics::warn!(
+                    "Could not resume the previous plugin after suspension failed: {restart_error}"
+                );
+            }
             return Err(error);
         }
     }
@@ -175,7 +180,9 @@ pub(super) fn apply_plugin_update(
             recovery,
         ));
     }
-    let _ = replacement.commit();
+    if let Err(error) = replacement.commit() {
+        crate::diagnostics::warn!("Could not finish cleaning up the plugin update: {error}");
+    }
     Ok(())
 }
 

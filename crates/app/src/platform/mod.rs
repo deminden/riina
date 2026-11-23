@@ -743,6 +743,23 @@ pub(crate) fn resolve_alias_path(path: &str) -> String {
     }
 }
 
+pub(crate) fn configure_player_appearance(app: &PlayerWindow) {
+    let appearance = app.global::<riina_ui::PlayerAppearance>();
+    appearance.set_system_reduce_motion(system_reduce_motion_enabled());
+    appearance.set_platform_macos(cfg!(target_os = "macos"));
+    appearance.set_platform_windows(cfg!(target_os = "windows"));
+    #[cfg(target_os = "windows")]
+    {
+        appearance.set_system_materials_enabled(native_materials_enabled());
+        if let Some(accent) = windows_accent_color() {
+            appearance.set_windows_accent_color(accent);
+        }
+        if let Some(foreground) = windows_accent_foreground() {
+            appearance.set_windows_accent_foreground(foreground);
+        }
+    }
+}
+
 /// Read the platform motion preference outside the render callback.
 pub(crate) fn system_reduce_motion_enabled() -> bool {
     #[cfg(target_os = "windows")]
@@ -1053,7 +1070,9 @@ pub(crate) fn save_playlist_file(
         match saved {
             Ok(true) => app.set_status("Playlist saved".into()),
             Ok(false) => {}
-            Err(error) => app.set_status(format!("Could not save playlist: {error}").into()),
+            Err(error) => {
+                crate::diagnostics::report(&app, format!("Could not save playlist: {error}"))
+            }
         }
     });
     if let Err(error) = started

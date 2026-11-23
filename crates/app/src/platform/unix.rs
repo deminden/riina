@@ -28,7 +28,9 @@ impl NativePresentation {
         &self,
         _options: Vec<(String, String)>,
         _notify: impl Fn(std::sync::Arc<riina_core::Playback>) + Send + 'static,
-    ) -> Result<riina_mpv::Player, String> {
-        Err("Native-window playback is unavailable on this platform".into())
+    ) -> Result<riina_mpv::Player, riina_mpv::EngineError> {
+        Err(riina_mpv::EngineError::InvalidArgument {
+            reason: "Native-window playback is unavailable on this platform",
+        })
     }
 }

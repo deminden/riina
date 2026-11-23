@@ -1,8 +1,8 @@
-use super::{Command, set};
+use super::{Command, CommandError, set};
 use crate::valid_path;
 
 impl Command {
-    pub(super) fn tracks_args(&self) -> Result<Vec<String>, String> {
+    pub(super) fn tracks_args(&self) -> Result<Vec<String>, CommandError> {
         let args = match self {
             Self::SelectTrack { kind, id } if id.is_none_or(|id| id > 0) => set(
                 kind.property(),
@@ -31,7 +31,11 @@ impl Command {
                 ];
                 args
             }
-            _ => return Err("The requested value is out of range or non-finite".into()),
+            _ => {
+                return Err(CommandError::InvalidArgument {
+                    what: "The requested value is out of range or non-finite",
+                });
+            }
         };
         Ok(args)
     }

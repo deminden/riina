@@ -32,13 +32,19 @@ impl LoadedHistory {
                 if !path.exists()
                     && let Err(error) = playback_history_store::save(&path, &entries)
                 {
-                    app.set_status(format!("Could not migrate playback history: {error}").into());
+                    crate::diagnostics::report(
+                        app,
+                        format!("Could not migrate playback history: {error}"),
+                    );
                     write_path = None;
                 }
                 entries
             }
             Err(error) => {
-                app.set_status(format!("Could not load playback history: {error}").into());
+                crate::diagnostics::report(
+                    app,
+                    format!("Could not load playback history: {error}"),
+                );
                 write_path = None;
                 prefs.playback_history.clone()
             }

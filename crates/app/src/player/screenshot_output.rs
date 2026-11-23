@@ -185,7 +185,10 @@ mod tests {
             queue.observe(&state);
             queue.observe(&state);
         }
-        state.error = Some("next capture failed".into());
+        state.notices.push(
+            riina_core::NoticeSeverity::Error,
+            "next capture failed".into(),
+        );
         queue.observe(&state);
         state.begin_load();
         queue.observe(&state);

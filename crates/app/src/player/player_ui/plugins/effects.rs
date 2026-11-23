@@ -94,7 +94,7 @@ impl PluginEffects {
             .as_ref()
             .map(|sender| sender.send(command));
         if let Some(Err(error)) = result {
-            app.set_status(format!("{description}: {error}").into());
+            crate::diagnostics::report(app, format!("{description}: {error}"));
         }
     }
 

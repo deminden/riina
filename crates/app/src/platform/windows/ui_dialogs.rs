@@ -36,6 +36,7 @@ impl ModalWindows {
                 video_host.set_visible(false);
             }
             if let Some(app) = self.app.upgrade() {
+                // Continue releasing session resources if the window is closing.
                 let _ = app.hide();
             }
             let _ = welcome.show();
@@ -57,6 +58,7 @@ impl Drop for ModalWindows {
         let windows = std::mem::take(&mut self.windows);
         // Capture plain fields: a rejected dispatch must not recursively drop
         // another guard and try to enqueue itself on a stopped event loop.
+        // The window may close before deferred UI work can be delivered.
         let _ = slint::invoke_from_event_loop(move || {
             if let Some(app) = app.upgrade() {
                 app.global::<riina_ui::PlayerDialogState>()
@@ -128,6 +130,7 @@ pub fn open(
             crate::background::spawn_named("file-picker", move || {
                 let result =
                     file_dialog::open_files(&owner, purpose.allows_multiple(), purpose.title());
+                // The window may close before deferred UI work can be delivered.
                 let _ = slint::invoke_from_event_loop(move || {
                     modality.restore(result.as_ref().is_ok_and(Vec::is_empty));
                     if let Some(app) = weak.upgrade() {

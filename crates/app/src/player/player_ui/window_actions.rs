@@ -55,6 +55,7 @@ pub(super) fn install_lifecycle(app: &PlayerWindow, welcome: Option<&WelcomeWind
             app.invoke_window_will_close();
             app.global::<PlayerMenuActions>().invoke_stop();
         }
+        // Shutdown may already have ended the event loop.
         let _ = slint::quit_event_loop();
     });
 

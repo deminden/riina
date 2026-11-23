@@ -136,7 +136,10 @@ impl Controller {
                 ) {
                     Ok(task) => self.task = Some(task),
                     Err(error) => {
-                        app.set_status(format!("Thumbnail preview unavailable: {error}").into());
+                        crate::diagnostics::report(
+                            app,
+                            format!("Thumbnail preview unavailable: {error}"),
+                        );
                     }
                 }
             }
@@ -179,7 +182,10 @@ impl Controller {
                     if let Err(error) = result
                         && error != "Thumbnail extraction was cancelled"
                     {
-                        app.set_status(format!("Thumbnail extraction failed: {error}").into());
+                        crate::diagnostics::report(
+                            app,
+                            format!("Thumbnail extraction failed: {error}"),
+                        );
                     }
                 }
             }
@@ -228,7 +234,7 @@ impl Controller {
                 self.displayed_index = index;
                 app.global::<riina_ui::PlaybackTimelineState>()
                     .set_timeline_thumbnail_image(Image::default());
-                app.set_status(format!("Could not display a thumbnail: {error}").into());
+                crate::diagnostics::report(app, format!("Could not display a thumbnail: {error}"));
             }
         }
     }
@@ -340,7 +346,7 @@ fn run_preview_task(
     ) {
         Ok(generator) => generator,
         Err(error) => {
-            let _ = send_preview_event(events, PreviewEvent::Finished(Err(error)), cancel);
+            let _ = send_preview_event(events, PreviewEvent::Finished(Err(error.into())), cancel);
             return;
         }
     };
@@ -377,7 +383,9 @@ fn run_preview_task(
                     }
                 }
             }
-            Ok(riina_mpv::thumbnail_generator::Event::Finished(result)) => break result,
+            Ok(riina_mpv::thumbnail_generator::Event::Finished(result)) => {
+                break result.map_err(String::from);
+            }
             Err(mpsc::TryRecvError::Empty) => thread::sleep(Duration::from_millis(10)),
             Err(mpsc::TryRecvError::Disconnected) => {
                 break Err("Thumbnail extraction stopped unexpectedly".to_owned());

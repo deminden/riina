@@ -64,7 +64,7 @@ fn install_application_actions(host: &NativeVideoHost, app: &PlayerWindow) {
             return;
         };
         if let Err(error) = crate::platform::open_http_url_in_browser(url) {
-            app.set_status(format!("Could not open the Help link: {error}").into());
+            crate::diagnostics::report(&app, format!("Could not open the Help link: {error}"));
         }
     });
     forward!(host, app, on_dump_debug_info, || {

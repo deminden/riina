@@ -168,7 +168,7 @@ fn playback_pause_seek_stop_failure_and_shutdown() {
     }
     let capped = wait_for(&receiver, |state| (state.volume - 100.0).abs() < 0.1);
     assert!(capped.paused);
-    assert_eq!(capped.error, None);
+    assert_eq!(capped.error(), None);
     for _ in 0..22 {
         player
             .send(Command::AdjustVolume {
@@ -215,7 +215,7 @@ fn playback_pause_seek_stop_failure_and_shutdown() {
     player.send(Command::Speed(1.0)).unwrap();
     let normal = wait_for(&receiver, |state| (state.speed - 1.0).abs() < 0.001);
     assert!(normal.paused);
-    assert_eq!(normal.error, None);
+    assert_eq!(normal.error(), None);
     player.send(Command::Volume(25.0)).unwrap();
     wait_for(&receiver, |state| (state.volume - 25.0).abs() < 0.1);
     player.send(Command::ToggleMute).unwrap();
@@ -247,7 +247,7 @@ fn playback_pause_seek_stop_failure_and_shutdown() {
         ))
         .unwrap();
     wait_for(&receiver, |state| {
-        state.phase == Phase::Failed && state.error.is_some()
+        state.phase == Phase::Failed && state.error().is_some()
     });
     player
         .send(Command::Load(
@@ -263,6 +263,6 @@ fn playback_pause_seek_stop_failure_and_shutdown() {
             && !state.paused
             && state.position.is_some_and(|p| p > 0.2)
     });
-    assert!(reloaded.error.is_none());
+    assert!(reloaded.error().is_none());
     drop(player);
 }

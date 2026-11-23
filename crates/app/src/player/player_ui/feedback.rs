@@ -245,11 +245,13 @@ fn install_screenshot_actions(
                     })
                     .map_err(|error| error.to_string())
                     .and_then(|directory| {
-                        screenshot_player.send(Command::Screenshot {
-                            directory: directory.to_string_lossy().into_owned(),
-                            content: screenshot_settings.content(),
-                            encoding: screenshot_settings.encoding.clone(),
-                        })
+                        screenshot_player
+                            .send(Command::Screenshot {
+                                directory: directory.to_string_lossy().into_owned(),
+                                content: screenshot_settings.content(),
+                                encoding: screenshot_settings.encoding.clone(),
+                            })
+                            .map_err(String::from)
                     })
                 });
             if let Err(error) = result {

@@ -49,7 +49,7 @@ pub(crate) fn current_player(app: &crate::PlayerWindow) -> Result<AutoLoadPrefer
             .to_string(),
         search_paths: player_preferences.get_subtitle_search_paths().to_string(),
     };
-    preferences.validate().map_err(str::to_owned)?;
+    preferences.validate().map_err(|error| error.to_string())?;
     Ok(preferences)
 }
 
@@ -73,7 +73,7 @@ pub(crate) fn current_window(
             .get_subtitle_search_paths_text()
             .to_string(),
     };
-    preferences.validate().map_err(str::to_owned)?;
+    preferences.validate().map_err(|error| error.to_string())?;
     Ok(preferences)
 }
 

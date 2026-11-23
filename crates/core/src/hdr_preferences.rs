@@ -1,4 +1,5 @@
 //! Shared HDR tone-mapping preferences mapped to libmpv's documented options.
+use crate::PreferenceError;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -92,19 +93,25 @@ impl Default for Settings {
 }
 
 impl Settings {
-    pub fn validate(&self) -> Result<(), &'static str> {
+    pub fn validate(&self) -> Result<(), PreferenceError> {
         if self.target_peak_override_enabled && !(10..=10_000).contains(&self.target_peak_nits) {
-            return Err("Tone-mapping target peak must be between 10 and 10,000 nits");
+            return Err(PreferenceError::new(
+                "hdr_tone_mapping",
+                "Tone-mapping target peak must be between 10 and 10,000 nits",
+            ));
         }
         if !self.param.is_finite() {
-            return Err("Tone-mapping parameter must be a finite number");
+            return Err(PreferenceError::new(
+                "hdr_tone_mapping",
+                "Tone-mapping parameter must be a finite number",
+            ));
         }
         Ok(())
     }
 
     /// No explicit options lets libmpv keep its own defaults, matching IINA's reset path.
-    pub fn engine_options(&self) -> Result<Vec<(String, String)>, String> {
-        self.validate().map_err(str::to_owned)?;
+    pub fn engine_options(&self) -> Result<Vec<(String, String)>, PreferenceError> {
+        self.validate()?;
         if !self.enabled {
             return Ok(Vec::new());
         }
@@ -129,7 +136,7 @@ impl Settings {
         ])
     }
 
-    pub fn engine_commands(&self) -> Result<Vec<Vec<String>>, String> {
+    pub fn engine_commands(&self) -> Result<Vec<Vec<String>>, PreferenceError> {
         let options = self.engine_options()?;
         if !self.enabled {
             // IINA resets renderer options when disabled; runtime changes must do
@@ -153,7 +160,7 @@ impl Settings {
 pub fn output_commands(
     enabled: bool,
     source_primaries: Option<&str>,
-) -> Result<Vec<Vec<String>>, String> {
+) -> Result<Vec<Vec<String>>, crate::CommandError> {
     output_commands_with_icc(enabled, source_primaries, true)
 }
 
@@ -161,12 +168,16 @@ pub fn output_commands_with_icc(
     enabled: bool,
     source_primaries: Option<&str>,
     load_icc_profile: bool,
-) -> Result<Vec<Vec<String>>, String> {
+) -> Result<Vec<Vec<String>>, crate::CommandError> {
     if enabled {
         let primaries = match source_primaries {
             Some("bt.2020") => "bt.2020",
             Some("display-p3") => "display-p3",
-            _ => return Err("HDR output requires a supported HDR source".into()),
+            _ => {
+                return Err(crate::CommandError::Unavailable {
+                    what: "HDR output requires a supported HDR source",
+                });
+            }
         };
         Ok(vec![
             vec!["set".into(), "icc-profile-auto".into(), "no".into()],

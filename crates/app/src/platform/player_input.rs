@@ -86,7 +86,10 @@ impl PlayerScrollMonitor {
             let monitor = match super::macos::MacScrollEventMonitor::new(callback) {
                 Ok(monitor) => Some(monitor),
                 Err(error) => {
-                    app.set_status(format!("Native trackpad input unavailable: {error}").into());
+                    crate::diagnostics::report(
+                        app,
+                        format!("Native trackpad input unavailable: {error}"),
+                    );
                     None
                 }
             };

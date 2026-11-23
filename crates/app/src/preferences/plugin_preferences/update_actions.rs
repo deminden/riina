@@ -74,6 +74,7 @@ pub(super) fn register_refresh(
                     return;
                 }
                 *riina_core::sync::lock(&available_updates_result) = versions;
+                // The result has no recipient once its window or event loop closes.
                 let _ = crate::background::to_ui(weak_result, move |window| {
                     if generations_result.load(Ordering::Relaxed) == generation {
                         window.set_plugin_update_status(status.into());
@@ -156,6 +157,7 @@ pub(super) fn register_staged(
                     should_activate,
                 );
                 riina_core::sync::lock(&results).insert(id_for_result, result);
+                // The result has no recipient once its window or event loop closes.
                 let _ = crate::background::to_ui(weak_result, move |window| {
                     window.invoke_plugin_update_completed(id_for_result as i32);
                 });
@@ -272,6 +274,7 @@ pub(super) fn register_about(
                         })
                         .map(|staged| (staged, plugin_for_update));
                     riina_core::sync::lock(&staged).insert(id, result);
+                    // The result has no recipient once its window or event loop closes.
                     let _ = crate::background::to_ui(weak_result, move |window| {
                         window.invoke_plugin_update_staged(id as i32);
                     });

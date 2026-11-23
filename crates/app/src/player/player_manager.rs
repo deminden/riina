@@ -131,7 +131,7 @@ fn bring_all_to_front(state: &Rc<RefCell<ManagerState>>, owner: &PlayerWindow) {
 
 fn show_and_focus(window: &impl ComponentHandle, owner: &PlayerWindow) {
     if let Err(error) = window.show() {
-        owner.set_status(format!("Could not show a player window: {error}").into());
+        crate::diagnostics::report(owner, format!("Could not show a player window: {error}"));
         return;
     }
     window.window().with_winit_window(|window| {
@@ -276,11 +276,13 @@ fn schedule_quit(state: Weak<RefCell<ManagerState>>) {
                 crate::diagnostics::warn!("Could not save player state before quitting: {error}");
             }
             if let Some(welcome) = &player.welcome {
+                // Continue releasing session resources if the window is closing.
                 let _ = welcome.hide();
             }
             let _ = player.app.hide();
             drop(player);
         }
+        // Shutdown may already have ended the event loop.
         let _ = slint::quit_event_loop();
     });
 }
@@ -299,6 +301,7 @@ fn close_player(state: &Rc<RefCell<ManagerState>>, id: u64, from_welcome: bool) 
         player.app.set_status(error.to_string().into());
     }
     if let Some(welcome) = &player.welcome {
+        // Continue releasing session resources if the window is closing.
         let _ = welcome.hide();
     }
     let empty = state.borrow().players.is_empty();
@@ -312,9 +315,11 @@ fn close_player(state: &Rc<RefCell<ManagerState>>, id: u64, from_welcome: bool) 
     drop(player);
     if empty {
         if quit_when_empty {
+            // Shutdown may already have ended the event loop.
             let _ = slint::quit_event_loop();
         } else if !from_welcome && let Err(error) = show_welcome(state) {
             crate::diagnostics::warn!("Could not reopen the welcome window: {error}");
+            // Shutdown may already have ended the event loop.
             let _ = slint::quit_event_loop();
         }
     }

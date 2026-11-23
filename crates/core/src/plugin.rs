@@ -113,6 +113,31 @@ pub enum OverlayIntent {
     OnMessage(String),
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum PluginSurfaceError {
+    Opacity,
+    Path,
+    ContentSize,
+    MessageName,
+    MessageSize,
+    MessageEncoding(String),
+}
+
+impl std::fmt::Display for PluginSurfaceError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(match self {
+            Self::Opacity => "Overlay opacity must be a finite number",
+            Self::Path => "Overlay files must use a safe relative plugin path",
+            Self::ContentSize => "Overlay style or content exceeds the 1 MiB limit",
+            Self::MessageName => "Overlay message names must contain 1–256 UTF-8 bytes",
+            Self::MessageSize => "Overlay message data exceeds the 1 MiB limit",
+            Self::MessageEncoding(error) => error,
+        })
+    }
+}
+
+impl std::error::Error for PluginSurfaceError {}
+
 impl OverlayState {
     pub fn is_loaded(&self) -> bool {
         self.loaded
@@ -132,7 +157,10 @@ impl OverlayState {
 
     /// Apply one permission-checked plugin request and return work for the
     /// platform webview. File containment is rechecked by that adapter.
-    pub fn apply(&mut self, intent: OverlayIntent) -> Result<Vec<OverlayEffect>, String> {
+    pub fn apply(
+        &mut self,
+        intent: OverlayIntent,
+    ) -> Result<Vec<OverlayEffect>, PluginSurfaceError> {
         let effect = match intent {
             OverlayIntent::LoadFile(path) => {
                 validate_plugin_relative_path(&path)?;
@@ -161,7 +189,7 @@ impl OverlayState {
             }
             OverlayIntent::SetOpacity(opacity) if self.loaded => {
                 if !opacity.is_finite() {
-                    return Err("Overlay opacity must be a finite number".into());
+                    return Err(PluginSurfaceError::Opacity);
                 }
                 self.opacity = opacity.clamp(0.0, 1.0);
                 Some(OverlayEffect::SetOpacity(self.opacity))
@@ -209,7 +237,7 @@ impl OverlayState {
         &self,
         name: String,
         data: serde_json::Value,
-    ) -> Result<Option<OverlayEffect>, String> {
+    ) -> Result<Option<OverlayEffect>, PluginSurfaceError> {
         validate_message_name(&name)?;
         validate_message_data(&data)?;
         Ok(self
@@ -219,36 +247,37 @@ impl OverlayState {
     }
 }
 
-pub(crate) fn validate_plugin_relative_path(path: &Path) -> Result<(), String> {
+pub(crate) fn validate_plugin_relative_path(path: &Path) -> Result<(), PluginSurfaceError> {
     if path.as_os_str().is_empty()
         || path.is_absolute()
         || path
             .components()
             .any(|part| !matches!(part, Component::Normal(_)))
     {
-        return Err("Overlay files must use a safe relative plugin path".into());
+        return Err(PluginSurfaceError::Path);
     }
     Ok(())
 }
 
-fn validate_overlay_text(value: &str) -> Result<(), String> {
+fn validate_overlay_text(value: &str) -> Result<(), PluginSurfaceError> {
     if value.len() > MAX_OVERLAY_TEXT_BYTES {
-        return Err("Overlay style or content exceeds the 1 MiB limit".into());
+        return Err(PluginSurfaceError::ContentSize);
     }
     Ok(())
 }
 
-pub(crate) fn validate_message_name(name: &str) -> Result<(), String> {
+pub(crate) fn validate_message_name(name: &str) -> Result<(), PluginSurfaceError> {
     if name.is_empty() || name.len() > MAX_OVERLAY_MESSAGE_NAME_BYTES {
-        return Err("Overlay message names must contain 1–256 UTF-8 bytes".into());
+        return Err(PluginSurfaceError::MessageName);
     }
     Ok(())
 }
 
-pub(crate) fn validate_message_data(data: &serde_json::Value) -> Result<(), String> {
-    let bytes = serde_json::to_vec(data).map_err(|error| error.to_string())?;
+pub(crate) fn validate_message_data(data: &serde_json::Value) -> Result<(), PluginSurfaceError> {
+    let bytes = serde_json::to_vec(data)
+        .map_err(|error| PluginSurfaceError::MessageEncoding(error.to_string()))?;
     if bytes.len() > MAX_OVERLAY_TEXT_BYTES {
-        return Err("Overlay message data exceeds the 1 MiB limit".into());
+        return Err(PluginSurfaceError::MessageSize);
     }
     Ok(())
 }
@@ -315,13 +344,19 @@ struct RawAuthor {
     url: Option<String>,
 }
 
+mod manifest_error;
+pub use manifest_error::PluginManifestError;
+
 impl Manifest {
-    pub fn parse(json: &str) -> Result<Self, String> {
+    pub fn parse(json: &str) -> Result<Self, PluginManifestError> {
         Self::parse_with_locale(json, None)
     }
 
-    pub fn parse_with_locale(json: &str, locale: Option<&str>) -> Result<Self, String> {
-        let raw: RawManifest = serde_json::from_str(json).map_err(|error| error.to_string())?;
+    pub fn parse_with_locale(
+        json: &str,
+        locale: Option<&str>,
+    ) -> Result<Self, PluginManifestError> {
+        let raw: RawManifest = serde_json::from_str(json).map_err(PluginManifestError::Json)?;
         let name = nonempty(raw.name, "name")?;
         let version = nonempty(raw.version, "version")?;
         let author = Author {
@@ -330,7 +365,7 @@ impl Manifest {
             url: raw.author.url,
         };
         if !valid_identifier(&raw.identifier) {
-            return Err("Plugin identifier must use reverse-domain notation".into());
+            return Err(PluginManifestError::Identifier);
         }
         let entry = safe_relative_path(&raw.entry)?;
         let global_entry = raw
@@ -341,19 +376,19 @@ impl Manifest {
         if let Some(repo) = raw.github_repo.as_deref()
             && !valid_repository(repo)
         {
-            return Err("Plugin GitHub repository must use owner/name notation".into());
+            return Err(PluginManifestError::Repository);
         }
         let permissions = raw.permissions.unwrap_or_default();
         let allowed_domains = raw.allowed_domains.unwrap_or_default();
         let sidebar_tab_name = parse_sidebar_tab_name(raw.sidebar_tab, raw.localized, locale)?;
         if permissions.iter().any(|value| value.trim().is_empty()) {
-            return Err("Plugin permission names cannot be empty".into());
+            return Err(PluginManifestError::Permission);
         }
         if allowed_domains
             .iter()
             .any(|domain| !valid_domain_pattern(domain))
         {
-            return Err("Plugin allowed-domain patterns are invalid".into());
+            return Err(PluginManifestError::AllowedDomain);
         }
         Ok(Self {
             name,
@@ -371,25 +406,23 @@ impl Manifest {
         })
     }
 
-    pub fn load_from_directory(root: &Path) -> Result<Self, String> {
+    pub fn load_from_directory(root: &Path) -> Result<Self, PluginManifestError> {
         Self::load_from_directory_with_locale(root, None)
     }
 
     pub fn load_from_directory_with_locale(
         root: &Path,
         locale: Option<&str>,
-    ) -> Result<Self, String> {
+    ) -> Result<Self, PluginManifestError> {
         let root = root
             .canonicalize()
-            .map_err(|error| format!("Could not open plugin directory: {error}"))?;
+            .map_err(PluginManifestError::OpenDirectory)?;
         if !root.is_dir() {
-            return Err("Plugin package is not a directory".into());
+            return Err(PluginManifestError::NotDirectory);
         }
         let manifest_path = root.join("Info.json");
-        let bytes = fs::read(&manifest_path)
-            .map_err(|error| format!("Could not read plugin manifest: {error}"))?;
-        let text = std::str::from_utf8(&bytes)
-            .map_err(|_| "Plugin manifest is not valid UTF-8".to_owned())?;
+        let bytes = fs::read(&manifest_path).map_err(PluginManifestError::ReadManifest)?;
+        let text = std::str::from_utf8(&bytes).map_err(PluginManifestError::Encoding)?;
         let manifest = Self::parse_with_locale(text, locale)?;
         verify_package_file(&root, &manifest.entry)?;
         if let Some(path) = manifest.global_entry.as_deref() {
@@ -416,7 +449,7 @@ fn parse_sidebar_tab_name(
     value: Option<serde_json::Value>,
     localized: Option<serde_json::Value>,
     locale: Option<&str>,
-) -> Result<Option<String>, String> {
+) -> Result<Option<String>, PluginManifestError> {
     let base_name = value
         .as_ref()
         .and_then(|tab| tab.get("name"))
@@ -434,9 +467,7 @@ fn parse_sidebar_tab_name(
         return Ok(None);
     }
     if name.len() > 128 || name.chars().any(char::is_control) {
-        return Err(
-            "Plugin sidebar tab name must be at most 128 bytes without control characters".into(),
-        );
+        return Err(PluginManifestError::SidebarName);
     }
     Ok(Some(name.to_owned()))
 }
@@ -473,9 +504,9 @@ impl Manifest {
     }
 }
 
-fn nonempty(value: String, field: &str) -> Result<String, String> {
+fn nonempty(value: String, field: &'static str) -> Result<String, PluginManifestError> {
     if value.trim().is_empty() {
-        Err(format!("Plugin manifest field {field} cannot be empty"))
+        Err(PluginManifestError::EmptyField(field))
     } else {
         Ok(value.trim().to_owned())
     }
@@ -527,7 +558,7 @@ fn valid_domain_pattern(value: &str) -> bool {
         })
 }
 
-fn safe_relative_path(value: &str) -> Result<PathBuf, String> {
+fn safe_relative_path(value: &str) -> Result<PathBuf, PluginManifestError> {
     let path = Path::new(value);
     if value.trim().is_empty()
         || path.is_absolute()
@@ -535,21 +566,20 @@ fn safe_relative_path(value: &str) -> Result<PathBuf, String> {
             .components()
             .any(|part| !matches!(part, Component::Normal(_)))
     {
-        return Err(format!("Plugin path is not a safe relative path: {value}"));
+        return Err(PluginManifestError::InvalidPath(value.to_owned()));
     }
     Ok(path.to_owned())
 }
 
-fn verify_package_file(root: &Path, relative: &Path) -> Result<(), String> {
-    let path = root
-        .join(relative)
-        .canonicalize()
-        .map_err(|error| format!("Plugin file {} is unavailable: {error}", relative.display()))?;
+fn verify_package_file(root: &Path, relative: &Path) -> Result<(), PluginManifestError> {
+    let path = root.join(relative).canonicalize().map_err(|source| {
+        PluginManifestError::UnavailableFile {
+            path: relative.to_owned(),
+            source,
+        }
+    })?;
     if !path.starts_with(root) || !path.is_file() {
-        return Err(format!(
-            "Plugin file {} escapes its package or is not a file",
-            relative.display()
-        ));
+        return Err(PluginManifestError::OutsidePackage(relative.to_owned()));
     }
     Ok(())
 }
@@ -570,6 +600,29 @@ mod tests {
         "ghRepo":"example/sample",
         "ghVersion":1
     }"#;
+
+    #[test]
+    fn manifest_errors_preserve_field_and_package_diagnostics() {
+        let input = MANIFEST.replace("Sample plugin", "");
+        let error = Manifest::parse(&input).unwrap_err();
+        assert!(matches!(error, PluginManifestError::EmptyField("name")));
+        assert_eq!(
+            error.to_string(),
+            "Plugin manifest field name cannot be empty"
+        );
+
+        let package = riina_test_support::TempDir::new("manifest-entry").unwrap();
+        fs::write(package.path().join("Info.json"), MANIFEST).unwrap();
+        let error = Manifest::load_from_directory(package.path()).unwrap_err();
+        assert!(
+            matches!(&error, PluginManifestError::UnavailableFile { path, .. } if path == Path::new("main.js"))
+        );
+        assert!(
+            error
+                .to_string()
+                .starts_with("Plugin file main.js is unavailable: ")
+        );
+    }
 
     #[test]
     fn manifest_keeps_declared_intent_and_separates_known_permissions() {

@@ -139,7 +139,7 @@ pub(crate) fn parse_object(text: &str) -> Result<Preferences, String> {
     if !text.trim_start().starts_with('{') {
         return Err("Expected a JSON object for preferences".into());
     }
-    Preferences::parse(text)
+    Preferences::parse(text).map_err(String::from)
 }
 
 pub(crate) fn recover(text: Option<&str>) -> (Preferences, Vec<Rejection>) {

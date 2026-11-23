@@ -1,5 +1,16 @@
 //! Portable subtitle colors; mpv uses alpha-first hex rather than CSS RGBA.
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SubtitleColorError;
+
+impl std::fmt::Display for SubtitleColorError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("Color channels must be finite and between zero and one")
+    }
+}
+
+impl std::error::Error for SubtitleColorError {}
+
 #[derive(Debug, Clone, Copy, PartialEq, serde::Serialize)]
 pub struct SubtitleColor([f64; 4]);
 
@@ -18,14 +29,14 @@ impl SubtitleColor {
     pub const BLACK: Self = Self([0.0, 0.0, 0.0, 1.0]);
     pub const CLEAR: Self = Self([0.0, 0.0, 0.0, 0.0]);
 
-    pub fn from_rgba(rgba: [f64; 4]) -> Result<Self, &'static str> {
+    pub fn from_rgba(rgba: [f64; 4]) -> Result<Self, SubtitleColorError> {
         if rgba
             .iter()
             .all(|value| value.is_finite() && (0.0..=1.0).contains(value))
         {
             Ok(Self(rgba))
         } else {
-            Err("Color channels must be finite and between zero and one")
+            Err(SubtitleColorError)
         }
     }
 

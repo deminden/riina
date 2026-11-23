@@ -1,6 +1,6 @@
 //! Test-only command queue and playback notifications without a native player.
 
-use super::{CommandQueue, CommandSender};
+use super::{CommandQueue, CommandSender, EngineError};
 use riina_core::{Command, Playback};
 use std::{
     cell::OnceCell,
@@ -39,10 +39,10 @@ impl RecordingEngine {
     pub fn set_observer(
         &self,
         notify: impl Fn(Arc<Playback>) + Send + 'static,
-    ) -> Result<(), String> {
+    ) -> Result<(), EngineError> {
         self.notify
             .set(Box::new(notify))
-            .map_err(|_| "A recording engine already has a playback observer".into())
+            .map_err(|_| EngineError::ObserverAlreadyInstalled)
     }
 
     pub fn publish(&self, state: Playback) {
@@ -59,22 +59,24 @@ mod tests {
     #[test]
     fn recording_preserves_fifo_full_and_closed_results() {
         let (sender, engine) = CommandSender::recording(2);
-        assert_eq!(sender.send(Command::TogglePause), Ok(()));
-        assert_eq!(sender.send(Command::Stop), Ok(()));
+        assert!(sender.send(Command::TogglePause).is_ok());
+        assert!(sender.send(Command::Stop).is_ok());
+        let full = sender.send(Command::Volume(50.0));
+        assert!(matches!(full, Err(EngineError::QueueFull)));
         assert_eq!(
-            sender.send(Command::Volume(50.0)),
-            Err("Player command was not accepted: sending on a full channel".into()),
+            full.unwrap_err().to_string(),
+            "Player command was not accepted: sending on a full channel",
         );
-        assert_eq!(
+        assert!(matches!(
             sender.send(Command::Shutdown),
-            Err("Player shutdown is reserved for its final owner".into()),
-        );
+            Err(EngineError::ReservedShutdown),
+        ));
         assert_eq!(engine.commands.try_recv(), Ok(Command::TogglePause));
         assert_eq!(engine.commands.try_recv(), Ok(Command::Stop));
         drop(engine);
-        assert_eq!(
+        assert!(matches!(
             sender.send(Command::Stop),
-            Err("The playback engine has stopped".into()),
-        );
+            Err(EngineError::Stopped)
+        ));
     }
 }

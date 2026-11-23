@@ -1,6 +1,28 @@
 //! Owned, bounded RGBA snapshots independent of native event storage.
 use std::sync::Arc;
 
+/// A native capture that could not be stored as owned RGBA pixels.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum FrameError {
+    InvalidDimensions,
+    SizeLimit,
+    ShortStride,
+    IncompleteBuffer,
+}
+
+impl std::fmt::Display for FrameError {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.write_str(match self {
+            Self::InvalidDimensions => "The captured frame dimensions are invalid",
+            Self::SizeLimit => "The captured frame is too large",
+            Self::ShortStride => "The captured frame row is shorter than its RGBA pixels",
+            Self::IncompleteBuffer => "The captured frame buffer is incomplete",
+        })
+    }
+}
+
+impl std::error::Error for FrameError {}
+
 /// A tightly packed RGBA snapshot copied from the native engine's event-owned buffer.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CapturedFrame {
@@ -10,28 +32,28 @@ pub struct CapturedFrame {
 }
 
 impl CapturedFrame {
-    pub fn new(width: u32, height: u32, stride: usize, bytes: &[u8]) -> Result<Self, String> {
+    pub fn new(width: u32, height: u32, stride: usize, bytes: &[u8]) -> Result<Self, FrameError> {
         const MAX_DIMENSION: u32 = 16_384;
         const MAX_BYTES: usize = 512 * 1024 * 1024;
         if width == 0 || height == 0 || width > MAX_DIMENSION || height > MAX_DIMENSION {
-            return Err("The captured frame dimensions are invalid".into());
+            return Err(FrameError::InvalidDimensions);
         }
         let row_bytes = (width as usize)
             .checked_mul(4)
-            .ok_or("The captured frame is too large")?;
+            .ok_or(FrameError::SizeLimit)?;
         if stride < row_bytes {
-            return Err("The captured frame row is shorter than its RGBA pixels".into());
+            return Err(FrameError::ShortStride);
         }
         let source_len = stride
             .checked_mul(height as usize)
             .filter(|length| *length <= MAX_BYTES)
-            .ok_or("The captured frame is too large")?;
+            .ok_or(FrameError::SizeLimit)?;
         if bytes.len() < source_len {
-            return Err("The captured frame buffer is incomplete".into());
+            return Err(FrameError::IncompleteBuffer);
         }
         let packed_len = row_bytes
             .checked_mul(height as usize)
-            .ok_or("The captured frame is too large")?;
+            .ok_or(FrameError::SizeLimit)?;
         let mut rgba = Vec::with_capacity(packed_len);
         for row in bytes[..source_len]
             .chunks_exact(stride)
@@ -51,7 +73,7 @@ impl CapturedFrame {
     /// Material snapshots can be captured from 4K/8K sources, while the UI only
     /// needs a small blurred backdrop. This keeps large decoded frames out of
     /// long-lived playback state without adding an image-processing dependency.
-    pub fn downsample_to_fit(&self, max_width: u32, max_height: u32) -> Result<Self, String> {
+    pub fn downsample_to_fit(&self, max_width: u32, max_height: u32) -> Result<Self, FrameError> {
         const MAX_DIMENSION: u32 = 16_384;
         const MAX_BYTES: usize = 512 * 1024 * 1024;
         if max_width == 0
@@ -63,16 +85,16 @@ impl CapturedFrame {
             || self.width > MAX_DIMENSION
             || self.height > MAX_DIMENSION
         {
-            return Err("The captured frame dimensions are invalid".into());
+            return Err(FrameError::InvalidDimensions);
         }
         let source_width = self.width as usize;
         let source_height = self.height as usize;
         let source_len = source_width
             .checked_mul(source_height)
             .and_then(|pixels| pixels.checked_mul(4))
-            .ok_or("The captured frame is too large")?;
+            .ok_or(FrameError::SizeLimit)?;
         if source_len > MAX_BYTES || self.rgba.len() != source_len {
-            return Err("The captured frame buffer is incomplete".into());
+            return Err(FrameError::IncompleteBuffer);
         }
         let scale = (max_width as f64 / f64::from(self.width))
             .min(max_height as f64 / f64::from(self.height))
@@ -86,9 +108,9 @@ impl CapturedFrame {
         let packed_len = (width as usize)
             .checked_mul(height as usize)
             .and_then(|pixels| pixels.checked_mul(4))
-            .ok_or("The captured frame is too large")?;
+            .ok_or(FrameError::SizeLimit)?;
         if packed_len > MAX_BYTES {
-            return Err("The captured frame is too large".into());
+            return Err(FrameError::SizeLimit);
         }
         let mut rgba = vec![0; packed_len];
         for y in 0..height {

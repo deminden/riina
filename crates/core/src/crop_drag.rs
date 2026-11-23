@@ -1,4 +1,6 @@
 //! Pointer anchoring for crop selection and its four resize edges.
+
+use crate::crop::CropError;
 use crate::crop_geometry::{DisplayRect, Point};
 
 #[derive(Debug, Clone, Copy)]
@@ -21,7 +23,7 @@ impl Drag {
         edge: Option<Edge>,
         pointer: Point,
         rectangle: DisplayRect,
-    ) -> Result<Self, String> {
+    ) -> Result<Self, CropError> {
         if ![
             pointer.x,
             pointer.y,
@@ -35,7 +37,7 @@ impl Drag {
             || rectangle.width < 0.0
             || rectangle.height < 0.0
         {
-            return Err("Crop drag geometry is invalid".into());
+            return Err(CropError::InvalidDrag);
         }
         Ok(Self {
             edge,
@@ -44,9 +46,9 @@ impl Drag {
         })
     }
 
-    pub fn points(self, pointer: Point) -> Result<(Point, Point), String> {
+    pub fn points(self, pointer: Point) -> Result<(Point, Point), CropError> {
         if ![pointer.x, pointer.y].into_iter().all(f64::is_finite) {
-            return Err("Crop pointer position is invalid".into());
+            return Err(CropError::InvalidPointer);
         }
         let dx = pointer.x - self.pointer.x;
         let dy = pointer.y - self.pointer.y;

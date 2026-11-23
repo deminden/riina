@@ -1,4 +1,5 @@
 //! Portable input choices mirror IINA's Control page; host adapters own gestures.
+use crate::PreferenceError;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -277,13 +278,19 @@ impl Default for Settings {
 }
 
 impl Settings {
-    pub fn validate(&self) -> Result<(), &'static str> {
+    pub fn validate(&self) -> Result<(), PreferenceError> {
         if !(1..=4).contains(&self.relative_seek_amount) {
-            return Err("Relative seek amount must be between 1 and 4");
+            return Err(PreferenceError::new(
+                "controls",
+                "Relative seek amount must be between 1 and 4",
+            ));
         }
         if !(1..=4).contains(&self.volume_sensitivity) || !(1..=4).contains(&self.speed_sensitivity)
         {
-            return Err("Control sensitivity must be between 1 and 4");
+            return Err(PreferenceError::new(
+                "controls",
+                "Control sensitivity must be between 1 and 4",
+            ));
         }
         Ok(())
     }

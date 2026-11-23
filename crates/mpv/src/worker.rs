@@ -2,15 +2,16 @@
 mod handle;
 
 use self::handle::{EventRef, Handle};
-use super::{Message, WakeupContext, diag, trace_shutdown};
+use super::{Message, WakeupContext, diag, record_notice, trace_shutdown};
 use crate::{
+    EngineError,
     auto_seek::AutoSeek,
     ffi::{Api, end_reason, event_id, format},
     pending::{PendingCommand, ReplyKind},
     properties::OBSERVED,
     seek_feedback::{self, SeekFeedback},
 };
-use riina_core::{CapturedFrame, Command, CommandPlan, Phase, Playback};
+use riina_core::{CapturedFrame, Command, CommandPlan, NoticeSeverity, Phase, Playback};
 use std::{
     collections::{BTreeMap, HashMap},
     ffi::{CString, c_int},
@@ -31,7 +32,7 @@ pub(super) struct Start<N> {
     pub(super) receiver: Receiver<Message>,
     pub(super) callback_sender: SyncSender<Message>,
     pub(super) stopped: Arc<AtomicBool>,
-    pub(super) ready: SyncSender<Result<usize, String>>,
+    pub(super) ready: SyncSender<Result<usize, EngineError>>,
 }
 
 impl<N: Fn(Arc<Playback>)> Start<N> {
@@ -79,12 +80,15 @@ impl<N: Fn(Arc<Playback>)> Start<N> {
             playback: Playback {
                 volume: 100.0,
                 speed: 1.0,
-                error,
                 ..Default::default()
             },
             next_observer: 1,
             ..Default::default()
         };
+
+        if let Some(message) = error {
+            record_notice(&mut state.playback, NoticeSeverity::Warning, message);
+        }
 
         while let Ok(message) = receiver.recv() {
             if accept_shutdown(&message) {
@@ -107,8 +111,11 @@ impl<N: Fn(Arc<Playback>)> Start<N> {
                 stopped.store(true, Ordering::Release);
                 diag("The native player event worker stopped unexpectedly");
                 state.playback.phase = Phase::Failed;
-                state.playback.error =
-                    Some("The playback engine stopped unexpectedly; reopen the file".into());
+                record_notice(
+                    &mut state.playback,
+                    NoticeSeverity::Error,
+                    "The playback engine stopped unexpectedly; reopen the file".into(),
+                );
                 // The shared OpenGL surface can still use the core until its owner releases it.
                 handle.stop_after_panic();
                 let _ = catch_unwind(AssertUnwindSafe(|| {
@@ -143,7 +150,7 @@ fn configure(
     handle: &Handle,
     headless: bool,
     options: Vec<(String, String)>,
-) -> Result<Vec<String>, String> {
+) -> Result<Vec<String>, EngineError> {
     for (key, value) in [
         ("config", "no"),
         ("load-scripts", "no"),
@@ -188,8 +195,8 @@ fn configure(
     }
     let mut ignored = Vec::new();
     for (key, value) in options {
-        let key = CString::new(key).map_err(|error| error.to_string())?;
-        let value = CString::new(value).map_err(|error| error.to_string())?;
+        let key = CString::new(key).map_err(EngineError::StartupOption)?;
+        let value = CString::new(value).map_err(EngineError::StartupOption)?;
         if let Err(error) = handle.set_option(&key, &value) {
             // IINA reports invalid optional preferences while keeping media playable.
             ignored.push(format!("{}: {error}", key.to_string_lossy()));
@@ -246,9 +253,9 @@ impl WorkerState {
             return;
         }
         if let Err(error) = self.add_observer(handle, command, property) {
-            self.playback.error = Some(error);
+            record_notice(&mut self.playback, NoticeSeverity::Error, error);
         }
-        if self.playback.error.is_some() {
+        if self.playback.error().is_some() {
             self.mark_changed();
             self.publish(notify);
         }
@@ -266,7 +273,9 @@ impl WorkerState {
                 riina_core::MAX_PLUGIN_OBSERVED_MPV_PROPERTIES
             ));
         }
-        command.plan(&self.playback)?;
+        command
+            .plan(&self.playback)
+            .map_err(|error| error.to_string())?;
         let name = CString::new(property).map_err(|error| error.to_string())?;
         handle
             .observe(self.next_observer, &name, format::NODE)
@@ -287,7 +296,7 @@ impl WorkerState {
                 if matches!(command, Command::CaptureFrame) {
                     self.finish_frame_request();
                 }
-                self.playback.error = Some(error);
+                record_notice(&mut self.playback, NoticeSeverity::Error, error.to_string());
                 self.mark_changed();
                 return;
             }
@@ -316,7 +325,7 @@ impl WorkerState {
             if matches!(command, Command::CaptureMaterialFrame) {
                 diagnostic!("Could not request a Windows video material frame: {error}");
             } else {
-                self.playback.error = Some(error);
+                record_notice(&mut self.playback, NoticeSeverity::Error, error);
                 self.resume_on_load = false;
                 self.mark_changed();
             }
@@ -445,7 +454,9 @@ impl WorkerState {
                 event.apply_property(&mut self.playback, observer);
             }
             event_id::QUEUE_OVERFLOW => {
-                self.playback.error = Some(
+                record_notice(
+                    &mut self.playback,
+                    NoticeSeverity::Error,
                     "The libmpv event queue overflowed; playback state may be incomplete".into(),
                 );
             }
@@ -469,8 +480,10 @@ impl WorkerState {
             self.playback.ab_loop_a = None;
             self.playback.ab_loop_b = None;
         }
-        if end.error < 0 {
-            self.playback.error = event.end_error(end);
+        if end.error < 0
+            && let Some(message) = event.end_error(end)
+        {
+            record_notice(&mut self.playback, NoticeSeverity::Error, message);
         }
         if end.reason == end_reason::ERROR {
             self.resume_on_load = false;
@@ -482,7 +495,7 @@ impl WorkerState {
         for path in std::mem::take(&mut self.pending_drop_subtitles) {
             let args = ["sub-add".into(), path, "auto".into()];
             if let Err(error) = self.issue(handle, &args, ReplyKind::Plain) {
-                self.playback.error = Some(error);
+                record_notice(&mut self.playback, NoticeSeverity::Error, error);
                 break;
             }
         }
@@ -490,7 +503,7 @@ impl WorkerState {
             self.resume_on_load = false;
             let args = ["set".into(), "pause".into(), "no".into()];
             if let Err(error) = self.issue(handle, &args, ReplyKind::Plain) {
-                self.playback.error = Some(error);
+                record_notice(&mut self.playback, NoticeSeverity::Error, error);
             }
         }
     }
@@ -523,8 +536,11 @@ impl WorkerState {
                     let completed = &mut self.playback.completed_screenshots;
                     *completed = completed.wrapping_add(1);
                 } else {
-                    self.playback.error =
-                        Some("Screenshot completed without a saved filename".into());
+                    record_notice(
+                        &mut self.playback,
+                        NoticeSeverity::Error,
+                        "Screenshot completed without a saved filename".into(),
+                    );
                 }
             }
             kind => self.on_capture_reply(event, kind, pending.generation),
@@ -543,9 +559,10 @@ impl WorkerState {
             | ReplyKind::TransitionCapture
             | ReplyKind::IncomingTransitionCapture => {}
             ReplyKind::Plain | ReplyKind::Screenshot { .. } => {
-                self.playback.error = event
-                    .error()
-                    .map(|error| format!("mpv {}: {error}", pending.label));
+                if let Some(error) = event.error() {
+                    let message = format!("mpv {}: {error}", pending.label);
+                    record_notice(&mut self.playback, NoticeSeverity::Error, message);
+                }
                 self.resume_on_load = false;
             }
         }

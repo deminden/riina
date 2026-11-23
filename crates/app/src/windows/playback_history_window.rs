@@ -70,7 +70,10 @@ pub(crate) fn install(
                 let window = match PlaybackHistoryWindow::new() {
                     Ok(window) => window,
                     Err(error) => {
-                        app.set_status(format!("Could not open Playback History: {error}").into());
+                        crate::diagnostics::report(
+                            &app,
+                            format!("Could not open Playback History: {error}"),
+                        );
                         return;
                     }
                 };
@@ -94,7 +97,10 @@ pub(crate) fn install(
             refresh(&window, &show_history, &show_collapsed_groups);
             show_last_revision.set(Some(revision(&show_history)));
             if let Err(error) = window.show() {
-                app.set_status(format!("Could not show Playback History: {error}").into());
+                crate::diagnostics::report(
+                    &app,
+                    format!("Could not show Playback History: {error}"),
+                );
             } else {
                 crate::platform::enable_history_acrylic(&window);
                 let history = show_history.clone();
@@ -395,7 +401,10 @@ fn connect_clear_history(
                 );
             }
             Err(error) => {
-                app.set_status(format!("Could not clear playback history: {error}").into());
+                crate::diagnostics::report(
+                    &app,
+                    format!("Could not clear playback history: {error}"),
+                );
             }
         }
     });
@@ -488,7 +497,10 @@ fn connect_context_actions(
                     .collect::<Vec<_>>();
                 for path in files {
                     if let Err(error) = crate::platform::reveal_file(&path) {
-                        app.set_status(format!("Could not reveal a history file: {error}").into());
+                        crate::diagnostics::report(
+                            &app,
+                            format!("Could not reveal a history file: {error}"),
+                        );
                         return;
                     }
                 }
@@ -542,14 +554,16 @@ fn remove_history_entries(
             clear_history_selection(window, selection_anchor);
             refresh(window, &connection.history, &connection.collapsed_groups);
             if let Some(error) = sync_error {
-                app.set_status(
-                    format!("History was removed, but plugins could not be updated: {error}")
-                        .into(),
+                crate::diagnostics::report(
+                    app,
+                    format!("History was removed, but plugins could not be updated: {error}"),
                 );
             }
         }
         Ok((_, _)) => app.set_status("The history items were already removed".into()),
-        Err(error) => app.set_status(format!("Could not remove history items: {error}").into()),
+        Err(error) => {
+            crate::diagnostics::report(app, format!("Could not remove history items: {error}"))
+        }
     }
 }
 
@@ -617,24 +631,41 @@ fn move_history_files_to_trash(
                 }
                 Ok(removed)
             });
+        // The result has no recipient once its window or event loop closes.
         let _ = crate::background::to_ui(weak_app, move |app| {
             let Some(window) = weak_window.upgrade() else {
                 return;
             };
             match history_result {
-                    Ok(removed) => {
-                        if removed > 0 {
-                            clear_history_selection(&window, &trash_anchor);
-                            refresh(&window, &trash_history, &trash_groups);
-                        }
-                        if failures.is_empty() {
-                            app.set_status(format!("Moved {removed} files to the {trash_name}").into());
-                        } else {
-                            app.set_status(format!("Moved {removed} files to the {trash_name}; {} could not be moved", failures.len()).into());
-                        }
+                Ok(removed) => {
+                    if removed > 0 {
+                        clear_history_selection(&window, &trash_anchor);
+                        refresh(&window, &trash_history, &trash_groups);
                     }
-                    Err(error) => app.set_status(format!("Files were moved to the {trash_name}, but history could not be updated: {error}").into()),
+                    if failures.is_empty() {
+                        crate::diagnostics::report(
+                            &app,
+                            crate::diagnostics::UserMessage::info(format!(
+                                "Moved {removed} files to the {trash_name}"
+                            )),
+                        );
+                    } else {
+                        crate::diagnostics::report(
+                            &app,
+                            format!(
+                                "Moved {removed} files to the {trash_name}; {} could not be moved",
+                                failures.len()
+                            ),
+                        );
+                    }
                 }
+                Err(error) => crate::diagnostics::report(
+                    &app,
+                    format!(
+                        "Files were moved to the {trash_name}, but history could not be updated: {error}"
+                    ),
+                ),
+            }
         });
     });
 }

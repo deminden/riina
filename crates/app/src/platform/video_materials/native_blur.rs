@@ -139,10 +139,12 @@ pub(crate) struct SampledFramePixels {
 pub(crate) fn sampled_frame_pixels(
     frame: &riina_core::CapturedFrame,
 ) -> Result<SampledFramePixels, String> {
-    let sample = frame.downsample_to_fit(
-        WINDOWS_NATIVE_MATERIAL_SAMPLE_WIDTH as u32,
-        WINDOWS_NATIVE_MATERIAL_SAMPLE_HEIGHT as u32,
-    )?;
+    let sample = frame
+        .downsample_to_fit(
+            WINDOWS_NATIVE_MATERIAL_SAMPLE_WIDTH as u32,
+            WINDOWS_NATIVE_MATERIAL_SAMPLE_HEIGHT as u32,
+        )
+        .map_err(|error| error.to_string())?;
     let width = sample.width;
     let height = sample.height;
     let sample = image::RgbaImage::from_raw(width, height, sample.rgba.to_vec())

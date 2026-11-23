@@ -113,7 +113,7 @@ fn install_for_kind(
             riina_core::Command::ToggleVideoFilter(filter.to_string())
         };
         if let Err(error) = saved_menu_player.send(command) {
-            app.set_status(error.into());
+            crate::diagnostics::report(&app, error);
         }
     };
     if is_audio {
@@ -136,7 +136,10 @@ fn install_for_kind(
                 Ok(window) => window,
                 Err(error) => {
                     let label = if is_audio { "Audio" } else { "Video" };
-                    app.set_status(format!("Could not open {label} Filters: {error}").into());
+                    crate::diagnostics::report(
+                        &app,
+                        format!("Could not open {label} Filters: {error}"),
+                    );
                     return;
                 }
             };
@@ -176,7 +179,7 @@ fn install_for_kind(
         };
         refresh(&app, &window, &show_latest, &show_settings, is_audio);
         if let Err(error) = window.show() {
-            app.set_status(format!("Could not show filter window: {error}").into());
+            crate::diagnostics::report(&app, format!("Could not show filter window: {error}"));
         } else {
             crate::platform::enable_video_filters_acrylic(&window);
             let app = app.as_weak();
@@ -261,7 +264,7 @@ fn bind_current_filters(
                     window.set_filter_string("".into());
                 }
             }
-            Err(error) => app.set_status(error.into()),
+            Err(error) => crate::diagnostics::report(&app, error),
         }
     });
 
@@ -292,7 +295,7 @@ fn bind_current_filters(
             riina_core::Command::RemoveVideoFilter(filter)
         };
         if let Err(error) = remove_player.send(command) {
-            app.set_status(error.into());
+            crate::diagnostics::report(&app, error);
         }
     });
 
@@ -325,7 +328,7 @@ fn bind_current_filters(
                     window.set_editing_current_filter("".into());
                 }
             }
-            Err(error) => app.set_status(error.into()),
+            Err(error) => crate::diagnostics::report(&app, error),
         }
     });
 }
@@ -348,12 +351,16 @@ fn bind_saved_filters(
         };
         let result = save_settings
             .lock()
-            .map_err(|_| "Saved filter settings are unavailable")
-            .and_then(|mut settings| settings.save(name.as_str(), filter.as_str()));
+            .map_err(|_| "Saved filter settings are unavailable".to_owned())
+            .and_then(|mut settings| {
+                settings
+                    .save(name.as_str(), filter.as_str())
+                    .map_err(|error| error.to_string())
+            });
         if let Err(error) = result {
-            app.set_status(error.into());
+            crate::diagnostics::report(&app, error);
         } else if let Err(error) = persist(&save_settings, &save_path, is_audio) {
-            app.set_status(error.into());
+            crate::diagnostics::report(&app, error);
         }
     });
 
@@ -370,7 +377,7 @@ fn bind_saved_filters(
             riina_core::Command::ToggleVideoFilter(filter.to_string())
         };
         if let Err(error) = toggle_player.send(command) {
-            app.set_status(error.into());
+            crate::diagnostics::report(&app, error);
         }
     });
 
@@ -383,17 +390,18 @@ fn bind_saved_filters(
         };
         let index = usize::try_from(index).ok();
         let result = index
-            .ok_or("The selected saved filter no longer exists")
+            .ok_or("The selected saved filter no longer exists".to_owned())
             .and_then(|index| {
                 remove_settings
                     .lock()
-                    .map_err(|_| "Saved filter settings are unavailable")?
+                    .map_err(|_| "Saved filter settings are unavailable".to_owned())?
                     .remove(index)
+                    .map_err(|error| error.to_string())
             });
         if let Err(error) = result {
-            app.set_status(error.into());
+            crate::diagnostics::report(&app, error);
         } else if let Err(error) = persist(&remove_settings, &remove_path, is_audio) {
-            app.set_status(error.into());
+            crate::diagnostics::report(&app, error);
         }
     });
 
@@ -408,13 +416,13 @@ fn bind_saved_filters(
             };
             let index = usize::try_from(index).ok();
             let result = index
-                .ok_or("The selected saved filter no longer exists")
+                .ok_or("The selected saved filter no longer exists".to_owned())
                 .and_then(|index| {
                     let modifiers = u8::try_from(shortcut_modifiers)
-                        .map_err(|_| "The saved-filter shortcut is invalid")?;
+                        .map_err(|_| "The saved-filter shortcut is invalid".to_owned())?;
                     update_settings
                         .lock()
-                        .map_err(|_| "Saved filter settings are unavailable")?
+                        .map_err(|_| "Saved filter settings are unavailable".to_owned())?
                         .update_with_shortcut(
                             index,
                             name.as_str(),
@@ -422,11 +430,12 @@ fn bind_saved_filters(
                             shortcut_key.as_str(),
                             modifiers,
                         )
+                        .map_err(|error| error.to_string())
                 });
             if let Err(error) = result {
-                app.set_status(error.into());
+                crate::diagnostics::report(&app, error);
             } else if let Err(error) = persist(&update_settings, &update_path, is_audio) {
-                app.set_status(error.into());
+                crate::diagnostics::report(&app, error);
             } else {
                 refresh_player_menu_rows(&app, &update_latest, &update_settings, is_audio);
             }

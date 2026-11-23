@@ -73,8 +73,16 @@ fn live_text_frame_capture_requires_a_paused_source_and_packs_rgba_rows() {
         &*frame.rgba,
         &[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]
     );
-    assert!(CapturedFrame::new(2, 2, 4, &[0; 16]).is_err());
-    assert!(CapturedFrame::new(2, 2, 8, &[0; 15]).is_err());
+    let short_row = CapturedFrame::new(2, 2, 4, &[0; 16]).unwrap_err();
+    assert_eq!(short_row, FrameError::ShortStride);
+    assert_eq!(
+        short_row.to_string(),
+        "The captured frame row is shorter than its RGBA pixels"
+    );
+    assert_eq!(
+        CapturedFrame::new(2, 2, 8, &[0; 15]).unwrap_err(),
+        FrameError::IncompleteBuffer
+    );
 }
 
 #[test]

@@ -63,7 +63,10 @@ pub(super) fn update_ui(
         && let Some(audio_device_player) = resources.audio_device_player
         && let Err(error) = audio_device_player.send(Command::AudioDevice("auto".into()))
     {
-        app.set_status(format!("Could not restore automatic audio output: {error}").into());
+        crate::diagnostics::report(
+            app,
+            format!("Could not restore automatic audio output: {error}"),
+        );
     }
     // Preserve row identity across clock ticks so focus and accessibility indexes
     // are not destroyed by unrelated time-pos notifications.
@@ -110,7 +113,7 @@ pub(super) fn update_ui(
     timeline.set_duration_label(time_label(state.duration).into());
     // Playback state belongs to controls and transient OSD, not permanent text
     // over the video. Keep failures visible while ordinary clock ticks stay quiet.
-    app.set_status(state.error.as_deref().unwrap_or_default().into());
+    app.set_status(state.error().unwrap_or_default().into());
     resize_for_media
 }
 
@@ -271,7 +274,7 @@ fn update_feedback(
     if displayed.is_none_or(|old| old.generation != state.generation)
         || matches!(state.phase, Phase::Loading | Phase::Failed)
         || (state.phase == Phase::Stopped && !keep_stopped_feedback)
-        || (state.error.is_some() && !keep_stopped_feedback)
+        || (state.error().is_some() && !keep_stopped_feedback)
     {
         osd.set_video_osd_visible(false);
         app.set_video_osd_request_feedback(false);
