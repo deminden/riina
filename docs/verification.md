@@ -583,9 +583,8 @@ showed moving video. Four of eight starts with inherited chroma scaling,
 five of eight with explicit Lanczos scaling and three of eight with
 `GALLIVM_PERF=nopt` stayed black or nearly black. In this libmpv build the
 inherited scaler is Lanczos. Bilinear uses regular texture sampling and
-skips the explicit chroma upscaling draws. The result identifies a
-diagnostic bypass on this setup. The failing operation within the
-upscaling draw remains unresolved.
+skips the explicit chroma upscaling draws, providing a diagnostic bypass
+on this setup.
 [libmpv scaler defaults](https://github.com/mpv-player/mpv/blob/v0.41.0/video/out/gpu/video.c#L337-L357),
 [Mesa shader optimization flags](https://gitlab.freedesktop.org/mesa/mesa/-/blob/mesa-26.0.8/src/gallium/auxiliary/gallivm/lp_bld_init_common.c).
 
@@ -597,6 +596,39 @@ captures, through 1.5 seconds. All five bilinear starts showed the fixture
 in both captures, with movement between them. The first bilinear captures
 were at 0.667–0.708 seconds. The comparison used full 1280 × 800 desktop
 captures and temporary profiles. All ten sessions exited through Quit.
+
+The upstream defect was uninitialized padding in libmpv's scaler lookup
+texture. The six Lanczos weights occupy eight float slots per row.
+A standalone comparison intercepted only that texture's initial upload.
+The six weight values in every row had the same byte signature across all
+18 runs. Six of six starts with zeroed padding showed moving video. Six
+of six starts with NaN padding stayed black, as did one of six starts with
+ordinary allocation. The upstream fix initializes the padding from the
+corresponding channels in the first texel and is included in `v0.42.0`.
+[Upstream fix](https://github.com/mpv-player/mpv/commit/72d43dc9c999a21d867cdc0f934f3e4cd2195aa9),
+[v0.42.0 release source](https://github.com/mpv-player/mpv/blob/v0.42.0/video/out/gpu/video.c#L1750-L1766).
+
+With the upstream fix backported to libmpv `v0.41.0`, all six standalone
+starts on Ubuntu 26.04 x64 in WSL showed moving video at the four samples
+from 0.15 through 1.5 seconds. Two of six starts with the distribution
+library stayed black. The backport initialized the padding in every run
+and produced the same six filter weights as the distribution build.
+
+The locked Riina build at `4f7ee4e` loaded the staged libraries through
+its default startup route with the inherited scaler. With the backport,
+all six app sessions showed black at the first capture at 0.417 seconds
+and displayed the fixture at 1.5 seconds. With the distribution library,
+one of six sessions stayed black at both captures. Its first captures were
+at 0.583–0.708 seconds. Every app session exited through Quit. The backport
+library SHA-256 was
+`cdce854e1811942602587310026306d92d30c0f593f2be676f07659ae43061d8`.
+
+With playback positions matched at 0.75 and 1.5 seconds, all four backport
+sessions showed the moving fixture in both full 1280 × 800 captures. One of
+four distribution-library sessions stayed black at both positions. All eight
+sessions exited through Quit, and the private displays stopped. This verifies
+the fix for sustained black output on the tested Linux setup and records the
+earlier startup blanking separately.
 
 ## Windows private-desktop smoke 2026-11-21
 
@@ -735,6 +767,12 @@ both explicit renderer switches and file order. The locked workspace build
 used the default native launch route for all ten private-desktop smoke checks
 in 9.230 seconds. The test process exited normally.
 
+The fast check compared the working tree with the commit before three local
+commits and selected the app and test runner. Strict Clippy and 559 app
+and widget tests passed. At `4555ff8`, the full workspace gate passed
+861 Rust tests and 78 Python tests, including the headless pixel comparisons.
+All 55 pinned native engine tests passed with null audio output.
+
 On `954d4d6`, separate private-desktop runs reopened and played media after
 recovering a profile with an invalid setting type, a non-object JSON document,
 or invalid UTF-8. Each run showed the recovery notice, preserved the original
@@ -814,8 +852,8 @@ workspace tests, and a locked x86-64 Linux application build on November 23
 under Ubuntu 26.04 in WSL. An isolated Xvfb run opened the moving-square
 fixture with playback active. The desktop capture at 0.375 seconds showed a
 black video region, and the capture at 2 seconds showed the decoded fixture.
-Riina exited through Quit, and the virtual display shut down. The intermittent
-Linux startup rendering issue remains open.
+Riina exited through Quit, and the virtual display shut down. Later comparisons
+identified the [upstream scaler defect](#linux-virtual-display-2026-11-21).
 
 On November 21, an exact `da50ecd` checkout in WSL completed strict Clippy,
 803 workspace tests, and a locked x86-64 Linux application build. The executable
