@@ -1,5 +1,7 @@
 //! Small asynchronous tag cache for audio labels in the playlist.
 
+pub(crate) mod durations;
+
 use lofty::{file::TaggedFileExt, probe::Probe, tag::ItemKey};
 use riina_core::sync::lock;
 use std::{
@@ -61,10 +63,7 @@ fn cache() -> &'static Cache {
                     continue;
                 }
                 // A completed request can also make room to retry a full queue.
-                let listeners: Vec<_> = lock(&LISTENERS).values().cloned().collect();
-                for listener in listeners {
-                    listener();
-                }
+                notify_listeners();
             }
         });
         if let Err(error) = worker {
@@ -72,6 +71,13 @@ fn cache() -> &'static Cache {
         }
         cache
     })
+}
+
+fn notify_listeners() {
+    let listeners: Vec<_> = lock(&LISTENERS).values().cloned().collect();
+    for listener in listeners {
+        listener();
+    }
 }
 
 pub(crate) fn lookup(reference: &str) -> Option<Metadata> {

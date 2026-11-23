@@ -16,6 +16,7 @@ export component CatalogSidebarRow inherits Rectangle {
     callback select-row(string);
 
     property <int> current-playlist-focus-index: PlaylistInteraction.playlist-focus-index;
+    private property <length> duration-width: pane-kind == 4 && entry.duration-label != "" ? 60px : 0px;
     height: pane-kind < 3 || pane-kind == 6 ? 26px : pane-kind == 3 ? 40px
         : (PlayerCatalogState.playlist-metadata-visible ? 38px : 30px);
     background: (pane-kind == 2 || pane-kind == 6) ? transparent
@@ -36,7 +37,7 @@ export component CatalogSidebarRow inherits Rectangle {
     if row-focus.has-focus : Rectangle { border-width: 1px; border-color: root.interactive-accent-color; border-radius: 3px; background: transparent; }
     if (pane-kind == 4 ? entry.playing : entry.selected) : Rectangle { x: 0; width: 4px; y: 5px; height: parent.height - 10px; background: root.interactive-accent-color; border-radius: 2px; }
     if pane-kind == 4 && entry.detail != "" : VerticalLayout {
-        x: 12px; y: 3px; width: parent.width - 18px; height: parent.height - 6px;
+        x: 12px; y: 3px; width: parent.width - 18px - duration-width; height: parent.height - 6px;
         spacing: 0px;
         Text { text: entry.label; color: Theme.sidebar-heading-text(root.dark-theme); font-size: 12px;
             vertical-alignment: center; overflow: elide; }
@@ -44,7 +45,7 @@ export component CatalogSidebarRow inherits Rectangle {
             vertical-alignment: center; overflow: elide; }
     }
     if pane-kind != 4 || entry.detail == "" : Text { x: 12px;
-        width: parent.width - 18px - (entry.language != "" ? 42px : 0px);
+        width: parent.width - 18px - (entry.language != "" ? 42px : 0px) - duration-width;
         text: entry.label;
         color: entry.token == "no"
             ? Theme.sidebar-no-track-text(root.dark-theme)
@@ -56,6 +57,12 @@ export component CatalogSidebarRow inherits Rectangle {
         background: Theme.sidebar-language-badge(root.dark-theme);
         Text { text: entry.language; color: Theme.sidebar-heading-text(root.dark-theme);
             font-size: 11px; horizontal-alignment: center; vertical-alignment: center; } }
+    if duration-width > 0px : Text {
+        x: parent.width - duration-width - 6px; width: duration-width; height: parent.height;
+        text: entry.duration-label; font-size: 11px;
+        color: Theme.sidebar-playlist-metadata(root.dark-theme);
+        horizontal-alignment: right; vertical-alignment: center;
+    }
     row-input := PlaylistRowInput {
         reorderable: root.pane-kind == 4;
         index: root.index;

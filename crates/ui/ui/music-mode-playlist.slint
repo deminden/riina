@@ -13,10 +13,11 @@ export component MusicModePlaylist inherits Rectangle {
     in property <color> windows-accent-color;
     callback select-row(string);
     callback play-row(string);
+    private property <length> summary-height: PlayerCatalogState.playlist-duration-summary == "" ? 0px : 20px;
 
     background: Theme.music-mode-playlist-surface(root.dark-theme);
     PlaylistDropScrollView {
-        width: parent.width; height: parent.height;
+        width: parent.width; height: parent.height - summary-height;
         playlist-drop-enabled: true;
         content-width: self.visible-width;
         content-height: max(self.visible-height, music-rows.preferred-height);
@@ -25,6 +26,7 @@ export component MusicModePlaylist inherits Rectangle {
         music-rows := VerticalLayout {
             spacing: 1px;
             for row[index] in PlayerCatalogState.playlist : Rectangle {
+                private property <length> duration-width: row.duration-label == "" ? 0px : 60px;
                 height: PlayerCatalogState.playlist-metadata-visible ? 38px : 30px; horizontal-stretch: 1;
                 accessible-role: button;
                 accessible-label: row.label;
@@ -45,7 +47,7 @@ export component MusicModePlaylist inherits Rectangle {
                 }
                 if row.detail != "" : VerticalLayout {
                     x: row.playing ? 28px : 10px; y: 3px;
-                    width: parent.width - (row.playing ? 38px : 20px); height: parent.height - 6px;
+                    width: parent.width - (row.playing ? 38px : 20px) - duration-width; height: parent.height - 6px;
                     spacing: 0px;
                     Text { text: row.label; color: Theme.music-mode-playlist-title(root.dark-theme);
                         font-size: 12px; vertical-alignment: center; overflow: elide; }
@@ -53,9 +55,15 @@ export component MusicModePlaylist inherits Rectangle {
                         font-size: 10px; vertical-alignment: center; overflow: elide; }
                 }
                 if row.detail == "" : Text { x: row.playing ? 28px : 10px;
-                    width: parent.width - (row.playing ? 38px : 20px); text: row.label;
+                    width: parent.width - (row.playing ? 38px : 20px) - duration-width; text: row.label;
                     color: Theme.music-mode-playlist-title(root.dark-theme); font-size: 12px;
                     vertical-alignment: center; overflow: elide; }
+                if duration-width > 0px : Text {
+                    x: parent.width - duration-width - 10px; width: duration-width; height: parent.height;
+                    text: row.duration-label; font-size: 11px;
+                    color: Theme.music-mode-playlist-detail(root.dark-theme);
+                    horizontal-alignment: right; vertical-alignment: center;
+                }
                 music-row-touch := PlaylistRowInput {
                     index: index;
                     token: row.token;
@@ -94,5 +102,11 @@ export component MusicModePlaylist inherits Rectangle {
             width: parent.width;
             height: max(0px, parent.height - self.y);
         }
+    }
+    if summary-height > 0px : Text {
+        y: root.height - summary-height; width: root.width; height: summary-height;
+        text: PlayerCatalogState.playlist-duration-summary;
+        color: Theme.music-mode-playlist-detail(root.dark-theme);
+        font-size: 11px; horizontal-alignment: center; vertical-alignment: center;
     }
 }

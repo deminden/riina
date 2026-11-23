@@ -104,6 +104,7 @@ fn install_media(
     player_preferences.set_playlist_show_metadata(prefs.playlist_show_metadata);
     player_preferences
         .set_playlist_show_metadata_in_music_mode(prefs.playlist_show_metadata_in_music_mode);
+    player_preferences.set_prefetch_playlist_video_duration(prefs.prefetch_playlist_video_duration);
     player_preferences.set_auto_repeat(prefs.auto_repeat);
     player_preferences.set_default_repeat_mode_index(prefs.default_repeat_mode.index());
     player_preferences.set_fullscreen_when_open(prefs.fullscreen_when_open);

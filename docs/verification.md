@@ -2455,6 +2455,24 @@ process exited normally. The executable SHA-256 was
 Live verification remains open for Explorer, Finder, Wayland, Linux desktop
 file-manager presentation and the plugin-contributed menu path.
 
+### Playlist durations 2026-11-23
+
+The Windows workspace gate and all 59 pinned libmpv null-output tests passed.
+The new native test reads duration from the video and WAV fixtures and checks
+cancellation and an unavailable path. The application test covers selected
+duration, the complete total, unknown durations and IINA's whole-second rounding.
+The default-on prefetch preference is part of the existing settings schema.
+
+The locked Linux build on isolated X11 displayed `0:05`, `0:05` and `0:02`
+for two video clips and one WAV. The sidebar showed `0:12 in total` and
+changed to `0:07 of 0:12 selected` after selecting two rows. An unavailable
+fourth entry left existing row durations visible and cleared the total. Music
+Mode showed the durations and selection total again after removing that entry.
+The first clip stayed paused at 1.5 seconds throughout, and the test process
+exited normally. The executable SHA-256 was
+`9af4a3fb6097391c35875f98e145aa6212771c0addc9f1ea768b81ec5c4d1191`.
+Live Windows, Wayland and macOS duration presentation remains open.
+
 ### macOS application menu composition 2026-10-14
 
 The AppKit adapter consolidates application actions in one native menu while

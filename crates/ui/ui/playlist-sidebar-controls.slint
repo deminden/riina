@@ -1,4 +1,5 @@
 import { PlayerAppearance } from "player-appearance.slint";
+import { Theme } from "theme.slint";
 import { PlayerMenuActions } from "player-menu-actions.slint";
 import { PlaylistSortButton } from "player-chrome-controls.slint";
 import { Tool } from "player-tool.slint";
@@ -17,7 +18,16 @@ export component PlaylistSidebarControls inherits HorizontalLayout {
         selected: PlayerCatalogState.playlist-shuffled; activated => { PlayerSidebarActions.toggle-playlist-shuffle(); } }
     PlaylistSortButton { dark-theme: PlayerAppearance.dark-theme; accent-color: PlayerAppearance.interactive-accent-color;
         sort-requested(index) => { PlayerSidebarActions.sort-playlist(index); } }
-    Rectangle { horizontal-stretch: 1; }
+    Text {
+        horizontal-stretch: 1;
+        min-width: 0px;
+        text: PlayerCatalogState.playlist-duration-summary;
+        color: Theme.sidebar-playlist-metadata(PlayerAppearance.dark-theme);
+        font-size: 11px;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+        overflow: elide;
+    }
     Tool { width: 24px; dark-theme: PlayerAppearance.dark-theme; accent-color: PlayerAppearance.interactive-accent-color;
         icon: @image-url("../../../assets/icons/add.svg"); hint: "Add files to playlist";
         activated => { PlayerMenuActions.browse-files(4); } }

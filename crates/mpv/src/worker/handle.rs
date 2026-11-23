@@ -172,9 +172,13 @@ impl Handle {
     }
 
     pub(super) fn wait(&mut self) -> Option<EventRef<'_>> {
+        self.wait_timeout(std::time::Duration::ZERO)
+    }
+
+    pub(super) fn wait_timeout(&mut self, timeout: std::time::Duration) -> Option<EventRef<'_>> {
         // SAFETY: libmpv keeps this event live until the next wait on this client.
         // The exclusive borrow prevents that call while the event can still be read.
-        let event = unsafe { &*(self.api.wait)(self.raw.as_ptr(), 0.0) };
+        let event = unsafe { &*(self.api.wait)(self.raw.as_ptr(), timeout.as_secs_f64()) };
         (event.id != event_id::NONE).then_some(EventRef {
             event,
             api: &self.api,

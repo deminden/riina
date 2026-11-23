@@ -1,7 +1,9 @@
 //! Native commands and events are serialized on the event thread.
+mod duration_probe;
 mod handle;
 mod hooks;
 mod playlist_resume;
+pub use duration_probe::read_local_duration;
 
 use self::handle::{EventRef, Handle};
 use self::playlist_resume::PlaylistResume;

@@ -46,6 +46,7 @@
   "playlist_auto_play_next": true,
   "playlist_show_metadata": true,
   "playlist_show_metadata_in_music_mode": true,
+  "prefetch_playlist_video_duration": true,
   "auto_repeat": false,
   "default_repeat_mode": "playlist",
   "quit_when_no_opened_window": false,

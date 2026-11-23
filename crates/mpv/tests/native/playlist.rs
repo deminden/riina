@@ -1,6 +1,32 @@
 use super::*;
 
 #[test]
+#[ignore = "requires provisioned libmpv; checks silent playlist duration probing"]
+fn playlist_duration_probe_reads_local_video_and_audio() {
+    let root = fixture_root();
+    let library = test_library(&root);
+    let fixtures = root.join("tests/fixtures");
+    let video = fixtures.join("moving-square.avi");
+    let audio = fixtures.join("external-tone.wav");
+    assert!(
+        riina_mpv::read_local_duration(&library, &video, || false)
+            .is_some_and(|duration| (duration - 5.0).abs() < 0.1)
+    );
+    assert!(
+        riina_mpv::read_local_duration(&library, &audio, || false)
+            .is_some_and(|duration| duration > 0.5)
+    );
+    assert_eq!(
+        riina_mpv::read_local_duration(&library, &video, || true),
+        None
+    );
+    assert_eq!(
+        riina_mpv::read_local_duration(&library, &fixtures.join("missing.avi"), || false),
+        None
+    );
+}
+
+#[test]
 #[ignore = "requires provisioned libmpv; verifies a stable playlist move during playback"]
 fn stable_playlist_move_resolves_both_rows_after_an_insertion() {
     let root = fixture_root();

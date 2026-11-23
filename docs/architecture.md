@@ -81,6 +81,10 @@ subtitle discovery and material timers when a playback snapshot introduces
 work for them. The playlist metadata worker notifies subscribed windows when
 a lookup completes. Each player schedules a refresh of its own visible rows
 and owns its audio, video, subtitle, timeline, catalog and feedback state.
+Visible playlists share one background duration reader. It uses a separate
+paused libmpv client with null output and file references disabled. Closing a
+playlist withdraws its queued requests and cancels probes that other windows
+no longer need. The current player's observed duration takes precedence.
 The sidebar, layout, controls and dialogs read state from the owning window.
 Rendered frames and material samples share
 that lifetime. Keyboard input and both menu presentations invoke the actions

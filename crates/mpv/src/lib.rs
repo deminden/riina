@@ -60,6 +60,7 @@ macro_rules! diagnostic {
 }
 
 mod worker;
+pub use worker::read_local_duration;
 
 enum Message {
     Intent(Command),

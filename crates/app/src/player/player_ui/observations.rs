@@ -82,6 +82,12 @@ pub(super) fn update_ui(
     }) {
         update_catalog(app, state);
         *displayed = Some(state.clone());
+    } else if displayed
+        .as_ref()
+        .is_some_and(|old| old.duration != state.duration)
+    {
+        app.invoke_refresh_playlist_metadata();
+        *displayed = Some(state.clone());
     }
     let first_loaded = (!app.get_loaded() || previous_generation != Some(state.generation))
         && matches!(

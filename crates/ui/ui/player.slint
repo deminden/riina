@@ -273,8 +273,12 @@ export component PlayerWindow inherits PlayerMenuWindow {
     callback open-subtitles-auto-search-changed(bool);
     changed open-subtitles-auto-search => { root.open-subtitles-auto-search-changed(root.open-subtitles-auto-search); }
     out property <bool> show-playlist-metadata: PlayerPreferences.playlist-show-metadata && (!PlayerPreferences.playlist-show-metadata-in-music-mode || music-mode);
+    out property <bool> prefetch-playlist-durations: PlayerPreferences.prefetch-playlist-video-duration
+        && (music-mode ? PlayerMusicModeState.music-mode-show-playlist
+            : PlayerSidebarState.sidebar == 4 || PlayerSidebarState.leading-sidebar == 4);
     callback refresh-playlist-metadata();
     changed show-playlist-metadata => { root.refresh-playlist-metadata(); }
+    changed prefetch-playlist-durations => { root.refresh-playlist-metadata(); }
     out property <bool> native-video-material-visible: PlayerAppearance.native-video-material-visible(native-video, loaded, fullscreen);
     callback native-video-material-visibility-changed(bool);
     changed native-video-material-visible => { root.native-video-material-visibility-changed(root.native-video-material-visible); }
