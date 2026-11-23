@@ -1452,6 +1452,29 @@ engine SHA-256 was
 Apple Silicon cross-target Clippy passed. Native macOS interaction remains
 unverified.
 
+### Plugin console 2026-11-23
+
+The QuickJS tests checked variadic logs, indented objects and arrays, dates,
+symbols, null and undefined. Warnings and errors retained their levels and
+used the first argument. A circular object produced a bounded fallback message
+and the entry continued. The installed player and global entry points use
+the same API. The application log follows Riina's existing whitespace and
+redaction rules.
+
+The Windows workspace gate and locked build passed. An isolated playback run
+recorded DEBUG and ERROR from the player entry and WARN and INFO from the
+global entry, then exited normally. The Windows executable SHA-256 was
+`bfa9d48d3f3c243468a2af9b39c316be979b91db2572433d1684a89c2850ecfc`.
+
+Linux passed strict workspace Clippy, the locked application build and 121
+plugin tests. Isolated X11 playback recorded each of the four messages once per
+launch, restored the saved Settings form on the second launch and closed both
+player instances. The Linux executable and pinned engine SHA-256 values were
+`33a93a58410024b67942be2bb107d67a8a5356bf410e68c2240a133efcdece8f` and
+`84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`.
+Strict Apple Silicon cross-target Clippy passed. The IINA Developer Tool
+console and native macOS behavior remain open.
+
 ### Plugin playlist context menus 2026-11-23
 
 The headless player test sent a right click to a playlist row and checked

@@ -1,7 +1,7 @@
 //! A QuickJS realm and every callback stay on one worker until cancellation.
 use super::{
     AvailablePermissions, GlobalApiMode, MAX_RUNTIME_MEMORY, MAX_STACK_BYTES, PluginWorkerHost,
-    RuntimeCommand, UiEffect,
+    RuntimeCommand, UiEffect, console,
     core_api::install_plugin_core_api,
     events,
     file_api::install_plugin_file_api,
@@ -257,7 +257,7 @@ fn initialize_realm(
         services.overlay.clone(),
         services.sidebar.clone(),
     )?;
-    install_console(&globals, events)?;
+    console::install(&api, &events)?;
 
     // Keep the entry's path on the stack only while it is being evaluated:
     // nested CommonJS loads resolve relative to that file.
@@ -282,21 +282,6 @@ fn initialize_realm(
         current_files.pop();
     }
     evaluated
-}
-
-fn install_console<'js>(
-    globals: &Object<'js>,
-    events: Arc<Mutex<Vec<super::HostEvent>>>,
-) -> rquickjs::Result<()> {
-    let console = Object::new(globals.ctx().clone())?;
-    for method in ["log", "info", "warn", "error"] {
-        let log_events = events.clone();
-        console.set(
-            method,
-            Func::from(move |message: String| record(&log_events, UiEffect::Log(message))),
-        )?;
-    }
-    globals.set("console", console)
 }
 
 fn run_callbacks(

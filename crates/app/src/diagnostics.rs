@@ -10,8 +10,9 @@ use std::{
 const ROTATION_LIMIT: u64 = 2 * 1024 * 1024;
 static LOG: OnceLock<Mutex<LineWriter<File>>> = OnceLock::new();
 
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Level {
+    Debug,
     Info,
     Warning,
     Error,
@@ -20,6 +21,7 @@ pub(crate) enum Level {
 impl Level {
     fn label(self) -> &'static str {
         match self {
+            Self::Debug => "DEBUG",
             Self::Info => "INFO",
             Self::Warning => "WARN",
             Self::Error => "ERROR",

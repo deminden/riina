@@ -1,7 +1,7 @@
 //! Size and count limits for effects leaving a plugin realm.
 use super::{
     HostEvent, MAX_HOST_EVENTS, MAX_HOST_OUTPUT_BYTES, MAX_MESSAGE_CHARS, MAX_OVERLAY_INTENT_BYTES,
-    MAX_PLUGIN_MESSAGE_BYTES, UiEffect, validate_plugin_message,
+    MAX_PLUGIN_MESSAGE_BYTES, UiEffect, console, validate_plugin_message,
 };
 use riina_core::{
     plugin::{OverlayEffect, OverlayIntent, OverlayState},
@@ -84,8 +84,11 @@ pub(super) fn record_playlist_command(
 }
 
 pub(super) fn try_record_ui_effect(events: &Mutex<Vec<HostEvent>>, effect: UiEffect) -> bool {
+    try_record_event(events, HostEvent::Ui(effect))
+}
+
+fn try_record_event(events: &Mutex<Vec<HostEvent>>, candidate: HostEvent) -> bool {
     let mut events = riina_core::sync::lock(events);
-    let candidate = HostEvent::Ui(effect);
     let pending_size = events.iter().map(host_event_size).sum::<usize>();
     if events.len() >= MAX_HOST_EVENTS
         || pending_size.saturating_add(host_event_size(&candidate)) > MAX_HOST_OUTPUT_BYTES
@@ -175,6 +178,7 @@ fn host_event_size(event: &HostEvent) -> usize {
             UiEffect::SetUiVisibility(_) => 1,
             UiEffect::WindowAction(action) => format!("{action:?}").len(),
         },
+        HostEvent::Console(message) => message.text.len(),
         HostEvent::Overlay(effect) => overlay_effect_size(effect),
         HostEvent::Sidebar(effect) => sidebar_effect_size(effect),
         HostEvent::MenuUpdate(items) => {
@@ -197,14 +201,23 @@ pub(super) fn record(events: &Mutex<Vec<HostEvent>>, mut effect: UiEffect) {
     }
     match &mut effect {
         UiEffect::Log(message) | UiEffect::ShowOsd(message) | UiEffect::ShowAlert(message) => {
-            if let Some((limit, _)) = message.char_indices().nth(MAX_MESSAGE_CHARS) {
-                message.truncate(limit);
-                message.shrink_to_fit();
-            }
+            truncate_message(message);
         }
         UiEffect::CoreCommand(_) | UiEffect::SetUiVisibility(_) | UiEffect::WindowAction(_) => {}
     }
     events.push(HostEvent::Ui(effect));
+}
+
+pub(super) fn record_console(events: &Mutex<Vec<HostEvent>>, mut message: console::Message) {
+    truncate_message(&mut message.text);
+    try_record_event(events, HostEvent::Console(message));
+}
+
+fn truncate_message(message: &mut String) {
+    if let Some((limit, _)) = message.char_indices().nth(MAX_MESSAGE_CHARS) {
+        message.truncate(limit);
+        message.shrink_to_fit();
+    }
 }
 
 #[cfg(test)]

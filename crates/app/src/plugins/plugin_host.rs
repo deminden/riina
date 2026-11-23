@@ -1010,6 +1010,10 @@ fn pump_session_events(
                     );
                 }
                 HostEvent::Ui(effect) => record(messages, host_message(&key.identifier, effect)),
+                HostEvent::Console(message) => {
+                    let component = format!("plugin/{}", key.identifier);
+                    crate::diagnostics::log(message.level, &component, &message.text);
+                }
             }
         }
     }

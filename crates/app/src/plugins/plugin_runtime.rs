@@ -1,5 +1,6 @@
 //! Bounded JavaScript entry evaluation for permission-reviewed plugins.
 
+mod console;
 mod core_api;
 mod events;
 mod execution;
@@ -68,6 +69,7 @@ const MAX_HOST_OUTPUT_BYTES: usize = 4 * 1024 * 1024;
 #[derive(Debug, Clone, PartialEq)]
 pub enum HostEvent {
     Ui(UiEffect),
+    Console(console::Message),
     Overlay(OverlayEffect),
     Sidebar(PluginSidebarEffect),
     MenuUpdate(Vec<PluginMenuItem>),

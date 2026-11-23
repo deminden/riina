@@ -49,7 +49,10 @@ fn exposes_only_the_host_apis_requested_and_granted_by_the_plugin() {
             HostEvent::Ui(UiEffect::Log("ready".into())),
             HostEvent::Ui(UiEffect::ShowOsd("Loaded".into())),
             HostEvent::Ui(UiEffect::ShowAlert("Notice".into())),
-            HostEvent::Ui(UiEffect::Log("done".into())),
+            HostEvent::Console(console::Message {
+                level: crate::diagnostics::Level::Warning,
+                text: "done".into(),
+            }),
         ]
     );
     assert!(
@@ -60,6 +63,54 @@ fn exposes_only_the_host_apis_requested_and_granted_by_the_plugin() {
             &[],
         )
         .is_err()
+    );
+}
+
+#[test]
+fn console_formats_values_and_preserves_severity() {
+    use crate::diagnostics::Level;
+
+    let events = execute_entry(
+        r#"
+        iina.console.log("ready", { enabled: true }, [1, 2], null, undefined, Symbol("key"));
+        iina.console.warn(12, "ignored");
+        iina.console.error(false);
+        const date = new Date("2024-04-09T12:00:00Z");
+        iina.console.log(date);
+        iina.log(String(date));
+        const cycle = {};
+        cycle.next = cycle;
+        console.warn(cycle);
+        console.info("continuing");
+        "#,
+        "org.example.player-tools",
+        &[],
+        &[],
+    )
+    .unwrap();
+    let HostEvent::Ui(UiEffect::Log(date)) = &events[4] else {
+        panic!("expected a date reference");
+    };
+    let console = |level, text: &str| {
+        HostEvent::Console(console::Message {
+            level,
+            text: text.into(),
+        })
+    };
+    assert_eq!(
+        events,
+        [
+            console(
+                Level::Debug,
+                "ready {\n  \"enabled\": true\n}\n[\n  1,\n  2\n]\n<null> <undefined> Symbol(key) "
+            ),
+            console(Level::Warning, "12"),
+            console(Level::Error, "false"),
+            console(Level::Debug, date),
+            HostEvent::Ui(UiEffect::Log(date.clone())),
+            console(Level::Warning, "<unserializable object>"),
+            console(Level::Info, "continuing"),
+        ]
     );
 }
 
