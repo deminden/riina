@@ -107,6 +107,36 @@ fn enabled_plugin_entries_run_in_persisted_order_before_initial_media() {
 }
 
 #[test]
+fn shutdown_releases_a_bootstrap_plugin_waiting_for_a_dialog() {
+    let scratch = TempDir::new("plugin-modal-shutdown").unwrap();
+    let root = scratch.path();
+    let directory = root.join("Plugins/org.example.modal.iinaplugin");
+    fs::create_dir_all(&directory).unwrap();
+    fs::write(
+        directory.join("Info.json"),
+        r#"{"name":"Modal","identifier":"org.example.modal","version":"1.0.0","author":{"name":"Test"},"entry":"main.js","permissions":[]}"#,
+    )
+    .unwrap();
+    fs::write(
+        directory.join("main.js"),
+        "iina.utils.ask('Wait for user');",
+    )
+    .unwrap();
+    fs::write(root.join("plugin-enabled.json"), r#"["org.example.modal"]"#).unwrap();
+    let mut host = PluginHost::prepare(&root.join("preferences.json"), &[], &[]).unwrap();
+    let (sender, receiver) = mpsc::sync_channel(1);
+    host.handle()
+        .dialogs
+        .install(move |request| sender.try_send(request).map_err(|_| "Dialog busy".into()));
+    host.start_player(None);
+    let request = receiver.recv_timeout(Duration::from_secs(2)).unwrap();
+    let started = Instant::now();
+    drop(host);
+    assert!(started.elapsed() < Duration::from_secs(2));
+    request.fail("Queued dialog closed".into());
+}
+
+#[test]
 fn plugins_enabled_after_window_and_mpv_initialization_receive_events_once() {
     let directory = TempDir::new("late-plugin").unwrap();
     let root = directory.path();

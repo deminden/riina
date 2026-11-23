@@ -21,6 +21,8 @@
         keychainRead: native.keychainRead,
         preferredLocalizations: native.languages,
         open: native.open,
+        ask: title => native.ask(title) != null,
+        prompt: title => native.prompt(title) ?? null,
         chooseFile(title, options = {}) {
             return request(id => native.chooseFile(id, title, JSON.stringify({
                 chooseDir: options?.chooseDir === true,

@@ -128,7 +128,7 @@ fn initialize_realm(
     services: &RealmServices,
 ) -> rquickjs::Result<()> {
     let PluginWorkerHost {
-        file_dialogs,
+        dialogs,
         input,
         global_api_mode,
         module_context,
@@ -176,7 +176,7 @@ fn initialize_realm(
         permissions,
         execution.clone(),
         network.commands.clone(),
-        file_dialogs,
+        dialogs,
         services.helper_workers.clone(),
     )?;
     preferences_api::install(&api, preferences)?;

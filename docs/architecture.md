@@ -227,6 +227,12 @@ by the platform credential service under the plugin, service and account
 identity. The player permits one plugin picker at a time. Picker results
 return only to the requesting realm, and a stale selection is discarded.
 
+Confirmations and text prompts share the picker slot. The JavaScript call
+waits in its realm while the UI event loop keeps running. User wait time is
+excluded from the remaining JavaScript turn and startup budgets. The host
+signals dialog cancellation before joining its worker on shutdown. A stale
+prompt closes when its realm or player retires.
+
 ## Preferences
 
 Plugin preferences use a separate store per installed identifier and profile.

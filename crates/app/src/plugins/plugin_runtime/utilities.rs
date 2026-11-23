@@ -8,7 +8,9 @@ mod tests;
 
 use super::{AvailablePermissions, ExecutionControl, RuntimeCommand};
 use crate::{platform, plugin_files::PluginFiles};
-pub(crate) use dialogs::{FileDialogs, FileRequest};
+pub(crate) use dialogs::{
+    DialogRequest, FileRequest, InteractionKind, InteractionRequest, PluginDialogs,
+};
 use process::{Channel, Completed, Invocation};
 use rquickjs::{Context, Ctx, Function, Object, Value, function::Func};
 use std::{
@@ -34,29 +36,14 @@ pub(super) fn install<'js>(
     permissions: AvailablePermissions,
     execution: Arc<ExecutionControl>,
     commands: SyncSender<RuntimeCommand>,
-    file_dialogs: FileDialogs,
+    dialogs: PluginDialogs,
     workers: Workers,
 ) -> rquickjs::Result<()> {
     let ctx = api.ctx();
     let native = Object::new(ctx.clone())?;
     install_file_queries(&native, files, permissions)?;
     install_credentials(&native, files)?;
-    let picker_execution = execution.clone();
-    let picker_commands = commands.clone();
-    native.set(
-        "chooseFile",
-        Func::from(move |id: u32, title: String, options: String| {
-            file_dialogs
-                .open(
-                    id,
-                    title,
-                    &options,
-                    picker_execution.clone(),
-                    picker_commands.clone(),
-                )
-                .map_err(js_error)
-        }),
-    )?;
+    install_dialogs(&native, dialogs, execution.clone(), commands.clone())?;
     native.set(
         "languages",
         Func::from(|| sys_locale::get_locales().take(64).collect::<Vec<_>>()),
@@ -89,6 +76,35 @@ pub(super) fn install<'js>(
     let deliver: Function<'_> =
         setup.call((api.clone(), native, BINARY_NOT_FOUND, RUNTIME_ERROR))?;
     ctx.globals().set("__riinaUtilityResult", deliver)
+}
+
+fn install_dialogs(
+    native: &Object<'_>,
+    dialogs: PluginDialogs,
+    execution: Arc<ExecutionControl>,
+    commands: SyncSender<RuntimeCommand>,
+) -> rquickjs::Result<()> {
+    for (method, kind) in [
+        ("ask", InteractionKind::Confirm),
+        ("prompt", InteractionKind::Prompt),
+    ] {
+        let dialogs = dialogs.clone();
+        let execution = execution.clone();
+        native.set(
+            method,
+            Func::from(move |title: String| {
+                dialogs.interact(title, kind, &execution).map_err(js_error)
+            }),
+        )?;
+    }
+    native.set(
+        "chooseFile",
+        Func::from(move |id: u32, title: String, options: String| {
+            dialogs
+                .open(id, title, &options, execution.clone(), commands.clone())
+                .map_err(js_error)
+        }),
+    )
 }
 
 fn install_file_queries(

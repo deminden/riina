@@ -5,7 +5,7 @@ mod ui_activity;
 
 use crate::{
     plugin_files::PluginPlayerFileContext,
-    plugin_runtime::{HostEvent, PluginRuntimeSession, UiEffect, input, utilities::FileDialogs},
+    plugin_runtime::{HostEvent, PluginRuntimeSession, UiEffect, input, utilities::PluginDialogs},
     plugin_snapshot::{playback_history_values, recent_document_values, version_snapshot},
 };
 pub(crate) use playlist_menu::PlaylistMenuContribution;
@@ -67,7 +67,7 @@ pub(crate) enum PluginHostMessage {
 
 #[derive(Clone)]
 pub(crate) struct PluginHostHandle {
-    pub(crate) file_dialogs: FileDialogs,
+    pub(crate) dialogs: PluginDialogs,
     pub(crate) input: input::Router,
     commands: mpsc::SyncSender<PluginCommand>,
     messages: Arc<Mutex<Vec<PluginHostMessage>>>,
@@ -319,8 +319,8 @@ impl PluginHost {
         let worker_activity = ui_activity.clone();
         let input = input::Router::default();
         let worker_input = input.clone();
-        let file_dialogs = FileDialogs::default();
-        let worker_dialogs = file_dialogs.clone();
+        let dialogs = PluginDialogs::default();
+        let worker_dialogs = dialogs.clone();
         let initial_player_context = PluginPlayerFileContext::default()
             .with_core_version(version_snapshot(None))
             .with_recent_documents(recent_document_values(recent_media))
@@ -332,7 +332,7 @@ impl PluginHost {
             crate::plugin_packages::sweep_staging(&plugins_directory);
             run_host(
                 PluginHostPaths {
-                    file_dialogs: worker_dialogs,
+                    dialogs: worker_dialogs,
                     input: worker_input,
                     plugins_directory,
                     permissions_path,
@@ -348,7 +348,7 @@ impl PluginHost {
         .map_err(|error| format!("Could not start plugin host: {error}"))?;
         Ok(Self {
             handle: PluginHostHandle {
-                file_dialogs,
+                dialogs,
                 input,
                 commands,
                 messages,
@@ -376,6 +376,8 @@ impl PluginHost {
 
 impl Drop for PluginHost {
     fn drop(&mut self) {
+        // Bootstrap can be waiting on a UI dialog before reading the command queue.
+        self.handle.dialogs.stop();
         // An engine startup failure closes the gate before joining the host.
         drop(self.player_start.take());
         // A disconnected receiver means the host has already stopped.
@@ -546,7 +548,7 @@ fn run_host(
 }
 
 struct PluginHostPaths {
-    file_dialogs: FileDialogs,
+    dialogs: PluginDialogs,
     input: input::Router,
     plugins_directory: PathBuf,
     permissions_path: PathBuf,
@@ -1108,7 +1110,7 @@ fn activate(
                 directory,
                 manifest,
                 &grants,
-                paths.file_dialogs.clone(),
+                paths.dialogs.clone(),
             )
             .map_err(|error| format!("Could not start global {}: {error}", manifest.name))
         })
@@ -1120,7 +1122,7 @@ fn activate(
         player_context.clone(),
         paths.player_mpv.clone(),
         paths.input.bindings.clone(),
-        paths.file_dialogs.clone(),
+        paths.dialogs.clone(),
     )
     .map_err(|error| format!("Could not start {}: {error}", manifest.name))?;
     if let Some(global) = global {

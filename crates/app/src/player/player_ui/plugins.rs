@@ -71,11 +71,7 @@ pub(super) fn install(
     playlist_menu::install(app, plugin_host_handle.as_ref());
     if let Some(handle) = &plugin_host_handle {
         input::install(app, &handle.input);
-        platform::plugin_file_dialog::install(
-            app,
-            plugin_window_host.clone(),
-            &handle.file_dialogs,
-        );
+        platform::plugin_dialogs::install(app, plugin_window_host.clone(), &handle.dialogs);
     }
     {
         let weak = app.as_weak();

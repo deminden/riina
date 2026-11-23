@@ -116,7 +116,7 @@ enum GlobalApiMode {
 }
 
 struct PluginWorkerHost {
-    file_dialogs: utilities::FileDialogs,
+    dialogs: utilities::PluginDialogs,
     input: Arc<input::Endpoint>,
     execution: Arc<ExecutionControl>,
     global_api_mode: Option<GlobalApiMode>,
@@ -131,7 +131,7 @@ struct PluginWorkerHost {
 }
 
 struct PluginStorageContext {
-    file_dialogs: utilities::FileDialogs,
+    dialogs: utilities::PluginDialogs,
     input_bindings: input::Bindings,
     file_system: PluginFiles,
     player_mpv: Option<riina_mpv::CommandSender>,
@@ -142,7 +142,7 @@ struct PluginStorageContext {
 impl PluginStorageContext {
     fn for_package(root: &Path, manifest: &Manifest) -> Result<Self, String> {
         Ok(Self {
-            file_dialogs: utilities::FileDialogs::default(),
+            dialogs: utilities::PluginDialogs::default(),
             input_bindings: input::Bindings::default(),
             file_system: PluginFiles::for_package(root, &manifest.identifier),
             player_mpv: None,
@@ -179,7 +179,7 @@ impl PluginRuntimeSession {
             PluginPlayerFileContext::default(),
             None,
             input::Bindings::default(),
-            utilities::FileDialogs::default(),
+            utilities::PluginDialogs::default(),
         )
     }
 
@@ -190,14 +190,14 @@ impl PluginRuntimeSession {
         player_context: PluginPlayerFileContext,
         player_mpv: Option<riina_mpv::CommandSender>,
         input_bindings: input::Bindings,
-        file_dialogs: utilities::FileDialogs,
+        dialogs: utilities::PluginDialogs,
     ) -> Result<Self, String> {
         let (source, module_context) = read_package_script(package_root, &manifest.entry)?;
         let mut storage = PluginStorageContext::for_package(package_root, manifest)?;
         storage.file_system.set_player_context(player_context);
         storage.player_mpv = player_mpv;
         storage.input_bindings = input_bindings;
-        storage.file_dialogs = file_dialogs;
+        storage.dialogs = dialogs;
         Self::start_entry_with_context(
             &source,
             &manifest.identifier,
@@ -213,14 +213,14 @@ impl PluginRuntimeSession {
         package_root: &Path,
         manifest: &Manifest,
         granted_permissions: &[String],
-        file_dialogs: utilities::FileDialogs,
+        dialogs: utilities::PluginDialogs,
     ) -> Result<Self, String> {
         let Some(entry) = manifest.global_entry.as_deref() else {
             return Err("Plugin does not declare a global entry".into());
         };
         let (source, module_context) = read_package_script(package_root, entry)?;
         let mut storage = PluginStorageContext::for_package(package_root, manifest)?;
-        storage.file_dialogs = file_dialogs;
+        storage.dialogs = dialogs;
         Self::start_entry_with_context(
             &source,
             &format!("{}.global", manifest.identifier),
@@ -247,7 +247,7 @@ impl PluginRuntimeSession {
             None,
             None,
             PluginStorageContext {
-                file_dialogs: utilities::FileDialogs::default(),
+                dialogs: utilities::PluginDialogs::default(),
                 input_bindings: input::Bindings::default(),
                 file_system: PluginFiles::temporary(plugin_identifier),
                 player_mpv: None,
@@ -307,7 +307,7 @@ impl PluginRuntimeSession {
                 plugin_identifier,
                 permissions,
                 PluginWorkerHost {
-                    file_dialogs: storage.file_dialogs,
+                    dialogs: storage.dialogs,
                     input: worker_input,
                     execution: worker_execution,
                     global_api_mode,
@@ -326,7 +326,7 @@ impl PluginRuntimeSession {
             );
         })
         .map_err(|error| format!("Could not start plugin worker: {error}"))?;
-        match ready_receiver.recv_timeout(Duration::from_secs(3)) {
+        match execution::wait_for_startup(&execution, ready_receiver, Duration::from_secs(3)) {
             Ok(Ok(())) => Ok(Self {
                 input,
                 execution,

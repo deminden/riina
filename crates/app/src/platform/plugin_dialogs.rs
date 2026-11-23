@@ -1,7 +1,9 @@
-//! A native selection belongs to the live player that presented it.
+//! Plugin dialogs use the player's existing modal exclusion.
+mod interaction;
+
 use crate::{
     NativeVideoHost, PlayerWindow,
-    plugin_runtime::utilities::{FileDialogs, FileRequest},
+    plugin_runtime::utilities::{DialogRequest, FileRequest, PluginDialogs},
 };
 use riina_ui::{PlayerControlActions, PlayerDialogState};
 use slint::{ComponentHandle, winit_030::WinitWindowAccessor};
@@ -9,7 +11,7 @@ use slint::{ComponentHandle, winit_030::WinitWindowAccessor};
 pub(crate) fn install(
     app: &PlayerWindow,
     native_host: Option<slint::Weak<NativeVideoHost>>,
-    dialogs: &FileDialogs,
+    dialogs: &PluginDialogs,
 ) {
     let player = app.as_weak();
     dialogs.install(move |request| {
@@ -17,12 +19,10 @@ pub(crate) fn install(
         let native_host = native_host.clone();
         slint::invoke_from_event_loop(move || {
             let Some(app) = player.upgrade() else {
-                request.finish(Err("The player has closed".into()));
+                request.fail("The player has closed".into());
                 return;
             };
-            if !request.is_cancelled() {
-                present(&app, native_host, request);
-            }
+            present(&app, native_host, request);
         })
         .map_err(|error| error.to_string())
     });
@@ -31,12 +31,28 @@ pub(crate) fn install(
 fn present(
     app: &PlayerWindow,
     native_host: Option<slint::Weak<NativeVideoHost>>,
-    request: FileRequest,
+    request: DialogRequest,
 ) {
     if app.global::<PlayerDialogState>().get_dialog_open() {
-        request.finish(Err("The player already has an open dialog".into()));
+        request.fail("The player already has an open dialog".into());
         return;
     }
+    match request {
+        DialogRequest::File(request) if !request.is_cancelled() => {
+            pick_file(app, native_host, request)
+        }
+        DialogRequest::Interaction(request) if !request.is_cancelled() => {
+            interaction::present(app, native_host, request)
+        }
+        _ => {}
+    }
+}
+
+fn pick_file(
+    app: &PlayerWindow,
+    native_host: Option<slint::Weak<NativeVideoHost>>,
+    request: FileRequest,
+) {
     set_active(app, true);
     let app = app.as_weak();
     let failure = app.clone();

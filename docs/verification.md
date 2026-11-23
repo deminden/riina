@@ -1638,6 +1638,33 @@ tests. Strict Apple Silicon workspace Clippy passed from Windows. Native
 credential-store round trips, live file selection and native macOS utility
 behavior remain open.
 
+### Plugin confirmations and text prompts 2026-11-23
+
+QuickJS tests exercised startup confirmations, empty and Unicode answers,
+cancellation, and dropping a realm with a pending prompt. A host shutdown test
+closed the plugin host during startup while the interaction was still pending.
+The headless Slint test used the actual prompt controls to enter text, submit
+with Enter and cancel with Escape.
+
+The isolated Windows player left a plugin's startup confirmation open beyond
+the three-second initialization watchdog. The plugin accepted the confirmation,
+read typed text, received cancellation from a second prompt and observed the
+paused clip load after its entry resumed. Windows executable SHA-256
+`6eb3040d5a40bcef8c99757904ec4d27201f641ec0e4e64ac1e056a39e23f6b8`.
+An isolated Linux X11 player passed the same confirmation, typed response and
+cancellation sequence. Linux executable SHA-256
+`9cfb95eff6be9f209bce2d5d0554d234dbe342d38e57f796e6af81d067932541`.
+Both players closed normally and used the pinned libmpv libraries.
+
+A Windows test stored a synthetic credential through the utility API, read it
+from a new realm of the same plugin, verified isolation from a second plugin
+and deleted the entry. Windows passed its locked workspace build, strict Clippy,
+905 Rust tests and 78 Python tests. Linux x64 passed its locked application build,
+strict workspace Clippy and 117 plugin-related tests. Both platforms passed 58
+native playback tests. Apple Silicon strict workspace Clippy passed from Windows.
+Native macOS interaction and Linux and macOS credential-store round trips remain
+open.
+
 ### Plugin sidebar manifest discovery 2026-10-14
 
 Manifest tests cover bounded localized labels. Runtime tests cover confined

@@ -1,4 +1,5 @@
 export { PlayerDialogState } from "player-dialog-state.slint";
+import { PlayerDialogState } from "player-dialog-state.slint";
 import { PlayerVideoInput } from "player-video-input.slint";
 export { PlayerPluginPointerPhase } from "player-control-actions.slint";
 export { PlayerControlActions } from "player-control-actions.slint";
@@ -48,6 +49,7 @@ import { PlayerRenderedVideo } from "player-rendered-video.slint";
 export { LiveTextRegion, PlayerRenderedVideo } from "player-rendered-video.slint";
 import { TopmostPin } from "player-chrome-controls.slint";
 export { AboutWindow } from "about-window.slint";
+export { PluginInteractionWindow } from "plugin-interaction.slint";
 export { RecentMediaRow, WelcomeWindow } from "welcome-window.slint";
 import { Theme } from "theme.slint";
 import { QuickSettingsScrollPage, SidebarScrollMemory } from "quick-settings-scroll-page.slint";
@@ -592,6 +594,17 @@ export component PlayerWindow inherits PlayerMenuWindow {
         }
         crop-editor := CropEditor { width: parent.width; height: parent.height; }
         PlayerEntryDialogs { width: parent.width; height: parent.height; }
+        FocusScope {
+            visible: PlayerDialogState.plugin-interaction-visible;
+            width: parent.width; height: parent.height;
+            changed visible => { if self.visible { self.focus(); } else { keys.focus(); } }
+            key-pressed(_) => { return accept; }
+            key-released(_) => { return accept; }
+            TouchArea {
+                width: parent.width; height: parent.height;
+                scroll-event(_) => { return accept; }
+            }
+        }
     }
     // Removing the focused OSC on Stop/auto-hide must leave shortcuts available.
     changed loaded => { PlayerMenuActions.video-menu-changed(); if !root.loaded { keys.focus(); } root.refresh-fullscreen-info(); }

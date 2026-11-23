@@ -15,7 +15,7 @@ pub(crate) mod file_associations;
 pub(crate) mod folder_dialog;
 pub(crate) mod language;
 mod pip_session;
-pub(crate) mod plugin_file_dialog;
+pub(crate) mod plugin_dialogs;
 pub(crate) use pip_session::PictureInPictureSession;
 mod player_input;
 pub(crate) mod playlist_menu;

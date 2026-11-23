@@ -64,6 +64,41 @@ fn credential_targets_separate_plugins_services_and_accounts() {
     assert!(credential_target("org.test.one", "unsafe\0service", "account").is_none());
 }
 
+#[cfg(windows)]
+#[test]
+fn windows_plugin_credentials_persist_across_realms_and_remain_private() {
+    struct Cleanup(keyring::Entry);
+    impl Drop for Cleanup {
+        fn drop(&mut self) {
+            let _ = self.0.delete_credential();
+        }
+    }
+
+    let identity = format!("org.example.utility-credential-{}", uuid::Uuid::new_v4());
+    let other = format!("{identity}.other");
+    let cleanup = Cleanup(credential(Some(&identity), "verification", "fixture").unwrap());
+    let run = |source, identity| {
+        let session = PluginRuntimeSession::start_entry(source, identity, &[], &[]).unwrap();
+        assert_eq!(
+            session.drain_events().unwrap(),
+            [HostEvent::Ui(UiEffect::Log("true".into()))]
+        );
+    };
+    run(
+        r#"iina.log(String(iina.utils.keychainWrite("verification", "fixture", "synthetic credential")));"#,
+        &identity,
+    );
+    run(
+        r#"iina.log(String(iina.utils.keychainRead("verification", "fixture") === false));"#,
+        &other,
+    );
+    run(
+        r#"iina.log(String(iina.utils.keychainRead("verification", "fixture") === "synthetic credential"));"#,
+        &identity,
+    );
+    cleanup.0.delete_credential().unwrap();
+}
+
 #[test]
 fn chooser_delivers_selection_and_cancellation_to_the_requesting_entry() {
     let root = riina_test_support::TempDir::new("utility-file-picker").unwrap();
@@ -85,9 +120,14 @@ fn chooser_delivers_selection_and_cancellation_to_the_requesting_entry() {
         "#,
     )
     .unwrap();
-    let dialogs = FileDialogs::default();
+    let dialogs = PluginDialogs::default();
     let (requests, pending) = std::sync::mpsc::sync_channel::<FileRequest>(1);
-    dialogs.install(move |request| requests.try_send(request).map_err(|_| "Picker busy".into()));
+    dialogs.install(move |request| {
+        let DialogRequest::File(request) = request else {
+            return Err("Unexpected interaction".into());
+        };
+        requests.try_send(request).map_err(|_| "Picker busy".into())
+    });
     let session = PluginRuntimeSession::start_package_entry_with_player_context(
         root.path(),
         &manifest,
@@ -111,6 +151,77 @@ fn chooser_delivers_selection_and_cancellation_to_the_requesting_entry() {
         session.drain_events().unwrap(),
         ["-2", "selected.srt", "true"].map(|line| HostEvent::Ui(UiEffect::Log(line.into())))
     );
+}
+
+#[test]
+fn startup_dialogs_return_synchronous_answers_and_preserve_the_realm_budget() {
+    let root = riina_test_support::TempDir::new("utility-interaction").unwrap();
+    let manifest = super::super::tests::manifest("main.js".into());
+    std::fs::write(
+        root.path().join(&manifest.entry),
+        r#"
+        const u = iina.utils;
+        const accepted = u.ask("Accept");
+        const cancelled = u.ask("Cancel");
+        const empty = u.prompt("Empty text");
+        const text = u.prompt("Unicode text");
+        const noText = u.prompt("Cancel text");
+        iina.log(JSON.stringify([accepted, cancelled, empty, text, noText]));
+        iina.event.on("iina.file-loaded", () => u.ask("Retire"));
+        "#,
+    )
+    .unwrap();
+    let dialogs = PluginDialogs::default();
+    let (requests, pending) = std::sync::mpsc::sync_channel(1);
+    dialogs.install(move |request| {
+        let DialogRequest::Interaction(request) = request else {
+            return Err("Unexpected file picker".into());
+        };
+        requests.try_send(request).map_err(|_| "Prompt busy".into())
+    });
+    let starter = std::thread::spawn(move || {
+        PluginRuntimeSession::start_package_entry_with_player_context(
+            root.path(),
+            &manifest,
+            &[],
+            Default::default(),
+            None,
+            Default::default(),
+            dialogs,
+        )
+        .map(|session| (session, root))
+    });
+    let first = pending.recv_timeout(Duration::from_secs(2)).unwrap();
+    assert_eq!(first.title, "Accept");
+    assert!(first.kind == InteractionKind::Confirm);
+    std::thread::sleep(Duration::from_millis(550));
+    assert!(!starter.is_finished());
+    first.finish(Ok(Some(String::new())));
+    for (title, kind, answer) in [
+        ("Cancel", InteractionKind::Confirm, None),
+        ("Empty text", InteractionKind::Prompt, Some("")),
+        ("Unicode text", InteractionKind::Prompt, Some("Café 雪")),
+        ("Cancel text", InteractionKind::Prompt, None),
+    ] {
+        let prompt = pending.recv_timeout(Duration::from_secs(2)).unwrap();
+        assert_eq!(prompt.title, title);
+        assert!(prompt.kind == kind);
+        prompt.finish(Ok(answer.map(str::to_owned)));
+    }
+    let (session, _root) = starter.join().unwrap().unwrap();
+    assert_eq!(
+        session.drain_events().unwrap(),
+        [HostEvent::Ui(UiEffect::Log(
+            r#"[true,false,"","Café 雪",null]"#.into()
+        ))]
+    );
+    session
+        .deliver_player_event("iina.file-loaded".into(), serde_json::Value::Null)
+        .unwrap();
+    let stale = pending.recv_timeout(Duration::from_secs(2)).unwrap();
+    drop(session);
+    assert!(stale.is_cancelled());
+    stale.finish(Ok(Some(String::new())));
 }
 
 #[test]
