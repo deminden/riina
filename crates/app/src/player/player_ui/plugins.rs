@@ -1,10 +1,12 @@
 //! Plugin callbacks, presenters and timers are installed as one UI subsystem.
+mod application;
 mod developer;
 mod effects;
 mod input;
 mod playlist_menu;
 
 use crate::{PlayerWindow, background::CoalescedUiCallback, platform};
+pub(crate) use application::ApplicationPlugins;
 use effects::PluginEffects;
 use riina_ui::PlayerMenuActions;
 use slint::{ComponentHandle, Model, winit_030::WinitWindowAccessor};
@@ -24,6 +26,7 @@ pub(super) struct InstalledPluginUi {
     menu_observation: platform::PluginMenuObservation,
     standalone: Option<Rc<RefCell<platform::plugin_standalone::Presenter>>>,
     developer_tools: Option<Rc<RefCell<developer::Presenter>>>,
+    dialog_owner: Option<platform::plugin_dialogs::OwnerRegistration>,
     pub(super) plugin_host_timer: Option<Rc<slint::Timer>>,
     pub(super) plugin_osd_timer: Option<Rc<slint::Timer>>,
     pub(super) plugin_command_sender: Arc<std::sync::Mutex<Option<riina_mpv::CommandSender>>>,
@@ -35,6 +38,7 @@ pub(super) struct RuntimeSession {
     _osd_timer: Option<Rc<slint::Timer>>,
     _standalone: Option<Rc<RefCell<platform::plugin_standalone::Presenter>>>,
     _developer_tools: Option<Rc<RefCell<developer::Presenter>>>,
+    _dialog_owner: Option<platform::plugin_dialogs::OwnerRegistration>,
 }
 
 impl InstalledPluginUi {
@@ -59,6 +63,7 @@ impl InstalledPluginUi {
                 _osd_timer: self.plugin_osd_timer,
                 _standalone: self.standalone,
                 _developer_tools: self.developer_tools,
+                _dialog_owner: self.dialog_owner,
             },
         )
     }
@@ -68,15 +73,24 @@ pub(super) fn install(
     app: &PlayerWindow,
     native: Option<&platform::NativePresentation>,
     plugin_host_handle: Option<crate::plugin_host::PluginHostHandle>,
+    application_plugins: &ApplicationPlugins,
 ) -> InstalledPluginUi {
     let menu_observation =
         platform::PluginMenuObservation::install(app, plugin_host_handle.as_ref());
     let plugin_window_host = native.map(platform::NativePresentation::host);
     let plugin_command_sender = Arc::new(std::sync::Mutex::new(None::<riina_mpv::CommandSender>));
     let presenters = platform::PluginPresenters::new(app);
-    let developer_tools = plugin_host_handle
+    let services = application_plugins.services.borrow();
+    let developer_tools = plugin_host_handle.as_ref().map(|handle| {
+        let global = services
+            .as_ref()
+            .map(|services| services.developer.clone())
+            .unwrap_or_else(|| developer::Scope::new(Default::default()));
+        developer::Presenter::install(app, handle.ui.developer.clone(), global)
+    });
+    let dialog_owner = services
         .as_ref()
-        .map(|handle| developer::Presenter::install(app, handle.ui.developer.clone()));
+        .map(|services| services.dialogs.register(app, plugin_window_host.clone()));
     bind_lifecycle(
         app,
         plugin_host_handle.as_ref(),
@@ -109,6 +123,9 @@ pub(super) fn install(
             handle.ui.windows.clone(),
         )));
         let presenter_weak = Rc::downgrade(&presenter);
+        let global_weak = services
+            .as_ref()
+            .map(|services| Rc::downgrade(&services.standalone));
         let developer_weak = developer_tools.as_ref().map(Rc::downgrade);
         let app_weak = app.as_weak();
         app.on_update_plugin_windows(move || {
@@ -124,6 +141,11 @@ pub(super) fn install(
                 && let Ok(mut presenter) = presenter.try_borrow_mut()
             {
                 platform::pump_plugin_webviews();
+                presenter.update(&app);
+            }
+            if let Some(presenter) = global_weak.as_ref().and_then(std::rc::Weak::upgrade)
+                && let Ok(mut presenter) = presenter.try_borrow_mut()
+            {
                 presenter.update(&app);
             }
         });
@@ -182,6 +204,7 @@ pub(super) fn install(
         menu_observation,
         standalone,
         developer_tools,
+        dialog_owner,
         plugin_host_timer,
         plugin_osd_timer,
         plugin_command_sender,
@@ -736,7 +759,7 @@ mod tests {
             );
             std::thread::sleep(Duration::from_millis(1));
         }
-        let installed = install(&app, None, Some(handle));
+        let installed = install(&app, None, Some(handle), &ApplicationPlugins::default());
         let timer = installed.plugin_host_timer.as_ref().unwrap();
         assert_eq!(timer.interval(), PLUGIN_UI_INTERVAL);
         i_slint_backend_testing::mock_elapsed_time(PLUGIN_UI_INTERVAL);

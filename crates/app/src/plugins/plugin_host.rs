@@ -1,5 +1,6 @@
-//! Application-lifetime owner for enabled plugin entry sessions.
+//! Player-lifetime host for playback plugins and their application entry routes.
 
+mod application;
 mod playlist_menu;
 mod ui_activity;
 
@@ -8,6 +9,8 @@ use crate::{
     plugin_runtime::{HostEvent, PluginRuntimeSession, PluginUi, UiEffect},
     plugin_snapshot::{playback_history_values, recent_document_values, version_snapshot},
 };
+pub(crate) use application::{GlobalHandle, GlobalHost};
+use application::{PackageChange, PlayerPort};
 pub(crate) use playlist_menu::PlaylistMenuContribution;
 use riina_core::{
     Command,
@@ -19,7 +22,7 @@ use std::{
     collections::{BTreeMap, BTreeSet},
     fs,
     path::{Path, PathBuf},
-    sync::{Arc, Mutex, mpsc},
+    sync::{Arc, Mutex, atomic::Ordering, mpsc},
     thread::JoinHandle,
     time::Duration,
 };
@@ -68,6 +71,7 @@ pub(crate) enum PluginHostMessage {
 #[derive(Clone)]
 pub(crate) struct PluginHostHandle {
     pub(crate) ui: PluginUi,
+    pub(crate) global: GlobalHandle,
     commands: mpsc::SyncSender<PluginCommand>,
     messages: Arc<Mutex<Vec<PluginHostMessage>>>,
     ui_activity: Arc<UiActivity>,
@@ -100,24 +104,12 @@ impl PluginHostHandle {
     }
 
     pub(crate) fn enable(&self, manifest: Manifest, directory: PathBuf) -> Result<(), String> {
-        self.commands
-            .try_send(PluginCommand::Enable {
-                manifest: Box::new(manifest),
-                directory,
-            })
-            .map_err(|error| match error {
-                mpsc::TrySendError::Full(_) => "Plugin host is busy".to_owned(),
-                mpsc::TrySendError::Disconnected(_) => "Plugin host has stopped".to_owned(),
-            })
+        self.global
+            .change(PackageChange::Enable(Arc::new(manifest), directory))
     }
 
     pub(crate) fn disable(&self, identifier: String) -> Result<(), String> {
-        self.commands
-            .try_send(PluginCommand::Disable(identifier))
-            .map_err(|error| match error {
-                mpsc::TrySendError::Full(_) => "Plugin host is busy".to_owned(),
-                mpsc::TrySendError::Disconnected(_) => "Plugin host has stopped".to_owned(),
-            })
+        self.global.change(PackageChange::Disable(identifier))
     }
 
     pub(crate) fn update_player_file_context(
@@ -163,9 +155,7 @@ impl PluginHostHandle {
     }
 
     pub(crate) fn reload_all(&self) -> Result<(), String> {
-        self.commands
-            .try_send(PluginCommand::ReloadAll)
-            .map_err(command_error)
+        self.global.change(PackageChange::Reload(BTreeSet::new()))
     }
 
     pub(crate) fn notify_window_will_close(&self) -> Result<(), String> {
@@ -179,16 +169,8 @@ impl PluginHostHandle {
     }
 
     pub(crate) fn suspend_for_update(&self, identifier: String) -> Result<(), String> {
-        let (response, result) = mpsc::sync_channel(1);
-        self.commands
-            .try_send(PluginCommand::SuspendForUpdate {
-                identifier,
-                response,
-            })
-            .map_err(command_error)?;
-        result
-            .recv_timeout(Duration::from_secs(30))
-            .map_err(|error| format!("Plugin host did not stop the plugin for update: {error}"))?
+        self.global
+            .change_and_wait(PackageChange::Suspend(identifier))
     }
 
     pub(crate) fn activate_after_update(
@@ -196,17 +178,8 @@ impl PluginHostHandle {
         manifest: Manifest,
         directory: PathBuf,
     ) -> Result<(), String> {
-        let (response, result) = mpsc::sync_channel(1);
-        self.commands
-            .try_send(PluginCommand::ActivateAfterUpdate {
-                manifest: Box::new(manifest),
-                directory,
-                response,
-            })
-            .map_err(command_error)?;
-        result
-            .recv_timeout(Duration::from_secs(30))
-            .map_err(|error| format!("Plugin host did not restart the updated plugin: {error}"))?
+        self.global
+            .change_and_wait(PackageChange::Enable(Arc::new(manifest), directory))
     }
 
     #[cfg(target_os = "windows")]
@@ -249,10 +222,12 @@ impl PluginHostHandle {
         global: bool,
         item_id: String,
     ) -> Result<(), String> {
+        if global {
+            return self.global.activate_menu(identifier, item_id);
+        }
         self.commands
             .try_send(PluginCommand::ActivatePluginMenuItem {
                 identifier,
-                global,
                 item_id,
             })
             .map_err(command_error)
@@ -277,8 +252,11 @@ impl PluginHostHandle {
 
 pub(crate) struct PluginHost {
     handle: PluginHostHandle,
+    port: Arc<PlayerPort>,
     player_start: Option<mpsc::SyncSender<Option<riina_mpv::CommandSender>>>,
     worker: Option<JoinHandle<()>>,
+    #[cfg(test)]
+    isolated_global: Option<GlobalHost>,
 }
 
 pub(crate) fn is_enabled_plugin(preferences_path: &Path, identifier: &str) -> bool {
@@ -302,10 +280,28 @@ impl PluginHost {
         Ok(host)
     }
 
+    #[cfg(test)]
     pub(crate) fn prepare(
         preferences_path: &Path,
         recent_media: &[riina_core::RecentMedia],
         playback_history: &[riina_core::playback_history::Entry],
+    ) -> Result<Self, String> {
+        let global = GlobalHost::start(preferences_path)?;
+        let mut player = Self::prepare_for_application(
+            preferences_path,
+            recent_media,
+            playback_history,
+            global.handle(),
+        )?;
+        player.isolated_global = Some(global);
+        Ok(player)
+    }
+
+    pub(crate) fn prepare_for_application(
+        preferences_path: &Path,
+        recent_media: &[riina_core::RecentMedia],
+        playback_history: &[riina_core::playback_history::Entry],
+        global: GlobalHandle,
     ) -> Result<Self, String> {
         let plugins_directory = preferences_path.with_file_name("Plugins");
         let permissions_path = preferences_path.with_file_name("plugin-permissions.json");
@@ -313,9 +309,15 @@ impl PluginHost {
         let (commands, receiver) = mpsc::sync_channel(64);
         let (player_start, player_ready) = mpsc::sync_channel(1);
         let messages = Arc::new(Mutex::new(Vec::new()));
-        let worker_messages = messages.clone();
         let ui_activity = Arc::new(UiActivity::new());
-        let worker_activity = ui_activity.clone();
+        let port = Arc::new(PlayerPort {
+            commands: commands.clone(),
+            messages: messages.clone(),
+            activity: ui_activity.clone(),
+            closed: Default::default(),
+        });
+        let worker_port = port.clone();
+        let worker_global = global.clone();
         let ui = PluginUi::default();
         let worker_ui = ui.clone();
         let initial_player_context = PluginPlayerFileContext::default()
@@ -326,7 +328,6 @@ impl PluginHost {
             let Ok(player_mpv) = player_ready.recv() else {
                 return;
             };
-            crate::plugin_packages::sweep_staging(&plugins_directory);
             run_host(
                 PluginHostPaths {
                     ui: worker_ui,
@@ -334,24 +335,32 @@ impl PluginHost {
                     permissions_path,
                     enabled_path,
                     player_mpv,
+                    global: worker_global,
                 },
-                worker_messages,
+                worker_port,
                 initial_player_context,
                 receiver,
-                &worker_activity,
             );
         })
         .map_err(|error| format!("Could not start plugin host: {error}"))?;
-        Ok(Self {
+        let host = Self {
             handle: PluginHostHandle {
                 ui,
+                global,
                 commands,
                 messages,
                 ui_activity,
             },
             player_start: Some(player_start),
             worker: Some(worker),
-        })
+            port,
+            #[cfg(test)]
+            isolated_global: None,
+        };
+        // Register before returning the handle so even changes requested during
+        // player startup reach this window in the normal command order.
+        host.handle.global.join(&host.port)?;
+        Ok(host)
     }
 
     pub(crate) fn handle(&self) -> PluginHostHandle {
@@ -373,6 +382,7 @@ impl Drop for PluginHost {
     fn drop(&mut self) {
         // Bootstrap can be waiting on a UI dialog before reading the command queue.
         self.handle.ui.dialogs.stop();
+        self.port.closed.store(true, Ordering::Release);
         // An engine startup failure closes the gate before joining the host.
         drop(self.player_start.take());
         // A disconnected receiver means the host has already stopped.
@@ -386,27 +396,18 @@ impl Drop for PluginHost {
 
 enum PluginCommand {
     AfterInitialPlugins(Box<dyn FnOnce() + Send>),
-    Enable {
-        manifest: Box<Manifest>,
-        directory: PathBuf,
-    },
-    Disable(String),
-    SuspendForUpdate {
-        identifier: String,
-        response: mpsc::SyncSender<Result<(), String>>,
-    },
-    ActivateAfterUpdate {
-        manifest: Box<Manifest>,
-        directory: PathBuf,
-        response: mpsc::SyncSender<Result<(), String>>,
-    },
+    Change(
+        Arc<PackageChange>,
+        Option<mpsc::SyncSender<Result<(), String>>>,
+    ),
+    FromGlobal(String, String, serde_json::Value),
+    GlobalMenu(PluginHostMessage),
     UpdatePlayerFileContext(PluginPlayerFileContext),
     UpdateWindowProperties(BTreeMap<String, serde_json::Value>),
     WindowLoaded,
     PluginOverlayLoaded,
     ThumbnailsReady,
     MenuUpdate,
-    ReloadAll,
     WindowWillClose(mpsc::SyncSender<()>),
     #[cfg(target_os = "windows")]
     DeliverOverlayMessage {
@@ -421,7 +422,6 @@ enum PluginCommand {
     },
     ActivatePluginMenuItem {
         identifier: String,
-        global: bool,
         item_id: String,
     },
     BuildPlaylistMenu(playlist_menu::BuildRequest),
@@ -437,32 +437,23 @@ enum PluginCommand {
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
 struct PluginInstanceKey {
     identifier: String,
-    global: bool,
 }
 
 impl PluginInstanceKey {
     fn player(identifier: &str) -> Self {
         Self {
             identifier: identifier.to_owned(),
-            global: false,
-        }
-    }
-
-    fn global(identifier: &str) -> Self {
-        Self {
-            identifier: identifier.to_owned(),
-            global: true,
         }
     }
 }
 
 fn run_host(
     paths: PluginHostPaths,
-    messages: Arc<Mutex<Vec<PluginHostMessage>>>,
+    port: Arc<PlayerPort>,
     initial_player_context: PluginPlayerFileContext,
     commands: mpsc::Receiver<PluginCommand>,
-    ui_activity: &UiActivity,
 ) {
+    let messages = port.messages.clone();
     let mut sessions = BTreeMap::<PluginInstanceKey, PluginRuntimeSession>::new();
     let mut plugin_directories = BTreeMap::<String, PluginDirectory>::new();
     let mut player_context = initial_player_context;
@@ -482,18 +473,24 @@ fn run_host(
                 Err(mpsc::TryRecvError::Empty | mpsc::TryRecvError::Disconnected) => break,
             }
         }
-        if let Err(error) = activate(
-            &plugin.manifest,
-            &plugin.directory,
-            &paths,
-            &messages,
-            &mut sessions,
-            &mut plugin_directories,
-            &player_context,
-        ) {
+        let activated = paths
+            .global
+            .ensure(&plugin.manifest, &plugin.directory, &port)
+            .and_then(|()| {
+                activate(
+                    &plugin.manifest,
+                    &plugin.directory,
+                    &paths,
+                    &messages,
+                    &mut sessions,
+                    &mut plugin_directories,
+                    &player_context,
+                )
+            });
+        if let Err(error) = activated {
             record(&messages, PluginHostMessage::Status(error));
         }
-        pump_session_events(&messages, &mut sessions, &plugin_directories);
+        pump_session_events(&paths.global, &messages, &sessions, &plugin_directories);
     }
     for command in deferred {
         if handle_command(
@@ -511,7 +508,8 @@ fn run_host(
 
     loop {
         let active = !sessions.is_empty();
-        ui_activity.publish(active, || !riina_core::sync::lock(&messages).is_empty());
+        port.activity
+            .publish(active, || !riina_core::sync::lock(&messages).is_empty());
         // Without entry sessions there are no plugin timers or callbacks to drain.
         // Enabling, reloading and shutting down all arrive through the command queue.
         let command = if active {
@@ -538,7 +536,7 @@ fn run_host(
             Err(mpsc::RecvTimeoutError::Timeout) => {}
             Err(mpsc::RecvTimeoutError::Disconnected) => break,
         }
-        pump_session_events(&messages, &mut sessions, &plugin_directories);
+        pump_session_events(&paths.global, &messages, &sessions, &plugin_directories);
     }
 }
 
@@ -548,6 +546,7 @@ struct PluginHostPaths {
     permissions_path: PathBuf,
     enabled_path: PathBuf,
     player_mpv: Option<riina_mpv::CommandSender>,
+    global: GlobalHandle,
 }
 
 struct PluginDirectory {
@@ -567,69 +566,58 @@ fn handle_command(
 ) -> bool {
     match command {
         PluginCommand::AfterInitialPlugins(ready) => ready(),
-        PluginCommand::Enable {
-            manifest,
-            directory,
-        } => {
-            if let Err(error) = activate(
-                &manifest,
-                &directory,
-                paths,
-                messages,
-                sessions,
-                plugin_directories,
-                player_context,
-            ) {
-                record(messages, PluginHostMessage::Status(error));
-            } else {
-                deliver_activation_events(
-                    &manifest.identifier,
-                    *window_loaded,
-                    player_context,
+        PluginCommand::Change(change, response) => {
+            let result = match change.as_ref() {
+                PackageChange::Enable(manifest, directory) => activate(
+                    manifest,
+                    directory,
+                    paths,
                     messages,
                     sessions,
-                );
-            }
-        }
-        PluginCommand::Disable(identifier) => {
-            remove_plugin(identifier, messages, sessions, plugin_directories);
-        }
-        PluginCommand::SuspendForUpdate {
-            identifier,
-            response,
-        } => {
-            remove_plugin(identifier, messages, sessions, plugin_directories);
-            // The updater may have timed out before the host completed the request.
-            let _ = response.send(Ok(()));
-        }
-        PluginCommand::ActivateAfterUpdate {
-            manifest,
-            directory,
-            response,
-        } => {
-            let result = activate(
-                &manifest,
-                &directory,
-                paths,
-                messages,
-                sessions,
-                plugin_directories,
-                player_context,
-            );
+                    plugin_directories,
+                    player_context,
+                )
+                .map(|()| {
+                    deliver_activation_events(
+                        &manifest.identifier,
+                        *window_loaded,
+                        player_context,
+                        messages,
+                        sessions,
+                    );
+                }),
+                PackageChange::Disable(identifier) | PackageChange::Suspend(identifier) => {
+                    remove_plugin(identifier.clone(), messages, sessions, plugin_directories);
+                    Ok(())
+                }
+                PackageChange::Reload(suspended) => {
+                    reload_enabled_plugins(
+                        paths,
+                        messages,
+                        sessions,
+                        plugin_directories,
+                        player_context,
+                        *window_loaded,
+                        suspended,
+                    );
+                    Ok(())
+                }
+            };
             if let Err(error) = &result {
                 record(messages, PluginHostMessage::Status(error.clone()));
-            } else {
-                deliver_activation_events(
-                    &manifest.identifier,
-                    *window_loaded,
-                    player_context,
-                    messages,
-                    sessions,
-                );
             }
-            // Activation is complete even if the updater has timed out.
-            let _ = response.send(result);
+            if let Some(response) = response {
+                let _ = response.try_send(result);
+            }
         }
+        PluginCommand::FromGlobal(identifier, name, data) => {
+            if let Some(session) = sessions.get(&PluginInstanceKey::player(&identifier))
+                && let Err(error) = session.deliver_plugin_message(name, data)
+            {
+                record(messages, PluginHostMessage::Status(error));
+            }
+        }
+        PluginCommand::GlobalMenu(message) => record(messages, message),
         PluginCommand::UpdatePlayerFileContext(context) => {
             let events = player_context.player_events_to(&context);
             player_context.replace_playback_snapshot(context);
@@ -642,7 +630,7 @@ fn handle_command(
         }
         PluginCommand::WindowLoaded => {
             if !std::mem::replace(window_loaded, true) {
-                for key in sessions.keys().filter(|key| !key.global) {
+                for key in sessions.keys() {
                     deliver_window_loaded(&key.identifier, messages, sessions);
                 }
             }
@@ -656,14 +644,6 @@ fn handle_command(
         PluginCommand::MenuUpdate => {
             broadcast_player_event("iina.menu-update", messages, sessions);
         }
-        PluginCommand::ReloadAll => reload_enabled_plugins(
-            paths,
-            messages,
-            sessions,
-            plugin_directories,
-            player_context,
-            *window_loaded,
-        ),
         PluginCommand::WindowWillClose(response) => {
             flush_closing_sessions(messages, sessions);
             // The caller can finish closing before the acknowledgement arrives.
@@ -694,9 +674,8 @@ fn handle_command(
         }
         PluginCommand::ActivatePluginMenuItem {
             identifier,
-            global,
             item_id,
-        } => activate_menu_item(&identifier, global, item_id, messages, sessions),
+        } => activate_menu_item(&identifier, item_id, messages, sessions),
         PluginCommand::BuildPlaylistMenu(request) => {
             request.run(sessions, plugin_directories, &paths.enabled_path);
         }
@@ -714,7 +693,6 @@ fn handle_command(
         }
         PluginCommand::Shutdown => return true,
     }
-    pump_session_events(messages, sessions, plugin_directories);
     false
 }
 
@@ -750,16 +728,11 @@ fn run_subtitle_provider(
 
 fn activate_menu_item(
     identifier: &str,
-    global: bool,
     item_id: String,
     messages: &Mutex<Vec<PluginHostMessage>>,
     sessions: &BTreeMap<PluginInstanceKey, PluginRuntimeSession>,
 ) {
-    let key = if global {
-        PluginInstanceKey::global(identifier)
-    } else {
-        PluginInstanceKey::player(identifier)
-    };
+    let key = PluginInstanceKey::player(identifier);
     if let Some(session) = sessions.get(&key)
         && let Err(error) = session.deliver_plugin_menu_action(item_id)
     {
@@ -796,15 +769,13 @@ fn update_player_sessions(
     messages: &Mutex<Vec<PluginHostMessage>>,
     sessions: &BTreeMap<PluginInstanceKey, PluginRuntimeSession>,
 ) {
-    for (key, session) in sessions.iter() {
-        if !key.global {
-            session.update_player_file_context(player_context.clone());
-            for (name, data) in events {
-                if session.is_subscribed_to_player_event(name)
-                    && let Err(error) = session.deliver_player_event(name.clone(), data.clone())
-                {
-                    record(messages, PluginHostMessage::Status(error));
-                }
+    for session in sessions.values() {
+        session.update_player_file_context(player_context.clone());
+        for (name, data) in events {
+            if session.is_subscribed_to_player_event(name)
+                && let Err(error) = session.deliver_player_event(name.clone(), data.clone())
+            {
+                record(messages, PluginHostMessage::Status(error));
             }
         }
     }
@@ -815,9 +786,8 @@ fn broadcast_player_event(
     messages: &Mutex<Vec<PluginHostMessage>>,
     sessions: &BTreeMap<PluginInstanceKey, PluginRuntimeSession>,
 ) {
-    for (key, session) in sessions {
-        if !key.global
-            && session.is_subscribed_to_player_event(name)
+    for session in sessions.values() {
+        if session.is_subscribed_to_player_event(name)
             && let Err(error) = session.deliver_player_event(name.into(), serde_json::Value::Null)
         {
             record(messages, PluginHostMessage::Status(error));
@@ -832,6 +802,7 @@ fn reload_enabled_plugins(
     plugin_directories: &mut BTreeMap<String, PluginDirectory>,
     player_context: &PluginPlayerFileContext,
     window_loaded: bool,
+    suspended: &BTreeSet<String>,
 ) {
     let identifiers = sessions
         .keys()
@@ -844,6 +815,9 @@ fn reload_enabled_plugins(
     plugin_directories.clear();
     let mut succeeded = 0;
     for plugin in enabled_packages(&paths.plugins_directory, &paths.enabled_path) {
+        if suspended.contains(&plugin.manifest.identifier) {
+            continue;
+        }
         match activate(
             &plugin.manifest,
             &plugin.directory,
@@ -865,7 +839,6 @@ fn reload_enabled_plugins(
             }
             Err(error) => record(messages, PluginHostMessage::Status(error)),
         }
-        pump_session_events(messages, sessions, plugin_directories);
     }
     record(
         messages,
@@ -878,8 +851,8 @@ fn flush_closing_sessions(
     sessions: &BTreeMap<PluginInstanceKey, PluginRuntimeSession>,
 ) {
     let mut notified_sessions = Vec::new();
-    for (key, session) in sessions.iter() {
-        if !key.global && session.is_subscribed_to_player_event("iina.window-will-close") {
+    for session in sessions.values() {
+        if session.is_subscribed_to_player_event("iina.window-will-close") {
             match session
                 .deliver_player_event("iina.window-will-close".into(), serde_json::Value::Null)
             {
@@ -938,15 +911,12 @@ fn command_error(error: mpsc::TrySendError<PluginCommand>) -> String {
 }
 
 fn pump_session_events(
+    global: &GlobalHandle,
     messages: &Arc<Mutex<Vec<PluginHostMessage>>>,
-    sessions: &mut BTreeMap<PluginInstanceKey, PluginRuntimeSession>,
+    sessions: &BTreeMap<PluginInstanceKey, PluginRuntimeSession>,
     plugin_directories: &BTreeMap<String, PluginDirectory>,
 ) {
-    let keys = sessions.keys().cloned().collect::<Vec<_>>();
-    for key in keys {
-        let Some(session) = sessions.get(&key) else {
-            continue;
-        };
+    for (key, session) in sessions {
         for property in session.take_mpv_property_observation_requests() {
             record(messages, PluginHostMessage::ObserveMpvProperty(property));
         }
@@ -960,14 +930,7 @@ fn pump_session_events(
         for event in events {
             match event {
                 HostEvent::PluginMessage(name, data) => {
-                    let peer_key = if key.global {
-                        PluginInstanceKey::player(&key.identifier)
-                    } else {
-                        PluginInstanceKey::global(&key.identifier)
-                    };
-                    if let Some(peer) = sessions.get(&peer_key)
-                        && let Err(error) = peer.deliver_plugin_message(name, data)
-                    {
+                    if let Err(error) = global.deliver(key.identifier.clone(), name, data) {
                         record(messages, PluginHostMessage::Status(error));
                     }
                 }
@@ -1004,7 +967,7 @@ fn pump_session_events(
                                 || key.identifier.clone(),
                                 |plugin| plugin.name.clone(),
                             ),
-                            global: key.global,
+                            global: false,
                             items,
                         },
                     );
@@ -1020,7 +983,7 @@ fn pump_session_events(
 }
 
 struct InstalledPlugin {
-    manifest: Manifest,
+    manifest: Arc<Manifest>,
     directory: PathBuf,
 }
 
@@ -1048,7 +1011,7 @@ fn enabled_packages(directory: &Path, enabled_path: &Path) -> Vec<InstalledPlugi
         })
         .filter(|(_, manifest)| enabled.contains(&manifest.identifier))
         .map(|(directory, manifest)| InstalledPlugin {
-            manifest,
+            manifest: Arc::new(manifest),
             directory,
         })
         .collect::<Vec<_>>();
@@ -1100,19 +1063,6 @@ fn activate(
         ));
     }
     let grants = load_grants(&paths.permissions_path, &manifest.identifier)?;
-    let global = manifest
-        .global_entry
-        .as_ref()
-        .map(|_| {
-            PluginRuntimeSession::start_package_global_entry(
-                directory,
-                manifest,
-                &grants,
-                paths.ui.clone(),
-            )
-            .map_err(|error| format!("Could not start global {}: {error}", manifest.name))
-        })
-        .transpose()?;
     let session = PluginRuntimeSession::start_package_entry_with_player_context(
         directory,
         manifest,
@@ -1122,9 +1072,6 @@ fn activate(
         paths.ui.clone(),
     )
     .map_err(|error| format!("Could not start {}: {error}", manifest.name))?;
-    if let Some(global) = global {
-        sessions.insert(PluginInstanceKey::global(&manifest.identifier), global);
-    }
     paths.ui.input.add(&session.input);
     sessions.insert(player_key, session);
     plugin_directories.insert(

@@ -7,6 +7,81 @@ use crate::{
 };
 use riina_ui::{PlayerControlActions, PlayerDialogState};
 use slint::{ComponentHandle, winit_030::WinitWindowAccessor};
+use std::sync::{Arc, Mutex, Weak};
+
+struct ApplicationOwner {
+    player: slint::Weak<PlayerWindow>,
+    native: Option<slint::Weak<NativeVideoHost>>,
+}
+
+#[derive(Default)]
+pub(crate) struct ApplicationOwners(Arc<Mutex<Vec<Weak<ApplicationOwner>>>>);
+
+pub(crate) struct OwnerRegistration {
+    _owner: Arc<ApplicationOwner>,
+}
+
+impl ApplicationOwners {
+    pub(crate) fn install(&self, dialogs: &PluginDialogs) {
+        let owners = self.0.clone();
+        dialogs.install(move |request| {
+            let owners = owners.clone();
+            slint::invoke_from_event_loop(move || {
+                let owners = {
+                    let mut registrations = riina_core::sync::lock(&owners);
+                    let mut owners = Vec::new();
+                    registrations.retain(|registration| {
+                        let Some(owner) = registration.upgrade() else {
+                            return false;
+                        };
+                        owners.push(owner);
+                        true
+                    });
+                    owners
+                };
+                let target = owners
+                    .iter()
+                    .filter_map(|owner| owner.player.upgrade().map(|app| (app, &owner.native)))
+                    .max_by_key(|(app, native)| {
+                        let rank = |window: &slint::Window| {
+                            if window.with_winit_window(|window| window.has_focus()) == Some(true) {
+                                2
+                            } else {
+                                u8::from(window.is_visible())
+                            }
+                        };
+                        rank(app.window()).max(
+                            native
+                                .as_ref()
+                                .and_then(slint::Weak::upgrade)
+                                .map_or(0, |host| rank(host.window())),
+                        )
+                    });
+                if let Some((app, native)) = target {
+                    present(&app, native.clone(), request);
+                } else {
+                    request.fail("No player window is available for the plugin dialog".into());
+                }
+            })
+            .map_err(|error| error.to_string())
+        });
+    }
+
+    pub(crate) fn register(
+        &self,
+        app: &PlayerWindow,
+        native: Option<slint::Weak<NativeVideoHost>>,
+    ) -> OwnerRegistration {
+        let owner = Arc::new(ApplicationOwner {
+            player: app.as_weak(),
+            native,
+        });
+        let mut registrations = riina_core::sync::lock(&self.0);
+        registrations.retain(|entry| entry.strong_count() != 0);
+        registrations.push(Arc::downgrade(&owner));
+        OwnerRegistration { _owner: owner }
+    }
+}
 
 pub(crate) fn install(
     app: &PlayerWindow,

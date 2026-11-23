@@ -11,26 +11,105 @@ use slint::{ComponentHandle, Model, ModelRc, VecModel, winit_030::WinitWindowAcc
 use std::{cell::RefCell, collections::BTreeMap, rc::Rc};
 
 pub(super) struct Presenter {
-    entries: Directory,
+    player: RealmMenu,
+    global: RealmMenu,
+}
+
+#[derive(Clone)]
+pub(super) struct Scope {
+    directory: Directory,
+    windows: Rc<RefCell<BTreeMap<u64, ToolWindow>>>,
+}
+
+struct RealmMenu {
+    scope: Scope,
     revision: u64,
-    windows: BTreeMap<u64, ToolWindow>,
+    entries: Vec<(u64, String)>,
+}
+
+impl Scope {
+    pub(super) fn new(directory: Directory) -> Self {
+        Self {
+            directory,
+            windows: Rc::default(),
+        }
+    }
+
+    fn open(&self, app: &PlayerWindow, id: u64) -> Result<(), String> {
+        let realm = self
+            .directory
+            .get(id)
+            .ok_or("The plugin entry has stopped")?;
+        let mut windows = self.windows.borrow_mut();
+        let window = match windows.entry(id) {
+            std::collections::btree_map::Entry::Occupied(entry) => entry.into_mut(),
+            std::collections::btree_map::Entry::Vacant(entry) => {
+                entry.insert(ToolWindow::new(app, realm)?)
+            }
+        };
+        window.show()
+    }
+}
+
+impl RealmMenu {
+    fn new(scope: Scope) -> Self {
+        Self {
+            scope,
+            revision: 0,
+            entries: Vec::new(),
+        }
+    }
+
+    fn update(&mut self) -> bool {
+        let Ok(mut windows) = self.scope.windows.try_borrow_mut() else {
+            return false;
+        };
+        let changed = if let Some((revision, entries)) = self.scope.directory.list(self.revision) {
+            self.revision = revision;
+            windows.retain(|id, _| entries.iter().any(|(candidate, _)| id == candidate));
+            self.entries = entries;
+            true
+        } else {
+            false
+        };
+        for window in windows.values_mut() {
+            if window.window.window().is_visible() {
+                window.refresh();
+            }
+        }
+        changed
+    }
+
+    fn rows(&self, prefix: &'static str) -> impl Iterator<Item = MenuCatalogRow> + '_ {
+        self.entries.iter().map(move |(id, title)| MenuCatalogRow {
+            token: format!("{prefix}:{id}").into(),
+            label: title.as_str().into(),
+            ..Default::default()
+        })
+    }
 }
 
 impl Presenter {
-    pub(super) fn install(app: &PlayerWindow, entries: Directory) -> Rc<RefCell<Self>> {
+    pub(super) fn install(
+        app: &PlayerWindow,
+        entries: Directory,
+        global: Scope,
+    ) -> Rc<RefCell<Self>> {
         let presenter = Rc::new(RefCell::new(Self {
-            entries,
-            revision: 0,
-            windows: BTreeMap::new(),
+            player: RealmMenu::new(Scope::new(entries)),
+            global: RealmMenu::new(global),
         }));
         let weak_presenter = Rc::downgrade(&presenter);
         let weak_app = app.as_weak();
         app.global::<PlayerMenuActions>()
             .on_open_plugin_developer_tool(move |token| {
+                let Some((scope, id)) = token.split_once(':') else {
+                    return;
+                };
                 if let (Ok(id), Some(presenter), Some(app)) =
-                    (token.parse(), weak_presenter.upgrade(), weak_app.upgrade())
-                    && let Ok(mut presenter) = presenter.try_borrow_mut()
-                    && let Err(error) = presenter.open(&app, id)
+                    (id.parse(), weak_presenter.upgrade(), weak_app.upgrade())
+                    && let Ok(presenter) = presenter.try_borrow_mut()
+                    && let Err(error) = presenter.open(&app, scope, id)
                 {
                     crate::diagnostics::report(&app, error);
                 }
@@ -39,40 +118,28 @@ impl Presenter {
     }
 
     pub(super) fn update(&mut self, app: &PlayerWindow) {
-        if let Some((revision, entries)) = self.entries.list(self.revision) {
-            self.revision = revision;
-            self.windows
-                .retain(|id, _| entries.iter().any(|(candidate, _)| id == candidate));
-            let rows = entries
-                .into_iter()
-                .map(|(id, title)| MenuCatalogRow {
-                    token: id.to_string().into(),
-                    label: title.into(),
-                    ..Default::default()
-                })
+        let player_changed = self.player.update();
+        let global_changed = self.global.update();
+        if player_changed || global_changed {
+            let rows = self
+                .player
+                .rows("player")
+                .chain(self.global.rows("global"))
                 .collect::<Vec<_>>();
             app.set_plugin_developer_rows(ModelRc::new(VecModel::from(rows)));
-        }
-        for window in self.windows.values_mut() {
-            if window.window.window().is_visible() {
-                window.refresh();
-            }
         }
     }
 
     pub(super) fn close_all(&mut self) {
-        self.windows.clear();
+        self.player.scope.windows.borrow_mut().clear();
     }
 
-    fn open(&mut self, app: &PlayerWindow, id: u64) -> Result<(), String> {
-        let realm = self.entries.get(id).ok_or("The plugin entry has stopped")?;
-        let window = match self.windows.entry(id) {
-            std::collections::btree_map::Entry::Occupied(entry) => entry.into_mut(),
-            std::collections::btree_map::Entry::Vacant(entry) => {
-                entry.insert(ToolWindow::new(app, realm)?)
-            }
-        };
-        window.show()
+    fn open(&self, app: &PlayerWindow, scope: &str, id: u64) -> Result<(), String> {
+        match scope {
+            "player" => self.player.scope.open(app, id),
+            "global" => self.global.scope.open(app, id),
+            _ => Err("Unknown plugin console scope".into()),
+        }
     }
 }
 

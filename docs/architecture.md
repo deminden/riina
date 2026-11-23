@@ -192,6 +192,14 @@ can resume.
 
 ### Plugin application menus
 
+The application owns one global plugin host. Each enabled package can register
+one global realm, which survives closing or opening a player. Player entries
+run in their own playback sessions. The application host distributes package
+changes to those sessions and waits for their acknowledgements before an
+installer can replace an active package. A player's messages go only to its
+package's global realm. Riina's current broadcast reaches that package's
+active player entries. Closing the application retires the global entries.
+
 The player keeps global and player contributions grouped by their package.
 Menu rows carry their depth and role up to the compiled Slint menu provider.
 The provider restores the subtree before Slint supplies entries to the native
@@ -236,10 +244,11 @@ input paths.
 Each player or global entry owns one standalone window state and a distinct
 browser origin. The UI reads that state and creates a native window on the
 first open. Close hides the WebView so reopening retains the document. When an
-entry retires, the UI drops its WebView and native window. The player session
-owns the presenter, and the plugin timer queues window operations on the UI
-event loop. This lets native WebViews dispatch window events without reentering
-the timer callback.
+entry retires, the UI drops its WebView and native window. The application owns
+the global standalone and developer windows. Each player owns its own plugin
+windows. A player queues presenter work on the UI event loop so native WebViews
+can dispatch window events outside the plugin timer callback. Global utility
+dialogs use the focused player when one is available.
 
 Package assets use a confined custom protocol. Simple-mode markup and style
 can be set while the window is hidden or its page is loading. A document ID

@@ -73,7 +73,6 @@ impl BuildRequest {
         // with every other realm and the caller can still use completed menus.
         let responses = sessions
             .iter()
-            .filter(|(key, _)| !key.global)
             .filter_map(|(key, session)| {
                 session
                     .build_playlist_menu(self.request, self.indices.clone(), self.deadline)

@@ -28,7 +28,7 @@ use player::{
     screenshot_output, seek_osd, thumbnail_cache, thumbnail_preview, transition_frame, video_blur,
     video_osd, window_aspect, window_controls,
 };
-use player_ui::configure_player;
+use player_ui::{InitialMedia, configure_player};
 use plugins::{
     plugin_files, plugin_github, plugin_host, plugin_http, plugin_packages, plugin_runtime,
     plugin_snapshot,
@@ -135,11 +135,14 @@ fn run_shared_player(
     let session = configure_player(
         &app,
         None,
-        media,
+        InitialMedia {
+            files: media,
+            resume_position,
+        },
         welcome.as_ref(),
-        resume_position,
         loaded,
         media_geometry,
+        player_manager.plugins(),
     )?;
     player_manager.attach(
         &app,

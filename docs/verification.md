@@ -1601,6 +1601,39 @@ The executable SHA-256 was
 Application-level global plugin entries and plugin-managed player creation
 remain open.
 
+### Application-wide plugin entries 2026-11-23
+
+The application owns one global realm per enabled package. Player realms stay
+with their playback sessions. The headless multi-player regression exercises
+shared state, both directions of messaging, global menu actions, window close,
+reload, update suspension and reactivation. An early-start test covers package
+activation while a player is initializing.
+
+On a private Windows desktop, opening a second player left both videos in one
+process. The global menu incremented one counter from either player and both
+player realms received the broadcasts. The same Developer Tool and standalone
+WebView opened from both menus. The WebView answered a page message. Closing
+its opening player preserved both auxiliary windows and the surviving player
+received the next count. Duplicate detection, application Quit and shutdown
+after closing the last frame passed. The exact test processes exited normally.
+
+Windows passed the locked workspace build, strict Clippy, 919 Rust tests and
+78 Python tests. The Rust suite included the headless Windows player and Settings
+pixel comparisons. The same executable passed all ten private-desktop playback,
+menu and fullscreen checks in 9.074 s. Its SHA-256 was
+`86484b8d8a5b990e9316fcb9cb9a9fc072ded54efef6bde2dfbf806140337a60`.
+
+Linux passed strict workspace Clippy, 512 app tests, 53 interaction tests and the
+locked application build. Its first run exposed a race between package activation
+and player registration. Registering the player before exposing its host handle
+resolved the failure. An isolated X11 desktop opened Global tools, Player tools
+and More, dispatched their leaf actions and closed the exact test player.
+Strict Apple Silicon cross-target Clippy also passed.
+
+Plugin-managed player creation and the pinned message routing rules remain
+open. The native Windows check used an isolated desktop. macOS runtime and
+matched interface evidence remain open.
+
 ### Plugin playlist context menus 2026-11-23
 
 The headless player test sent a right click to a playlist row and checked

@@ -162,6 +162,7 @@ pub(crate) struct UiSession {
     player: Option<SessionResource<Player>>,
     platform_extras: platform::SessionExtras,
     _plugins: plugins::RuntimeSession,
+    _application_plugins: Rc<ApplicationPlugins>,
     _presentation: Option<SessionResource<platform::NativePresentation>>,
     _live_text_timer: Option<Rc<slint::Timer>>,
     _preference_recovery_notice: Option<Rc<slint::Timer>>,
@@ -207,29 +208,31 @@ impl Drop for UiSession {
 struct SessionStartup {
     engine: EngineStart,
     media_geometry: crate::window_aspect::MediaGeometry,
+    application_plugins: Rc<ApplicationPlugins>,
 }
+
+pub(crate) use plugins::ApplicationPlugins;
+pub(crate) use startup::InitialMedia;
 
 pub(crate) fn configure_player(
     app: &PlayerWindow,
     native: Option<platform::NativePresentation>,
-    media: Vec<std::ffi::OsString>,
+    media: InitialMedia,
     welcome: Option<&WelcomeWindow>,
-    startup_resume_position: Option<f64>,
     loaded: LoadedPreferences,
     media_geometry: crate::window_aspect::MediaGeometry,
+    application_plugins: Rc<ApplicationPlugins>,
 ) -> Result<UiSession, Box<dyn std::error::Error>> {
     configure_with_engine(
         app,
         native,
-        startup::InitialMedia {
-            files: media,
-            resume_position: startup_resume_position,
-        },
+        media,
         welcome,
         loaded,
         SessionStartup {
             engine: EngineStart::Native,
             media_geometry,
+            application_plugins,
         },
     )
 }
@@ -243,6 +246,7 @@ fn configure_with_engine(
     SessionStartup {
         engine: engine_start,
         media_geometry,
+        application_plugins,
     }: SessionStartup,
 ) -> Result<UiSession, Box<dyn std::error::Error>> {
     let startup::PreparedStartup {
@@ -256,6 +260,7 @@ fn configure_with_engine(
         &engine_start,
         loaded,
         media_geometry.clone(),
+        &application_plugins,
     )?;
     let prefs = &session.prefs;
     let prefs_path = &session.prefs_path;
@@ -375,6 +380,7 @@ fn configure_with_engine(
         player: player.map(SessionResource::Live),
         platform_extras,
         _plugins: plugin_runtime,
+        _application_plugins: application_plugins,
         _presentation: native.map(SessionResource::Live),
         _live_text_timer: live_text_timer,
         _preference_recovery_notice: session.recovery.and_then(|recovery| recovery.announce(app)),

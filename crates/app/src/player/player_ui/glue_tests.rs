@@ -44,6 +44,7 @@ impl Harness {
             loaded,
             SessionStartup {
                 media_geometry: Default::default(),
+                application_plugins: Rc::default(),
                 engine: EngineStart::Recording {
                     engine: engine.clone(),
                     commands: commands.clone(),

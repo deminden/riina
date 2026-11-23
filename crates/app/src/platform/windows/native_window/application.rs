@@ -71,6 +71,7 @@ pub(super) fn run(initial: NativeLaunch) -> Result<(), Box<dyn std::error::Error
     let application = Rc::new(Application {
         backend: Backend::install()?,
         players: RefCell::default(),
+        plugins: Rc::default(),
         initial_error: RefCell::default(),
         quitting: Cell::default(),
     });
@@ -86,6 +87,7 @@ pub(super) fn run(initial: NativeLaunch) -> Result<(), Box<dyn std::error::Error
 struct Application {
     backend: Backend,
     players: RefCell<Vec<Rc<NativePlayer>>>,
+    plugins: Rc<crate::player_ui::ApplicationPlugins>,
     initial_error: RefCell<Option<Box<dyn std::error::Error>>>,
     quitting: Cell<bool>,
 }
@@ -108,7 +110,9 @@ impl Application {
         };
         // Keep the host owned while Slint is realizing its frame and controls.
         self.players.borrow_mut().push(player.clone());
-        if let Err(error) = player.start(launch, self.backend.clone(), actions) {
+        if let Err(error) =
+            player.start(launch, self.backend.clone(), actions, self.plugins.clone())
+        {
             self.close(&player);
             return Err(error);
         }

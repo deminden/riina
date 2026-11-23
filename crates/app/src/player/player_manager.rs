@@ -1,6 +1,9 @@
 //! Own independent shared-renderer player windows for the application lifetime.
 
-use crate::{PlayerWindow, WelcomeWindow, player_ui::UiSession};
+use crate::{
+    PlayerWindow, WelcomeWindow,
+    player_ui::{ApplicationPlugins, InitialMedia, UiSession},
+};
 use riina_ui::PlayerMenuActions;
 use slint::{CloseRequestResponse, ComponentHandle, Model, winit_030::WinitWindowAccessor};
 use std::{
@@ -42,6 +45,7 @@ impl ManagedPlayer {
 struct ManagerState {
     next_id: u64,
     players: Vec<ManagedPlayer>,
+    plugins: Rc<ApplicationPlugins>,
 }
 
 pub(crate) const fn should_quit_after_last_window_closed(
@@ -59,6 +63,10 @@ pub(crate) struct PlayerManager {
 impl PlayerManager {
     pub(crate) fn new() -> Self {
         Self::default()
+    }
+
+    pub(crate) fn plugins(&self) -> Rc<ApplicationPlugins> {
+        self.state.borrow().plugins.clone()
     }
 
     pub(crate) fn attach(
@@ -221,14 +229,18 @@ fn open_player(
     let app = PlayerWindow::new().map_err(|error| error.to_string())?;
     app.set_native_video(false);
     let media_geometry = crate::window_aspect::MediaGeometry::default();
+    let plugins = state.borrow().plugins.clone();
     let session = crate::player_ui::configure_player(
         &app,
         None,
-        selected,
+        InitialMedia {
+            files: selected,
+            resume_position,
+        },
         None,
-        resume_position,
         loaded,
         media_geometry,
+        plugins,
     )
     .map_err(|error| error.to_string())?;
     let manager = PlayerManager {
@@ -351,14 +363,15 @@ fn show_welcome(state: &Rc<RefCell<ManagerState>>) -> Result<(), Box<dyn std::er
     crate::appearance_preferences::install_system_typography(&welcome);
     let loaded = crate::preference_load::load(&crate::platform::preferences_path()?)?;
     let media_geometry = crate::window_aspect::MediaGeometry::default();
+    let plugins = state.borrow().plugins.clone();
     let session = crate::player_ui::configure_player(
         &app,
         None,
-        Vec::new(),
+        InitialMedia::default(),
         Some(&welcome),
-        None,
         loaded,
         media_geometry,
+        plugins,
     )?;
     let manager = PlayerManager {
         state: state.clone(),

@@ -243,9 +243,9 @@ pub(super) fn install_toolbar_order(app: &PlayerWindow) {
 }
 
 #[derive(Default)]
-pub(super) struct InitialMedia {
-    pub(super) files: Vec<std::ffi::OsString>,
-    pub(super) resume_position: Option<f64>,
+pub(crate) struct InitialMedia {
+    pub(crate) files: Vec<std::ffi::OsString>,
+    pub(crate) resume_position: Option<f64>,
 }
 
 pub(super) struct InitialOpen {
@@ -353,6 +353,7 @@ pub(super) fn prepare(
     engine_start: &EngineStart,
     loaded: LoadedPreferences,
     media_geometry: MediaGeometry,
+    application_plugins: &plugins::ApplicationPlugins,
 ) -> Result<PreparedStartup, Box<dyn std::error::Error>> {
     let picture_in_picture = platform::PictureInPictureSession::new(app);
     let prefs_path = engine_start.preferences_path()?;
@@ -365,8 +366,14 @@ pub(super) fn prepare(
         saved_audio_filters,
         history,
     } = prepare_settings(app, &prefs_path, loaded, use_system_services);
-    let plugin_host = match PluginHost::prepare(&prefs_path, &prefs.recent_media, history.entries())
-    {
+    let plugin_host = match application_plugins.host(&prefs_path).and_then(|global| {
+        PluginHost::prepare_for_application(
+            &prefs_path,
+            &prefs.recent_media,
+            history.entries(),
+            global,
+        )
+    }) {
         Ok(host) => Some(host),
         Err(error) => {
             app.set_status(error.into());
@@ -374,7 +381,7 @@ pub(super) fn prepare(
         }
     };
     let plugin_host_handle = plugin_host.as_ref().map(PluginHost::handle);
-    let plugin_ui = plugins::install(app, native, plugin_host_handle.clone());
+    let plugin_ui = plugins::install(app, native, plugin_host_handle.clone(), application_plugins);
     live_text::initialize(app, prefs.live_text_enabled, use_system_services);
     hdr_output::initialize_display(app, &prefs, native);
     let recent = SessionRecents::new(&prefs);

@@ -37,7 +37,7 @@ fn playback_updates_keep_the_plugin_window_context() {
         .update_player_file_context(PluginPlayerFileContext::default().with_media_generation(1))
         .unwrap();
     handle
-        .enable(
+        .activate_after_update(
             Manifest::load_from_directory(&directory).unwrap(),
             directory,
         )
@@ -527,6 +527,145 @@ fn verify_playlist_menu_actions(handle: &PluginHostHandle) {
             .unwrap();
     }
     handle.notify_window_will_close().unwrap();
+}
+
+#[test]
+fn global_entry_outlives_each_player_and_reloads_once_for_all_players() {
+    let scratch = TempDir::new("application-plugin").unwrap();
+    let root = scratch.path();
+    let profile = root.join("preferences.json");
+    let identifier = "org.example.shared";
+    let package = root.join("Plugins/org.example.shared.iinaplugin");
+    fs::create_dir_all(&package).unwrap();
+    fs::write(
+        package.join("Info.json"),
+        r#"{"name":"Shared","identifier":"org.example.shared","version":"1.0.0","author":{"name":"Test"},"entry":"main.js","globalEntry":"global.js","permissions":[]}"#,
+    )
+    .unwrap();
+    fs::write(
+        package.join("global.js"),
+        r"let count = 0;
+        iina.global.onMessage('tick', () => iina.global.postMessage(null, 'count', ++count));
+        iina.menu.addItem(iina.menu.item('Increment', () => iina.global.postMessage(null, 'count', ++count)));",
+    )
+    .unwrap();
+    fs::write(
+        package.join("main.js"),
+        r"iina.global.onMessage('count', count => iina.log('count ' + count));
+        iina.event.on('iina.menu-update', () => iina.global.postMessage('tick', null));",
+    )
+    .unwrap();
+    fs::write(
+        root.join("plugin-enabled.json"),
+        r#"["org.example.shared"]"#,
+    )
+    .unwrap();
+
+    let global = GlobalHost::start(&profile).unwrap();
+    let open = || {
+        let mut host =
+            PluginHost::prepare_for_application(&profile, &[], &[], global.handle()).unwrap();
+        let handle = host.handle();
+        host.start_player(None);
+        (host, handle)
+    };
+    let (first, first_handle) = open();
+    let first_item = wait_for_global_item(&first_handle, "Increment");
+    let (second, second_handle) = open();
+    let second_item = wait_for_global_item(&second_handle, "Increment");
+    assert_eq!(first_item, second_item);
+    assert_eq!(global.handle().ui.developer.list(0).unwrap().1.len(), 1);
+    assert_eq!(first_handle.ui.developer.list(0).unwrap().1.len(), 1);
+    assert_eq!(second_handle.ui.developer.list(0).unwrap().1.len(), 1);
+
+    first_handle.notify_menu_update().unwrap();
+    wait_for_count(&first_handle, 1);
+    wait_for_count(&second_handle, 1);
+    second_handle
+        .activate_plugin_menu_item(identifier.into(), true, second_item)
+        .unwrap();
+    wait_for_count(&first_handle, 2);
+    wait_for_count(&second_handle, 2);
+
+    drop(first);
+    second_handle.notify_menu_update().unwrap();
+    wait_for_count(&second_handle, 3);
+    let (third, third_handle) = open();
+    wait_for_global_item(&third_handle, "Increment");
+
+    fs::write(
+        package.join("global.js"),
+        r"iina.menu.addItem(iina.menu.item('After reload',
+            () => iina.global.postMessage(null, 'count', 42)));",
+    )
+    .unwrap();
+    second_handle.reload_all().unwrap();
+    let second_item = wait_for_global_item(&second_handle, "After reload");
+    let third_item = wait_for_global_item(&third_handle, "After reload");
+    assert_eq!(second_item, third_item);
+    third_handle
+        .activate_plugin_menu_item(identifier.into(), true, third_item)
+        .unwrap();
+    wait_for_count(&second_handle, 42);
+    wait_for_count(&third_handle, 42);
+
+    second_handle.suspend_for_update(identifier.into()).unwrap();
+    for ui in [
+        global.handle().ui,
+        second_handle.ui.clone(),
+        third_handle.ui.clone(),
+    ] {
+        assert!(ui.developer.list(0).unwrap().1.is_empty());
+    }
+    second_handle
+        .activate_after_update(Manifest::load_from_directory(&package).unwrap(), package)
+        .unwrap();
+    wait_for_global_item(&second_handle, "After reload");
+    wait_for_global_item(&third_handle, "After reload");
+    drop((second, third));
+}
+
+fn wait_for_global_item(handle: &PluginHostHandle, title: &str) -> String {
+    wait_for_host_message(handle, |message| match message {
+        PluginHostMessage::PluginMenuUpdated {
+            global: true,
+            items,
+            ..
+        } => items
+            .into_iter()
+            .find(|item| item.title == title)
+            .map(|item| item.id),
+        _ => None,
+    })
+}
+
+fn wait_for_count(handle: &PluginHostHandle, count: u32) {
+    let expected = format!(": count {count}");
+    wait_for_host_message(handle, |message| {
+        matches!(message, PluginHostMessage::Log(text) if text.ends_with(&expected)).then_some(())
+    });
+}
+
+fn wait_for_host_message<T>(
+    handle: &PluginHostHandle,
+    select: impl Fn(PluginHostMessage) -> Option<T>,
+) -> T {
+    let deadline = Instant::now() + Duration::from_secs(3);
+    loop {
+        if let Some(value) = handle
+            .drain_messages()
+            .unwrap()
+            .into_iter()
+            .find_map(&select)
+        {
+            return value;
+        }
+        assert!(
+            Instant::now() < deadline,
+            "Timed out waiting for a plugin host message"
+        );
+        std::thread::sleep(Duration::from_millis(5));
+    }
 }
 
 #[test]

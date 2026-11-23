@@ -30,11 +30,15 @@ impl UiActivity {
     pub(super) fn publish(&self, active: bool, messages_pending: impl FnOnce() -> bool) {
         let was_active = self.active.swap(active, Ordering::AcqRel);
         if !was_active && (active || messages_pending()) {
-            // Call out without the lock so UI delivery can overlap registration.
-            let wake = lock(&self.wake).clone();
-            if let Some(wake) = wake {
-                wake();
-            }
+            self.wake();
+        }
+    }
+
+    pub(super) fn wake(&self) {
+        // Call out without the lock so UI delivery can overlap registration.
+        let wake = lock(&self.wake).clone();
+        if let Some(wake) = wake {
+            wake();
         }
     }
 }
