@@ -1,3 +1,4 @@
+import { Theme } from "theme.slint";
 // Shared edit lifecycle for speed and audio/subtitle timing fields.
 export component QuickSettingsInput inherits Rectangle {
     in property <string> observed-value: "0";
@@ -5,7 +6,7 @@ export component QuickSettingsInput inherits Rectangle {
     in property <bool> enabled: true;
     in property <bool> dark-theme: true;
     in property <bool> windows-acrylic-surface: false;
-    in property <color> accent-color: #90b7ef;
+    in property <color> accent-color: Theme.player-focus-accent;
     in property <string> hint;
     callback committed(string) -> bool;
     callback editing-finished();
@@ -13,11 +14,9 @@ export component QuickSettingsInput inherits Rectangle {
     width: 50px; height: 24px;
     forward-focus: input;
     border-radius: 4px;
-    background: windows-acrylic-surface
-        ? (dark-theme ? #ffffff0f : #f9f9f94d)
-        : (dark-theme ? #ffffff10 : #ffffff);
+    background: Theme.sidebar-input-surface(dark-theme, windows-acrylic-surface);
     border-width: 1px;
-    border-color: input.has-focus ? root.accent-color : (dark-theme ? #ffffff20 : #00000020);
+    border-color: input.has-focus ? root.accent-color : Theme.sidebar-material-border(dark-theme);
 
     function submit() -> bool {
         if !root.enabled { return false; }
@@ -47,8 +46,7 @@ export component QuickSettingsInput inherits Rectangle {
             text: root.observed-value;
             enabled: root.enabled;
             font-size: 12px;
-            color: root.enabled ? (root.dark-theme ? #eeeeee : #29292d)
-                : (root.dark-theme ? #777777 : #8a8a90);
+            color: Theme.sidebar-action-text(root.dark-theme, root.enabled);
             vertical-alignment: center;
             single-line: true;
             accessible-label: root.hint;

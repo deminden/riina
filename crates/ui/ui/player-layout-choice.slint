@@ -1,10 +1,11 @@
+import { Theme } from "theme.slint";
 export component LayoutChoice inherits FocusScope {
     in property <string> label;
     in property <int> position;
     in property <bool> selected;
     in property <bool> dark-theme: true;
     in property <bool> platform-windows: false;
-    in property <color> accent-color: #168bff;
+    in property <color> accent-color: Theme.playback-progress-accent;
     in property <length> card-width;
     callback activated();
     height: 74px;
@@ -18,12 +19,12 @@ export component LayoutChoice inherits FocusScope {
         border-radius: 8px;
         border-width: selected ? 2px : 1px;
         border-color: selected || root.has-focus ? root.accent-color
-            : root.dark-theme ? #ffffff1f : #0000001a;
+            : Theme.layout-choice-border(root.dark-theme);
         background: selected
-            ? (root.platform-windows ? (root.dark-theme ? #ffffff12 : #0000000a) : #168bff18)
+            ? Theme.layout-choice-selection(root.dark-theme, root.platform-windows)
             : touch.has-hover
-            ? (root.dark-theme ? #ffffff10 : #0000000a)
-            : (root.dark-theme ? #ffffff08 : #00000006);
+            ? Theme.layout-choice-hover(root.dark-theme)
+            : Theme.layout-choice-surface(root.dark-theme);
         VerticalLayout {
             alignment: center; cross-axis-alignment: center; spacing: 8px;
             preview := Rectangle {
@@ -32,7 +33,7 @@ export component LayoutChoice inherits FocusScope {
                     x: 4px; y: 1.5px; width: 32px; height: 25px;
                     border-radius: 4px;
                     border-width: 1px;
-                    border-color: root.dark-theme ? #ffffffb0 : #34343b99;
+                    border-color: Theme.layout-choice-diagram(root.dark-theme);
                     background: transparent;
                     Rectangle {
                         x: position == 0 ? parent.width / 2 - 6px : 2px;
@@ -40,13 +41,13 @@ export component LayoutChoice inherits FocusScope {
                         width: position == 0 ? 12px : parent.width - 4px;
                         height: 3px; border-radius: 1px;
                         background: selected
-                            ? (root.platform-windows ? root.accent-color : #90b7ef) : #aaaab4;
+                            ? (root.platform-windows ? root.accent-color : Theme.player-focus-accent) : Theme.layout-choice-inactive-indicator;
                     }
                 }
             }
             Text { text: root.label; color: root.platform-windows
-                ? (root.dark-theme ? #ffffff : #202024) : selected ? #ffffff
-                : (root.dark-theme ? #bbbbc2 : #505056);
+                ? Theme.layout-choice-selected-text(root.dark-theme) : selected ? Theme.layout-choice-accent-text
+                : Theme.layout-choice-text(root.dark-theme);
                 font-size: 11px; horizontal-alignment: center; }
         }
         touch := TouchArea { clicked => { root.focus(); root.activated(); } }

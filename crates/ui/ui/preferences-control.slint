@@ -1,3 +1,4 @@
+import { Theme } from "theme.slint";
 import { PreferenceSwitch, PreferenceChoiceRow, PreferenceSensitivityRow } from "preferences-controls.slint";
 import { ScrollView } from "std-widgets.slint";
 
@@ -26,11 +27,11 @@ export component ControlPreferencesPage inherits ScrollView {
     content-height: 760px; content-width: self.visible-width;
     horizontal-scrollbar-policy: always-off;
     Rectangle { width: parent.width; height: 760px;
-        background: root.mica-backdrop-enabled ? #ffffff80 : #ffffff;
-        Text { x: 28px; y: 16px; text: "Control"; font-size: 15px; font-weight: 600; color: #222222; }
-        Text { x: 28px; y: 52px; text: "Trackpad"; font-size: 13px; font-weight: 600; color: #77777d; }
+        background: Theme.settings-content-surface(root.mica-backdrop-enabled);
+        Text { x: 28px; y: 16px; text: "Control"; font-size: 15px; font-weight: 600; color: Theme.settings-page-heading; }
+        Text { x: 28px; y: 52px; text: "Trackpad"; font-size: 13px; font-weight: 600; color: Theme.settings-section-heading; }
         Rectangle { x: 20px; y: 78px; width: parent.width - 40px; height: 82px;
-            border-width: 1px; border-color: #e4e4e7; border-radius: 10px; background: root.mica-backdrop-enabled ? #ffffff80 : #f8f8f8;
+            border-width: 1px; border-color: Theme.settings-input-card-border; border-radius: 10px; background: Theme.settings-card-surface(root.mica-backdrop-enabled);
             VerticalLayout { spacing: 0px;
                 PreferenceChoiceRow { label: "Pinch to"; options: ["Adjust window size", "Fullscreen", "None"];
                     selected-index <=> ControlSettingsState.control-pinch-index;
@@ -43,9 +44,9 @@ export component ControlPreferencesPage inherits ScrollView {
             }
         }
 
-        Text { x: 28px; y: 174px; text: "Mouse"; font-size: 13px; font-weight: 600; color: #77777d; }
+        Text { x: 28px; y: 174px; text: "Mouse"; font-size: 13px; font-weight: 600; color: Theme.settings-section-heading; }
         Rectangle { x: 20px; y: 200px; width: parent.width - 40px; height: 204px;
-            border-width: 1px; border-color: #e4e4e7; border-radius: 10px; background: root.mica-backdrop-enabled ? #ffffff80 : #f8f8f8;
+            border-width: 1px; border-color: Theme.settings-input-card-border; border-radius: 10px; background: Theme.settings-card-surface(root.mica-backdrop-enabled);
             VerticalLayout { spacing: 0px;
                 PreferenceChoiceRow { label: "Single click to"; options: ["None", "Pause/Resume", "Hide OSC"];
                     selected-index <=> ControlSettingsState.control-single-click-choice;
@@ -72,9 +73,9 @@ export component ControlPreferencesPage inherits ScrollView {
             }
         }
 
-        Text { x: 28px; y: 418px; text: "Scroll"; font-size: 13px; font-weight: 600; color: #77777d; }
+        Text { x: 28px; y: 418px; text: "Scroll"; font-size: 13px; font-weight: 600; color: Theme.settings-section-heading; }
         Rectangle { x: 20px; y: 444px; width: parent.width - 40px; height: 80px;
-            border-width: 1px; border-color: #e4e4e7; border-radius: 10px; background: root.mica-backdrop-enabled ? #ffffff80 : #f8f8f8;
+            border-width: 1px; border-color: Theme.settings-input-card-border; border-radius: 10px; background: Theme.settings-card-surface(root.mica-backdrop-enabled);
             VerticalLayout { spacing: 0px;
                 PreferenceChoiceRow { label: "Scroll vertically to"; options: ["Adjust volume", "Seek", "None", "Adjust playback speed"];
                     selected-index <=> ControlSettingsState.control-vertical-scroll-index;
@@ -87,9 +88,9 @@ export component ControlPreferencesPage inherits ScrollView {
             }
         }
 
-        Text { x: 28px; y: 538px; text: "Scrolling sensitivity"; font-size: 13px; font-weight: 600; color: #77777d; }
+        Text { x: 28px; y: 538px; text: "Scrolling sensitivity"; font-size: 13px; font-weight: 600; color: Theme.settings-section-heading; }
         Rectangle { x: 20px; y: 564px; width: parent.width - 40px; height: 152px;
-            border-width: 1px; border-color: #e4e4e7; border-radius: 10px; background: root.mica-backdrop-enabled ? #ffffff80 : #f8f8f8;
+            border-width: 1px; border-color: Theme.settings-input-card-border; border-radius: 10px; background: Theme.settings-card-surface(root.mica-backdrop-enabled);
             VerticalLayout { spacing: 0px;
                 PreferenceChoiceRow { label: "Seek type"; options: ["Keyframe seek", "Exact seek", "Auto"];
                     selected-index <=> ControlSettingsState.control-seek-type-index;

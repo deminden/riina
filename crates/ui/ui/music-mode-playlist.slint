@@ -1,3 +1,4 @@
+import { Theme } from "theme.slint";
 import { PlaylistInteraction } from "playlist-sidebar-row.slint";
 import { PlayerCatalogState } from "player-catalog-state.slint";
 import { ScrollView } from "std-widgets.slint";
@@ -10,7 +11,7 @@ export component MusicModePlaylist inherits Rectangle {
     callback select-row(string);
     callback play-row(string);
 
-    background: root.dark-theme ? #17171b : #f0f0f2;
+    background: Theme.music-mode-playlist-surface(root.dark-theme);
     ScrollView {
         width: parent.width; height: parent.height;
         VerticalLayout {
@@ -18,25 +19,25 @@ export component MusicModePlaylist inherits Rectangle {
             for row in PlayerCatalogState.playlist : Rectangle {
                 height: PlayerCatalogState.playlist-metadata-visible ? 38px : 30px; horizontal-stretch: 1;
                 background: row.selected || PlaylistInteraction.selected-playlist-token == row.token
-                    ? (root.dark-theme ? #ffffff1c : #168bff24) :
-                    music-row-touch.has-hover ? (root.dark-theme ? #ffffff10 : #0000000a) : transparent;
+                    ? Theme.music-mode-playlist-selection(root.dark-theme) :
+                    music-row-touch.has-hover ? Theme.music-mode-playlist-hover(root.dark-theme) : transparent;
                 if row.playing : Image {
                     x: 8px; y: 8px; width: 14px; height: 14px;
                     source: @image-url("../../../assets/icons/play.svg");
-                    image-fit: contain; colorize: root.platform-windows ? root.windows-accent-color : #168bff;
+                    image-fit: contain; colorize: root.platform-windows ? root.windows-accent-color : Theme.playback-progress-accent;
                 }
                 if row.detail != "" : VerticalLayout {
                     x: row.playing ? 28px : 10px; y: 3px;
                     width: parent.width - (row.playing ? 38px : 20px); height: parent.height - 6px;
                     spacing: 0px;
-                    Text { text: row.label; color: root.dark-theme ? #eeeeee : #29292d;
+                    Text { text: row.label; color: Theme.music-mode-playlist-title(root.dark-theme);
                         font-size: 12px; vertical-alignment: center; overflow: elide; }
-                    Text { text: row.detail; color: root.dark-theme ? #a7a7ad : #6b6b72;
+                    Text { text: row.detail; color: Theme.music-mode-playlist-detail(root.dark-theme);
                         font-size: 10px; vertical-alignment: center; overflow: elide; }
                 }
                 if row.detail == "" : Text { x: row.playing ? 28px : 10px;
                     width: parent.width - (row.playing ? 38px : 20px); text: row.label;
-                    color: root.dark-theme ? #eeeeee : #29292d; font-size: 12px;
+                    color: Theme.music-mode-playlist-title(root.dark-theme); font-size: 12px;
                     vertical-alignment: center; overflow: elide; }
                 music-row-touch := TouchArea {
                     clicked => { root.select-row(row.token); }

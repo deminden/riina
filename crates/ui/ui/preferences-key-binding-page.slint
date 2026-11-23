@@ -1,3 +1,4 @@
+import { Theme } from "theme.slint";
 import { KeyBindingSettingsState, KeyBindingActionRow, KeyBindingIconButton, KeyBindingProfileMenuItem } from "preferences-key-bindings.slint";
 import { PreferenceSwitch } from "preferences-controls.slint";
 import { ComboBox, ScrollView } from "std-widgets.slint";
@@ -22,20 +23,20 @@ export component KeyBindingsPreferencesPage inherits ScrollView {
     horizontal-scrollbar-policy: always-off;
     Rectangle {
         width: parent.width; height: max(parent.height, KeyBindingSettingsState.key-binding-rows.length == 0 ? 310px : 290px + KeyBindingSettingsState.key-binding-rows.length * 32px);
-        background: root.mica-backdrop-enabled ? #ffffff80 : #ffffff;
+        background: Theme.settings-content-surface(root.mica-backdrop-enabled);
         Text { x: 28px; y: 16px; text: "Key Bindings";
-            font-size: 15px; font-weight: 600; color: #222222; }
+            font-size: Theme.settings-page-title-size; font-weight: 600; color: Theme.settings-page-heading; }
         Rectangle {
             x: 20px; y: 52px; width: parent.width - 40px; height: 42px;
-            border-width: 1px; border-color: #e4e4e7; border-radius: 12px;
-            background: root.mica-backdrop-enabled ? #ffffff80 : #f8f8f8;
+            border-width: 1px; border-color: Theme.settings-input-card-border; border-radius: Theme.settings-card-corner;
+            background: Theme.settings-card-surface(root.mica-backdrop-enabled);
             Image { x: 12px; y: 13px; width: 16px; height: 16px;
                 source: @image-url("../../../assets/icons/keybindings.svg"); }
             Text { x: 37px; y: 0; width: 178px; height: parent.height;
-                text: "Use system media control"; font-size: 12px; color: #252529;
+                text: "Use system media control"; font-size: 12px; color: Theme.settings-control-label;
                 vertical-alignment: center; }
             Text { x: 206px; y: 11px; width: 18px; height: 18px;
-                text: "?"; font-size: 11px; color: #55555b;
+                text: "?"; font-size: 11px; color: Theme.settings-key-binding-help;
                 horizontal-alignment: center; vertical-alignment: center; }
             PreferenceSwitch {
                 x: parent.width - 52px; y: 7px; width: 44px;
@@ -47,10 +48,10 @@ export component KeyBindingsPreferencesPage inherits ScrollView {
         Rectangle {
             x: 20px; y: 110px; width: parent.width - 40px;
             height: KeyBindingSettingsState.key-binding-rows.length == 0 ? 200px : 180px + KeyBindingSettingsState.key-binding-rows.length * 32px;
-            border-width: 1px; border-color: #e4e4e7; border-radius: 12px;
-            background: root.mica-backdrop-enabled ? #ffffff80 : #f8f8f8;
+            border-width: 1px; border-color: Theme.settings-input-card-border; border-radius: Theme.settings-card-corner;
+            background: Theme.settings-card-surface(root.mica-backdrop-enabled);
             Text { x: 12px; y: 8px; width: 66px; height: 36px;
-                text: "Key binding set"; font-size: 11px; color: #29292d;
+                text: "Key binding set"; font-size: 11px; color: Theme.settings-card-title;
                 vertical-alignment: center; wrap: word-wrap; }
             ComboBox {
                 x: 82px; y: 8px; width: parent.width - 182px; height: 28px;
@@ -74,21 +75,21 @@ export component KeyBindingsPreferencesPage inherits ScrollView {
                 x: parent.width - 44px; y: 4px; label: "Add key binding set"; icon-kind: 3;
                 activated => { KeyBindingSettingsState.key-binding-profile-menu-open = !KeyBindingSettingsState.key-binding-profile-menu-open; }
             }
-            Rectangle { x: 1px; y: 52px; width: parent.width - 2px; height: 1px; background: #e3e3e6; }
+            Rectangle { x: 1px; y: 52px; width: parent.width - 2px; height: 1px; background: Theme.settings-key-binding-divider; }
             Rectangle {
                 x: 28px; y: 62px; width: parent.width - 136px; height: 28px;
-                border-width: 1px; border-color: #dedee2; border-radius: 14px;
-                background: #ffffff;
+                border-width: 1px; border-color: Theme.settings-key-binding-search-border; border-radius: 14px;
+                background: Theme.settings-field-surface;
                 Image { x: 8px; y: 6px; width: 16px; height: 16px;
                     source: @image-url("../../../assets/icons/search.svg"); }
                 if KeyBindingSettingsState.key-binding-search-query.is-empty : Text {
                     x: 30px; y: 0; width: parent.width - 38px; height: parent.height;
-                    text: "Search"; font-size: 11px; color: #89898f; vertical-alignment: center;
+                    text: "Search"; font-size: 11px; color: Theme.settings-key-binding-search-placeholder; vertical-alignment: center;
                 }
                 TextInput {
                     x: 30px; y: 0; width: parent.width - 38px; height: parent.height;
                     text <=> KeyBindingSettingsState.key-binding-search-query; single-line: true;
-                    font-size: 11px; color: #29292d; vertical-alignment: center;
+                    font-size: 11px; color: Theme.settings-card-title; vertical-alignment: center;
                     accessible-label: "Search key bindings";
                     changed text => { root.key-binding-search-changed(self.text); }
                 }
@@ -102,7 +103,7 @@ export component KeyBindingsPreferencesPage inherits ScrollView {
             if KeyBindingSettingsState.key-binding-rows.length == 0 : Text {
                 x: 28px; y: 100px; width: parent.width - 52px; height: 44px;
                 text: "No mappings in this configuration";
-                font-size: 11px; color: #77777d; vertical-alignment: center;
+                font-size: 11px; color: Theme.settings-section-heading; vertical-alignment: center;
             }
             if KeyBindingSettingsState.key-binding-rows.length > 0 : VerticalLayout {
                 x: 20px; y: 96px; width: parent.width - 40px;
@@ -122,12 +123,12 @@ export component KeyBindingsPreferencesPage inherits ScrollView {
             }
             Rectangle {
                 x: 1px; y: KeyBindingSettingsState.key-binding-rows.length == 0 ? 152px : 132px + KeyBindingSettingsState.key-binding-rows.length * 32px;
-                width: parent.width - 2px; height: 1px; background: #e3e3e6;
+                width: parent.width - 2px; height: 1px; background: Theme.settings-key-binding-divider;
             }
             Text {
                 x: 20px; y: KeyBindingSettingsState.key-binding-rows.length == 0 ? 164px : 144px + KeyBindingSettingsState.key-binding-rows.length * 32px;
                 width: parent.width - 88px; height: 28px;
-                text: "Display raw values"; font-size: 11px; color: #29292d;
+                text: "Display raw values"; font-size: 11px; color: Theme.settings-card-title;
                 vertical-alignment: center;
             }
             PreferenceSwitch {
@@ -138,8 +139,8 @@ export component KeyBindingsPreferencesPage inherits ScrollView {
             }
             if KeyBindingSettingsState.key-binding-profile-menu-open : Rectangle {
                 x: parent.width - 194px; y: 34px; width: 188px; height: KeyBindingSettingsState.key-binding-profile-index >= 5 ? 158px : 128px;
-                border-width: 1px; border-color: #d4d4d8; border-radius: 8px;
-                background: #ffffff;
+                border-width: 1px; border-color: Theme.settings-key-binding-menu-border; border-radius: 8px;
+                background: Theme.settings-field-surface;
                 KeyBindingProfileMenuItem {
                     x: 2px; y: 3px; label: "Create empty set";
                     activated => {
@@ -174,7 +175,7 @@ export component KeyBindingsPreferencesPage inherits ScrollView {
                         root.key-binding-import-profile-requested();
                     }
                 }
-                Rectangle { x: 8px; y: KeyBindingSettingsState.key-binding-profile-index >= 5 ? 124px : 94px; width: parent.width - 16px; height: 1px; background: #e5e5e8; }
+                Rectangle { x: 8px; y: KeyBindingSettingsState.key-binding-profile-index >= 5 ? 124px : 94px; width: parent.width - 16px; height: 1px; background: Theme.settings-key-binding-menu-divider; }
                 KeyBindingProfileMenuItem {
                     x: 2px; y: KeyBindingSettingsState.key-binding-profile-index >= 5 ? 126px : 96px; label: "Show profile file";
                     activated => {

@@ -1,3 +1,4 @@
+import { Theme } from "theme.slint";
 import { Button, HorizontalBox } from "std-widgets.slint";
 import { NativeTypography } from "shared-controls.slint";
 
@@ -17,23 +18,23 @@ export component PictureInPictureWindow inherits Window {
     preferred-height: 326px;
     min-width: 360px;
     min-height: 258px;
-    background: acrylic-backdrop-enabled ? transparent : #09090b;
+    background: acrylic-backdrop-enabled ? transparent : Theme.pip-window-surface;
 
     Rectangle {
-        background: root.acrylic-backdrop-enabled ? transparent : #09090b;
+        background: root.acrylic-backdrop-enabled ? transparent : Theme.pip-window-surface;
         Rectangle {
             x: 0;
             y: 0;
             width: parent.width;
             height: parent.height - 54px;
-            background: #000000;
+            background: Theme.pip-video-background;
         }
         Rectangle {
             x: 0;
             y: parent.height - 54px;
             width: parent.width;
             height: 54px;
-            background: root.acrylic-backdrop-enabled ? #17171bd9 : #17171b;
+            background: Theme.pip-overlay-surface(root.acrylic-backdrop-enabled);
 
             HorizontalBox {
                 padding-left: 8px;
@@ -53,7 +54,7 @@ export component PictureInPictureWindow inherits Window {
                 Button { text: "+15"; clicked => { root.skip(15); } }
                 Text {
                     text: root.media-title;
-                    color: #f3f3f5;
+                    color: Theme.pip-overlay-text;
                     font-size: 12px;
                     horizontal-stretch: 1;
                     vertical-alignment: center;

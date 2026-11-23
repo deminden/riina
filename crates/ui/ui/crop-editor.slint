@@ -1,3 +1,4 @@
+import { Theme } from "theme.slint";
 import { PlayerCropState } from "player-crop-state.slint";
 component CropButton inherits Rectangle {
     in property <string> label;
@@ -5,12 +6,12 @@ component CropButton inherits Rectangle {
     in property <bool> selected: false;
     callback chosen();
     height: 24px; border-radius: 4px;
-    background: selected ? #478adc : touch.has-hover ? #ffffff28 : #ffffff18;
+    background: selected ? Theme.crop-preset-selection : touch.has-hover ? Theme.crop-preset-hover : Theme.crop-preset-surface;
     accessible-role: button; accessible-label: label; accessible-enabled: enabled;
     accessible-action-default => { if enabled { chosen(); } }
-    Text { text: label; font-size: 12px; color: root.enabled ? #eeeeee : #777777;
+    Text { text: label; font-size: 12px; color: root.enabled ? Theme.crop-preset-text : Theme.crop-preset-disabled-text;
         horizontal-alignment: center; vertical-alignment: center; }
-    if focus.has-focus : Rectangle { background: transparent; border-radius: 4px; border-width: 1px; border-color: #90b7ef; }
+    if focus.has-focus : Rectangle { background: transparent; border-radius: 4px; border-width: 1px; border-color: Theme.player-focus-accent; }
     touch := TouchArea { enabled: root.enabled; clicked => { focus.focus(); root.chosen(); } }
     focus := FocusScope { enabled: root.enabled;
         key-pressed(event) => { if event.text == Key.Return || event.text == " " { root.chosen(); return accept; } return reject; }
@@ -29,23 +30,23 @@ export component CropEditor inherits Rectangle {
             return accept;
         }
         if PlayerCropState.crop-box-width > 0 && PlayerCropState.crop-box-height > 0 : Rectangle {
-            x:0px; y:0px; width:parent.width; height:PlayerCropState.crop-box-y * 1px; background:#00000080;
+            x:0px; y:0px; width:parent.width; height:PlayerCropState.crop-box-y * 1px; background:Theme.crop-mask;
         }
         if PlayerCropState.crop-box-width > 0 && PlayerCropState.crop-box-height > 0 : Rectangle {
             x:0px; y:PlayerCropState.crop-box-y * 1px; width:PlayerCropState.crop-box-x * 1px;
-            height:PlayerCropState.crop-box-height * 1px; background:#00000080;
+            height:PlayerCropState.crop-box-height * 1px; background:Theme.crop-mask;
         }
         if PlayerCropState.crop-box-width > 0 && PlayerCropState.crop-box-height > 0 : Rectangle {
             x:(PlayerCropState.crop-box-x + PlayerCropState.crop-box-width) * 1px; y:PlayerCropState.crop-box-y * 1px;
-            width:max(0px,parent.width - self.x); height:PlayerCropState.crop-box-height * 1px; background:#00000080;
+            width:max(0px,parent.width - self.x); height:PlayerCropState.crop-box-height * 1px; background:Theme.crop-mask;
         }
         if PlayerCropState.crop-box-width > 0 && PlayerCropState.crop-box-height > 0 : Rectangle {
             x:0px; y:(PlayerCropState.crop-box-y + PlayerCropState.crop-box-height) * 1px;
-            width:parent.width; height:max(0px,parent.height - self.y); background:#00000080;
+            width:parent.width; height:max(0px,parent.height - self.y); background:Theme.crop-mask;
         }
         if PlayerCropState.crop-ready && PlayerCropState.crop-box-width > 0 && PlayerCropState.crop-box-height > 0 : Rectangle { x:PlayerCropState.crop-box-x * 1px; y:PlayerCropState.crop-box-y * 1px;
             width:PlayerCropState.crop-box-width * 1px; height:PlayerCropState.crop-box-height * 1px;
-            border-width:2px; border-color:#168bff; background:#ffffff0a; }
+            border-width:2px; border-color:Theme.playback-progress-accent; background:Theme.crop-selection-fill; }
         free := TouchArea { enabled: PlayerCropState.crop-ready; mouse-cursor:crosshair;
             pointer-event(event) => {
                 if event.button == PointerEventButton.left && event.kind == PointerEventKind.down { PlayerCropState.begin-crop-drag(0,self.mouse-x / 1px,self.mouse-y / 1px); }
@@ -72,7 +73,7 @@ export component CropEditor inherits Rectangle {
         VerticalLayout { x:max(8px,(parent.width - self.width)/2); y:parent.height - self.height - 20px;
             width:min(560px,parent.width - 16px); height:46px; spacing:8px;
             Text { text:PlayerCropState.crop-delogo && PlayerCropState.crop-box-width == 0 ? "Click and drag to select a logo" : PlayerCropState.crop-description;
-                font-size:11px; color:#cccccc; horizontal-alignment:center; }
+                font-size:11px; color:Theme.crop-instruction-text; horizontal-alignment:center; }
             HorizontalLayout { spacing:4px; height:24px;
                 if !PlayerCropState.crop-delogo : HorizontalLayout {
                     spacing:4px;

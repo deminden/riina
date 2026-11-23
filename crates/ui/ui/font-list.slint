@@ -1,3 +1,4 @@
+import { Theme } from "theme.slint";
 import { ScrollView } from "std-widgets.slint";
 
 // Original shared rows expose the toolkit's double-click signal. The standard
@@ -23,7 +24,7 @@ export component FontList inherits Rectangle {
     private property <length> visible-height <=> rows.visible-height;
     private property <length> visible-width <=> rows.visible-width;
     private property <length> viewport-y <=> rows.content-y;
-    background: root.acrylic-backdrop-enabled ? transparent : (root.dark-theme ? #202024 : #ffffff);
+    background: root.acrylic-backdrop-enabled ? transparent : Theme.font-list-surface(root.dark-theme);
     changed model => {
         root.accessible-cursor = -1;
         root.focus-pending = keys.has-focus && root.model.length > 0;
@@ -83,10 +84,10 @@ export component FontList inherits Rectangle {
     for item[index] in root.model: Rectangle {
         width: root.visible-width; height: root.row-pitch;
         background: root.current-item == index
-            ? (root.dark-theme ? #365c98 : #dceaff)
+            ? Theme.font-list-selection(root.dark-theme)
             : transparent;
         border-width: keys.has-focus && root.cursor == index ? 1px : 0px;
-        border-color: #a5bfe9;
+        border-color: Theme.font-list-focus-border;
         accessible-role: list-item;
         accessible-label: item.text;
         accessible-item-index: index;
@@ -96,7 +97,7 @@ export component FontList inherits Rectangle {
         Text {
             accessible-role: none;
             text: item.text; x: 4px; width: parent.width - 8px;
-            height: parent.height; font-size: 13px; color: root.dark-theme ? #eeeeee : #242428;
+            height: parent.height; font-size: 13px; color: Theme.font-list-text(root.dark-theme);
             vertical-alignment: center; overflow: elide;
         }
         TouchArea {

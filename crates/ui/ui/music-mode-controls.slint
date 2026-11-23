@@ -1,3 +1,4 @@
+import { Theme } from "theme.slint";
 import { Tool } from "player-tool.slint";
 
 // Music Mode has its own fixed control geometry. Utility buttons must not
@@ -8,7 +9,7 @@ export component MusicModeControls inherits Rectangle {
     in property <bool> dark-theme: true;
     in property <bool> playlist-visible;
     in property <bool> artwork-visible;
-    in property <color> accent-color: #90b7ef;
+    in property <color> accent-color: Theme.player-focus-accent;
     callback pause-requested();
     callback previous-requested();
     callback next-requested();
@@ -62,7 +63,7 @@ export component MusicModeWindowActions inherits Rectangle {
     in property <bool> artwork-visible;
     in property <bool> dark-theme: true;
     in property <bool> translucent;
-    in property <color> accent-color: #90b7ef;
+    in property <color> accent-color: Theme.player-focus-accent;
     callback close-requested();
     callback back-requested();
     private property <length> button-size: artwork-visible ? 13px : 12px;
@@ -70,9 +71,8 @@ export component MusicModeWindowActions inherits Rectangle {
     width: button-size + 6px;
     height: button-size * 2 + gap + 6px;
     border-radius: 10px;
-    background: translucent ? (dark-theme ? #25252bef : #f5f5f7f0)
-        : (dark-theme ? #303036 : #eeeef2);
-    border-width: 1px; border-color: #ffffff30;
+    background: Theme.music-mode-track-popup(dark-theme, translucent);
+    border-width: 1px; border-color: Theme.music-mode-volume-border;
     VerticalLayout {
         x: 3px; y: 3px; width: root.button-size;
         height: root.height - 6px; spacing: root.gap;

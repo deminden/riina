@@ -1,3 +1,4 @@
+import { Theme } from "theme.slint";
 
 export struct KeyBindingRow {
     key: string,
@@ -40,22 +41,22 @@ export component KeyBindingActionRow inherits Rectangle {
     key-label-measure := Text { text: root.entry.key; font-size: 12px; visible: false; }
     private property <length> keycap-width: min(160px, max(48px, key-label-measure.preferred-width + 14px));
     height: 32px;
-    background: root.selected ? #e5edf7 : touch.has-hover ? #ffffff : transparent;
+    background: root.selected ? Theme.settings-key-binding-row-selection : touch.has-hover ? Theme.settings-field-surface : transparent;
     accessible-role: list-item;
     accessible-label: root.entry.action + ", " + root.entry.key;
     accessible-action-default => { root.activated(root.row-index); }
-    Rectangle { x: 0; y: parent.height - 1px; width: parent.width; height: 1px; background: #eeeeef; }
+    Rectangle { x: 0; y: parent.height - 1px; width: parent.width; height: 1px; background: Theme.settings-key-binding-row-divider; }
     Text { x: 12px; y: 0; width: max(0px, parent.width - root.keycap-width - 32px); height: parent.height;
-        text: root.entry.action; font-size: 12px; color: #29292d;
+        text: root.entry.action; font-size: 12px; color: Theme.settings-card-title;
         vertical-alignment: center; overflow: elide; }
     Rectangle { x: parent.width - root.keycap-width - 10px; y: 4px; width: root.keycap-width; height: 24px;
-        border-radius: 5px; border-width: 1px; border-color: #e1e1e5; background: #ffffff; }
+        border-radius: 5px; border-width: 1px; border-color: Theme.settings-keycap-border; background: Theme.settings-field-surface; }
     Text { x: parent.width - root.keycap-width - 6px; y: 4px; width: root.keycap-width - 8px; height: 24px;
-        text: root.entry.key; font-size: 12px; color: #29292d;
+        text: root.entry.key; font-size: 12px; color: Theme.settings-card-title;
         horizontal-alignment: center; vertical-alignment: center; overflow: elide; }
     if focus.has-focus : Rectangle {
         width: parent.width; height: parent.height; border-width: 1px;
-        border-color: #90b7ef; border-radius: 3px; background: transparent;
+        border-color: Theme.settings-key-binding-focus; border-radius: 3px; background: transparent;
     }
     touch := TouchArea {
         clicked => { focus.focus(); root.activated(root.row-index); }
@@ -92,15 +93,15 @@ export component KeyBindingIconButton inherits FocusScope {
     accessible-action-default => { if root.enabled { root.activated(); } }
     Rectangle { x: 2px; y: 1px; width: parent.width - 4px; height: parent.height - 2px;
         border-radius: 6px;
-        background: !root.enabled ? transparent : touch.has-hover ? #ededf0 : transparent; }
+        background: !root.enabled ? transparent : touch.has-hover ? Theme.settings-key-binding-action-hover : transparent; }
     if root.icon-kind == 0 : Rectangle {
         x: 14px; y: 13px; width: 12px; height: 10px;
-        border-width: 1px; border-color: root.enabled ? #64646a : #a8a8ad; border-radius: 2px;
+        border-width: 1px; border-color: Theme.settings-key-binding-action-outline(root.enabled); border-radius: 2px;
         background: transparent;
-        Rectangle { x: -2px; y: -3px; width: 14px; height: 1px; background: root.enabled ? #64646a : #a8a8ad; }
-        Rectangle { x: 2px; y: -6px; width: 6px; height: 2px; background: root.enabled ? #64646a : #a8a8ad; }
-        Rectangle { x: 3px; y: 2px; width: 1px; height: 5px; background: root.enabled ? #8a8a90 : #bcbcc0; }
-        Rectangle { x: 8px; y: 2px; width: 1px; height: 5px; background: root.enabled ? #8a8a90 : #bcbcc0; }
+        Rectangle { x: -2px; y: -3px; width: 14px; height: 1px; background: Theme.settings-key-binding-action-outline(root.enabled); }
+        Rectangle { x: 2px; y: -6px; width: 6px; height: 2px; background: Theme.settings-key-binding-action-outline(root.enabled); }
+        Rectangle { x: 3px; y: 2px; width: 1px; height: 5px; background: Theme.settings-key-binding-delete-detail(root.enabled); }
+        Rectangle { x: 8px; y: 2px; width: 1px; height: 5px; background: Theme.settings-key-binding-delete-detail(root.enabled); }
     }
     if root.icon-kind == 1 : Image {
         x: 12px; y: 10px; width: 16px; height: 16px;
@@ -108,18 +109,18 @@ export component KeyBindingIconButton inherits FocusScope {
     }
     if root.icon-kind == 1 : Rectangle {
         x: 26px; y: 9px; width: 8px; height: 8px;
-        border-radius: 4px; background: #f8f8f8;
-        Rectangle { x: 3px; y: 1px; width: 1px; height: 6px; background: #55555b; }
-        Rectangle { x: 1px; y: 3px; width: 5px; height: 1px; background: #55555b; }
+        border-radius: 4px; background: Theme.settings-key-binding-action-surface;
+        Rectangle { x: 3px; y: 1px; width: 1px; height: 6px; background: Theme.settings-key-binding-help; }
+        Rectangle { x: 1px; y: 3px; width: 5px; height: 1px; background: Theme.settings-key-binding-help; }
     }
     if root.icon-kind == 2 : Rectangle {
         x: 15px; y: 15px; width: 10px; height: 8px;
-        border-width: 1px; border-color: #64646a; border-radius: 2px;
+        border-width: 1px; border-color: Theme.settings-key-binding-action-outline(true); border-radius: 2px;
         background: transparent;
-        Rectangle { x: 2px; y: -6px; width: 1px; height: 6px; background: #64646a; }
-        Rectangle { x: 7px; y: -6px; width: 1px; height: 6px; background: #64646a; }
-        Rectangle { x: 2px; y: -6px; width: 6px; height: 1px; background: #64646a; }
-        Rectangle { x: 4px; y: 2px; width: 2px; height: 2px; border-radius: 1px; background: #64646a; }
+        Rectangle { x: 2px; y: -6px; width: 1px; height: 6px; background: Theme.settings-key-binding-action-outline(true); }
+        Rectangle { x: 7px; y: -6px; width: 1px; height: 6px; background: Theme.settings-key-binding-action-outline(true); }
+        Rectangle { x: 2px; y: -6px; width: 6px; height: 1px; background: Theme.settings-key-binding-action-outline(true); }
+        Rectangle { x: 4px; y: 2px; width: 2px; height: 2px; border-radius: 1px; background: Theme.settings-key-binding-action-outline(true); }
     }
     if root.icon-kind == 3 : Image {
         x: 11px; y: 10px; width: 18px; height: 18px;
@@ -127,9 +128,9 @@ export component KeyBindingIconButton inherits FocusScope {
     }
     if root.icon-kind == 3 : Rectangle {
         x: 25px; y: 18px; width: 11px; height: 11px; border-radius: 6px;
-        background: #f8f8f8;
-        Rectangle { x: 5px; y: 2px; width: 1px; height: 7px; background: #64646a; }
-        Rectangle { x: 2px; y: 5px; width: 7px; height: 1px; background: #64646a; }
+        background: Theme.settings-key-binding-action-surface;
+        Rectangle { x: 5px; y: 2px; width: 1px; height: 7px; background: Theme.settings-key-binding-action-outline(true); }
+        Rectangle { x: 2px; y: 5px; width: 7px; height: 1px; background: Theme.settings-key-binding-action-outline(true); }
     }
     touch := TouchArea { enabled: root.enabled; clicked => { focus.focus(); root.activated(); } }
     focus := FocusScope {
@@ -150,11 +151,11 @@ export component KeyBindingProfileMenuItem inherits FocusScope {
     height: 30px;
     Rectangle {
         x: 4px; y: 1px; width: parent.width - 8px; height: parent.height - 2px;
-        border-radius: 5px; background: touch.has-hover ? #e9e9ec : transparent;
+        border-radius: 5px; background: touch.has-hover ? Theme.settings-key-binding-menu-hover : transparent;
     }
     Text {
         x: 12px; width: parent.width - 24px; height: parent.height;
-        text: root.label; font-size: 11px; color: #29292d; vertical-alignment: center;
+        text: root.label; font-size: 11px; color: Theme.settings-card-title; vertical-alignment: center;
     }
     touch := TouchArea { clicked => { root.activated(); } }
     key-pressed(event) => {

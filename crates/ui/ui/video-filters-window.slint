@@ -1,3 +1,4 @@
+import { Theme } from "theme.slint";
 import { Button, ComboBox, LineEdit, ScrollView } from "std-widgets.slint";
 import { MenuCatalogRow, SavedFilterMenuRow } from "native-video.slint";
 import { AuxiliaryPalette, NativeTypography, PlayerSlider } from "shared-controls.slint";
@@ -33,7 +34,7 @@ export component VideoFiltersWindow inherits Window {
     in-out property <bool> acrylic-backdrop-enabled: false;
     background: acrylic-backdrop-enabled
         ? transparent
-        : (dark-theme ? #1e1e22 : #f5f5f7);
+        : (Theme.filter-window-surface(root.dark-theme));
 
     in property <[VideoFilterWindowRow]> current-filters: [];
     in property <[SavedFilterMenuRow]> saved-filters: [];
@@ -72,7 +73,7 @@ export component VideoFiltersWindow inherits Window {
         x: 0; y: 0; width: parent.width; height: 46px;
         background: root.acrylic-backdrop-enabled
             ? (root.dark-theme ? AuxiliaryPalette.dark-acrylic-fill : AuxiliaryPalette.light-acrylic-fill)
-            : (root.dark-theme ? #29292e : #ececf0);
+            : (Theme.filter-toolbar-surface(root.dark-theme));
         HorizontalLayout {
             x: 14px; y: 6px; width: parent.width - 28px; height: 34px; spacing: 7px;
             ComboBox {
@@ -93,7 +94,7 @@ export component VideoFiltersWindow inherits Window {
         x: 14px; y: 52px; width: parent.width - 28px; height: 146px;
         border-radius: 6px; background: root.acrylic-backdrop-enabled
             ? (root.dark-theme ? AuxiliaryPalette.dark-acrylic-fill : AuxiliaryPalette.light-acrylic-fill)
-            : (root.dark-theme ? #232328 : #ececf0);
+            : (Theme.filter-editor-surface(root.dark-theme));
         ScrollView {
             x: 8px; y: 6px; width: parent.width - 16px; height: parent.height - 12px;
             content-height: max(1px, root.preset-parameters.length * 29px);
@@ -101,7 +102,7 @@ export component VideoFiltersWindow inherits Window {
             for parameter[index] in root.preset-parameters : HorizontalLayout {
                 x: 0; y: index * 29px; width: parent.width; height: 26px; spacing: 8px;
                 Text { width: 190px; height: 26px; text: parameter.label;
-                    font-size: 11px; color: root.dark-theme ? #dddddf : #414146;
+                    font-size: 11px; color: Theme.filter-field-label(root.dark-theme);
                     vertical-alignment: center; overflow: elide; }
                 if parameter.kind == 0 && !parameter.path-input : LineEdit {
                     horizontal-stretch: 1; height: 24px; text: parameter.value;
@@ -121,7 +122,7 @@ export component VideoFiltersWindow inherits Window {
                 }
                 if parameter.kind == 1 || parameter.kind == 2 : Text {
                     width: 54px; height: 26px; text: parameter.value; font-size: 11px;
-                    color: root.dark-theme ? #dddddf : #414146; vertical-alignment: center;
+                    color: Theme.filter-field-label(root.dark-theme); vertical-alignment: center;
                 }
                 if parameter.kind == 3 : ComboBox {
                     horizontal-stretch: 1; model: parameter.choices; current-index: parameter.choice-index;
@@ -131,7 +132,7 @@ export component VideoFiltersWindow inherits Window {
             if root.preset-parameters.length == 0 : Text {
                 x: 8px; y: 8px; width: parent.width - 16px; height: 26px;
                 text: "Choose a preset to configure its parameters"; font-size: 11px;
-                color: root.dark-theme ? #a9a9b0 : #73737a; vertical-alignment: center;
+                color: Theme.filter-empty-editor-text(root.dark-theme); vertical-alignment: center;
             }
         }
     }
@@ -140,12 +141,12 @@ export component VideoFiltersWindow inherits Window {
         x: 14px; y: 208px; width: parent.width - 28px; height: parent.height - 222px; spacing: 12px;
         VerticalLayout {
             horizontal-stretch: 1; spacing: 6px;
-            Text { text: root.is-audio ? "Current Audio Filters" : "Current Video Filters"; font-size: 15px; font-weight: 600; color: root.dark-theme ? #eeeeF2 : #25252a; }
+            Text { text: root.is-audio ? "Current Audio Filters" : "Current Video Filters"; font-size: 15px; font-weight: 600; color: Theme.filter-section-heading(root.dark-theme); }
             Rectangle {
                 height: parent.height - 145px; border-radius: 6px;
                 background: root.acrylic-backdrop-enabled
                     ? (root.dark-theme ? AuxiliaryPalette.dark-acrylic-fill : AuxiliaryPalette.light-acrylic-fill)
-                    : (root.dark-theme ? #25252a : white);
+                    : (Theme.filter-list-surface(root.dark-theme));
                 ScrollView {
                     width: parent.width; height: parent.height;
                     content-height: max(1px, root.current-filters.length * 92px);
@@ -154,12 +155,12 @@ export component VideoFiltersWindow inherits Window {
                         x: 0; y: index * 92px; width: parent.width; height: 92px;
                         background: root.acrylic-backdrop-enabled
                             ? (root.dark-theme ? AuxiliaryPalette.dark-acrylic-fill : AuxiliaryPalette.light-acrylic-fill)
-                            : (Math.mod(index, 2) == 0 ? (root.dark-theme ? #25252a : white) : (root.dark-theme ? #2b2b30 : #fafafa));
-                        Rectangle { x: 10px; y: parent.height - 1px; width: parent.width - 20px; height: 1px; background: root.dark-theme ? #414148 : #dedee3; }
+                            : (Math.mod(index, 2) == 0 ? (Theme.filter-list-surface(root.dark-theme)) : (Theme.filter-list-alternate(root.dark-theme)));
+                        Rectangle { x: 10px; y: parent.height - 1px; width: parent.width - 20px; height: 1px; background: Theme.filter-row-divider(root.dark-theme); }
                         Text { x: 12px; y: 7px; width: parent.width - 24px; height: 18px;
-                            text: row.name; color: root.dark-theme ? #eeeeF2 : #26262b; font-size: 12px; font-weight: 600; overflow: elide; }
+                            text: row.name; color: Theme.filter-row-title(root.dark-theme); font-size: 12px; font-weight: 600; overflow: elide; }
                         if root.editing-current-index != index : Text { x: 12px; y: 27px; width: parent.width - 24px; height: 20px;
-                            text: row.detail; color: root.dark-theme ? #aaaab1 : #66666d; font-size: 10px; overflow: elide; }
+                            text: row.detail; color: Theme.filter-row-detail(root.dark-theme); font-size: 10px; overflow: elide; }
                         if root.editing-current-index == index : LineEdit {
                             x: 12px; y: 27px; width: parent.width - 24px; height: 24px;
                             text <=> root.editing-current-filter; placeholder-text: "mpv filter string";
@@ -183,7 +184,7 @@ export component VideoFiltersWindow inherits Window {
                     if root.current-filters.length == 0 : Text {
                         x: 14px; y: 14px; width: parent.width - 28px; height: 36px;
                         text: root.is-audio ? "No active audio filters" : "No active video filters";
-                        color: root.dark-theme ? #a9a9b0 : #77777d; font-size: 12px;
+                        color: Theme.filter-empty-list-text(root.dark-theme); font-size: 12px;
                     }
                 }
             }
@@ -191,12 +192,12 @@ export component VideoFiltersWindow inherits Window {
 
         VerticalLayout {
             width: 250px; spacing: 6px;
-            Text { text: root.is-audio ? "Saved Audio Filters" : "Saved Video Filters"; font-size: 15px; font-weight: 600; color: root.dark-theme ? #eeeeF2 : #25252a; }
+            Text { text: root.is-audio ? "Saved Audio Filters" : "Saved Video Filters"; font-size: 15px; font-weight: 600; color: Theme.filter-section-heading(root.dark-theme); }
             Rectangle {
                 vertical-stretch: 1; border-radius: 6px;
                 background: root.acrylic-backdrop-enabled
                     ? (root.dark-theme ? AuxiliaryPalette.dark-acrylic-fill : AuxiliaryPalette.light-acrylic-fill)
-                    : (root.dark-theme ? #25252a : white);
+                    : (Theme.filter-list-surface(root.dark-theme));
                 ScrollView {
                     width: parent.width; height: parent.height;
                     content-height: max(1px, root.saved-filters.length * 54px);
@@ -205,7 +206,7 @@ export component VideoFiltersWindow inherits Window {
                         x: 0; y: index * 54px; width: parent.width; height: 54px;
                         background: root.acrylic-backdrop-enabled
                             ? (root.dark-theme ? AuxiliaryPalette.dark-acrylic-fill : AuxiliaryPalette.light-acrylic-fill)
-                            : (Math.mod(index, 2) == 0 ? (root.dark-theme ? #25252a : white) : (root.dark-theme ? #2b2b30 : #fafafa));
+                            : (Math.mod(index, 2) == 0 ? (Theme.filter-list-surface(root.dark-theme)) : (Theme.filter-list-alternate(root.dark-theme)));
                         Button {
                             x: 7px; y: 7px; width: parent.width - 14px; height: 38px;
                             text: (row.selected ? "✓  " : "     ") + row.label;
@@ -221,13 +222,13 @@ export component VideoFiltersWindow inherits Window {
                         TouchArea {
                             x: parent.width - 34px; y: 9px; width: 26px; height: 32px;
                             mouse-cursor: pointer;
-                            Text { text: "×"; color: #77777d; font-size: 18px; horizontal-alignment: center; vertical-alignment: center; }
+                            Text { text: "×"; color: Theme.auxiliary-light-secondary-text; font-size: 18px; horizontal-alignment: center; vertical-alignment: center; }
                             clicked => { root.remove-saved-filter(index); }
                         }
                     }
                     if root.saved-filters.length == 0 : Text {
                         x: 12px; y: 14px; width: parent.width - 24px; height: 36px;
-                        text: "Save an active filter to use it here"; color: #77777d; font-size: 12px; wrap: word-wrap;
+                        text: "Save an active filter to use it here"; color: Theme.auxiliary-light-secondary-text; font-size: 12px; wrap: word-wrap;
                     }
                 }
             }

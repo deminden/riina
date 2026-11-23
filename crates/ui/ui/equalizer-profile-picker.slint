@@ -1,3 +1,4 @@
+import { Theme } from "theme.slint";
 import { Button } from "std-widgets.slint";
 
 // The standard menu owns traversal, scrolling and dismissal. Profile naming
@@ -68,22 +69,20 @@ export component AudioEqualizerProfilePicker inherits FocusScope {
     Rectangle {
         border-radius: 5px;
         border-width: root.has-focus ? 2px : 1px;
-        border-color: root.has-focus ? #0a84ff : (root.dark-theme ? #ffffff30 : #00000030);
-        background: root.windows-acrylic-surface
-            ? (root.dark-theme ? #ffffff0f : #f9f9f94d)
-            : (root.dark-theme ? #ffffff10 : #ffffff);
+        border-color: root.has-focus ? Theme.sidebar-catalog-accent : (Theme.equalizer-profile-border(root.dark-theme));
+        background: Theme.sidebar-input-surface(root.dark-theme, root.windows-acrylic-surface);
         HorizontalLayout {
             padding-left: 7px; padding-right: 6px; spacing: 5px;
             cross-axis-alignment: center;
             Text {
                 horizontal-stretch: 1;
                 text: root.profile-names.length > root.selected-index ? root.profile-names[root.selected-index] : "Manual";
-                color: root.dark-theme ? #eeeeee : #29292d;
+                color: Theme.sidebar-action-text(root.dark-theme, true);
                 font-size: 11px; vertical-alignment: center; overflow: elide;
             }
             chevron := Image { source: @image-url("../../../assets/icons/chevron-forward.svg");
                 width: 8px; height: 8px; transform-rotation: 90deg;
-                colorize: root.dark-theme ? #c4c4ca : #5b5b60; }
+                colorize: Theme.equalizer-profile-arrow(root.dark-theme); }
         }
         TouchArea { clicked => { root.open-menu(); } }
     }
@@ -116,8 +115,8 @@ export component AudioEqualizerProfilePicker inherits FocusScope {
         Rectangle {
             init => { name-editor.focus(); }
             border-radius: 7px; border-width: 1px;
-            border-color: root.dark-theme ? #ffffff38 : #b8b8bc;
-            background: root.dark-theme ? #29292e : #f8f8fa;
+            border-color: Theme.playlist-sort-border(root.dark-theme);
+            background: Theme.playlist-sort-surface(root.dark-theme);
             FocusScope {
                 key-pressed(event) => {
                     if event.text == Key.Escape { root.cancel-name(); return accept; }
@@ -127,18 +126,18 @@ export component AudioEqualizerProfilePicker inherits FocusScope {
                 VerticalLayout {
                     padding: 8px; spacing: 6px;
                     Text { text: root.dialog-mode == 1 ? "Save equalizer profile" : "Rename equalizer profile";
-                        color: root.dark-theme ? #eeeeee : #29292d; font-size: 11px; }
+                        color: Theme.sidebar-action-text(root.dark-theme, true); font-size: 11px; }
                     name-editor := TextInput {
                         text <=> root.draft-name; single-line: true;
                         changed text => { root.dialog-error = root.validate-name(self.text, root.dialog-mode); }
                         accepted => { root.submit-name(); }
-                        color: root.dark-theme ? #eeeeee : #29292d; font-size: 11px;
+                        color: Theme.sidebar-action-text(root.dark-theme, true); font-size: 11px;
                         accessible-label: root.dialog-mode == 1 ? "New equalizer profile name" : "Rename equalizer profile";
                         accessible-value: self.text;
                         accessible-action-set-value(value) => { self.text = value; }
                     }
                     Text { text: root.dialog-error; height: 28px; wrap: word-wrap;
-                        color: root.dark-theme ? #ff9999 : #a51d1d; font-size: 10px; }
+                        color: Theme.equalizer-profile-error(root.dark-theme); font-size: 10px; }
                     HorizontalLayout {
                         Rectangle { horizontal-stretch: 1; }
                         Button { text: "Cancel"; clicked => { root.cancel-name(); } }

@@ -113,15 +113,15 @@ export component InterfacePreferencesPage inherits ScrollView {
         else { root.selected-interface-section = 6; }
     }
     Rectangle { width: parent.width; height: root.interface-content-height;
-        background: root.mica-backdrop-enabled ? #ffffff80 : #ffffff;
-    Text { x: 28px; y: 16px; text: "Interface"; font-size: 15px; font-weight: 600; color: #222222; }
+        background: Theme.settings-content-surface(root.mica-backdrop-enabled);
+    Text { x: 28px; y: 16px; text: "Interface"; font-size: Theme.settings-page-title-size; font-weight: 600; color: Theme.settings-page-heading; }
     Text { x: 28px; y: 52px; text: "Appearance";
-        font-size: 13px; font-weight: 600; color: #7a7a80; }
+        font-size: 13px; font-weight: 600; color: Theme.settings-general-section-heading; }
     Rectangle { x: 20px; y: root.interface-appearance-card-y;
         width: parent.width - 40px; height: root.interface-appearance-card-height;
-        border-width: 1px; border-color: #d6d6da; border-radius: 12px; background: root.mica-backdrop-enabled ? #ffffff80 : #f8f8f8;
+        border-width: 1px; border-color: Theme.settings-option-border; border-radius: Theme.settings-card-corner; background: Theme.settings-card-surface(root.mica-backdrop-enabled);
         Text { x: 36px; y: 8px; text: "Appearance";
-            font-size: 12px; color: #222222; vertical-alignment: center; }
+            font-size: 12px; color: Theme.settings-page-heading; vertical-alignment: center; }
         ComboBox { x: 160px; y: 4px; width: 190px; height: 24px;
             model: ["Dark", "Light", "Match System Appearance"];
             current-index <=> root.appearance-index;
@@ -153,9 +153,9 @@ export component InterfacePreferencesPage inherits ScrollView {
         }
     }
     Text { x: 28px; y: root.interface-window-title-y; text: "Window";
-        font-size: 13px; font-weight: 600; color: #7a7a80; }
+        font-size: 13px; font-weight: 600; color: Theme.settings-general-section-heading; }
     Rectangle { x: 20px; y: root.interface-window-y; width: parent.width - 40px; height: root.interface-window-card-height;
-        border-width: 1px; border-color: #d6d6da; border-radius: 12px; background: root.mica-backdrop-enabled ? #ffffff80 : #f8f8f8;
+        border-width: 1px; border-color: Theme.settings-option-border; border-radius: Theme.settings-card-corner; background: Theme.settings-card-surface(root.mica-backdrop-enabled);
         PreferenceToggle { x: 24px; y: 4px; width: parent.width - 48px;
             label: "Initial window size"; checked <=> root.initial-window-size-enabled;
             toggled => { root.settings-changed(); }
@@ -168,9 +168,9 @@ export component InterfacePreferencesPage inherits ScrollView {
                 selected => { root.settings-changed(); }
             }
             Rectangle { x: 100px; y: 1px; width: 82px; height: 23px;
-                border-width: 1px; border-color: Theme.settings-field-border; border-radius: 3px; background: #ffffff;
+                border-width: 1px; border-color: Theme.settings-field-border; border-radius: Theme.settings-text-field-corner; background: Theme.settings-field-surface;
                 TextInput { x: 5px; y: 1px; width: parent.width - 10px; height: parent.height - 2px;
-                    text <=> root.initial-window-size-value-text; font-size: 11px; color: #222222;
+                    text <=> root.initial-window-size-value-text; font-size: 11px; color: Theme.settings-page-heading;
                     accepted => { root.settings-changed(); }
                 }
             }
@@ -189,11 +189,11 @@ export component InterfacePreferencesPage inherits ScrollView {
             x: 32px; y: 80px + root.initial-window-size-detail-height;
             width: parent.width - 64px; height: 96px; background: transparent;
             Text { x: 0; y: 0; width: 60px; height: 23px; text: "X Offset:";
-                font-size: 11px; color: #252529; vertical-alignment: center; }
+                font-size: 11px; color: Theme.settings-control-label; vertical-alignment: center; }
             Rectangle { x: 62px; y: 0; width: 56px; height: 23px;
-                border-width: 1px; border-color: Theme.settings-field-border; border-radius: 3px; background: #ffffff;
+                border-width: 1px; border-color: Theme.settings-field-border; border-radius: Theme.settings-text-field-corner; background: Theme.settings-field-surface;
                 TextInput { x: 4px; y: 1px; width: parent.width - 8px; height: parent.height - 2px;
-                    text <=> root.initial-window-x-offset-text; font-size: 11px; color: #222222;
+                    text <=> root.initial-window-x-offset-text; font-size: 11px; color: Theme.settings-page-heading;
                     accepted => { root.settings-changed(); }
                 }
             }
@@ -203,20 +203,20 @@ export component InterfacePreferencesPage inherits ScrollView {
                 selected => { root.settings-changed(); }
             }
             Text { x: 16px; y: 24px; width: 34px; height: 23px; text: "to the";
-                font-size: 11px; color: #252529; vertical-alignment: center; }
+                font-size: 11px; color: Theme.settings-control-label; vertical-alignment: center; }
             ComboBox { x: 52px; y: 24px; width: 84px; height: 23px;
                 model: ["left", "right"];
                 current-index <=> root.initial-window-x-anchor-index;
                 selected => { root.settings-changed(); }
             }
             Text { x: 140px; y: 24px; width: 92px; height: 23px; text: "side of screen";
-                font-size: 11px; color: #252529; vertical-alignment: center; }
+                font-size: 11px; color: Theme.settings-control-label; vertical-alignment: center; }
             Text { x: 0; y: 48px; width: 60px; height: 23px; text: "Y Offset:";
-                font-size: 11px; color: #252529; vertical-alignment: center; }
+                font-size: 11px; color: Theme.settings-control-label; vertical-alignment: center; }
             Rectangle { x: 62px; y: 48px; width: 56px; height: 23px;
-                border-width: 1px; border-color: Theme.settings-field-border; border-radius: 3px; background: #ffffff;
+                border-width: 1px; border-color: Theme.settings-field-border; border-radius: Theme.settings-text-field-corner; background: Theme.settings-field-surface;
                 TextInput { x: 4px; y: 1px; width: parent.width - 8px; height: parent.height - 2px;
-                    text <=> root.initial-window-y-offset-text; font-size: 11px; color: #222222;
+                    text <=> root.initial-window-y-offset-text; font-size: 11px; color: Theme.settings-page-heading;
                     accepted => { root.settings-changed(); }
                 }
             }
@@ -226,20 +226,20 @@ export component InterfacePreferencesPage inherits ScrollView {
                 selected => { root.settings-changed(); }
             }
             Text { x: 16px; y: 72px; width: 34px; height: 23px; text: "to the";
-                font-size: 11px; color: #252529; vertical-alignment: center; }
+                font-size: 11px; color: Theme.settings-control-label; vertical-alignment: center; }
             ComboBox { x: 52px; y: 72px; width: 84px; height: 23px;
                 model: ["bottom", "top"];
                 current-index <=> root.initial-window-y-anchor-index;
                 selected => { root.settings-changed(); }
             }
             Text { x: 140px; y: 72px; width: 92px; height: 23px; text: "side of screen";
-                font-size: 11px; color: #252529; vertical-alignment: center; }
+                font-size: 11px; color: Theme.settings-control-label; vertical-alignment: center; }
         }
     }
     Rectangle { x: 20px; y: root.interface-resize-y; width: parent.width - 40px; height: 118px;
-        border-width: 1px; border-color: #d6d6da; border-radius: 12px; background: root.mica-backdrop-enabled ? #ffffff80 : #f8f8f8;
+        border-width: 1px; border-color: Theme.settings-option-border; border-radius: Theme.settings-card-corner; background: Theme.settings-card-surface(root.mica-backdrop-enabled);
         Text { x: 36px; y: 7px; width: 150px; height: 24px; text: "Resize window to:";
-            font-size: 12px; color: #222222; vertical-alignment: center; }
+            font-size: 12px; color: Theme.settings-page-heading; vertical-alignment: center; }
         ComboBox { x: 232px; y: 4px; width: parent.width - 252px; height: 24px;
             model: ["Fit Screen", "0.5x Video Size", "1x Video Size", "1.5x Video Size", "2x Video Size"];
             current-index <=> root.window-resize-option-index;
@@ -259,14 +259,14 @@ export component InterfacePreferencesPage inherits ScrollView {
         }
     }
     Rectangle { x: 20px; y: root.interface-physical-resolution-y; width: parent.width - 40px; height: 40px;
-        border-width: 1px; border-color: #d6d6da; border-radius: 12px; background: root.mica-backdrop-enabled ? #ffffff80 : #f8f8f8;
+        border-width: 1px; border-color: Theme.settings-option-border; border-radius: Theme.settings-card-corner; background: Theme.settings-card-surface(root.mica-backdrop-enabled);
         PreferenceSwitch { x: 36px; y: 6px; width: parent.width - 48px; label: "Use physical resolution on Retina displays";
             checked <=> root.use-physical-resolution;
             toggled => { root.settings-changed(); }
         }
     }
     Rectangle { x: 20px; y: root.interface-float-y; width: parent.width - 40px; height: 80px;
-        border-width: 1px; border-color: #d6d6da; border-radius: 12px; background: root.mica-backdrop-enabled ? #ffffff80 : #f8f8f8;
+        border-width: 1px; border-color: Theme.settings-option-border; border-radius: Theme.settings-card-corner; background: Theme.settings-card-surface(root.mica-backdrop-enabled);
         PreferenceSwitch { x: 36px; y: 4px; width: parent.width - 48px; label: "Always float on top";
             checked <=> root.always-float-on-top;
             toggled => { root.settings-changed(); }
@@ -277,9 +277,9 @@ export component InterfacePreferencesPage inherits ScrollView {
         }
     }
     Rectangle { x: 20px; y: root.interface-osc-y; width: parent.width - 40px; height: root.interface-osc-card-height;
-        border-width: 1px; border-color: #d6d6da; border-radius: 12px; background: root.mica-backdrop-enabled ? #ffffff80 : #f8f8f8;
+        border-width: 1px; border-color: Theme.settings-option-border; border-radius: Theme.settings-card-corner; background: Theme.settings-card-surface(root.mica-backdrop-enabled);
         Text { x: 0; y: 8px; text: "On-Screen Controller:";
-            font-weight: 600; font-size: 13px; color: #222222; }
+            font-weight: 600; font-size: 13px; color: Theme.settings-page-heading; }
         ComboBox { x: 160px; y: 4px; width: 150px; height: 24px;
             model: ["Floating", "Top", "Bottom"];
             current-index <=> root.osc-position;
@@ -301,15 +301,15 @@ export component InterfacePreferencesPage inherits ScrollView {
             toggled => { root.settings-changed(); }
         }
         Rectangle { x: 170px; y: 118px; width: 70px; height: 24px;
-            border-width: 1px; border-color: Theme.settings-field-border; border-radius: 3px; background: #ffffff;
+            border-width: 1px; border-color: Theme.settings-field-border; border-radius: Theme.settings-text-field-corner; background: Theme.settings-field-surface;
             TextInput { x: 5px; y: 1px; width: parent.width - 10px; height: parent.height - 2px;
                 text <=> root.control-auto-hide-timeout-text; enabled: root.control-auto-hide-enabled;
-                font-size: 11px; color: #222222;
+                font-size: 11px; color: Theme.settings-page-heading;
                 accepted => { root.settings-changed(); }
             }
         }
         Text { x: 244px; y: 118px; width: 20px; height: 24px; text: "s";
-            font-size: 11px; color: root.control-auto-hide-enabled ? #55555b : #a0a0a4;
+            font-size: 11px; color: Theme.settings-interface-unit-text(root.control-auto-hide-enabled);
             vertical-alignment: center; }
         PreferenceSwitch { x: 36px; y: 150px; width: parent.width - 48px;
             label: "Prevent scroll wheel from changing playback position";
@@ -322,7 +322,7 @@ export component InterfacePreferencesPage inherits ScrollView {
             toggled => { root.settings-changed(); }
         }
         Text { x: 36px; y: 218px; text: "Toolbar buttons";
-            font-size: 12px; font-weight: 600; color: #222222; }
+            font-size: 12px; font-weight: 600; color: Theme.settings-page-heading; }
         PreferenceActionButton { x: parent.width - 112px; y: 214px;
             label: "Restore Default";
             activated => { root.toolbar-reset(); }
@@ -383,7 +383,7 @@ export component InterfacePreferencesPage inherits ScrollView {
     }
     Rectangle { x: 20px; y: root.interface-osd-y; width: parent.width - 40px;
         height: 92px + root.osd-suppression-detail-height;
-        border-width: 1px; border-color: #d6d6da; border-radius: 12px; background: root.mica-backdrop-enabled ? #ffffff80 : #f8f8f8;
+        border-width: 1px; border-color: Theme.settings-option-border; border-radius: Theme.settings-card-corner; background: Theme.settings-card-surface(root.mica-backdrop-enabled);
         PreferenceSwitch { x: 36px; y: 4px; width: parent.width - 48px; label: "Enable OSD";
             checked <=> root.osd-enabled;
             toggled => { root.settings-changed(); }
@@ -414,31 +414,31 @@ export component InterfacePreferencesPage inherits ScrollView {
     }
     Rectangle { x: 20px; y: root.interface-osd-y + 108px + root.osd-suppression-detail-height;
         width: parent.width - 40px; height: 112px;
-        border-width: 1px; border-color: #d6d6da; border-radius: 12px; background: root.mica-backdrop-enabled ? #ffffff80 : #f8f8f8;
+        border-width: 1px; border-color: Theme.settings-option-border; border-radius: Theme.settings-card-corner; background: Theme.settings-card-surface(root.mica-backdrop-enabled);
         Text { x: 36px; y: 4px; text: "On-Screen Display";
-            font-size: 12px; color: #222222; vertical-alignment: center; }
+            font-size: 12px; color: Theme.settings-page-heading; vertical-alignment: center; }
         Text { x: 36px; y: 39px; width: 132px; height: 24px; text: "Auto hide after:";
-            font-size: 12px; color: #222222; vertical-alignment: center; }
+            font-size: 12px; color: Theme.settings-page-heading; vertical-alignment: center; }
         Rectangle { x: 170px; y: 39px; width: 70px; height: 24px;
-            border-width: 1px; border-color: Theme.settings-field-border; border-radius: 3px; background: #ffffff;
+            border-width: 1px; border-color: Theme.settings-field-border; border-radius: Theme.settings-text-field-corner; background: Theme.settings-field-surface;
             TextInput { x: 5px; y: 1px; width: parent.width - 10px; height: parent.height - 2px;
-                text <=> root.osd-timeout-text; font-size: 11px; color: #222222;
+                text <=> root.osd-timeout-text; font-size: 11px; color: Theme.settings-page-heading;
                 accepted => { root.settings-changed(); }
             }
         }
         Text { x: 244px; y: 39px; width: 20px; height: 24px; text: "s";
-            font-size: 11px; color: #55555b; vertical-alignment: center; }
+            font-size: 11px; color: Theme.settings-interface-unit-text(true); vertical-alignment: center; }
         Text { x: 36px; y: 68px; width: 132px; height: 24px; text: "Text size:";
-            font-size: 12px; color: #222222; vertical-alignment: center; }
+            font-size: 12px; color: Theme.settings-page-heading; vertical-alignment: center; }
         Rectangle { x: 170px; y: 68px; width: 70px; height: 24px;
-            border-width: 1px; border-color: Theme.settings-field-border; border-radius: 3px; background: #ffffff;
+            border-width: 1px; border-color: Theme.settings-field-border; border-radius: Theme.settings-text-field-corner; background: Theme.settings-field-surface;
             TextInput { x: 5px; y: 1px; width: parent.width - 10px; height: parent.height - 2px;
-                text <=> root.osd-text-size-text; font-size: 11px; color: #222222;
+                text <=> root.osd-text-size-text; font-size: 11px; color: Theme.settings-page-heading;
                 accepted => { root.settings-changed(); }
             }
         }
         Text { x: 244px; y: 68px; width: 24px; height: 24px; text: "pt";
-            font-size: 11px; color: #55555b; vertical-alignment: center; }
+            font-size: 11px; color: Theme.settings-interface-unit-text(true); vertical-alignment: center; }
         PreferenceSwitch { x: 270px; y: 67px; width: parent.width - 282px;
             label: "Time and battery in full screen";
             checked <=> root.display-time-and-battery-in-fullscreen;
@@ -446,11 +446,11 @@ export component InterfacePreferencesPage inherits ScrollView {
         }
     }
     Text { x: 28px; y: root.interface-pip-y; text: "Picture-in-Picture";
-        font-size: 13px; font-weight: 600; color: #77777d; }
+        font-size: 13px; font-weight: 600; color: Theme.settings-section-heading; }
     Rectangle {
         x: 20px; y: root.interface-pip-y + 28px; width: parent.width - 40px;
         height: root.interface-pip-card-height;
-        border-width: 1px; border-color: #e4e4e7; border-radius: 10px; background: root.mica-backdrop-enabled ? #ffffff80 : #f8f8f8;
+        border-width: 1px; border-color: Theme.settings-input-card-border; border-radius: 10px; background: Theme.settings-card-surface(root.mica-backdrop-enabled);
         VerticalLayout { x: 8px; y: 2px; width: parent.width - 16px; height: parent.height - 4px; spacing: 0px;
             PreferenceChoiceRow { width: parent.width; label: "Window after entering";
                 options: ["Do nothing", "Hide", "Minimize"];
@@ -476,16 +476,16 @@ export component InterfacePreferencesPage inherits ScrollView {
     Rectangle {
         x: 20px; y: root.interface-thumbnail-y;
         width: parent.width - 40px; height: 220px;
-        border-width: 1px; border-color: #d6d6da; border-radius: 12px; background: root.mica-backdrop-enabled ? #ffffff80 : #f8f8f8;
+        border-width: 1px; border-color: Theme.settings-option-border; border-radius: Theme.settings-card-corner; background: Theme.settings-card-surface(root.mica-backdrop-enabled);
         Text { x: 0; y: 8px; text: "Thumbnail Preview";
-            font-weight: 600; font-size: 13px; color: #222222; }
+            font-weight: 600; font-size: 13px; color: Theme.settings-page-heading; }
         PreferenceSwitch { x: 16px; y: 36px; width: parent.width - 32px;
             label: "Enable thumbnail preview";
             checked <=> root.thumbnail-preview-enabled;
             toggled => { root.settings-changed(); }
         }
         Text { x: 16px; y: 76px; width: 210px; height: 24px;
-            text: "Maximum cache size"; font-size: 12px; color: #252529;
+            text: "Maximum cache size"; font-size: 12px; color: Theme.settings-control-label;
             vertical-alignment: center; }
         PreferenceNumericInput { x: parent.width - 91px; y: 76px; width: 57px; height: 24px;
             text <=> root.thumbnail-cache-size-text;
@@ -493,7 +493,7 @@ export component InterfacePreferencesPage inherits ScrollView {
             accepted => { root.settings-changed(); }
         }
         Text { x: parent.width - 29px; y: 76px; width: 24px; height: 24px;
-            text: "MB"; font-size: 11px; color: #77777d; vertical-alignment: center; }
+            text: "MB"; font-size: 11px; color: Theme.settings-section-heading; vertical-alignment: center; }
         PreferenceSwitch { x: 16px; y: 112px; width: parent.width - 32px;
             label: "Generate previews for files on remote volumes";
             checked <=> root.thumbnail-remote-enabled;
@@ -501,7 +501,7 @@ export component InterfacePreferencesPage inherits ScrollView {
             toggled => { root.settings-changed(); }
         }
         Text { x: 16px; y: 150px; width: 210px; height: 24px;
-            text: "Thumbnail width"; font-size: 12px; color: #252529;
+            text: "Thumbnail width"; font-size: 12px; color: Theme.settings-control-label;
             vertical-alignment: center; }
         PreferenceNumericInput { x: parent.width - 91px; y: 150px; width: 57px; height: 24px;
             text <=> root.thumbnail-width-text;
@@ -509,23 +509,23 @@ export component InterfacePreferencesPage inherits ScrollView {
             accepted => { root.settings-changed(); }
         }
         Text { x: parent.width - 29px; y: 150px; width: 24px; height: 24px;
-            text: "pt"; font-size: 11px; color: #77777d; vertical-alignment: center; }
+            text: "pt"; font-size: 11px; color: Theme.settings-section-heading; vertical-alignment: center; }
         Text { x: 16px; y: 182px; width: parent.width - 32px;
             text: "Width is measured in points and applies to generated previews.";
-            font-size: 10px; color: #77777d; }
+            font-size: 10px; color: Theme.settings-section-heading; }
     }
     Rectangle {
         x: 20px; y: root.interface-accessibility-y;
         width: parent.width - 40px; height: 80px;
-        border-width: 1px; border-color: #d6d6da; border-radius: 12px; background: root.mica-backdrop-enabled ? #ffffff80 : #f8f8f8;
+        border-width: 1px; border-color: Theme.settings-option-border; border-radius: Theme.settings-card-corner; background: Theme.settings-card-surface(root.mica-backdrop-enabled);
         Text { x: 0; y: 8px; text: "Accessibility";
-            font-weight: 600; font-size: 13px; color: #222222; }
+            font-weight: 600; font-size: 13px; color: Theme.settings-page-heading; }
         PreferenceSwitch { x: 16px; y: 29px; width: parent.width - 32px;
             label: "Disable animations"; checked <=> root.disable-animations;
             toggled => { root.settings-changed(); }
         }
         Text { x: 16px; y: 58px; text: "Turn off interface motion.";
-            font-size: 10px; color: #77777d; }
+            font-size: 10px; color: Theme.settings-section-heading; }
     }
     }
 }

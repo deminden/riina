@@ -4,9 +4,9 @@ export component SidebarTab inherits FocusScope {
     in property <string> label;
     in property <bool> selected;
     in property <bool> dark-theme: true;
-    in property <color> accent-color: #0a84ff;
-    in property <color> accent-foreground: #ffffff;
-    in property <color> focus-accent-color: #90b7ef;
+    in property <color> accent-color: Theme.sidebar-catalog-accent;
+    in property <color> accent-foreground: Theme.sidebar-catalog-accent-text;
+    in property <color> focus-accent-color: Theme.player-focus-accent;
     private property <bool> focus-visible: false;
     private property <bool> pointer-focus-request: false;
     callback activated();
@@ -20,11 +20,11 @@ export component SidebarTab inherits FocusScope {
     Rectangle {
         border-radius: 5px;
         background: root.selected ? root.accent-color :
-            touch.has-hover ? (root.dark-theme ? #ffffff0c : #00000008) : transparent;
+            touch.has-hover ? (Theme.sidebar-tab-hover(root.dark-theme)) : transparent;
         border-width: root.has-focus && root.focus-visible ? 1px : 0px;
         border-color: root.selected ? root.accent-foreground : root.focus-accent-color;
         Text { text: root.label; color: root.selected ? root.accent-foreground :
-                (root.dark-theme ? #bbbbc2 : #505056);
+                (Theme.sidebar-inactive-tab-text(root.dark-theme));
             font-size: 12px; horizontal-alignment: center; vertical-alignment: center; }
         touch := TouchArea {
             clicked => {
@@ -71,7 +71,7 @@ export component SidebarPositionToggle inherits FocusScope {
     in property <bool> leading;
     in property <bool> dark-theme: true;
     in property <bool> mini: false;
-    in property <color> accent-color: #3787ef;
+    in property <color> accent-color: Theme.sidebar-layout-toggle-accent;
     callback changed(bool);
     height: mini ? 16px : 30px;
     accessible-role: checkbox;
@@ -84,20 +84,20 @@ export component SidebarPositionToggle inherits FocusScope {
         if root.icon.width > 0 : symbol := Image {
             source: root.icon; image-fit: contain;
             width: root.icon-size; height: root.icon-size;
-            colorize: root.dark-theme ? #bdbdc5 : #73737a;
+            colorize: Theme.sidebar-layout-control-icon(root.dark-theme);
         }
-        caption := Text { text: root.label; color: root.dark-theme ? #dddddd : #29292d;
+        caption := Text { text: root.label; color: Theme.sidebar-heading-text(root.dark-theme);
             font-size: root.mini ? 11px : 12px; vertical-alignment: center; horizontal-stretch: 1; }
         switch-track := Rectangle {
             width: root.mini ? 36px : 38px; height: root.mini ? 16px : 22px;
             border-radius: self.height / 2;
-            background: root.leading ? root.accent-color : (root.dark-theme ? #55555e : #d0d0d4);
+            background: root.leading ? root.accent-color : (Theme.sidebar-toggle-track(root.dark-theme));
             Rectangle {
                 x: root.leading ? parent.width - self.width - 2px : 2px;
                 y: (parent.height - self.height) / 2;
                 width: root.mini ? 12px : 18px; height: root.mini ? 12px : 18px;
                 border-radius: self.height / 2;
-                background: #f5f5f7;
+                background: Theme.sidebar-toggle-thumb;
             }
         }
     }
@@ -118,8 +118,8 @@ export component SidebarSideChoice inherits FocusScope {
     in property <image> icon;
     in property <bool> leading;
     in property <bool> dark-theme: true;
-    in property <color> accent-color: #168bff;
-    in property <color> accent-foreground: #ffffff;
+    in property <color> accent-color: Theme.sidebar-layout-choice-accent;
+    in property <color> accent-foreground: Theme.sidebar-catalog-accent-text;
     callback changed(bool);
     height: 24px;
     accessible-role: checkbox;
@@ -130,12 +130,12 @@ export component SidebarSideChoice inherits FocusScope {
     HorizontalLayout {
         spacing: 8px; cross-axis-alignment: center;
         symbol := Image { source: root.icon; image-fit: contain; width: 16px; height: 16px;
-            colorize: root.dark-theme ? #bdbdc5 : #73737a; }
-        caption := Text { text: root.label; color: root.dark-theme ? #dddddd : #29292d;
+            colorize: Theme.sidebar-layout-control-icon(root.dark-theme); }
+        caption := Text { text: root.label; color: Theme.sidebar-heading-text(root.dark-theme);
             font-size: 12px; vertical-alignment: center; horizontal-stretch: 1; }
         switch-track := Rectangle {
             width: 58px; height: 24px; border-radius: 7px;
-            background: root.dark-theme ? #ffffff16 : #0000000d;
+            background: Theme.sidebar-layout-stepper-surface(root.dark-theme);
             HorizontalLayout {
                 padding: 2px; spacing: 2px;
                 for side in [true, false] : Rectangle {
@@ -145,13 +145,13 @@ export component SidebarSideChoice inherits FocusScope {
                         x: 5px; y: 4px; width: 15px; height: 12px;
                         border-radius: 2px; border-width: 1px;
                         border-color: (root.leading == side) ? root.accent-foreground :
-                            (root.dark-theme ? #c5c5cc : #77777e);
+                            (Theme.sidebar-layout-stepper-glyph(root.dark-theme));
                         background: transparent;
                         Rectangle {
                             x: side ? 1px : parent.width - 3px;
                             width: 2px; height: parent.height - 2px;
                             background: (root.leading == side) ? root.accent-foreground :
-                                (root.dark-theme ? #c5c5cc : #77777e);
+                                (Theme.sidebar-layout-stepper-glyph(root.dark-theme));
                         }
                     }
                     TouchArea { clicked => { root.changed(side); } }
@@ -177,7 +177,7 @@ export component SubtitleVisibilityRow inherits FocusScope {
     in property <string> number;
     in property <bool> checked;
     in property <bool> dark-theme: true;
-    in property <color> accent-color: #168bff;
+    in property <color> accent-color: Theme.sidebar-layout-choice-accent;
     callback changed(bool);
     height: 16px;
     accessible-role: checkbox;
@@ -190,24 +190,24 @@ export component SubtitleVisibilityRow inherits FocusScope {
         spacing: 8px;
         Rectangle {
             width: 16px; height: 16px; border-radius: 3px;
-            background: root.dark-theme ? #bdbdc5 : #73737a;
-            Text { text: root.number; color: root.dark-theme ? #29292d : #ffffff;
+            background: Theme.sidebar-layout-control-icon(root.dark-theme);
+            Text { text: root.number; color: Theme.sidebar-layout-stepper-number(root.dark-theme);
                 font-size: 10px; font-weight: 700;
                 horizontal-alignment: center; vertical-alignment: center; }
         }
-        Text { text: root.label; color: root.dark-theme ? #dddddd : #29292d;
+        Text { text: root.label; color: Theme.sidebar-heading-text(root.dark-theme);
             font-size: 12px; font-weight: 700; vertical-alignment: center;
             horizontal-stretch: 1; }
         Rectangle {
             width: 36px; height: 16px; border-radius: 8px;
             background: root.checked ? root.accent-color
-                : root.dark-theme ? #55555e : #d0d0d4;
-            animate background { duration: 120ms; }
+                : Theme.sidebar-toggle-track(root.dark-theme);
+            animate background { duration: Theme.sidebar-toggle-motion; }
             Rectangle {
                 x: root.checked ? parent.width - self.width - 2px : 2px;
                 y: 2px; width: 12px; height: 12px; border-radius: 6px;
-                background: #f5f5f7;
-                animate x { duration: 120ms; }
+                background: Theme.sidebar-toggle-thumb;
+                animate x { duration: Theme.sidebar-toggle-motion; }
             }
         }
     }
@@ -225,7 +225,7 @@ export component SidebarAction inherits FocusScope {
     in property <image> icon;
     in property <bool> dark-theme: true;
     in property <bool> windows-acrylic-surface: false;
-    in property <color> accent-color: #90b7ef;
+    in property <color> accent-color: Theme.player-focus-accent;
     callback activated();
     height: 32px;
     horizontal-stretch: 1;
@@ -235,18 +235,14 @@ export component SidebarAction inherits FocusScope {
     accessible-action-default => { if root.enabled { activated(); } }
     Rectangle {
         border-radius: 5px;
-        background: root.windows-acrylic-surface
-            ? (root.dark-theme
-                ? (touch.has-hover && root.enabled ? #ffffff15 : #ffffff0f)
-                : (touch.has-hover && root.enabled ? #f9f9f980 : #f9f9f94d))
-            : (touch.has-hover && root.enabled ? #ffffff18 : #ffffff0a);
+        background: Theme.sidebar-action-button-surface(root.dark-theme, root.windows-acrylic-surface, touch.has-hover && root.enabled);
         Image { source: root.icon; image-fit: contain; x: 8px; y: 8px;
             width: 16px; height: 16px;
-            colorize: !root.enabled ? #777777 :
-                (root.windows-acrylic-surface && !root.dark-theme ? #29292d : #dddddd); }
+            colorize: !root.enabled ? Theme.player-tool-disabled-glyph :
+                (Theme.sidebar-heading-text(root.dark-theme || !root.windows-acrylic-surface)); }
         Text { x: 32px; width: parent.width - 38px; text: root.label;
-            color: !root.enabled ? #777777 :
-                (root.windows-acrylic-surface && !root.dark-theme ? #29292d : #dddddd);
+            color: !root.enabled ? Theme.player-tool-disabled-glyph :
+                (Theme.sidebar-heading-text(root.dark-theme || !root.windows-acrylic-surface));
             font-size: 12px; vertical-alignment: center; }
         if root.has-focus : Rectangle { border-width: 1px; border-color: root.accent-color;
             border-radius: 5px; background: transparent; }
@@ -265,9 +261,9 @@ export component SubtitleLaneSegment inherits Rectangle {
     in property <bool> selected;
     in property <bool> dark-theme: true;
     in property <bool> windows-acrylic-surface: false;
-    in property <color> accent-color: #0a84ff;
-    in property <color> accent-foreground: #ffffff;
-    in property <color> focus-accent-color: #90b7ef;
+    in property <color> accent-color: Theme.sidebar-catalog-accent;
+    in property <color> accent-foreground: Theme.sidebar-catalog-accent-text;
+    in property <color> focus-accent-color: Theme.player-focus-accent;
     callback activated();
     height: 24px;
     horizontal-stretch: 1;
@@ -275,8 +271,8 @@ export component SubtitleLaneSegment inherits Rectangle {
     background: selected ? accent-color
         : touch.has-hover
             ? (windows-acrylic-surface
-                ? (dark-theme ? #ffffff0f : #f9f9f94d)
-                : (dark-theme ? #ffffff10 : #0000000a))
+                ? (Theme.sidebar-input-surface(root.dark-theme, true))
+                : (Theme.sidebar-inline-button-surface(root.dark-theme)))
             : transparent;
     accessible-role: button;
     accessible-label: hint;
@@ -284,7 +280,7 @@ export component SubtitleLaneSegment inherits Rectangle {
     accessible-checked: selected;
     accessible-action-default => { activated(); }
     Text { text: label; font-size: 12px;
-        color: root.selected ? root.accent-foreground : dark-theme ? #eeeeee : #29292d;
+        color: root.selected ? root.accent-foreground : Theme.sidebar-action-text(root.dark-theme, true);
         horizontal-alignment: center; vertical-alignment: center; }
     if focus.has-focus : Rectangle { border-width: 1px; border-color: root.focus-accent-color;
         border-radius: 4px; background: transparent; }

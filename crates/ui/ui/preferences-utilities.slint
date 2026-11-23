@@ -86,18 +86,18 @@ export component DefaultAppDialog inherits Rectangle {
     callback cancelled();
     callback confirmed(bool, bool, bool);
 
-    background: #00000055;
+    background: Theme.settings-modal-scrim;
     Rectangle {
         x: (parent.width - 440px) / 2; y: (parent.height - 252px) / 2;
         width: 440px; height: 252px;
-        border-radius: 10px; border-width: 1px; border-color: #c8c8cd;
-        background: #f7f7f8;
+        border-radius: 10px; border-width: 1px; border-color: Theme.settings-modal-border;
+        background: Theme.settings-modal-surface;
         Text { x: 20px; y: 16px; width: parent.width - 40px; height: 22px;
             text: "Set Riina as the Default Application";
-            font-size: 14px; font-weight: 600; color: #222226; }
+            font-size: 14px; font-weight: 600; color: Theme.settings-modal-title; }
         Text { x: 20px; y: 47px; width: parent.width - 40px; height: 38px;
             text: "Choose the media types you want Riina to open. Your system controls the final default selection.";
-            font-size: 11px; color: #68686e; wrap: word-wrap; }
+            font-size: 11px; color: Theme.settings-modal-message; wrap: word-wrap; }
         CheckBox { x: 24px; y: 96px; width: parent.width - 48px; height: 22px;
             text: "Video"; checked <=> root.video; }
         CheckBox { x: 24px; y: 122px; width: parent.width - 48px; height: 22px;

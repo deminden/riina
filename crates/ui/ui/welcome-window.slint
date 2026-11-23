@@ -1,3 +1,4 @@
+import { Theme } from "theme.slint";
 import { ScrollView } from "std-widgets.slint";
 import { NativeTypography } from "shared-controls.slint";
 
@@ -9,14 +10,14 @@ component WelcomeAction inherits Rectangle {
     in property <bool> enabled: true;
     callback activated();
     width: 112px; height: 36px; border-radius: 5px;
-    background: !enabled ? #ffffff08 : touch.has-hover ? #ffffff24 : #ffffff18;
+    background: Theme.welcome-button-surface(enabled, touch.has-hover);
     border-width: focus.has-focus ? 1px : 0px;
-    border-color: #8ab7f0;
+    border-color: Theme.welcome-outline-focus;
     accessible-role: button;
     accessible-label: hint;
     accessible-enabled: enabled;
     accessible-action-default => { if enabled { activated(); } }
-    Text { text: root.label; color: root.enabled ? #f1f1f4 : #77777f;
+    Text { text: root.label; color: Theme.welcome-button-text(root.enabled);
         font-size: 12px; horizontal-alignment: center; vertical-alignment: center; }
     touch := TouchArea {
         enabled: root.enabled;
@@ -42,15 +43,15 @@ component RecentMediaEntry inherits Rectangle {
     height: 28px;
     horizontal-stretch: 1;
     border-radius: 4px;
-    background: touch.has-hover ? #ffffff14 : selected ? #ffffff18 : prominent ? #ffffff0c : transparent;
+    background: Theme.welcome-history-surface(touch.has-hover, selected, prominent);
     accessible-role: button;
     accessible-label: detail == "" ? label : label + ", " + detail;
     accessible-action-default => { activated(); }
     HorizontalLayout {
         padding-left: 8px; padding-right: 8px; spacing: 8px;
-        Text { text: root.label; color: #dedee4; font-size: 12px;
+        Text { text: root.label; color: Theme.welcome-history-title; font-size: 12px;
             vertical-alignment: center; overflow: elide; horizontal-stretch: 1; }
-        Text { text: root.detail; color: #92929a; font-size: 11px;
+        Text { text: root.detail; color: Theme.welcome-history-detail; font-size: 11px;
             vertical-alignment: center; }
     }
     touch := TouchArea { clicked => { focus.focus(); root.activated(); } }
@@ -74,7 +75,7 @@ component ResumeMediaEntry inherits Rectangle {
     height: 32px;
     horizontal-stretch: 1;
     border-radius: 4px;
-    background: selected ? #ffffff28 : touch.has-hover ? #ffffff10 : #ffffff0c;
+    background: Theme.welcome-resume-surface(selected, touch.has-hover);
     accessible-role: button;
     accessible-label: "Resume " + root.media-title + ", " + root.position-label;
     accessible-action-default => { root.activated(); }
@@ -82,11 +83,11 @@ component ResumeMediaEntry inherits Rectangle {
         padding-left: 10px; padding-right: 10px; spacing: 6px;
         Image { source: @image-url("../../../assets/icons/resume-history.svg");
             width: 16px; height: 16px; }
-        Text { text: "Resume"; color: #dedee4; font-size: 12px;
+        Text { text: "Resume"; color: Theme.welcome-history-title; font-size: 12px;
             vertical-alignment: center; }
-        Text { text: root.media-title; color: #dedee4; font-size: 12px;
+        Text { text: root.media-title; color: Theme.welcome-history-title; font-size: 12px;
             vertical-alignment: center; overflow: elide; horizontal-stretch: 1; }
-        Text { text: root.position-label; color: #92929a; font-size: 11px;
+        Text { text: root.position-label; color: Theme.welcome-history-detail; font-size: 11px;
             vertical-alignment: center; }
     }
     touch := TouchArea { clicked => { focus.focus(); root.activated(); } }
@@ -128,9 +129,7 @@ export component WelcomeWindow inherits Window {
         width: root.width; height: root.height;
         Rectangle {
             width: parent.width; height: parent.height;
-            // WinUI's dark LayerFillColorDefault (#4C3A3A3A in ARGB) lets
-            // the system Mica show through while preserving a dark Welcome.
-            background: root.mica-backdrop-enabled ? #3a3a3a4c : #17171b;
+            background: Theme.welcome-window-surface(root.mica-backdrop-enabled);
             VerticalLayout {
                 padding-left: 30px; padding-right: 30px;
                 padding-top: 48px; padding-bottom: 24px; spacing: 0px;
@@ -144,8 +143,8 @@ export component WelcomeWindow inherits Window {
                 }
                 VerticalLayout {
                     alignment: center; spacing: 3px;
-                    Text { text: "Riina"; color: #f4f4f6; font-size: 20px; font-weight: 700; }
-                    Text { text: "Version " + root.app-version; color: #a6a6ad; font-size: 11px; }
+                    Text { text: "Riina"; color: Theme.welcome-title; font-size: 20px; font-weight: 700; }
+                    Text { text: "Version " + root.app-version; color: Theme.welcome-version; font-size: 11px; }
                 }
                 Rectangle { horizontal-stretch: 1; }
                 HorizontalLayout {
@@ -162,16 +161,16 @@ export component WelcomeWindow inherits Window {
                 HorizontalLayout {
                     spacing: 10px; height: 36px;
                     Rectangle { horizontal-stretch: 1; height: 36px; border-radius: 5px;
-                        background: #232329; border-width: 1px;
-                        border-color: url-input.has-focus ? #6195d8 : #ffffff24;
+                        background: Theme.welcome-url-field; border-width: 1px;
+                        border-color: Theme.welcome-url-border(url-input.has-focus);
                         url-input := TextInput { x: 10px; width: parent.width - 20px; height: parent.height;
                             text <=> root.url-draft; single-line: true;
-                            font-size: 12px; color: #f0f0f3;
+                            font-size: 12px; color: Theme.welcome-url-text;
                             accessible-label: "Media URL";
                             accepted => { root.open-url(self.text); } }
                         if root.url-draft.is-empty && !url-input.has-focus : Text {
                             x: 10px; y: 0px; width: parent.width - 20px; height: parent.height;
-                            text: "https://"; font-size: 12px; color: #85858d;
+                            text: "https://"; font-size: 12px; color: Theme.welcome-url-placeholder;
                             vertical-alignment: center;
                         }
                     }
@@ -179,7 +178,7 @@ export component WelcomeWindow inherits Window {
                         activated => { root.open-url(root.url-draft); } }
                 }
                 if root.url-error != "" : Text {
-                    text: root.url-error; color: #ed9389; font-size: 11px;
+                    text: root.url-error; color: Theme.welcome-url-error; font-size: 11px;
                 }
             }
             Rectangle { height: 16px; }

@@ -1,3 +1,4 @@
+import { Theme } from "theme.slint";
 component QuickSettingsTab inherits FocusScope {
     in property <string> label;
     in property <int> index;
@@ -5,9 +6,9 @@ component QuickSettingsTab inherits FocusScope {
     in property <image> icon;
     in property <bool> selected;
     in property <bool> dark-theme: true;
-    in property <color> accent-color: #0a84ff;
-    in property <color> accent-foreground: #ffffff;
-    in property <color> focus-accent-color: #90b7ef;
+    in property <color> accent-color: Theme.sidebar-catalog-accent;
+    in property <color> accent-foreground: Theme.sidebar-catalog-accent-text;
+    in property <color> focus-accent-color: Theme.player-focus-accent;
     private property <bool> focus-visible: false;
     private property <bool> pointer-focus-request: false;
     callback activated();
@@ -28,7 +29,7 @@ component QuickSettingsTab inherits FocusScope {
     Rectangle {
         border-radius: 14px;
         background: root.selected ? root.accent-color :
-            touch.has-hover ? (root.dark-theme ? #ffffff0c : #00000008) : transparent;
+            touch.has-hover ? Theme.sidebar-tab-hover(root.dark-theme) : transparent;
         border-width: root.has-focus && root.focus-visible ? 1px : 0px;
         border-color: root.selected ? root.accent-foreground : root.focus-accent-color;
         HorizontalLayout {
@@ -40,7 +41,7 @@ component QuickSettingsTab inherits FocusScope {
             Image { source: root.icon; image-fit: contain; width: 14px; height: 14px;
                 vertical-alignment: center;
                 colorize: root.selected ? root.accent-foreground
-                    : root.dark-theme ? #e3e3e8 : #45454b; }
+                    : Theme.sidebar-tab-text(root.dark-theme); }
             if root.selected && root.show-label : Text { text: root.label;
                 color: root.accent-foreground;
                 font-size: 12px; font-weight: 600; height: 14px;
@@ -82,7 +83,7 @@ export component QuickSettingsTabs inherits Rectangle {
     in property <color> focus-accent-color;
     callback chosen(int);
     width: tabs.preferred-width; height: 34px; border-radius: 17px;
-    background: root.dark-theme ? #ffffff14 : #0000000b;
+    background: Theme.sidebar-tab-strip(root.dark-theme);
     function choose(index: int) {
         // Clamp at the ends without leaking an arrow into playback seeking.
         if index <= 0 { layout-tab.focus(); root.chosen(5); }

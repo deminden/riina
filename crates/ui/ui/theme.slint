@@ -173,4 +173,848 @@ export global Theme {
                     : (windows || native-video ? #f2f2f2c8 : #f2f2f2ed))
             : (dark ? #151519 : #f2f2f2);
     }
+
+    out property <color> osd-primary-text: #ffffff;
+
+    out property <color> fullscreen-info-divider: #ffffff55;
+
+    out property <color> screenshot-action-hover: #ffffff20;
+
+    out property <color> screenshot-preview-surface: #181818dc;
+
+    out property <color> screenshot-image-border: #80808099;
+
+    public pure function sidebar-input-surface(dark: bool, material: bool) -> color {
+        return material ? (dark ? #ffffff0f : #f9f9f94d) : (dark ? #ffffff10 : #ffffff);
+    }
+
+    public pure function sidebar-tab-hover(dark: bool) -> color {
+        return dark ? #ffffff0c : #00000008;
+    }
+
+    public pure function sidebar-tab-text(dark: bool) -> color {
+        return dark ? #e3e3e8 : #45454b;
+    }
+
+    public pure function sidebar-tab-strip(dark: bool) -> color {
+        return dark ? #ffffff14 : #0000000b;
+    }
+
+    public pure function music-mode-track-popup(dark: bool, material: bool) -> color {
+        return material ? (dark ? #25252bef : #f5f5f7f0) : (dark ? #303036 : #eeeef2);
+    }
+
+    public pure function music-mode-playlist-surface(dark: bool) -> color {
+        return dark ? #17171b : #f0f0f2;
+    }
+
+    public pure function music-mode-playlist-selection(dark: bool) -> color {
+        return dark ? #ffffff1c : #168bff24;
+    }
+
+    public pure function music-mode-playlist-hover(dark: bool) -> color {
+        return dark ? #ffffff10 : #0000000a;
+    }
+
+    public pure function music-mode-playlist-title(dark: bool) -> color {
+        return dark ? #eeeeee : #29292d;
+    }
+
+    public pure function music-mode-playlist-detail(dark: bool) -> color {
+        return dark ? #a7a7ad : #6b6b72;
+    }
+
+    out property <color> pip-window-surface: #09090b;
+
+    out property <color> pip-video-background: #000000;
+
+    out property <color> pip-overlay-text: #f3f3f5;
+
+    public pure function pip-overlay-surface(material: bool) -> color {
+        return material ? #17171bd9 : #17171b;
+    }
+
+    out property <color> font-list-focus-border: #a5bfe9;
+
+    public pure function font-list-surface(dark: bool) -> color {
+        return dark ? #202024 : #ffffff;
+    }
+
+    public pure function font-list-selection(dark: bool) -> color {
+        return dark ? #365c98 : #dceaff;
+    }
+
+    public pure function font-list-text(dark: bool) -> color {
+        return dark ? #eeeeee : #242428;
+    }
+
+    out property <color> settings-nav-selection: #e7e7eb;
+
+    out property <color> settings-nav-hover: #ffffffb8;
+
+    out property <color> settings-primary-label: #242428;
+
+    out property <color> settings-nav-current-marker: #7a7a80;
+
+    out property <color> settings-nav-default-marker: #9a9a9f;
+
+    out property <color> settings-nav-subsection-text: #55555b;
+
+    out property <color> settings-nav-branch: #d3d3d7;
+
+    public pure function settings-nav-surface(material: bool) -> color {
+        return material ? #f6f6f680 : #f6f6f6;
+    }
+
+    out property <color> settings-search-field-surface: #e6e6e9;
+
+    out property <color> settings-search-secondary-text: #77777d;
+
+    out property <color> settings-search-field-text: #303034;
+
+    out property <color> settings-search-utility-text: #68686e;
+
+    out property <color> settings-search-result-selection: #e2e8f2;
+
+    out property <color> settings-search-result-hover: #eeeeF3;
+
+    out property <color> settings-search-popover-border: #d0d0d5;
+
+    out property <color> settings-search-popover-surface: #fbfbfc;
+
+    public pure function settings-search-border(focused: bool) -> color {
+        return focused ? #168bff : #d2d2d6;
+    }
+
+    out property <color> settings-modal-scrim: #00000055;
+
+    out property <color> settings-modal-border: #c8c8cd;
+
+    out property <color> settings-modal-surface: #f7f7f8;
+
+    out property <color> settings-modal-title: #222226;
+
+    out property <color> settings-modal-message: #68686e;
+
+    out property <color> player-tool-disabled-glyph: #777777;
+
+    public pure function player-tool-border(dark: bool) -> color {
+        return dark ? #ffffff24 : #00000020;
+    }
+
+    public pure function player-tool-selection(dark: bool) -> color {
+        return dark ? #90b7ef24 : #168bff18;
+    }
+
+    public pure function player-tool-hover(dark: bool, material: bool) -> color {
+        return material ? (dark ? #ffffff15 : #f9f9f980) : (dark ? #ffffff20 : #00000014);
+    }
+
+    public pure function player-tool-circle(dark: bool, material: bool) -> color {
+        return material ? (dark ? #ffffff0f : #f9f9f94d) : (dark ? #ffffff14 : #0000000b);
+    }
+
+    public pure function sidebar-row-selection(dark: bool) -> color {
+        return dark ? #ffffff15 : #168bff20;
+    }
+
+    public pure function sidebar-playlist-metadata(dark: bool) -> color {
+        return dark ? #a7a7ad : #66666b;
+    }
+
+    public pure function sidebar-no-track-text(dark: bool) -> color {
+        return dark ? #a7a7ad : #6b6b70;
+    }
+
+    public pure function sidebar-language-badge(dark: bool) -> color {
+        return dark ? #ffffff20 : #00000010;
+    }
+
+    public pure function player-dialog-button-border(dark: bool, focused: bool) -> color {
+        return focused ? #6094dc : (dark ? #62626a : #c7c7cc);
+    }
+
+    public pure function player-dialog-button-surface(dark: bool, focused: bool) -> color {
+        return focused ? (dark ? #ffffff1b : #168bff16) : (dark ? #3a3a40 : #ffffff);
+    }
+
+    public pure function player-dialog-button-text(dark: bool) -> color {
+        return dark ? #f0f0f2 : #29292d;
+    }
+
+    public pure function playlist-sort-surface(dark: bool) -> color {
+        return dark ? #29292e : #f8f8fa;
+    }
+
+    public pure function playlist-sort-border(dark: bool) -> color {
+        return dark ? #ffffff38 : #b8b8bc;
+    }
+
+    public pure function playlist-sort-caption(dark: bool) -> color {
+        return dark ? #a9a9b1 : #77777d;
+    }
+
+    public pure function playlist-sort-hover(dark: bool) -> color {
+        return dark ? #ffffff20 : #00000012;
+    }
+
+    out property <color> settings-input-card-border: #e4e4e7;
+
+    out property <color> settings-control-label: #252529;
+
+    out property <color> settings-audio-card-border: #e4e4e8;
+
+    public pure function settings-audio-card-surface(material: bool) -> color {
+        return material ? #ffffff80 : #fafafa;
+    }
+
+    out property <color> settings-video-section-heading: #737379;
+
+    out property <color> settings-disabled-control-label: #98989e;
+
+    out property <color> settings-field-surface: #ffffff;
+
+    out property <color> settings-advanced-field-border: #c8c8cd;
+
+    out property <color> settings-mpv-option-selection: #e5edf7;
+
+    out property <color> settings-general-section-heading: #7a7a80;
+
+    out property <color> settings-general-card-border: #d6d6da;
+
+    out property <color> settings-general-divider: #e1e1e1;
+
+    out property <color> settings-screenshot-folder-text: #666666;
+
+    out property <color> settings-network-card-border: #e4e4e8;
+
+    out property <color> settings-cache-field-border: #dedee2;
+
+    out property <color> settings-network-field-border: #c8c8cd;
+
+    public pure function settings-network-card-surface(material: bool) -> color {
+        return material ? #ffffff80 : #fafafa;
+    }
+
+    out property <color> settings-accent: #168bff;
+
+    out property <color> settings-action-border: #b8b8b8;
+
+    out property <color> settings-lane-selection: #d0d0d5;
+
+    out property <color> settings-toolbar-grip: #68686e;
+
+    out property <color> settings-disabled-field-border: #d7d7da;
+
+    out property <color> settings-disabled-field-surface: #eeeeef;
+
+    out property <color> settings-language-token: #e9e9ec;
+
+    out property <color> settings-language-token-text: #303036;
+
+    out property <color> settings-language-token-remove: #66666d;
+
+    out property <color> settings-disabled-toggle-label: #89898f;
+
+    out property <color> settings-disclosure-indicator: #a2a2a8;
+
+    out property <color> settings-option-border: #d6d6da;
+
+    out property <color> settings-option-description: #707076;
+
+    out property <color> settings-disclosure-glyph: #44444a;
+
+    out property <color> settings-utility-icon: #77777e;
+
+    out property <color> settings-utility-hover: #dcdcdf;
+
+    out property <color> settings-utility-action-surface: #e6e6e9;
+
+    out property <color> settings-utility-metric: #85858b;
+
+    out property <color> settings-utility-disabled-glyph: #a8a8ad;
+
+    out property <color> settings-utility-action-glyph: #4e4e54;
+
+    out property <color> settings-toggle-thumb: #ffffff;
+
+    public pure function settings-folder-button-surface(enabled: bool, pressed: bool) -> color {
+        return enabled ? (pressed ? #dddddd : #fafafa) : #eeeeee;
+    }
+
+    public pure function settings-folder-button-text(enabled: bool) -> color {
+        return enabled ? #222222 : #999999;
+    }
+
+    public pure function settings-action-surface(enabled: bool, pressed: bool) -> color {
+        return !enabled ? #f1f1f2 : pressed ? #d9d9dd : #f7f7f8;
+    }
+
+    public pure function settings-action-text(enabled: bool) -> color {
+        return enabled ? #222222 : #99999e;
+    }
+
+    public pure function settings-toolbar-action-text(enabled: bool) -> color {
+        return enabled ? #333337 : #a0a0a4;
+    }
+
+    public pure function settings-number-field-text(enabled: bool) -> color {
+        return enabled ? #222222 : #8d8d92;
+    }
+
+    public pure function settings-toggle-track(enabled: bool, checked: bool) -> color {
+        return !enabled ? #e6e6e8 : checked ? #168bff : #d2d2d7;
+    }
+
+    public pure function settings-switch-track(checked: bool) -> color {
+        return checked ? #198cff : #d6d6da;
+    }
+
+    public pure function settings-option-surface(selected: bool) -> color {
+        return selected ? #f5f9ff : #f3f3f5;
+    }
+
+    out property <color> slider-disabled-accent: #777777;
+
+    out property <color> subtitle-color-well-border: #888892;
+
+    out property <color> auxiliary-light-acrylic: #ffffff40;
+
+    out property <color> auxiliary-dark-acrylic: #ffffff09;
+
+    out property <color> subtitle-color-checker-light: #dddddd;
+
+    out property <color> subtitle-color-checker-dark: #777777;
+
+    out property <color> subtitle-color-popup-surface: #29292e;
+
+    out property <color> subtitle-color-popup-border: #ffffff30;
+
+    out property <color> subtitle-color-popup-title: #eeeeee;
+
+    out property <color> subtitle-color-popup-label: #dddddd;
+
+    public pure function equalizer-knob(dark: bool, enabled: bool) -> color {
+        return enabled ? (dark ? #f4f4f7 : #55555e) : #777777;
+    }
+
+    public pure function player-slider-knob(dark: bool, enabled: bool) -> color {
+        return enabled ? (dark ? #f4f4f7 : #3b3b40) : #777777;
+    }
+
+    public pure function timeline-range-marker(enabled: bool) -> color {
+        return enabled ? #dddde5 : #666666;
+    }
+
+    public pure function timeline-loop-knob(dark: bool) -> color {
+        return dark ? #a6a6a6 : #696969;
+    }
+
+    public pure function slider-track(dark: bool) -> color {
+        return dark ? #ffffff40 : #00000030;
+    }
+
+    public pure function timeline-chapter-marker(dark: bool) -> color {
+        return dark ? #ffffff60 : #00000060;
+    }
+
+    public pure function timeline-loop-range(dark: bool) -> color {
+        return dark ? #ffffff30 : #00000035;
+    }
+
+    public pure function timeline-time-label-surface(dark: bool) -> color {
+        return dark ? #202025 : #f2f2f2;
+    }
+
+    public pure function timeline-preview-border(dark: bool) -> color {
+        return dark ? #ffffff4a : #00000038;
+    }
+
+    public pure function timeline-preview-surface(dark: bool) -> color {
+        return dark ? #17171bf2 : #f7f7f9f5;
+    }
+
+    public pure function equalizer-track(dark: bool) -> color {
+        return dark ? #ffffff45 : #00000035;
+    }
+
+    public pure function equalizer-center-tick(dark: bool) -> color {
+        return dark ? #ffffff55 : #00000045;
+    }
+
+    out property <color> sidebar-card-default-fill: #ffffff08;
+
+    out property <color> sidebar-card-default-border: #ffffff18;
+
+    public pure function video-preset-button-hover(dark: bool) -> color {
+        return dark ? #ffffff14 : #0000000c;
+    }
+
+    public pure function video-preset-divider-material(dark: bool) -> color {
+        return dark ? #ffffff28 : #0000001c;
+    }
+
+    public pure function video-rail-arrow-hover(dark: bool) -> color {
+        return dark ? #ffffff : #202024;
+    }
+
+    public pure function video-rail-arrow(dark: bool) -> color {
+        return dark ? #cccccc : #66666b;
+    }
+
+    public pure function video-preset-rail-material(dark: bool) -> color {
+        return dark ? #ffffff16 : #f9f9f96b;
+    }
+
+    public pure function video-preset-rail-surface(dark: bool) -> color {
+        return dark ? #ffffff10 : #0000000b;
+    }
+
+    public pure function video-switch-hover(dark: bool) -> color {
+        return dark ? #ffffff28 : #00000016;
+    }
+
+    public pure function video-switch-selected-text(dark: bool) -> color {
+        return dark ? #eeeeee : #ffffff;
+    }
+
+    out property <color> video-crop-shadow: #00000080;
+
+    out property <color> video-black-surface: #000000;
+
+    out property <color> live-text-region-fill: #82b6ff22;
+
+    out property <color> live-text-region-outline: #82b6ff;
+
+    out property <color> live-text-selection: #3478f6;
+
+    out property <color> live-text-foreground: #ffffff;
+
+    out property <color> live-text-caption-surface: #151519e8;
+
+    public pure function equalizer-profile-border(dark: bool) -> color {
+        return dark ? #ffffff30 : #00000030;
+    }
+
+    public pure function equalizer-profile-arrow(dark: bool) -> color {
+        return dark ? #c4c4ca : #5b5b60;
+    }
+
+    public pure function equalizer-profile-error(dark: bool) -> color {
+        return dark ? #ff9999 : #a51d1d;
+    }
+
+    out property <color> crop-preset-selection: #478adc;
+
+    out property <color> crop-preset-hover: #ffffff28;
+
+    out property <color> crop-preset-surface: #ffffff18;
+
+    out property <color> crop-preset-text: #eeeeee;
+
+    out property <color> crop-preset-disabled-text: #777777;
+
+    out property <color> crop-mask: #00000080;
+
+    out property <color> crop-selection-fill: #ffffff0a;
+
+    out property <color> crop-instruction-text: #cccccc;
+
+    out property <color> player-dialog-scrim: #00000070;
+
+    out property <color> player-dialog-field-focus: #6094dc;
+
+    out property <color> player-dialog-error: #c43d36;
+
+    public pure function player-dialog-surface(dark: bool) -> color {
+        return dark ? #29292e : #f5f5f7;
+    }
+
+    public pure function player-dialog-border(dark: bool) -> color {
+        return dark ? #55555d : #d4d4d8;
+    }
+
+    public pure function player-dialog-title(dark: bool) -> color {
+        return dark ? #f1f1f3 : #242428;
+    }
+
+    public pure function player-dialog-instructions(dark: bool) -> color {
+        return dark ? #c8c8cd : #55555b;
+    }
+
+    public pure function player-dialog-field-border(dark: bool) -> color {
+        return dark ? #5c5c64 : #c8c8cd;
+    }
+
+    public pure function player-dialog-field-surface(dark: bool) -> color {
+        return dark ? #1e1e22 : #ffffff;
+    }
+
+    public pure function player-dialog-field-text(dark: bool) -> color {
+        return dark ? #f3f3f5 : #202024;
+    }
+
+    out property <color> layout-choice-inactive-indicator: #aaaab4;
+
+    out property <color> layout-choice-accent-text: #ffffff;
+
+    public pure function layout-choice-border(dark: bool) -> color {
+        return dark ? #ffffff1f : #0000001a;
+    }
+
+    public pure function layout-choice-selection(dark: bool, windows: bool) -> color {
+        return windows ? (dark ? #ffffff12 : #0000000a) : #168bff18;
+    }
+
+    public pure function layout-choice-hover(dark: bool) -> color {
+        return dark ? #ffffff10 : #0000000a;
+    }
+
+    public pure function layout-choice-surface(dark: bool) -> color {
+        return dark ? #ffffff08 : #00000006;
+    }
+
+    public pure function layout-choice-diagram(dark: bool) -> color {
+        return dark ? #ffffffb0 : #34343b99;
+    }
+
+    public pure function layout-choice-selected-text(dark: bool) -> color {
+        return dark ? #ffffff : #202024;
+    }
+
+    public pure function layout-choice-text(dark: bool) -> color {
+        return dark ? #bbbbc2 : #505056;
+    }
+
+    out property <length> settings-card-corner: 12px;
+
+    out property <length> settings-text-field-corner: 3px;
+
+    out property <length> settings-page-title-size: 15px;
+
+    public pure function settings-interface-unit-text(enabled: bool) -> color {
+        return enabled ? #55555b : #a0a0a4;
+    }
+
+    out property <length> sidebar-layout-card-corner: 8px;
+
+    out property <color> sidebar-layout-toggle-accent: #3787ef;
+
+    out property <color> sidebar-layout-choice-accent: #168bff;
+
+    public pure function sidebar-appearance-strip(dark: bool) -> color {
+        return dark ? #ffffff14 : #0000000d;
+    }
+
+    out property <duration> sidebar-toggle-motion: 120ms;
+
+    out property <color> sidebar-toggle-thumb: #f5f5f7;
+
+    public pure function sidebar-inactive-tab-text(dark: bool) -> color {
+        return dark ? #bbbbc2 : #505056;
+    }
+
+    public pure function sidebar-layout-control-icon(dark: bool) -> color {
+        return dark ? #bdbdc5 : #73737a;
+    }
+
+    public pure function sidebar-toggle-track(dark: bool) -> color {
+        return dark ? #55555e : #d0d0d4;
+    }
+
+    public pure function sidebar-layout-stepper-surface(dark: bool) -> color {
+        return dark ? #ffffff16 : #0000000d;
+    }
+
+    public pure function sidebar-layout-stepper-glyph(dark: bool) -> color {
+        return dark ? #c5c5cc : #77777e;
+    }
+
+    public pure function sidebar-layout-stepper-number(dark: bool) -> color {
+        return dark ? #29292d : #ffffff;
+    }
+
+    public pure function sidebar-action-button-surface(dark: bool, material: bool, hovered: bool) -> color {
+        return material ? (dark ? (hovered ? #ffffff15 : #ffffff0f) : (hovered ? #f9f9f980 : #f9f9f94d)) : (hovered ? #ffffff18 : #ffffff0a);
+    }
+
+    public pure function sidebar-inline-button-surface(dark: bool) -> color {
+        return dark ? #ffffff10 : #0000000a;
+    }
+
+    out property <color> settings-key-binding-help: #55555b;
+
+    out property <color> settings-key-binding-divider: #e3e3e6;
+
+    out property <color> settings-key-binding-search-border: #dedee2;
+
+    out property <color> settings-key-binding-search-placeholder: #89898f;
+
+    out property <color> settings-key-binding-menu-border: #d4d4d8;
+
+    out property <color> settings-key-binding-menu-divider: #e5e5e8;
+
+    out property <color> settings-key-binding-row-selection: #e5edf7;
+
+    out property <color> settings-key-binding-row-divider: #eeeeef;
+
+    out property <color> settings-keycap-border: #e1e1e5;
+
+    out property <color> settings-key-binding-focus: #90b7ef;
+
+    out property <color> settings-key-binding-action-hover: #ededf0;
+
+    out property <color> settings-key-binding-action-surface: #f8f8f8;
+
+    out property <color> settings-key-binding-menu-hover: #e9e9ec;
+
+    public pure function settings-key-binding-action-outline(enabled: bool) -> color {
+        return enabled ? #64646a : #a8a8ad;
+    }
+
+    public pure function settings-key-binding-delete-detail(enabled: bool) -> color {
+        return enabled ? #8a8a90 : #bcbcc0;
+    }
+
+    out property <length> settings-modal-corner: 10px;
+
+    out property <length> settings-modal-title-size: 14px;
+
+    out property <color> settings-key-binding-capture-placeholder: #85858b;
+
+    out property <color> settings-plugin-toggle-shadow: #00000033;
+
+    out property <color> settings-plugin-toggle-focus: #78a9f5;
+
+    out property <color> settings-plugin-action-hover: #ededf0;
+
+    out property <color> settings-plugin-action-glyph: #85858a;
+
+    out property <color> settings-plugin-action-focus: #7daaf0;
+
+    out property <color> settings-plugin-row-selection: #e5edf7;
+
+    out property <color> settings-plugin-row-divider: #e1e1e1;
+
+    out property <color> settings-plugin-name: #28282c;
+
+    out property <color> settings-plugin-description: #75757a;
+
+    out property <color> settings-plugin-version: #96969a;
+
+    public pure function settings-plugin-toggle-track(checked: bool) -> color {
+        return checked ? #1684f8 : #d6d6d9;
+    }
+
+    public pure function settings-plugin-button-fill(highlighted: bool) -> color {
+        return highlighted ? #e7e7e9 : #e9e9eb;
+    }
+
+    out property <color> settings-plugin-status: #85858a;
+
+    out property <color> auxiliary-light-window-surface: #f5f5f7;
+
+    out property <color> auxiliary-light-list-surface: #ffffff;
+
+    out property <color> auxiliary-light-list-alternate: #fafafa;
+
+    out property <color> auxiliary-light-column-label: #55555b;
+
+    out property <color> auxiliary-light-secondary-text: #77777d;
+
+    out property <color> auxiliary-light-content-text: #242428;
+
+    out property <color> subtitle-search-field-border: #bcbcc2;
+
+    out property <color> subtitle-result-status: #6d6d73;
+
+    out property <color> subtitle-result-border: #d0d0d5;
+
+    out property <color> subtitle-result-header: #f1f1f3;
+
+    out property <color> subtitle-result-selection: #dceaff;
+
+    out property <color> subtitle-result-detail: #4f4f55;
+
+    out property <color> subtitle-result-empty: #818187;
+
+    out property <color> subtitle-provider-link: #2878cc;
+
+    out property <color> auxiliary-light-toolbar-surface: #ececf0;
+
+    out property <color> auxiliary-light-row-selection: #d8e8ff;
+
+    out property <color> history-column-header: #e9e9ed;
+
+    out property <color> history-group-fill: #f0f0f2;
+
+    out property <color> history-group-text: #66666c;
+
+    out property <color> history-availability-glyph: #65758c;
+
+    out property <color> history-secondary-text: #85858b;
+
+    out property <color> history-progress-track: #d8d8dc;
+
+    out property <color> history-progress-value: #4b83d5;
+
+    public pure function history-availability-surface(available: bool) -> color {
+        return available ? #d9e4f3 : #e4e4e7;
+    }
+
+    public pure function history-media-title(available: bool) -> color {
+        return available ? #202024 : #92929a;
+    }
+
+    public pure function history-progress-text(available: bool) -> color {
+        return available ? #56565c : #a0a0a5;
+    }
+
+    out property <color> log-column-header: #e5e5e9;
+
+    out property <color> log-timestamp: #707078;
+
+    out property <color> log-subsystem: #62626a;
+
+    out property <color> log-footer-text: #68686f;
+
+    out property <color> welcome-outline-focus: #8ab7f0;
+
+    out property <color> welcome-history-title: #dedee4;
+
+    out property <color> welcome-history-detail: #92929a;
+
+    out property <color> welcome-title: #f4f4f6;
+
+    out property <color> welcome-version: #a6a6ad;
+
+    out property <color> welcome-url-field: #232329;
+
+    out property <color> welcome-url-text: #f0f0f3;
+
+    out property <color> welcome-url-placeholder: #85858d;
+
+    out property <color> welcome-url-error: #ed9389;
+
+    public pure function welcome-button-surface(enabled: bool, hovered: bool) -> color {
+        return !enabled ? #ffffff08 : hovered ? #ffffff24 : #ffffff18;
+    }
+
+    public pure function welcome-button-text(enabled: bool) -> color {
+        return enabled ? #f1f1f4 : #77777f;
+    }
+
+    public pure function welcome-history-surface(hovered: bool, selected: bool, prominent: bool) -> color {
+        return hovered ? #ffffff14 : selected ? #ffffff18 : prominent ? #ffffff0c : transparent;
+    }
+
+    public pure function welcome-resume-surface(selected: bool, hovered: bool) -> color {
+        return selected ? #ffffff28 : hovered ? #ffffff10 : #ffffff0c;
+    }
+
+    // WinUI's dark LayerFillColorDefault (#4C3A3A3A in ARGB) lets
+    // the system Mica show through while preserving a dark Welcome.
+    public pure function welcome-window-surface(mica: bool) -> color {
+        return mica ? #3a3a3a4c : #17171b;
+    }
+
+    public pure function welcome-url-border(focused: bool) -> color {
+        return focused ? #6195d8 : #ffffff24;
+    }
+
+    public pure function about-content-surface(dark: bool) -> color {
+        return dark ? #242427 : #f5f5f7;
+    }
+
+    public pure function about-summary-surface(dark: bool) -> color {
+        return dark ? #1d1d20 : #ececef;
+    }
+
+    public pure function about-title(dark: bool) -> color {
+        return dark ? #f5f5f7 : #202024;
+    }
+
+    public pure function about-summary-detail(dark: bool) -> color {
+        return dark ? #a3a3a8 : #73737a;
+    }
+
+    public pure function about-body(dark: bool) -> color {
+        return dark ? #d0d0d4 : #4b4b50;
+    }
+
+    public pure function font-picker-window-surface(dark: bool, acrylic: bool) -> color {
+        return acrylic ? (dark ? #29292ed9 : #f5f5f7cc) : (dark ? #29292e : #f5f5f7);
+    }
+
+    public pure function font-picker-label(dark: bool) -> color {
+        return dark ? #dddddd : #404046;
+    }
+
+    public pure function font-picker-list-label(dark: bool) -> color {
+        return dark ? #dddddd : #505056;
+    }
+
+    public pure function font-picker-preview-surface(dark: bool, acrylic: bool) -> color {
+        return dark ? (acrylic ? #202024d9 : #202024) : (acrylic ? #ffffffd9 : #ffffff);
+    }
+
+    public pure function font-picker-preview-text(dark: bool) -> color {
+        return dark ? #eeeeee : #242428;
+    }
+
+    public pure function font-picker-preview-label(dark: bool) -> color {
+        return dark ? #bbbbbb : #66666d;
+    }
+
+    public pure function font-picker-status(dark: bool) -> color {
+        return dark ? #bbbbbb : #73737a;
+    }
+
+    public pure function filter-window-surface(dark: bool) -> color {
+        return dark ? #1e1e22 : #f5f5f7;
+    }
+
+    public pure function filter-toolbar-surface(dark: bool) -> color {
+        return dark ? #29292e : #ececf0;
+    }
+
+    public pure function filter-editor-surface(dark: bool) -> color {
+        return dark ? #232328 : #ececf0;
+    }
+
+    public pure function filter-field-label(dark: bool) -> color {
+        return dark ? #dddddf : #414146;
+    }
+
+    public pure function filter-empty-editor-text(dark: bool) -> color {
+        return dark ? #a9a9b0 : #73737a;
+    }
+
+    public pure function filter-section-heading(dark: bool) -> color {
+        return dark ? #eeeef2 : #25252a;
+    }
+
+    public pure function filter-list-surface(dark: bool) -> color {
+        return dark ? #25252a : white;
+    }
+
+    public pure function filter-list-alternate(dark: bool) -> color {
+        return dark ? #2b2b30 : #fafafa;
+    }
+
+    public pure function filter-row-divider(dark: bool) -> color {
+        return dark ? #414148 : #dedee3;
+    }
+
+    public pure function filter-row-title(dark: bool) -> color {
+        return dark ? #eeeef2 : #26262b;
+    }
+
+    public pure function filter-row-detail(dark: bool) -> color {
+        return dark ? #aaaab1 : #66666d;
+    }
+
+    public pure function filter-empty-list-text(dark: bool) -> color {
+        return dark ? #a9a9b0 : #77777d;
+    }
 }

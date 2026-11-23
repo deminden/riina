@@ -1,3 +1,4 @@
+import { Theme } from "theme.slint";
 import { ScrollView } from "std-widgets.slint";
 import { PreferenceSearchField } from "preferences-search.slint";
 
@@ -10,7 +11,7 @@ export component PreferenceNavItem inherits Rectangle {
     height: 36px;
     horizontal-stretch: 1;
     border-radius: 5px;
-    background: selected ? #e7e7eb : touch.has-hover ? #ffffffb8 : transparent;
+    background: selected ? Theme.settings-nav-selection : touch.has-hover ? Theme.settings-nav-hover : transparent;
     accessible-role: button;
     accessible-label: label;
     accessible-checkable: true;
@@ -18,7 +19,7 @@ export component PreferenceNavItem inherits Rectangle {
     accessible-action-default => { root.activated(); }
     Image { x: 5px; y: 8px; width: 20px; height: 20px; source: root.icon; }
     Text { x: 34px; width: parent.width - 42px; height: parent.height;
-        text: root.label; font-size: 13px; font-weight: 600; color: #242428;
+        text: root.label; font-size: 13px; font-weight: 600; color: Theme.settings-primary-label;
         vertical-alignment: center; }
     touch := TouchArea { clicked => { focus.focus(); root.activated(); } }
     focus := FocusScope {
@@ -37,17 +38,17 @@ export component PreferenceSubNavItem inherits Rectangle {
     height: 24px;
     horizontal-stretch: 1;
     border-radius: 4px;
-    background: selected ? #e7e7eb : touch.has-hover ? #ffffffb8 : transparent;
+    background: selected ? Theme.settings-nav-selection : touch.has-hover ? Theme.settings-nav-hover : transparent;
     accessible-role: button;
     accessible-label: label;
     accessible-checkable: true;
     accessible-checked: selected;
     accessible-action-default => { root.activated(); }
     Rectangle { x: 1px; y: 8px; width: 6px; height: 6px; border-radius: 3px;
-        background: root.selected ? #7a7a80 : #9a9a9f; }
+        background: root.selected ? Theme.settings-nav-current-marker : Theme.settings-nav-default-marker; }
     Text { x: 20px; width: parent.width - 24px; height: parent.height;
         text: root.label; font-size: 11px; font-weight: root.selected ? 600 : 400;
-        color: #55555b; vertical-alignment: center; overflow: elide; }
+        color: Theme.settings-nav-subsection-text; vertical-alignment: center; overflow: elide; }
     touch := TouchArea { clicked => { focus.focus(); root.activated(); } }
     focus := FocusScope {
         width: parent.width; height: parent.height;
@@ -99,7 +100,7 @@ export component PreferencesNavigation inherits Rectangle {
         return page * 36px + (root.selected-pane < page ? navigation-extra-height : 0px);
     }
 
-    background: root.mica-backdrop-enabled ? #f6f6f680 : #f6f6f6;
+    background: Theme.settings-nav-surface(root.mica-backdrop-enabled);
     PreferenceSearchField { x: 8px; y: 10px; query <=> root.search-query;
         result-count: root.search-result-count;
         selected-index: root.selected-search-index;
@@ -118,7 +119,7 @@ export component PreferencesNavigation inherits Rectangle {
             PreferenceNavItem { x: 10px; y: root.navigation-row-y(0); width: 180px; label: "General";
                 icon: @image-url("../../../assets/icons/settings.svg");
                 selected: root.selected-pane == 0; activated => { root.selected-pane = 0; root.general-scroll-position = 0px; } }
-            if root.selected-pane == 0 : Rectangle { x: 24px; y: 36px; width: 2px; height: 96px; background: #d3d3d7; }
+            if root.selected-pane == 0 : Rectangle { x: 24px; y: 36px; width: 2px; height: 96px; background: Theme.settings-nav-branch; }
             if root.selected-pane == 0 : PreferenceSubNavItem { x: 32px; y: 36px; width: 158px; label: "Behavior";
                 selected: root.selected-general-section == 0;
                 activated => { root.selected-general-section = 0; root.general-scroll-position = 0px; } }
@@ -134,7 +135,7 @@ export component PreferencesNavigation inherits Rectangle {
             PreferenceNavItem { x: 10px; y: root.navigation-row-y(1); width: 180px; label: "Interface";
                 icon: @image-url("../../../assets/icons/interface.svg");
                 selected: root.selected-pane == 1; activated => { root.selected-pane = 1; root.selected-interface-section = 0; root.interface-scroll-position = 0px; } }
-            if root.selected-pane == 1 : Rectangle { x: 24px; y: 76px; width: 2px; height: 144px; background: #d3d3d7; }
+            if root.selected-pane == 1 : Rectangle { x: 24px; y: 76px; width: 2px; height: 144px; background: Theme.settings-nav-branch; }
             if root.selected-pane == 1 : PreferenceSubNavItem { x: 32px; y: 72px; width: 158px; label: "Appearance";
                 selected: root.selected-interface-section == 0;
                 activated => { root.selected-interface-section = 0; root.interface-scroll-position = 0px; } }
@@ -165,7 +166,7 @@ export component PreferencesNavigation inherits Rectangle {
             PreferenceNavItem { x: 10px; y: root.navigation-row-y(4); width: 180px; label: "Subtitles";
                 icon: @image-url("../../../assets/icons/subtitles-page.svg");
                 selected: root.selected-pane == 4; activated => { root.selected-pane = 4; root.reveal-subtitle-section(0); } }
-            if root.selected-pane == 4 : Rectangle { x: 24px; y: root.navigation-row-y(4) + 36px; width: 2px; height: 144px; background: #d3d3d7; }
+            if root.selected-pane == 4 : Rectangle { x: 24px; y: root.navigation-row-y(4) + 36px; width: 2px; height: 144px; background: Theme.settings-nav-branch; }
             if root.selected-pane == 4 : PreferenceSubNavItem { x: 32px; y: root.navigation-row-y(4) + 36px; width: 158px; label: "Auto Load";
                 selected: root.selected-subtitle-section == 0;
                 activated => { root.reveal-subtitle-section(0); } }
@@ -187,7 +188,7 @@ export component PreferencesNavigation inherits Rectangle {
             PreferenceNavItem { x: 10px; y: root.navigation-row-y(5); width: 180px; label: "Network";
                 icon: @image-url("../../../assets/icons/network.svg");
                 selected: root.selected-pane == 5; activated => { root.selected-pane = 5; root.reveal-network-section(0); } }
-            if root.selected-pane == 5 : Rectangle { x: 24px; y: 220px; width: 2px; height: 66px; background: #d3d3d7; }
+            if root.selected-pane == 5 : Rectangle { x: 24px; y: 220px; width: 2px; height: 66px; background: Theme.settings-nav-branch; }
             if root.selected-pane == 5 : PreferenceSubNavItem { x: 32px; y: 216px; width: 158px; label: "Cache";
                 selected: root.selected-network-section == 0;
                 activated => { root.selected-pane = 5; root.reveal-network-section(0); } }
@@ -197,7 +198,7 @@ export component PreferencesNavigation inherits Rectangle {
             if root.selected-pane == 5 : PreferenceSubNavItem { x: 32px; y: 264px; width: 158px; label: "Online Videos (yt-dlp)";
                 selected: root.selected-network-section == 2;
                 activated => { root.selected-pane = 5; root.reveal-network-section(2); } }
-            if root.selected-pane == 3 : Rectangle { x: 24px; y: 148px; width: 2px; height: 66px; background: #d3d3d7; }
+            if root.selected-pane == 3 : Rectangle { x: 24px; y: 148px; width: 2px; height: 66px; background: Theme.settings-nav-branch; }
             if root.selected-pane == 3 : PreferenceSubNavItem { x: 32px; y: 144px; width: 158px; label: "Hardware";
                 selected: root.selected-audio-section == 0;
                 activated => { root.selected-pane = 3; root.reveal-audio-section(0); } }

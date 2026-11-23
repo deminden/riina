@@ -1,3 +1,4 @@
+import { Theme } from "theme.slint";
 import { Tool } from "player-tool.slint";
 import { ComboBox } from "std-widgets.slint";
 
@@ -37,11 +38,10 @@ export component JumpDialogButton inherits FocusScope {
     accessible-label: label;
     Rectangle {
         width: parent.width; height: parent.height; border-radius: 5px;
-        border-width: 1px; border-color: root.has-focus ? #6094dc : (root.dark-theme ? #62626a : #c7c7cc);
-        background: root.has-focus ? (root.dark-theme ? #ffffff1b : #168bff16) :
-            (root.dark-theme ? #3a3a40 : #ffffff);
+        border-width: 1px; border-color: Theme.player-dialog-button-border(root.dark-theme, root.has-focus);
+        background: Theme.player-dialog-button-surface(root.dark-theme, root.has-focus);
         Text { text: root.label; width: parent.width; height: parent.height;
-            color: root.dark-theme ? #f0f0f2 : #29292d; font-size: 12px;
+            color: Theme.player-dialog-button-text(root.dark-theme); font-size: 12px;
             horizontal-alignment: center; vertical-alignment: center; }
     }
     TouchArea { clicked => { root.focus(); root.activated(); } }
@@ -53,7 +53,7 @@ export component JumpDialogButton inherits FocusScope {
 
 export component PlaylistSortButton inherits Rectangle {
     in property <bool> dark-theme: true;
-    in property <color> accent-color: #90b7ef;
+    in property <color> accent-color: Theme.player-focus-accent;
     callback sort-requested(int);
     width: 30px; height: 28px; background: transparent;
     Tool { dark-theme: root.dark-theme; accent-color: root.accent-color; icon: @image-url("../../../assets/icons/sort.svg"); hint: "Sort playlist";
@@ -61,17 +61,17 @@ export component PlaylistSortButton inherits Rectangle {
     choices := PopupWindow {
         x: 0px; y: -self.height; width: 190px; height: 146px;
         close-policy: close-on-click-outside;
-        Rectangle { background: root.dark-theme ? #29292e : #f8f8fa;
-            border-width: 1px; border-color: root.dark-theme ? #ffffff38 : #b8b8bc; border-radius: 6px;
+        Rectangle { background: Theme.playlist-sort-surface(root.dark-theme);
+            border-width: 1px; border-color: Theme.playlist-sort-border(root.dark-theme); border-radius: 6px;
             VerticalLayout { padding: 6px; spacing: 1px;
-                Text { text: "Sorting"; height: 22px; x: 7px; color: root.dark-theme ? #a9a9b1 : #77777d; font-size: 11px; vertical-alignment: center; }
+                Text { text: "Sorting"; height: 22px; x: 7px; color: Theme.playlist-sort-caption(root.dark-theme); font-size: 11px; vertical-alignment: center; }
                 for label[index] in ["Filename Ascending", "Filename Descending", "File Path Ascending", "File Path Descending"] : Rectangle {
                     height: 27px; border-radius: 4px;
-                    background: row-touch.has-hover ? (root.dark-theme ? #ffffff20 : #00000012) : transparent;
+                    background: row-touch.has-hover ? Theme.playlist-sort-hover(root.dark-theme) : transparent;
                     accessible-role: button; accessible-label: label;
                     accessible-action-default => { root.sort-requested(index); choices.close(); }
                     Text { x: 8px; width: parent.width - 16px; text: label; font-size: 11px;
-                        color: root.dark-theme ? #eeeeee : #29292d; vertical-alignment: center; }
+                        color: Theme.sidebar-action-text(root.dark-theme, true); vertical-alignment: center; }
                     row-touch := TouchArea { clicked => { root.sort-requested(index); choices.close(); } }
                 }
             }

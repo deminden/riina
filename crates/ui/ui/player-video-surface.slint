@@ -1,3 +1,4 @@
+import { Theme } from "theme.slint";
 import { PlayerCropState } from "player-crop-state.slint";
 import { PlayerLayoutState } from "player-layout-state.slint";
 import { PlayerMusicModeState } from "player-music-mode-state.slint";
@@ -21,18 +22,18 @@ export component VideoSurface inherits Rectangle {
     if PlayerCropState.crop-editing && !native-video : Rectangle {
         x: video-inset-leading + PlayerCropState.crop-picture-x * 1px; y: video-inset-top + PlayerCropState.crop-picture-y * 1px;
         width: root.render-width; height: root.render-height;
-        background: #000000;
+        background: Theme.video-black-surface;
         drop-shadow-blur: 10px;
-        drop-shadow-color: #00000080;
+        drop-shadow-color: Theme.video-crop-shadow;
         drop-shadow-offset-x: 0px; drop-shadow-offset-y: 0px;
     }
     if PlayerMusicModeState.music-mode && !PlayerMusicModeState.music-mode-show-album-art : Rectangle {
         x: video-inset-leading; y: video-inset-top;
-        width: video-width; height: video-height; background: #111111;
+        width: video-width; height: video-height; background: Theme.player-empty-surface;
     }
     if PlayerRenderedVideo.native-transition-frame : Rectangle {
         x: 0px; y: 0px; width: root.width; height: root.height;
-        background: #000000;
+        background: Theme.video-black-surface;
     }
     Image {
         visible: !PlayerMusicModeState.music-mode || PlayerMusicModeState.music-mode-show-album-art;
@@ -56,38 +57,38 @@ export component VideoSurface inherits Rectangle {
         y: video-inset-top + region.y * root.render-height;
         width: max(1px, region.width * root.render-width);
         height: max(1px, region.height * root.render-height);
-        border-width: 1px; border-color: #82b6ff; background: #82b6ff22;
+        border-width: 1px; border-color: Theme.live-text-region-outline; background: Theme.live-text-region-fill;
         if root.live-text-selectable : TextInput {
             x: 0px; y: 0px; width: parent.width; height: parent.height;
             text: region.text; single-line: true; read-only: true;
             horizontal-alignment: center;
-            vertical-alignment: center; color: #ffffff;
+            vertical-alignment: center; color: Theme.live-text-foreground;
             font-size: max(8px, parent.height * 0.72);
-            selection-background-color: #3478f6;
-            selection-foreground-color: #ffffff;
+            selection-background-color: Theme.live-text-selection;
+            selection-foreground-color: Theme.live-text-foreground;
             accessible-label: region.text;
         }
         if !root.live-text-selectable : TouchArea {
             clicked => { root.copy-live-text(region.text); }
         }
         if !root.live-text-selectable : Rectangle { x: 0; y: -18px; width: max(parent.width, 120px); height: 18px;
-            background: #151519e8;
+            background: Theme.live-text-caption-surface;
             Text { x: 4px; width: parent.width - 8px; text: region.text;
-                color: #ffffff; font-size: 11px; overflow: elide; vertical-alignment: center; }
+                color: Theme.live-text-foreground; font-size: 11px; overflow: elide; vertical-alignment: center; }
         }
     }
     if !PlayerLayoutState.edge-to-edge-video && root.native-video : Rectangle {
-        x: 0px; y: 0px; width: root.video-inset-leading; height: root.height; background: #000000;
+        x: 0px; y: 0px; width: root.video-inset-leading; height: root.height; background: Theme.video-black-surface;
     }
     if !PlayerLayoutState.edge-to-edge-video && root.native-video && root.video-inset-trailing > 0px : Rectangle {
         x: root.width - root.video-inset-trailing; y: 0px;
-        width: root.video-inset-trailing; height: root.height; background: #000000;
+        width: root.video-inset-trailing; height: root.height; background: Theme.video-black-surface;
     }
     if !PlayerLayoutState.edge-to-edge-video && root.native-video && root.video-inset-top > 0px : Rectangle {
-        x: 0px; y: 0px; width: root.width; height: root.video-inset-top; background: #000000;
+        x: 0px; y: 0px; width: root.width; height: root.video-inset-top; background: Theme.video-black-surface;
     }
     if !PlayerLayoutState.edge-to-edge-video && root.native-video && root.video-inset-bottom > 0px : Rectangle {
         x: 0px; y: root.height - root.video-inset-bottom;
-        width: root.width; height: root.video-inset-bottom; background: #000000;
+        width: root.width; height: root.video-inset-bottom; background: Theme.video-black-surface;
     }
 }

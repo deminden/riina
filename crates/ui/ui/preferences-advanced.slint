@@ -1,3 +1,4 @@
+import { Theme } from "theme.slint";
 import { AdvancedMpvOptionRow, PreferenceSwitch, PreferenceActionButton } from "preferences-controls.slint";
 import { ComboBox, ScrollView } from "std-widgets.slint";
 
@@ -26,31 +27,31 @@ export component AdvancedPreferencesPage inherits ScrollView {
     content-height: 760px; content-width: self.visible-width;
     horizontal-scrollbar-policy: always-off;
     Rectangle { width: parent.width; height: 760px;
-        background: root.mica-backdrop-enabled ? #ffffff80 : #ffffff;
-        Text { x: 28px; y: 16px; text: "Advanced"; font-size: 15px; font-weight: 600; color: #222222; }
+        background: Theme.settings-content-surface(root.mica-backdrop-enabled);
+        Text { x: 28px; y: 16px; text: "Advanced"; font-size: 15px; font-weight: 600; color: Theme.settings-page-heading; }
 
         Rectangle { x: 20px; y: 53px; width: parent.width - 40px; height: 74px;
-            border-width: 1px; border-color: #dedee1; border-radius: 12px; background: root.mica-backdrop-enabled ? #ffffff80 : #f8f8f8;
+            border-width: 1px; border-color: Theme.settings-card-border; border-radius: 12px; background: Theme.settings-card-surface(root.mica-backdrop-enabled);
             Image { x: 34px; y: 10px; width: 16px; height: 16px;
                 source: @image-url("../../../assets/icons/advanced.svg"); image-fit: contain; }
             Text { x: 57px; y: 8px; width: parent.width - 110px; height: 23px;
-                text: "Enable advanced settings"; font-size: 12px; color: #252529; vertical-alignment: center; }
+                text: "Enable advanced settings"; font-size: 12px; color: Theme.settings-control-label; vertical-alignment: center; }
             PreferenceSwitch { x: parent.width - 66px; y: 8px; width: 42px; height: 28px;
                 label: "Enable advanced settings"; checked: AdvancedSettingsState.advanced-enabled;
                 toggled => { AdvancedSettingsState.advanced-enabled = !AdvancedSettingsState.advanced-enabled; root.advanced-settings-changed(); }
             }
             Text { x: 57px; y: 32px; width: parent.width - 80px; height: 34px;
                 text: "The following settings require restarting Riina to take effect.";
-                font-size: 10px; color: #74747a; wrap: word-wrap; vertical-alignment: top; }
+                font-size: 10px; color: Theme.settings-card-description; wrap: word-wrap; vertical-alignment: top; }
         }
 
-        Text { x: 28px; y: 146px; text: "Logging"; font-size: 13px; font-weight: 600; color: #77777d; }
+        Text { x: 28px; y: 146px; text: "Logging"; font-size: 13px; font-weight: 600; color: Theme.settings-section-heading; }
         Rectangle { x: 20px; y: 181px; width: parent.width - 40px; height: 90px;
-            border-width: 1px; border-color: #dedee1; border-radius: 12px; background: root.mica-backdrop-enabled ? #ffffff80 : #f8f8f8;
+            border-width: 1px; border-color: Theme.settings-card-border; border-radius: 12px; background: Theme.settings-card-surface(root.mica-backdrop-enabled);
             Image { x: 35px; y: 8px; width: 14px; height: 14px;
                 source: @image-url("../../../assets/icons/log-level.svg"); image-fit: contain; }
             Text { x: 57px; y: 0px; width: 120px; height: 40px;
-                text: "Log level"; font-size: 12px; color: AdvancedSettingsState.advanced-enabled ? #252529 : #98989e; vertical-alignment: center; }
+                text: "Log level"; font-size: 12px; color: AdvancedSettingsState.advanced-enabled ? Theme.settings-control-label : Theme.settings-disabled-control-label; vertical-alignment: center; }
             ComboBox { x: 176px; y: 7px; width: parent.width - 190px; height: 25px;
                 model: ["Verbose", "Debug", "Warning", "Error"];
                 current-index <=> AdvancedSettingsState.advanced-log-level-index; enabled: AdvancedSettingsState.advanced-enabled;
@@ -58,7 +59,7 @@ export component AdvancedPreferencesPage inherits ScrollView {
             }
             Text { x: 57px; y: 42px; width: 130px; height: 40px;
                 text: "Enable logging to file"; font-size: 12px;
-                color: AdvancedSettingsState.advanced-enabled ? #252529 : #98989e; vertical-alignment: center; wrap: word-wrap; }
+                color: AdvancedSettingsState.advanced-enabled ? Theme.settings-control-label : Theme.settings-disabled-control-label; vertical-alignment: center; wrap: word-wrap; }
             PreferenceActionButton { x: 178px; y: 49px; width: 112px; label: "Open Log Directory";
                 enabled: AdvancedSettingsState.advanced-enabled;
                 activated => { root.advanced-open-log-folder(); }
@@ -70,23 +71,23 @@ export component AdvancedPreferencesPage inherits ScrollView {
             }
         }
         Rectangle { x: 20px; y: 287px; width: parent.width - 40px; height: 42px;
-            border-width: 1px; border-color: #dedee1; border-radius: 12px; background: root.mica-backdrop-enabled ? #ffffff80 : #f8f8f8;
+            border-width: 1px; border-color: Theme.settings-card-border; border-radius: 12px; background: Theme.settings-card-surface(root.mica-backdrop-enabled);
             Image { x: 35px; y: 13px; width: 14px; height: 14px;
                 source: @image-url("../../../assets/icons/log-viewer.svg"); image-fit: contain; }
             Text { x: 57px; y: 0px; width: parent.width - 122px; height: parent.height;
-                text: "Open the log viewer"; font-size: 12px; color: AdvancedSettingsState.advanced-enabled ? #252529 : #98989e; vertical-alignment: center; }
+                text: "Open the log viewer"; font-size: 12px; color: AdvancedSettingsState.advanced-enabled ? Theme.settings-control-label : Theme.settings-disabled-control-label; vertical-alignment: center; }
             PreferenceActionButton { x: parent.width - 60px; y: 9px; width: 36px; label: "→";
                 enabled: AdvancedSettingsState.advanced-enabled; activated => { root.advanced-open-log-viewer(); }
             }
         }
 
-        Text { x: 28px; y: 348px; text: "mpv Settings"; font-size: 13px; font-weight: 600; color: #77777d; }
+        Text { x: 28px; y: 348px; text: "mpv Settings"; font-size: 13px; font-weight: 600; color: Theme.settings-section-heading; }
         Rectangle { x: 20px; y: 375px; width: parent.width - 40px; height: 42px;
-            border-width: 1px; border-color: #dedee1; border-radius: 12px; background: root.mica-backdrop-enabled ? #ffffff80 : #f8f8f8;
+            border-width: 1px; border-color: Theme.settings-card-border; border-radius: 12px; background: Theme.settings-card-surface(root.mica-backdrop-enabled);
             Image { x: 35px; y: 13px; width: 14px; height: 14px;
                 source: @image-url("../../../assets/icons/mpv-osd.svg"); image-fit: contain; }
             Text { x: 57px; y: 0px; width: parent.width - 110px; height: parent.height;
-                text: "Use mpv's OSD"; font-size: 12px; color: AdvancedSettingsState.advanced-enabled ? #252529 : #98989e; vertical-alignment: center; }
+                text: "Use mpv's OSD"; font-size: 12px; color: AdvancedSettingsState.advanced-enabled ? Theme.settings-control-label : Theme.settings-disabled-control-label; vertical-alignment: center; }
             PreferenceSwitch { x: parent.width - 66px; y: 7px; width: 42px; height: 28px;
                 label: "Use mpv's OSD"; enabled: AdvancedSettingsState.advanced-enabled;
                 checked: AdvancedSettingsState.advanced-use-mpv-osd;
@@ -94,15 +95,15 @@ export component AdvancedPreferencesPage inherits ScrollView {
             }
         }
         Rectangle { x: 20px; y: 433px; width: parent.width - 40px; height: 74px;
-            border-width: 1px; border-color: #dedee1; border-radius: 12px; background: root.mica-backdrop-enabled ? #ffffff80 : #f8f8f8;
+            border-width: 1px; border-color: Theme.settings-card-border; border-radius: 12px; background: Theme.settings-card-surface(root.mica-backdrop-enabled);
             Image { x: 35px; y: 13px; width: 14px; height: 14px;
                 source: @image-url("../../../assets/icons/config-directory.svg"); image-fit: contain; }
             Text { x: 57px; y: 0px; width: parent.width - 132px; height: 32px;
                 text: "Use config directory"; font-size: 11px;
-                color: AdvancedSettingsState.advanced-enabled ? #252529 : #98989e; vertical-alignment: center; }
+                color: AdvancedSettingsState.advanced-enabled ? Theme.settings-control-label : Theme.settings-disabled-control-label; vertical-alignment: center; }
             Rectangle { x: 57px; y: 38px; width: parent.width - 138px; height: 24px;
                 clip: true;
-                background: #ffffff; border-width: 1px; border-color: #c8c8cd; border-radius: 3px;
+                background: Theme.settings-field-surface; border-width: 1px; border-color: Theme.settings-advanced-field-border; border-radius: 3px;
                 TextInput { x: 5px; y: 1px; width: parent.width - 10px; height: parent.height - 2px;
                     text <=> AdvancedSettingsState.advanced-config-directory-text;
                     accessible-label: "mpv config directory"; single-line: true;
@@ -120,23 +121,23 @@ export component AdvancedPreferencesPage inherits ScrollView {
                 toggled => { AdvancedSettingsState.advanced-use-config-directory = !AdvancedSettingsState.advanced-use-config-directory; root.advanced-settings-changed(); }
             }
         }
-        Text { x: 28px; y: 536px; text: "Additional mpv options"; font-size: 13px; font-weight: 600; color: #77777d; }
+        Text { x: 28px; y: 536px; text: "Additional mpv options"; font-size: 13px; font-weight: 600; color: Theme.settings-section-heading; }
         Text { x: 28px; y: 558px; width: parent.width - 48px; height: 30px;
             text: "Paste an option in key=value format to fill both fields automatically. Changes take effect after restarting Riina.";
-            font-size: 10px; color: #74747a; wrap: word-wrap; }
+            font-size: 10px; color: Theme.settings-card-description; wrap: word-wrap; }
         Rectangle { x: 20px; y: 591px; width: parent.width - 40px; height: 150px;
-            border-width: 1px; border-color: #dedee1; border-radius: 8px; background: root.mica-backdrop-enabled ? #ffffff80 : #f8f8f8;
-            Text { x: 8px; y: 3px; width: 164px; height: 20px; text: "Key"; font-size: 10px; font-weight: 600; color: #77777d; vertical-alignment: center; }
-            Text { x: 179px; y: 3px; width: parent.width - 224px; height: 20px; text: "Value"; font-size: 10px; font-weight: 600; color: #77777d; vertical-alignment: center; }
+            border-width: 1px; border-color: Theme.settings-card-border; border-radius: 8px; background: Theme.settings-card-surface(root.mica-backdrop-enabled);
+            Text { x: 8px; y: 3px; width: 164px; height: 20px; text: "Key"; font-size: 10px; font-weight: 600; color: Theme.settings-section-heading; vertical-alignment: center; }
+            Text { x: 179px; y: 3px; width: parent.width - 224px; height: 20px; text: "Value"; font-size: 10px; font-weight: 600; color: Theme.settings-section-heading; vertical-alignment: center; }
             for option[index] in AdvancedSettingsState.advanced-mpv-options: Rectangle {
                 x: 6px; y: 24px + index * 22px; width: parent.width - 12px; height: 20px;
-                background: AdvancedSettingsState.advanced-mpv-option-selection == index ? #e5edf7 : transparent;
+                background: AdvancedSettingsState.advanced-mpv-option-selection == index ? Theme.settings-mpv-option-selection : transparent;
                 TextInput { x: 2px; y: 0px; width: 164px; height: parent.height;
-                    text: option.name; font-size: 10px; color: #29292d; enabled: AdvancedSettingsState.advanced-enabled;
+                    text: option.name; font-size: 10px; color: Theme.settings-card-title; enabled: AdvancedSettingsState.advanced-enabled;
                     accepted => { AdvancedSettingsState.advanced-mpv-option-selection = index; root.advanced-option-edited(index, self.text, option.value); root.settings-changed(); }
                 }
                 TextInput { x: 173px; y: 0px; width: parent.width - 220px; height: parent.height;
-                    text: option.value; font-size: 10px; color: #29292d; enabled: AdvancedSettingsState.advanced-enabled;
+                    text: option.value; font-size: 10px; color: Theme.settings-card-title; enabled: AdvancedSettingsState.advanced-enabled;
                     accepted => { AdvancedSettingsState.advanced-mpv-option-selection = index; root.advanced-option-edited(index, option.name, self.text); root.settings-changed(); }
                 }
             }

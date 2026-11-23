@@ -72,7 +72,7 @@ export component PluginOsd inherits Rectangle {
     }
     Text {
         x: 14px; y: 5px; width: parent.width - 28px; height: parent.height - 10px;
-        text: PlayerOsdState.plugin-osd-message; color: #ffffff; font-size: 13px;
+        text: PlayerOsdState.plugin-osd-message; color: Theme.osd-primary-text; font-size: 13px;
         vertical-alignment: center; overflow: elide;
     }
 }
@@ -100,7 +100,7 @@ export component FullscreenInfoOsd inherits Rectangle {
             Rectangle { x: 10px; y: 10px; width: 6px; height: 2px; background: Theme.fullscreen-info-symbol; }
         }
         Text { text: PlayerOsdState.fullscreen-info-time; color: Theme.fullscreen-info-symbol; font-family: "monospace"; font-size: 18px; font-weight: 700; vertical-alignment: center; }
-        Rectangle { width: 2px; height: 16px; background: #ffffff55; }
+        Rectangle { width: 2px; height: 16px; background: Theme.fullscreen-info-divider; }
         if PlayerOsdState.fullscreen-info-battery != "" : HorizontalLayout {
             spacing: 4px;
             Rectangle { width: 22px; height: 12px; border-radius: 2px;
