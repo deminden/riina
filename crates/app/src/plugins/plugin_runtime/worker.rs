@@ -11,7 +11,7 @@ use super::{
     output::{menu_js_error, record, record_plugin_menu},
     playlist_api, preferences_api, timers,
     timers::PluginTimers,
-    webviews,
+    web_socket, webviews,
 };
 use riina_core::plugin_menu::PluginMenuItem;
 use riina_core::{plugin::OverlayState, plugin_sidebar::PluginSidebarState};
@@ -90,6 +90,7 @@ struct RealmServices {
     sidebar: Arc<Mutex<PluginSidebarState>>,
     timers: Arc<PluginTimers>,
     hooks: mpv_hooks::RealmHooks,
+    web_socket: web_socket::RealmWebSocket,
 }
 
 fn initialize_realm(
@@ -198,6 +199,9 @@ fn initialize_realm(
     }
     ctx.eval::<(), _>(PLUGIN_MENU_API)?;
     network::install(ctx.clone(), file_system.clone(), permissions, network)?;
+    services
+        .web_socket
+        .install(&api, permissions.network_listener, network.commands.clone())?;
     modules::install(ctx.clone(), module_context.clone())?;
     if let Some(mode) = global_api_mode {
         messaging::install(ctx.clone(), api.clone(), mode, events.clone())?;
@@ -389,20 +393,32 @@ fn run_callbacks(
                 network_result_script("__riinaDeliverXmlrpc", id, result),
                 "XML-RPC response callback",
             ),
+            Some(RuntimeCommand::DeliverWebSocket(delivery)) => {
+                execution.begin();
+                let evaluated = services.web_socket.dispatch(context, delivery);
+                if finish_turn(runtime, execution, events, "WebSocket callback", evaluated) {
+                    break;
+                }
+                continue;
+            }
         };
         execution.begin();
-        let evaluated = context.with(|ctx| {
-            ctx.eval::<Value, _>(script).map(|_| ()).map_err(|error| {
-                if matches!(error, rquickjs::Error::Exception) {
-                    ctx.catch();
-                }
-                error.to_string()
-            })
-        });
+        let evaluated = evaluate_callback(context, script);
         if finish_turn(runtime, execution, events, label, evaluated) {
             break;
         }
     }
+}
+
+fn evaluate_callback(context: &Context, script: String) -> Result<(), String> {
+    context.with(|ctx| {
+        ctx.eval::<Value, _>(script).map(|_| ()).map_err(|error| {
+            if error.is_exception() {
+                ctx.catch();
+            }
+            error.to_string()
+        })
+    })
 }
 
 fn finish_turn(

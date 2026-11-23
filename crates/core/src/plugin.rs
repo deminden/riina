@@ -26,6 +26,7 @@ pub struct Author {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Permission {
     NetworkRequest,
+    NetworkListener,
     ShowOsd,
     ShowAlert,
     VideoOverlay,
@@ -287,6 +288,7 @@ impl Permission {
     pub fn parse(value: &str) -> Option<Self> {
         match value {
             "network-request" => Some(Self::NetworkRequest),
+            "network-listener" => Some(Self::NetworkListener),
             "show-osd" => Some(Self::ShowOsd),
             "show-alert" => Some(Self::ShowAlert),
             "video-overlay" => Some(Self::VideoOverlay),
@@ -296,7 +298,10 @@ impl Permission {
     }
 
     pub const fn is_dangerous(self) -> bool {
-        matches!(self, Self::NetworkRequest | Self::FileSystem)
+        matches!(
+            self,
+            Self::NetworkRequest | Self::NetworkListener | Self::FileSystem
+        )
     }
 }
 

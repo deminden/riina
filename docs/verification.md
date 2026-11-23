@@ -1529,6 +1529,32 @@ application build, strict workspace Clippy, 846 Rust tests and all 58 null-outpu
 native tests. Strict Apple Silicon workspace Clippy passed from Windows. Native
 macOS playback still needs verification.
 
+### Plugin WebSocket servers 2026-11-23
+
+The realm regression uses real TCP sockets and WebSocket clients. It covers
+separate permission review, bind failures, duplicate startup, UTF-8 and
+non-UTF-8 messages, typed arrays, ping/pong, send completion, unknown connection
+IDs, connection callback order, same-port replacement and realm shutdown.
+
+On isolated Windows and Linux X11 desktops, the player loaded a test plugin
+with a reviewed listener grant. A localhost client completed a WebSocket
+handshake, sent UTF-8 text and received the echoed bytes in a binary frame.
+The plugin saw connection readiness and send completion. Both player processes
+exited normally through the plugin Quit command.
+
+The Windows executable SHA-256 was
+`27b94580c6feafe35b53d5fecf6eea7c4c8a1b547c67c3361d6461871e16aa9b`.
+The Linux executable SHA-256 was
+`8cf741d5b84af55a88e9cc30c794901db58fa2debad692788abadb8e16969ce7`.
+Both used the pinned native libraries recorded in the property-read verification.
+
+Windows passed a locked workspace build, strict Clippy, 888 Rust tests,
+78 Python tests and 58 native playback tests. Linux x64 passed a locked app
+build, strict workspace Clippy, 849 Rust tests and 58 native playback tests.
+Strict Apple Silicon workspace Clippy passed from Windows. Windows packaging
+generated the notices for all 431 Rust dependencies. Native macOS playback
+and Network.framework-specific event timing remain unverified.
+
 ### Plugin sidebar manifest discovery 2026-10-14
 
 Manifest tests cover bounded localized labels. Runtime tests cover confined

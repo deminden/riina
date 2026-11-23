@@ -22,6 +22,7 @@ mod preferences_store;
 #[cfg(test)]
 mod tests;
 mod timers;
+mod web_socket;
 mod webviews;
 mod worker;
 
@@ -98,6 +99,7 @@ enum RuntimeCommand {
     DeliverNetworkResult(u32, Result<serde_json::Value, String>),
     DeliverNetworkDownload(u32, Result<(), String>),
     DeliverXmlRpcResult(u32, Result<serde_json::Value, String>),
+    DeliverWebSocket(web_socket::Delivery),
     Shutdown,
 }
 

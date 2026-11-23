@@ -139,6 +139,19 @@ host check matches manifest hosts without classifying addresses.
 [IINA plugin development guide](https://docs.iina.io/pages/dev-guide.html)
 [Pinned host check](https://github.com/iina/iina/blob/fbcff4df7183b335880396af0655f6bb89d46442/iina/JavascriptPluginInstance.swift#L80-L96)
 
+The `iina.ws` listener accepts TCP connections on IPv4 and IPv6 when both are
+available. Riina requires a separate `network-listener` manifest permission and
+user grant because the server accepts inbound connections. Existing IINA
+packages that use `iina.ws` need to declare this permission for Riina. The
+portable listener reports bind failures and connection preparation, readiness,
+failure and cancellation. Apple's Network.framework waiting states remain a
+platform difference.
+
+Windows reserves the listening endpoint with Winsock's exclusive bind option.
+Riina retains the endpoint when a plugin replaces its listener on the same port,
+so closing old TCP connections does not delay the replacement listener.
+[Winsock endpoint ownership](https://learn.microsoft.com/windows/win32/winsock/so-exclusiveaddruse)
+
 ## Evidence required for closure
 
 Use real platform builds and observed behavior. Check audible/pass-through audio,

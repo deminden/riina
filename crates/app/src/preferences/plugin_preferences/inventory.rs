@@ -140,6 +140,6 @@ pub(crate) fn current_runtime_supports(manifest: &Manifest) -> bool {
 pub(super) fn runtime_supports_permission(permission: &str) -> bool {
     matches!(
         permission,
-        "show-osd" | "show-alert" | "network-request" | "file-system"
+        "show-osd" | "show-alert" | "network-request" | "network-listener" | "file-system"
     ) || (cfg!(target_os = "windows") && permission == "video-overlay")
 }

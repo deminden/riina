@@ -150,6 +150,24 @@ delivery or 15-second deadline releases a pending native hook. The worker
 consumes each native continuation once and reuses vacant slots when that
 preserves libmpv's registration order.
 
+### Plugin WebSocket servers
+
+Each realm may start one WebSocket listener after permission review. A network
+thread owns the listener and its connections on a single event loop. It sends
+typed lifecycle, message and send-result events to the realm. Only the realm
+invokes JavaScript callbacks and settles `sendText` promises. The realm's
+memory limit covers incoming message bytes that a plugin retains. Text and
+typed arrays are created on request.
+
+Server replacement retires the previous listener and all its connections.
+Each event identifies its listener generation so an old socket cannot update a
+replacement server. Same-port replacement retains the listening endpoint while
+closing the old connections so the new server can start immediately. The
+listener shuts down and joins its network thread when
+the realm closes, including during plugin reload. Connections, message sizes
+and send queues are bounded. A busy realm pauses socket reads until delivery
+can resume.
+
 ### Playlist plugin menus
 
 The player captures the row order and selection when opening a playlist menu

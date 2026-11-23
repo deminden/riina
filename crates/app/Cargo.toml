@@ -43,6 +43,11 @@ zip.workspace = true
 rquickjs = { version = "=0.14.0", default-features = false, features = ["std"] }
 encoding_rs = "=0.8.42"
 ureq = { version = "=3.4.2", default-features = false, features = ["rustls"] }
+futures-util = { version = "=0.3.34", default-features = false, features = ["sink", "std"] }
+socket2 = "=0.6.5"
+tokio = { version = "=1.53.2", features = ["macros", "net", "rt", "sync", "time"] }
+tokio-tungstenite = { version = "=0.30.0", default-features = false, features = ["handshake"] }
+uuid = { version = "=1.28.0", features = ["v4"] }
 quick-xml = "=0.41.0"
 roxmltree = "=0.20.0"
 base64 = "=0.23.1"
@@ -52,7 +57,7 @@ keyring = "=4.2.0"
 winresource = "=0.1.31"
 
 [target.'cfg(target_os = "windows")'.dependencies]
-windows = { workspace = true, features = ["Win32_UI_HiDpi", "Win32_UI_Accessibility", "Win32_UI_Controls", "Win32_System_Com_StructuredStorage", "Win32_System_DataExchange", "Win32_System_Memory", "Win32_System_Ole"] }
+windows = { workspace = true, features = ["Win32_UI_HiDpi", "Win32_UI_Accessibility", "Win32_UI_Controls", "Win32_System_Com_StructuredStorage", "Win32_System_DataExchange", "Win32_System_Memory", "Win32_System_Ole", "Win32_Networking_WinSock"] }
 windows-core = "=0.62.2"
 muda = { version = "=0.19.3", default-features = false }
 wry.workspace = true

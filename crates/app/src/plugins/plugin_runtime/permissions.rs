@@ -6,6 +6,7 @@ pub(super) struct AvailablePermissions {
     pub(super) show_alert: bool,
     pub(super) video_overlay: bool,
     pub(super) network_request: bool,
+    pub(super) network_listener: bool,
     pub(super) file_system: bool,
 }
 
@@ -25,6 +26,7 @@ pub(super) fn reviewed_permissions(
             "show-alert" => available.show_alert = true,
             "video-overlay" => available.video_overlay = true,
             "network-request" => available.network_request = true,
+            "network-listener" => available.network_listener = true,
             "file-system" => available.file_system = true,
             _ => return Err(format!("Unknown plugin permission {permission}")),
         }

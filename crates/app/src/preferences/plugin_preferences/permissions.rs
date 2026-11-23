@@ -36,6 +36,7 @@ pub(super) fn confirm_permissions(manifest: &Manifest) -> bool {
 pub(super) fn permission_name(permission: Permission) -> &'static str {
     match permission {
         Permission::NetworkRequest => "network-request",
+        Permission::NetworkListener => "network-listener",
         Permission::ShowOsd => "show-osd",
         Permission::ShowAlert => "show-alert",
         Permission::VideoOverlay => "video-overlay",
@@ -46,6 +47,9 @@ pub(super) fn permission_name(permission: Permission) -> &'static str {
 pub(super) fn permission_description(permission: Permission) -> &'static str {
     match permission {
         Permission::NetworkRequest => "Network requests to allowed domains (sensitive)",
+        Permission::NetworkListener => {
+            "Accept WebSocket connections from this device and network (sensitive)"
+        }
         Permission::ShowOsd => "Show on-screen messages",
         Permission::ShowAlert => "Show alerts",
         Permission::VideoOverlay => "Display content over video",
