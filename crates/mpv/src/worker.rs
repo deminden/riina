@@ -9,7 +9,7 @@ use crate::{
     ffi::{Api, end_reason, event_id, format},
     pending::{PendingCommand, ReplyKind},
     properties::OBSERVED,
-    property_read::{Pending, Request},
+    property_request::{Pending, Request},
     seek_feedback::{self, SeekFeedback},
 };
 use riina_core::{CapturedFrame, Command, CommandPlan, NoticeSeverity, Phase, Playback};
@@ -103,7 +103,7 @@ impl<N: Fn(Arc<Playback>)> Start<N> {
                         return;
                     }
                     Message::Intent(command) => state.handle_intent(&handle, command),
-                    Message::ReadProperty(request) => state.request_property(&handle, request),
+                    Message::Property(request) => state.request_property(&handle, request),
                     Message::Shutdown => return,
                 }
                 state.drain_events(&mut handle);
@@ -223,7 +223,8 @@ struct WorkerState {
     observers: BTreeMap<u64, String>,
     next_observer: u64,
     pending: HashMap<u64, PendingCommand>,
-    property_reads: HashMap<u64, Pending>,
+    property_requests: HashMap<u64, Pending>,
+    volume_boost: bool,
     pending_drop_subtitles: Vec<String>,
     resume_on_load: bool,
     seek_pending: bool,
@@ -400,6 +401,13 @@ impl WorkerState {
         handle
             .command(self.next_id, &args)
             .map_err(|error| format!("mpv {label}: {error}"))?;
+        if let [action, property, value] = args.as_slice()
+            && action.as_c_str() == c"set"
+            && property.as_c_str() == c"volume-max"
+        {
+            // Match the volume policy sent through this FIFO before a later plugin write.
+            self.volume_boost = value.as_c_str() == c"200";
+        }
         self.pending.insert(
             self.next_id,
             PendingCommand {
@@ -411,20 +419,22 @@ impl WorkerState {
         Ok(())
     }
 
-    fn request_property(&mut self, handle: &Handle, request: Request) {
-        const MAX_PENDING_READS: usize = 32;
+    fn request_property(&mut self, handle: &Handle, mut request: Request) {
+        const MAX_PENDING_PROPERTIES: usize = 32;
         let now = Instant::now();
-        self.property_reads
+        self.property_requests
             .retain(|_, pending| pending.deadline > now);
         let error = if request.pending.deadline <= now {
-            EngineError::PropertyReadTimeout
-        } else if self.property_reads.len() >= MAX_PENDING_READS {
+            EngineError::PropertyTimeout
+        } else if self.property_requests.len() >= MAX_PENDING_PROPERTIES {
             EngineError::QueueFull
+        } else if let Err(error) = request.apply_volume_limit(self.volume_boost) {
+            error
         } else {
             self.next_id += 1;
             match handle.request_property(self.next_id, &request) {
                 Ok(()) => {
-                    self.property_reads.insert(self.next_id, request.pending);
+                    self.property_requests.insert(self.next_id, request.pending);
                     return;
                 }
                 Err(error) => error,
@@ -435,8 +445,11 @@ impl WorkerState {
 
     fn drain_events(&mut self, handle: &mut Handle) {
         while let Some(event) = handle.wait() {
-            if event.id() == event_id::GET_PROPERTY_REPLY {
-                if let Some(pending) = self.property_reads.remove(&event.userdata())
+            if matches!(
+                event.id(),
+                event_id::GET_PROPERTY_REPLY | event_id::SET_PROPERTY_REPLY
+            ) {
+                if let Some(pending) = self.property_requests.remove(&event.userdata())
                     && pending.deadline > Instant::now()
                 {
                     let _ = pending.reply.send(event.property_reply());
@@ -492,7 +505,7 @@ impl WorkerState {
                 event.apply_property(&mut self.playback, observer);
             }
             event_id::QUEUE_OVERFLOW => {
-                self.property_reads.clear();
+                self.property_requests.clear();
                 record_notice(
                     &mut self.playback,
                     NoticeSeverity::Error,

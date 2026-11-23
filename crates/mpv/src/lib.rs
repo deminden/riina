@@ -6,8 +6,8 @@ mod ffi;
 pub mod gl_support;
 mod pending;
 mod properties;
-mod property_read;
-pub use property_read::MpvPropertyFormat;
+mod property_request;
+pub use property_request::MpvPropertyFormat;
 #[cfg(feature = "test-support")]
 mod recording;
 mod seek_feedback;
@@ -61,7 +61,7 @@ mod worker;
 
 enum Message {
     Intent(Command),
-    ReadProperty(property_read::Request),
+    Property(property_request::Request),
     Wake,
     Shutdown,
 }

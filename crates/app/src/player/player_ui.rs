@@ -275,6 +275,7 @@ fn configure_with_engine(
         .start(native.as_ref(), engine_options, notify)
         .inspect_err(|error| app.set_status(error.clone().into()))
         .map_err(std::io::Error::other)?;
+    startup::apply_player_preferences(&command_sender, prefs)?;
     if let Some(host) = &mut session.plugin_host {
         host.attach_player(command_sender.clone());
     }

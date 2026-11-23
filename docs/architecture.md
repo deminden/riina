@@ -116,14 +116,21 @@ On the shared GL route, the renderer retains player ownership until rendering
 teardown frees the GL surface. The worker unregisters its wakeup callback, destroys
 the native engine and only then releases the callback context.
 
-### Plugin mpv reads
+### Plugin mpv properties
 
 The player attaches its command sender before the plugin host starts entry
-scripts. A getter asks that player's mpv worker for a typed property. The
-worker copies the asynchronous reply while its native event owns the data.
-Only the plugin worker waits for the reply, using the same deadline as the
-rest of the callback. Property replies stay out of the public playback event
-stream and global plugin entries have no player engine.
+scripts. Getters and setters send typed requests to that player's mpv worker.
+The worker copies read replies while their native event owns the data. It
+holds write values until libmpv has copied them. Only the plugin worker waits
+for a reply, within the deadline of its callback. Property replies stay out
+of the public playback event stream and global plugin entries have no
+player engine.
+
+Playback options follow the pinned IINA property inventory. Transport
+options require a reviewed network grant. External file lists require a
+filesystem grant, and URL entries also use the plugin's allowed domains.
+The worker clamps volume writes to the range selected in Preferences and
+updates that range in the same queue as property requests.
 
 ### Playlist plugin menus
 

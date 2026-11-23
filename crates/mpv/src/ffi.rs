@@ -2,7 +2,9 @@
 //! No foreign event pointer escapes the call to `mpv_wait_event` that owns it.
 
 use crate::EngineError;
+mod node_input;
 use libloading::Library;
+pub(crate) use node_input::{property_string, with_node};
 use std::{
     ffi::{CStr, c_char, c_int, c_void},
     path::Path,
@@ -13,6 +15,7 @@ use std::{
 pub(crate) mod event_id {
     pub const NONE: std::ffi::c_int = 0;
     pub const GET_PROPERTY_REPLY: std::ffi::c_int = 3;
+    pub const SET_PROPERTY_REPLY: std::ffi::c_int = 4;
     pub const COMMAND_REPLY: std::ffi::c_int = 5;
     pub const START_FILE: std::ffi::c_int = 6;
     pub const END_FILE: std::ffi::c_int = 7;
@@ -349,6 +352,8 @@ pub struct Api {
     pub option: unsafe extern "C" fn(*mut c_void, *const c_char, *const c_char) -> c_int,
     pub command: unsafe extern "C" fn(*mut c_void, u64, *const *const c_char) -> c_int,
     pub get_property: unsafe extern "C" fn(*mut c_void, u64, *const c_char, c_int) -> c_int,
+    pub set_property:
+        unsafe extern "C" fn(*mut c_void, u64, *const c_char, c_int, *mut c_void) -> c_int,
     pub observe: unsafe extern "C" fn(*mut c_void, u64, *const c_char, c_int) -> c_int,
     pub wait: unsafe extern "C" fn(*mut c_void, f64) -> *const Event,
     pub event_name: unsafe extern "C" fn(c_int) -> *const c_char,
@@ -424,6 +429,7 @@ impl Api {
                 option: symbol!("mpv_set_option_string"),
                 command: symbol!("mpv_command_async"),
                 get_property: symbol!("mpv_get_property_async"),
+                set_property: symbol!("mpv_set_property_async"),
                 observe: symbol!("mpv_observe_property"),
                 wait: symbol!("mpv_wait_event"),
                 event_name: symbol!("mpv_event_name"),

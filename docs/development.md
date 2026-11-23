@@ -136,7 +136,9 @@ check also includes staged, unstaged and untracked changes.
 Use `cargo xtask check` at integration points for the full local gate, including
 the Python, parity, fixture and asset checks. Run `cargo xtask native` for the native
 engine suite with null audio output. It selects the native test target and reuses
-the harness built by the workspace gate. Tests in `crates/mpv/tests/native/` are
+the harness built by the workspace gate. When selecting a Cargo build target
+explicitly, use the same `CARGO_BUILD_TARGET` for both batches to reuse that
+harness. Tests in `crates/mpv/tests/native/` are
 grouped by feature. Run `cargo xtask native subtitles::` for the subtitle cases
 or substitute another module prefix. On Windows it uses the pinned development
 DLL from the setup above unless `RIINA_TEST_MPV_LIBRARY` points to another

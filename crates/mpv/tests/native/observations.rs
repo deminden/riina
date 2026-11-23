@@ -68,7 +68,7 @@ fn dynamic_mpv_property_observation_publishes_generic_node_values() -> Result<()
     );
     harness.send(Command::SetPaused(true)).unwrap();
     harness.wait(|state| state.paused);
-    verify_direct_reads(&commands)?;
+    verify_property_requests(&commands)?;
     drop(harness);
     Ok(())
 }
@@ -81,7 +81,7 @@ fn read(
     commands.read_mpv_property(name, format, Instant::now() + Duration::from_secs(2))
 }
 
-fn verify_direct_reads(commands: &CommandSender) -> Result<(), EngineError> {
+fn verify_property_requests(commands: &CommandSender) -> Result<(), EngineError> {
     assert_eq!(read(commands, "pause", MpvPropertyFormat::Flag)?, true);
     let duration = read(commands, "duration", MpvPropertyFormat::Number)?;
     assert!(
@@ -108,6 +108,49 @@ fn verify_direct_reads(commands: &CommandSender) -> Result<(), EngineError> {
         )?
         .is_null()
     );
+    let write = |name, value| {
+        commands.write_mpv_property(name, value, Instant::now() + Duration::from_secs(2))
+    };
+    for (name, format, value) in [
+        ("speed", MpvPropertyFormat::Number, serde_json::json!(1.25)),
+        ("mute", MpvPropertyFormat::Flag, serde_json::json!(true)),
+        (
+            "loop-file",
+            MpvPropertyFormat::Text,
+            serde_json::json!("inf"),
+        ),
+        (
+            "alang",
+            MpvPropertyFormat::Node,
+            serde_json::json!(["eng", "fra"]),
+        ),
+    ] {
+        write(name, value.clone())?;
+        assert_eq!(
+            read(commands, name, format)?,
+            value,
+            "Native property {name}"
+        );
+    }
+    assert!(matches!(
+        write("riina-missing-test-property", serde_json::json!(1)),
+        Err(EngineError::Native {
+            call: "mpv_set_property_async",
+            ..
+        })
+    ));
+    for (boost, input, expected) in [
+        (false, serde_json::json!(150), 100.0),
+        (true, serde_json::json!("175"), 175.0),
+        (false, serde_json::json!(150), 100.0),
+    ] {
+        commands.send(Command::SetVolumeBoost(boost))?;
+        write("volume", input)?;
+        assert_eq!(
+            read(commands, "volume", MpvPropertyFormat::Number)?.as_f64(),
+            Some(expected)
+        );
+    }
     Ok(())
 }
 

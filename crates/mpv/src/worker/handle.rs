@@ -2,9 +2,11 @@
 use super::super::{WakeupContext, diag, trace_shutdown, wakeup};
 use crate::{
     EngineError,
-    ffi::{Api, CommandReply, EndFile, Event, Property, event_id},
+    ffi::{
+        Api, CommandReply, EndFile, Event, Property, event_id, format, property_string, with_node,
+    },
     properties::{apply_property, observed_property_value, queried_property_value},
-    property_read::Request,
+    property_request::{Operation, Request},
 };
 use riina_core::{CapturedFrame, Playback};
 use std::{
@@ -55,15 +57,59 @@ impl Handle {
     }
 
     pub(super) fn request_property(&self, id: u64, request: &Request) -> Result<(), EngineError> {
-        // SAFETY: the live core copies the property name and format for the async read.
-        self.api.check("mpv_get_property_async", unsafe {
-            (self.api.get_property)(
-                self.raw.as_ptr(),
-                id,
-                request.name.as_ptr(),
-                request.format.native(),
-            )
-        })
+        match &request.operation {
+            Operation::Read(format) => {
+                // SAFETY: the live core copies the name and format for the async read.
+                self.api.check("mpv_get_property_async", unsafe {
+                    (self.api.get_property)(
+                        self.raw.as_ptr(),
+                        id,
+                        request.name.as_ptr(),
+                        format.native(),
+                    )
+                })
+            }
+            Operation::Write(value) => self.write_property(id, &request.name, value),
+        }
+    }
+
+    fn write_property(
+        &self,
+        id: u64,
+        name: &CStr,
+        value: &serde_json::Value,
+    ) -> Result<(), EngineError> {
+        use serde_json::Value;
+        let submit = |format, data| {
+            // SAFETY: each branch pairs the format with its matching storage.
+            // The name and data stay live until libmpv has copied them.
+            self.api.check("mpv_set_property_async", unsafe {
+                (self.api.set_property)(self.raw.as_ptr(), id, name.as_ptr(), format, data)
+            })
+        };
+        match value {
+            Value::Bool(flag) => {
+                let mut flag = c_int::from(*flag);
+                submit(format::FLAG, (&raw mut flag).cast())
+            }
+            Value::Number(number) => {
+                let mut number = number.as_f64().ok_or(EngineError::InvalidArgument {
+                    reason: "Native property number cannot be represented",
+                })?;
+                submit(format::DOUBLE, (&raw mut number).cast())
+            }
+            Value::String(text) => {
+                let text = property_string(text)?;
+                let mut pointer = text.as_ptr();
+                submit(format::STRING, (&raw mut pointer).cast())
+            }
+            Value::Array(_) | Value::Object(_) => with_node(value, |node| {
+                submit(format::NODE, ptr::from_mut(node).cast())
+            }),
+            Value::Null => Err(EngineError::InvalidArgument {
+                reason: "A native property value cannot be null",
+            }),
+        }
     }
 
     pub(super) fn register_wakeup(&mut self, mut callback: Box<WakeupContext>) {
@@ -134,6 +180,10 @@ pub(super) struct EventRef<'a> {
 
 impl EventRef<'_> {
     pub(super) fn property_reply(&self) -> Result<serde_json::Value, EngineError> {
+        if self.id() == event_id::SET_PROPERTY_REPLY {
+            self.api.check("mpv_set_property_async", self.event.error)?;
+            return Ok(serde_json::Value::Null);
+        }
         if self.failed() {
             return Ok(serde_json::Value::Null);
         }

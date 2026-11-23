@@ -14,7 +14,7 @@ pub enum EngineError {
     },
     QueueFull,
     Stopped,
-    PropertyReadTimeout,
+    PropertyTimeout,
     ReservedShutdown,
     #[cfg(feature = "test-support")]
     ObserverAlreadyInstalled,
@@ -75,7 +75,7 @@ impl fmt::Display for EngineError {
                 f.write_str("Player command was not accepted: sending on a full channel")
             }
             Self::Stopped => f.write_str("The playback engine has stopped"),
-            Self::PropertyReadTimeout => f.write_str("The native property read timed out"),
+            Self::PropertyTimeout => f.write_str("The native property request timed out"),
             Self::ReservedShutdown => {
                 f.write_str("Player shutdown is reserved for its final owner")
             }

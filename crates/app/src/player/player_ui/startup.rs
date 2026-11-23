@@ -257,7 +257,6 @@ pub(super) fn activate_output(
     media: InitialMedia,
     picture_in_picture: &crate::platform::PictureInPictureSession,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    apply_player_preferences(command_sender, prefs)?;
     crate::fullscreen_info::connect(app);
     if native_presentation {
         app.set_engine_ready(true);

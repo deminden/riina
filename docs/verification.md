@@ -1442,6 +1442,37 @@ null-output native tests with the provisioned runtime libraries. Strict
 Apple Silicon workspace Clippy passed from Windows. macOS playback and the
 remaining mpv plugin methods still need verification.
 
+### Plugin mpv property writes 2026-11-23
+
+The native observation test now writes a number, flag, string and language
+list and reads each result back. It also checks reply errors and volume
+writes while boost is enabled and after it is switched off. The policy test
+checks that network options require a separate grant and that scripts and
+the IPC server remain under application control.
+
+Isolated Windows and Linux X11 sessions used a plugin with a reviewed
+filesystem grant. It changed speed, mute, looping and the language list,
+and added a local subtitle path to the external file list. The same plugin
+was denied script settings, direct volume-range changes, unreviewed
+network options and a remote subtitle URL. An initial Linux run exposed
+that its libmpv accepted a direct 150% write with a 100% maximum. After the
+worker enforced the active preference range on writes, both platforms
+reported 100% and exited normally.
+
+The Windows executable SHA-256 was
+`81bfba3385859d5ced16c170f9bf687fd1b1a14fd880683436249e909de95d42`.
+The Linux executable SHA-256 was
+`de82e8a2ea1c4b2b0b2f47926680fc7b2ca6866f3b06526878a114369666e192`.
+Both sessions used the native libraries recorded in the property-read
+verification above.
+
+Windows passed the locked workspace build, strict Clippy, 884 Rust tests,
+78 Python tests and all 57 null-output native tests. Linux x64 passed the
+locked application build, strict workspace Clippy, 845 Rust tests and all
+57 null-output native tests. The Linux native batch reused its harness
+from the workspace tests with the same Cargo target. Strict Apple Silicon
+workspace Clippy passed from Windows.
+
 ### Plugin sidebar manifest discovery 2026-10-14
 
 Manifest tests cover bounded localized labels. Runtime tests cover confined

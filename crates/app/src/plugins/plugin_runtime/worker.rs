@@ -175,7 +175,14 @@ fn initialize_realm(
         network.allowed_domains.clone(),
     )?;
     if global_api_mode != Some(GlobalApiMode::Controller) {
-        mpv_api::install(&api, player_mpv, execution)?;
+        mpv_api::install(
+            &api,
+            player_mpv,
+            execution,
+            &file_system,
+            permissions,
+            &network.allowed_domains,
+        )?;
         playlist_api::install(
             &api,
             &events,
