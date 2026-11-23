@@ -11,7 +11,7 @@ from urllib.parse import urlparse
 from urllib.request import Request, urlopen
 
 
-LICENSE_NAMES = ("license", "copying", "notice", "copyright", "authors")
+LICENSE_NAMES = ("license", "licence", "copying", "notice", "copyright", "authors")
 SPDX_FILENAMES = {
     "MIT": ("LICENSE-MIT", "LICENSE-MIT.txt", "MIT-LICENSE", "LICENSE", "LICENSE.md"),
     "Apache-2.0": ("LICENSE-APACHE", "LICENSE-APACHE.txt", "APACHE-LICENSE", "LICENSE", "LICENSE.md"),

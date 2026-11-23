@@ -115,12 +115,22 @@ mod tests {
                 "preferenceDefaults":{"limit":3,"appearance":{"enabled":true}}}"#,
         )
         .unwrap();
+        let original = plugins.join(".preferences/org.example.settings.plist");
+        fs::create_dir(original.parent().unwrap()).unwrap();
+        fs::write(
+            &original,
+            r#"<?xml version="1.0" encoding="UTF-8"?>
+               <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"
+                   "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+               <plist version="1.0"><dict><key>limit</key><integer>4</integer></dict></plist>"#,
+        )
+        .unwrap();
         fs::write(
             package.join("global.js"),
             r#"
             const p = iina.preferences;
-            if (p.get('limit') !== 3 || p.get('missing') !== null || !p.get('appearance').enabled)
-                throw new Error('manifest defaults');
+            if (p.get('limit') !== 4 || p.get('missing') !== null || !p.get('appearance').enabled)
+                throw new Error('saved IINA settings and manifest defaults');
             if (p.set('limit', 5) !== undefined) throw new Error('set returned a value');
         "#,
         )

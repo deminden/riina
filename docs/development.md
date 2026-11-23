@@ -168,9 +168,16 @@ For a palette or layout adjustment, the Windows-only
 pixels without compiling the player application or provisioning libmpv.
 
 On a Windows or Linux desktop, the opt-in native plugin settings test uses the
-Settings controls to open a package form, exercises its bindings and checks the
-JSON saved when switching panes. Run
+Settings controls to open a package form with imported IINA settings, exercises
+its bindings and checks the JSON saved when switching panes. Run
 `cargo test -p riina --lib --locked plugin_settings_page_persists_native_form_changes_on_close -- --ignored`.
+
+To bring a plugin's settings across from IINA, copy its
+`Plugins/.preferences/<identifier>.plist` into the corresponding directory in
+Riina's profile before launching Riina. It reads XML and binary property lists
+when there is no saved Riina JSON for that identifier. On the first saved edit,
+Riina writes the merged settings to JSON and preserves the original file.
+Imported dates become UTC timestamp strings and binary data becomes byte arrays.
 
 `cargo xtask coverage` is optional. If `cargo-llvm-cov` and the pinned
 toolchain's `llvm-tools` component are installed, it runs the workspace tests

@@ -344,8 +344,11 @@ prompt closes when its realm or player retires.
 Plugin preferences use a separate store per installed identifier and profile.
 Player and global realms share pending values, and each realm uses the
 package's manifest defaults when a key has no override. Explicit sync merges
-pending keys into the latest saved JSON while holding the file lock, then
+pending keys into the latest saved values while holding the file lock, then
 uses the same atomic replacement as application settings.
+An IINA property list supplies the saved values when the JSON store is absent.
+Riina matches the installed identifier against the filename on disk and keeps
+the original property list when a sync saves the merged values as JSON.
 
 An installed package can declare a local `preferencesPage`. Settings opens it
 in a native WebView with an isolated origin and confined package resources. Its

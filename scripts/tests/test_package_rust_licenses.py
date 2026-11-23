@@ -43,6 +43,7 @@ class LicenseSelectionTests(unittest.TestCase):
             root = Path(temporary)
             package = root / "dependency"
             package.mkdir()
+            (package / "LICENCE").write_bytes(b"Package notice\n")
             (package / "LICENSE-MIT").write_bytes(b"MIT notice\n")
             (package / "license-APACHE").write_bytes(b"Apache notice\n")
             metadata = {
@@ -62,7 +63,7 @@ class LicenseSelectionTests(unittest.TestCase):
             inventory = json.loads(payload)
             files = inventory["packages"][0]["license_files"]
             self.assertEqual([Path(file["path"]).name for file in files],
-                             ["LICENSE-MIT", "license-APACHE"])
+                             ["LICENCE", "LICENSE-MIT", "license-APACHE"])
             for file in files:
                 self.assertEqual((output / file["path"]).read_bytes(),
                                  (package / Path(file["path"]).name).read_bytes())

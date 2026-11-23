@@ -26,7 +26,7 @@ const FORM: &str = r#"<!doctype html>
 <script>
 const probe = setInterval(() => {
   const field = id => document.getElementById(id);
-  if (field('message').value !== 'default' || !field('enabled').checked ||
+  if (field('message').value !== 'from IINA' || !field('enabled').checked ||
       field('limit').value !== '3' || field('gain').value !== '1.5' || !field('left').checked) return;
   clearInterval(probe);
   for (const [id, property, value] of [
@@ -90,6 +90,14 @@ fn plugin_settings_page_persists_native_form_changes_on_close()
         })
         .to_string(),
     )?;
+    let legacy = plugins.join(".preferences/org.example.form.plist");
+    let original = br#"<?xml version="1.0" encoding="UTF-8"?>
+        <plist version="1.0"><dict>
+          <key>message</key><string>from IINA</string>
+          <key>retained</key><string>original preference</string>
+        </dict></plist>"#;
+    fs::create_dir(legacy.parent().unwrap())?;
+    fs::write(&legacy, original)?;
     let manifest = Manifest::load_from_directory(&package)?;
     let runtime = PluginPreferences::for_package(&package, &manifest)?;
     let path = plugins.join(".preferences/org.example.form.json");
@@ -181,12 +189,14 @@ fn plugin_settings_page_persists_native_form_changes_on_close()
         "{}",
         owner.get_plugin_update_status()
     );
+    assert_eq!(fs::read(&legacy)?, original);
     let saved: Value = serde_json::from_slice(&fs::read(path)?)?;
     assert_eq!(
         saved,
         json!({
             "message":"Café \"quoted\"", "enabled":false, "limit":9,
-            "gain":2.5, "side":"right", "done":{"values":[1,"quoted\" value"]}
+            "gain":2.5, "side":"right", "retained":"original preference",
+            "done":{"values":[1,"quoted\" value"]}
         })
     );
     Ok(())

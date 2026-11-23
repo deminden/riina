@@ -107,7 +107,7 @@ for the ownership and composition invariants.
 | File associations | Windows uses its Default Apps surface; macOS has bundle/UTI and Launch Services adapters; Linux uses user-scoped desktop/MIME registration. Platform consent and launch behavior require native checks |
 | Recent documents | Portable persistence exists; complete native macOS document-menu integration remains open |
 | Picture in Picture | Windows uses a native presentation adapter. macOS has an AVKit/IOSurface sample-buffer implementation that is not yet a verified runtime path; [ADR 0005](adr/0005-macos-picture-in-picture.md) |
-| Plugin WebViews | Windows and Linux X11 presenters use confined package resources. Linux needs GTK/WebKitGTK; the current child-window adapter rejects Wayland. Native Mac/Linux and matched geometry remain open |
+| Plugin WebViews | Windows uses native browser children for overlays and sidebars. Linux composites overlays on both X11 and Wayland. X11 sidebars use native children and Wayland sidebars are composited in the player. Wayland sidebar wheel scrolling, matched geometry and native macOS interaction remain open |
 | OCR/system media | OS adapters exist; hardware input, recognition quality, accessibility and each port's runtime behavior need separate evidence |
 | Accessibility/localization | Selected Windows controls and keyboard routes have evidence at 300% DPI; Narrator, IME, RTL/long strings, other scales and live locale changes remain incomplete |
 

@@ -50,6 +50,7 @@ and GPLv3 application package terms.
 | `webpki-roots` 1.0.9 certificate data | CDLA-Permissive-2.0; retain its crate `LICENSE` and generated `CCADB-ATTRIBUTION.txt` with the Rust license inventory |
 | `trash` 5.2.9 | MIT; the system Trash/Recycle Bin adapter; generated dependency inventory preserves its crate notice |
 | `lofty` 0.25.4 | MIT OR Apache-2.0; reads supported local audio tags for playlist display; generated dependency inventory preserves its crate notice |
+| `plist` 1.10.4 | MIT; reads IINA plugin preference files; generated dependency inventory preserves its crate notice |
 | Development libmpv DLL and native dependencies | Local development input; releases use a separately verified engine build |
 
 `webpki-roots` 1.0.9 is an exact, package-scoped data-license exception in the

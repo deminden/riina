@@ -2274,6 +2274,25 @@ executable SHA-256 was
 `043dda75907de0fde0a862d8d1d61a21fe0a6e979681a5dac26b24cab801d6ec`.
 Wayland wheel scrolling and native macOS interaction remain open.
 
+### IINA plugin preferences import 2026-11-23
+
+The Windows workspace gate passed 927 Rust tests and 78 Python tests.
+The regression covered XML values in QuickJS player and global entries,
+binary values, case-sensitive package identity, and merge-on-save.
+Apple Silicon cross-target Clippy passed. The Windows dependency inventory
+included the original MIT notice from the locked parser crate.
+On a private Windows desktop, the native Settings form displayed the
+imported value, applied changes, and switched panes. The saved JSON
+retained an untouched setting and the original property list remained
+byte-for-byte intact. The test process exited normally. Its SHA-256 was
+`74a9f32f00d26c02568c45db5cb8ada7dfbc1ec652c9c43544f5bbc43054de57`.
+Linux passed a locked application build, strict workspace Clippy, and
+889 workspace tests. The native
+Settings form check also passed on isolated X11 and Wayland desktops.
+Both used test executable SHA-256
+`d884156f56dadab4ec15fb54b78d5506f876cc34611e83c3d19cfe3a05bbfb85`.
+Native macOS Settings remains unverified.
+
 ### macOS application menu composition 2026-10-14
 
 The AppKit adapter consolidates application actions in one native menu while
