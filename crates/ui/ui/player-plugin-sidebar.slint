@@ -1,0 +1,59 @@
+import { PlayerPluginPointerPhase } from "player-control-actions.slint";
+
+export global PlayerPluginSidebarState {
+    in property <bool> composited;
+    in-out property <bool> keyboard-focused;
+    in property <image> frame;
+    callback pointer-input(PlayerPluginPointerPhase, int, float, float);
+    callback scroll-input(float, float, float, float);
+    callback focus-input(bool);
+    callback key-input(string, bool, bool, bool, bool, bool);
+}
+
+export component PlayerPluginSidebarView inherits Rectangle {
+    clip: true;
+
+    Image {
+        width: parent.width; height: parent.height;
+        image-fit: fill;
+        source: PlayerPluginSidebarState.frame;
+    }
+
+    web-focus := FocusScope {
+        width: parent.width; height: parent.height;
+        changed has-focus => {
+            PlayerPluginSidebarState.keyboard-focused = self.has-focus;
+            PlayerPluginSidebarState.focus-input(self.has-focus);
+        }
+        key-pressed(event) => {
+            PlayerPluginSidebarState.key-input(event.text, event.modifiers.control, event.modifiers.alt,
+                event.modifiers.shift, event.modifiers.meta, false);
+            return accept;
+        }
+        key-released(event) => {
+            PlayerPluginSidebarState.key-input(event.text, event.modifiers.control, event.modifiers.alt,
+                event.modifiers.shift, event.modifiers.meta, true);
+            return accept;
+        }
+
+        TouchArea {
+            width: parent.width; height: parent.height;
+            pointer-event(event) => {
+                let phase = event.kind == PointerEventKind.down ? PlayerPluginPointerPhase.down
+                    : event.kind == PointerEventKind.up ? PlayerPluginPointerPhase.up
+                    : event.kind == PointerEventKind.cancel ? PlayerPluginPointerPhase.cancel
+                    : PlayerPluginPointerPhase.move;
+                let button = event.button == PointerEventButton.left ? 1
+                    : event.button == PointerEventButton.middle ? 2
+                    : event.button == PointerEventButton.right ? 3 : 0;
+                if phase == PlayerPluginPointerPhase.down { web-focus.focus(); }
+                PlayerPluginSidebarState.pointer-input(phase, button, self.mouse-x / 1px, self.mouse-y / 1px);
+            }
+            scroll-event(event) => {
+                PlayerPluginSidebarState.scroll-input(self.mouse-x / 1px, self.mouse-y / 1px,
+                    event.delta-x / 1px, event.delta-y / 1px);
+                return accept;
+            }
+        }
+    }
+}

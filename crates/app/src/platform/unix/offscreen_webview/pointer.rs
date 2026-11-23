@@ -1,5 +1,4 @@
 //! Deliver player-local input to the WebKit document's offscreen widget.
-use super::Point;
 use gtk::{
     gdk::{self, ffi},
     glib::{
@@ -12,7 +11,7 @@ use gtk::{
 pub(super) fn dispatch(
     view: &webkit2gtk::WebView,
     kind: gdk::EventType,
-    (x, y): Point,
+    (x, y): (f64, f64),
     button: u32,
     held: u32,
 ) {
@@ -65,6 +64,38 @@ pub(super) fn dispatch(
             }
             _ => return,
         }
+    }
+    if let Some(device) = target
+        .display()
+        .default_seat()
+        .and_then(|seat| seat.pointer())
+    {
+        event.set_device(Some(&device));
+    }
+    view.event(&event);
+}
+
+pub(super) fn scroll(view: &webkit2gtk::WebView, (x, y): (f64, f64), (dx, dy): (f64, f64)) {
+    let Some(target) = view.window() else {
+        return;
+    };
+    let mut event = gdk::Event::new(gdk::EventType::Scroll);
+    let raw: *mut ffi::GdkEvent = event.to_glib_none_mut().0;
+    let window: *mut ffi::GdkWindow = target.to_glib_none().0;
+    // SAFETY: the scroll event owns one reference to its target window.
+    unsafe {
+        let scroll = &mut (*raw).scroll;
+        scroll.window = glib::gobject_ffi::g_object_ref(window.cast()).cast();
+        scroll.send_event = 1;
+        scroll.time = (glib::monotonic_time() / 1000) as u32;
+        scroll.direction = ffi::GDK_SCROLL_SMOOTH;
+        scroll.x = x;
+        scroll.y = y;
+        scroll.x_root = x;
+        scroll.y_root = y;
+        // Slint supplies movement in logical pixels. GDK uses signed wheel steps.
+        scroll.delta_x = -dx / 40.0;
+        scroll.delta_y = -dy / 40.0;
     }
     if let Some(device) = target
         .display()

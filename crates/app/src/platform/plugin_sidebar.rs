@@ -1,4 +1,7 @@
-//! Confined plugin sidebar documents hosted as child WebViews.
+//! Confined plugin sidebar documents owned by their player.
+mod view;
+#[cfg(target_os = "linux")]
+mod wayland;
 
 use super::plugin_resources::{plugin_file_url, resource_response, webview_navigation_url};
 use crate::{
@@ -13,8 +16,9 @@ use std::{
     path::{Path, PathBuf},
     rc::Rc,
 };
+use view::View;
 use wry::{
-    NewWindowResponse, PageLoadEvent, Rect, WebView, WebViewBuilder,
+    NewWindowResponse, PageLoadEvent, Rect, WebViewBuilder,
     dpi::{LogicalPosition, LogicalSize},
     http::Request,
 };
@@ -38,7 +42,7 @@ window.iina = {
 "#;
 
 struct SidebarEntry {
-    webview: WebView,
+    view: View,
     root: PathBuf,
     ready: Rc<Cell<bool>>,
     visible: bool,
@@ -49,13 +53,17 @@ struct SidebarEntry {
 
 impl SidebarEntry {
     fn set_bounds(&mut self, bounds: Rect) {
-        if self.bounds != Some(bounds) && self.webview.set_bounds(bounds).is_ok() {
+        if self.bounds != Some(bounds) && self.view.set_bounds(bounds).is_ok() {
             self.bounds = Some(bounds);
         }
     }
 
     fn set_visible(&mut self, visible: bool) {
-        if self.webview.set_visible(visible).is_ok() {
+        #[cfg(target_os = "linux")]
+        if self.visible == visible && self.view.composited().is_some() {
+            return;
+        }
+        if self.view.set_visible(visible).is_ok() {
             if cfg!(target_os = "linux") && visible && !self.visible {
                 // GTK lays out visible children. A resize while the view was
                 // hidden can leave its child at the old allocation.
@@ -66,20 +74,13 @@ impl SidebarEntry {
     }
 }
 
-#[cfg(target_os = "linux")]
-impl Drop for SidebarEntry {
-    fn drop(&mut self) {
-        // Wry destroys the foreign X11 child before closing its GTK wrapper.
-        // Unmap it now so GTK does not unmap an XID that Wry already destroyed.
-        let _ = self.webview.set_visible(false);
-    }
-}
-
 pub(crate) struct PluginSidebarPresenter {
     entries: BTreeMap<String, SidebarEntry>,
     selected: Option<String>,
     #[cfg(target_os = "linux")]
     owner: slint::Weak<PlayerWindow>,
+    #[cfg(target_os = "linux")]
+    composited: Option<String>,
 }
 
 impl PluginSidebarPresenter {
@@ -93,6 +94,8 @@ impl PluginSidebarPresenter {
             selected: None,
             #[cfg(target_os = "linux")]
             owner: app.as_weak(),
+            #[cfg(target_os = "linux")]
+            composited: None,
         }
     }
 
@@ -157,8 +160,13 @@ impl PluginSidebarPresenter {
                         entry.ready.set(false);
                         entry.messages.clear();
                         entry.message_bytes = 0;
+                        #[cfg(target_os = "linux")]
+                        if let Some(view) = entry.view.composited() {
+                            view.surface.invalidate();
+                        }
                         entry
-                            .webview
+                            .view
+                            .browser()
                             .load_url(&webview_navigation_url(url))
                             .map_err(webview_error)?;
                     }
@@ -187,11 +195,15 @@ impl PluginSidebarPresenter {
         if self.selected.as_deref() == Some(identifier) {
             self.selected = None;
         }
+        #[cfg(target_os = "linux")]
+        self.update_composited();
     }
 
     pub(crate) fn close(&mut self) {
         self.entries.clear();
         self.selected = None;
+        #[cfg(target_os = "linux")]
+        self.update_composited();
         #[cfg(target_os = "linux")]
         if gtk::is_initialized_main_thread()
             && let Some(display) = gtk::gdk::Display::default()
@@ -217,6 +229,8 @@ impl PluginSidebarPresenter {
                 flush_messages(entry);
             }
         }
+        #[cfg(target_os = "linux")]
+        self.update_composited();
     }
 
     fn update_visibility(&mut self) {
@@ -224,6 +238,8 @@ impl PluginSidebarPresenter {
         for (identifier, entry) in &mut self.entries {
             entry.set_visible(allowed && self.selected.as_deref() == Some(identifier));
         }
+        #[cfg(target_os = "linux")]
+        self.update_composited();
     }
 
     fn sidebar_can_show(&self) -> bool {
@@ -253,15 +269,13 @@ impl PluginSidebarPresenter {
         url: &str,
         viewport: Rect,
     ) -> Result<(), String> {
-        #[cfg(target_os = "linux")]
-        prepare_linux_webview(parent)?;
         let load_state = Rc::new(Cell::new(false));
         let page_ready = load_state.clone();
         let overlay_loaded_host = host.clone();
         let resource_root = root.clone();
         let ipc_host = host.clone();
         let ipc_identifier = identifier.to_owned();
-        let webview = WebViewBuilder::new()
+        let builder = WebViewBuilder::new()
             // On X11 the GTK child can retain its initial allocation until a
             // later resize. Create it with the current sidebar viewport.
             .with_bounds(viewport)
@@ -301,17 +315,16 @@ impl PluginSidebarPresenter {
                     || url.starts_with("http://riina-plugin.localhost/")
             })
             .with_new_window_req_handler(|_, _| NewWindowResponse::Deny)
-            .with_url(url)
-            .build_as_child(parent)
-            .map_err(webview_error)?;
+            .with_url(url);
+        let view = View::new(builder, parent, viewport)?;
         #[cfg(target_os = "linux")]
-        super::unix::plugin_shortcuts::bind(&webview, self.owner.clone(), None);
+        view.bind_shortcuts(self.owner.clone());
         let visible = self.sidebar_can_show() && self.selected.as_deref() == Some(identifier);
-        webview.set_visible(visible).map_err(webview_error)?;
+        view.set_visible(visible)?;
         self.entries.insert(
             identifier.to_owned(),
             SidebarEntry {
-                webview,
+                view,
                 root,
                 ready: load_state,
                 visible,
@@ -322,27 +335,6 @@ impl PluginSidebarPresenter {
         );
         Ok(())
     }
-}
-
-#[cfg(target_os = "linux")]
-fn prepare_linux_webview(parent: &Window) -> Result<(), String> {
-    use slint::winit_030::winit::raw_window_handle::{HasWindowHandle, RawWindowHandle};
-
-    let handle = parent
-        .window_handle()
-        .map_err(|error| format!("Could not inspect the Linux player window: {error}"))?;
-    if !matches!(handle.as_raw(), RawWindowHandle::Xlib(_)) {
-        return Err("Plugin sidebar WebViews currently require an X11 player window".into());
-    }
-    if gtk::is_initialized() {
-        if !gtk::is_initialized_main_thread() {
-            return Err("Plugin sidebar GTK must run on the player UI thread".into());
-        }
-    } else {
-        gtk::init()
-            .map_err(|error| format!("Could not initialize GTK for plugin sidebar: {error}"))?;
-    }
-    Ok(())
 }
 
 #[cfg(target_os = "linux")]
@@ -381,7 +373,7 @@ fn flush_messages(entry: &mut SidebarEntry) {
             continue;
         };
         // The old page may have been dismissed while its messages were queued.
-        let _ = entry.webview.evaluate_script(&format!(
+        let _ = entry.view.browser().evaluate_script(&format!(
             "window.iina && window.iina._emit({}, {});",
             js_string(&name),
             js_string(&data)

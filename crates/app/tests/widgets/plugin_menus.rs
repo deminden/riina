@@ -1,14 +1,67 @@
 use super::{key, player};
 use i_slint_backend_testing::ElementHandle;
 use riina_ui::{
-    DeveloperConsoleMember, DeveloperConsoleRow, PlayerMenuActions, PluginDeveloperTool,
-    PluginMenuRow,
+    DeveloperConsoleMember, DeveloperConsoleRow, MenuShortcutRow, PlayerMenuActions,
+    PlayerPluginSidebarState, PluginDeveloperTool, PluginMenuRow,
 };
 use slint::{
-    ComponentHandle, LogicalSize, ModelRc, VecModel,
-    platform::{Key, WindowEvent},
+    ComponentHandle, LogicalPosition, LogicalSize, ModelRc, VecModel,
+    platform::{Key, PointerEventButton, WindowEvent},
 };
-use std::{cell::RefCell, rc::Rc};
+use std::{
+    cell::{Cell, RefCell},
+    rc::Rc,
+};
+
+#[test]
+fn focused_plugin_sidebar_keeps_space_from_the_playback_menu()
+-> Result<(), Box<dyn std::error::Error>> {
+    let app = player(7);
+    app.set_native_video(false);
+    let sidebar = app.global::<PlayerPluginSidebarState>();
+    sidebar.set_composited(true);
+    app.set_menu_shortcuts(ModelRc::new(VecModel::from(vec![MenuShortcutRow {
+        shortcut: slint::Keys::from_parts(["Space"])?,
+    }])));
+    let pause = Rc::new(Cell::new(0));
+    let recorded = pause.clone();
+    app.global::<PlayerMenuActions>()
+        .on_toggle_pause(move || recorded.set(recorded.get() + 1));
+    let browser_keys = Rc::new(RefCell::new(Vec::new()));
+    let recorded = browser_keys.clone();
+    sidebar.on_key_input(move |text, _, _, _, _, released| {
+        if !released {
+            recorded.borrow_mut().push(text);
+        }
+    });
+
+    slint::platform::update_timers_and_animations();
+    let position = LogicalPosition::new(app.get_plugin_sidebar_view_x() + 40.0, 190.0);
+    app.window().dispatch_event(WindowEvent::PointerPressed {
+        position,
+        button: PointerEventButton::Left,
+    });
+    app.window().dispatch_event(WindowEvent::PointerReleased {
+        position,
+        button: PointerEventButton::Left,
+    });
+    slint::platform::update_timers_and_animations();
+    assert!(sidebar.get_keyboard_focused());
+    key(&app, Key::Space);
+    assert_eq!(pause.get(), 0);
+    assert_eq!(
+        browser_keys.borrow().as_slice(),
+        &[slint::SharedString::from(Key::Space)]
+    );
+
+    app.invoke_focus_player();
+    slint::platform::update_timers_and_animations();
+    assert!(!sidebar.get_keyboard_focused());
+    key(&app, Key::Space);
+    assert_eq!(pause.get(), 1);
+    app.hide()?;
+    Ok(())
+}
 
 #[test]
 fn nested_plugin_shortcuts_follow_replaced_menu_rows() -> Result<(), Box<dyn std::error::Error>> {

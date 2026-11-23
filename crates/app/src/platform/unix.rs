@@ -7,6 +7,8 @@ pub(crate) use session::SessionExtras;
 pub(crate) mod accessibility;
 mod dialogs;
 #[cfg(target_os = "linux")]
+pub(super) mod offscreen_webview;
+#[cfg(target_os = "linux")]
 pub(crate) mod plugin_shortcuts;
 pub(crate) mod services;
 #[cfg(target_os = "linux")]

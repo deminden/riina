@@ -3,6 +3,7 @@ import { PlayerLayoutState } from "player-layout-state.slint";
 import { PlayerSidebarState } from "player-sidebar-state.slint";
 import { PlayerSidebarActions } from "player-sidebar-actions.slint";
 import { PlayerSidebarTabs } from "player-sidebar-tabs.slint";
+import { PlayerPluginSidebarState, PlayerPluginSidebarView } from "player-plugin-sidebar.slint";
 import { LayoutSidebarPage } from "player-layout-sidebar.slint";
 import { PlaylistSidebarControls } from "playlist-sidebar-controls.slint";
 
@@ -60,6 +61,11 @@ export component PlayerSidebarContent inherits Rectangle {
             windows-accent-color: PlayerAppearance.windows-accent-color;
             windows-accent-foreground: PlayerAppearance.windows-accent-foreground;
             windows-sidebar-material-active: PlayerAppearance.windows-sidebar-material-active;
+        }
+        if pane-kind == 7 && PlayerPluginSidebarState.composited : PlayerPluginSidebarView {
+            width: parent.width - 2px * (PlayerAppearance.compact-ui ? 9 : 12);
+            horizontal-stretch: 1;
+            vertical-stretch: 1;
         }
         @children
         if pane-kind == 4 : PlaylistSidebarControls {

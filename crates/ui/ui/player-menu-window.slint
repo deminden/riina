@@ -3,6 +3,7 @@ import { PlayerSidebarState } from "player-sidebar-state.slint";
 import { PlayerCatalogState } from "player-catalog-state.slint";
 import { PlayerMusicModeState } from "player-music-mode-state.slint";
 import { PlaylistPluginPopupState } from "playlist-plugin-popup.slint";
+import { PlayerPluginSidebarState } from "player-plugin-sidebar.slint";
 import { PlaybackTimelineState } from "playback-timeline-state.slint";
 import { PlaybackAudioState } from "playback-audio-state.slint";
 import { PlaybackSubtitleState } from "playback-subtitle-state.slint";
@@ -57,7 +58,9 @@ export component PlayerMenuWindow inherits Window {
 
     // Slint dispatches menu-bar shortcuts before visiting the focused item.
     function player-shortcut(shortcut: keys) -> keys {
-        return PlaylistPluginPopupState.shown ? @keys() : shortcut;
+        return PlaylistPluginPopupState.shown ||
+            (PlayerPluginSidebarState.composited && PlayerPluginSidebarState.keyboard-focused)
+            ? @keys() : shortcut;
     }
 
     // Slint binds this height to the window area below its menu bar.

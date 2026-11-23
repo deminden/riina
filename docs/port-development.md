@@ -18,9 +18,10 @@ API 2.5 or a compatible newer 2.x. Building does not require libmpv to be instal
 because it is loaded at runtime. CI setup is recorded in
 `.github/workflows/application-ports.yml`; Linux WebView compilation also requires
 GTK 3, WebKitGTK 4.1 and `pkg-config`. Linux video overlays composite offscreen
-WebKitGTK views inside the player on X11 and Wayland. The native plugin sidebar
-child-WebView adapter requires X11. Linux file selection needs an available
-XDG Desktop Portal backend with X11 or Wayland parent support.
+WebKitGTK views inside the player on X11 and Wayland. Plugin sidebars use a
+native browser child on X11 and the shared compositing path on Wayland. Linux
+file selection needs an available XDG Desktop Portal backend with X11 or Wayland
+parent support.
 
 Native file drops in the player, Welcome window and playlist have X11 and
 Wayland desktop evidence. Wayland also accepts plain-text media URLs.

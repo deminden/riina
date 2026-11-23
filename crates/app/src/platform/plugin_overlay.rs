@@ -2,14 +2,17 @@
 mod hit_test;
 #[cfg(target_os = "linux")]
 mod linux;
-#[cfg_attr(target_os = "linux", path = "plugin_overlay/gtk.rs")]
+#[cfg(not(target_os = "linux"))]
 #[cfg_attr(target_os = "macos", path = "plugin_overlay/appkit.rs")]
 #[cfg_attr(target_os = "windows", path = "plugin_overlay/win32.rs")]
 mod native;
 
 use super::plugin_page::{self as page, Page};
+#[cfg(target_os = "linux")]
+use super::unix::offscreen_webview::OffscreenWebView as Surface;
 use crate::plugin_host::{OverlayRoute, PluginHostHandle, PluginHostMessage};
 use hit_test::HitTest;
+#[cfg(not(target_os = "linux"))]
 use native::Surface;
 use riina_core::{plugin::OverlayEffect, plugin_window::Document};
 use slint::winit_030::winit::window::Window;
@@ -216,6 +219,12 @@ impl Entry {
             .with_visible(false)
             .with_focused(false);
         let hit_test = Arc::new(HitTest::default());
+        #[cfg(target_os = "linux")]
+        let native = {
+            let _ = parent;
+            Surface::build(builder, bounds)?
+        };
+        #[cfg(not(target_os = "linux"))]
         let native = Surface::build(builder, parent, bounds, hit_test.clone())?;
         Ok(Self {
             native,

@@ -8,6 +8,8 @@ export { PlayerCropState } from "player-crop-state.slint";
 import { PlayerControlsState } from "player-controls-state.slint";
 export { PlayerControlsState } from "player-controls-state.slint";
 import { PlayerSidebarContent } from "player-sidebar-content.slint";
+import { PlayerPluginSidebarState } from "player-plugin-sidebar.slint";
+export { PlayerPluginSidebarState } from "player-plugin-sidebar.slint";
 import { PlayerLayoutState } from "player-layout-state.slint";
 export { PlayerLayoutState } from "player-layout-state.slint";
 import { PlayerSidebarState } from "player-sidebar-state.slint";
@@ -441,7 +443,7 @@ export component PlayerWindow inherits PlayerMenuWindow {
                 }
                 fit-window-to-video => { root.fit-window-to-video(); }
                 layout-settings-changed => { root.layout-settings-changed(); }
-                if pane-kind != 5 : QuickSettingsScrollPage {
+                if pane-kind != 5 && (pane-kind != 7 || !PlayerPluginSidebarState.composited) : QuickSettingsScrollPage {
                     page-kind: pane-kind;
                     changed drop-viewport => {
                         if side == 0 { PlayerSidebarState.leading-list-drop-viewport = self.drop-viewport; }

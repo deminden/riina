@@ -2224,6 +2224,35 @@ workspace tests passed. The Windows `cargo xtask check` passed 868 workspace
 tests and 78 Python tests. The pinned Windows `cargo xtask native` run passed
 all 55 engine cases with null audio output.
 
+### Wayland plugin sidebar 2026-11-23
+
+The locked Linux build passed strict workspace Clippy, 517 app tests and 54
+interaction tests. The shared headless regression checks that Space reaches
+the focused sidebar and resumes its usual playback action after focus returns
+to the player. The corresponding Windows gate passed 550 app tests, 57
+interaction tests, the headless pixel check and 78 Python tests. Strict Apple
+Silicon cross-target Clippy passed.
+
+On isolated Ubuntu 26.04 displays, X11 and native Wayland each loaded a plugin
+sidebar beside paused video and exchanged messages with its player entry.
+Both received trusted clicks and typed text, moved between browser fields with
+Tab, and kept Space in the focused text field. Resizing changed the browser
+viewport. Hiding and reopening retained the fields. On Wayland, Ctrl+, opened
+Settings from browser focus and Settings closed separately. Both players
+closed normally. On X11, the browser received the wheel and scrolled. In the
+Wayland run, GTK received the routed wheel event but the page did not scroll
+or report a wheel event. Native input methods and accessibility remain open.
+The same build passed the Wayland video overlay checks for blending, live style
+changes, resizing, Simple Mode, click-through and normal shutdown.
+The Linux executable SHA-256 was
+`d4893b0c458e0bc88a2476e798e7a3792e13b27eb6f6afe6331cea6f770530d3`.
+
+The locked Windows workspace build opened its native sidebar and returned
+the plugin message on a private desktop. The exact player exited normally.
+Its SHA-256 was
+`de8f0647a9480a89f2eb4443adf10fdb0cd5196cbade0a012808151cbed27262`.
+Native macOS interaction remains unverified.
+
 ### macOS application menu composition 2026-10-14
 
 The AppKit adapter consolidates application actions in one native menu while

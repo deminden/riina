@@ -14,6 +14,9 @@ pub(crate) struct PluginPresenters {
 
 impl PluginPresenters {
     pub(crate) fn new(app: &PlayerWindow) -> Self {
+        let sidebar = Rc::new(RefCell::new(PluginSidebarPresenter::new(app)));
+        #[cfg(target_os = "linux")]
+        PluginSidebarPresenter::bind_composited(app, &sidebar);
         #[cfg(target_os = "linux")]
         let overlay = {
             use slint::ComponentHandle;
@@ -34,7 +37,7 @@ impl PluginPresenters {
             overlay,
             #[cfg(any(target_os = "windows", target_os = "macos"))]
             overlay: Rc::default(),
-            sidebar: Rc::new(RefCell::new(PluginSidebarPresenter::new(app))),
+            sidebar,
         }
     }
 

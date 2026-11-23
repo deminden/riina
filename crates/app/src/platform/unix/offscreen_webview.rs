@@ -1,15 +1,12 @@
-//! Composite an offscreen WebKitGTK document inside the shared video surface.
-#[path = "gtk/pointer.rs"]
+//! Supply a transparent WebKitGTK surface for the shared player.
+mod keyboard;
 mod pointer;
 
-use super::hit_test::{HitTest, Point};
 use gtk::prelude::*;
-use slint::winit_030::winit::window::Window;
 use slint::{Image, Rgba8Pixel, SharedPixelBuffer};
 use std::{
     cell::{Cell, RefCell},
     rc::Rc,
-    sync::Arc,
     time::{Duration, Instant},
 };
 use webkit2gtk::WebViewExt as _;
@@ -20,7 +17,7 @@ const FRAME_INTERVAL: Duration = Duration::from_millis(33);
 const IDLE_INTERVAL: Duration = Duration::from_millis(125);
 const ACTIVE_PERIOD: Duration = Duration::from_millis(500);
 
-pub(super) struct Surface {
+pub(in crate::platform) struct OffscreenWebView {
     view: WebView,
     capture: Rc<RefCell<Capture>>,
     size: Cell<(i32, i32)>,
@@ -38,12 +35,10 @@ struct Capture {
     pixels: Option<Image>,
 }
 
-impl Surface {
-    pub(super) fn build(
+impl OffscreenWebView {
+    pub(in crate::platform) fn build(
         builder: WebViewBuilder,
-        _parent: &Window,
         bounds: Rect,
-        _hits: Arc<HitTest>,
     ) -> Result<Self, String> {
         gtk::init().map_err(|error| error.to_string())?;
         let window = gtk::OffscreenWindow::new();
@@ -75,11 +70,11 @@ impl Surface {
         Ok(surface)
     }
 
-    pub(super) fn browser(&self) -> &WebView {
+    pub(in crate::platform) fn browser(&self) -> &WebView {
         &self.view
     }
 
-    pub(super) fn set_bounds(&self, bounds: Rect) -> Result<(), String> {
+    pub(in crate::platform) fn set_bounds(&self, bounds: Rect) -> Result<(), String> {
         let size = bounds.size.to_logical::<i32>(1.0);
         let size = (size.width.max(1), size.height.max(1));
         if self.size.replace(size) != size {
@@ -90,7 +85,7 @@ impl Surface {
         Ok(())
     }
 
-    pub(super) fn invalidate(&self) {
+    pub(in crate::platform) fn invalidate(&self) {
         let pending = {
             let mut state = self.capture.borrow_mut();
             state.generation = state.generation.wrapping_add(1);
@@ -103,7 +98,7 @@ impl Surface {
         }
     }
 
-    pub(super) fn capture(&self) {
+    pub(in crate::platform) fn capture(&self) {
         let widget = self.view.webview();
         let (generation, request) = {
             let mut state = self.capture.borrow_mut();
@@ -158,20 +153,38 @@ impl Surface {
         );
     }
 
-    pub(super) fn take_changed(&self) -> bool {
+    pub(in crate::platform) fn take_changed(&self) -> bool {
         std::mem::take(&mut self.capture.borrow_mut().changed)
     }
 
-    pub(super) fn pixels(&self) -> Option<Image> {
+    pub(in crate::platform) fn pixels(&self) -> Option<Image> {
         self.capture.borrow().pixels.clone()
     }
 
-    pub(super) fn pointer(&self, kind: gtk::gdk::EventType, point: Point, button: u32, held: u32) {
+    pub(in crate::platform) fn pointer(
+        &self,
+        kind: gtk::gdk::EventType,
+        point: (f64, f64),
+        button: u32,
+        held: u32,
+    ) {
         pointer::dispatch(&self.view.webview(), kind, point, button, held);
+    }
+
+    pub(in crate::platform) fn scroll(&self, point: (f64, f64), delta: (f64, f64)) {
+        pointer::scroll(&self.view.webview(), point, delta);
+    }
+
+    pub(in crate::platform) fn focus(&self, focused: bool) {
+        keyboard::focus(&self.view.webview(), focused);
+    }
+
+    pub(in crate::platform) fn key(&self, text: &str, modifiers: u32, released: bool) {
+        keyboard::dispatch(&self.view.webview(), text, modifiers, released);
     }
 }
 
-impl Drop for Surface {
+impl Drop for OffscreenWebView {
     fn drop(&mut self) {
         self.invalidate();
     }
