@@ -1,5 +1,6 @@
 //! Plugin callbacks, presenters and timers are installed as one UI subsystem.
 mod effects;
+mod playlist_menu;
 
 use crate::{PlayerWindow, background::CoalescedUiCallback, platform};
 use effects::PluginEffects;
@@ -66,6 +67,7 @@ pub(super) fn install(
     let plugin_command_sender = Arc::new(std::sync::Mutex::new(None::<riina_mpv::CommandSender>));
     let presenters = platform::PluginPresenters::new(app);
     bind_lifecycle(app, plugin_host_handle.as_ref(), presenters.sidebar.clone());
+    playlist_menu::install(app, plugin_host_handle.as_ref());
     {
         let weak = app.as_weak();
         let presenter = presenters.sidebar.clone();

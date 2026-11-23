@@ -14,6 +14,7 @@ pub(crate) mod native_window;
 mod overlay_trace;
 mod package_smoke;
 pub(crate) mod pip;
+pub(super) mod playlist_menu;
 mod plugin_overlay;
 mod presentation;
 pub(crate) mod recent_documents;

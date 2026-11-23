@@ -153,6 +153,30 @@ fn playlist_rows_and_six_footer_actions_fit_normal_and_narrow_sidebars() {
 }
 
 #[test]
+fn playlist_context_request_uses_the_clicked_row_and_window_position() {
+    let app = player(4);
+    app.global::<PlayerCatalogState>().set_playlist(model());
+    let requested = Rc::new(RefCell::new(Vec::new()));
+    let observe = requested.clone();
+    app.global::<PlaylistInteraction>()
+        .on_request_playlist_menu(move |token, x, y| {
+            observe.borrow_mut().push((token, x, y));
+            true
+        });
+    flush();
+    let row = button(&app, "Clip 1").absolute_position();
+    let position = LogicalPosition::new(row.x + 12.0, row.y + 10.0);
+    for button in [PointerEventButton::Left, PointerEventButton::Right] {
+        app.window()
+            .dispatch_event(WindowEvent::PointerPressed { position, button });
+        app.window()
+            .dispatch_event(WindowEvent::PointerReleased { position, button });
+        flush();
+    }
+    assert_eq!(*requested.borrow(), [("2".into(), position.x, position.y)]);
+}
+
+#[test]
 fn playlist_drop_target_tracks_visible_rows_and_scroll_position() {
     let app = player(4);
     app.window().set_size(LogicalSize::new(1000.0, 320.0));

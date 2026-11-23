@@ -17,6 +17,7 @@ pub(crate) mod language;
 mod pip_session;
 pub(crate) use pip_session::PictureInPictureSession;
 mod player_input;
+pub(crate) mod playlist_menu;
 pub(crate) use player_input::{
     PlayerFocus, PlayerScrollMonitor, WinitWheelInput, batched_file_drops, file_drop_position,
     player_gesture_handler, winit_wheel_input,

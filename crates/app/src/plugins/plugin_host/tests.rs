@@ -316,12 +316,29 @@ fn plugin_menu_actions_from_both_runtime_scopes_reach_their_owner() {
     .unwrap();
     std::fs::write(
         directory.join("main.js"),
-        "iina.event.on('iina.menu-update', () => iina.log('plugin-menu-opened')); iina.menu.addItem(iina.menu.item('Run action', () => iina.log('menu-action-ran')));",
+        r"
+        iina.event.on('iina.menu-update', () => iina.log('plugin-menu-opened'));
+        iina.event.on('iina.window-will-close', () => {});
+        iina.menu.addItem(iina.menu.item('Run action', () => iina.log('menu-action-ran')));
+        iina.playlist.registerMenuItemBuilder(rows => {
+            const submenu = iina.menu.item('Tools', null);
+            submenu.addSubMenuItem(iina.menu.item(rows.join(','), () => {
+                iina.log('playlist-action-ran:' + rows.join(','));
+            }, {selected: true}));
+            const blocked = iina.menu.item('Blocked', () => iina.log('blocked-ran'), {
+                enabled: false
+            });
+            return [submenu, iina.menu.separator(), blocked];
+        });
+        ",
     )
     .unwrap();
     std::fs::write(
         directory.join("global.js"),
-        "iina.menu.addItem(iina.menu.item('Global action', () => iina.log('global-menu-action-ran')));",
+        r"
+        if (iina.playlist !== undefined) throw Error('unexpected global playlist');
+        iina.menu.addItem(iina.menu.item('Global action', () => iina.log('global-menu-action-ran')));
+        ",
     )
     .unwrap();
     std::fs::write(root.join("plugin-enabled.json"), r#"["org.example.menu"]"#).unwrap();
@@ -399,6 +416,7 @@ fn plugin_menu_actions_from_both_runtime_scopes_reach_their_owner() {
         messages.extend(handle.drain_messages().unwrap());
         std::thread::sleep(Duration::from_millis(10));
     }
+    verify_playlist_menu_actions(&handle);
     drop(host);
     messages.extend(handle.drain_messages().unwrap());
     assert!(messages.iter().any(|message| matches!(message,
@@ -410,6 +428,50 @@ fn plugin_menu_actions_from_both_runtime_scopes_reach_their_owner() {
     assert!(messages.iter().any(|message| matches!(message,
         PluginHostMessage::Log(text) if text.contains("global-menu-action-ran")
     )));
+    let playlist_actions = messages
+        .iter()
+        .filter_map(|message| match message {
+            PluginHostMessage::Log(text)
+                if text.contains("playlist-action-ran:") || text.ends_with(": blocked-ran") =>
+            {
+                Some(text.as_str())
+            }
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(
+        playlist_actions,
+        ["org.example.menu: playlist-action-ran:0,2"]
+    );
+}
+
+fn verify_playlist_menu_actions(handle: &PluginHostHandle) {
+    let build = |request, indices| {
+        let (ready, result) = mpsc::sync_channel(1);
+        handle
+            .build_playlist_menu(request, indices, move |items| {
+                let _ = ready.send(items);
+            })
+            .unwrap();
+        let mut contributions = result.recv_timeout(Duration::from_secs(3)).unwrap();
+        assert_eq!(contributions.len(), 1);
+        let menu = contributions.pop().unwrap();
+        assert_eq!(menu.identifier, "org.example.menu");
+        menu.items
+    };
+    build(10, vec![1]);
+    let items = build(11, vec![0, 2]);
+    assert!(items[1].separator);
+    assert!(!items[2].enabled);
+    let action = &items[0].items[0];
+    assert!(action.selected);
+    assert_eq!(action.title, "0,2");
+    for (request, id) in [(10, &action.id), (11, &action.id), (11, &action.id)] {
+        handle
+            .activate_playlist_menu_item(request, "org.example.menu".into(), id.clone())
+            .unwrap();
+    }
+    handle.notify_window_will_close().unwrap();
 }
 
 #[test]

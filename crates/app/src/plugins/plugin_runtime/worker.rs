@@ -16,9 +16,12 @@ use super::{
 use riina_core::plugin_menu::PluginMenuItem;
 use riina_core::{plugin::OverlayState, plugin_sidebar::PluginSidebarState};
 use rquickjs::{Context, Object, Runtime, Value, function::Func};
-use std::sync::{
-    Arc, Mutex,
-    mpsc::{self, Receiver, SyncSender},
+use std::{
+    sync::{
+        Arc, Mutex,
+        mpsc::{self, Receiver, SyncSender},
+    },
+    time::Instant,
 };
 
 pub(super) fn run_entry_worker(
@@ -156,7 +159,6 @@ fn initialize_realm(
             record_plugin_menu(&menu_events, items).map_err(menu_js_error)
         }),
     )?;
-    ctx.eval::<(), _>(PLUGIN_MENU_API)?;
     install_plugin_file_api(
         ctx.clone(),
         globals.clone(),
@@ -180,6 +182,7 @@ fn initialize_realm(
             &network.allowed_domains,
         )?;
     }
+    ctx.eval::<(), _>(PLUGIN_MENU_API)?;
     network::install(ctx.clone(), file_system.clone(), permissions, network)?;
     modules::install(ctx.clone(), module_context.clone())?;
     if let Some(mode) = global_api_mode {
@@ -275,6 +278,38 @@ fn run_callbacks(
             Some(RuntimeCommand::DeliverPluginMenuAction(id)) => (
                 format!("iina.menu.__activate({})", serde_json::json!(id)),
                 "menu action",
+            ),
+            Some(RuntimeCommand::BuildPlaylistMenu {
+                request,
+                indices,
+                deadline,
+                response,
+            }) => {
+                if Instant::now() < deadline {
+                    execution.begin();
+                    let items = super::menu::build_playlist_menu(context, request, &indices);
+                    let pending = execution.drain_jobs(runtime);
+                    match items.and_then(|items| pending.map(|()| items)) {
+                        Ok(items) => {
+                            let _ = response.send(items);
+                        }
+                        Err(error) => record(
+                            events,
+                            UiEffect::Log(format!("Plugin playlist menu builder failed: {error}")),
+                        ),
+                    }
+                    if execution.interrupted() {
+                        break;
+                    }
+                }
+                continue;
+            }
+            Some(RuntimeCommand::ActivatePlaylistMenuItem(request, id)) => (
+                format!(
+                    "iina.menu.__activatePlaylistItem(\"{request}\", {})",
+                    serde_json::json!(id)
+                ),
+                "playlist menu action",
             ),
             #[cfg(any(target_os = "windows", test))]
             Some(RuntimeCommand::DeliverOverlayMessage(name, data)) => {

@@ -1373,6 +1373,28 @@ tests passed. Linux x64 passed the locked application build, strict workspace
 Clippy and 843 Rust tests. Strict Apple Silicon workspace Clippy passed from
 Windows. The plugin settings WebView and macOS desktop verification remain open.
 
+### Plugin playlist context menus 2026-11-23
+
+The headless player test sent a right click to a playlist row and checked
+its stable token and window coordinates. The plugin host test checked
+zero-based selections, nested items, separators, checked and disabled states,
+player and global entry boundaries, and action delivery. It exercised rejection
+of stale requests and replayed commands in the same test session.
+
+On an isolated Windows desktop, UI Automation opened the playlist, and a
+right click on the file row delivered `[0]` to the builder. The native popup
+contained the contributed title. Posted input on the inactive desktop did
+not select that item, so native selection still needs interactive verification.
+The test player exited normally. The Windows executable SHA-256 was
+`0cb70e2b89e00fdfefe22507423ffab5044e022dae1b5e818acc05cc82bf8ff4`.
+
+The locked Windows workspace build, strict Clippy, 883 Rust tests and 78 Python
+tests passed. Linux x64 passed the locked application build, strict workspace
+Clippy and 844 Rust tests. Strict Apple Silicon workspace Clippy passed from
+Windows. The native popup presentation is implemented for Windows playlist
+sidebar rows. Blank-space menus, Music Mode and popup presentation on Linux
+and macOS remain open.
+
 ### Plugin sidebar manifest discovery 2026-10-14
 
 Manifest tests cover bounded localized labels. Runtime tests cover confined

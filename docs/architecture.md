@@ -116,6 +116,15 @@ On the shared GL route, the renderer retains player ownership until rendering
 teardown frees the GL surface. The worker unregisters its wakeup callback, destroys
 the native engine and only then releases the callback context.
 
+### Playlist plugin menus
+
+The player captures the row order and selection when opening a playlist menu.
+Its plugin host starts builders in the player realms and gathers their replies
+under one deadline. Each realm owns its callbacks and retains the latest
+popup's items until an action is chosen or another request supersedes them.
+The UI discards replies and actions when the observed playlist changes. The
+Windows presenter holds the native menu only for the duration of the popup.
+
 ## Preferences
 
 Plugin preferences use a separate store per installed identifier and profile.

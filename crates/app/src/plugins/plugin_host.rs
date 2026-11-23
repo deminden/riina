@@ -1,5 +1,6 @@
 //! Application-lifetime owner for enabled plugin entry sessions.
 
+mod playlist_menu;
 mod ui_activity;
 
 use crate::{
@@ -7,6 +8,7 @@ use crate::{
     plugin_runtime::{HostEvent, PluginRuntimeSession, UiEffect},
     plugin_snapshot::{playback_history_values, recent_document_values, version_snapshot},
 };
+pub(crate) use playlist_menu::PlaylistMenuContribution;
 use riina_core::{
     Command,
     plugin::{Manifest, OverlayEffect, WindowAction},
@@ -356,6 +358,12 @@ enum PluginCommand {
         global: bool,
         item_id: String,
     },
+    BuildPlaylistMenu(playlist_menu::BuildRequest),
+    ActivatePlaylistMenuItem {
+        request: u64,
+        identifier: String,
+        item_id: String,
+    },
     Shutdown,
 }
 
@@ -625,6 +633,18 @@ fn handle_command(
             global,
             item_id,
         } => activate_menu_item(&identifier, global, item_id, messages, sessions),
+        PluginCommand::BuildPlaylistMenu(request) => {
+            request.run(sessions, plugin_directories, &paths.enabled_path);
+        }
+        PluginCommand::ActivatePlaylistMenuItem {
+            request,
+            identifier,
+            item_id,
+        } => {
+            if let Some(session) = sessions.get(&PluginInstanceKey::player(&identifier)) {
+                session.activate_playlist_menu_item(request, item_id);
+            }
+        }
         PluginCommand::Shutdown => return true,
     }
     pump_session_events(messages, sessions, plugin_directories);
@@ -936,10 +956,7 @@ fn enabled_packages(directory: &Path, enabled_path: &Path) -> Vec<InstalledPlugi
         .iter()
         .map(|plugin| plugin.manifest.identifier.clone())
         .collect::<Vec<_>>();
-    let order = fs::read_to_string(enabled_path.with_file_name("plugin-order.json"))
-        .ok()
-        .and_then(|text| serde_json::from_str::<Vec<String>>(&text).ok())
-        .unwrap_or_default();
+    let order = read_plugin_order(enabled_path);
     let order = riina_core::plugin_order::normalize(&order, &installed);
     let positions = order
         .iter()
@@ -953,6 +970,13 @@ fn enabled_packages(directory: &Path, enabled_path: &Path) -> Vec<InstalledPlugi
             .unwrap_or(usize::MAX)
     });
     plugins
+}
+
+fn read_plugin_order(enabled_path: &Path) -> Vec<String> {
+    fs::read_to_string(enabled_path.with_file_name("plugin-order.json"))
+        .ok()
+        .and_then(|text| serde_json::from_str(&text).ok())
+        .unwrap_or_default()
 }
 
 fn activate(

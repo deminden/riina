@@ -1,26 +1,62 @@
 //! Plugin-owned menu objects and action dispatch.
 
+use riina_core::plugin_menu::PluginMenuItem;
+use rquickjs::Context;
+
 pub(super) const PLUGIN_MENU_API: &str = r#"(() => {
     let nextId = 0;
-    const actions = new Map();
     const roots = [];
-    const publish = () => iina.__menuUpdate(JSON.stringify(roots.map(snapshot)));
-    const snapshot = item => ({
+    const menuItems = new WeakSet();
+    let publishedItems = new WeakSet();
+    let playlistBuilder = null;
+    let playlistMenu = null;
+    const snapshot = (item, reached) => ({
         id: item.id,
         title: item.title,
         enabled: item.enabled,
         selected: item.selected,
         separator: item.separator,
         keyBinding: item.keyBinding,
-        items: item.items.map(snapshot)
+        items: item.items.map(child => {
+            if (!menuItems.has(child)) throw new TypeError('expected a plugin menu item');
+            reached.add(child);
+            return snapshot(child, reached);
+        })
     });
-    const dispose = item => {
-        actions.delete(item.id);
-        for (const child of item.items) dispose(child);
+    const serialize = (items, reached = new WeakSet()) => JSON.stringify(items.map(item => {
+        if (!menuItems.has(item)) throw new TypeError('expected a plugin menu item');
+        reached.add(item);
+        return snapshot(item, reached);
+    }));
+    const publish = () => {
+        const reached = new WeakSet();
+        iina.__menuUpdate(serialize(roots, reached));
+        publishedItems = reached;
     };
-    const register = item => {
-        if (item.__action) actions.set(item.id, item.__action);
-        for (const child of item.items) register(child);
+    const changed = item => {
+        if (publishedItems.has(item)) publish();
+    };
+    if (iina.playlist) {
+        iina.playlist.registerMenuItemBuilder = builder => {
+            if (typeof builder !== 'function') throw new TypeError('menu builder must be a function');
+            playlistBuilder = builder;
+            playlistMenu = null;
+        };
+    }
+    const activate = (items, id) => {
+        const find = branch => {
+            for (const item of branch) {
+                if (!item.enabled || item.separator) continue;
+                if (item.id === id) return item;
+                const child = find(item.items);
+                if (child) return child;
+            }
+            return null;
+        };
+        const item = find(items);
+        if (!item || !item.__action || item.items.length !== 0) return false;
+        try { (0, item.__action)(item); return true; }
+        catch (error) { iina.log(`Plugin menu action threw: ${String(error)}`); return false; }
     };
     const makeItem = (title, action, options, separator = false) => {
         if (action != null && typeof action !== 'function') throw new TypeError('action must be a function or null');
@@ -31,12 +67,11 @@ pub(super) const PLUGIN_MENU_API: &str = r#"(() => {
             _keyBinding: options?.keyBinding == null ? null : String(options.keyBinding),
             _items: [],
             addSubMenuItem(child) {
-                if (!child || typeof child.id !== 'string' || child.separator && child.items.length) {
+                if (!menuItems.has(child) || this.separator) {
                     throw new TypeError('child must be a plugin menu item');
                 }
                 this._items.push(child);
-                register(child);
-                publish();
+                changed(this);
                 return this;
             }
         };
@@ -45,56 +80,75 @@ pub(super) const PLUGIN_MENU_API: &str = r#"(() => {
             separator: { value: separator, writable: false, enumerable: false },
             __action: { value: action, writable: false, enumerable: false },
             items: { get() { return this._items; }, enumerable: true },
-            title: { get() { return this._title; }, set(value) { this._title = String(value); publish(); } },
-            enabled: { get() { return this._enabled; }, set(value) { this._enabled = Boolean(value); publish(); } },
-            selected: { get() { return this._selected; }, set(value) { this._selected = Boolean(value); publish(); } },
-            keyBinding: { get() { return this._keyBinding; }, set(value) { this._keyBinding = value == null ? null : String(value); publish(); } }
+            title: { get() { return this._title; }, set(value) { this._title = String(value); changed(this); } },
+            enabled: { get() { return this._enabled; }, set(value) { this._enabled = Boolean(value); changed(this); } },
+            selected: { get() { return this._selected; }, set(value) { this._selected = Boolean(value); changed(this); } },
+            keyBinding: { get() { return this._keyBinding; }, set(value) { this._keyBinding = value == null ? null : String(value); changed(this); } }
         });
-        if (action) actions.set(item.id, action);
+        menuItems.add(item);
         return item;
     };
     iina.menu = {
         item(title, action, options) { return makeItem(title, action, options); },
         separator() { return makeItem('', null, null, true); },
         addItem(item) {
-            if (!item || typeof item.id !== 'string') throw new TypeError('item must be a plugin menu item');
+            if (!menuItems.has(item)) throw new TypeError('item must be a plugin menu item');
             roots.push(item);
-            register(item);
             publish();
         },
         items() { return roots.slice(); },
         removeAt(index) {
             if (!Number.isInteger(index) || index < 0 || index >= roots.length) return false;
-            dispose(roots[index]);
             roots.splice(index, 1);
             publish();
             return true;
         },
         removeAllItems() {
-            for (const item of roots) dispose(item);
             roots.length = 0;
             publish();
         },
         forceUpdate: publish,
-        __activate(id) {
-            const action = actions.get(id);
-            if (!action) return false;
-            const find = items => {
-                for (const item of items) {
-                    if (!item.enabled || item.separator) continue;
-                    if (item.id === id) return item;
-                    const child = find(item.items);
-                    if (child) return child;
-                }
-                return null;
-            };
-            const item = find(roots);
-            if (!item || item.items.length !== 0) return false;
-            try { action(item); return true; }
-            catch (error) { iina.log(`Plugin menu action threw: ${String(error)}`); return false; }
+        __activate(id) { return activate(roots, id); },
+        __buildPlaylistMenu(request, indices) {
+            playlistMenu = null;
+            if (!playlistBuilder) return '[]';
+            const items = playlistBuilder(indices);
+            if (!Array.isArray(items)) throw new TypeError('menu builder must return an array');
+            const json = serialize(items);
+            playlistMenu = { request, items: items.slice() };
+            return json;
+        },
+        __activatePlaylistItem(request, id) {
+            if (playlistMenu?.request !== request) return false;
+            const { items } = playlistMenu;
+            playlistMenu = null;
+            return activate(items, id);
         }
     };
 })();"#;
+
+pub(super) fn build_playlist_menu(
+    context: &Context,
+    request: u64,
+    indices: &[usize],
+) -> Result<Vec<PluginMenuItem>, String> {
+    let script = format!(
+        "iina.menu.__buildPlaylistMenu(\"{request}\", {})",
+        serde_json::json!(indices)
+    );
+    let json = context.with(|ctx| {
+        ctx.eval::<String, _>(script).map_err(|error| {
+            if matches!(error, rquickjs::Error::Exception) {
+                ctx.catch();
+            }
+            error.to_string()
+        })
+    })?;
+    let items: Vec<PluginMenuItem> =
+        serde_json::from_str(&json).map_err(|error| error.to_string())?;
+    PluginMenuItem::validate_all(&items).map_err(|error| error.to_string())?;
+    Ok(items)
+}
 
 #[cfg(test)]
 mod tests {

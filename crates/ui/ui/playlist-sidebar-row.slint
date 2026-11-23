@@ -4,6 +4,8 @@ import { CatalogRow } from "catalog-row.slint";
 
 // Drag selection and keyboard focus are shared only by the rows of one player.
 export global PlaylistInteraction {
+    in-out property <int> playlist-menu-generation: 0;
+    callback request-playlist-menu(string, float, float) -> bool;
     in-out property <string> selected-playlist-token: "";
     in-out property <[string]> selected-playlist-tokens: [];
     in-out property <string> playlist-drag-token: "";
@@ -26,6 +28,13 @@ export component CatalogSidebarRow inherits Rectangle {
     callback select-playlist-row(int, bool, bool) -> [string];
     callback reorder-playlist([string], int);
     callback playlist-action(int, string);
+
+    function open-playlist-menu(x: length, y: length) {
+        if !PlaylistInteraction.request-playlist-menu(entry.token,
+            (root.absolute-position.x + x) / 1px, (root.absolute-position.y + y) / 1px) {
+            row-menu.show({ x: x, y: y });
+        }
+    }
 
     property <int> current-playlist-focus-index: PlaylistInteraction.playlist-focus-index;
     height: pane-kind < 3 || pane-kind == 6 ? 26px : pane-kind == 3 ? 40px
@@ -73,7 +82,12 @@ export component CatalogSidebarRow inherits Rectangle {
             if pane-kind == 4 { PlaylistInteraction.selected-playlist-token = entry.token; } }
         double-clicked => { if pane-kind >= 3 { root.select-row(entry.token); PlaylistInteraction.selected-playlist-token = ""; PlaylistInteraction.selected-playlist-tokens = []; } }
         pointer-event(event) => {
-            if pane-kind == 4 && event.button == PointerEventButton.left && event.kind == PointerEventKind.down {
+            if pane-kind == 4 && event.button == PointerEventButton.right
+                && event.kind == PointerEventKind.up
+                && self.mouse-x >= 0px && self.mouse-x < self.width
+                && self.mouse-y >= 0px && self.mouse-y < self.height {
+                root.open-playlist-menu(self.mouse-x, self.mouse-y);
+            } else if pane-kind == 4 && event.button == PointerEventButton.left && event.kind == PointerEventKind.down {
                 PlaylistInteraction.playlist-drag-token = entry.token;
                 PlaylistInteraction.playlist-focus-index = index;
                 PlaylistInteraction.playlist-drag-start-x = self.mouse-x / 1px;
@@ -115,7 +129,8 @@ export component CatalogSidebarRow inherits Rectangle {
             }
         }
     }
-    if pane-kind == 4 : ContextMenuArea {
+    row-menu := ContextMenuArea {
+        enabled: false;
         Menu {
             MenuItem { title: "Play"; activated => { root.playlist-action(12, entry.token); } }
             MenuItem { title: "Play in New Window"; activated => { root.playlist-action(9, entry.token); } }
@@ -143,6 +158,11 @@ export component CatalogSidebarRow inherits Rectangle {
     row-focus := FocusScope {
         width: 0px;
         key-pressed(event) => {
+            if pane-kind == 4 && event.text == Key.F10 && event.modifiers.shift
+                && !event.modifiers.alt && !event.modifiers.control && !event.modifiers.meta {
+                root.open-playlist-menu(12px, root.height);
+                return accept;
+            }
             // Preserve global playback shortcuts while a catalog row has focus.
             if event.modifiers.alt || event.modifiers.control || event.modifiers.meta || event.modifiers.shift { return reject; }
             if event.text == Key.Return {

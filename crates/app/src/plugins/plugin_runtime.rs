@@ -44,7 +44,7 @@ use std::{
         mpsc::{self, SyncSender},
     },
     thread::JoinHandle,
-    time::Duration,
+    time::{Duration, Instant},
 };
 use worker::run_entry_worker;
 
@@ -80,6 +80,13 @@ enum RuntimeCommand {
     DeliverOverlayMessage(String, serde_json::Value),
     DeliverSidebarMessage(String, serde_json::Value),
     DeliverPluginMenuAction(String),
+    BuildPlaylistMenu {
+        request: u64,
+        indices: Arc<[usize]>,
+        deadline: Instant,
+        response: SyncSender<Vec<PluginMenuItem>>,
+    },
+    ActivatePlaylistMenuItem(u64, String),
     DeliverPluginMessage(String, serde_json::Value),
     DeliverPlayerEvent(String, serde_json::Value),
     Barrier(mpsc::SyncSender<()>),
@@ -351,6 +358,30 @@ impl PluginRuntimeSession {
                 mpsc::TrySendError::Full(_) => "Plugin event queue is busy".into(),
                 mpsc::TrySendError::Disconnected(_) => "Plugin session has stopped".into(),
             })
+    }
+
+    pub(crate) fn build_playlist_menu(
+        &self,
+        request: u64,
+        indices: Arc<[usize]>,
+        deadline: Instant,
+    ) -> Option<mpsc::Receiver<Vec<PluginMenuItem>>> {
+        let (response, result) = mpsc::sync_channel(1);
+        self.commands
+            .try_send(RuntimeCommand::BuildPlaylistMenu {
+                request,
+                indices,
+                deadline,
+                response,
+            })
+            .ok()?;
+        Some(result)
+    }
+
+    pub(crate) fn activate_playlist_menu_item(&self, request: u64, id: String) {
+        let _ = self
+            .commands
+            .try_send(RuntimeCommand::ActivatePlaylistMenuItem(request, id));
     }
 
     pub fn deliver_plugin_message(
