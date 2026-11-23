@@ -149,6 +149,7 @@ fn ui(root: &Path) -> Result<(), String> {
 fn shared_build_input(path: &Path) -> bool {
     path.starts_with(".cargo")
         || path.starts_with("assets")
+        || path.starts_with("crates/test-support")
         || path.starts_with("tests/fixtures")
         || [
             "Cargo.toml",
@@ -241,8 +242,7 @@ fn native(root: &Path, filter: Option<&OsStr>) -> Result<(), String> {
         .env("RIINA_TEST_MPV_AUDIO_OUTPUT", "null")
         .args([
             "test",
-            "-p",
-            "riina-mpv",
+            "--workspace",
             "--test",
             "native",
             "--locked",
