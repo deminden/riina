@@ -44,18 +44,7 @@ fn check(root: &Path) -> Result<(), String> {
         ],
     )?;
     cargo(root, &["test", "--workspace", "--locked"])?;
-    python(
-        root,
-        &[
-            "-m",
-            "unittest",
-            "discover",
-            "-s",
-            "scripts/tests",
-            "-p",
-            "test_*.py",
-        ],
-    )?;
+    script_tests(root)?;
     for script in [
         "scripts/check-parity.py",
         "scripts/check-fixtures.py",
@@ -68,6 +57,7 @@ fn check(root: &Path) -> Result<(), String> {
 
 fn fast_check(root: &Path) -> Result<(), String> {
     cargo(root, &["fmt", "--all", "--", "--check"])?;
+    python(root, &["scripts/check-line-length.py"])?;
     let files = changed_files(root)?;
     if files.iter().any(|path| {
         path.starts_with("crates/ui/ui")
@@ -76,30 +66,65 @@ fn fast_check(root: &Path) -> Result<(), String> {
     }) {
         python(root, &["scripts/check-settings-navigation.py"])?;
     }
+    if files
+        .iter()
+        .any(|path| path.starts_with("scripts") || path.starts_with(".github/workflows"))
+    {
+        script_tests(root)?;
+    }
+    if files.iter().any(|path| path.starts_with("assets")) {
+        python(root, &["scripts/check-assets.py"])?;
+    }
+    if files.iter().any(|path| path.starts_with("tests/fixtures")) {
+        python(root, &["scripts/check-fixtures.py"])?;
+    }
     let workspace_wide = files.iter().any(|path| shared_build_input(path));
-    let selected = if workspace_wide {
-        BTreeSet::new()
-    } else {
-        changed_packages(root, &files)?
-    };
-    let mut args = vec!["clippy", "--all-targets", "--locked"];
+    let mut selected = Vec::new();
+    let packages;
     if workspace_wide {
-        args.push("--workspace");
+        selected.push("--workspace");
     } else {
-        if selected.is_empty() {
-            return core_tests(root);
+        let mut changed = changed_packages(root, &files)?;
+        if files
+            .iter()
+            .any(|path| path.starts_with("tests/visual/headless"))
+        {
+            changed.insert("riina-ui".to_owned());
         }
-        for package in &selected {
-            args.extend(["-p", package.as_str()]);
+        if changed.is_empty() {
+            return if files.is_empty() {
+                cargo(root, &["test", "-p", "riina-core", "--locked"])
+            } else {
+                Ok(())
+            };
+        }
+        packages = changed;
+        for package in &packages {
+            selected.extend(["-p", package.as_str()]);
         }
     }
-    args.extend(["--", "-D", "warnings"]);
-    cargo(root, &args)?;
-    core_tests(root)
+    let mut lint = vec!["clippy", "--all-targets", "--locked"];
+    lint.extend(&selected);
+    lint.extend(["--", "-D", "warnings"]);
+    cargo(root, &lint)?;
+    let mut tests = vec!["test", "--locked"];
+    tests.extend(selected);
+    cargo(root, &tests)
 }
 
-fn core_tests(root: &Path) -> Result<(), String> {
-    cargo(root, &["test", "-p", "riina-core", "--locked"])
+fn script_tests(root: &Path) -> Result<(), String> {
+    python(
+        root,
+        &[
+            "-m",
+            "unittest",
+            "discover",
+            "-s",
+            "scripts/tests",
+            "-p",
+            "test_*.py",
+        ],
+    )
 }
 
 fn ui(root: &Path) -> Result<(), String> {
@@ -124,6 +149,7 @@ fn ui(root: &Path) -> Result<(), String> {
 fn shared_build_input(path: &Path) -> bool {
     path.starts_with(".cargo")
         || path.starts_with("assets")
+        || path.starts_with("tests/fixtures")
         || [
             "Cargo.toml",
             "Cargo.lock",

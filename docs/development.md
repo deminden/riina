@@ -119,12 +119,14 @@ persists one batch before changing the in-memory rows and revision.
 
 ## Checks
 
-Use `cargo xtask check --fast` during development. It checks workspace
-formatting, lints crates with staged, unstaged or untracked changes, and runs the
-portable core tests. Edits to Slint or Settings search also check navigation
-before compilation. Shared build inputs select workspace-wide linting. Use
-`cargo xtask check` for the full local gate, including the Python, parity,
-fixture and asset checks. Run `cargo xtask native` separately for the native
+Use `cargo xtask check --fast` for a focused batch. It checks formatting and
+source line lengths, then lints and tests the crates with staged, unstaged or
+untracked changes. Slint and Settings search changes check navigation. Script
+and workflow changes run the Python suite. Shared build inputs and media
+fixtures select workspace-wide linting and tests. A clean checkout runs the
+portable core tests. Documentation-only batches stop after the source checks.
+Use `cargo xtask check` at integration points for the full local gate, including
+the Python, parity, fixture and asset checks. Run `cargo xtask native` for the native
 engine suite with null audio output. Tests in
 `crates/mpv/tests/native/` are grouped by feature. Run
 `cargo xtask native subtitles::` for just the subtitle cases or substitute
@@ -141,6 +143,9 @@ argument array with `@('xtask', 'check')` for the full gate or
 Run `cargo xtask ui` or `./scripts/dev.ps1 -CargoArguments @('xtask', 'ui')`
 for Slint changes. It checks Settings navigation and runs the headless widget
 tests and Windows pixel comparisons in one Cargo invocation.
+For a palette or layout adjustment, the Windows-only
+`cargo test -p riina-ui --test headless_visual --locked` compares the committed
+pixels without compiling the player application or provisioning libmpv.
 
 `cargo xtask coverage` is optional. If `cargo-llvm-cov` and the pinned
 toolchain's `llvm-tools` component are installed, it runs the workspace tests
