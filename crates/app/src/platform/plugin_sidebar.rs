@@ -47,6 +47,25 @@ struct SidebarEntry {
     message_bytes: usize,
 }
 
+impl SidebarEntry {
+    fn set_bounds(&mut self, bounds: Rect) {
+        if self.bounds != Some(bounds) && self.webview.set_bounds(bounds).is_ok() {
+            self.bounds = Some(bounds);
+        }
+    }
+
+    fn set_visible(&mut self, visible: bool) {
+        if self.webview.set_visible(visible).is_ok() {
+            if cfg!(target_os = "linux") && visible && !self.visible {
+                // GTK lays out visible children. A resize while the view was
+                // hidden can leave its child at the old allocation.
+                self.bounds = None;
+            }
+            self.visible = visible;
+        }
+    }
+}
+
 #[derive(Default)]
 pub(crate) struct PluginSidebarPresenter {
     entries: BTreeMap<String, SidebarEntry>,
@@ -147,12 +166,13 @@ impl PluginSidebarPresenter {
     pub(crate) fn update(&mut self, bounds: Rect, selected: Option<String>) {
         self.selected = selected;
         for (identifier, entry) in &mut self.entries {
-            if entry.bounds != Some(bounds) && entry.webview.set_bounds(bounds).is_ok() {
-                entry.bounds = Some(bounds);
-            }
-            entry.visible = self.selected.as_deref() == Some(identifier);
+            let visible = self.selected.as_deref() == Some(identifier);
+            entry.set_bounds(bounds);
             // A later update reapplies the desired visibility after a child window change.
-            let _ = entry.webview.set_visible(entry.visible);
+            entry.set_visible(visible);
+            if cfg!(target_os = "linux") && visible {
+                entry.set_bounds(bounds);
+            }
             if entry.ready.get() {
                 flush_messages(entry);
             }
@@ -161,9 +181,7 @@ impl PluginSidebarPresenter {
 
     fn update_visibility(&mut self) {
         for (identifier, entry) in &mut self.entries {
-            entry.visible = self.selected.as_deref() == Some(identifier);
-            // The next layout update reapplies visibility if the child is closing.
-            let _ = entry.webview.set_visible(entry.visible);
+            entry.set_visible(self.selected.as_deref() == Some(identifier));
         }
     }
 
