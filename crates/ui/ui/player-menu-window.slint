@@ -35,6 +35,7 @@ export component PlayerMenuWindow inherits Window {
     in property <bool> menu-value-picture-in-picture-active;
     in property <bool> menu-value-picture-in-picture-available;
     in property <[PluginMenuRow]> menu-value-plugin-menu-rows;
+    in property <[MenuCatalogRow]> menu-value-plugin-developer-rows;
     in-out property <int> menu-value-preferences-target-pane;
     in property <bool> menu-value-primary-shortcut-is-meta;
     in property <bool> menu-value-reflection-known;
@@ -508,6 +509,12 @@ export component PlayerMenuWindow inherits Window {
                 activated => { PlayerMenuActions.activate-plugin-menu-item(row.token); }
             }
             if root.menu-value-plugin-menu-rows.length > 0 : MenuSeparator {}
+            Menu { title: "Developer Tool"; enabled: root.menu-value-plugin-developer-rows.length > 0;
+                for row in root.menu-value-plugin-developer-rows : MenuItem {
+                    title: row.label;
+                    activated => { PlayerMenuActions.open-plugin-developer-tool(row.token); }
+                }
+            }
             MenuItem { title: "Reload All Plugins"; enabled: !root.menu-value-crop-editing;
                 activated => { PlayerMenuActions.reload-plugins(); } }
         }

@@ -3,7 +3,7 @@ use super::{
     AvailablePermissions, GlobalApiMode, MAX_RUNTIME_MEMORY, MAX_STACK_BYTES, PluginWorkerHost,
     RuntimeCommand, UiEffect, console,
     core_api::install_plugin_core_api,
-    events,
+    developer, events,
     file_api::install_plugin_file_api,
     input,
     menu::PLUGIN_MENU_API,
@@ -36,6 +36,7 @@ pub(super) fn run_entry_worker(
 ) {
     // The starter can time out and disconnect before receiving initialization errors.
     let execution = host.execution.clone();
+    let developer = host.developer.clone();
     let events = host.events.clone();
     let interrupt_control = execution.clone();
     let runtime = match Runtime::new() {
@@ -91,11 +92,14 @@ pub(super) fn run_entry_worker(
         )));
         return;
     }
+    let _developer_registration = developer.register();
     if ready.send(Ok(())).is_err() {
         return;
     }
 
-    run_callbacks(&context, &runtime, commands, &execution, &events, &services);
+    run_callbacks(
+        &context, &runtime, commands, &execution, &events, &services, &developer,
+    );
 }
 
 struct CancelOnExit {
@@ -130,6 +134,7 @@ fn initialize_realm(
     services: &RealmServices,
 ) -> rquickjs::Result<()> {
     let PluginWorkerHost {
+        developer,
         dialogs,
         input,
         standalone: _,
@@ -147,13 +152,7 @@ fn initialize_realm(
     let globals = ctx.globals();
     let api = Object::new(ctx.clone())?;
 
-    let log_events = events.clone();
-    api.set(
-        "log",
-        Func::from(move |message: String| {
-            record(&log_events, UiEffect::Log(message));
-        }),
-    )?;
+    console::install(&api, &events, developer)?;
     if permissions.show_osd {
         let osd_events = events.clone();
         api.set(
@@ -257,7 +256,6 @@ fn initialize_realm(
         services.overlay.clone(),
         services.sidebar.clone(),
     )?;
-    console::install(&api, &events)?;
 
     // Keep the entry's path on the stack only while it is being evaluated:
     // nested CommonJS loads resolve relative to that file.
@@ -291,6 +289,7 @@ fn run_callbacks(
     execution: &super::execution::ExecutionControl,
     events: &Mutex<Vec<super::HostEvent>>,
     services: &RealmServices,
+    developer: &developer::Prepared,
 ) {
     let mut prefer_timer = true;
     while !execution.is_cancelled() {
@@ -309,6 +308,13 @@ fn run_callbacks(
                 (format!("__riinaTimers.fire({id})"), "timer callback")
             }
             Some(RuntimeCommand::Shutdown) => break,
+            Some(RuntimeCommand::EvaluateDeveloper(request)) => {
+                developer.evaluate(context, runtime, execution, request);
+                if execution.interrupted() {
+                    break;
+                }
+                continue;
+            }
             Some(RuntimeCommand::Barrier(response)) => {
                 // A caller can time out before the worker reaches its barrier.
                 let _ = response.send(());
@@ -414,7 +420,7 @@ fn run_callbacks(
             ) => {
                 execution.begin();
                 let (label, evaluated) = dispatch_typed_callback(context, services, command);
-                if finish_turn(runtime, execution, events, label, evaluated) {
+                if finish_turn(runtime, execution, events, developer, label, evaluated) {
                     break;
                 }
                 continue;
@@ -422,7 +428,7 @@ fn run_callbacks(
         };
         execution.begin();
         let evaluated = evaluate_callback(context, script);
-        if finish_turn(runtime, execution, events, label, evaluated) {
+        if finish_turn(runtime, execution, events, developer, label, evaluated) {
             break;
         }
     }
@@ -504,16 +510,16 @@ fn finish_turn(
     runtime: &Runtime,
     execution: &super::execution::ExecutionControl,
     events: &Mutex<Vec<super::HostEvent>>,
+    developer: &developer::Prepared,
     label: &str,
     evaluated: Result<(), String>,
 ) -> bool {
     // Jobs queued before a synchronous exception still use this turn's deadline.
     let pending = execution.drain_jobs(runtime);
     for error in evaluated.err().into_iter().chain(pending.err()) {
-        record(
-            events,
-            UiEffect::Log(format!("Plugin {label} failed: {error}")),
-        );
+        let message = format!("Plugin {label} failed: {error}");
+        developer.log(crate::diagnostics::Level::Error, &message);
+        record(events, UiEffect::Log(message));
     }
     execution.interrupted()
 }

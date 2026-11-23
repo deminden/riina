@@ -1,4 +1,5 @@
 //! Plugin callbacks, presenters and timers are installed as one UI subsystem.
+mod developer;
 mod effects;
 mod input;
 mod playlist_menu;
@@ -22,6 +23,7 @@ pub(super) struct InstalledPluginUi {
     presenters: platform::PluginPresenters,
     menu_observation: platform::PluginMenuObservation,
     standalone: Option<Rc<RefCell<platform::plugin_standalone::Presenter>>>,
+    developer_tools: Option<Rc<RefCell<developer::Presenter>>>,
     pub(super) plugin_host_timer: Option<Rc<slint::Timer>>,
     pub(super) plugin_osd_timer: Option<Rc<slint::Timer>>,
     pub(super) plugin_command_sender: Arc<std::sync::Mutex<Option<riina_mpv::CommandSender>>>,
@@ -32,6 +34,7 @@ pub(super) struct RuntimeSession {
     _host_timer: Option<Rc<slint::Timer>>,
     _osd_timer: Option<Rc<slint::Timer>>,
     _standalone: Option<Rc<RefCell<platform::plugin_standalone::Presenter>>>,
+    _developer_tools: Option<Rc<RefCell<developer::Presenter>>>,
 }
 
 impl InstalledPluginUi {
@@ -55,6 +58,7 @@ impl InstalledPluginUi {
                 _host_timer: self.plugin_host_timer,
                 _osd_timer: self.plugin_osd_timer,
                 _standalone: self.standalone,
+                _developer_tools: self.developer_tools,
             },
         )
     }
@@ -70,7 +74,15 @@ pub(super) fn install(
     let plugin_window_host = native.map(platform::NativePresentation::host);
     let plugin_command_sender = Arc::new(std::sync::Mutex::new(None::<riina_mpv::CommandSender>));
     let presenters = platform::PluginPresenters::new(app);
-    bind_lifecycle(app, plugin_host_handle.as_ref(), presenters.sidebar.clone());
+    let developer_tools = plugin_host_handle
+        .as_ref()
+        .map(|handle| developer::Presenter::install(app, handle.ui.developer.clone()));
+    bind_lifecycle(
+        app,
+        plugin_host_handle.as_ref(),
+        presenters.sidebar.clone(),
+        developer_tools.as_ref(),
+    );
     playlist_menu::install(app, plugin_host_handle.as_ref());
     if let Some(handle) = &plugin_host_handle {
         input::install(app, &handle.ui.input);
@@ -97,9 +109,18 @@ pub(super) fn install(
             handle.ui.windows.clone(),
         )));
         let presenter_weak = Rc::downgrade(&presenter);
+        let developer_weak = developer_tools.as_ref().map(Rc::downgrade);
         let app_weak = app.as_weak();
         app.on_update_plugin_windows(move || {
-            if let (Some(app), Some(presenter)) = (app_weak.upgrade(), presenter_weak.upgrade())
+            let Some(app) = app_weak.upgrade() else {
+                return;
+            };
+            if let Some(presenter) = developer_weak.as_ref().and_then(std::rc::Weak::upgrade)
+                && let Ok(mut presenter) = presenter.try_borrow_mut()
+            {
+                presenter.update(&app);
+            }
+            if let Some(presenter) = presenter_weak.upgrade()
                 && let Ok(mut presenter) = presenter.try_borrow_mut()
             {
                 platform::pump_plugin_webviews();
@@ -160,6 +181,7 @@ pub(super) fn install(
         presenters,
         menu_observation,
         standalone,
+        developer_tools,
         plugin_host_timer,
         plugin_osd_timer,
         plugin_command_sender,
@@ -208,6 +230,7 @@ fn bind_lifecycle(
     app: &PlayerWindow,
     plugin_host_handle: Option<&crate::plugin_host::PluginHostHandle>,
     sidebar: Rc<RefCell<platform::PluginSidebarPresenter>>,
+    developer_tools: Option<&Rc<RefCell<developer::Presenter>>>,
 ) {
     let menu_action_host = plugin_host_handle.cloned();
     let menu_action_app = app.as_weak();
@@ -272,6 +295,7 @@ fn bind_lifecycle(
     let close_event_sent = Rc::new(Cell::new(false));
     let close_event_sent_once = close_event_sent.clone();
     let close_event_host = plugin_host_handle.cloned();
+    let developer_tools = developer_tools.map(Rc::downgrade);
     let weak = app.as_weak();
     app.on_window_will_close(move || {
         if close_event_sent_once.replace(true) {
@@ -279,6 +303,11 @@ fn bind_lifecycle(
         }
         if let Some(app) = weak.upgrade() {
             playlist_menu::dismiss(&app);
+        }
+        if let Some(presenter) = developer_tools.as_ref().and_then(std::rc::Weak::upgrade)
+            && let Ok(mut presenter) = presenter.try_borrow_mut()
+        {
+            presenter.close_all();
         }
         if let Some(host) = &close_event_host
             && let Err(error) = host.notify_window_will_close()

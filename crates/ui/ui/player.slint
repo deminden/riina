@@ -53,6 +53,7 @@ import { TopmostPin } from "player-chrome-controls.slint";
 export { AboutWindow } from "about-window.slint";
 export { PluginInteractionWindow } from "plugin-interaction.slint";
 export { PluginStandaloneWindow } from "plugin-standalone-window.slint";
+export { PluginDeveloperTool, DeveloperConsoleRow } from "plugin-developer-tool.slint";
 export { RecentMediaRow, WelcomeWindow } from "welcome-window.slint";
 import { Theme } from "theme.slint";
 import { QuickSettingsScrollPage, SidebarScrollMemory } from "quick-settings-scroll-page.slint";
@@ -127,6 +128,7 @@ export component PlayerWindow inherits PlayerMenuWindow {
     menu-value-picture-in-picture-active: root.picture-in-picture-active;
     menu-value-picture-in-picture-available: root.picture-in-picture-available;
     menu-value-plugin-menu-rows: root.plugin-menu-rows;
+    menu-value-plugin-developer-rows: root.plugin-developer-rows;
     menu-value-preferences-target-pane <=> root.preferences-target-pane;
     menu-value-primary-shortcut-is-meta: root.primary-shortcut-is-meta;
     menu-value-reflection-known: root.reflection-known;
@@ -165,6 +167,8 @@ export component PlayerWindow inherits PlayerMenuWindow {
     in property <bool> downloaded-subtitle-save-available: false;
     in property <string> current-file-manager-name: "File Manager";
     in property <[PluginMenuRow]> plugin-menu-rows: [];
+    in property <[MenuCatalogRow]> plugin-developer-rows: [];
+    changed plugin-developer-rows => { PlayerMenuActions.video-menu-changed(); }
     in property <[string]> plugin-menu-order: [];
     changed plugin-menu-rows => { PlayerMenuActions.video-menu-changed(); }
     callback refresh-hdr-output();

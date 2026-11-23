@@ -2,6 +2,7 @@
 
 mod console;
 mod core_api;
+pub(crate) mod developer;
 mod events;
 mod execution;
 #[cfg(test)]
@@ -87,6 +88,7 @@ pub enum UiEffect {
 }
 
 enum RuntimeCommand {
+    EvaluateDeveloper(developer::Request),
     #[cfg(any(target_os = "windows", test))]
     DeliverOverlayMessage(String, serde_json::Value),
     DeliverSidebarMessage(String, serde_json::Value),
@@ -120,6 +122,7 @@ enum GlobalApiMode {
 }
 
 struct PluginWorkerHost {
+    developer: developer::Prepared,
     dialogs: utilities::PluginDialogs,
     input: Arc<input::Endpoint>,
     standalone: Arc<standalone::Endpoint>,
@@ -137,6 +140,7 @@ struct PluginWorkerHost {
 
 #[derive(Clone, Default)]
 pub(crate) struct PluginUi {
+    pub(crate) developer: developer::Directory,
     pub(crate) dialogs: utilities::PluginDialogs,
     pub(crate) input: input::Router,
     pub(crate) windows: standalone::Hub,
@@ -284,6 +288,11 @@ impl PluginRuntimeSession {
             commands.clone(),
             storage.ui.input.bindings.clone(),
         ));
+        let developer = storage.ui.developer.prepare(
+            &storage.plugin_name,
+            global_api_mode == Some(GlobalApiMode::Controller),
+            commands.clone(),
+        );
         let standalone = storage.ui.windows.register(
             storage.plugin_name,
             module_context.as_ref().map(|module| module.root.clone()),
@@ -320,6 +329,7 @@ impl PluginRuntimeSession {
                 plugin_identifier,
                 permissions,
                 PluginWorkerHost {
+                    developer,
                     dialogs: storage.ui.dialogs,
                     input: worker_input,
                     standalone,

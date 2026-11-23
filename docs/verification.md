@@ -1475,6 +1475,40 @@ player instances. The Linux executable and pinned engine SHA-256 values were
 Strict Apple Silicon cross-target Clippy passed. The IINA Developer Tool
 console and native macOS behavior remain open.
 
+### Plugin Developer Tool 2026-11-23
+
+The Plugin menu lists live player and global entries under Developer Tool.
+Each console owns the window and transcript for one QuickJS entry. Commands
+run on that entry's existing worker and use its execution limits and reviewed
+permissions. Reopening the window keeps its transcript. Reloading the plugin
+closes the previous console and exposes the new entry in the menu.
+
+The runtime regression evaluated commands in separate player and global
+entries, received leveled logs and a thrown exception, listed global names,
+cleared the console, and confirmed the old console could no longer submit
+commands after its entry was replaced.
+
+Windows passed the workspace checks and the compact toolbar follow-up passed
+the focused app and UI checks and locked workspace build. On a private desktop,
+the native menu opened both named consoles. Their Run buttons sent commands
+to separate live entries, which wrote `11` and `101` to the test package's
+data directory. The player exited normally with both consoles open. The
+executable SHA-256 was
+`04935f8af8fcc2a870d49366f61bd422a2c18f6c1f1e6cf59ad89f1d5753c1bd`.
+
+Linux passed strict workspace Clippy, 122 plugin tests and the locked
+application build. An isolated X11 run evaluated commands through Ctrl+Enter
+in both console windows. Reload closed the old windows, and the replacement
+player entry evaluated with fresh state. The compact toolbar follow-up passed
+the headless layout regression and the same X11 workflow. The final X11
+executable SHA-256 was
+`1ee23fa2991ab0f67cd9454e47bee978fccef19a2f4d098c021fbf9552045537`.
+It used engine SHA-256
+`84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`.
+Strict Apple Silicon cross-target Clippy passed before the toolbar follow-up.
+Expandable object inspection, transcript spacing and native macOS interaction
+remain open.
+
 ### Plugin playlist context menus 2026-11-23
 
 The headless player test sent a right click to a playlist row and checked

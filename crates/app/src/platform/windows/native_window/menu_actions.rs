@@ -333,6 +333,10 @@ pub(super) fn install_playback(host: &NativeVideoHost, app: &PlayerWindow) {
         app.global::<PlayerMenuActions>()
             .invoke_activate_plugin_menu_item(token);
     });
+    forward!(host, app, on_open_plugin_developer_tool, |token| {
+        app.global::<PlayerMenuActions>()
+            .invoke_open_plugin_developer_tool(token);
+    });
     forward!(host, app, on_open_jump_time_dialog, || {
         app.global::<PlayerMenuActions>()
             .invoke_open_jump_time_dialog();

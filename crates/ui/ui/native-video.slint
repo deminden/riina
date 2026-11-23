@@ -21,7 +21,9 @@ export component NativeVideoHost inherits Window {
     callback manage-plugins();
     callback reload-plugins();
     callback activate-plugin-menu-item(string);
+    callback open-plugin-developer-tool(string);
     in property <[PluginMenuRow]> plugin-menu-rows: [];
+    in property <[MenuCatalogRow]> plugin-developer-rows: [];
     callback open-media-file();
     callback open-in-new-window();
     callback reveal-current-media();
@@ -607,6 +609,12 @@ export component NativeVideoHost inherits Window {
                 activated => { root.activate-plugin-menu-item(row.token); }
             }
             if root.plugin-menu-rows.length > 0 : MenuSeparator {}
+            Menu { title: "Developer Tool"; enabled: root.plugin-developer-rows.length > 0;
+                for row in root.plugin-developer-rows : MenuItem {
+                    title: row.label;
+                    activated => { root.open-plugin-developer-tool(row.token); }
+                }
+            }
             MenuItem { title: "Reload All Plugins"; activated => { root.reload-plugins(); } }
         }
         Menu { title: "Window";

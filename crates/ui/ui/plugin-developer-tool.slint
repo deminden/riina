@@ -1,0 +1,101 @@
+import { Button, Palette, ScrollView, TextEdit } from "std-widgets.slint";
+import { Theme } from "theme.slint";
+
+export struct DeveloperConsoleRow { label: string, text: string, error: bool }
+
+export component PluginDeveloperTool inherits Window {
+    in property <string> realm-title;
+    in property <[DeveloperConsoleRow]> lines;
+    in property <int> transcript-revision;
+    in property <string> status;
+    in property <bool> primary-shortcut-is-meta;
+    callback evaluate(string) -> bool;
+    callback show-globals();
+    callback clear-history();
+
+    title: "DevTool: " + root.realm-title;
+    preferred-width: 500px;
+    preferred-height: 400px;
+    min-width: 340px;
+    min-height: 230px;
+    background: Palette.background;
+
+    init => { editor.focus(); }
+    public function focus-editor() { editor.focus(); }
+    function run() {
+        if root.evaluate(editor.text) { editor.text = ""; }
+        editor.focus();
+    }
+
+    FocusScope {
+        width: parent.width;
+        height: parent.height;
+        focus-on-click: false;
+        capture-key-pressed(event) => {
+            if event.text == Key.Return && (event.modifiers.control || event.modifiers.meta)
+                && !event.modifiers.shift && !event.modifiers.alt {
+                root.run();
+                return accept;
+            }
+            return reject;
+        }
+
+        VerticalLayout {
+            spacing: 0px;
+            transcript := ScrollView {
+                vertical-stretch: 1;
+                horizontal-scrollbar-policy: always-off;
+                content-width: self.visible-width;
+                content-height: max(self.height, transcript-body.preferred-height);
+                private property<int> revision: root.transcript-revision;
+                changed revision => { self.content-y = min(0px, self.visible-height - self.content-height); }
+                VerticalLayout {
+                    transcript-body := VerticalLayout {
+                        padding: 8px;
+                        spacing: 5px;
+                        for line in root.lines : HorizontalLayout {
+                            alignment: start;
+                            spacing: 7px;
+                            Text {
+                                width: 49px; text: line.label; font-size: 11px;
+                                color: line.error ? Theme.player-dialog-error : Palette.foreground;
+                            }
+                            Text {
+                                text: line.text; horizontal-stretch: 1;
+                                font-family: "monospace"; font-size: 12px; wrap: word-wrap;
+                                color: line.error ? Theme.player-dialog-error : Palette.foreground;
+                            }
+                        }
+                    }
+                }
+            }
+            Rectangle { height: 1px; background: Palette.foreground.with-alpha(0.18); }
+            VerticalLayout {
+                vertical-stretch: 0;
+                padding: 8px;
+                spacing: 6px;
+                HorizontalLayout {
+                    height: 28px;
+                    spacing: 6px;
+                    Button { text: "Run"; enabled: editor.text != ""; clicked => { root.run(); } }
+                    Button { text: "Global Objects"; clicked => { root.show-globals(); } }
+                    Button { text: "Clear History"; enabled: root.lines.length > 0;
+                        clicked => { root.clear-history(); editor.focus(); } }
+                    Rectangle { horizontal-stretch: 1; }
+                    Text {
+                        text: root.primary-shortcut-is-meta ? "⌘ Return" : "Ctrl+Enter";
+                        font-size: 11px; vertical-alignment: center; color: Palette.foreground;
+                    }
+                }
+                if root.status != "" : Text { text: root.status; wrap: word-wrap;
+                    color: Theme.player-dialog-error; font-size: 11px; }
+                editor := TextEdit {
+                    height: 85px;
+                    font-family: "monospace";
+                    font-size: 12px;
+                    placeholder-text: "JavaScript";
+                }
+            }
+        }
+    }
+}
