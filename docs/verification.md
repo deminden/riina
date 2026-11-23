@@ -646,6 +646,16 @@ formats and confirmed that the hidden-subtitle capture exactly matched the
 video-only capture. These tests exercised engine output without launching
 Riina's application window.
 
+At `a6e9da3`, the Windows workspace gate passed 861 Rust tests and 78
+Python tests, including the headless player and Settings pixel comparisons.
+The Win32 visibility test verified that the two-second HDR display timer
+pauses when the owner is hidden or minimized, resumes on restore and stops
+at teardown. An earlier build of the same timer change, before moving the
+shared display update into the platform module, passed the locked workspace
+build, all 55 pinned DLL checks and all ten private-desktop smoke checks
+in 9.336 seconds. The test process exited normally. Physical HDR output was
+outside this run's scope.
+
 On `954d4d6`, separate private-desktop runs reopened and played media after
 recovering a profile with an invalid setting type, a non-object JSON document,
 or invalid UTF-8. Each run showed the recovery notice, preserved the original
@@ -919,3 +929,14 @@ probe supplied default control preferences. In a separate full-workspace
 source check, the Objective-C exception helper's documentation mode let
 compilation continue to `ring`, which still required an Apple-target C
 compiler. Full native application and playback verification remain open.
+
+At `a6e9da3`, the entire locked workspace passed
+`cargo clippy --workspace --all-targets --locked --offline --target aarch64-apple-darwin -- -D warnings`
+from Windows. The cross-check used the verified Zig 0.15.2 release for C
+dependencies, with `CC_aarch64_apple_darwin` pointing to
+`zig cc -target aarch64-macos.11.0` and `AR_aarch64_apple_darwin` to
+`zig ar`. `CRATE_CC_NO_DEFAULTS=1` avoided cc-rs passing a second target,
+and `CFLAGS_aarch64_apple_darwin="-O1 -fPIC"` supplied the C build flags.
+The check used the normal Objective-C exception helper and compiled the
+application and test sources. Apple framework linking, test execution and
+desktop playback still need a native macOS verification run.
