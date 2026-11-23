@@ -34,6 +34,9 @@ pub(crate) fn select_shared_backend(preferences: &Preferences) -> Result<(), Pla
     let backend = BackendSelector::new()
         .backend_name("winit".into())
         .renderer_name("femtovg".into());
+    #[cfg(target_os = "linux")]
+    let backend =
+        backend.with_winit_custom_application_handler(super::wayland_drop::Handler::default());
     #[cfg(target_os = "windows")]
     // Slint only derives native alpha-window attributes from its scene on
     // macOS. Create Windows auxiliary windows alpha-capable up front so a

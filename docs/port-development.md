@@ -21,9 +21,10 @@ GTK 3, WebKitGTK 4.1 and `pkg-config`. The current plugin child-WebView adapter
 supports X11, not Wayland embedding. Linux file selection needs an available
 XDG Desktop Portal backend; the dialog dependency supports X11 and Wayland parents.
 
-Native file drops in the player, Welcome window and playlist have X11 desktop
-evidence. Wayland file-drop handling remains open.
-[X11 playlist drop checks](verification.md#files-dropped-into-the-playlist-2026-11-23)
+Native file drops in the player, Welcome window and playlist have X11 and
+Wayland desktop evidence. Wayland also accepts plain-text media URLs.
+[X11 playlist drop checks](verification.md#files-dropped-into-the-playlist-2026-11-23),
+[Wayland drop checks](verification.md#wayland-file-and-url-drops-2026-11-23)
 
 On Ubuntu 24.04, install the WebView development packages before building:
 

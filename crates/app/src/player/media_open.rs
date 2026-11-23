@@ -321,6 +321,12 @@ impl WelcomeDrop {
 
 fn dropped_lut(paths: &[OsString]) -> Option<Result<String, String>> {
     let [path] = paths else { return None };
+    if path
+        .to_str()
+        .is_some_and(riina_core::media_reference::is_network_url_candidate)
+    {
+        return None;
+    }
     let extension = Path::new(path).extension()?;
     if !["3dl", "cube", "dat", "m3d"]
         .iter()
@@ -596,6 +602,7 @@ enum PreparedSelection {
 fn dropped_subtitles(paths: &[String]) -> Vec<String> {
     paths
         .iter()
+        .filter(|path| !riina_core::media_reference::is_network_url_candidate(path))
         .map(|path| crate::platform::resolve_alias_path(path))
         .filter(|path| riina_core::file_selection::is_supported_subtitle(path))
         .collect()

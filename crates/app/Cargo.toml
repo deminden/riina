@@ -62,6 +62,7 @@ zbus = "=5.19.0"
 gtk = "=0.18.2"
 wry = { workspace = true, features = ["os-webview", "x11"] }
 percent-encoding = "=2.3.2"
+wayland-client = { version = "=0.31.15", features = ["system", "dlopen"] }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2 = "=0.6.5"

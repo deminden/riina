@@ -155,8 +155,12 @@ fn install_window_events(
     let event_app = app.as_weak();
     let event_trackpad_pause_generation = trackpad_pause_generation;
     let event_focused = Rc::downgrade(&focused);
-    let playlist_hover = PlaylistHover::new(app);
+    let playlist_hover = Rc::new(PlaylistHover::new(app));
+    #[cfg(target_os = "linux")]
+    let wayland_drop = playlist_drop::register_wayland(app, &event_player, playlist_hover.clone());
     app.window().on_winit_window_event(move |window, event| {
+        #[cfg(target_os = "linux")]
+        let _ = &wayland_drop;
         if handle_window_event(window, event) == EventResult::PreventDefault {
             return EventResult::PreventDefault;
         }

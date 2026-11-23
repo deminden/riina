@@ -64,13 +64,41 @@ impl PlaylistHover {
             | WindowEvent::DroppedFile(_)
             | WindowEvent::CloseRequested
             | WindowEvent::Destroyed => {
-                self.timer.stop();
-                let drag = self.drag.borrow_mut().take();
-                if let (Some(drag), Some(app)) = (drag, self.player.upgrade()) {
-                    drag.finish(&app);
-                }
+                self.finish();
             }
             _ => {}
+        }
+    }
+
+    fn finish(&self) {
+        self.timer.stop();
+        let drag = self.drag.borrow_mut().take();
+        if let (Some(drag), Some(app)) = (drag, self.player.upgrade()) {
+            drag.finish(&app);
+        }
+    }
+
+    #[cfg(target_os = "linux")]
+    pub(super) fn on_wayland(&self, hover: platform::wayland_drop::Hover) {
+        use platform::wayland_drop::Hover;
+        match hover {
+            Hover::Entered(paths, position) => {
+                self.finish();
+                *self.drag.borrow_mut() = Some(Drag {
+                    paths,
+                    position: Some(position),
+                    eligibility: Arc::default(),
+                    dwell: Dwell::default(),
+                    revealed: false,
+                });
+                self.timer.restart();
+            }
+            Hover::Moved(position) => {
+                if let Some(drag) = self.drag.borrow_mut().as_mut() {
+                    drag.position = Some(position);
+                }
+            }
+            Hover::Left => self.finish(),
         }
     }
 }
@@ -94,12 +122,15 @@ fn sample(app: &PlayerWindow, active: &mut Option<Drag>) -> bool {
     let window = app.window();
     let size = window.size().to_logical(window.scale_factor());
     // Winit reports the file list on entry, without the later drag coordinates.
-    let position = platform::file_drop_position(window).filter(|point| {
-        point.x > size.width * 0.8
-            && point.x < size.width
-            && point.y >= 0.0
-            && point.y < size.height
-    });
+    let position = drag
+        .position
+        .or_else(|| platform::file_drop_position(window))
+        .filter(|point| {
+            point.x > size.width * 0.8
+                && point.x < size.width
+                && point.y >= 0.0
+                && point.y < size.height
+        });
     let settled = drag.dwell.settled(position, Instant::now());
     if position.is_none() || drag.eligibility.scanning.load(Ordering::Acquire) {
         return true;
@@ -138,6 +169,7 @@ struct Drag {
     paths: Vec<PathBuf>,
     eligibility: Arc<Eligibility>,
     dwell: Dwell,
+    position: Option<LogicalPosition>,
     revealed: bool,
 }
 

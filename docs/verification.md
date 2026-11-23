@@ -1222,6 +1222,29 @@ The Windows locked build and workspace gate passed, including 875 Rust and
 78 Python tests. The Linux locked build, strict workspace Clippy and 838 Rust
 tests passed. Native drag-and-drop verification in this batch covers X11.
 
+### Wayland file and URL drops 2026-11-23
+
+Riina negotiates the Wayland data offer on Winit's display. It reads URI lists
+and plain-text media references off the UI thread. It uses compositor coordinates
+for hover and playlist insertion. During the first Welcome test the compositor
+delivered the drop, but the player stayed unmapped until it received an explicit
+first-frame redraw. Riina now requests that redraw when it shows a Wayland
+toplevel.
+
+On Ubuntu 26.04 in WSL, Sway ran with XWayland disabled and no X11 display.
+A native GTK file drag opened the fixture from Welcome and presented video.
+A folder drag revealed the playlist, appended both files and closed the
+temporary playlist. Playback stayed paused at 1.25 s. A plain-text HTTP URL
+drop opened a second fixture served over loopback. The 1280 × 800 desktop
+captures showed video and the revealed playlist. Quit closed Riina, and the
+isolated compositor shut down. The verified Linux executable SHA-256 was
+`9b8c7576ed925d776f28e2c1455d082722fa2686ef4bf8089fe7cae7d4b70ec1`.
+
+The Windows workspace gate passed 875 Rust and 78 Python tests, and the locked
+build passed. The Linux locked build, strict workspace Clippy and 839 Rust
+tests passed. On X11, the same executable opened a mixed media and subtitle
+drop from Welcome, attached the subtitle and quit normally.
+
 ### Audio equalizer profile menu 2026-10-14
 
 Core/native coverage checks gains and the dedicated filter. Profile identity

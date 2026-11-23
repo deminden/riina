@@ -14,11 +14,47 @@ pub(super) enum Target {
     },
 }
 
+#[cfg(target_os = "linux")]
+pub(super) fn register_wayland(
+    app: &PlayerWindow,
+    sender: &CommandSender,
+    hover: std::rc::Rc<super::playlist_hover::PlaylistHover>,
+) -> platform::wayland_drop::Registration {
+    let weak = app.as_weak();
+    let sender = sender.clone();
+    platform::wayland_drop::register(
+        app,
+        move |event| hover.on_wayland(event),
+        move |position| {
+            let app = weak.upgrade()?;
+            let target = target_at(&app, position);
+            let generation = app.get_media_request_generation();
+            let weak = weak.clone();
+            let sender = sender.clone();
+            Some(Box::new(move |paths| {
+                if let Some(app) = weak.upgrade()
+                    && app.window().is_visible()
+                    && app.get_media_request_generation() == generation
+                {
+                    handle(&app, &sender, target, paths);
+                }
+            }))
+        },
+    )
+}
+
 pub(super) fn target(app: &PlayerWindow, window: &slint::Window) -> Result<Target, String> {
-    let sidebar = app.global::<PlayerSidebarState>();
     let Some(position) = platform::file_drop_position(window) else {
         return Ok(Target::Player);
     };
+    target_at(app, position)
+}
+
+pub(super) fn target_at(
+    app: &PlayerWindow,
+    position: slint::LogicalPosition,
+) -> Result<Target, String> {
+    let sidebar = app.global::<PlayerSidebarState>();
     let Ok(index) = usize::try_from(sidebar.invoke_playlist_drop_slot(position.x, position.y))
     else {
         return Ok(Target::Player);

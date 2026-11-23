@@ -1,6 +1,12 @@
 //! Linux window managers minimize individual toplevels, so Hide Riina visits our own windows.
 
-use slint::{ComponentHandle, Window};
+use slint::{
+    ComponentHandle, Window,
+    winit_030::{
+        WinitWindowAccessor,
+        winit::raw_window_handle::{HasWindowHandle, RawWindowHandle},
+    },
+};
 use std::{cell::RefCell, collections::BTreeMap, ptr};
 
 type WindowVisit = Box<dyn Fn(&mut dyn FnMut(&Window)) -> bool>;
@@ -31,6 +37,19 @@ pub(crate) fn track(window: &(impl ComponentHandle + 'static)) {
                 true
             }),
         );
+    });
+}
+
+pub(crate) fn request_wayland_first_frame(window: &Window) {
+    window.with_winit_window(|native| {
+        if native
+            .window_handle()
+            .is_ok_and(|handle| matches!(handle.as_raw(), RawWindowHandle::Wayland(_)))
+        {
+            // A Wayland toplevel becomes visible after its first buffer commit.
+            // An already-created window can miss the redraw it received while hidden.
+            native.request_redraw();
+        }
     });
 }
 

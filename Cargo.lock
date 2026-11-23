@@ -5164,6 +5164,7 @@ dependencies = [
  "unicode-segmentation",
  "ureq",
  "url",
+ "wayland-client",
  "windows",
  "winresource",
  "wry",

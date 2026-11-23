@@ -85,7 +85,7 @@ pub fn prepare(
     let mut local_files = Vec::new();
     let mut seen = HashSet::new();
     for path in paths {
-        if open_media && crate::media_reference::is_network_url_candidate(&path) {
+        if crate::media_reference::is_network_url_candidate(&path) {
             // URLs are already explicit playlist entries; never treat their
             // slashes as directories or reorder them with local selections.
             flush_local_files(&mut local_files, &mut files, &mut seen, &compare_names);
@@ -119,7 +119,9 @@ pub fn can_add_to_playlist(path: &str, cancelled: impl Fn() -> bool) -> bool {
     if path.is_empty() || path.contains('\0') || cancelled() {
         return false;
     }
-    if Path::new(path).is_dir() {
+    if crate::media_reference::is_network_url_candidate(path) {
+        crate::media_reference::validate_network_url(path).is_ok()
+    } else if Path::new(path).is_dir() {
         scan_folder(Path::new(path), cancelled, |_| true).unwrap_or(false)
     } else {
         accepts_playlist_file(path)
@@ -315,6 +317,9 @@ mod tests {
             assert_eq!(can_add_to_playlist(&tree.path(name), || false), accepted);
         }
         assert!(!can_add_to_playlist(&tree.path("mixed"), || true));
+        let stream = "https://example.test/live.m3u8";
+        assert!(can_add_to_playlist(stream, || false));
+        assert_eq!(prepare(vec![stream.into()], false).unwrap(), [stream]);
     }
 
     #[test]

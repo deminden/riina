@@ -83,6 +83,12 @@ Slint has one Winit event callback per window. The player combines file drops,
 focus, wheel input, trackpad gestures and shared-renderer resize events in that
 callback. The framed Windows video owner registers its own event callback.
 
+On Wayland, the application registers one data device per seat on Winit's
+display. Winit reads the display socket and Riina dispatches its drop queue
+from the same event loop. Drop payloads are read in the background, and the
+compositor's surface-relative coordinates select the owning window and playlist
+row. Winit keeps ownership of the display.
+
 Each player retains its latest 16 engine notices. The status line and the
 plugin snapshot expose the active notice. Clearing it leaves prior notices in
 the history, and the engine logs each new notice when it occurs.

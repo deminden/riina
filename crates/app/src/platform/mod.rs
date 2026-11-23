@@ -35,6 +35,8 @@ pub(crate) mod transition_cover;
 pub(crate) mod window_document;
 pub(crate) use system_media_session::SystemMediaSession;
 pub(crate) mod video_materials;
+#[cfg(target_os = "linux")]
+pub(crate) mod wayland_drop;
 pub(crate) mod window_sizing;
 
 #[cfg(any(target_os = "windows", test))]
@@ -540,7 +542,10 @@ pub(crate) fn show_window(
 ) -> Result<(), slint::PlatformError> {
     window.show()?;
     #[cfg(target_os = "linux")]
-    unix::visibility::track(window);
+    {
+        unix::visibility::track(window);
+        unix::visibility::request_wayland_first_frame(window.window());
+    }
     Ok(())
 }
 

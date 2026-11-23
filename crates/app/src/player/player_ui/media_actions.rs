@@ -155,66 +155,78 @@ fn install_welcome_drop(app: &PlayerWindow, context: &Context<'_>, pending: &Wel
     let pending = pending.clone();
     let host = context.open_host.clone();
     let prefs_path = context.prefs_path.clone();
-    let (_, file_drop) = platform::batched_file_drops(
-        |_| (),
-        move |(), paths| {
-            let (Some(welcome_window), Some(app)) = (welcome.upgrade(), player.upgrade()) else {
-                return;
-            };
-            if !welcome_window.window().is_visible() {
-                return;
-            }
-            let generation = media_open::invalidate(&app);
-            welcome_window.set_drop_error("".into());
-            let (welcome, player, sender, pending, host, prefs_path) = (
-                welcome.clone(),
-                player.clone(),
-                sender.clone(),
-                pending.clone(),
-                host.clone(),
-                prefs_path.clone(),
-            );
-            let started = crate::background::spawn_named("welcome-drop", move || {
-                let result = crate::preference_load::read_valid(&prefs_path)
-                    .map_err(|error| error.to_string())
-                    .and_then(|prefs| {
-                        media_open::WelcomeDrop::prepare(paths, &prefs.unwrap_or_default())
-                    });
-                let _ = crate::background::to_ui(player, move |app| {
-                    let Some(welcome) = welcome.upgrade() else {
-                        return;
-                    };
-                    if app.get_media_request_generation() != generation
-                        || !welcome.window().is_visible()
-                    {
-                        return;
-                    }
-                    match result {
-                        Ok(drop) => {
-                            platform::set_native_video_host_visible(host.as_ref(), true);
-                            if let Err(error) = platform::show_window(&app) {
-                                platform::set_native_video_host_visible(host.as_ref(), false);
-                                welcome.set_drop_error(error.to_string().into());
-                                return;
-                            }
-                            let _ = welcome.hide();
-                            submit_welcome_open(
-                                &app,
-                                &sender,
-                                &pending,
-                                PendingWelcomeOpen::Drop(drop, generation),
-                            );
-                        }
-                        Err(error) => welcome.set_drop_error(error.into()),
-                    }
+    let open = Rc::new(move |paths| {
+        let (Some(welcome_window), Some(app)) = (welcome.upgrade(), player.upgrade()) else {
+            return;
+        };
+        if !welcome_window.window().is_visible() {
+            return;
+        }
+        let generation = media_open::invalidate(&app);
+        welcome_window.set_drop_error("".into());
+        let (welcome, player, sender, pending, host, prefs_path) = (
+            welcome.clone(),
+            player.clone(),
+            sender.clone(),
+            pending.clone(),
+            host.clone(),
+            prefs_path.clone(),
+        );
+        let started = crate::background::spawn_named("welcome-drop", move || {
+            let result = crate::preference_load::read_valid(&prefs_path)
+                .map_err(|error| error.to_string())
+                .and_then(|prefs| {
+                    media_open::WelcomeDrop::prepare(paths, &prefs.unwrap_or_default())
                 });
+            let _ = crate::background::to_ui(player, move |app| {
+                let Some(welcome) = welcome.upgrade() else {
+                    return;
+                };
+                if app.get_media_request_generation() != generation
+                    || !welcome.window().is_visible()
+                {
+                    return;
+                }
+                match result {
+                    Ok(drop) => {
+                        platform::set_native_video_host_visible(host.as_ref(), true);
+                        if let Err(error) = platform::show_window(&app) {
+                            platform::set_native_video_host_visible(host.as_ref(), false);
+                            welcome.set_drop_error(error.to_string().into());
+                            return;
+                        }
+                        let _ = welcome.hide();
+                        submit_welcome_open(
+                            &app,
+                            &sender,
+                            &pending,
+                            PendingWelcomeOpen::Drop(drop, generation),
+                        );
+                    }
+                    Err(error) => welcome.set_drop_error(error.into()),
+                }
             });
-            if let Err(error) = started {
-                welcome_window.set_drop_error(error.to_string().into());
-            }
-        },
-    );
+        });
+        if let Err(error) = started {
+            welcome_window.set_drop_error(error.to_string().into());
+        }
+    });
+    #[cfg(target_os = "linux")]
+    let wayland_drop = {
+        let open = open.clone();
+        platform::wayland_drop::register(
+            window,
+            |_| {},
+            move |_| {
+                let open = open.clone();
+                Some(Box::new(move |paths| open(paths)))
+            },
+        )
+    };
+    let (_, file_drop) = platform::batched_file_drops(|_| (), move |(), paths| open(paths));
     window.window().on_winit_window_event(move |window, event| {
+        #[cfg(target_os = "linux")]
+        let _ = &wayland_drop;
         file_drop(window, event);
         EventResult::Propagate
     });
