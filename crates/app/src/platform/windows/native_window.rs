@@ -211,7 +211,7 @@ impl NativeApp {
                 // to our owner router so it cannot replace alignment/focus handling.
                 let media_geometry = crate::window_aspect::MediaGeometry::default();
                 *startup_resize_filter.borrow_mut() = Some(
-                    crate::window_aspect::connect_to_native_host(&app, &host, &media_geometry),
+                    crate::window_aspect::connect_with_target(&app, Some(&host), &media_geometry),
                 );
                 install_menu_lifecycle(
                     &host,

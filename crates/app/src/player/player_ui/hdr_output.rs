@@ -55,11 +55,11 @@ fn apply(
     let enabled = requested && video.get_hdr_source_detected() && video.get_hdr_display_active();
     match send(Command::SetHdrEnabledWithIcc {
         enabled,
-        load_icc_profile: use_display_profile(
+        load_icc_profile: crate::platform::video_materials::use_display_icc_profile(
             app.global::<riina_ui::PlayerPreferences>()
                 .get_load_icc_profile(),
             video.get_hdr_source_detected(),
-            cfg!(target_os = "windows") && app.get_native_video(),
+            app.get_native_video(),
         ),
     }) {
         Ok(()) => {
@@ -74,14 +74,6 @@ fn apply(
             false
         }
     }
-}
-
-fn use_display_profile(requested: bool, hdr_source: bool, windows_native: bool) -> bool {
-    // The native Windows swap chain is linear scRGB. An automatic ICC 3DLUT
-    // replaces mpv's target with the profile's SDR transfer/white level during
-    // HDR conversion, flattening shadows on an SDR desktop. Keep HDR conversion
-    // in the swap chain's color space; Windows presents that tagged surface.
-    requested && !(hdr_source && windows_native)
 }
 
 pub(super) fn initialize_display(

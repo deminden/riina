@@ -13,6 +13,14 @@ pub(crate) const WINDOWS_NATIVE_MATERIAL_BLUR_SIGMA: f32 = 10.0;
 pub(crate) const WINDOWS_NATIVE_MATERIAL_SAMPLE_WIDTH: f32 = 320.0;
 pub(crate) const WINDOWS_NATIVE_MATERIAL_SAMPLE_HEIGHT: f32 = 180.0;
 
+pub(crate) fn use_display_icc_profile(requested: bool, hdr_source: bool, native: bool) -> bool {
+    // The native Windows swap chain is linear scRGB. An automatic ICC 3DLUT
+    // replaces mpv's target with the profile's SDR transfer/white level during
+    // HDR conversion, flattening shadows on an SDR desktop. Keep HDR conversion
+    // in the swap chain's color space; Windows presents that tagged surface.
+    requested && !(cfg!(target_os = "windows") && hdr_source && native)
+}
+
 pub(crate) struct Monitor {
     #[cfg(target_os = "windows")]
     sample: Option<super::windows::video_material_sampler::MaterialTimer>,

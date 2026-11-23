@@ -27,44 +27,19 @@ impl MediaGeometry {
 }
 
 pub(crate) fn connect(app: &PlayerWindow, source: &MediaGeometry) {
-    let filter = connect_with_target(
-        app,
-        WindowTarget(None),
-        pixel_size(app.window().size()),
-        source,
-    );
+    let filter = connect_with_target(app, None, source);
     app.window().on_winit_window_event(filter);
 }
 
-/// Bind the same portable aspect policy to the real surface when video is hosted
-/// outside the shared chrome window.
-#[cfg(target_os = "windows")]
-pub(crate) fn connect_to_native_host(
+/// The window owner installs this filter alongside its other native event handlers.
+pub(crate) fn connect_with_target(
     app: &PlayerWindow,
-    host: &NativeVideoHost,
+    host: Option<&NativeVideoHost>,
     source: &MediaGeometry,
 ) -> WindowEventFilter {
-    connect_with_target(
-        app,
-        WindowTarget(Some(host.as_weak())),
-        pixel_size(host.window().size()),
-        source,
-    )
-}
-
-pub(crate) type WindowEventFilter =
-    Box<dyn Fn(&slint::Window, &winit::event::WindowEvent) -> EventResult>;
-
-#[derive(Clone)]
-struct WindowTarget(Option<slint::Weak<NativeVideoHost>>);
-
-fn connect_with_target(
-    app: &PlayerWindow,
-    target: WindowTarget,
-    initial_size: PixelSize,
-    source: &MediaGeometry,
-) -> WindowEventFilter {
-    let previous_size = Rc::new(Cell::new(initial_size));
+    let window = host.map_or_else(|| app.window(), ComponentHandle::window);
+    let target = WindowTarget(host.map(ComponentHandle::as_weak));
+    let previous_size = Rc::new(Cell::new(pixel_size(window.size())));
     let initial_geometry_applied = Rc::new(Cell::new(false));
     register_media_resize(
         app,
@@ -84,6 +59,12 @@ fn connect_with_target(
     register_resize_command(app, target.clone(), previous_size.clone());
     resize_filter(app, previous_size, target)
 }
+
+pub(crate) type WindowEventFilter =
+    Box<dyn Fn(&slint::Window, &winit::event::WindowEvent) -> EventResult>;
+
+#[derive(Clone)]
+struct WindowTarget(Option<slint::Weak<NativeVideoHost>>);
 
 fn register_media_resize(
     app: &PlayerWindow,

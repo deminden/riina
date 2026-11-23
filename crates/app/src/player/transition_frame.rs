@@ -118,21 +118,23 @@ pub fn incoming_capture_window_active(playback: &Playback, now: Instant) -> bool
     incoming_capture_fallback_active(playback, now)
 }
 
-#[cfg(any(test, not(target_os = "windows")))]
-pub fn should_display(playback: &Playback, playlist_auto_play_next: bool) -> bool {
-    should_display_at(playback, playlist_auto_play_next, Instant::now())
+pub(crate) enum CoverRelease {
+    CapturedFrame,
+    NativeSurface { stable_generation: Option<u64> },
 }
 
-#[cfg(any(target_os = "windows", test))]
-pub fn should_display_until_incoming_stable(
+pub(crate) fn should_display(
     playback: &Playback,
     playlist_auto_play_next: bool,
-    stable_generation: Option<u64>,
+    release: CoverRelease,
 ) -> bool {
     let now = Instant::now();
     if should_display_at(playback, playlist_auto_play_next, now) {
         return true;
     }
+    let CoverRelease::NativeSurface { stable_generation } = release else {
+        return false;
+    };
     // The Slint cover paints an opaque black backing beneath the retained
     // image. Never enable that surface unless the outgoing image exists: an
     // incoming-frame timeout alone must not leave a black rectangle over live
@@ -258,10 +260,23 @@ mod tests {
 
     use riina_core::{CapturedFrame, Phase, Playback, PlaylistEntry, VideoParameters};
 
-    use super::{
-        outgoing_capture_due, should_display, should_display_at,
-        should_display_until_incoming_stable,
-    };
+    use super::{CoverRelease, outgoing_capture_due, should_display_at};
+
+    fn should_display(playback: &Playback, auto_play_next: bool) -> bool {
+        super::should_display(playback, auto_play_next, CoverRelease::CapturedFrame)
+    }
+
+    fn should_display_until_incoming_stable(
+        playback: &Playback,
+        auto_play_next: bool,
+        stable_generation: Option<u64>,
+    ) -> bool {
+        super::should_display(
+            playback,
+            auto_play_next,
+            CoverRelease::NativeSurface { stable_generation },
+        )
+    }
 
     fn frame() -> Arc<CapturedFrame> {
         Arc::new(CapturedFrame::new(2, 1, 8, &[40, 80, 120, 255, 40, 80, 120, 255]).unwrap())
