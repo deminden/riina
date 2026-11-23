@@ -1,6 +1,6 @@
 //! Confined plugin sidebar documents hosted as child WebViews.
 
-use super::plugin_resources::{plugin_file_url, resource_response};
+use super::plugin_resources::{plugin_file_url, resource_response, webview_navigation_url};
 use crate::{
     PlayerWindow,
     plugin_host::{PluginHostHandle, PluginHostMessage},
@@ -157,7 +157,10 @@ impl PluginSidebarPresenter {
                         entry.ready.set(false);
                         entry.messages.clear();
                         entry.message_bytes = 0;
-                        entry.webview.load_url(&url).map_err(webview_error)?;
+                        entry
+                            .webview
+                            .load_url(&webview_navigation_url(url))
+                            .map_err(webview_error)?;
                     }
                 } else {
                     self.create_entry(parent, host, &identifier, root, &url, viewport)?;
@@ -302,7 +305,7 @@ impl PluginSidebarPresenter {
             .build_as_child(parent)
             .map_err(webview_error)?;
         #[cfg(target_os = "linux")]
-        super::unix::plugin_shortcuts::bind(&webview, self.owner.clone());
+        super::unix::plugin_shortcuts::bind(&webview, self.owner.clone(), None);
         let visible = self.sidebar_can_show() && self.selected.as_deref() == Some(identifier);
         webview.set_visible(visible).map_err(webview_error)?;
         self.entries.insert(

@@ -57,7 +57,11 @@ impl Shell {
             .builder(endpoint, url)
             .build_gtk(&self.content)
             .map_err(|error| error.to_string())?;
-        plugin_shortcuts::bind(&webview, self.player.clone());
+        plugin_shortcuts::bind(
+            &webview,
+            self.player.clone(),
+            Some(Arc::downgrade(endpoint)),
+        );
         Ok(webview)
     }
 

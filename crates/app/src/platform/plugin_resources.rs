@@ -1,4 +1,4 @@
-//! Shared confined resources for plugin sidebars and overlays.
+//! Shared confined resources for plugin WebViews.
 use std::{
     borrow::Cow,
     fs,
@@ -31,6 +31,14 @@ pub(super) fn plugin_file_url(path: &Path) -> Result<String, String> {
         }
     }
     Ok(url.into())
+}
+
+pub(super) fn webview_navigation_url(url: String) -> String {
+    // Wry rewrites builder URLs for WebView2. Later load_url calls pass the
+    // URL straight to WebView2 and need the registered HTTP alias explicitly.
+    #[cfg(target_os = "windows")]
+    let url = url.replacen("riina-plugin://", "http://riina-plugin.", 1);
+    url
 }
 
 pub(super) fn resource_response(

@@ -1,6 +1,6 @@
 //! Permission-gated plugin webviews layered over the native video host.
 
-use super::super::plugin_resources::{plugin_file_url, resource_response};
+use super::super::plugin_resources::{plugin_file_url, resource_response, webview_navigation_url};
 use crate::plugin_host::{PluginHostHandle, PluginHostMessage};
 use riina_core::plugin::OverlayEffect;
 use serde::Deserialize;
@@ -198,7 +198,10 @@ impl PluginOverlayPresenter {
                     } else {
                         entry.simple_mode = false;
                         reset_document(&entry.pending, entry.opacity.get());
-                        entry.webview.load_url(&url).map_err(webview_error)?;
+                        entry
+                            .webview
+                            .load_url(&webview_navigation_url(url))
+                            .map_err(webview_error)?;
                     }
                 } else {
                     self.create_entry(parent, host, &plugin_identifier, root, &url)?;

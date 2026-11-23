@@ -1691,14 +1691,39 @@ application SHA-256 was
 The pinned libmpv shared library SHA-256 was
 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`.
 
+The same Linux build passed the standalone lifecycle on Sway with XWayland
+disabled. The isolated mount namespace hid WSL's detection markers because
+Slint selects X11 when it detects WSL. The compositor sent a native close to
+the player plugin window. Reopening kept its page counter, the new Simple Mode
+document reported its style and markup, and Riina quit normally.
+
 Windows passed its locked workspace build, strict workspace Clippy, 907 Rust
 tests, 78 Python tests and 58 native null-output playback cases. Linux x64
 passed strict workspace Clippy, 119 plugin-related tests and its locked
 application build, and 58 native null-output playback cases. Strict Apple
-Silicon workspace Clippy passed from Windows. The isolated native Wayland
-compositor accepted a connection, but Riina stopped during Winit initialization
-before the plugin loaded. Native Wayland and macOS WebView behavior and matched
-window geometry remain open.
+Silicon workspace Clippy passed from Windows. Native macOS WebView behavior and
+matched window geometry remain open.
+
+### Plugin WebView navigation and close shortcuts 2026-11-23
+
+On a private Windows desktop, the overlay and sidebar each sent a message from
+their first package page. The executable from `fefc415` received no messages
+after loading the second pages. The updated executable received messages from
+both pages in each WebView and exited normally. It also passed the separate
+standalone reopen and Simple Mode sequence. The updated executable SHA-256 was
+`c05cabdd4b9f6b9da7d49feda7599a5b6b8afb0f7bba2a1c131af08ee3b7894e`.
+
+On isolated Linux X11 and native Wayland, Ctrl+W closed the focused standalone
+window. Reopening kept the page counter, Simple Mode applied the requested style
+and markup, and the fixture stayed paused. Riina quit normally. The Linux
+executable SHA-256 was
+`94c860d49e7c60a3716aa349a21a92a3ce8cb24f95b5b4f18ec21ede20ab6497`.
+Both platforms used the same pinned engines as the preceding test batch.
+
+Windows passed its locked workspace build, strict workspace Clippy, 907 Rust
+tests and 78 Python tests. Linux passed its locked application build, strict
+workspace Clippy and 119 plugin tests. Strict Apple Silicon workspace Clippy
+passed from Windows.
 
 ### Plugin sidebar manifest discovery 2026-10-14
 

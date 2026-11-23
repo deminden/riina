@@ -1,5 +1,5 @@
 //! Confined custom-protocol documents and document-scoped WebView messages.
-use super::super::plugin_resources::{plugin_file_url, resource_response};
+use super::super::plugin_resources::{plugin_file_url, resource_response, webview_navigation_url};
 use crate::plugin_runtime::standalone::Endpoint;
 use riina_core::plugin_window::{Document, Presentation};
 use std::{borrow::Cow, cell::Cell, rc::Rc, sync::Arc};
@@ -126,12 +126,7 @@ impl Page {
             query.append_pair("riina_shell", "1");
         }
         drop(query);
-        let url: String = url.into();
-        // Wry rewrites builder URLs for WebView2, but subsequent calls to
-        // WebView::load_url need the registered HTTP alias explicitly.
-        #[cfg(target_os = "windows")]
-        let url = url.replacen("riina-plugin://", "http://riina-plugin.", 1);
-        Ok(url)
+        Ok(webview_navigation_url(url.into()))
     }
 }
 

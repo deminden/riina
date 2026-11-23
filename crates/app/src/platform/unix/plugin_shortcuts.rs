@@ -1,9 +1,10 @@
 //! Let the owning player handle its fixed menu shortcuts while GTK owns focus.
 
-use crate::PlayerWindow;
+use crate::{PlayerWindow, plugin_runtime::standalone::Endpoint};
 use gtk::{gdk::ModifierType, glib::Propagation, prelude::WidgetExt};
 use riina_ui::{PlayerCropState, PlayerDialogState, PlayerMenuActions};
 use slint::ComponentHandle;
+use std::sync::Weak;
 use wry::{WebView, WebViewExtUnix};
 
 const CONTROL: ModifierType = ModifierType::CONTROL_MASK;
@@ -81,7 +82,11 @@ impl MenuShortcut {
     }
 }
 
-pub(crate) fn bind(webview: &WebView, owner: slint::Weak<PlayerWindow>) {
+pub(crate) fn bind(
+    webview: &WebView,
+    owner: slint::Weak<PlayerWindow>,
+    standalone: Option<Weak<Endpoint>>,
+) {
     let accelerator_modifiers = gtk::accelerator_get_default_mod_mask();
     webview.webview().connect_key_press_event(move |_, event| {
         let modifiers = event.state() & accelerator_modifiers;
@@ -92,6 +97,15 @@ pub(crate) fn bind(webview: &WebView, owner: slint::Weak<PlayerWindow>) {
         else {
             return Propagation::Proceed;
         };
+        if shortcut == MenuShortcut::Close
+            && let Some(standalone) = &standalone
+        {
+            // The presenter hides the WebView after the native key event.
+            if let Some(window) = standalone.upgrade() {
+                window.user_closed();
+            }
+            return Propagation::Stop;
+        }
         if !owner.upgrade().is_some_and(|app| shortcut.enabled(&app)) {
             return Propagation::Proceed;
         }
