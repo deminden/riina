@@ -29,6 +29,6 @@ format. See [Verification](verification.md) for the scope of the runtime checks.
 
 | In progress | Verified progress | Local commits |
 |---|---|---|
-| H4 Application error handling | Route formatted player statuses through one reporter and log failures in background work, playback setup, and window lifecycle. The audit of intentionally discarded platform results is still open. | `47c8f73`, `1dde0ee`, `a83c518` |
-| H14 Timer lifetime | Several window, material, and playback timers are gated. Subtitle search, subtitle discovery, and Live Text still tick while their player is idle. | `208122a`, `beac8cb`, `fc2bdb7`, `17bd471` |
+| H4 Application error handling | Route formatted player statuses through one reporter. Log failures in background work, playback setup, window lifecycle, file cleanup, and capture teardown. Document which plugin and worker replies can expire. The audit of other intentionally discarded platform results is still open. | `47c8f73`, `1dde0ee`, `a83c518`, `5aff11a` |
+| H14 Timer lifetime | Several window and playback timers are gated. Subtitle search, subtitle discovery, Live Text, playlist metadata and Windows video material sampling still tick while their player is idle. | `208122a`, `beac8cb`, `fc2bdb7`, `17bd471` |
 | O5 Platform boundary | Native player appearance and session services use platform adapters. The plan's source scan counts 27 target conditionals outside `platform/`. Full macOS application verification remains open. | `7226679`, `e529719`, `47c8f73` |

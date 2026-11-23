@@ -551,6 +551,10 @@ transition capture waits for its 80 ms tick and stops after the reply. All 53
 pinned native tests passed with null audio output. The locked workspace build
 passed all ten private-desktop checks in 9.245 seconds and exited normally.
 
+At `5aff11a`, `cargo xtask check --fast` passed strict app linting and 552
+application and widget tests. The thumbnail cache test verified that a cache
+hit refreshes the manifest's modification time and preserves its bytes.
+
 On `954d4d6`, separate private-desktop runs reopened and played media after
 recovering a profile with an invalid setting type, a non-object JSON document,
 or invalid UTF-8. Each run showed the recovery notice, preserved the original
@@ -574,6 +578,9 @@ builds during the measurements and the baseline's spread limit precision.
 At `17bd471`, strict workspace Clippy, 818 workspace tests, and the locked
 x86-64 application build passed on Ubuntu 26.04 in WSL. This includes the
 thumbnail and transition timer tests.
+
+At `5aff11a`, all three thumbnail cache tests passed in WSL, including the
+manifest timestamp and byte-preservation checks.
 
 At `a83c518`, Ubuntu 26.04 in WSL passed strict workspace Clippy, 814
 workspace tests, and the locked x86-64 application build.
