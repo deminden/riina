@@ -1,8 +1,8 @@
 # macOS/Linux development
 
 Windows is the supported application target. Linux has a full x64 application
-build and playback and shutdown evidence on isolated X11 and native Wayland
-displays. macOS needs full application and runtime verification.
+build and playback, file-dialog and shutdown evidence on isolated X11 and native
+Wayland displays. macOS needs full application and runtime verification.
 See [Verification](verification.md) for the tested configurations and open
 checks.
 

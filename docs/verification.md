@@ -664,10 +664,21 @@ advancing frames in the native Wayland window. Keyboard input paused,
 resumed, sought backward, entered and left fullscreen, and quit the
 player. A compositor resize produced a 720 × 405 window. Stopping and
 reopening through libmpv IPC restored visible playback at that size.
-The synthetic Ctrl+Period input paused playback and did not unload the
-file, so the Stop shortcut remains unverified on Wayland. This run used
-null audio. Wayland file dialogs, plugin embedding and physical displays
-remain unverified.
+The short-lived virtual keyboard did not deliver the Control modifier.
+
+A follow-up with the same executable held a virtual keyboard and its
+modifier state for the entire session. Ctrl+O opened the native GTK file
+chooser. The protocol trace matched the parent exported by Riina to the
+parent imported by GTK. Escape cancelled the chooser and retained the
+playing file. Ctrl+Period unloaded that file. Reopening the chooser and
+selecting a second fixture restored visible playback. Ctrl+Q exited
+normally. Both sessions used null audio. Wayland plugin embedding and
+physical displays remain unverified.
+
+The locked build at `96aa8c3` passed playback, pause, backward seek,
+fullscreen, resize, the parented file chooser, Stop and Quit in one
+Wayland session. The selected file played in the 720 × 405 window.
+The player and private compositor exited normally.
 
 ## Windows private-desktop smoke 2026-11-21
 
@@ -822,6 +833,12 @@ passed. The Windows private-desktop smoke passed all ten checks in 9.124
 seconds and exited normally. The check covered native controls, menu state,
 fullscreen entry and exit, minimize and restore after the last function splits.
 
+At `96aa8c3`, `cargo xtask check` passed 862 Rust tests and 78 Python tests,
+including the sizing, transition-cover, HDR command and headless pixel
+regressions. The locked Windows workspace build passed. The private-desktop
+smoke passed all ten checks in 9.147 seconds and exited normally.
+`cargo xtask native` passed all 55 cases with the pinned DLL.
+
 On `954d4d6`, separate private-desktop runs reopened and played media after
 recovering a profile with an invalid setting type, a non-object JSON document,
 or invalid UTF-8. Each run showed the recovery notice, preserved the original
@@ -849,6 +866,10 @@ repeated app-file checks took 38.89 and 14.99 seconds with Cargo defaults, and
 the profile change from the later separation of application and UI compilation.
 
 ## Linux x64 application checks
+
+At `96aa8c3`, strict workspace Clippy, 823 Rust tests and the locked x86-64
+application build passed on Ubuntu 26.04 in WSL. The executable SHA-256 was
+`73d818d1d2f4e0189fa3417ecbd06ad370f2f589ceb2862150aa839deda5c933`.
 
 At `63dfb72`, strict workspace Clippy, 823 Rust tests and a locked x86-64
 application build passed on Ubuntu 26.04 in WSL. The executable SHA-256 was
@@ -1055,8 +1076,15 @@ behavior require their own evidence.
 
 Manifest tests cover bounded localized labels. Runtime tests cover confined
 documents, messages, visibility, late activation and lifecycle delivery. A Windows
-smoke displayed a package-owned sidebar page. Linux X11 is source-wired; Wayland
-embedding and native macOS/Linux application behavior remain open.
+smoke displayed a package-owned sidebar page.
+
+On the private Linux X11 display, the `63dfb72` executable displayed a local
+plugin page using WebKitGTK. The page sent a readiness token to the plugin, and
+the plugin's reply changed the page background. The full desktop capture
+contained 16,321 pixels of the reply color. A window-manager close request
+ended the player and its WebKit helpers. GTK logged frame-clock warnings.
+Quit from a focused WebView, Wayland embedding and native macOS plugin
+behavior remain unverified.
 
 ### macOS application menu composition 2026-10-14
 
