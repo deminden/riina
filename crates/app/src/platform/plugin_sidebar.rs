@@ -66,13 +66,27 @@ impl SidebarEntry {
     }
 }
 
-#[derive(Default)]
 pub(crate) struct PluginSidebarPresenter {
     entries: BTreeMap<String, SidebarEntry>,
     selected: Option<String>,
+    #[cfg(target_os = "linux")]
+    owner: slint::Weak<PlayerWindow>,
 }
 
 impl PluginSidebarPresenter {
+    pub(crate) fn new(app: &PlayerWindow) -> Self {
+        #[cfg(target_os = "linux")]
+        use slint::ComponentHandle;
+        #[cfg(not(target_os = "linux"))]
+        let _ = app;
+        Self {
+            entries: BTreeMap::new(),
+            selected: None,
+            #[cfg(target_os = "linux")]
+            owner: app.as_weak(),
+        }
+    }
+
     pub(crate) fn viewport(app: &PlayerWindow) -> Rect {
         Rect {
             position: LogicalPosition::new(
@@ -245,6 +259,8 @@ impl PluginSidebarPresenter {
             .with_url(url)
             .build_as_child(parent)
             .map_err(webview_error)?;
+        #[cfg(target_os = "linux")]
+        bind_linux_player_quit(&webview, self.owner.clone());
         let visible = self.selected.as_deref() == Some(identifier);
         webview.set_visible(visible).map_err(webview_error)?;
         self.entries.insert(
@@ -261,6 +277,35 @@ impl PluginSidebarPresenter {
         );
         Ok(())
     }
+}
+
+#[cfg(target_os = "linux")]
+fn bind_linux_player_quit(webview: &WebView, owner: slint::Weak<PlayerWindow>) {
+    use gtk::{gdk::ModifierType, glib::Propagation, prelude::WidgetExt};
+    use slint::ComponentHandle;
+    use wry::WebViewExtUnix;
+
+    let accelerator_modifiers = gtk::accelerator_get_default_mod_mask();
+    webview.webview().connect_key_press_event(move |_, event| {
+        let modifiers = event.state() & accelerator_modifiers;
+        if modifiers != ModifierType::CONTROL_MASK
+            || !matches!(event.keyval().to_unicode(), Some('q' | 'Q'))
+        {
+            return Propagation::Proceed;
+        }
+        // GTK owns input while the WebView is focused. Let the player manager
+        // close its windows after this native key handler returns.
+        let queued = crate::background::to_ui(owner.clone(), |player| {
+            player
+                .global::<riina_ui::PlayerMenuActions>()
+                .invoke_quit_riina();
+        });
+        if queued.is_ok() {
+            Propagation::Stop
+        } else {
+            Propagation::Proceed
+        }
+    });
 }
 
 #[cfg(target_os = "linux")]

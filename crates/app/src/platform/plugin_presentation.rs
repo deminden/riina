@@ -6,7 +6,6 @@ use crate::{
 };
 use std::{cell::RefCell, rc::Rc};
 
-#[derive(Default)]
 pub(crate) struct PluginPresenters {
     #[cfg(target_os = "windows")]
     overlay: Rc<RefCell<super::PluginOverlayPresenter>>,
@@ -14,6 +13,14 @@ pub(crate) struct PluginPresenters {
 }
 
 impl PluginPresenters {
+    pub(crate) fn new(app: &PlayerWindow) -> Self {
+        Self {
+            #[cfg(target_os = "windows")]
+            overlay: Rc::default(),
+            sidebar: Rc::new(RefCell::new(PluginSidebarPresenter::new(app))),
+        }
+    }
+
     pub(crate) fn overlay_delivery(
         &self,
         native: Option<&NativePresentation>,

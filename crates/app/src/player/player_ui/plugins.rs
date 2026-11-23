@@ -65,7 +65,7 @@ pub(super) fn install(
     bind_lifecycle(app, plugin_host_handle.as_ref());
     let plugin_window_host = native.map(platform::NativePresentation::host);
     let plugin_command_sender = Arc::new(std::sync::Mutex::new(None::<riina_mpv::CommandSender>));
-    let presenters = platform::PluginPresenters::default();
+    let presenters = platform::PluginPresenters::new(app);
     {
         let weak = app.as_weak();
         let presenter = presenters.sidebar.clone();
