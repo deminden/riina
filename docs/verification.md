@@ -2384,6 +2384,22 @@ that order. The player exited normally. The executable SHA-256 was
 `213827ee4a7510916f7e98819fd70cbd66d8df9ca29e128029219a4bf8977003`.
 Live Windows, Wayland and macOS presentation timing remains unverified.
 
+### Folder and playlist window routing 2026-11-23
+
+The full Windows workspace gate and all 58 pinned libmpv null-output tests
+passed. The application tests cover folder and standalone playlist routing,
+duplicate preferences, and grouped opens that retain a single playable entry.
+
+The locked Linux application build ran in isolated X11 with libmpv and shared
+OpenGL output. One desktop drop containing a folder and an M3U opened two
+additional players in the existing process. The folder's playlist showed both
+clips in natural filename order. The M3U player showed its two relative entries
+in playlist order. After grouping was enabled, dropping two clips opened one
+additional player with both clips. The original player retained its media.
+Closing all four windows ended the exact test process normally. The executable
+SHA-256 was `a84f7cffae341a8f0ed87aea74379f7b560de2ebc84753a9dfc70b292caf53f0`.
+Live multi-window routing on Windows, Wayland and macOS remains unverified.
+
 ### macOS application menu composition 2026-10-14
 
 The AppKit adapter consolidates application actions in one native menu while

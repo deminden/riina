@@ -141,11 +141,17 @@ the native engine and only then releases the callback context.
 
 On Windows, one application owns the event loop and all native players opened
 from its windows. Each player owns its framed window, controls, timers and
-playback session. Open in New Window uses the same observed-playlist duplicate
-policy as the shared renderer, and each new frame receives its own controls
-owner handle. Close releases one player. Quit releases all remaining players
-before ending the Windows event loop. A separately launched Riina process has
-its own application owner.
+playback session. Each new frame receives its own controls owner handle. Close
+releases one player. Quit releases all remaining players before ending the
+Windows event loop. A separately launched Riina process has its own application
+owner.
+
+Media discovery chooses destination players from the original selection before
+enumerating folders or filtering files. A folder stays with its assigned player,
+and a standalone playlist goes to mpv as a single reference. The Windows and
+shared player managers use each player's current media for duplicate checks on
+separate opens. An explicit grouped selection opens together even when only one
+playable item remains after filtering.
 
 ### Plugin mpv operations
 

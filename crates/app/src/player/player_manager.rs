@@ -116,7 +116,7 @@ impl PlayerManager {
         app.set_in_process_player_manager(true);
         let state = Rc::downgrade(&self.state);
         let owner = app.as_weak();
-        app.on_open_player_requested(move |paths, position| {
+        app.on_open_player_requested(move |paths, reference, position| {
             let Some(state) = state.upgrade() else { return };
             let Some(owner) = owner.upgrade() else { return };
             let paths = paths
@@ -125,7 +125,9 @@ impl PlayerManager {
                 .collect::<Vec<_>>();
             let resume_position =
                 (position.is_finite() && position >= 0.0).then_some(f64::from(position));
-            if let Err(error) = open_player(&state, &owner, paths, resume_position) {
+            if let Err(error) =
+                open_player(&state, &owner, paths, reference.as_str(), resume_position)
+            {
                 owner.set_status(error.into());
             }
         });
@@ -198,6 +200,7 @@ fn open_player(
     state: &Rc<RefCell<ManagerState>>,
     owner: &PlayerWindow,
     media: Vec<OsString>,
+    reference: &str,
     resume_position: Option<f64>,
 ) -> Result<(), String> {
     if media.is_empty() {
@@ -208,53 +211,28 @@ fn open_player(
     let loaded =
         crate::preference_load::load(&preferences_path).map_err(|error| error.to_string())?;
     let preferences = &loaded.preferences;
-    let grouped_request = crate::media_open::grouped_open_request(
-        media.len(),
-        preferences.group_simultaneous_opens_in_playlist,
-    );
-    let existing_playlists = state
-        .borrow()
-        .players
-        .iter()
-        .map(|player| {
-            let playlist = player
-                .app
-                .global::<riina_ui::PlayerCatalogState>()
-                .get_playlist();
-            (0..playlist.row_count())
-                .filter_map(|index| playlist.row_data(index))
-                .map(|row| row.path.to_string())
-                .collect::<Vec<_>>()
-        })
-        .collect::<Vec<_>>();
-    let (selected, existing_player) = select_media_for_new_player(
-        media,
-        &existing_playlists,
-        preferences.allow_duplicate_players,
-        grouped_request,
-    );
-    if selected.is_empty() {
-        if let Some(player) = existing_player.and_then(|index| {
+    let existing = {
+        let state = state.borrow();
+        crate::media_open::duplicate_player(
+            reference,
+            preferences.allow_duplicate_players,
             state
-                .borrow()
                 .players
-                .get(index)
-                .map(|player| player.app.clone_strong())
-        }) {
-            crate::platform::show_window(&player).map_err(|error| error.to_string())?;
-            player.window().with_winit_window(|window| {
-                window.set_minimized(false);
-                window.focus_window();
-            });
-            return Ok(());
-        }
-        return Err("The selected media is already open.".into());
+                .iter()
+                .map(|player| crate::media_open::current_media(&player.app)),
+        )
+        .map(|index| state.players[index].app.clone_strong())
+    };
+    if let Some(player) = existing {
+        show_and_focus(&player, owner);
+        owner.set_status("The selected media is already open.".into());
+        return Ok(());
     }
     open_new_player(
         state,
         owner,
         InitialMedia {
-            files: selected,
+            files: media,
             resume_position,
             managed: None,
         },
@@ -315,38 +293,6 @@ fn show_opened_player(
             .get_initial_window_position_enabled(),
     );
     Ok(())
-}
-
-pub(crate) fn select_media_for_new_player(
-    media: Vec<OsString>,
-    existing_playlists: &[Vec<String>],
-    allow_duplicate_players: bool,
-    grouped_request: bool,
-) -> (Vec<OsString>, Option<usize>) {
-    let filter_duplicates = !allow_duplicate_players && !grouped_request;
-    let mut selected = Vec::<OsString>::new();
-    let mut existing_player = None;
-    for path in media {
-        let candidate = path.to_string_lossy();
-        if filter_duplicates {
-            if let Some(index) = existing_playlists.iter().position(|playlist| {
-                playlist
-                    .iter()
-                    .any(|open| crate::media_open::same_media(open, &candidate))
-            }) {
-                existing_player = Some(index);
-                continue;
-            }
-            if selected
-                .iter()
-                .any(|open| crate::media_open::same_media(&open.to_string_lossy(), &candidate))
-            {
-                continue;
-            }
-        }
-        selected.push(path);
-    }
-    (selected, existing_player)
 }
 
 fn schedule_close(state: Weak<RefCell<ManagerState>>, id: u64, from_welcome: bool) {
@@ -442,64 +388,7 @@ fn show_welcome(state: &Rc<RefCell<ManagerState>>) -> Result<(), Box<dyn std::er
 
 #[cfg(test)]
 mod tests {
-    use super::{select_media_for_new_player, should_quit_after_last_window_closed};
-    use std::ffi::OsString;
-
-    #[test]
-    fn duplicate_media_resolves_to_the_existing_player() {
-        let existing = vec![
-            vec!["https://example.com/first.mkv".to_owned()],
-            vec!["https://example.com/current.mkv".to_owned()],
-        ];
-
-        let (selected, existing_player) = select_media_for_new_player(
-            vec![OsString::from("https://example.com/current.mkv")],
-            &existing,
-            false,
-            false,
-        );
-
-        assert!(selected.is_empty());
-        assert_eq!(existing_player, Some(1));
-    }
-
-    #[test]
-    fn duplicate_media_is_preserved_when_duplicates_are_allowed() {
-        let (selected, existing_player) = select_media_for_new_player(
-            vec![
-                OsString::from("https://example.com/current.mkv"),
-                OsString::from("https://example.com/current.mkv"),
-            ],
-            &[vec!["https://example.com/current.mkv".to_owned()]],
-            true,
-            false,
-        );
-
-        assert_eq!(
-            selected,
-            [
-                OsString::from("https://example.com/current.mkv"),
-                OsString::from("https://example.com/current.mkv"),
-            ]
-        );
-        assert_eq!(existing_player, None);
-    }
-
-    #[test]
-    fn grouped_open_keeps_duplicate_items_even_when_duplicates_are_disabled() {
-        let (selected, existing_player) = select_media_for_new_player(
-            vec![
-                OsString::from("https://example.com/current.mkv"),
-                OsString::from("https://example.com/current.mkv"),
-            ],
-            &[vec!["https://example.com/current.mkv".to_owned()]],
-            false,
-            true,
-        );
-
-        assert_eq!(selected.len(), 2);
-        assert_eq!(existing_player, None);
-    }
+    use super::should_quit_after_last_window_closed;
 
     #[test]
     fn application_quits_only_when_requested_after_the_last_window_closes() {

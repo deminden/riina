@@ -2,9 +2,9 @@
 use super::{NativeLaunch, NativePlayer};
 use crate::player_ui::InitialMedia;
 use crate::plugins::plugin_players::Ticket;
-use crate::{PlayerWindow, player_manager::select_media_for_new_player, preference_load};
+use crate::{PlayerWindow, media_open, preference_load};
 use riina_core::{Preferences, ThemeMaterial, sync::lock};
-use riina_ui::{PlayerCatalogState, PlayerDialogState, PlayerMenuActions};
+use riina_ui::{PlayerDialogState, PlayerMenuActions};
 use slint::{
     CloseRequestResponse, ComponentHandle, Model, PlatformError,
     winit_030::{WinitWindowAccessor, winit},
@@ -149,6 +149,7 @@ impl Application {
         self: &Rc<Self>,
         owner: &PlayerWindow,
         media: Vec<OsString>,
+        reference: &str,
         resume_position: Option<f64>,
     ) -> Result<(), Box<dyn std::error::Error>> {
         if media.is_empty() {
@@ -156,27 +157,17 @@ impl Application {
         }
         let loaded = preference_load::load(&crate::platform::preferences_path()?)?;
         let existing = self.players.borrow().clone();
-        let playlists = existing
-            .iter()
-            .map(|player| player.playlist())
-            .collect::<Vec<_>>();
-        let grouped = crate::media_open::grouped_open_request(
-            media.len(),
-            loaded.preferences.group_simultaneous_opens_in_playlist,
-        );
-        let (media, duplicate) = select_media_for_new_player(
-            media,
-            &playlists,
+        let duplicate = media_open::duplicate_player(
+            reference,
             loaded.preferences.allow_duplicate_players,
-            grouped,
+            existing.iter().map(|player| player.current_media()),
         );
-        if media.is_empty() {
-            if let Some(player) = duplicate.and_then(|index| existing.get(index)) {
-                player.host.window().with_winit_window(|window| {
-                    window.set_minimized(false);
-                    window.focus_window();
-                });
-            }
+        if let Some(player) = duplicate.and_then(|index| existing.get(index)) {
+            player.host.window().with_winit_window(|window| {
+                window.set_minimized(false);
+                window.focus_window();
+            });
+            owner.set_status("The selected media is already open.".into());
             return Ok(());
         }
         self.launch(
@@ -234,16 +225,9 @@ impl Application {
 }
 
 impl NativePlayer {
-    fn playlist(&self) -> Vec<String> {
+    fn current_media(&self) -> Option<String> {
         let app = self.chrome.borrow();
-        let Some(app) = app.as_ref() else {
-            return Vec::new();
-        };
-        app.global::<PlayerCatalogState>()
-            .get_playlist()
-            .iter()
-            .map(|row| row.path.to_string())
-            .collect()
+        app.as_ref().and_then(media_open::current_media)
     }
 }
 
@@ -290,7 +274,7 @@ impl WindowActions {
         let owner = app.as_weak();
         let application = self.application.clone();
         let player = self.player.clone();
-        app.on_open_player_requested(move |paths, position| {
+        app.on_open_player_requested(move |paths, reference, position| {
             let owner = owner.clone();
             let application = application.clone();
             let player = player.clone();
@@ -305,7 +289,8 @@ impl WindowActions {
                         .collect();
                     let resume =
                         (position.is_finite() && position >= 0.0).then_some(f64::from(position));
-                    if let Err(error) = application.open(&owner, paths, resume) {
+                    if let Err(error) = application.open(&owner, paths, reference.as_str(), resume)
+                    {
                         crate::diagnostics::report(&owner, error.to_string());
                     }
                 }

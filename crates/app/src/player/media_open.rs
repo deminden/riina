@@ -1,7 +1,11 @@
 //! Filesystem preparation never runs inside a rendering callback or GUI event.
+mod routing;
+
 use crate::{PlayerWindow, file_selection};
 use riina_core::Command;
 use riina_mpv::CommandSender;
+pub(crate) use routing::duplicate_player;
+use routing::{PlayerSelection, prepare_new_players};
 use slint::{ComponentHandle, Model, ModelRc, SharedString, VecModel};
 use std::{ffi::OsString, path::Path};
 
@@ -30,7 +34,7 @@ pub fn open_in_new_player(app: &PlayerWindow, path: &str) -> Result<(), String> 
     if path.is_empty() || path.contains('\0') {
         return Err("The media reference is invalid".into());
     }
-    open_paths_in_new_player(app, &[path.to_owned()])
+    open_player(app, &[path.to_owned()], Some(path), None)
 }
 
 pub fn selection_in_new_player(app: &PlayerWindow, paths: Vec<String>) {
@@ -50,14 +54,14 @@ pub fn selection_in_new_player(app: &PlayerWindow, paths: Vec<String>) {
     let weak = app.as_weak();
     let failure = weak.clone();
     let started = crate::background::spawn_named("new-player-media-discovery", move || {
-        let result = file_selection::prepare(paths, true);
+        let result = preferences_for_open().and_then(|prefs| prepare_new_players(paths, &prefs));
         // The result has no recipient once its window or event loop closes.
         let _ = crate::background::to_ui(weak, move |app| {
-            if let Err(error) = result.and_then(|paths| {
-                if paths.is_empty() {
+            if let Err(error) = result.and_then(|players| {
+                if players.is_empty() {
                     return Err("No playable files were found".into());
                 }
-                open_paths_in_new_player(&app, &paths)
+                open_new_players(&app, players)
             }) {
                 app.set_status(error.into());
             }
@@ -70,10 +74,31 @@ pub fn selection_in_new_player(app: &PlayerWindow, paths: Vec<String>) {
     }
 }
 
-fn open_paths_in_new_player(app: &PlayerWindow, paths: &[String]) -> Result<(), String> {
+fn open_new_players(
+    app: &PlayerWindow,
+    players: impl IntoIterator<Item = PlayerSelection>,
+) -> Result<(), String> {
+    for player in players {
+        open_player(
+            app,
+            &player.paths,
+            player.duplicate_reference.as_deref(),
+            None,
+        )?;
+    }
+    Ok(())
+}
+
+fn open_player(
+    app: &PlayerWindow,
+    paths: &[String],
+    duplicate_reference: Option<&str>,
+    resume_position: Option<f64>,
+) -> Result<(), String> {
     if paths.is_empty() {
         return Ok(());
     }
+    app.set_status("Opening in a new player…".into());
     if app.get_in_process_player_manager() {
         app.invoke_open_player_requested(
             ModelRc::new(VecModel::from(
@@ -83,20 +108,12 @@ fn open_paths_in_new_player(app: &PlayerWindow, paths: &[String]) -> Result<(), 
                     .map(SharedString::from)
                     .collect::<Vec<_>>(),
             )),
-            -1.0,
+            duplicate_reference.unwrap_or_default().into(),
+            resume_position.map_or(-1.0, |position| position as f32),
         );
     } else {
-        spawn_player(app, paths, None)?;
+        spawn_player(app, paths, resume_position)?;
     }
-    app.set_status(if paths.len() == 1 {
-        "Opened the media in a new player.".into()
-    } else {
-        format!(
-            "Opened {} media files in a new player playlist.",
-            paths.len()
-        )
-        .into()
-    });
     Ok(())
 }
 
@@ -137,117 +154,38 @@ pub(crate) fn same_media(left: &str, right: &str) -> bool {
         .is_some_and(|(left, right)| left == right)
 }
 
-fn select_open_paths(
-    paths: &[String],
-    existing_paths: &[String],
-    allow_duplicate_players: bool,
-    group_simultaneous_opens: bool,
-) -> Vec<String> {
-    let grouped_request = grouped_open_request(paths.len(), group_simultaneous_opens);
-    let filter_duplicates = !allow_duplicate_players && !grouped_request;
-    let mut selected = Vec::<String>::new();
-    for path in paths {
-        if filter_duplicates
-            && (existing_paths.iter().any(|open| same_media(open, path))
-                || selected.iter().any(|open| same_media(open, path)))
-        {
-            continue;
-        }
-        selected.push(path.clone());
-    }
-    selected
+pub(crate) fn current_media(app: &PlayerWindow) -> Option<String> {
+    app.global::<riina_ui::PlayerCatalogState>()
+        .get_playlist()
+        .iter()
+        .find(|row| row.playing)
+        .map(|row| row.path.to_string())
 }
 
-pub(crate) const fn grouped_open_request(
-    path_count: usize,
-    group_simultaneous_opens: bool,
-) -> bool {
-    group_simultaneous_opens && path_count > 1
-}
-
-fn open_in_separate_players(
-    app: &PlayerWindow,
-    paths: &[String],
-    resume_position: Option<f64>,
-) -> Result<bool, String> {
-    if app
-        .global::<riina_ui::PlayerCatalogState>()
+fn has_playlist(app: &PlayerWindow) -> bool {
+    app.global::<riina_ui::PlayerCatalogState>()
         .get_playlist()
         .row_count()
-        == 0
-    {
-        return Ok(false);
-    }
+        > 0
+}
+
+fn preferences_for_open() -> Result<riina_core::Preferences, String> {
     let preferences_path =
         crate::platform::preferences_path().map_err(|error| error.to_string())?;
-    let preferences = crate::preference_load::read_valid(&preferences_path)
-        .map_err(|error| error.to_string())?
-        .unwrap_or_default();
-    if !preferences.allow_multiple_windows {
+    crate::preference_load::read_valid(&preferences_path)
+        .map(Option::unwrap_or_default)
+        .map_err(|error| error.to_string())
+}
+
+fn open_single_in_separate_player(
+    app: &PlayerWindow,
+    path: &str,
+    resume_position: Option<f64>,
+) -> Result<bool, String> {
+    if !has_playlist(app) || !preferences_for_open()?.allow_multiple_windows {
         return Ok(false);
     }
-
-    let existing = app.global::<riina_ui::PlayerCatalogState>().get_playlist();
-    let open_paths = (0..existing.row_count())
-        .filter_map(|index| existing.row_data(index))
-        .map(|row| row.path.to_string())
-        .collect::<Vec<_>>();
-    let grouped = grouped_open_request(
-        paths.len(),
-        preferences.group_simultaneous_opens_in_playlist,
-    );
-    let selected = select_open_paths(
-        paths,
-        &open_paths,
-        preferences.allow_duplicate_players,
-        preferences.group_simultaneous_opens_in_playlist,
-    );
-    if selected.is_empty() {
-        app.set_status("The selected media is already open.".into());
-        return Ok(true);
-    }
-
-    let groups = if grouped {
-        vec![selected]
-    } else {
-        selected.into_iter().map(|path| vec![path]).collect()
-    };
-    for group in &groups {
-        if app.get_in_process_player_manager() {
-            let position = if groups.len() == 1 {
-                resume_position
-            } else {
-                None
-            };
-            app.invoke_open_player_requested(
-                ModelRc::new(VecModel::from(
-                    group
-                        .iter()
-                        .cloned()
-                        .map(SharedString::from)
-                        .collect::<Vec<_>>(),
-                )),
-                position.map_or(-1.0, |value| value as f32),
-            );
-        } else {
-            spawn_player(
-                app,
-                group,
-                if groups.len() == 1 {
-                    resume_position
-                } else {
-                    None
-                },
-            )?;
-        }
-    }
-    app.set_status(if grouped {
-        "Opened the media in a new player playlist.".into()
-    } else if groups.len() == 1 {
-        "Opened the media in a new player.".into()
-    } else {
-        format!("Opened {} new players.", groups.len()).into()
-    });
+    open_player(app, &[path.to_owned()], Some(path), resume_position)?;
     Ok(true)
 }
 
@@ -262,12 +200,12 @@ pub fn dropped(app: &PlayerWindow, paths: Vec<OsString>, sender: CommandSender) 
         }
         return;
     }
-    startup_selection(app, paths, None, sender, true);
+    startup_selection(app, paths, None, sender, SelectionSource::DesktopDrop);
 }
 
 pub(crate) struct WelcomeDrop {
     command: Command,
-    new_players: Vec<String>,
+    new_players: Vec<PlayerSelection>,
 }
 
 impl WelcomeDrop {
@@ -281,25 +219,29 @@ impl WelcomeDrop {
             .collect::<Result<Vec<_>, _>>()
             .map_err(|_| "A media path contains invalid Unicode".to_owned())?;
         let subtitles = dropped_subtitles(&paths);
-        let mut paths = file_selection::prepare(resolve_dropped_url_shortcuts(paths)?, true)?;
+        let paths = resolve_dropped_url_shortcuts(paths)?;
+        if subtitles.is_empty() && preferences.allow_multiple_windows {
+            let mut players = prepare_new_players(paths, preferences)?.into_iter();
+            let first = players
+                .next()
+                .ok_or("Drop a playable file or folder to open it.")?;
+            return Ok(Self {
+                command: Command::OpenFiles(first.paths),
+                new_players: players.collect(),
+            });
+        }
+        let paths = file_selection::prepare(paths, true)?;
         if paths.is_empty() {
             return Err("Drop a playable file or folder to open it.".into());
         }
-        let mut new_players = Vec::new();
         let command = if subtitles.is_empty() {
-            if preferences.allow_multiple_windows
-                && !preferences.group_simultaneous_opens_in_playlist
-            {
-                paths = select_open_paths(&paths, &[], preferences.allow_duplicate_players, false);
-                new_players = paths.split_off(1);
-            }
             Command::OpenFiles(paths)
         } else {
             Command::OpenFilesWithSubtitles { paths, subtitles }
         };
         Ok(Self {
             command,
-            new_players,
+            new_players: Vec::new(),
         })
     }
 
@@ -308,9 +250,7 @@ impl WelcomeDrop {
         let result = (|| {
             sender.send(self.command)?;
             apply_manual_open_repeat(app, sender)?;
-            for path in self.new_players {
-                open_paths_in_new_player(app, &[path])?;
-            }
+            open_new_players(app, self.new_players)?;
             Ok::<(), String>(())
         })();
         if let Err(error) = result {
@@ -349,7 +289,20 @@ pub fn startup_at(
     resume_position: Option<f64>,
     sender: CommandSender,
 ) {
-    startup_selection(app, paths, resume_position, sender, false);
+    startup_selection(
+        app,
+        paths,
+        resume_position,
+        sender,
+        SelectionSource::Startup,
+    );
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum SelectionSource {
+    Startup,
+    Interactive,
+    DesktopDrop,
 }
 
 fn startup_selection(
@@ -357,21 +310,14 @@ fn startup_selection(
     paths: Vec<OsString>,
     resume_position: Option<f64>,
     sender: CommandSender,
-    subtitle_fallback: bool,
+    source: SelectionSource,
 ) {
     let paths = paths
         .into_iter()
         .map(OsString::into_string)
         .collect::<Result<Vec<_>, _>>();
     match paths {
-        Ok(paths) => selection_at(
-            app,
-            paths,
-            false,
-            resume_position,
-            sender,
-            subtitle_fallback,
-        ),
+        Ok(paths) => selection_at(app, paths, false, resume_position, sender, source),
         Err(_) => app.set_status("A media path contains invalid Unicode".into()),
     }
 }
@@ -384,7 +330,7 @@ pub fn url(app: &PlayerWindow, value: &str, sender: CommandSender) {
             return;
         }
     };
-    match open_in_separate_players(app, &[value.to_owned()], None) {
+    match open_single_in_separate_player(app, value, None) {
         Ok(true) => return,
         Ok(false) => {}
         Err(error) => {
@@ -402,7 +348,7 @@ pub fn url(app: &PlayerWindow, value: &str, sender: CommandSender) {
 }
 
 pub fn resume(app: &PlayerWindow, media: riina_core::RecentMedia, sender: CommandSender) {
-    match open_in_separate_players(app, std::slice::from_ref(&media.path), Some(media.position)) {
+    match open_single_in_separate_player(app, &media.path, Some(media.position)) {
         Ok(true) => return,
         Ok(false) => {}
         Err(error) => {
@@ -432,7 +378,7 @@ pub fn open_recent(
         resume(app, media, sender);
         return;
     }
-    match open_in_separate_players(app, std::slice::from_ref(&media.path), None) {
+    match open_single_in_separate_player(app, &media.path, None) {
         Ok(true) => return,
         Ok(false) => {}
         Err(error) => {
@@ -460,7 +406,14 @@ pub fn invalidate(app: &PlayerWindow) -> i32 {
 }
 
 pub fn selection(app: &PlayerWindow, paths: Vec<String>, append: bool, sender: CommandSender) {
-    selection_at(app, paths, append, None, sender, false);
+    selection_at(
+        app,
+        paths,
+        append,
+        None,
+        sender,
+        SelectionSource::Interactive,
+    );
 }
 
 fn selection_at(
@@ -469,7 +422,7 @@ fn selection_at(
     append: bool,
     resume_position: Option<f64>,
     sender: CommandSender,
-    subtitle_fallback: bool,
+    source: SelectionSource,
 ) {
     if paths.is_empty() {
         return;
@@ -479,107 +432,12 @@ fn selection_at(
     let failure = weak.clone();
     app.set_status("Opening…".into());
     let started = crate::background::spawn_named("media-discovery", move || {
-        let subtitles = if subtitle_fallback && !append {
-            dropped_subtitles(&paths)
-        } else {
-            Vec::new()
-        };
-        let result = (if subtitle_fallback {
-            resolve_dropped_url_shortcuts(paths)
-        } else {
-            Ok(paths)
-        })
-        .and_then(|paths| file_selection::prepare(paths, !append))
-        .and_then(|paths| {
-            if paths.is_empty() {
-                if !subtitles.is_empty() {
-                    Ok(PreparedSelection::Subtitles(subtitles))
-                } else {
-                    Err("No playable files were found".into())
-                }
-            } else if let Some(position) = resume_position
-                && position.is_finite()
-                && position >= 0.0
-                && !append
-                && paths.len() == 1
-            {
-                Ok(PreparedSelection::Command(Command::LoadAtPosition {
-                    path: paths[0].clone(),
-                    position,
-                }))
-            } else {
-                let command = if append {
-                    Command::AppendFiles(paths)
-                } else {
-                    Command::OpenFiles(paths)
-                };
-                if !subtitles.is_empty() {
-                    let paths = match command {
-                        Command::OpenFiles(paths) => paths,
-                        _ => {
-                            return Err("Dropped subtitles require an opened media batch".into());
-                        }
-                    };
-                    Ok(PreparedSelection::CommandWithSubtitles(paths, subtitles))
-                } else {
-                    Ok(PreparedSelection::Command(command))
-                }
-            }
-        });
+        let result = prepare_selection(paths, append, resume_position, source);
         // The result has no recipient once its window or event loop closes.
         let _ = crate::background::to_ui(weak, move |app| {
             // A newer accepted selection or Stop owns the player now.
             if app.get_media_request_generation() == generation
-                && let Err(error) = result.and_then(|prepared| match prepared {
-                    PreparedSelection::Subtitles(paths) => {
-                        let count = paths.len();
-                        for path in paths {
-                            sender.send(Command::AddSubtitle(path))?;
-                        }
-                        app.set_status(if count == 1 {
-                            "Added dropped subtitle file".into()
-                        } else {
-                            format!("Added {count} dropped subtitle files").into()
-                        });
-                        Ok(())
-                    }
-                    PreparedSelection::Command(Command::OpenFiles(paths)) if !append => {
-                        if open_in_separate_players(&app, &paths, resume_position)? {
-                            Ok(())
-                        } else {
-                            sender.send(Command::OpenFiles(paths))?;
-                            apply_manual_open_repeat(&app, &sender)
-                        }
-                    }
-                    PreparedSelection::CommandWithSubtitles(paths, subtitles) => {
-                        // A dropped subtitle belongs to the dropped media batch. Keep
-                        // both in the current player rather than opening media in a
-                        // separate window and attaching subtitles to the wrong player.
-                        sender.send(Command::OpenFilesWithSubtitles { paths, subtitles })?;
-                        apply_manual_open_repeat(&app, &sender)
-                    }
-                    PreparedSelection::Command(command) => {
-                        let added = match &command {
-                            Command::AppendFiles(paths) => Some(paths.len()),
-                            _ => None,
-                        };
-                        sender.send(command)?;
-                        if added.is_none() && !append {
-                            apply_manual_open_repeat(&app, &sender)?;
-                        }
-                        if let Some(count) = added {
-                            crate::player_ui::show_osd_message(
-                                &app,
-                                crate::video_osd::action_message(
-                                    crate::video_osd::ActionFeedback::PlaylistAdded(count),
-                                )
-                                .text,
-                                false,
-                            );
-                        }
-                        Ok(())
-                    }
-                })
+                && let Err(error) = result.and_then(|prepared| prepared.open(&app, &sender))
             {
                 app.set_status(error.into());
             }
@@ -593,10 +451,119 @@ fn selection_at(
     }
 }
 
+fn prepare_selection(
+    paths: Vec<String>,
+    append: bool,
+    resume_position: Option<f64>,
+    source: SelectionSource,
+) -> Result<PreparedSelection, String> {
+    let desktop_drop = source == SelectionSource::DesktopDrop;
+    let subtitles = if desktop_drop && !append {
+        dropped_subtitles(&paths)
+    } else {
+        Vec::new()
+    };
+    let paths = if desktop_drop {
+        resolve_dropped_url_shortcuts(paths)?
+    } else {
+        paths
+    };
+    if !append
+        && resume_position.is_none()
+        && source != SelectionSource::Startup
+        && subtitles.is_empty()
+    {
+        let prefs = preferences_for_open()?;
+        if prefs.allow_multiple_windows {
+            let players = prepare_new_players(paths, &prefs)?;
+            return if players.is_empty() {
+                Err("No playable files were found".into())
+            } else {
+                Ok(PreparedSelection::NewPlayers(players))
+            };
+        }
+    }
+    let paths = file_selection::prepare(paths, !append)?;
+    if paths.is_empty() {
+        return if subtitles.is_empty() {
+            Err("No playable files were found".into())
+        } else {
+            Ok(PreparedSelection::Subtitles(subtitles))
+        };
+    }
+    if !subtitles.is_empty() {
+        // Dropped subtitles travel with their media to the same player.
+        return Ok(PreparedSelection::Command(
+            Command::OpenFilesWithSubtitles { paths, subtitles },
+        ));
+    }
+    let command = if append {
+        Command::AppendFiles(paths)
+    } else if let Some(position) =
+        resume_position.filter(|value| value.is_finite() && *value >= 0.0)
+        && let [path] = paths.as_slice()
+    {
+        Command::LoadAtPosition {
+            path: path.clone(),
+            position,
+        }
+    } else {
+        Command::OpenFiles(paths)
+    };
+    Ok(PreparedSelection::Command(command))
+}
+
 enum PreparedSelection {
+    NewPlayers(Vec<PlayerSelection>),
     Command(Command),
-    CommandWithSubtitles(Vec<String>, Vec<String>),
     Subtitles(Vec<String>),
+}
+
+impl PreparedSelection {
+    fn open(self, app: &PlayerWindow, sender: &CommandSender) -> Result<(), String> {
+        match self {
+            Self::Subtitles(paths) => {
+                let count = paths.len();
+                for path in paths {
+                    sender.send(Command::AddSubtitle(path))?;
+                }
+                app.set_status(if count == 1 {
+                    "Added dropped subtitle file".into()
+                } else {
+                    format!("Added {count} dropped subtitle files").into()
+                });
+                Ok(())
+            }
+            Self::NewPlayers(players) => {
+                let mut players = players.into_iter();
+                if !has_playlist(app)
+                    && let Some(first) = players.next()
+                {
+                    sender.send(Command::OpenFiles(first.paths))?;
+                    apply_manual_open_repeat(app, sender)?;
+                }
+                open_new_players(app, players)
+            }
+            Self::Command(command) => {
+                if let Command::AppendFiles(paths) = &command {
+                    let count = paths.len();
+                    sender.send(command)?;
+                    crate::player_ui::show_osd_message(
+                        app,
+                        crate::video_osd::action_message(
+                            crate::video_osd::ActionFeedback::PlaylistAdded(count),
+                        )
+                        .text,
+                        false,
+                    );
+                    Ok(())
+                } else {
+                    sender.send(command)?;
+                    apply_manual_open_repeat(app, sender)
+                }
+            }
+        }
+    }
 }
 
 fn dropped_subtitles(paths: &[String]) -> Vec<String> {
@@ -652,7 +619,7 @@ fn parse_internet_shortcut(contents: &str) -> Result<&str, String> {
 #[cfg(test)]
 mod tests {
     use super::manual_open_repeat_command;
-    use super::{parse_internet_shortcut, select_open_paths, validate_url};
+    use super::{parse_internet_shortcut, validate_url};
     use riina_core::{Command, LoopMode};
 
     #[test]
@@ -668,7 +635,8 @@ mod tests {
         };
         let split = WelcomeDrop::prepare(paths(), &prefs).unwrap();
         assert_eq!(split.command, Command::OpenFiles(vec!["a.mkv".into()]));
-        assert_eq!(split.new_players, ["b.mkv"]);
+        assert_eq!(split.new_players.len(), 1);
+        assert_eq!(split.new_players[0].paths, ["b.mkv"]);
 
         prefs.group_simultaneous_opens_in_playlist = true;
         let grouped = WelcomeDrop::prepare(paths(), &prefs).unwrap();
@@ -771,36 +739,6 @@ mod tests {
         ] {
             assert!(parse_internet_shortcut(contents).is_err());
         }
-    }
-
-    #[test]
-    fn grouped_simultaneous_opens_preserve_items_even_when_duplicates_are_disabled() {
-        let existing = vec!["already-open.mkv".into()];
-        let incoming = vec![
-            "already-open.mkv".into(),
-            "selected.mkv".into(),
-            "selected.mkv".into(),
-        ];
-
-        assert_eq!(
-            select_open_paths(&incoming, &existing, false, true),
-            incoming
-        );
-    }
-
-    #[test]
-    fn separate_player_opens_filter_existing_and_repeated_media() {
-        let existing = vec!["already-open.mkv".into()];
-        let incoming = vec![
-            "already-open.mkv".into(),
-            "selected.mkv".into(),
-            "selected.mkv".into(),
-        ];
-
-        assert_eq!(
-            select_open_paths(&incoming, &existing, false, false),
-            ["selected.mkv"]
-        );
     }
 
     #[test]
