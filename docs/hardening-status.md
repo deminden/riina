@@ -30,7 +30,7 @@ more went from 30 to zero. Clippy continues to enforce its 150-line limit.
 | H10 Network identity | Share request defaults and versioned application identity across plugin clients. | `7bcec50` |
 | H11 Slint selection and media identity | Use typed track and playlist selection categories and keep the media generation for window sizing in Rust. | `37b5f53`, `5e32e6c` |
 | H12 Renderer request | Use a typed renderer request with the existing command-line argument order and platform defaults. | `4f7ee4e` |
-| H13 Development checks | Enforce strict Clippy, cache supported hosted jobs, add a non-blocking advisory job, and provide separate workspace, scoped, visual and native check commands. | `dda8174`, `9c7f48c`, `b3d8852`, `a73d9f5` |
+| H13 Development checks | Enforce strict Clippy, cache supported hosted jobs and add a non-blocking advisory job. The scoped UI check groups interaction and pixel tests and selects the same packages for linting. | `dda8174`, `9c7f48c`, `b3d8852`, `a73d9f5`, `640f28f`, `10d824d` |
 | H14 Background task ownership | Name application workers, log panics, report running tasks at exit, centralize weak window delivery, and release discarded playback and rendering callbacks. | `e5f0dc9`, `475d58a`, `845f8c0` |
 | H14 Preview and transition timers | Wake on playback, settings, or navigation events. Keep the 80 ms interval while work is pending and stop when it settles. | `17bd471` |
 | H14 Idle media timers | Wake subtitle discovery and playlist metadata on state changes and worker results. Gate automatic subtitle lookup, Live Text and Windows video sampling by media and visibility. Keep Windows PiP polling active only for its preview or automatic minimize policy. | `9871d17`, `0887a00` |

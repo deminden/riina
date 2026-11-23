@@ -839,6 +839,12 @@ regressions. The locked Windows workspace build passed. The private-desktop
 smoke passed all ten checks in 9.147 seconds and exited normally.
 `cargo xtask native` passed all 55 cases with the pinned DLL.
 
+At `10d824d`, `cargo xtask check` passed 865 Rust tests and 78 Python tests.
+An untracked Slint probe exercised the UI-only `cargo xtask check --fast`
+route. It ran the 48 player interaction tests and the Windows pixel suite in
+4.61 seconds with the workspace build cache primed. The probe measured
+check selection and cache reuse.
+
 On `954d4d6`, separate private-desktop runs reopened and played media after
 recovering a profile with an invalid setting type, a non-object JSON document,
 or invalid UTF-8. Each run showed the recovery notice, preserved the original
