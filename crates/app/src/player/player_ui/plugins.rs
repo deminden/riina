@@ -277,6 +277,9 @@ fn bind_lifecycle(
         if close_event_sent_once.replace(true) {
             return;
         }
+        if let Some(app) = weak.upgrade() {
+            playlist_menu::dismiss(&app);
+        }
         if let Some(host) = &close_event_host
             && let Err(error) = host.notify_window_will_close()
             && let Some(app) = weak.upgrade()

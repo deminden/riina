@@ -39,8 +39,20 @@ struct Request {
     origin: PlaylistMenuOrigin,
 }
 
+pub(super) fn dismiss(app: &PlayerWindow) {
+    next_generation(app);
+    playlist_menu::dismiss(app.window());
+}
+
+fn next_generation(app: &PlayerWindow) -> i32 {
+    let interaction = app.global::<PlaylistInteraction>();
+    let generation = interaction.get_playlist_menu_generation().wrapping_add(1);
+    interaction.set_playlist_menu_generation(generation);
+    generation
+}
+
 pub(super) fn install(app: &PlayerWindow, host: Option<&PluginHostHandle>) {
-    let Some(host) = host.filter(|_| playlist_menu::SUPPORTED).cloned() else {
+    let Some(host) = host.cloned() else {
         return;
     };
     let weak = app.as_weak();
@@ -49,10 +61,9 @@ pub(super) fn install(app: &PlayerWindow, host: Option<&PluginHostHandle>) {
             let Some(app) = weak.upgrade() else {
                 return false;
             };
-            let interaction = app.global::<PlaylistInteraction>();
-            let generation = interaction.get_playlist_menu_generation().wrapping_add(1);
-            interaction.set_playlist_menu_generation(generation);
-            if !host.has_active_sessions() {
+            let generation = next_generation(&app);
+            playlist_menu::dismiss(app.window());
+            if !host.has_active_sessions() || !playlist_menu::supports(app.window()) {
                 return false;
             }
             let position = LogicalPosition::new(x, y);
@@ -133,25 +144,36 @@ impl Request {
             return;
         }
         let entries = self.entries(contributions);
-        let result = playlist_menu::popup(app.window(), self.position, entries);
-        // The popup's native loop can deliver queued player events while it is open.
+        let owner = app.as_weak();
+        let host = host.clone();
+        if let Err(error) =
+            playlist_menu::popup(app.window(), self.position, entries, move |action| {
+                if let Some(app) = owner.upgrade() {
+                    self.activate(&app, &host, action);
+                }
+            })
+        {
+            crate::diagnostics::report(app, error);
+        }
+    }
+
+    fn activate(self, app: &PlayerWindow, host: &PluginHostHandle, action: Action) {
+        // Window events and playlist edits may arrive while the menu is visible.
         if !self.current(app) {
             return;
         }
         let actions = app.global::<PlayerMenuActions>();
-        match result {
-            Ok(Some(Action::Player(action))) => {
+        match action {
+            Action::Player(action) => {
                 actions.invoke_playlist_action(action, self.token);
             }
-            Ok(Some(Action::AddFiles)) => actions.invoke_browse_files(4),
-            Ok(Some(Action::AddUrl)) => actions.invoke_open_playlist_url_dialog(),
-            Ok(Some(Action::Plugin { identifier, id })) => {
+            Action::AddFiles => actions.invoke_browse_files(4),
+            Action::AddUrl => actions.invoke_open_playlist_url_dialog(),
+            Action::Plugin { identifier, id } => {
                 if let Err(error) = host.activate_playlist_menu_item(self.id(), identifier, id) {
                     crate::diagnostics::report(app, error);
                 }
             }
-            Ok(None) => {}
-            Err(error) => crate::diagnostics::report(app, error),
         }
     }
 

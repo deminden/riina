@@ -26,6 +26,11 @@ Wayland desktop evidence. Wayland also accepts plain-text media URLs.
 [X11 playlist drop checks](verification.md#files-dropped-into-the-playlist-2026-11-23),
 [Wayland drop checks](verification.md#wayland-file-and-url-drops-2026-11-23)
 
+X11 uses the GTK theme for plugin-contributed playlist popups on the owning
+player window. The application continues to handle player and menu events
+while the popup is open. Wayland uses the standard playlist menu and still
+needs a presenter for plugin contributions.
+
 The macOS drop adapter needs a native desktop check. On one isolated profile,
 drop a Finder file on Welcome, then drop a folder into the middle of the active
 player's playlist. Check the right-edge reveal, cancellation, insertion order,

@@ -1517,6 +1517,31 @@ covered the new AppKit adapter from Windows. AppKit linking and desktop
 verification, interactive Windows popup selection, and plugin popup
 presentation on Linux remain open.
 
+### X11 plugin playlist menus 2026-11-23
+
+The shared playlist request identifies the current surface and row tokens,
+then asks player entries to build their menus. X11 presents the resulting tree
+with GTK on the owning Winit window. Selection returns to the shared action
+handler and rechecks the request generation, surface and playlist order.
+Closing the player invalidates pending requests and dismisses its menu.
+
+An isolated X11 run opened the sidebar's blank-space menu, hovered through two
+submenus, and clicked a checked plugin item. It received an empty selection
+array. A row right-click sent index `0`, and Escape dismissed its menu. In
+Music Mode, the row and blank-space menus sent `[0]` and `[]` respectively.
+These checks passed with the default video-surface right-click action and with
+that action disabled. The player exited normally with the last menu open.
+
+The Windows workspace checks passed before the close-time invalidation change.
+The final code passed the focused Windows app gate, which included 54 widget
+tests, and the locked workspace build. Strict Apple Silicon cross-target
+Clippy passed. Linux passed the locked application build, strict workspace
+Clippy and 121 plugin tests. The tested executable SHA-256 was
+`dc69fefeb46d3676285c1510e8f9e54d27c3e4a7886f069e84a83f96de3d1c80`
+with engine SHA-256
+`84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`.
+Wayland plugin menus and native macOS desktop verification remain open.
+
 ### Plugin mpv property reads 2026-11-23
 
 The existing native observation test also reads the engine version before
