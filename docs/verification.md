@@ -630,6 +630,25 @@ sessions exited through Quit, and the private displays stopped. This verifies
 the fix for sustained black output on the tested Linux setup and records the
 earlier startup blanking separately.
 
+Two Openbox sessions on the same private X11 setup used the locked x64
+application at `4f7ee4e` and the backported library above. Keyboard input
+paused and resumed playback, sought backward while paused, entered
+fullscreen, restored the normal window with Escape, and stopped playback.
+An X11 resize request produced a 720 × 405 client and the video filled the
+new playback area. The fullscreen and resize checks matched fixture pixels
+across the expanded region after the window manager changed the geometry.
+Reopening through libmpv IPC restored visible playback. Both sessions
+exited through Quit.
+
+A separate private X11 session used the GTK file chooser through the XDG
+desktop portal. Ctrl+O opened a dialog with the player as its transient
+parent. An EWMH close request left the player active while the dialog was
+open. Escape dismissed the chooser and retained the file. After stopping,
+selecting that file through the reopened chooser restored visible playback.
+The session exited through Quit. The application SHA-256 for these checks was
+`f0bd38db347be624413ca42ef72a813b9d033f4edf8baa77d4637f00c5947d7d`.
+These checks used null audio and a single 1280 × 800 virtual display.
+
 ## Windows private-desktop smoke 2026-11-21
 
 The locked Windows x64 development build at `da50ecd` passed the ten native
@@ -772,6 +791,10 @@ commits and selected the app and test runner. Strict Clippy and 559 app
 and widget tests passed. At `4555ff8`, the full workspace gate passed
 861 Rust tests and 78 Python tests, including the headless pixel comparisons.
 All 55 pinned native engine tests passed with null audio output.
+
+At `47f4380`, the Windows workspace gate passed 862 Rust tests and 78 Python
+tests. The new startup regression verifies the name of a required option and
+the original native error. All 55 pinned native engine tests passed.
 
 On `954d4d6`, separate private-desktop runs reopened and played media after
 recovering a profile with an invalid setting type, a non-object JSON document,

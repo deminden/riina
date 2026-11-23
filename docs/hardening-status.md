@@ -13,7 +13,7 @@ source tree is in test code.
 | Finding | Change | Local commits |
 |---|---|---|
 | H1 Preference recovery | Recover valid sections at startup, preserve the original bytes in quarantine, and report the reset sections. | `e63fce8`, `f90fffd` |
-| H2 Startup diagnostics | Log fatal errors and panics and display startup failures on the native platform. | `f90fffd` |
+| H2 Startup diagnostics | Log fatal errors and panics, display startup failures on the native platform, and identify any required libmpv option rejected at startup. | `f90fffd`, `47f4380` |
 | H3 Player worker and UI delivery | Report worker failure, retain native ownership through rendering teardown, and recover ordinary shared state after poisoned locks. | `acf3d30`, `e4525bd`, `fc2bdb7` |
 | H4 Core and engine error types | Return typed failures from the core and engine APIs, retain up to 16 playback notices, and preserve the latest message in the UI and plugin snapshot. | `47c8f73` |
 | H4 Application diagnostics | Route formatted player statuses through one reporter. Log playback setup, native window and file cleanup failures. Release pending Windows menu and PiP state after rejected delivery. | `47c8f73`, `1dde0ee`, `a83c518`, `5aff11a`, `e887960`, `2df984f` |
