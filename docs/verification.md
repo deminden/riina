@@ -558,6 +558,46 @@ chroma subsampling with the default format, while YUV444P and GBRP also
 use three planes. Converting the input changes the upload data and
 processing, so the exact failing OpenGL operation remains unresolved.
 
+A fixed-format comparison kept `yuv420p` for 32 cold GLX starts.
+Four of eight default starts, three of eight with FFmpeg's copy filter,
+three of eight with pixel-buffer uploads, and four of eight with the full
+GPU shader path stayed black at all four sample positions. Every black
+start produced a software screenshot with 57,600 non-black video pixels.
+In all direct-upload cases, nine samples from each of the three OpenGL
+plane textures matched the bytes submitted by the client. The buffer-upload
+cases also had nine nonzero samples per plane. The sampled plane contents
+therefore survived upload even when the final framebuffer was black.
+
+A second comparison recorded intermediate draw outputs only after the final
+unmodified framebuffer sample. Four of eight default starts, two of eight
+full-shader starts and six of eight starts that finished GL work after each
+plane upload stayed black or nearly black. In all twelve dark starts, the
+draw that merged the two chroma planes returned nonzero color samples. The
+vertical or horizontal chroma upscaling draw then returned zeros, and the
+final video draw was black at the sampled positions. This locates the first
+sampled failure before conversion to RGB and presentation to the window.
+[libmpv chroma merging and upscaling](https://github.com/mpv-player/mpv/blob/v0.41.0/video/out/gpu/video.c#L2033-L2204).
+
+With `yuv420p` fixed, all eight standalone starts using `cscale=bilinear`
+showed moving video. Four of eight starts with inherited chroma scaling,
+five of eight with explicit Lanczos scaling and three of eight with
+`GALLIVM_PERF=nopt` stayed black or nearly black. In this libmpv build the
+inherited scaler is Lanczos. Bilinear uses regular texture sampling and
+skips the explicit chroma upscaling draws. The result identifies a
+diagnostic bypass on this setup. The failing operation within the
+upscaling draw remains unresolved.
+[libmpv scaler defaults](https://github.com/mpv-player/mpv/blob/v0.41.0/video/out/gpu/video.c#L337-L357),
+[Mesa shader optimization flags](https://gitlab.freedesktop.org/mesa/mesa/-/blob/mesa-26.0.8/src/gallium/auxiliary/gallivm/lp_bld_init_common.c).
+
+The locked Linux app at `4f7ee4e` alternated five default starts with five
+bilinear starts on private X11 displays. Each capture verified the active
+fixture, playing state, `yuv420p` output and scaler setting. Two default
+starts had zero blue fixture pixels in their video region at both
+captures, through 1.5 seconds. All five bilinear starts showed the fixture
+in both captures, with movement between them. The first bilinear captures
+were at 0.667–0.708 seconds. The comparison used full 1280 × 800 desktop
+captures and temporary profiles. All ten sessions exited through Quit.
+
 ## Windows private-desktop smoke 2026-11-21
 
 The locked Windows x64 development build at `da50ecd` passed the ten native
