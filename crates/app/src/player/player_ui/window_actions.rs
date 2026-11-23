@@ -16,6 +16,7 @@ pub(super) fn install_lifecycle(app: &PlayerWindow, welcome: Option<&WelcomeWind
             slint::CloseRequestResponse::KeepWindowShown
         } else {
             if let Some(app) = weak.upgrade() {
+                app.invoke_window_will_close();
                 app.invoke_dismiss_font_picker();
                 // Remove the borrowed texture before hide suspends its context.
                 // Teardown runs inside the backend's window borrow and cannot

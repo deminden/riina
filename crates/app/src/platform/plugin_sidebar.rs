@@ -66,6 +66,15 @@ impl SidebarEntry {
     }
 }
 
+#[cfg(target_os = "linux")]
+impl Drop for SidebarEntry {
+    fn drop(&mut self) {
+        // Wry destroys the foreign X11 child before closing its GTK wrapper.
+        // Unmap it now so GTK does not unmap an XID that Wry already destroyed.
+        let _ = self.webview.set_visible(false);
+    }
+}
+
 pub(crate) struct PluginSidebarPresenter {
     entries: BTreeMap<String, SidebarEntry>,
     selected: Option<String>,
@@ -177,10 +186,24 @@ impl PluginSidebarPresenter {
         }
     }
 
+    pub(crate) fn close(&mut self) {
+        self.entries.clear();
+        self.selected = None;
+        #[cfg(target_os = "linux")]
+        if gtk::is_initialized_main_thread()
+            && let Some(display) = gtk::gdk::Display::default()
+        {
+            // GTK and Winit use separate X11 connections. Finish child
+            // requests before Winit can destroy the player window.
+            display.sync();
+        }
+    }
+
     pub(crate) fn update(&mut self, bounds: Rect, selected: Option<String>) {
         self.selected = selected;
+        let allowed = self.sidebar_can_show();
         for (identifier, entry) in &mut self.entries {
-            let visible = self.selected.as_deref() == Some(identifier);
+            let visible = allowed && self.selected.as_deref() == Some(identifier);
             entry.set_bounds(bounds);
             // A later update reapplies the desired visibility after a child window change.
             entry.set_visible(visible);
@@ -194,8 +217,27 @@ impl PluginSidebarPresenter {
     }
 
     fn update_visibility(&mut self) {
+        let allowed = self.sidebar_can_show();
         for (identifier, entry) in &mut self.entries {
-            entry.set_visible(self.selected.as_deref() == Some(identifier));
+            entry.set_visible(allowed && self.selected.as_deref() == Some(identifier));
+        }
+    }
+
+    fn sidebar_can_show(&self) -> bool {
+        #[cfg(target_os = "linux")]
+        {
+            use slint::ComponentHandle;
+
+            // Native children paint over the Slint surface. Keep their page
+            // alive while the player owns an in-window modal editor.
+            self.owner.upgrade().is_some_and(|app| {
+                let dialog = app.global::<riina_ui::PlayerDialogState>();
+                !dialog.get_jump_time_dialog_visible() && !dialog.get_url_dialog_visible()
+            })
+        }
+        #[cfg(not(target_os = "linux"))]
+        {
+            true
         }
     }
 
@@ -260,8 +302,8 @@ impl PluginSidebarPresenter {
             .build_as_child(parent)
             .map_err(webview_error)?;
         #[cfg(target_os = "linux")]
-        bind_linux_player_quit(&webview, self.owner.clone());
-        let visible = self.selected.as_deref() == Some(identifier);
+        super::unix::plugin_shortcuts::bind(&webview, self.owner.clone());
+        let visible = self.sidebar_can_show() && self.selected.as_deref() == Some(identifier);
         webview.set_visible(visible).map_err(webview_error)?;
         self.entries.insert(
             identifier.to_owned(),
@@ -277,35 +319,6 @@ impl PluginSidebarPresenter {
         );
         Ok(())
     }
-}
-
-#[cfg(target_os = "linux")]
-fn bind_linux_player_quit(webview: &WebView, owner: slint::Weak<PlayerWindow>) {
-    use gtk::{gdk::ModifierType, glib::Propagation, prelude::WidgetExt};
-    use slint::ComponentHandle;
-    use wry::WebViewExtUnix;
-
-    let accelerator_modifiers = gtk::accelerator_get_default_mod_mask();
-    webview.webview().connect_key_press_event(move |_, event| {
-        let modifiers = event.state() & accelerator_modifiers;
-        if modifiers != ModifierType::CONTROL_MASK
-            || !matches!(event.keyval().to_unicode(), Some('q' | 'Q'))
-        {
-            return Propagation::Proceed;
-        }
-        // GTK owns input while the WebView is focused. Let the player manager
-        // close its windows after this native key handler returns.
-        let queued = crate::background::to_ui(owner.clone(), |player| {
-            player
-                .global::<riina_ui::PlayerMenuActions>()
-                .invoke_quit_riina();
-        });
-        if queued.is_ok() {
-            Propagation::Stop
-        } else {
-            Propagation::Proceed
-        }
-    });
 }
 
 #[cfg(target_os = "linux")]

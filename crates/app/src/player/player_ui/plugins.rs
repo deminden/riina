@@ -6,7 +6,7 @@ use effects::PluginEffects;
 use riina_ui::PlayerMenuActions;
 use slint::{ComponentHandle, Model, winit_030::WinitWindowAccessor};
 use std::{
-    cell::Cell,
+    cell::{Cell, RefCell},
     collections::BTreeMap,
     rc::Rc,
     sync::Arc,
@@ -62,10 +62,10 @@ pub(super) fn install(
 ) -> InstalledPluginUi {
     let menu_observation =
         platform::PluginMenuObservation::install(app, plugin_host_handle.as_ref());
-    bind_lifecycle(app, plugin_host_handle.as_ref());
     let plugin_window_host = native.map(platform::NativePresentation::host);
     let plugin_command_sender = Arc::new(std::sync::Mutex::new(None::<riina_mpv::CommandSender>));
     let presenters = platform::PluginPresenters::new(app);
+    bind_lifecycle(app, plugin_host_handle.as_ref(), presenters.sidebar.clone());
     {
         let weak = app.as_weak();
         let presenter = presenters.sidebar.clone();
@@ -170,6 +170,7 @@ fn update_timer_interval(timer: &slint::Timer, busy: bool) {
 fn bind_lifecycle(
     app: &PlayerWindow,
     plugin_host_handle: Option<&crate::plugin_host::PluginHostHandle>,
+    sidebar: Rc<RefCell<platform::PluginSidebarPresenter>>,
 ) {
     let menu_action_host = plugin_host_handle.cloned();
     let menu_action_app = app.as_weak();
@@ -248,6 +249,7 @@ fn bind_lifecycle(
                 format!("Could not notify plugins before closing: {error}"),
             );
         }
+        sidebar.borrow_mut().close();
     });
 }
 

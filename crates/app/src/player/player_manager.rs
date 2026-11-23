@@ -16,6 +16,28 @@ struct ManagedPlayer {
     app: PlayerWindow,
 }
 
+impl ManagedPlayer {
+    fn hide_windows(&self) {
+        self.app.invoke_window_will_close();
+        if let Some(welcome) = &self.welcome {
+            // Keep releasing the session if a window is already closing.
+            let _ = welcome.hide();
+        }
+        if self.app.window().is_visible() {
+            self.app.invoke_dismiss_font_picker();
+            // Slint holds a strong reference while the player is visible.
+            // Release its borrowed texture before unmapping its GL surface.
+            self.app
+                .global::<riina_ui::PlayerRenderedVideo>()
+                .set_video_frame(slint::Image::default());
+            self.app.set_engine_ready(false);
+            if let Err(error) = self.app.hide() {
+                crate::diagnostics::warn!("Could not hide the closing player window: {error}");
+            }
+        }
+    }
+}
+
 #[derive(Default)]
 struct ManagerState {
     next_id: u64,
@@ -278,13 +300,7 @@ fn schedule_quit(state: Weak<RefCell<ManagerState>>) {
             if let Err(error) = player.session.save(&player.app) {
                 crate::diagnostics::warn!("Could not save player state before quitting: {error}");
             }
-            if let Some(welcome) = &player.welcome {
-                // Continue releasing session resources if the window is closing.
-                let _ = welcome.hide();
-            }
-            // Dropping the player still closes the window if hide fails.
-            let _ = player.app.hide();
-            drop(player);
+            player.hide_windows();
         }
         // Shutdown may already have ended the event loop.
         let _ = slint::quit_event_loop();
@@ -307,10 +323,7 @@ fn close_player(state: &Rc<RefCell<ManagerState>>, id: u64, from_welcome: bool) 
     if let Err(error) = player.session.save(&player.app) {
         crate::diagnostics::report(&player.app, error.to_string());
     }
-    if let Some(welcome) = &player.welcome {
-        // Continue releasing session resources if the window is closing.
-        let _ = welcome.hide();
-    }
+    player.hide_windows();
     let empty = state.borrow().players.is_empty();
     let quit_when_empty = should_quit_after_last_window_closed(
         player

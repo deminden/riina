@@ -1180,6 +1180,38 @@ player's plugin text field accepted a bare Q key, and Ctrl+Q closed both
 players and exited normally. The Linux executable SHA-256 was
 `f6ed04be4c8bec1404f21ff8695e84a1b24836a5165cf0249d8a16bbf8aa1997`.
 
+### X11 sidebar menu shortcuts 2026-11-23
+
+With two players open at `98993b8`, the focused plugin field accepted typing
+and Ctrl+A, and Ctrl+Q exited normally. Ctrl+, did not open Settings, and
+Ctrl+H left both players visible.
+
+The Linux adapter now forwards fixed menu shortcuts to the player that owns
+the WebView. The WebView retains text editing shortcuts. Jump To and Open URL
+temporarily hide the native WebView while the player displays its entry dialog.
+In the first shortcut build, Ctrl+W left the player's window visible. Slint
+holds an extra reference until `hide()` runs. An intermediate build hid the
+window and exposed an X11 `BadWindow` error during GTK child teardown. The
+close paths now notify the plugin, release its sidebar before the parent
+window, and clear the borrowed GL frame before asking Slint to hide the player.
+The X11 presenter waits for GTK's queued child requests to finish before
+releasing the parent. [GDK display synchronization](https://docs.gtk.org/gdk3/method.Display.sync.html)
+
+The verified X11 build opened Settings, Playback History and both filter
+windows from a focused plugin field. Ctrl+M minimized only the owning player,
+and Ctrl+H minimized both players and Settings. Jump To and Open URL accepted
+Escape and restored the plugin page and its text. The native new-player picker
+canceled and reopened, then loaded another fixture. Both Ctrl+W and a window
+manager close left the other player running. Ctrl+Q then exited normally.
+The plugin recorded one `iina.window-will-close` event per player. The Linux
+executable SHA-256 was
+`53751550012453736175b5b6a379e41588826d32ca46303d2eff0c28a36f1cf1`.
+
+Strict workspace Clippy, the locked Linux application build and all 831 Linux
+workspace tests passed. The Windows `cargo xtask check` passed 868 workspace
+tests and 78 Python tests. The pinned Windows `cargo xtask native` run passed
+all 55 engine cases with null audio output.
+
 ### macOS application menu composition 2026-10-14
 
 The AppKit adapter consolidates application actions in one native menu while
