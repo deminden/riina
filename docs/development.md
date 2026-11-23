@@ -121,11 +121,14 @@ persists one batch before changing the in-memory rows and revision.
 
 Use `cargo xtask check --fast` for a focused batch. It checks formatting and
 source line lengths, then lints and tests the crates with staged, unstaged or
-untracked changes. Slint and Settings search changes check navigation. Script
-and workflow changes run the Python suite. Shared build inputs, test helpers
-and media fixtures select workspace-wide linting and tests. A clean checkout
-runs the portable core tests. Documentation-only batches stop after the source
-checks.
+untracked changes. Slint and Settings search changes check navigation. UI
+source changes alone run the player interaction and visual tests together.
+When UI and other Rust code change in one batch, the selected crates also
+include the application. Edits to visual tests or their baselines stay scoped
+to the UI crate. Script and workflow changes run the Python suite. Shared build
+inputs, test helpers and media fixtures select workspace-wide linting and tests.
+A clean checkout runs the portable core tests. Documentation-only batches stop
+after the source checks.
 Use `cargo xtask check --fast --base <revision>` to include a batch of local
 commits in the same check. Pass the commit immediately before the batch. The
 check also includes staged, unstaged and untracked changes.

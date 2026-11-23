@@ -91,16 +91,12 @@ fn fast_check(root: &Path, base: &OsStr) -> Result<(), String> {
     let workspace_wide = files.iter().any(|path| shared_build_input(path));
     let mut selected = Vec::new();
     let packages;
+    let mut widget_tests_only = false;
     if workspace_wide {
         selected.push("--workspace");
     } else {
         let mut changed = changed_packages(root, &files)?;
-        if files
-            .iter()
-            .any(|path| path.starts_with("tests/visual/headless"))
-        {
-            changed.insert("riina-ui".to_owned());
-        }
+        widget_tests_only = include_ui_consumers(&mut changed, &files);
         if changed.is_empty() {
             return if files.is_empty() {
                 cargo(root, &["test", "-p", "riina-core", "--locked"])
@@ -117,6 +113,9 @@ fn fast_check(root: &Path, base: &OsStr) -> Result<(), String> {
     lint.extend(&selected);
     lint.extend(["--", "-D", "warnings"]);
     cargo(root, &lint)?;
+    if widget_tests_only {
+        return test_ui(root);
+    }
     let mut tests = vec!["test", "--locked"];
     tests.extend(selected);
     cargo(root, &tests)
@@ -139,6 +138,10 @@ fn script_tests(root: &Path) -> Result<(), String> {
 
 fn ui(root: &Path) -> Result<(), String> {
     python(root, &["scripts/check-settings-navigation.py"])?;
+    test_ui(root)
+}
+
+fn test_ui(root: &Path) -> Result<(), String> {
     cargo(
         root,
         &[
@@ -154,6 +157,31 @@ fn ui(root: &Path) -> Result<(), String> {
             "quick_settings_input",
         ],
     )
+}
+
+fn include_ui_consumers(packages: &mut BTreeSet<String>, files: &BTreeSet<PathBuf>) -> bool {
+    if files
+        .iter()
+        .any(|path| path.starts_with("tests/visual/headless"))
+    {
+        packages.insert("riina-ui".to_owned());
+    }
+    let ui_source_changed = files.iter().any(|path| {
+        path.starts_with("crates/ui/ui")
+            || path.starts_with("crates/ui/src")
+            || path == Path::new("crates/ui/build.rs")
+            || path == Path::new("crates/ui/Cargo.toml")
+    });
+    if !ui_source_changed {
+        return false;
+    }
+    // An app integration test compiles the generated interface's main consumer.
+    // For UI-only edits it also avoids linking the unrelated app unit test harness.
+    if packages.len() == 1 && packages.contains("riina-ui") {
+        return true;
+    }
+    packages.insert("riina".to_owned());
+    false
 }
 
 fn shared_build_input(path: &Path) -> bool {
@@ -353,5 +381,56 @@ fn captured(command: &mut Command) -> Result<Vec<u8>, String> {
             "{command:?} failed: {}",
             String::from_utf8_lossy(&output.stderr).trim()
         ))
+    }
+}
+
+#[cfg(test)]
+mod scope_tests {
+    use super::*;
+
+    #[test]
+    fn ui_source_alone_runs_the_visual_and_interaction_targets() {
+        for source in [
+            "crates/ui/ui/player.slint",
+            "crates/ui/src/lib.rs",
+            "crates/ui/build.rs",
+            "crates/ui/Cargo.toml",
+        ] {
+            let mut packages = BTreeSet::from(["riina-ui".to_owned()]);
+            assert!(include_ui_consumers(
+                &mut packages,
+                &BTreeSet::from([source.into()])
+            ));
+            assert_eq!(packages, BTreeSet::from(["riina-ui".to_owned()]));
+        }
+    }
+
+    #[test]
+    fn ui_and_other_source_changes_include_the_app_in_the_same_batch() {
+        let mut packages = BTreeSet::from(["riina-core".to_owned(), "riina-ui".to_owned()]);
+        let files = BTreeSet::from([
+            PathBuf::from("crates/ui/ui/player.slint"),
+            PathBuf::from("crates/core/src/playback.rs"),
+        ]);
+        assert!(!include_ui_consumers(&mut packages, &files));
+        assert_eq!(
+            packages,
+            BTreeSet::from([
+                "riina".to_owned(),
+                "riina-core".to_owned(),
+                "riina-ui".to_owned()
+            ])
+        );
+    }
+
+    #[test]
+    fn visual_test_and_baseline_edits_stay_in_the_ui_crate() {
+        let mut packages = BTreeSet::new();
+        let files = BTreeSet::from([
+            PathBuf::from("crates/ui/tests/headless_visual.rs"),
+            PathBuf::from("tests/visual/headless/windows/player-playing.png"),
+        ]);
+        assert!(!include_ui_consumers(&mut packages, &files));
+        assert_eq!(packages, BTreeSet::from(["riina-ui".to_owned()]));
     }
 }
