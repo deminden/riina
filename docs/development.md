@@ -249,21 +249,26 @@ Pause on minimize follows the owning window's minimize and restore events.
 | Settings recovery notice | 250 ms | Wait for the player to show the recovery notice | Until the first visible player status line |
 | Fullscreen clock and battery | 60 s | Update local time and battery capacity | While fullscreen controls and the information card are visible |
 | Native HDR availability | 2 s | Refresh the display HDR state | While native video presentation is active |
-| macOS picture-in-picture | 100 ms | Sync AVKit state and update the active indicator | While a PiP controller exists |
+| macOS picture-in-picture | 100 ms | Sync AVKit state and update the active indicator | After the player creates a PiP controller, until the session ends |
 | Timeline thumbnails | 80 ms | Drain bounded batches of thumbnail frames | One initial pass and a pass on media or settings changes. The timer repeats while extraction runs. Pointer callbacks update hover previews directly |
 | Native video transition | 80 ms | Capture outgoing and incoming frames and settle the handoff | While a playlist request waits for its frame, playback approaches a pending outgoing capture, or the incoming surface is settling |
-| Windows startup material policy | 500 ms | Reapply native backdrop settings | While the Windows owner and chrome are active |
-| Windows surface alignment | 16 ms | Align owner, native video and controls | While the native Windows surfaces are attached |
+| Windows startup material policy | 500 ms | Reapply native backdrop settings | While the framed owner is visible and restored |
+| Windows surface alignment | 16 ms | Align owner, native video and controls | While the framed owner is visible and restored, including mpv child-window handoffs |
 | Playlist metadata | 300 ms | Refresh visible playlist rows | One delayed pass after a lookup completes or the display policy changes |
 | Automatic Music Mode | 100 ms | Complete the track-catalog debounce | While media is loaded and automatic switching is enabled, including paused playback |
 | Subtitle discovery | 120 ms | Discover sibling media and select a matching subtitle track | One delayed pass at setup and after relevant playback or discovery settings change |
 | Windows picture-in-picture | 250 ms | Check automatic enter/exit on minimize or restore and refresh active preview | While PiP is active or the automatic minimize policy applies. Stops at shutdown |
-| macOS Now Playing | 50 ms | Sync media controls and drain system actions | While system media controls or application focus policy are active |
+| macOS Now Playing | 50 ms | Sync media controls and drain system actions | During the player session. Stops before clearing the closing player's media state |
 | Windows package smoke | 100 ms | Advance the package verification steps | For the lifetime of the smoke run |
 | Live Text | 300 ms | Request and project paused-frame recognition | While recognition is enabled and paused video is eligible, with one cleanup tick after eligibility ends |
 | Windows player material policy | 100 ms | Follow system material policy and accent colors | While the player displays Windows materials or controls |
 | Windows video material sampling | 16 ms | Capture and transform a video sample | While a visible material uses active native video, with one cleanup tick to clear retired samples |
 | Plugin UI | 25 ms | Drain plugin host messages and update overlays | While a player plugin host is installed |
+
+The Windows owner monitors native show-state changes and resumes both surface
+timers at their existing intervals. Winit still receives its move and size
+notifications. If the native monitor cannot attach, the owner logs the failure
+and retains polling. [Win32 window-position notification](https://learn.microsoft.com/windows/win32/winmsg/wm-windowposchanged)
 
 The Slint controls also own short presentation delays. Their bindings start
 them for the corresponding interaction and stop them after it settles.

@@ -27,6 +27,7 @@ source tree is in test code.
 | H14 Background task ownership | Name application workers, log panics, report running tasks at exit, centralize weak window delivery, and release discarded playback and rendering callbacks. | `e5f0dc9`, `475d58a`, `845f8c0` |
 | H14 Preview and transition timers | Wake on playback, settings, or navigation events. Keep the 80 ms interval while work is pending and stop when it settles. | `17bd471` |
 | H14 Idle media timers | Wake subtitle discovery and playlist metadata on state changes and worker results. Gate automatic subtitle lookup, Live Text and Windows video sampling by media and visibility. Keep Windows PiP polling active only for its preview or automatic minimize policy. | `9871d17`, `0887a00` |
+| H14 Windows presentation timers | Pause alignment and native backdrop polling while the framed owner is hidden or minimized. Resume at the existing intervals on restore. | `223656d` |
 | O1 Preference ownership | Store committed settings in one model, project them through section bindings, and capture runtime state separately when the player closes. | `5581847`, `33e7926`, `a83c518` |
 | O2 Composition roots | Separate the Windows host and player session ownership, and split the history, crop and playback feedback handlers. Windows strict Clippy passed at the 150-line threshold. | `fc2bdb7`, `8bdb6e3`, `4684478` |
 | O3 Slint structure | Keep the player and Settings roots under 600 lines, centralize color tokens, and preserve all 51 software-rendered Windows baselines. | `4bbdd65`, `954d4d6`, `0887a00` |
@@ -38,5 +39,5 @@ source tree is in test code.
 
 | In progress | Verified progress | Local commits |
 |---|---|---|
-| H14 Platform timer lifetime | Visible auxiliary windows own their refresh timers. The remaining platform review covers Windows split-surface alignment and policy, plus macOS PiP and Now Playing lifecycle. | `208122a`, `beac8cb`, `fc2bdb7`, `9871d17` |
+| H14 macOS media timers | Start PiP polling after AVKit controller creation and stop Now Playing updates before player cleanup. The Apple-target source check uses the generated player UI. Native playback and lifecycle verification require macOS. | `d8421ed` |
 | O5 Platform boundary | Native player appearance and session services use platform adapters. The plan's source scan counts 27 target conditionals outside `platform/`. Full macOS application verification remains open. | `7226679`, `e529719`, `47c8f73` |

@@ -479,6 +479,24 @@ build. Each build still showed black video in two late captures while the
 decoded screenshots contained the fixture. All eight isolated sessions exited.
 The swap notification remains in the shared renderer.
 
+A standalone libmpv client reproduced the symptom in the private Xvfb display
+using a GLX context, Mesa llvmpipe and the moving-square fixture. Ten starts
+sampled the client-owned 320 × 192 framebuffer between 0.15 and 1.55 seconds.
+Two starts stayed black at all four samples. libmpv reported 38 and 36 frames
+ready, respectively. Each accompanying video-only screenshot had 57,600
+non-black pixels in its 320 × 180 image. This reproduces the rendering failure
+with Riina and Slint absent from the process.
+
+A paired follow-up used fresh profiles and caches for twelve starts. All six
+default starts and four of six starts with decoder direct rendering disabled
+showed a static black or nearly black framebuffer. The decoder setting alone
+therefore leaves the failure reproducible.
+
+A separate twelve-start comparison used clean profiles and alternated between
+fresh and shared cache directories. Two of six fresh-cache starts stayed
+black through the last sample. All six shared-cache starts rendered motion.
+The result leaves the role of the cache unresolved.
+
 ## Windows private-desktop smoke 2026-11-21
 
 The locked Windows x64 development build at `da50ecd` passed the ten native
@@ -576,6 +594,11 @@ then the test player exited normally.
 At `2df984f`, `cargo xtask check --fast` passed strict app Clippy and all
 558 app and widget tests after the native-window and capture cleanup audit.
 
+At `223656d`, the Windows workspace gate passed 860 Rust tests and 78 Python
+tests. The native visibility regression covered show, hide, minimize, restore
+and teardown, using a controlled Slint clock for alignment ticks. The locked
+build passed all ten private-desktop checks in 9.156 seconds and exited normally.
+
 On `954d4d6`, separate private-desktop runs reopened and played media after
 recovering a profile with an invalid setting type, a non-object JSON document,
 or invalid UTF-8. Each run showed the recovery notice, preserved the original
@@ -626,6 +649,9 @@ PiP timer test. Linux compiles the shared Slint bindings and excludes that test.
 
 At `2df984f`, the focused Linux app check passed strict app Clippy and 473
 library tests. The earlier workspace check covered the shared widget suite.
+
+At `d8421ed`, the Linux workspace passed strict Clippy, 821 tests and the
+locked x86-64 application build.
 
 At `a83c518`, Ubuntu 26.04 in WSL passed strict workspace Clippy, 814
 workspace tests, and the locked x86-64 application build.
@@ -824,3 +850,11 @@ Strict Clippy passed for `aarch64-apple-darwin` on the session's playback and
 focus policy alongside the real MediaPlayer adapter. The probe supplied stub
 Slint controls and focus access. Native media-key interaction and playback
 resume across application focus changes still need macOS verification.
+
+At `d8421ed`, strict `aarch64-apple-darwin` Clippy covered the actual generated
+Slint UI, the real AVKit and MediaPlayer adapters and both media sessions. The
+isolated crate supplied minimal focus, key-binding and presentation adapters.
+It verified that the session code type-checks against the current UI and engine
+error types. The full application check from Windows still stopped in
+`objc2-exception-helper` because the Apple Objective-C compiler was unavailable.
+Full application linking and runtime verification require macOS.
