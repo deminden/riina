@@ -126,6 +126,9 @@ and workflow changes run the Python suite. Shared build inputs, test helpers
 and media fixtures select workspace-wide linting and tests. A clean checkout
 runs the portable core tests. Documentation-only batches stop after the source
 checks.
+Use `cargo xtask check --fast --base <revision>` to include a batch of local
+commits in the same check. Pass the commit immediately before the batch. The
+check also includes staged, unstaged and untracked changes.
 Use `cargo xtask check` at integration points for the full local gate, including
 the Python, parity, fixture and asset checks. Run `cargo xtask native` for the native
 engine suite with null audio output. It selects the native test target and reuses

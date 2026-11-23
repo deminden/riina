@@ -13,12 +13,22 @@ fn main() -> ExitCode {
     let arguments: Vec<_> = env::args_os().skip(1).collect();
     let result = match arguments.as_slice() {
         [command] if command == "check" => check(&root),
-        [command, flag] if command == "check" && flag == "--fast" => fast_check(&root),
+        [command, flag] if command == "check" && flag == "--fast" => {
+            fast_check(&root, OsStr::new("HEAD"))
+        }
+        [command, flag, option, base]
+            if command == "check" && flag == "--fast" && option == "--base" =>
+        {
+            fast_check(&root, base)
+        }
         [command] if command == "ui" => ui(&root),
         [command] if command == "native" => native(&root, None),
         [command, filter] if command == "native" => native(&root, Some(filter)),
         [command] if command == "coverage" => coverage(&root),
-        _ => Err("Usage: cargo xtask {check [--fast]|ui|native [filter]|coverage}".into()),
+        _ => Err(
+            "Usage: cargo xtask {check [--fast [--base <revision>]]|ui|native [filter]|coverage}"
+                .into(),
+        ),
     };
     if let Err(error) = result {
         let _ = writeln!(io::stderr().lock(), "{error}");
@@ -55,10 +65,10 @@ fn check(root: &Path) -> Result<(), String> {
     Ok(())
 }
 
-fn fast_check(root: &Path) -> Result<(), String> {
+fn fast_check(root: &Path, base: &OsStr) -> Result<(), String> {
+    let files = changed_files(root, base)?;
     cargo(root, &["fmt", "--all", "--", "--check"])?;
     python(root, &["scripts/check-line-length.py"])?;
-    let files = changed_files(root)?;
     if files.iter().any(|path| {
         path.starts_with("crates/ui/ui")
             || path == Path::new("crates/app/src/settings_search.rs")
@@ -161,15 +171,20 @@ fn shared_build_input(path: &Path) -> bool {
         .any(|name| path == Path::new(name))
 }
 
-fn changed_files(root: &Path) -> Result<BTreeSet<PathBuf>, String> {
-    let mut files = captured(Command::new("git").current_dir(root).args([
-        "diff",
-        "--name-only",
-        "--no-renames",
-        "-z",
-        "HEAD",
-        "--",
-    ]))?;
+fn changed_files(root: &Path, base: &OsStr) -> Result<BTreeSet<PathBuf>, String> {
+    let mut files = captured(
+        Command::new("git")
+            .current_dir(root)
+            .args([
+                "diff",
+                "--name-only",
+                "--no-renames",
+                "-z",
+                "--end-of-options",
+            ])
+            .arg(base)
+            .arg("--"),
+    )?;
     files.extend(captured(Command::new("git").current_dir(root).args([
         "ls-files",
         "--others",
