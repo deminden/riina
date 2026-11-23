@@ -100,6 +100,10 @@ fn sync(host: &NativeVideoHost, app: &PlayerWindow) {
     host.set_save_current_playlist_available(app.get_save_current_playlist_available());
     host.set_downloaded_subtitle_save_available(app.get_downloaded_subtitle_save_available());
     host.set_open_subtitles_provider_index(player_preferences.get_open_subtitles_provider_index());
+    host.set_open_subtitles_plugin_provider_label(
+        player_preferences.get_open_subtitles_plugin_provider_label(),
+    );
+    host.set_plugin_subtitle_providers(player_preferences.get_plugin_subtitle_providers());
     host.set_current_file_manager_name(app.get_current_file_manager_name());
     host.set_playback_paused(app.get_paused());
     host.set_menu_alternates_visible(app.get_menu_alternates_visible());

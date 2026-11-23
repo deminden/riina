@@ -73,7 +73,19 @@ impl PluginEffects {
                 replace_plugin_menu_rows(app, &plugin_identifier, &plugin_name, global, &items);
             }
             PluginHostMessage::RemovePluginMenu(identifier) => {
-                remove_plugin_menu_rows(app, &identifier)
+                remove_plugin_menu_rows(app, &identifier);
+                crate::online_subtitles_preferences::replace_plugin_providers(
+                    app,
+                    &identifier,
+                    Vec::new(),
+                );
+            }
+            PluginHostMessage::SubtitleProviders(identifier, providers) => {
+                crate::online_subtitles_preferences::replace_plugin_providers(
+                    app,
+                    &identifier,
+                    providers,
+                );
             }
             message @ PluginHostMessage::Overlay { .. } => {
                 if let Err(error) = self.overlay.apply(message) {

@@ -203,6 +203,10 @@ pub enum Command {
     },
     ClearPlaylist,
     AddSubtitle(String),
+    AddSubtitlesForMedia {
+        generation: u64,
+        paths: Vec<String>,
+    },
     AddSubtitlesWithoutSelection(Vec<String>),
     AddAudio(String),
     AddVideo(String),

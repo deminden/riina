@@ -73,6 +73,7 @@ pub(super) fn create(
     crate::network_ytdl_preferences::install_window(&window, &baseline.network_online_videos);
     crate::pip_preferences::install_preferences(&window, baseline.picture_in_picture);
     crate::thumbnail_preferences::install_window(&window, &baseline.thumbnail_preview);
+    crate::online_subtitles_preferences::install_window_catalog(&window, app);
     crate::online_subtitles_preferences::install_window(&window, &baseline.online_subtitles);
     crate::window_resize_preferences::install_preferences(&window, baseline.window_resize);
     window

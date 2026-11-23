@@ -150,6 +150,20 @@ delivery or 15-second deadline releases a pending native hook. The worker
 consumes each native continuation once and reuses vacant slots when that
 preserves libmpv's registration order.
 
+### Plugin subtitle providers
+
+The plugin host catalogs the providers declared by enabled manifests. Menus and
+Settings use stable provider IDs so changing the plugin list keeps the selected
+provider associated with its package. Each search runs in the owning player
+realm. The JavaScript objects stay in that realm. Only the display text and
+result indices reach the chooser.
+
+Downloads use the same realm that produced the selected results. The plugin
+file scope resolves returned paths, and the download worker copies subtitle
+files into the application cache. Search and download results carry the media
+generation through to the playback worker, which checks it before attaching
+the files.
+
 ### Plugin WebSocket servers
 
 Each realm may start one WebSocket listener after permission review. A network

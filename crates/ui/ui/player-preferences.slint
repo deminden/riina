@@ -1,5 +1,6 @@
 import { PlayerMenuActions } from "player-menu-actions.slint";
 import { Theme } from "theme.slint";
+import { MenuCatalogRow } from "native-video.slint";
 
 // Current preference values used by the player and its Settings projection.
 export global PlayerPreferences {
@@ -122,6 +123,9 @@ export global PlayerPreferences {
     in-out property <string> subtitle-preferred-languages: "";
     in-out property <string> open-subtitles-api-key: "";
     in-out property <int> open-subtitles-provider-index: 0;
+    in-out property <string> open-subtitles-plugin-provider;
+    in-out property <string> open-subtitles-plugin-provider-label;
+    in-out property <[MenuCatalogRow]> plugin-subtitle-providers;
     in-out property <string> assrt-token: "";
     in-out property <bool> open-subtitles-auto-search: false;
     in-out property <string> open-subtitles-threshold-text: "20";
@@ -154,6 +158,8 @@ export global PlayerPreferences {
     changed record-recent-files => { PlayerMenuActions.video-menu-changed(); }
     changed track-all-files-in-recent-open-menu => { PlayerMenuActions.video-menu-changed(); }
     changed open-subtitles-provider-index => { PlayerMenuActions.video-menu-changed(); }
+    changed open-subtitles-plugin-provider-label => { PlayerMenuActions.video-menu-changed(); }
+    changed plugin-subtitle-providers => { PlayerMenuActions.video-menu-changed(); }
 
     callback control-bar-settings-changed();
     changed control-auto-hide-enabled => { self.control-bar-settings-changed(); }

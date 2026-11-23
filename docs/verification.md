@@ -1555,6 +1555,37 @@ Strict Apple Silicon workspace Clippy passed from Windows. Windows packaging
 generated the notices for all 431 Rust dependencies. Native macOS playback
 and Network.framework-specific event timing remain unverified.
 
+### Plugin subtitle providers 2026-11-23
+
+Manifest tests cover provider names, stable IDs and malformed declarations.
+The QuickJS test exercises async search and download, keeps each result's opaque
+data in its owning realm, and checks the custom-provider sentinel, aging results,
+and denied file paths. The playback plan test checks that a download for a prior
+media generation issues no subtitle command.
+
+Isolated Windows and Linux X11 players loaded a test provider from the saved
+provider preference. Using a 120-second local AVI derived from the checked-in
+frame fixture, each player automatically searched once and attached the single
+returned subtitle. In a second run per platform, the provider returned two
+items. Selecting the first row and activating Download attached that item's
+subtitle. The Windows chooser was exercised at 300% display scaling. The
+test plugin verified the attached track through libmpv and closed the exact
+player process normally.
+
+The Windows executable SHA-256 was
+`4dc4fa912c21aeaa23a856701f78ad49bc8b68910b2ef16a0735393501e5f834`.
+The Linux executable SHA-256 was
+`f80c265a7f5b7120f65872fc46d275bb7d72e21260e9a59bedb2ae4ec7867fac`.
+Both used the pinned native libraries recorded in the property-read verification.
+
+Windows passed the locked workspace build, strict Clippy, 891 Rust tests,
+78 Python tests and 58 native playback tests. A follow-up batch of 48 subtitle
+tests also passed, including the chooser's row selection and download actions.
+Linux x64 passed the locked app build, strict workspace Clippy, 852 Rust tests
+and 58 native playback tests. Strict Apple Silicon workspace Clippy passed from
+Windows. Native macOS playback, matched chooser pixels and third-party provider
+conformance remain open.
+
 ### Plugin sidebar manifest discovery 2026-10-14
 
 Manifest tests cover bounded localized labels. Runtime tests cover confined

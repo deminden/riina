@@ -176,7 +176,7 @@ export component PreferencesWindow inherits Window {
     private property <length> subtitle-text-height: SubtitleSettingsState.subtitle-text-advanced-expanded ? 288px : 244px;
     private property <length> subtitle-position-y: subtitle-text-y + 26px + subtitle-text-height + 20px;
     private property <length> subtitle-online-y: subtitle-position-y + 294px;
-    private property <length> subtitle-online-height: SubtitleSettingsState.open-subtitles-provider-index == 1 ? 276px : SubtitleSettingsState.open-subtitles-provider-index == 2 ? 224px : 244px;
+    private property <length> subtitle-online-height: SubtitleSettingsState.open-subtitles-provider-index > 2 ? 156px : SubtitleSettingsState.open-subtitles-provider-index == 1 ? 276px : SubtitleSettingsState.open-subtitles-provider-index == 2 ? 224px : 244px;
     private property <length> subtitle-other-y: subtitle-online-y + 26px + subtitle-online-height + 20px;
     private property <length> subtitle-content-height: max(subtitle-other-y + 214px, root.height + subtitle-other-y - 16px);
     private property <[string]> subtitle-override-descriptions: [

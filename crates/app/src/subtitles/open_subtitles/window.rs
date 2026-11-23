@@ -1,4 +1,5 @@
 //! Player-owned subtitle search window and its provider callbacks.
+mod plugin_search;
 use super::{
     ResultRow, download, provider_from_index, provider_index, provider_name, save_download,
     search_provider,
@@ -40,11 +41,24 @@ pub(crate) fn connect_player(
     sender: CommandSender,
     playback: PlaybackStore,
     subtitle_discovery_ready: Arc<Readiness>,
+    plugins: Option<crate::plugin_host::PluginHostHandle>,
 ) -> SearchWindowGuard {
     let window_slot = Rc::new(RefCell::new(None::<crate::OnlineSubtitlesWindow>));
     let search = SearchState::default();
     let auto_search_request = Rc::new(Cell::new(false));
     let requested_provider = Rc::new(Cell::new(None::<Provider>));
+    let plugin_search =
+        plugins.map(|host| plugin_search::Search::new(app, host, sender.clone(), playback.clone()));
+    if let Some(search) = plugin_search.clone() {
+        let built_in = window_slot.clone();
+        app.global::<PlayerMenuActions>()
+            .on_find_online_subtitles_with_plugin(move |key| {
+                if let Some(window) = built_in.borrow().as_ref() {
+                    _ = window.hide();
+                }
+                search.open(key.as_str());
+            });
+    }
     let app_weak = app.as_weak();
     let app_weak_for_provider = app.as_weak();
     let window_slot_callback = window_slot.clone();
@@ -58,6 +72,22 @@ pub(crate) fn connect_player(
             let Some(app) = app_weak.upgrade() else {
                 return;
             };
+            if let Some(search) = &plugin_search {
+                let key = app
+                    .global::<riina_ui::PlayerPreferences>()
+                    .get_open_subtitles_plugin_provider();
+                if requested_provider.is_none()
+                    && crate::online_subtitles_preferences::plugin_label(&app, key.as_str())
+                        .is_some()
+                {
+                    if let Some(window) = window_slot_callback.borrow().as_ref() {
+                        _ = window.hide();
+                    }
+                    search.open(key.as_str());
+                    return;
+                }
+                search.close();
+            }
             let current = riina_core::sync::lock(&playback_callback)
                 .playlist
                 .iter()
@@ -451,11 +481,15 @@ fn install_automatic_search(
             let Ok(auto_load) = crate::subtitle_auto_load_preferences::current_player(&app) else {
                 return;
             };
-            let credentials_available = match settings.provider {
-                Provider::OpenSubtitles => !settings.api_key.trim().is_empty(),
-                Provider::Assrt => !settings.assrt_token.trim().is_empty(),
-                Provider::Shooter => true,
-            };
+            let plugin_available = settings.plugin_provider.as_deref().is_some_and(|key| {
+                crate::online_subtitles_preferences::plugin_label(&app, key).is_some()
+            });
+            let credentials_available = plugin_available
+                || match settings.provider {
+                    Provider::OpenSubtitles => !settings.api_key.trim().is_empty(),
+                    Provider::Assrt => !settings.assrt_token.trim().is_empty(),
+                    Provider::Shooter => true,
+                };
             if !settings.auto_search || !credentials_available {
                 *pending_for_tick.borrow_mut() = None;
                 return;
@@ -470,7 +504,7 @@ fn install_automatic_search(
                     .playlist
                     .iter()
                     .find(|entry| entry.current)
-                    .is_none_or(|entry| entry.filename.contains("://"))
+                    .is_none_or(|entry| !plugin_available && entry.filename.contains("://"))
                 || searched_generation.get() == Some(state.generation)
             {
                 *pending_for_tick.borrow_mut() = None;
@@ -574,6 +608,61 @@ fn ui_row(row: &ResultRow, selected: bool) -> crate::OnlineSubtitleRow {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn plugin_result_chooser_passes_row_selection_to_download() -> Result<(), slint::PlatformError>
+    {
+        use slint::platform::{PointerEventButton, WindowEvent};
+        i_slint_backend_testing::init_no_event_loop();
+        let window = OnlineSubtitlesWindow::new()?;
+        window
+            .window()
+            .set_size(slint::LogicalSize::new(620.0, 430.0));
+        window.set_provider_index(3);
+        window.set_results(ModelRc::new(VecModel::from(vec![
+            crate::OnlineSubtitleRow {
+                file_name: "First subtitle".into(),
+                ..Default::default()
+            },
+            crate::OnlineSubtitleRow {
+                file_name: "Second subtitle".into(),
+                ..Default::default()
+            },
+        ])));
+        window.show()?;
+        let selected = Rc::new(Cell::new(None));
+        let downloads = Rc::new(Cell::new(None));
+        let chosen = selected.clone();
+        let owner = window.as_weak();
+        window.on_select_result(move |index, _, _| {
+            chosen.set(Some(index));
+            if let Some(window) = owner.upgrade() {
+                window.set_selected_count(1);
+            }
+        });
+        let finished = downloads.clone();
+        window.on_download_selected(move || finished.set(selected.get()));
+        let click = |x, y| {
+            let position = slint::LogicalPosition::new(x, y);
+            let button = PointerEventButton::Left;
+            window
+                .window()
+                .dispatch_event(WindowEvent::PointerMoved { position });
+            window
+                .window()
+                .dispatch_event(WindowEvent::PointerPressed { position, button });
+            window
+                .window()
+                .dispatch_event(WindowEvent::PointerReleased { position, button });
+            i_slint_backend_testing::mock_elapsed_time(Duration::ZERO);
+        };
+        click(68.0, 137.0);
+        assert_eq!(window.get_selected_count(), 1);
+        click(555.0, 400.0);
+        assert_eq!(downloads.get(), Some(0));
+        window.hide()?;
+        Ok(())
+    }
 
     #[test]
     fn automatic_search_timer_tracks_the_live_setting() -> Result<(), slint::PlatformError> {

@@ -119,6 +119,7 @@ pub(super) fn install(app: &PlayerWindow, inputs: Inputs<'_>) -> Installed {
         commands.clone(),
         playback.clone(),
         subtitle_discovery_ready.clone(),
+        plugin_host.cloned(),
     );
     let subtitle_priority_timer =
         discovery::install(app, commands, playback.clone(), subtitle_discovery_ready);

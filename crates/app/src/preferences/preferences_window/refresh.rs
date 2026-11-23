@@ -11,6 +11,7 @@ pub(super) fn refresh(window: &crate::PreferencesWindow, app: &PlayerWindow) {
     let subtitles = window.global::<crate::SubtitleSettingsState>();
     window.set_surface_material_title(crate::platform::surface_material_title().into());
     if let Ok(settings) = crate::online_subtitles_preferences::current_player(app) {
+        crate::online_subtitles_preferences::install_window_catalog(window, app);
         crate::online_subtitles_preferences::install_window(window, &settings);
     }
     crate::osd_preferences::current_player(app).install_preferences(window);

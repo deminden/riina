@@ -2,6 +2,7 @@ import { PreferenceSwitch, OverrideLaneButton, PreferenceActionButton, Preferenc
 import { Theme } from "theme.slint";
 import { CheckBox, ComboBox, ScrollView } from "std-widgets.slint";
 import { SubtitleColorWell } from "shared-controls.slint";
+import { MenuCatalogRow } from "native-video.slint";
 
 export global SubtitleSettingsState {
     in-out property <int> subtitle-ass-override-lane: 0;
@@ -19,6 +20,7 @@ export global SubtitleSettingsState {
     in-out property <string> open-subtitles-api-key: "";
     in-out property <int> open-subtitles-provider-index: 0;
     in-out property <[string]> open-subtitles-provider-options: ["OpenSubtitles", "Assrt.net", "Shooter.cn"];
+    in-out property <[MenuCatalogRow]> open-subtitles-plugin-options;
     in-out property <string> assrt-token: "";
     in-out property <bool> open-subtitles-auto-search: false;
     in-out property <string> open-subtitles-threshold-text: "20";
@@ -197,7 +199,7 @@ export component SubtitlesPreferencesPage inherits ScrollView {
             border-width: 1px; border-color: Theme.settings-card-border; border-radius: 12px; background: Theme.settings-card-surface(root.mica-backdrop-enabled);
             Text { x: 14px; y: 12px; width: 104px; height: 26px; text: "Provider"; font-size: 12px; color: Theme.settings-control-label; vertical-alignment: center; }
             ComboBox { x: 130px; y: 12px; width: parent.width - 144px; height: 26px; model: SubtitleSettingsState.open-subtitles-provider-options; current-index <=> SubtitleSettingsState.open-subtitles-provider-index; selected => { root.settings-changed(); } }
-            if SubtitleSettingsState.open-subtitles-provider-index != 2 : Rectangle { x: 14px; y: 48px; width: parent.width - 28px; height: 84px; background: transparent;
+            if SubtitleSettingsState.open-subtitles-provider-index < 2 : Rectangle { x: 14px; y: 48px; width: parent.width - 28px; height: 84px; background: transparent;
                 Text { x: 0px; y: 0px; width: parent.width; height: 18px; text: SubtitleSettingsState.open-subtitles-provider-index == 1 ? "Assrt.net token" : "OpenSubtitles API key"; font-size: 12px; color: Theme.settings-control-label; }
                 Rectangle { x: 0px; y: 22px; width: parent.width; height: 24px; background: Theme.settings-field-surface; border-width: 1px; border-color: Theme.settings-field-border; border-radius: 3px; clip: true;
                     TextInput { x: 5px; y: 1px; width: parent.width - 10px; height: parent.height - 2px; single-line: true; input-type: password; visible: SubtitleSettingsState.open-subtitles-provider-index == 0;
@@ -211,7 +213,7 @@ export component SubtitlesPreferencesPage inherits ScrollView {
             }
             if SubtitleSettingsState.open-subtitles-provider-index == 1 : PreferenceActionButton { x: 14px; y: 136px; width: 176px; label: "Get an Assrt API token"; activated => { root.open-assrt-token-page(); } }
             if SubtitleSettingsState.open-subtitles-provider-index == 2 : Text { x: 14px; y: 48px; width: parent.width - 28px; height: 54px; text: "Shooter matches local videos using file samples and their path. Searching sends both to Shooter.cn; no account is needed."; font-size: 10px; color: Theme.settings-section-heading; wrap: word-wrap; }
-            PreferenceSwitch { x: 14px; y: SubtitleSettingsState.open-subtitles-provider-index == 1 ? 168px : SubtitleSettingsState.open-subtitles-provider-index == 2 ? 116px : 136px; width: parent.width - 28px;
+            PreferenceSwitch { x: 14px; y: SubtitleSettingsState.open-subtitles-provider-index == 1 ? 168px : SubtitleSettingsState.open-subtitles-provider-index == 2 ? 116px : SubtitleSettingsState.open-subtitles-provider-index > 2 ? 50px : 136px; width: parent.width - 28px;
                 label: "Search online subtitles automatically"; checked <=> SubtitleSettingsState.open-subtitles-auto-search; toggled => { root.settings-changed(); }
             }
             Text { x: 14px; y: root.subtitle-online-height - 68px; width: parent.width - 28px; height: 20px; text: "Only search when media is longer than"; font-size: 11px; color: Theme.settings-control-label; }

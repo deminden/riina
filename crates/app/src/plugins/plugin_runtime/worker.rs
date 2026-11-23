@@ -9,7 +9,7 @@ use super::{
     messaging, modules, mpv_api, mpv_hooks, network,
     network::NetworkWorkerContext,
     output::{menu_js_error, record, record_plugin_menu},
-    playlist_api, preferences_api, timers,
+    playlist_api, preferences_api, subtitles, timers,
     timers::PluginTimers,
     web_socket, webviews,
 };
@@ -61,7 +61,14 @@ pub(super) fn run_entry_worker(
             return;
         }
     };
-    let services = RealmServices::default();
+    let services = RealmServices {
+        overlay: Arc::default(),
+        sidebar: Arc::default(),
+        timers: Arc::default(),
+        hooks: mpv_hooks::RealmHooks::default(),
+        web_socket: web_socket::RealmWebSocket::default(),
+        subtitles: subtitles::Realm::new(host.file_system.clone(), permissions),
+    };
     execution.begin();
     let initialized =
         context.with(|ctx| initialize_realm(ctx, source, permissions, host, &network, &services));
@@ -84,13 +91,13 @@ pub(super) fn run_entry_worker(
     run_callbacks(&context, &runtime, commands, &execution, &events, &services);
 }
 
-#[derive(Default)]
 struct RealmServices {
     overlay: Arc<Mutex<OverlayState>>,
     sidebar: Arc<Mutex<PluginSidebarState>>,
     timers: Arc<PluginTimers>,
     hooks: mpv_hooks::RealmHooks,
     web_socket: web_socket::RealmWebSocket,
+    subtitles: subtitles::Realm,
 }
 
 fn initialize_realm(
@@ -177,6 +184,7 @@ fn initialize_realm(
         network.allowed_domains.clone(),
     )?;
     if global_api_mode != Some(GlobalApiMode::Controller) {
+        subtitles::Realm::install(&api)?;
         mpv_api::install(
             &api,
             player_mpv.clone(),
@@ -305,12 +313,10 @@ fn run_callbacks(
             }) => {
                 if Instant::now() < deadline {
                     execution.begin();
-                    let items = super::menu::build_playlist_menu(context, request, &indices);
-                    let pending = execution.drain_jobs(runtime);
-                    match items.and_then(|items| pending.map(|()| items)) {
-                        Ok(items) => {
-                            let _ = response.send(items);
-                        }
+                    let result =
+                        build_playlist_turn(context, runtime, execution, request, &indices);
+                    match result {
+                        Ok(items) => _ = response.send(items),
                         Err(error) => record(
                             events,
                             UiEffect::Log(format!("Plugin playlist menu builder failed: {error}")),
@@ -401,6 +407,14 @@ fn run_callbacks(
                 }
                 continue;
             }
+            Some(RuntimeCommand::RunSubtitleProvider(job)) => {
+                execution.begin();
+                let evaluated = services.subtitles.dispatch(context, job);
+                if finish_turn(runtime, execution, events, "subtitle provider", evaluated) {
+                    break;
+                }
+                continue;
+            }
         };
         execution.begin();
         let evaluated = evaluate_callback(context, script);
@@ -408,6 +422,18 @@ fn run_callbacks(
             break;
         }
     }
+}
+
+fn build_playlist_turn(
+    context: &Context,
+    runtime: &Runtime,
+    execution: &super::execution::ExecutionControl,
+    request: u64,
+    indices: &[usize],
+) -> Result<Vec<PluginMenuItem>, String> {
+    let items = super::menu::build_playlist_menu(context, request, indices);
+    let pending = execution.drain_jobs(runtime);
+    items.and_then(|items| pending.map(|()| items))
 }
 
 fn evaluate_callback(context: &Context, script: String) -> Result<(), String> {

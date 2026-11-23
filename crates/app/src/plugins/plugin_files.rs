@@ -132,6 +132,12 @@ impl PluginFiles {
         }
     }
 
+    pub(crate) fn is_media_generation(&self, generation: u64) -> bool {
+        self.player_context
+            .lock()
+            .is_ok_and(|context| context.is_media_generation(generation))
+    }
+
     pub(crate) fn core_status_property(
         &self,
         name: &str,

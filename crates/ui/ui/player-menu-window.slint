@@ -438,13 +438,17 @@ export component PlayerMenuWindow inherits Window {
             MenuItem { title: "Load External Subtitle…"; enabled: root.menu-value-loaded && !root.menu-value-crop-editing;
                 activated => { PlayerMenuActions.browse-files(2); } }
             MenuSeparator {}
-            MenuItem { title: PlayerPreferences.open-subtitles-provider-index == 1 ? "Find Online Subtitles from assrt.net" : PlayerPreferences.open-subtitles-provider-index == 2 ? "Find Online Subtitles from shooter.cn" : "Find Online Subtitles from opensubtitles.com"; enabled: root.menu-value-loaded && !root.menu-value-crop-editing;
+            MenuItem { title: PlayerPreferences.open-subtitles-plugin-provider-label != "" ? "Find Online Subtitles from " + PlayerPreferences.open-subtitles-plugin-provider-label : PlayerPreferences.open-subtitles-provider-index == 1 ? "Find Online Subtitles from assrt.net" : PlayerPreferences.open-subtitles-provider-index == 2 ? "Find Online Subtitles from shooter.cn" : "Find Online Subtitles from opensubtitles.com"; enabled: root.menu-value-loaded && !root.menu-value-crop-editing;
                 shortcut: root.menu-shortcut(55);
                 activated => { PlayerMenuActions.find-online-subtitles(); } }
             Menu { title: "Find Online Subtitles from"; enabled: root.menu-value-loaded && !root.menu-value-crop-editing;
                 MenuItem { title: "opensubtitles.com"; activated => { PlayerMenuActions.find-online-subtitles-with-provider(0); } }
                 MenuItem { title: "assrt.net"; activated => { PlayerMenuActions.find-online-subtitles-with-provider(1); } }
                 MenuItem { title: "shooter.cn"; activated => { PlayerMenuActions.find-online-subtitles-with-provider(2); } }
+                for provider in PlayerPreferences.plugin-subtitle-providers : MenuItem {
+                    title: provider.label;
+                    activated => { PlayerMenuActions.find-online-subtitles-with-plugin(provider.token); }
+                }
             }
             MenuItem { title: "Save Downloaded Subtitle…";
                 enabled: root.menu-value-downloaded-subtitle-save-available && !root.menu-value-crop-editing;

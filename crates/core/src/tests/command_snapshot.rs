@@ -121,6 +121,7 @@ command_samples! {
     MovePlaylistEntry { from: 0, to: 2 };
     ClearPlaylist;
     AddSubtitle["dialogue.srt".into()];
+    AddSubtitlesForMedia { generation: 0, paths: vec!["dialogue.srt".into(), "translation.srt".into()] };
     AddSubtitlesWithoutSelection[vec!["dialogue.srt".into(), "translation.srt".into()]];
     AddAudio["commentary.flac".into()];
     AddVideo["alternate.mkv".into()];

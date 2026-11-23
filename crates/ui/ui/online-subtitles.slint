@@ -45,7 +45,7 @@ export component OnlineSubtitlesWindow inherits Window {
     Rectangle {
         x: 18px; y: 16px; width: parent.width - 36px; height: 34px;
         border-radius: 6px; border-width: 1px; border-color: Theme.subtitle-search-field-border; background: Theme.auxiliary-light-list-surface;
-        if root.provider-index != 2 : TextInput {
+        if root.provider-index < 2 : TextInput {
             x: 8px; y: 2px; width: parent.width - 16px; height: parent.height - 4px;
             text <=> root.query; font-size: 13px; color: Theme.auxiliary-light-content-text;
             accepted => { root.search(); }
@@ -55,8 +55,13 @@ export component OnlineSubtitlesWindow inherits Window {
             text: "Match this local video using its file samples";
             font-size: 13px; color: Theme.auxiliary-light-secondary-text; vertical-alignment: center;
         }
+        if root.provider-index == 3 : Text {
+            x: 8px; y: 2px; width: parent.width - 16px; height: parent.height - 4px;
+            text: root.query; font-size: 13px; color: Theme.auxiliary-light-content-text;
+            vertical-alignment: center; overflow: elide;
+        }
     }
-    Button {
+    if root.provider-index != 3 : Button {
         x: parent.width - 114px; y: 58px; width: 96px; height: 28px;
         text: root.searching ? "Searching…" : "Search";
         enabled: !root.searching && !root.downloading;
@@ -75,20 +80,23 @@ export component OnlineSubtitlesWindow inherits Window {
             x: 0px; y: 0px; width: parent.width; height: 28px;
             background: root.acrylic-backdrop-enabled ? AuxiliaryPalette.light-acrylic-fill : Theme.subtitle-result-header;
             Text { x: 10px; y: 0px; width: 185px; height: parent.height; text: "Subtitle"; font-size: 10px; font-weight: 600; color: Theme.auxiliary-light-column-label; vertical-alignment: center; }
-            Text { x: 204px; y: 0px; width: 62px; height: parent.height; text: "Language"; font-size: 10px; font-weight: 600; color: Theme.auxiliary-light-column-label; vertical-alignment: center; }
-            Text { x: 270px; y: 0px; width: 150px; height: parent.height; text: "Release"; font-size: 10px; font-weight: 600; color: Theme.auxiliary-light-column-label; vertical-alignment: center; }
-            Text { x: parent.width - 158px; y: 0px; width: 72px; height: parent.height; text: root.provider-index == 1 ? "Uploaded" : root.provider-index == 2 ? "Format" : "Rating"; font-size: 10px; font-weight: 600; color: Theme.auxiliary-light-column-label; vertical-alignment: center; }
+            if root.provider-index != 3 : Text { x: 204px; y: 0px; width: 62px; height: parent.height; text: "Language"; font-size: 10px; font-weight: 600; color: Theme.auxiliary-light-column-label; vertical-alignment: center; }
+            if root.provider-index != 3 : Text { x: 270px; y: 0px; width: 150px; height: parent.height; text: "Release"; font-size: 10px; font-weight: 600; color: Theme.auxiliary-light-column-label; vertical-alignment: center; }
+            if root.provider-index != 3 : Text { x: parent.width - 158px; y: 0px; width: 72px; height: parent.height; text: root.provider-index == 1 ? "Uploaded" : root.provider-index == 2 ? "Format" : "Rating"; font-size: 10px; font-weight: 600; color: Theme.auxiliary-light-column-label; vertical-alignment: center; }
             if root.provider-index == 0 : Text { x: parent.width - 90px; y: 0px; width: 80px; height: parent.height; text: "Downloads"; font-size: 10px; font-weight: 600; color: Theme.auxiliary-light-column-label; vertical-alignment: center; }
         }
+        Flickable {
+            x: 0px; y: 28px; width: parent.width; height: parent.height - 28px;
+            content-width: self.width; content-height: max(self.height, root.results.length * 30px);
         for row[index] in root.results : Rectangle {
-            x: 0px; y: 28px + index * 30px; width: parent.width; height: 30px;
+            x: 0px; y: index * 30px; width: parent.width; height: 30px;
             background: row.selected ? Theme.subtitle-result-selection
                 : root.acrylic-backdrop-enabled ? AuxiliaryPalette.light-acrylic-fill
                 : (Math.mod(index, 2) == 0 ? Theme.auxiliary-light-list-surface : Theme.auxiliary-light-list-alternate);
             Text { x: 10px; y: 0px; width: 185px; height: parent.height; text: row.file-name; font-size: 11px; color: Theme.auxiliary-light-content-text; vertical-alignment: center; overflow: elide; }
-            Text { x: 204px; y: 0px; width: 62px; height: parent.height; text: row.language; font-size: 11px; color: Theme.subtitle-result-detail; vertical-alignment: center; overflow: elide; }
-            Text { x: 270px; y: 0px; width: 150px; height: parent.height; text: row.year == "" ? row.release : row.release + " (" + row.year + ")"; font-size: 11px; color: Theme.subtitle-result-detail; vertical-alignment: center; overflow: elide; }
-            Text { x: parent.width - 158px; y: 0px; width: 72px; height: parent.height; text: root.provider-index == 1 ? row.uploaded-at : root.provider-index == 2 ? row.format : row.rating; font-size: 11px; color: Theme.subtitle-result-detail; vertical-alignment: center; overflow: elide; }
+            Text { x: 204px; y: 0px; width: root.provider-index == 3 ? 172px : 62px; height: parent.height; text: row.language; font-size: 11px; color: Theme.subtitle-result-detail; vertical-alignment: center; overflow: elide; }
+            Text { x: root.provider-index == 3 ? 386px : 270px; y: 0px; width: root.provider-index == 3 ? parent.width - 396px : 150px; height: parent.height; text: row.year == "" ? row.release : row.release + " (" + row.year + ")"; font-size: 11px; color: Theme.subtitle-result-detail; vertical-alignment: center; overflow: elide; }
+            if root.provider-index != 3 : Text { x: parent.width - 158px; y: 0px; width: 72px; height: parent.height; text: root.provider-index == 1 ? row.uploaded-at : root.provider-index == 2 ? row.format : row.rating; font-size: 11px; color: Theme.subtitle-result-detail; vertical-alignment: center; overflow: elide; }
             if root.provider-index == 0 : Text { x: parent.width - 90px; y: 0px; width: 80px; height: parent.height; text: row.downloads; font-size: 11px; color: Theme.subtitle-result-detail; vertical-alignment: center; }
             TouchArea {
                 width: parent.width; height: parent.height;
@@ -99,6 +107,7 @@ export component OnlineSubtitlesWindow inherits Window {
                 }
                 double-clicked => { root.download-selected(); }
             }
+        }
         }
         if root.results.length == 0 && !root.searching : Text {
             x: 12px; y: 38px; width: parent.width - 24px; height: 30px;

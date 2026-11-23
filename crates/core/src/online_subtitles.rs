@@ -77,6 +77,8 @@ impl ResultSelection {
 pub struct Preferences {
     #[serde(default)]
     pub provider: Provider,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub plugin_provider: Option<String>,
     /// Loaded from the platform credential store and never written to preferences JSON.
     #[serde(default, skip_serializing, deserialize_with = "discard_legacy_api_key")]
     pub api_key: String,
@@ -98,6 +100,7 @@ impl Default for Preferences {
     fn default() -> Self {
         Self {
             provider: Provider::OpenSubtitles,
+            plugin_provider: None,
             api_key: String::new(),
             assrt_token: String::new(),
             auto_search: false,
@@ -127,6 +130,7 @@ impl std::fmt::Debug for Preferences {
                 },
             )
             .field("provider", &self.provider)
+            .field("plugin_provider", &self.plugin_provider)
             .field("auto_search", &self.auto_search)
             .field(
                 "auto_search_threshold_minutes",
@@ -138,6 +142,18 @@ impl std::fmt::Debug for Preferences {
 
 impl Preferences {
     pub fn validate(&self) -> Result<(), PreferenceError> {
+        if self.plugin_provider.as_ref().is_some_and(|key| {
+            !key.strip_prefix("plugin:")
+                .and_then(|key| key.split_once(':'))
+                .is_some_and(|(plugin, id)| !plugin.is_empty() && !id.is_empty())
+                || key.len() > 512
+                || key.chars().any(char::is_control)
+        }) {
+            return Err(PreferenceError::new(
+                "online_subtitles",
+                "Invalid plugin subtitle provider",
+            ));
+        }
         if self.api_key.len() > 512 || self.api_key.chars().any(char::is_control) {
             return Err(PreferenceError::new(
                 "online_subtitles",
@@ -202,6 +218,7 @@ mod tests {
     fn api_key_is_never_serialized_with_preferences() {
         let preferences = Preferences {
             provider: Provider::OpenSubtitles,
+            plugin_provider: None,
             api_key: "private-test-key".into(),
             assrt_token: "assrt-private-test-token".into(),
             auto_search: true,

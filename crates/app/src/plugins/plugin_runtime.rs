@@ -19,6 +19,7 @@ mod permissions;
 mod playlist_api;
 mod preferences_api;
 mod preferences_store;
+pub(crate) mod subtitles;
 #[cfg(test)]
 mod tests;
 mod timers;
@@ -100,6 +101,7 @@ enum RuntimeCommand {
     DeliverNetworkDownload(u32, Result<(), String>),
     DeliverXmlRpcResult(u32, Result<serde_json::Value, String>),
     DeliverWebSocket(web_socket::Delivery),
+    RunSubtitleProvider(subtitles::Job),
     Shutdown,
 }
 

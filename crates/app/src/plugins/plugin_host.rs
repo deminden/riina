@@ -62,6 +62,7 @@ pub(crate) enum PluginHostMessage {
         items: Vec<PluginMenuItem>,
     },
     RemovePluginMenu(String),
+    SubtitleProviders(String, Vec<riina_core::plugin::SubtitleProvider>),
 }
 
 #[derive(Clone)]
@@ -72,6 +73,20 @@ pub(crate) struct PluginHostHandle {
 }
 
 impl PluginHostHandle {
+    pub(crate) fn run_subtitle_provider(
+        &self,
+        key: String,
+        job: crate::plugin_runtime::subtitles::Job,
+    ) {
+        let command = PluginCommand::RunSubtitleProvider(key, job);
+        if let Err(mpsc::TrySendError::Full(command) | mpsc::TrySendError::Disconnected(command)) =
+            self.commands.try_send(command)
+            && let PluginCommand::RunSubtitleProvider(_, job) = command
+        {
+            job.fail("The subtitle plugin host is unavailable or busy".into());
+        }
+    }
+
     pub(crate) fn after_initial_plugins(&self, ready: impl FnOnce() + Send + 'static) {
         // The host defers queued work until all startup entry points have run.
         let command = PluginCommand::AfterInitialPlugins(Box::new(ready));
@@ -403,6 +418,7 @@ enum PluginCommand {
         item_id: String,
     },
     BuildPlaylistMenu(playlist_menu::BuildRequest),
+    RunSubtitleProvider(String, crate::plugin_runtime::subtitles::Job),
     ActivatePlaylistMenuItem {
         request: u64,
         identifier: String,
@@ -529,6 +545,7 @@ struct PluginHostPaths {
 struct PluginDirectory {
     path: PathBuf,
     name: String,
+    subtitle_providers: Vec<riina_core::plugin::SubtitleProvider>,
 }
 
 fn handle_command(
@@ -675,6 +692,9 @@ fn handle_command(
         PluginCommand::BuildPlaylistMenu(request) => {
             request.run(sessions, plugin_directories, &paths.enabled_path);
         }
+        PluginCommand::RunSubtitleProvider(key, job) => {
+            run_subtitle_provider(&key, job, sessions, plugin_directories);
+        }
         PluginCommand::ActivatePlaylistMenuItem {
             request,
             identifier,
@@ -688,6 +708,36 @@ fn handle_command(
     }
     pump_session_events(messages, sessions, plugin_directories);
     false
+}
+
+fn run_subtitle_provider(
+    key: &str,
+    mut job: crate::plugin_runtime::subtitles::Job,
+    sessions: &BTreeMap<PluginInstanceKey, PluginRuntimeSession>,
+    directories: &BTreeMap<String, PluginDirectory>,
+) {
+    if let Some((identifier, provider)) = key
+        .strip_prefix("plugin:")
+        .and_then(|key| key.split_once(':'))
+        && directories.get(identifier).is_some_and(|directory| {
+            directory
+                .subtitle_providers
+                .iter()
+                .any(|entry| entry.id == provider)
+        })
+        && let Some(session) = sessions.get(&PluginInstanceKey::player(identifier))
+    {
+        if let crate::plugin_runtime::subtitles::Operation::Search {
+            provider: requested,
+            ..
+        } = &mut job.operation
+        {
+            *requested = provider.to_owned();
+        }
+        session.run_subtitle_provider(job);
+    } else {
+        job.fail("The selected subtitle provider is no longer available".into());
+    }
 }
 
 fn activate_menu_item(
@@ -1063,8 +1113,18 @@ fn activate(
         PluginDirectory {
             path: directory.to_path_buf(),
             name: manifest.name.clone(),
+            subtitle_providers: manifest.subtitle_providers.clone(),
         },
     );
+    if !manifest.subtitle_providers.is_empty() {
+        record(
+            messages,
+            PluginHostMessage::SubtitleProviders(
+                manifest.identifier.clone(),
+                manifest.subtitle_providers.clone(),
+            ),
+        );
+    }
     if let Some(label) = manifest.sidebar_tab_name.as_ref() {
         record(
             messages,

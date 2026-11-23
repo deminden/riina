@@ -206,6 +206,10 @@ fn install_subtitle_actions(host: &NativeVideoHost, app: &PlayerWindow) {
         app.global::<PlayerMenuActions>()
             .invoke_find_online_subtitles_with_provider(index);
     });
+    forward!(host, app, on_find_online_subtitles_with_plugin, |key| {
+        app.global::<PlayerMenuActions>()
+            .invoke_find_online_subtitles_with_plugin(key);
+    });
     forward!(host, app, on_set_subtitle_encoding, |encoding| {
         app.global::<PlayerMenuActions>()
             .invoke_set_subtitle_encoding(encoding);

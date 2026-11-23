@@ -73,6 +73,10 @@ impl PluginPlayerFileContext {
         self
     }
 
+    pub(super) fn is_media_generation(&self, generation: u64) -> bool {
+        self.media_generation == generation
+    }
+
     pub(crate) fn with_media_ready(mut self, ready: bool) -> Self {
         self.media_ready = ready;
         self

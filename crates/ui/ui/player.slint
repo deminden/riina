@@ -90,6 +90,7 @@ export component PlayerWindow inherits PlayerMenuWindow {
     in-out property <int> preferences-target-pane: -1;
     callback plugin-menu-will-open();
     callback plugin-host-wake();
+    callback plugin-subtitle-catalog-changed();
     callback native-menu-will-open();
     changed reflection-known => { PlayerMenuActions.video-menu-changed(); }
     changed video-mirrored => { PlayerMenuActions.video-menu-changed(); }

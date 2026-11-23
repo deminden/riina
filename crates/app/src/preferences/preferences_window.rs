@@ -27,6 +27,15 @@ pub(crate) fn connect(
     let current = Rc::new(RefCell::new(None::<crate::PreferencesWindow>));
     let timers = timers::VisibleSettings::default();
     let preferences_window = current.clone();
+    let subtitle_catalog_window = current.clone();
+    let owner = app.as_weak();
+    app.on_plugin_subtitle_catalog_changed(move || {
+        if let Some(app) = owner.upgrade()
+            && let Some(window) = subtitle_catalog_window.borrow().as_ref()
+        {
+            crate::online_subtitles_preferences::refresh_catalog(window, &app);
+        }
+    });
     app.on_subtitle_font_selected(move |font| {
         if let Some(window) = preferences_window
             .borrow()

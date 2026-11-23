@@ -319,7 +319,14 @@ pub struct Manifest {
     pub github_repo: Option<String>,
     pub github_version: Option<u64>,
     pub sidebar_tab_name: Option<String>,
+    pub subtitle_providers: Vec<SubtitleProvider>,
     pub preference_defaults: serde_json::Map<String, serde_json::Value>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+pub struct SubtitleProvider {
+    pub id: String,
+    pub name: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -341,6 +348,8 @@ struct RawManifest {
     github_version: Option<u64>,
     #[serde(rename = "sidebarTab")]
     sidebar_tab: Option<serde_json::Value>,
+    #[serde(rename = "subtitleProviders")]
+    subtitle_providers: Option<serde_json::Value>,
     #[serde(rename = "preferenceDefaults")]
     preference_defaults: Option<serde_json::Value>,
     localized: Option<serde_json::Value>,
@@ -412,6 +421,7 @@ impl Manifest {
             github_repo: raw.github_repo,
             github_version: raw.github_version,
             sidebar_tab_name,
+            subtitle_providers: subtitle_providers(raw.subtitle_providers),
             preference_defaults: match raw.preference_defaults {
                 Some(serde_json::Value::Object(values)) => values,
                 _ => serde_json::Map::new(),
@@ -456,6 +466,26 @@ impl Manifest {
             .filter(|value| Permission::parse(value).is_none())
             .map(String::as_str)
     }
+}
+
+fn subtitle_providers(value: Option<serde_json::Value>) -> Vec<SubtitleProvider> {
+    let Some(serde_json::Value::Array(rows)) = value else {
+        return Vec::new();
+    };
+    let mut seen = std::collections::BTreeSet::new();
+    rows.into_iter()
+        .filter_map(|row| serde_json::from_value::<SubtitleProvider>(row).ok())
+        .filter(|row| {
+            !row.id.trim().is_empty()
+                && row.id.len() <= 128
+                && !row.id.chars().any(char::is_control)
+                && !row.name.trim().is_empty()
+                && row.name.len() <= 256
+                && !row.name.chars().any(char::is_control)
+                && seen.insert(row.id.clone())
+        })
+        .take(32)
+        .collect()
 }
 
 fn parse_sidebar_tab_name(
@@ -653,6 +683,26 @@ mod tests {
         );
         assert!(Permission::NetworkRequest.is_dangerous());
         assert!(!Permission::ShowOsd.is_dangerous());
+    }
+
+    #[test]
+    fn manifest_preserves_valid_subtitle_provider_declarations() {
+        let mut document: serde_json::Value = serde_json::from_str(MANIFEST).unwrap();
+        document["subtitleProviders"] = serde_json::json!([
+            {"id":"captions.en", "name":"English captions"},
+            {"id":"missing-label"},
+            {"id":"captions.en", "name":"Duplicate"},
+            {"id":"captions.fr", "name":"Sous-titres"}
+        ]);
+        let manifest = Manifest::parse(&document.to_string()).unwrap();
+        assert_eq!(
+            manifest
+                .subtitle_providers
+                .iter()
+                .map(|row| row.id.as_str())
+                .collect::<Vec<_>>(),
+            ["captions.en", "captions.fr"]
+        );
     }
 
     #[test]

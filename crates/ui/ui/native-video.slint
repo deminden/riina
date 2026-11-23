@@ -56,6 +56,8 @@ export component NativeVideoHost inherits Window {
     in property <[MenuCatalogRow]> recent-open-menu-rows: [];
     in property <bool> playback-loaded: false;
     in property <int> open-subtitles-provider-index: 0;
+    in property <string> open-subtitles-plugin-provider-label;
+    in property <[MenuCatalogRow]> plugin-subtitle-providers;
     in property <bool> video-panel-open: false;
     in property <bool> audio-panel-open: false;
     in property <bool> subtitles-panel-open: false;
@@ -120,6 +122,7 @@ export component NativeVideoHost inherits Window {
     callback load-external-subtitle();
     callback find-online-subtitles();
     callback find-online-subtitles-with-provider(int);
+    callback find-online-subtitles-with-plugin(string);
     callback set-subtitle-encoding(string);
     callback multiply-subtitle-scale(float);
     callback reset-subtitle-scale();
@@ -543,13 +546,17 @@ export component NativeVideoHost inherits Window {
             MenuItem { title: "Load External Subtitle…"; enabled: root.playback-loaded;
                 activated => { root.load-external-subtitle(); } }
             MenuSeparator {}
-            MenuItem { title: root.open-subtitles-provider-index == 1 ? "Find Online Subtitles from assrt.net" : root.open-subtitles-provider-index == 2 ? "Find Online Subtitles from shooter.cn" : "Find Online Subtitles from opensubtitles.com"; enabled: root.playback-loaded;
+            MenuItem { title: root.open-subtitles-plugin-provider-label != "" ? "Find Online Subtitles from " + root.open-subtitles-plugin-provider-label : root.open-subtitles-provider-index == 1 ? "Find Online Subtitles from assrt.net" : root.open-subtitles-provider-index == 2 ? "Find Online Subtitles from shooter.cn" : "Find Online Subtitles from opensubtitles.com"; enabled: root.playback-loaded;
                 shortcut: root.menu-shortcut(55);
                 activated => { root.find-online-subtitles(); } }
             Menu { title: "Find Online Subtitles from"; enabled: root.playback-loaded;
                 MenuItem { title: "opensubtitles.com"; activated => { root.find-online-subtitles-with-provider(0); } }
                 MenuItem { title: "assrt.net"; activated => { root.find-online-subtitles-with-provider(1); } }
                 MenuItem { title: "shooter.cn"; activated => { root.find-online-subtitles-with-provider(2); } }
+                for provider in root.plugin-subtitle-providers : MenuItem {
+                    title: provider.label;
+                    activated => { root.find-online-subtitles-with-plugin(provider.token); }
+                }
             }
             MenuItem { title: "Save Downloaded Subtitle…";
                 enabled: root.downloaded-subtitle-save-available;

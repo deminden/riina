@@ -921,3 +921,17 @@ fn plugin_mpv_property_observation_is_validated_and_has_no_input_command() {
             .is_err()
     );
 }
+#[test]
+fn downloaded_subtitles_are_bound_to_the_media_generation() {
+    let command = Command::AddSubtitlesForMedia {
+        generation: 4,
+        paths: vec!["one.srt".into(), "two.ass".into()],
+    };
+    let mut playback = Playback {
+        generation: 4,
+        ..Playback::default()
+    };
+    assert_eq!(command.plan(&playback).unwrap().commands.len(), 2);
+    playback.generation = 5;
+    assert!(command.plan(&playback).unwrap().commands.is_empty());
+}

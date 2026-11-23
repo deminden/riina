@@ -26,6 +26,7 @@ pub(super) fn manifest(entry: PathBuf) -> Manifest {
         github_repo: None,
         github_version: None,
         sidebar_tab_name: None,
+        subtitle_providers: Vec::new(),
         preference_defaults: serde_json::Map::new(),
     }
 }

@@ -91,6 +91,7 @@
 {"command":"MovePlaylistEntry","mpv":[["playlist-move","0","2"]],"resume_on_load":false}
 {"command":"ClearPlaylist","mpv":[["playlist-clear"]],"resume_on_load":false}
 {"command":"AddSubtitle","mpv":[["sub-add","dialogue.srt"]],"resume_on_load":false}
+{"command":"AddSubtitlesForMedia","mpv":[["sub-add","dialogue.srt"],["sub-add","translation.srt"]],"resume_on_load":false}
 {"command":"AddSubtitlesWithoutSelection","mpv":[["sub-add","dialogue.srt","auto"],["sub-add","translation.srt","auto"]],"resume_on_load":false}
 {"command":"AddAudio","mpv":[["audio-add","commentary.flac"]],"resume_on_load":false}
 {"command":"AddVideo","mpv":[["video-add","alternate.mkv"]],"resume_on_load":false}
