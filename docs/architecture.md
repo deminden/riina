@@ -60,6 +60,14 @@ validates each intent against the observed `Playback` state before submitting th
 plan. Its `Handle` ties each borrowed native event to the wait that returned it.
 The worker copies payloads before advancing the event queue.
 
+Manual playlist navigation applies a temporary pause. The worker associates it
+with the native command reply and the media generation that starts next. It
+checks the current pause-on-open preference when mpv reports playback ready
+after initialization. With normal latency settings, mpv waits for its video
+output to finish the first frame before that event. Audio-only entries reach
+the same event. An explicit pause or play command retires the temporary pause's
+automatic resume.
+
 Callbacks and `playback_mailbox` share `Arc<Playback>` snapshots. Tracks, chapters,
 playlists, audio devices and retained plugin events are shared across snapshots
 until the worker replaces or updates them. `playback_mailbox` coalesces pending

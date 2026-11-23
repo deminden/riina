@@ -1,8 +1,10 @@
 //! Native commands and events are serialized on the event thread.
 mod handle;
 mod hooks;
+mod playlist_resume;
 
 use self::handle::{EventRef, Handle};
+use self::playlist_resume::PlaylistResume;
 use super::{Message, WakeupContext, diag, record_notice, trace_shutdown};
 use crate::{
     EngineError,
@@ -235,7 +237,7 @@ struct WorkerState {
     hooks: hooks::Hooks,
     volume_boost: bool,
     pending_drop_subtitles: Vec<String>,
-    resume_on_load: bool,
+    playlist_resume: PlaylistResume,
     seek_pending: bool,
     event_names: HashMap<c_int, Option<Arc<str>>>,
     revision: u64,
@@ -335,16 +337,18 @@ impl WorkerState {
         if matches!(command, Command::TogglePause | Command::SetPaused(_)) {
             self.seek_feedback.playback_transition();
         }
-        if command.replaces_media() {
-            self.resume_on_load = false;
+        let resume_after_navigation = plan.resume_on_load;
+        if resume_after_navigation
+            || command.replaces_media()
+            || matches!(command, Command::TogglePause | Command::SetPaused(_))
+        {
+            self.playlist_resume = PlaylistResume::Idle;
         }
-        self.resume_on_load |= plan.resume_on_load;
         if let Err(error) = self.issue_plan(handle, &command, plan) {
             if matches!(command, Command::CaptureMaterialFrame) {
                 diagnostic!("Could not request a Windows video material frame: {error}");
             } else {
                 record_notice(&mut self.playback, NoticeSeverity::Error, error);
-                self.resume_on_load = false;
                 self.mark_changed();
             }
             if matches!(command, Command::CaptureFrame) {
@@ -352,6 +356,8 @@ impl WorkerState {
             }
         } else if let Command::OpenFilesWithSubtitles { subtitles, .. } = command {
             self.pending_drop_subtitles = subtitles;
+        } else if resume_after_navigation {
+            self.playlist_resume = PlaylistResume::Submitted(self.next_id);
         }
     }
 
@@ -524,6 +530,8 @@ impl WorkerState {
                 self.hooks.receive(handle, id, slot, wake);
             } else if event.id() == event_id::FILE_LOADED {
                 self.on_file_loaded(handle);
+            } else if event.id() == event_id::PLAYBACK_RESTART {
+                self.on_playback_restarted(handle);
             } else {
                 self.on_event(&event);
             }
@@ -538,6 +546,7 @@ impl WorkerState {
                 self.seek_feedback.clear();
                 self.auto_seek = AutoSeek::default();
                 self.playback.begin_load();
+                self.playlist_resume.file_started(self.playback.generation);
             }
             event_id::END_FILE => self.on_end_file(event),
             event_id::SEEK => {
@@ -545,22 +554,13 @@ impl WorkerState {
                 self.seek_feedback.started();
                 self.auto_seek.seek_started(Instant::now());
             }
-            event_id::PLAYBACK_RESTART if self.seek_pending => {
-                // Only a preceding native SEEK distinguishes this from initial playback.
-                self.seek_pending = false;
-                self.playback.completed_seeks = self.playback.completed_seeks.wrapping_add(1);
-                self.auto_seek.playback_restarted(Instant::now());
-                if self.seek_feedback.completed() {
-                    let completed = &mut self.playback.completed_navigation_seeks;
-                    *completed = completed.wrapping_add(1);
-                }
-            }
             event_id::PROPERTY_CHANGE => {
                 let observer = self.observers.get(&event.userdata()).cloned();
                 event.apply_property(&mut self.playback, observer);
             }
             event_id::QUEUE_OVERFLOW => {
                 self.client_requests.clear();
+                self.playlist_resume = PlaylistResume::Idle;
                 record_notice(
                     &mut self.playback,
                     NoticeSeverity::Error,
@@ -592,13 +592,13 @@ impl WorkerState {
         {
             record_notice(&mut self.playback, NoticeSeverity::Error, message);
         }
-        if end.reason == end_reason::ERROR {
-            self.resume_on_load = false;
-        }
+        self.playlist_resume
+            .file_ended(self.playback.generation, end.reason == end_reason::REDIRECT);
     }
 
     fn on_file_loaded(&mut self, handle: &Handle) {
         self.playback.phase = Phase::Playing;
+        self.playlist_resume.file_loaded(self.playback.generation);
         for path in std::mem::take(&mut self.pending_drop_subtitles) {
             let args = ["sub-add".into(), path, "auto".into()];
             if let Err(error) = self.issue(handle, &args, ReplyKind::Plain) {
@@ -606,9 +606,25 @@ impl WorkerState {
                 break;
             }
         }
-        // Manual navigation pauses before changing files. Use the preference
-        // at load completion so a change during loading takes effect as well.
-        if std::mem::take(&mut self.resume_on_load) && !self.playback.pause_when_open {
+    }
+
+    fn on_playback_restarted(&mut self, handle: &Handle) {
+        // Only a preceding native SEEK distinguishes this from initial playback.
+        if std::mem::take(&mut self.seek_pending) {
+            self.playback.completed_seeks = self.playback.completed_seeks.wrapping_add(1);
+            self.auto_seek.playback_restarted(Instant::now());
+            if self.seek_feedback.completed() {
+                let completed = &mut self.playback.completed_navigation_seeks;
+                *completed = completed.wrapping_add(1);
+            }
+        }
+        // With normal latency settings, mpv waits for the initial video frame
+        // at its output before emitting this event. Audio-only media also emits it.
+        if self
+            .playlist_resume
+            .playback_restarted(self.playback.generation)
+            && !self.playback.pause_when_open
+        {
             let args = ["set".into(), "pause".into(), "no".into()];
             if let Err(error) = self.issue(handle, &args, ReplyKind::Plain) {
                 record_notice(&mut self.playback, NoticeSeverity::Error, error);
@@ -618,6 +634,8 @@ impl WorkerState {
 
     fn on_command_reply(&mut self, event: &EventRef<'_>) {
         let failed = event.failed();
+        self.playlist_resume
+            .command_replied(event.userdata(), failed);
         self.seek_feedback.replied(event.userdata(), failed);
         if failed {
             self.auto_seek.failed(event.userdata());
@@ -671,7 +689,6 @@ impl WorkerState {
                     let message = format!("mpv {}: {error}", pending.label);
                     record_notice(&mut self.playback, NoticeSeverity::Error, message);
                 }
-                self.resume_on_load = false;
             }
         }
     }

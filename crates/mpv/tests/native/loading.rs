@@ -8,6 +8,7 @@ fn pause_when_open_applies_to_replacement_and_batch_without_changing_current_pla
         .join("tests/fixtures/catalog.mkv")
         .to_string_lossy()
         .into_owned();
+    let audio = root.join("tests/fixtures/external-tone.wav");
     let harness = Harness::start(&root).unwrap();
     harness.send(Command::Load(media.clone())).unwrap();
     let playing = harness.wait(|state| state.phase == Phase::Playing && state.position.is_some());
@@ -32,7 +33,9 @@ fn pause_when_open_applies_to_replacement_and_batch_without_changing_current_pla
             && state.playlist.len() == 2
     });
     harness
-        .send(Command::AppendFiles(vec![media.clone()]))
+        .send(Command::AppendFiles(vec![
+            audio.to_string_lossy().into_owned(),
+        ]))
         .unwrap();
     let appended = harness.wait(|state| state.playlist.len() == 3);
     assert_eq!(appended.generation, batch.generation);
@@ -58,12 +61,30 @@ fn pause_when_open_applies_to_replacement_and_batch_without_changing_current_pla
             && !state.paused
             && state.playlist.first().is_some_and(|entry| entry.current)
     });
-    harness.send(Command::Load(media)).unwrap();
-    harness.wait(|state| {
+    harness.send(Command::SelectPlaylistEntry(2)).unwrap();
+    let audio_playing = harness.wait(|state| {
         state.generation > previous.generation
             && state.phase == Phase::Playing
             && !state.paused
+            && state.playlist.get(2).is_some_and(|entry| entry.current)
+            && state.video.is_none()
             && state.position.is_some()
+    });
+    for resumed in [&previous, &audio_playing] {
+        assert!(
+            resumed
+                .mpv_events
+                .iter()
+                .rev()
+                .take_while(|event| event.name.as_ref() != "start-file")
+                .any(|event| event.name.as_ref() == "playback-restart")
+        );
+    }
+    harness.send(Command::Load(media)).unwrap();
+    harness.wait(|state| {
+        state.generation > audio_playing.generation
+            && state.phase == Phase::Playing
+            && !state.paused
     });
 }
 

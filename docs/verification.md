@@ -2368,6 +2368,22 @@ existing entries, and each isolated player exited normally. The executable
 SHA-256 was `6a8f1cabd837410e102bb729b14d561721d50a402328deb57973461007655767`.
 Live Windows and macOS desktop drop interaction for this change remains open.
 
+### Playlist navigation resume timing 2026-11-23
+
+The full Windows workspace gate and all 58 pinned libmpv null-output tests
+passed. Worker tests cover outdated replies and restarts, redirects and failed
+navigation. The native playback test checks the restart event in the first
+running snapshot for both video and audio-only entries. It also verifies that
+the pause-on-open preference keeps a manually selected entry paused.
+
+The locked Linux build ran on isolated X11 with shared OpenGL output. A
+playlist double-click reloaded a video after seeking into it. The playlist
+shortcut then advanced to another video and an audio-only file. For all three,
+the mpv socket reported start, file loaded, playback restart, and unpause in
+that order. The player exited normally. The executable SHA-256 was
+`213827ee4a7510916f7e98819fd70cbd66d8df9ca29e128029219a4bf8977003`.
+Live Windows, Wayland and macOS presentation timing remains unverified.
+
 ### macOS application menu composition 2026-10-14
 
 The AppKit adapter consolidates application actions in one native menu while

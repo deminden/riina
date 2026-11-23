@@ -260,7 +260,8 @@ pub enum AbLoopPoint {
 
 pub struct CommandPlan {
     pub commands: Vec<Vec<String>>,
-    /// Resume after manual navigation when the current pause-on-open preference permits it.
+    /// Resume when mpv initializes playback for the final navigation command.
+    /// The worker checks the current pause-on-open preference at that point.
     pub resume_on_load: bool,
 }
 
