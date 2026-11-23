@@ -44,7 +44,7 @@ import { PlayerMenuWindow } from "player-menu-window.slint";
 import { PlayerController } from "player-controller.slint";
 import { MusicModePlaylist } from "music-mode-playlist.slint";
 import { PlaylistInteraction, PlaylistMenuOrigin } from "playlist-interaction.slint";
-export { PlaylistInteraction, PlaylistMenuOrigin } from "playlist-interaction.slint";
+export { PlaylistDropHover, PlaylistInteraction, PlaylistMenuOrigin } from "playlist-interaction.slint";
 import { PlaylistBlankMenuArea } from "playlist-context-menu.slint";
 import { PlaylistPluginPopup, PlaylistPopupBounds, PlaylistPluginPopupState, PlaylistPopupInput } from "playlist-plugin-popup.slint";
 export { PlaylistPopupBounds, PlaylistPluginPopupState, PlaylistPopupInput, PlaylistPopupRow, PlaylistPopupPanel } from "playlist-plugin-popup.slint";
@@ -456,7 +456,7 @@ export component PlayerWindow inherits PlayerMenuWindow {
                 layout-settings-changed => { root.layout-settings-changed(); }
                 if pane-kind != 5 && (pane-kind != 7 || !PlayerPluginSidebarState.composited) : QuickSettingsScrollPage {
                     page-kind: pane-kind;
-                    playlist-can-reorder: pane-kind == 4 && sidebar-frame.sidebar-open && !root.music-mode;
+                    playlist-drop-enabled: pane-kind == 4 && sidebar-frame.sidebar-open && !root.music-mode;
                     changed drop-viewport => {
                         if side == 0 { PlayerSidebarState.leading-list-drop-viewport = self.drop-viewport; }
                         else { PlayerSidebarState.trailing-list-drop-viewport = self.drop-viewport; }
@@ -492,6 +492,7 @@ export component PlayerWindow inherits PlayerMenuWindow {
                     }
                     if pane-kind == 4 : PlaylistBlankMenuArea {
                         origin: PlaylistMenuOrigin.sidebar;
+                        accent: PlayerAppearance.interactive-accent-color;
                         y: sidebar-page.preferred-height;
                         width: parent.width;
                         height: max(0px, parent.height - self.y);

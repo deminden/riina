@@ -6,7 +6,7 @@ import { PlaylistInteraction } from "playlist-interaction.slint";
 export component PlaylistInsertionIndicator inherits Rectangle {
     in property <int> index;
     in property <color> accent;
-    private property <int> slot: PlayerSidebarState.playlist-reorder-slot;
+    private property <int> slot: PlayerSidebarState.playlist-insertion-slot;
     private property <bool> after-last: root.slot == PlayerCatalogState.playlist.length
         && root.index == PlayerCatalogState.playlist.length - 1;
 

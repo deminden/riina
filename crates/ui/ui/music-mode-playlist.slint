@@ -17,7 +17,7 @@ export component MusicModePlaylist inherits Rectangle {
     background: Theme.music-mode-playlist-surface(root.dark-theme);
     PlaylistDropScrollView {
         width: parent.width; height: parent.height;
-        playlist-can-reorder: true;
+        playlist-drop-enabled: true;
         content-width: self.visible-width;
         content-height: max(self.visible-height, music-rows.preferred-height);
         init => { PlayerSidebarState.music-list-drop-viewport = self.drop-viewport; }
@@ -89,6 +89,7 @@ export component MusicModePlaylist inherits Rectangle {
         }
         PlaylistBlankMenuArea {
             origin: PlaylistMenuOrigin.music-mode;
+            accent: root.platform-windows ? root.windows-accent-color : Theme.playback-progress-accent;
             y: music-rows.preferred-height;
             width: parent.width;
             height: max(0px, parent.height - self.y);

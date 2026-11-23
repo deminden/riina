@@ -2350,6 +2350,24 @@ player's local mpv socket. The test instance exited normally. Its executable
 SHA-256 was `75830f3b97c0e19ad52b53928821c5258f71f8f88bdbee68e68fdb8916c63ebb`.
 Native Windows, Wayland and macOS drag interaction remain unverified.
 
+### Desktop file drops into a scrolling playlist 2026-11-23
+
+The Windows workspace gate passed, including 553 app tests, 61 widget tests
+and the software pixel comparison. Both drop-hover regressions advance a
+simulated clock, check forward and reverse scrolling, and verify the cue clears
+on exit. They also check the insertion slot for an empty playlist. All 58
+pinned libmpv null-output tests passed.
+
+The locked Linux build started with 70 entries and paused playback. A native
+Xdnd source inserted two files into the scrolled sidebar at row 30 and one
+into Music Mode at row 16. An edge dwell revealed the closed sidebar, which
+accepted another file at row 31. Cancelling a separate Xdnd drag preserved
+the playlist. A GTK Wayland drag source inserted two files at sidebar row 27
+and one at Music Mode row 16. Each drop preserved the relative order of the
+existing entries, and each isolated player exited normally. The executable
+SHA-256 was `6a8f1cabd837410e102bb729b14d561721d50a402328deb57973461007655767`.
+Live Windows and macOS desktop drop interaction for this change remains open.
+
 ### macOS application menu composition 2026-10-14
 
 The AppKit adapter consolidates application actions in one native menu while

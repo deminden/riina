@@ -1,6 +1,9 @@
 //! Track a native file drag only for the lifetime of its owning player window.
 use crate::{PlayerWindow, background, platform};
-use riina_ui::{PlayerCropState, PlayerMenuActions, PlayerMusicModeState, PlayerSidebarState};
+use riina_ui::{
+    PlayerCropState, PlayerMenuActions, PlayerMusicModeState, PlayerSidebarState,
+    PlaylistDropHover, PlaylistInteraction,
+};
 use slint::{
     ComponentHandle, LogicalPosition, Timer, TimerMode, Weak, winit_030::winit::event::WindowEvent,
 };
@@ -113,10 +116,7 @@ impl PlaylistHover {
 }
 
 fn sample(app: &PlayerWindow, active: &mut Option<Drag>) -> bool {
-    if !app.window().is_visible()
-        || app.global::<PlayerMusicModeState>().get_music_mode()
-        || app.global::<PlayerCropState>().get_crop_editing()
-    {
+    if !app.window().is_visible() || app.global::<PlayerCropState>().get_crop_editing() {
         if let Some(drag) = active.take() {
             drag.finish(app);
         }
@@ -125,36 +125,21 @@ fn sample(app: &PlayerWindow, active: &mut Option<Drag>) -> bool {
     let Some(drag) = active.as_mut() else {
         return false;
     };
-    if drag.revealed {
+    if drag.eligibility.scanning.load(Ordering::Acquire) {
         return true;
     }
-    let window = app.window();
-    let size = window.size().to_logical(window.scale_factor());
-    // Winit reports the file list on entry, without the later drag coordinates.
+    if !drag.eligibility.playable.load(Ordering::Relaxed) {
+        if drag.paths.is_empty() {
+            return false;
+        }
+        drag.check_files();
+        return true;
+    }
+    // Winit's file hover supplies paths without motion coordinates on X11.
     let position = drag
         .position
-        .or_else(|| platform::file_drop_position(window))
-        .filter(|point| {
-            point.x > size.width * 0.8
-                && point.x < size.width
-                && point.y >= 0.0
-                && point.y < size.height
-        });
-    let settled = drag.dwell.settled(position, Instant::now());
-    if position.is_none() || drag.eligibility.scanning.load(Ordering::Acquire) {
-        return true;
-    }
-    if drag.eligibility.playable.load(Ordering::Acquire) {
-        if settled {
-            drag.revealed = true;
-            app.global::<PlayerMenuActions>()
-                .invoke_toggle_playlist_pane(4);
-        }
-    } else if drag.paths.is_empty() {
-        return false;
-    } else {
-        drag.check_files();
-    }
+        .or_else(|| platform::file_drop_position(app.window()));
+    drag.project(app, position, Instant::now());
     true
 }
 
@@ -190,6 +175,41 @@ struct Eligibility {
 }
 
 impl Drag {
+    fn project(&mut self, app: &PlayerWindow, position: Option<LogicalPosition>, now: Instant) {
+        let sidebar = app.global::<PlayerSidebarState>();
+        let list_open = sidebar.get_sidebar() == 4 || sidebar.get_leading_sidebar() == 4;
+        let can_reveal =
+            !self.revealed && !list_open && !app.global::<PlayerMusicModeState>().get_music_mode();
+        let reveal_position = if can_reveal {
+            let window = app.window();
+            let size = window.size().to_logical(window.scale_factor());
+            position.filter(|point| {
+                point.x > size.width * 0.8
+                    && point.x < size.width
+                    && point.y >= 0.0
+                    && point.y < size.height
+            })
+        } else {
+            None
+        };
+        if self.dwell.settled(reveal_position, now) {
+            self.revealed = true;
+            app.global::<PlayerMenuActions>()
+                .invoke_toggle_playlist_pane(4);
+        }
+        let hover = position
+            .filter(|point| sidebar.invoke_playlist_drop_slot(point.x, point.y) >= 0)
+            .map_or_else(PlaylistDropHover::default, |point| PlaylistDropHover {
+                active: true,
+                x: point.x,
+                y: point.y,
+            });
+        let interaction = app.global::<PlaylistInteraction>();
+        if interaction.get_external_drop_hover() != hover {
+            interaction.set_external_drop_hover(hover);
+        }
+    }
+
     fn check_files(&mut self) {
         let paths = std::mem::take(&mut self.paths);
         let result = self.eligibility.clone();
@@ -212,6 +232,8 @@ impl Drag {
     }
 
     fn finish(self, app: &PlayerWindow) {
+        app.global::<PlaylistInteraction>()
+            .set_external_drop_hover(PlaylistDropHover::default());
         if self.revealed {
             let sidebar = app.global::<PlayerSidebarState>();
             sidebar.set_leading_sidebar(0);

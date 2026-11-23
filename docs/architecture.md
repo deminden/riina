@@ -97,6 +97,13 @@ cancellation. Selection and metadata refresh update existing rows in place
 when their identities and order are stable. Structural changes retire the
 gesture before a release can act on a different order.
 
+The desktop drop adapters publish the position of a playable offer to the same
+scroll view. X11 samples the native cursor after Winit reports the file list.
+The sidebar and Music Mode use their current scroll offsets for the cue and
+for the release position. Riina captures the destination entry's identity
+before it clears the hover or hides a temporarily revealed sidebar, then
+prepares the offered files off the UI thread.
+
 On Wayland, the application registers one data device per seat on Winit's
 display. Winit reads the display socket and Riina dispatches its drop queue
 from the same event loop. Drop payloads are read in the background, and the
