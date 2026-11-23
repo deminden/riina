@@ -186,6 +186,12 @@ its project folder. For an installed package, the same menu offers Uninstall.
 Uninstall closes its plugin windows and keeps the package's saved settings
 and data.
 
+The information button for an installed plugin shows its source, permissions
+and the author contact links declared in its manifest. A `helpPage` can refer
+to a file inside the package or an absolute HTTP(S) URL. The Help button opens
+that page in a browser window owned by Settings. GitHub-managed packages can
+check for updates from the same information panel.
+
 `cargo xtask coverage` is optional. If `cargo-llvm-cov` and the pinned
 toolchain's `llvm-tools` component are installed, it runs the workspace tests
 and reports coverage by crate plus the ten largest uncovered function bodies.

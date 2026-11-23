@@ -1,6 +1,6 @@
 //! Confine the settings bridge to one installed package and one browser origin.
 use crate::platform::plugin_resources::{
-    plugin_file_url, resource_response, webview_navigation_url,
+    plugin_file_url, resource_response, trusted_origin, webview_navigation_url,
 };
 use crate::plugin_runtime::PluginPreferences;
 use riina_core::plugin::Manifest;
@@ -143,13 +143,6 @@ impl Document {
     pub(super) fn sync(&self) -> Result<(), String> {
         self.preferences.sync()
     }
-}
-
-fn trusted_origin(url: &str, authority: &str) -> bool {
-    url.strip_prefix("riina-plugin://")
-        .or_else(|| url.strip_prefix("http://riina-plugin."))
-        .and_then(|url| url.strip_prefix(authority))
-        .is_some_and(|path| path.starts_with('/'))
 }
 
 #[derive(Deserialize)]

@@ -1,4 +1,5 @@
 //! Own the installed-plugin Settings controllers and their shared inventory.
+mod about;
 mod installation;
 mod inventory;
 mod permissions;
@@ -65,9 +66,10 @@ pub(crate) fn connect(
     update_actions::register_completion(window, &settings, &requests);
     row_actions::register_enabled(window, app, &settings, host.as_ref(), player.clone());
     removal::register(window, app, &settings, host.as_ref(), player);
-    update_actions::register_about(window, app, &settings, &requests);
+    update_actions::register_information_update(window, &settings, &requests);
     row_actions::register_open_folder(window, &settings);
-    row_actions::register_settings_page(window, &settings);
+    let pages = row_actions::register_settings_page(window, &settings);
+    about::register(window, &settings, &requests, pages);
 }
 
 #[cfg(test)]

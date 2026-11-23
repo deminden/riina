@@ -4,11 +4,9 @@ use super::{
     inventory::refresh,
     updates::{apply_plugin_update, check_update_status, confirm_update_permissions},
 };
-use crate::{
-    PlayerWindow, PreferencesWindow, plugin_host::PluginHostHandle, plugin_packages::StagedPackage,
-};
+use crate::{PreferencesWindow, plugin_host::PluginHostHandle, plugin_packages::StagedPackage};
 use rfd::{MessageButtons, MessageDialog, MessageDialogResult};
-use slint::ComponentHandle;
+use slint::{ComponentHandle, winit_030::WinitWindowAccessor};
 use std::{
     collections::BTreeMap,
     sync::{
@@ -21,7 +19,7 @@ type StagedUpdate = Result<(StagedPackage, InstalledPlugin), String>;
 type CompletedUpdate = Result<(), String>;
 
 pub(super) struct Requests {
-    available: Arc<Mutex<BTreeMap<String, String>>>,
+    pub(super) available: Arc<Mutex<BTreeMap<String, String>>>,
     staged: Arc<Mutex<BTreeMap<u64, StagedUpdate>>>,
     completed: Arc<Mutex<BTreeMap<u64, CompletedUpdate>>>,
     next_id: Arc<AtomicU64>,
@@ -208,109 +206,114 @@ pub(super) fn register_completion(
     });
 }
 
-pub(super) fn register_about(
+pub(super) fn register_information_update(
     window: &PreferencesWindow,
-    app: &PlayerWindow,
     settings: &PluginSettings,
     requests: &Requests,
 ) {
     let weak = window.as_weak();
-    let parent = app.as_weak();
     let entries = settings.inventory.clone();
     let updates = requests.available.clone();
-    let staged_updates_for_about = requests.staged.clone();
-    let next_update_id = requests.next_id.clone();
-    let plugins_for_about = settings.plugins.clone();
-    window.on_plugin_row_about(move |index| {
-        let Ok(index) = usize::try_from(index) else {
+    let staged_updates = requests.staged.clone();
+    let next_id = requests.next_id.clone();
+    let plugins = settings.plugins.clone();
+    window.on_plugin_information_update(move || {
+        let Some(window) = weak.upgrade() else { return };
+        if !window.get_plugin_information_open() || window.get_plugin_information_checking()
+            || window.get_plugin_github_installing()
+        {
+            return;
+        }
+        let information = window.get_plugin_information();
+        let selected = entries.borrow().iter().find(|entry| {
+            entry.manifest.identifier == information.identifier.as_str()
+        }).cloned();
+        let Some(plugin) = selected.filter(InstalledPlugin::can_update) else { return };
+        let (Some(repository), Some(installed_version)) = (
+            plugin.manifest.github_repo.clone(), plugin.manifest.github_version,
+        ) else { return };
+        let latest = riina_core::sync::lock(&updates).get(&plugin.manifest.identifier).cloned();
+        let Some(latest) = latest else {
+            check_selected_update(&window, updates.clone(), plugin.manifest.identifier, repository, installed_version);
             return;
         };
-        let Some(plugin) = entries.borrow().get(index).cloned() else {
+        let response = window.window().with_winit_window(|owner| {
+            MessageDialog::new()
+                .set_title(format!("Update {}?", plugin.manifest.name))
+                .set_description(format!(
+                    "Version {latest} is available. The installed version is {}.",
+                    plugin.manifest.version,
+                ))
+                .set_buttons(MessageButtons::YesNo)
+                .set_parent(owner)
+                .show()
+        });
+        if response != Some(MessageDialogResult::Yes) {
             return;
-        };
-        let latest = riina_core::sync::lock(&updates)
-            .get(&plugin.manifest.identifier)
-            .cloned();
-        if let Some(latest) = latest.filter(|_| plugin.can_update()) {
-            if let Some(window) = weak.upgrade()
-                && window.get_plugin_github_installing()
+        }
+
+        let id = next_id.fetch_add(1, Ordering::Relaxed);
+        let staged = staged_updates.clone();
+        let weak = window.as_weak();
+        let plugins = plugins.clone();
+        window.set_plugin_information_open(false);
+        window.invoke_close_plugin_settings();
+        window.set_plugin_github_installing(true);
+        window.set_plugin_update_status(format!("Downloading update for {}…", plugin.manifest.name).into());
+        if let Err(error) = crate::background::spawn_named("plugin-update-download", move || {
+            let result = crate::plugin_github::stage_repository(&repository, &plugins)
+                .and_then(|staged| {
+                    if staged.manifest.identifier != plugin.manifest.identifier {
+                        return Err("The downloaded package identifier does not match the installed plugin.".into());
+                    }
+                    Ok((staged, plugin))
+                });
+            riina_core::sync::lock(&staged).insert(id, result);
+            let _ = crate::background::to_ui(weak, move |window| {
+                window.invoke_plugin_update_staged(id as i32);
+            });
+        }) {
+            window.set_plugin_github_installing(false);
+            window.set_plugin_update_status(format!("Could not start plugin update: {error}").into());
+        }
+    });
+}
+
+fn check_selected_update(
+    window: &PreferencesWindow,
+    updates: Arc<Mutex<BTreeMap<String, String>>>,
+    identifier: String,
+    repository: String,
+    installed_version: u64,
+) {
+    window.set_plugin_information_checking(true);
+    window.set_plugin_information_status("Checking for updates…".into());
+    let owner = window.as_weak();
+    if let Err(error) = crate::background::spawn_named("plugin-update-check-run", move || {
+        let version = crate::plugin_github::check_new_version(&repository, installed_version);
+        let _ = crate::background::to_ui(owner, move |window| {
+            window.set_plugin_information_checking(false);
+            let mut information = window.get_plugin_information();
+            if !window.get_plugin_information_open()
+                || information.identifier.as_str() != identifier
             {
                 return;
             }
-            let response = MessageDialog::new()
-                .set_title(format!("Update {}?", plugin.manifest.name))
-                .set_description(format!(
-                    "Version {latest} is available. The installed version is {}. Download and apply the update now?",
-                    plugin.manifest.version
-                ))
-                .set_buttons(MessageButtons::YesNo)
-                .show();
-            if response != MessageDialogResult::Yes {
-                return;
-            }
-            let Some(repository) = plugin.manifest.github_repo.clone() else {
-                if let Some(window) = weak.upgrade() {
-                    window.set_plugin_update_status(
-                        "This plugin does not identify a GitHub repository for updates.".into(),
-                    );
+            let message = match version {
+                Ok(Some(version)) => {
+                    riina_core::sync::lock(&updates).insert(identifier, version.clone());
+                    information.update_available = version.as_str().into();
+                    window.set_plugin_information(information);
+                    format!("Version {version} is available.")
                 }
-                return;
+                Ok(None) => "This plugin is up to date.".into(),
+                Err(error) => error,
             };
-            let id = next_update_id.fetch_add(1, Ordering::Relaxed);
-            let staged = staged_updates_for_about.clone();
-            let weak_result = weak.clone();
-            let plugins = plugins_for_about.clone();
-            let plugin_for_update = plugin.clone();
-            if let Some(window) = weak.upgrade() {
-                window.set_plugin_github_installing(true);
-            }
-            let started = crate::background::spawn_named("plugin-update-download", move || {
-                    let result = crate::plugin_github::stage_repository(&repository, &plugins)
-                        .and_then(|staged| {
-                            if staged.manifest.identifier != plugin_for_update.manifest.identifier {
-                                return Err("The downloaded package identifier does not match the installed plugin.".into());
-                            }
-                            Ok(staged)
-                        })
-                        .map(|staged| (staged, plugin_for_update));
-                    riina_core::sync::lock(&staged).insert(id, result);
-                    // The result has no recipient once its window or event loop closes.
-                    let _ = crate::background::to_ui(weak_result, move |window| {
-                        window.invoke_plugin_update_staged(id as i32);
-                    });
-                });
-            if let Some(window) = weak.upgrade() {
-                match started {
-                    Ok(_) => window.set_plugin_update_status(
-                        format!("Downloading update for {}…", plugin.manifest.name).into(),
-                    ),
-                    Err(error) => {
-                        window.set_plugin_github_installing(false);
-                        window.set_plugin_update_status(
-                            format!("Could not start plugin update: {error}").into(),
-                        );
-                    }
-                }
-            }
-            return;
-        }
-        let message = format!(
-            "{} {}\nBy {}\n{}\n{}",
-            plugin.manifest.name,
-            plugin.manifest.version,
-            plugin.manifest.author.name,
-            plugin.manifest.identifier,
-            plugin
-                .manifest
-                .description
-                .as_deref()
-                .unwrap_or("No Description")
-        );
-        if let Some(window) = weak.upgrade() {
-            window.set_plugin_update_status(message.clone().into());
-        }
-        if let Some(app) = parent.upgrade() {
-            app.set_status(message.into());
-        }
-    });
+            window.set_plugin_information_status(message.into());
+        });
+    }) {
+        window.set_plugin_information_checking(false);
+        window
+            .set_plugin_information_status(format!("Could not start update check: {error}").into());
+    }
 }

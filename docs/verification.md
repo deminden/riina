@@ -2313,6 +2313,24 @@ An isolated Windows launch verified the installed and linked development
 entries could start together. Native confirmation and menu input on Windows
 and macOS remain open.
 
+### Plugin information and help 2026-11-23
+
+The full Windows workspace gate passed, including strict Clippy, 553 app
+tests, 271 core tests, 57 widget tests, the software pixel comparison and
+Settings navigation. The manifest regression covers bundled documentation,
+missing and out-of-package paths, and validated web URLs. All 58 pinned
+libmpv null-output tests and strict Apple Silicon cross-target Clippy passed.
+
+Linux also passed strict workspace Clippy, 520 app tests, 259 core tests and
+54 widget tests. The isolated X11 session opened plugin information during
+paused playback. Help rendered bundled CSS, followed a relative link, and
+loaded an HTTP document from a loopback server. Neither page exposed
+`window.iina`. Closing Settings also closed its Help window, and the player
+exited normally. The executable SHA-256 was
+`53c30d8468b39bec0876e67add1ca4ecbaa1c58178fc44726f1d4c5802e590c0`.
+Native Windows and macOS Help windows and live third-party repository updates
+remain unverified.
+
 ### macOS application menu composition 2026-10-14
 
 The AppKit adapter consolidates application actions in one native menu while

@@ -329,7 +329,46 @@ pub struct Manifest {
     pub sidebar_tab_name: Option<String>,
     pub subtitle_providers: Vec<SubtitleProvider>,
     pub preferences_page: Option<PathBuf>,
+    pub help_page: Option<HelpPage>,
     pub preference_defaults: serde_json::Map<String, serde_json::Value>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum HelpPage {
+    Package(PathBuf),
+    Remote(url::Url),
+}
+
+impl HelpPage {
+    fn parse(value: &str) -> Option<Self> {
+        if value.contains(':') {
+            return plugin_web_link(value).map(Self::Remote);
+        }
+        optional_package_path(value).map(Self::Package)
+    }
+}
+
+pub fn plugin_web_link(value: &str) -> Option<url::Url> {
+    let (_, authority) = value.split_once("://")?;
+    if value.trim() != value
+        || value.chars().any(char::is_control)
+        || authority.starts_with(['/', '\\'])
+    {
+        return None;
+    }
+    let url = url::Url::parse(value).ok()?;
+    (matches!(url.scheme(), "http" | "https")
+        && url.host_str().is_some()
+        && url.username().is_empty()
+        && url.password().is_none())
+    .then_some(url)
+}
+
+fn optional_package_path(path: &str) -> Option<PathBuf> {
+    if path.contains([':', '\\', '\0']) {
+        return None;
+    }
+    safe_relative_path(path).ok()
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
@@ -361,6 +400,8 @@ struct RawManifest {
     subtitle_providers: Option<serde_json::Value>,
     #[serde(rename = "preferencesPage")]
     preferences_page: Option<serde_json::Value>,
+    #[serde(rename = "helpPage")]
+    help_page: Option<serde_json::Value>,
     #[serde(rename = "preferenceDefaults")]
     preference_defaults: Option<serde_json::Value>,
     localized: Option<serde_json::Value>,
@@ -437,8 +478,12 @@ impl Manifest {
                 .preferences_page
                 .as_ref()
                 .and_then(serde_json::Value::as_str)
-                .filter(|path| !path.contains([':', '\\', '\0']))
-                .and_then(|path| safe_relative_path(path).ok()),
+                .and_then(optional_package_path),
+            help_page: raw
+                .help_page
+                .as_ref()
+                .and_then(serde_json::Value::as_str)
+                .and_then(HelpPage::parse),
             preference_defaults: match raw.preference_defaults {
                 Some(serde_json::Value::Object(values)) => values,
                 _ => serde_json::Map::new(),
@@ -472,6 +517,10 @@ impl Manifest {
         manifest.preferences_page = manifest
             .preferences_page
             .filter(|path| verify_package_file(&root, path).is_ok());
+        manifest.help_page = manifest.help_page.filter(|page| match page {
+            HelpPage::Package(path) => verify_package_file(&root, path).is_ok(),
+            HelpPage::Remote(_) => true,
+        });
         Ok(manifest)
     }
 
@@ -758,6 +807,51 @@ mod tests {
                 .preferences_page
                 .as_deref(),
             Some(Path::new("settings.html"))
+        );
+    }
+
+    #[test]
+    fn manifest_help_accepts_confined_documents_and_absolute_web_urls() {
+        let mut json: serde_json::Value = serde_json::from_str(MANIFEST).unwrap();
+        for invalid in [
+            "../elsewhere.html",
+            "file:///tmp/readme.html",
+            "https:///example.invalid/help",
+            "https://user:password@example.invalid/help",
+        ] {
+            json["helpPage"] = invalid.into();
+            assert!(
+                Manifest::parse(&json.to_string())
+                    .unwrap()
+                    .help_page
+                    .is_none()
+            );
+        }
+        let root = riina_test_support::TempDir::new("manifest-help").unwrap();
+        let root = root.path();
+        fs::write(root.join("main.js"), "").unwrap();
+        fs::write(root.join("global.js"), "").unwrap();
+        json["helpPage"] = "https://example.invalid/help#options".into();
+        fs::write(root.join("Info.json"), json.to_string()).unwrap();
+        assert_eq!(
+            Manifest::load_from_directory(root).unwrap().help_page,
+            Some(HelpPage::Remote(
+                url::Url::parse("https://example.invalid/help#options").unwrap()
+            )),
+        );
+        json["helpPage"] = "docs/help.html".into();
+        fs::write(root.join("Info.json"), json.to_string()).unwrap();
+        assert!(
+            Manifest::load_from_directory(root)
+                .unwrap()
+                .help_page
+                .is_none()
+        );
+        fs::create_dir(root.join("docs")).unwrap();
+        fs::write(root.join("docs/help.html"), "<p>Help</p>").unwrap();
+        assert_eq!(
+            Manifest::load_from_directory(root).unwrap().help_page,
+            Some(HelpPage::Package("docs/help.html".into())),
         );
     }
 

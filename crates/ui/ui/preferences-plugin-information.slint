@@ -1,0 +1,115 @@
+import { ScrollView } from "std-widgets.slint";
+import { PluginPageActionButton } from "preferences-plugins.slint";
+import { Theme } from "theme.slint";
+
+export enum PluginInformationAction { website, email, source, help }
+
+export struct PluginInformation {
+    identifier: string,
+    name: string,
+    version: string,
+    author: string,
+    description: string,
+    permissions: string,
+    source: string,
+    has-website: bool,
+    has-email: bool,
+    has-source: bool,
+    has-help: bool,
+    can-update: bool,
+    update-available: string,
+}
+
+export component PluginInformationDialog inherits FocusScope {
+    in property <PluginInformation> information;
+    in property <string> status;
+    in property <bool> checking-update;
+    callback action(PluginInformationAction);
+    callback update();
+    callback closed();
+
+    init => { done-button.focus(); }
+    key-pressed(event) => {
+        if event.text == Key.Escape { root.closed(); return accept; }
+        return reject;
+    }
+
+    Rectangle {
+        background: Theme.settings-modal-scrim;
+        TouchArea {}
+    }
+    panel := Rectangle {
+        x: (parent.width - self.width) / 2; y: (parent.height - self.height) / 2;
+        width: min(490px, parent.width - 20px); height: min(460px, parent.height - 20px);
+        border-radius: Theme.settings-modal-corner; border-width: 1px;
+        border-color: Theme.settings-modal-border; background: Theme.settings-modal-surface;
+        VerticalLayout {
+            padding: 16px; spacing: 10px;
+            Text {
+                text: root.information.name; font-size: Theme.settings-modal-title-size;
+                font-weight: 600; color: Theme.settings-modal-title; overflow: elide;
+            }
+            ScrollView {
+                horizontal-scrollbar-policy: always-off;
+                VerticalLayout {
+                    width: parent.width; spacing: 8px; padding-right: 8px;
+                    Text {
+                        text: root.information.author + " · " + root.information.version;
+                        color: Theme.settings-section-heading; font-size: 12px; wrap: word-wrap;
+                    }
+                    Text {
+                        text: root.information.identifier;
+                        color: Theme.settings-section-heading; font-size: 11px; wrap: char-wrap;
+                    }
+                    Text {
+                        text: root.information.description;
+                        color: Theme.settings-modal-message; font-size: 12px; wrap: word-wrap;
+                    }
+                    Text { text: "Source"; font-size: 12px; font-weight: 600; color: Theme.settings-section-heading; }
+                    Text {
+                        text: root.information.source;
+                        color: Theme.settings-modal-message; font-size: 11px; wrap: char-wrap;
+                    }
+                    Text { text: "Permissions"; font-size: 12px; font-weight: 600; color: Theme.settings-section-heading; }
+                    Text {
+                        text: root.information.permissions;
+                        color: Theme.settings-modal-message; font-size: 11px; wrap: word-wrap;
+                    }
+                    if root.information.has-help || root.information.has-source : HorizontalLayout {
+                        spacing: 6px;
+                        if root.information.has-help : PluginPageActionButton {
+                            label: "Help"; activated => { root.action(PluginInformationAction.help); }
+                        }
+                        if root.information.has-source : PluginPageActionButton {
+                            label: "Open Repository"; activated => { root.action(PluginInformationAction.source); }
+                        }
+                    }
+                    if root.information.has-website || root.information.has-email : HorizontalLayout {
+                        spacing: 6px;
+                        if root.information.has-website : PluginPageActionButton {
+                            label: "Author Website"; activated => { root.action(PluginInformationAction.website); }
+                        }
+                        if root.information.has-email : PluginPageActionButton {
+                            label: "Email Author"; activated => { root.action(PluginInformationAction.email); }
+                        }
+                    }
+                }
+            }
+            if !root.status.is-empty : Text {
+                text: root.status; color: Theme.settings-modal-message;
+                font-size: 11px; wrap: word-wrap;
+            }
+            HorizontalLayout {
+                alignment: end; spacing: 8px;
+                if root.information.can-update : PluginPageActionButton {
+                    enabled: !root.checking-update;
+                    label: root.information.update-available.is-empty ? "Check for Updates" : "Update…";
+                    activated => { root.update(); }
+                }
+                done-button := PluginPageActionButton {
+                    label: "Done"; activated => { root.closed(); }
+                }
+            }
+        }
+    }
+}

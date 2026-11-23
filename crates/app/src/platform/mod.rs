@@ -843,6 +843,36 @@ pub fn is_http_url(value: &str) -> bool {
 
 pub fn open_http_url_in_browser(value: &str) -> std::io::Result<()> {
     let url = validate_browser_url(value)?;
+    open_shell_url(&url)
+}
+
+pub(crate) fn plugin_email_link(address: &str) -> Option<url::Url> {
+    let (user, domain) = address.split_once('@')?;
+    if user.is_empty()
+        || domain.is_empty()
+        || address.chars().any(|c| c.is_whitespace() || c.is_control())
+        || domain.contains(['@', '/', '\\', '?', '#', ':', '%'])
+        || user.contains([',', ';', '<', '>'])
+    {
+        return None;
+    }
+    let domain = url::Url::parse(&format!("https://{domain}")).ok()?;
+    let host = domain.domain()?;
+    let user = url::form_urlencoded::byte_serialize(user.as_bytes()).collect::<String>();
+    url::Url::parse(&format!("mailto:{user}@{host}")).ok()
+}
+
+pub(crate) fn open_plugin_contact_email(value: &str) -> std::io::Result<()> {
+    let url = plugin_email_link(value).ok_or_else(|| {
+        std::io::Error::new(
+            std::io::ErrorKind::InvalidInput,
+            "Invalid author email address",
+        )
+    })?;
+    open_shell_url(&url)
+}
+
+fn open_shell_url(url: &url::Url) -> std::io::Result<()> {
     #[cfg(target_os = "windows")]
     {
         use ::windows::{
@@ -867,7 +897,9 @@ pub fn open_http_url_in_browser(value: &str) -> std::io::Result<()> {
             )
         };
         if result.0 as isize <= 32 {
-            return Err(std::io::Error::other("Could not open the URL in a browser"));
+            return Err(std::io::Error::other(
+                "Could not open the URL with its system handler",
+            ));
         }
     }
     #[cfg(target_os = "macos")]

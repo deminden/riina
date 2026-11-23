@@ -28,6 +28,7 @@ pub(super) fn manifest(entry: PathBuf) -> Manifest {
         sidebar_tab_name: None,
         subtitle_providers: Vec::new(),
         preferences_page: None,
+        help_page: None,
         preference_defaults: serde_json::Map::new(),
     }
 }

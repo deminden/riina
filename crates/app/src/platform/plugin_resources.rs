@@ -12,25 +12,32 @@ pub(super) fn plugin_file_url(path: &Path) -> Result<String, String> {
             .components()
             .any(|component| !matches!(component, Component::Normal(_)))
     {
-        return Err("Sidebar files must use a safe relative plugin path".into());
+        return Err("Plugin resources must use a safe relative path".into());
     }
     let mut url = Url::parse("riina-plugin://localhost/").map_err(|error| error.to_string())?;
     {
         let mut segments = url
             .path_segments_mut()
-            .map_err(|_| "Could not build a plugin sidebar URL".to_owned())?;
+            .map_err(|_| "Could not build a plugin resource URL".to_owned())?;
         segments.pop_if_empty();
         for component in path.components() {
             let Component::Normal(value) = component else {
-                return Err("Sidebar files must use a safe relative plugin path".into());
+                return Err("Plugin resources must use a safe relative path".into());
             };
             let value = value
                 .to_str()
-                .ok_or_else(|| "Sidebar file names must be valid Unicode".to_owned())?;
+                .ok_or_else(|| "Plugin resource names must be valid Unicode".to_owned())?;
             segments.push(value);
         }
     }
     Ok(url.into())
+}
+
+pub(super) fn trusted_origin(url: &str, authority: &str) -> bool {
+    url.strip_prefix("riina-plugin://")
+        .or_else(|| url.strip_prefix("http://riina-plugin."))
+        .and_then(|url| url.strip_prefix(authority))
+        .is_some_and(|path| path.starts_with('/'))
 }
 
 pub(super) fn webview_navigation_url(url: String) -> String {

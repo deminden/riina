@@ -1,9 +1,11 @@
-//! Own a package settings page for the lifetime of its Settings window.
+//! Own a package browser page for the lifetime of its Settings window.
 mod document;
+mod help;
 
 use super::plugin_standalone::shell::Shell;
 use crate::PreferencesWindow;
 use document::Document;
+use help::Help;
 use riina_core::plugin::Manifest;
 use slint::{CloseRequestResponse, ComponentHandle, Timer, TimerMode};
 use std::{
@@ -13,7 +15,35 @@ use std::{
     time::Duration,
 };
 use uuid::Uuid;
-use wry::WebView;
+use wry::{WebView, WebViewBuilder};
+
+enum Page {
+    Settings(Rc<Document>),
+    Help(Help),
+}
+
+impl Page {
+    fn label(&self) -> &'static str {
+        match self {
+            Self::Settings(_) => "Settings",
+            Self::Help(_) => "Help",
+        }
+    }
+
+    fn builder(&self) -> WebViewBuilder<'static> {
+        match self {
+            Self::Settings(document) => document.builder(),
+            Self::Help(document) => document.builder(),
+        }
+    }
+
+    fn sync(&self) -> Result<(), String> {
+        match self {
+            Self::Settings(document) => document.sync(),
+            Self::Help(_) => Ok(()),
+        }
+    }
+}
 
 #[derive(Clone, Default)]
 pub(crate) struct Presenter(Rc<RefCell<Option<Rc<Window>>>>);
@@ -27,8 +57,35 @@ impl Presenter {
     ) -> Result<(), String> {
         self.close()?;
         let id = Uuid::new_v4();
-        let document = Rc::new(Document::new(root, manifest, id)?);
-        let title = format!("{} — Settings", manifest.name);
+        let page = Page::Settings(Rc::new(Document::new(root, manifest, id)?));
+        self.present(owner, &manifest.name, id, page)
+    }
+
+    pub(crate) fn open_help(
+        &self,
+        owner: &PreferencesWindow,
+        root: &Path,
+        manifest: &Manifest,
+    ) -> Result<(), String> {
+        let id = Uuid::new_v4();
+        let source = manifest
+            .help_page
+            .as_ref()
+            .ok_or("This plugin has no help page")?;
+        let page = Page::Help(Help::new(root, source, id)?);
+        self.close()?;
+        self.present(owner, &manifest.name, id, page)
+    }
+
+    fn present(
+        &self,
+        owner: &PreferencesWindow,
+        name: &str,
+        id: Uuid,
+        page: Page,
+    ) -> Result<(), String> {
+        let label = page.label();
+        let title = format!("{name} — {label}");
         let controller = Rc::downgrade(&self.0);
         let owner_weak = owner.as_weak();
         let shell = Shell::new(owner, &title, move || {
@@ -46,7 +103,7 @@ impl Presenter {
                         && let Err(error) = presenter.close()
                         && let Some(owner) = owner.upgrade()
                     {
-                        report(&owner, &error);
+                        report(&owner, label, &error);
                     }
                 }
             });
@@ -58,7 +115,7 @@ impl Presenter {
             shell,
             timer: Timer::default(),
             scheduled: Cell::default(),
-            document,
+            page,
             owner: owner.as_weak(),
         });
         self.0.replace(Some(window.clone()));
@@ -72,7 +129,7 @@ impl Presenter {
             return Ok(());
         };
         window.timer.stop();
-        let save = window.document.sync();
+        let save = window.page.sync();
         let hide = window.shell.set_visible(false);
         save.and(hide)
     }
@@ -85,7 +142,7 @@ struct Window {
     shell: Shell,
     timer: Timer,
     scheduled: Cell<bool>,
-    document: Rc<Document>,
+    page: Page,
     owner: slint::Weak<PreferencesWindow>,
 }
 
@@ -107,7 +164,7 @@ impl Window {
                         window.timer.stop();
                         let _ = window.shell.set_visible(false);
                         if let Some(owner) = window.owner.upgrade() {
-                            report(&owner, &error);
+                            report(&owner, window.page.label(), &error);
                         }
                     }
                     window.scheduled.set(false);
@@ -131,9 +188,11 @@ impl Window {
         if let Some(browser) = browser {
             #[cfg(target_os = "macos")]
             self.shell.refresh_browser_bounds(&browser)?;
-            self.document.flush(&browser)?;
+            if let Page::Settings(document) = &self.page {
+                document.flush(&browser)?;
+            }
         } else if self.shell.can_build() {
-            let browser = Rc::new(self.shell.build_webview(self.document.builder())?);
+            let browser = Rc::new(self.shell.build_webview(self.page.builder())?);
             if !self.timer.running() {
                 return Ok(());
             }
@@ -147,13 +206,18 @@ impl Window {
 
 impl Drop for Window {
     fn drop(&mut self) {
-        if let Err(error) = self.document.sync() {
+        if let Err(error) = self.page.sync() {
             crate::diagnostics::warn!("Could not save plugin settings: {error}");
         }
     }
 }
 
-fn report(owner: &PreferencesWindow, error: &str) {
-    crate::diagnostics::warn!("Plugin settings: {error}");
-    owner.set_plugin_update_status(format!("Plugin settings: {error}").into());
+fn report(owner: &PreferencesWindow, label: &str, error: &str) {
+    crate::diagnostics::warn!("Plugin {label}: {error}");
+    let status = format!("Plugin {label}: {error}").into();
+    if label == "Help" {
+        owner.set_plugin_information_status(status);
+    } else {
+        owner.set_plugin_update_status(status);
+    }
 }

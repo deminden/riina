@@ -12,7 +12,10 @@ use crate::{PlayerWindow, PreferencesWindow, plugin_host::PluginHostHandle};
 use riina_mpv::CommandSender;
 use slint::ComponentHandle;
 
-pub(super) fn register_settings_page(window: &PreferencesWindow, settings: &PluginSettings) {
+pub(super) fn register_settings_page(
+    window: &PreferencesWindow,
+    settings: &PluginSettings,
+) -> crate::platform::plugin_settings::Presenter {
     let pages = crate::platform::plugin_settings::Presenter::default();
     let weak = window.as_weak();
     let entries = settings.inventory.clone();
@@ -31,8 +34,9 @@ pub(super) fn register_settings_page(window: &PreferencesWindow, settings: &Plug
         }
     });
     let weak = window.as_weak();
+    let close = pages.clone();
     window.on_close_plugin_settings(move || {
-        if let Err(error) = pages.close()
+        if let Err(error) = close.close()
             && let Some(window) = weak.upgrade()
         {
             window.set_plugin_update_status(
@@ -52,6 +56,7 @@ pub(super) fn register_settings_page(window: &PreferencesWindow, settings: &Plug
             }
         });
     });
+    pages
 }
 
 pub(super) fn register_reorder(window: &PreferencesWindow, settings: &PluginSettings) {

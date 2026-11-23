@@ -1,6 +1,8 @@
 import { Theme } from "theme.slint";
 import { KeyBindingDialogs } from "preferences-key-binding-dialogs.slint";
 import { PluginsPreferencesPage, PluginInstallDialog } from "preferences-plugin-page.slint";
+import { PluginInformation, PluginInformationAction, PluginInformationDialog } from "preferences-plugin-information.slint";
+export { PluginInformation, PluginInformationAction } from "preferences-plugin-information.slint";
 import { KeyBindingsPreferencesPage } from "preferences-key-binding-page.slint";
 import { NetworkPreferencesPage } from "preferences-network.slint";
 export { NetworkSettingsState } from "preferences-network.slint";
@@ -236,6 +238,12 @@ export component PreferencesWindow inherits Window {
     in-out property <bool> live-text-enabled <=> VideoSettingsState.live-text-enabled;
     in property <bool> live-text-available: false;
     in property <[PluginPreferencesRow]> plugin-rows: [];
+    in-out property <bool> plugin-information-open;
+    in property <PluginInformation> plugin-information;
+    in property <string> plugin-information-status;
+    in property <bool> plugin-information-checking;
+    callback plugin-information-action(PluginInformationAction);
+    callback plugin-information-update();
     in-out property <string> plugin-update-status: "All plugins are up to date.";
     in-out property <bool> plugin-github-sheet-open: false;
     in-out property <string> plugin-github-repository: "";
@@ -299,7 +307,10 @@ export component PreferencesWindow inherits Window {
     callback plugin-settings-pane-left();
 
     changed selected-pane => {
-        if root.selected-pane != 9 { root.plugin-settings-pane-left(); }
+        if root.selected-pane != 9 {
+            root.plugin-information-open = false;
+            root.plugin-settings-pane-left();
+        }
     }
     in-out property <bool> custom-directory: false;
     PreferencesNavigation {
@@ -582,6 +593,16 @@ export component PreferencesWindow inherits Window {
         key-binding-editor-cancelled => { root.key-binding-editor-cancelled(); }
         key-binding-key-recorded(key, control, alt, shift, meta) => { root.key-binding-key-recorded(key, control, alt, shift, meta); }
         key-binding-mapping-submitted(key, action, comment, kind, row) => { root.key-binding-mapping-submitted(key, action, comment, kind, row); }
+    }
+
+    if root.plugin-information-open : PluginInformationDialog {
+        width: root.width; height: root.height;
+        information: root.plugin-information;
+        status: root.plugin-information-status;
+        checking-update: root.plugin-information-checking || root.plugin-github-installing;
+        action(action) => { root.plugin-information-action(action); }
+        update => { root.plugin-information-update(); }
+        closed => { root.plugin-information-open = false; root.close-plugin-settings(); }
     }
 
     if root.plugin-github-sheet-open : PluginInstallDialog {

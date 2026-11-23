@@ -1,5 +1,7 @@
 //! Confined custom-protocol documents and document-scoped WebView messages.
-use super::plugin_resources::{plugin_file_url, resource_response, webview_navigation_url};
+use super::plugin_resources::{
+    plugin_file_url, resource_response, trusted_origin, webview_navigation_url,
+};
 use riina_core::plugin_window::Document;
 use std::{borrow::Cow, cell::Cell, path::PathBuf, rc::Rc, sync::Arc};
 use url::Url;
@@ -174,13 +176,6 @@ struct Incoming {
     name: String,
     #[serde(default)]
     data: serde_json::Value,
-}
-
-fn trusted_origin(url: &str, authority: &str) -> bool {
-    url.strip_prefix("riina-plugin://")
-        .or_else(|| url.strip_prefix("http://riina-plugin."))
-        .and_then(|url| url.strip_prefix(authority))
-        .is_some_and(|path| path.starts_with('/'))
 }
 
 fn document_id(url: &str) -> Option<u64> {

@@ -369,6 +369,13 @@ Form changes update that store. Closing the page, leaving Plugins, or closing
 the owning Settings window saves the pending edits and releases the WebView.
 The WebView uses the same native window shell as standalone plugin windows.
 
+Plugin information in Settings shows the manifest metadata, permissions, source
+and author contacts without starting the package. A declared `helpPage` can
+open a confined package document or an HTTP(S) page. Help uses a private native
+WebView with no plugin API, and its lifetime follows the Settings window.
+GitHub update checks initiated from the information panel use the existing
+package staging and permission-review flow.
+
 `preference_load` reads and validates the startup settings. Recovery preserves a
 copy of invalid input and loads recoverable fields. `PreferenceModel` holds the
 committed settings on the UI thread and delegates persistence to
