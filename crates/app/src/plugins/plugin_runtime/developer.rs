@@ -2,11 +2,15 @@
 use super::{RuntimeCommand, execution::ExecutionControl};
 use crate::diagnostics::Level;
 use riina_core::sync::lock;
-use rquickjs::{CatchResultExt, Context, Runtime, Value, object::Filter};
+use rquickjs::{CatchResultExt, Context, Runtime, Value};
 use std::{
     collections::{BTreeMap, VecDeque},
     sync::{Arc, Mutex, mpsc},
 };
+
+mod values;
+
+pub(crate) use values::Member;
 
 const MAX_LINES: usize = 192;
 const MAX_LINE_CHARS: usize = 4096;
@@ -118,12 +122,13 @@ impl Prepared {
         execution.begin();
         let result = context.with(|ctx| {
             let result = match request.command {
-                Command::Script(source) => ctx.eval::<Value, _>(source).and_then(render_value),
-                Command::Globals => ctx
-                    .globals()
-                    .own_keys::<String>(Filter::new().string())
-                    .collect::<rquickjs::Result<Vec<_>>>()
-                    .map(|keys| keys.join("\n")),
+                Command::Script(ref source) if source == "$global" => {
+                    values::globals(ctx.globals(), execution)
+                }
+                Command::Script(source) => ctx
+                    .eval::<Value, _>(source)
+                    .and_then(|value| values::inspect(value, execution)),
+                Command::Globals => values::globals(ctx.globals(), execution),
             };
             result.catch(&ctx).map_err(|error| error.to_string())
         });
@@ -131,7 +136,7 @@ impl Prepared {
         let mut output = lock(&self.realm.output);
         if output.attached && output.visit == visit {
             match result {
-                Ok(text) => output.push(Kind::Result, &text),
+                Ok(value) => output.push_result(value),
                 Err(error) => output.push(Kind::Error, &error),
             }
             if let Err(error) = pending {
@@ -161,10 +166,12 @@ pub(crate) enum Kind {
     Log(Level),
 }
 
-#[derive(Clone)]
 pub(crate) struct Line {
     pub(crate) kind: Kind,
     pub(crate) text: String,
+    pub(crate) sequence: u64,
+    pub(crate) prompt_number: Option<u64>,
+    pub(crate) members: Option<Vec<Member>>,
 }
 
 #[derive(Default)]
@@ -173,23 +180,40 @@ struct Output {
     closed: bool,
     visit: u64,
     revision: u64,
-    lines: VecDeque<Line>,
+    prompt_number: u64,
+    lines: VecDeque<Arc<Line>>,
 }
 
 impl Output {
     fn push(&mut self, kind: Kind, text: &str) {
+        self.append(kind, text, None);
+    }
+
+    fn push_result(&mut self, value: values::Preview) {
+        self.append(Kind::Result, &value.summary, value.members);
+    }
+
+    fn append(&mut self, kind: Kind, text: &str, members: Option<Vec<Member>>) {
         if self.lines.len() == MAX_LINES {
             self.lines.pop_front();
         }
-        let end = text
-            .char_indices()
-            .nth(MAX_LINE_CHARS)
-            .map_or(text.len(), |(offset, _)| offset);
-        self.lines.push_back(Line {
-            kind,
-            text: text[..end].into(),
-        });
         self.revision = self.revision.wrapping_add(1);
+        let prompt_number = (kind == Kind::Prompt).then(|| {
+            self.prompt_number += 1;
+            self.prompt_number
+        });
+        let text = if kind == Kind::Prompt {
+            text.into()
+        } else {
+            values::abbreviate(text, MAX_LINE_CHARS)
+        };
+        self.lines.push_back(Arc::new(Line {
+            kind,
+            text,
+            sequence: self.revision,
+            prompt_number,
+            members,
+        }));
     }
 
     fn clear(&mut self) {
@@ -239,10 +263,20 @@ impl Console {
             })
     }
 
-    pub(crate) fn lines(&self, previous: u64) -> Option<(u64, Vec<Line>)> {
+    pub(crate) fn lines(&self, previous: u64) -> Option<(u64, Vec<Arc<Line>>)> {
         let output = lock(&self.realm.output);
         (output.revision != previous)
             .then(|| (output.revision, output.lines.iter().cloned().collect()))
+    }
+
+    pub(crate) fn previous_command(&self, offset: usize) -> Option<String> {
+        lock(&self.realm.output)
+            .lines
+            .iter()
+            .rev()
+            .filter(|line| line.kind == Kind::Prompt)
+            .nth(offset)
+            .map(|line| line.text.clone())
     }
 
     pub(crate) fn clear(&self) {
@@ -275,15 +309,6 @@ impl Request {
             Command::Globals => "$global",
         }
     }
-}
-
-fn render_value(value: Value<'_>) -> rquickjs::Result<String> {
-    if value.is_undefined() {
-        return Ok("undefined".into());
-    }
-    let ctx = value.ctx().clone();
-    ctx.json_stringify_replacer_space(value, Value::new_null(ctx.clone()), 2)?
-        .map_or_else(|| Ok("[JavaScript value]".into()), |text| text.to_string())
 }
 
 #[cfg(test)]
@@ -336,8 +361,16 @@ mod tests {
         let player_console = open(*player_id)?;
         let global_console = open(*global_id)?;
         for command in [
-            Command::Script("++total; iina.console.warn('step'); ({total})".into()),
-            Command::Script("throw new Error('probe exception')".into()),
+            Command::Script(
+                "++total; iina.console.warn('step'); \
+                 const sample = {total, toJSON() { throw 'unused'; }, \
+                 get missing() { throw 'getter'; }}; sample.self = sample; sample"
+                    .into(),
+            ),
+            Command::Script(
+                "function fail() { throw new Error('probe exception'); } fail()".into(),
+            ),
+            Command::Script("const sparse = []; sparse.length = 4294967295; sparse".into()),
             Command::Globals,
         ] {
             player_console.submit(command).map_err(io::Error::other)?;
@@ -357,21 +390,55 @@ mod tests {
                 .iter()
                 .any(|line| line.kind == Kind::Log(Level::Warning) && line.text == "step")
         );
+        let members = |title| {
+            player_lines.iter().find_map(|line| {
+                (line.kind == Kind::Result && line.text == title)
+                    .then_some(line.members.as_deref())
+                    .flatten()
+            })
+        };
+        let object = members("Object").ok_or("Missing object preview")?;
+        let pairs = object
+            .iter()
+            .map(|member| (member.key.as_str(), member.value.as_str()));
+        assert_eq!(
+            pairs.collect::<Vec<_>>(),
+            [
+                ("total", "11"),
+                ("toJSON", "[Function]"),
+                ("missing", "[Unavailable]"),
+                ("self", "[Object]"),
+            ]
+        );
+        let exception = player_lines
+            .iter()
+            .find(|line| line.kind == Kind::Error)
+            .ok_or("Missing evaluation exception")?;
+        assert!(exception.text.contains("probe exception"));
+        assert!(exception.text.contains("at fail"));
+        let array = members("Array (4294967295)").ok_or("Missing array preview")?;
+        assert_eq!(array.len(), 101);
+        assert_eq!(array[0].value, "undefined");
+        assert_eq!(array[100].value, "… (4294967195 more)");
+        let globals = members("Global Objects").ok_or("Missing global values")?;
         assert!(
-            player_lines
+            globals
                 .iter()
-                .any(|line| line.kind == Kind::Result && line.text.contains("\"total\": 11"))
+                .any(|member| member.key == "iina" && member.value == "[Object]")
         );
         assert!(
-            player_lines
+            globals
                 .iter()
-                .any(|line| line.kind == Kind::Error && line.text.contains("probe exception"))
+                .any(|member| member.key == "total" && member.value == "11")
+        );
+        assert_eq!(
+            player_console.previous_command(0).as_deref(),
+            Some("$global")
         );
         assert!(
-            player_lines
-                .iter()
-                .any(|line| line.kind == Kind::Result
-                    && line.text.lines().any(|name| name == "iina"))
+            player_console
+                .previous_command(1)
+                .is_some_and(|source| source.contains("sparse"))
         );
         let (global_revision, global_lines) =
             global_console.lines(0).ok_or("Missing global transcript")?;
@@ -380,6 +447,7 @@ mod tests {
             Some("100")
         );
         global_console.clear();
+        assert!(global_console.previous_command(0).is_none());
         assert!(
             global_console
                 .lines(global_revision)

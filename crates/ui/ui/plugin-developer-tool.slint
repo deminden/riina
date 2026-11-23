@@ -1,7 +1,42 @@
 import { Button, Palette, ScrollView, TextEdit } from "std-widgets.slint";
 import { Theme } from "theme.slint";
 
-export struct DeveloperConsoleRow { label: string, text: string, error: bool }
+export struct DeveloperConsoleMember { key: string, value: string }
+export struct DeveloperConsoleRow {
+    label: string, text: string, error: bool, members: [DeveloperConsoleMember],
+}
+
+component InspectResult inherits FocusScope {
+    in property <string> summary;
+    private property <bool> expanded;
+    height: 21px;
+    accessible-role: button;
+    accessible-label: summary;
+    accessible-expandable: true;
+    accessible-expanded: expanded;
+    accessible-action-default => { root.toggle(); }
+    accessible-action-expand => { root.expanded = true; }
+    out property <bool> is-expanded: expanded;
+
+    function toggle() { root.expanded = !root.expanded; }
+    key-pressed(event) => {
+        if event.text == Key.Return || event.text == " " { root.toggle(); return accept; }
+        return reject;
+    }
+    Rectangle {
+        background: mouse.has-hover ? Palette.foreground.with-alpha(0.07) : transparent;
+        border-width: root.has-focus ? 1px : 0px;
+        border-color: Palette.accent-background;
+        border-radius: 3px;
+        Text {
+            x: 3px; width: parent.width - 6px; height: parent.height;
+            text: (root.expanded ? "⌄  " : "›  ") + root.summary;
+            vertical-alignment: center; overflow: elide;
+            font-family: "monospace"; font-size: 12px; color: Palette.foreground;
+        }
+        mouse := TouchArea { mouse-cursor: pointer; clicked => { root.focus(); root.toggle(); } }
+    }
+}
 
 export component PluginDeveloperTool inherits Window {
     in property <string> realm-title;
@@ -12,6 +47,8 @@ export component PluginDeveloperTool inherits Window {
     callback evaluate(string) -> bool;
     callback show-globals();
     callback clear-history();
+    callback recall-command(int) -> string;
+    private property <int> recall-index;
 
     title: "DevTool: " + root.realm-title;
     preferred-width: 500px;
@@ -23,7 +60,7 @@ export component PluginDeveloperTool inherits Window {
     init => { editor.focus(); }
     public function focus-editor() { editor.focus(); }
     function run() {
-        if root.evaluate(editor.text) { editor.text = ""; }
+        if root.evaluate(editor.text) { editor.text = ""; root.recall-index = 0; }
         editor.focus();
     }
 
@@ -37,6 +74,21 @@ export component PluginDeveloperTool inherits Window {
                 root.run();
                 return accept;
             }
+            if editor.has-focus && event.text == Key.UpArrow
+                && !event.modifiers.control && !event.modifiers.meta
+                && !event.modifiers.shift && !event.modifiers.alt
+                && (editor.text == "" || root.recall-index > 0) {
+                let previous = root.recall-command(root.recall-index);
+                if previous != "" {
+                    editor.text = previous;
+                    editor.select-all();
+                    editor.clear-selection();
+                    root.recall-index += 1;
+                    return accept;
+                }
+            } else {
+                root.recall-index = 0;
+            }
             return reject;
         }
 
@@ -49,21 +101,36 @@ export component PluginDeveloperTool inherits Window {
                 content-height: max(self.height, transcript-body.preferred-height);
                 private property<int> revision: root.transcript-revision;
                 changed revision => { self.content-y = min(0px, self.visible-height - self.content-height); }
-                VerticalLayout {
-                    transcript-body := VerticalLayout {
-                        padding: 8px;
-                        spacing: 5px;
-                        for line in root.lines : HorizontalLayout {
+                transcript-body := VerticalLayout {
+                    width: transcript.visible-width;
+                    alignment: start;
+                    padding: 8px;
+                    spacing: 5px;
+                    for line in root.lines : HorizontalLayout {
+                        vertical-stretch: 0;
+                        spacing: 7px;
+                        Text {
+                            width: 49px; text: line.label; font-size: 11px;
+                            horizontal-alignment: right;
+                            color: line.error ? Theme.player-dialog-error : Palette.foreground;
+                        }
+                        if line.members.length == 0 : Text {
+                            text: line.text; horizontal-stretch: 1;
+                            font-family: "monospace"; font-size: 12px; wrap: word-wrap;
+                            color: line.error ? Theme.player-dialog-error : Palette.foreground;
+                        }
+                        if line.members.length > 0 : VerticalLayout {
+                            horizontal-stretch: 1;
                             alignment: start;
-                            spacing: 7px;
-                            Text {
-                                width: 49px; text: line.label; font-size: 11px;
-                                color: line.error ? Theme.player-dialog-error : Palette.foreground;
-                            }
-                            Text {
-                                text: line.text; horizontal-stretch: 1;
-                                font-family: "monospace"; font-size: 12px; wrap: word-wrap;
-                                color: line.error ? Theme.player-dialog-error : Palette.foreground;
+                            disclosure := InspectResult { summary: line.text; }
+                            if disclosure.is-expanded : VerticalLayout {
+                                padding-left: 15px;
+                                spacing: 2px;
+                                for member in line.members : Text {
+                                    text: member.key == "" ? member.value : member.key + ": " + member.value;
+                                    font-family: "monospace"; font-size: 12px; overflow: elide;
+                                    color: Palette.foreground;
+                                }
                             }
                         }
                     }
@@ -80,7 +147,7 @@ export component PluginDeveloperTool inherits Window {
                     Button { text: "Run"; enabled: editor.text != ""; clicked => { root.run(); } }
                     Button { text: "Global Objects"; clicked => { root.show-globals(); } }
                     Button { text: "Clear History"; enabled: root.lines.length > 0;
-                        clicked => { root.clear-history(); editor.focus(); } }
+                        clicked => { root.clear-history(); root.recall-index = 0; editor.focus(); } }
                     Rectangle { horizontal-stretch: 1; }
                     Text {
                         text: root.primary-shortcut-is-meta ? "⌘ Return" : "Ctrl+Enter";
@@ -90,10 +157,12 @@ export component PluginDeveloperTool inherits Window {
                 if root.status != "" : Text { text: root.status; wrap: word-wrap;
                     color: Theme.player-dialog-error; font-size: 11px; }
                 editor := TextEdit {
+                    accessible-label: "JavaScript";
                     height: 85px;
                     font-family: "monospace";
                     font-size: 12px;
                     placeholder-text: "JavaScript";
+                    edited => { root.recall-index = 0; }
                 }
             }
         }

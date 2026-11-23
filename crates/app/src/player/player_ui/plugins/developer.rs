@@ -3,8 +3,11 @@ use crate::{
     PlayerWindow, platform,
     plugin_runtime::developer::{Command, Console, Directory, Kind, Line, Realm},
 };
-use riina_ui::{DeveloperConsoleRow, MenuCatalogRow, PlayerMenuActions, PluginDeveloperTool};
-use slint::{ComponentHandle, ModelRc, VecModel, winit_030::WinitWindowAccessor};
+use riina_ui::{
+    DeveloperConsoleMember, DeveloperConsoleRow, MenuCatalogRow, PlayerMenuActions,
+    PluginDeveloperTool,
+};
+use slint::{ComponentHandle, Model, ModelRc, VecModel, winit_030::WinitWindowAccessor};
 use std::{cell::RefCell, collections::BTreeMap, rc::Rc};
 
 pub(super) struct Presenter {
@@ -76,6 +79,7 @@ impl Presenter {
 struct ToolWindow {
     window: PluginDeveloperTool,
     console: Rc<Console>,
+    rows: Rc<VecModel<DeveloperConsoleRow>>,
     revision: u64,
 }
 
@@ -84,6 +88,8 @@ impl ToolWindow {
         let title = realm.title.clone();
         let window = PluginDeveloperTool::new().map_err(|error| error.to_string())?;
         let console = Rc::new(realm.attach().ok_or("The plugin console is unavailable")?);
+        let rows = Rc::new(VecModel::default());
+        window.set_lines(ModelRc::from(Rc::clone(&rows)));
         window.set_realm_title(title.into());
         window.set_primary_shortcut_is_meta(app.get_primary_shortcut_is_meta());
         let callback = Rc::downgrade(&console);
@@ -111,10 +117,19 @@ impl ToolWindow {
                 console.clear();
             }
         });
+        let callback = Rc::downgrade(&console);
+        window.on_recall_command(move |offset| {
+            callback
+                .upgrade()
+                .and_then(|console| console.previous_command(offset as usize))
+                .unwrap_or_default()
+                .into()
+        });
         platform::center_auxiliary_window(&window, app);
         Ok(Self {
             window,
             console,
+            rows,
             revision: 0,
         })
     }
@@ -131,10 +146,19 @@ impl ToolWindow {
 
     fn refresh(&mut self) {
         if let Some((revision, lines)) = self.console.lines(self.revision) {
+            // Retain the row components that are still in the transcript so further
+            // output does not close an expanded result or move keyboard focus.
+            let retained = lines.partition_point(|line| line.sequence <= self.revision);
+            if retained == 0 {
+                self.rows.set_vec(Vec::new());
+            } else {
+                for _ in retained..self.rows.row_count() {
+                    self.rows.remove(0);
+                }
+            }
+            self.rows
+                .extend(lines[retained..].iter().map(|line| console_row(line)));
             self.revision = revision;
-            self.window.set_lines(ModelRc::new(VecModel::from(
-                lines.into_iter().map(console_row).collect::<Vec<_>>(),
-            )));
             self.window.set_transcript_revision(revision as i32);
         }
     }
@@ -159,20 +183,32 @@ fn submit(window: &PluginDeveloperTool, console: &Console, command: Command) -> 
     }
 }
 
-fn console_row(line: Line) -> DeveloperConsoleRow {
+fn console_row(line: &Line) -> DeveloperConsoleRow {
     use crate::diagnostics::Level;
 
     let (label, error) = match line.kind {
-        Kind::Prompt => ("In", false),
-        Kind::Result => ("Out", false),
-        Kind::Error | Kind::Log(Level::Error) => ("Error", true),
-        Kind::Log(Level::Warning) => ("Warning", false),
-        Kind::Log(Level::Debug | Level::Info) => ("Log", false),
+        Kind::Prompt => (
+            format!("[{}]", line.prompt_number.unwrap_or(0)).into(),
+            false,
+        ),
+        Kind::Result => ("→".into(), false),
+        Kind::Error | Kind::Log(Level::Error) => ("Error".into(), true),
+        Kind::Log(Level::Warning) => ("Warning".into(), false),
+        Kind::Log(Level::Debug | Level::Info) => ("Log".into(), false),
     };
+    let members = line
+        .members
+        .iter()
+        .flatten()
+        .map(|member| DeveloperConsoleMember {
+            key: member.key.as_str().into(),
+            value: member.value.as_str().into(),
+        });
     DeveloperConsoleRow {
-        label: label.into(),
-        text: line.text.into(),
+        label,
+        text: line.text.as_str().into(),
         error,
+        members: ModelRc::new(VecModel::from(members.collect::<Vec<_>>())),
     }
 }
 
@@ -180,18 +216,45 @@ fn console_row(line: Line) -> DeveloperConsoleRow {
 mod tests {
     use super::*;
     use i_slint_backend_testing::ElementHandle;
-    use slint::LogicalSize;
+    use slint::{
+        LogicalSize,
+        platform::{Key, WindowEvent},
+    };
 
     #[test]
-    fn developer_tool_keeps_the_run_toolbar_compact() -> Result<(), Box<dyn std::error::Error>> {
+    fn developer_tool_keeps_results_compact_and_recallable()
+    -> Result<(), Box<dyn std::error::Error>> {
         i_slint_backend_testing::init_no_event_loop();
         let window = PluginDeveloperTool::new()?;
         window.window().set_size(LogicalSize::new(500.0, 400.0));
+        let members = ModelRc::new(VecModel::from(vec![DeveloperConsoleMember {
+            key: "total".into(),
+            value: "11".into(),
+        }]));
+        let rows = Rc::new(VecModel::from(vec![
+            DeveloperConsoleRow {
+                label: "→".into(),
+                text: "Object".into(),
+                members: members.clone(),
+                ..Default::default()
+            },
+            DeveloperConsoleRow {
+                label: "→".into(),
+                text: "Second result".into(),
+                members,
+                ..Default::default()
+            },
+        ]));
+        window.set_lines(ModelRc::from(Rc::clone(&rows)));
+        window.on_recall_command(|offset| match offset {
+            0 => "({total: 11})".into(),
+            1 => "total = 10".into(),
+            _ => "".into(),
+        });
         window.show()?;
         slint::platform::update_timers_and_animations();
-        let run = ElementHandle::find_by_accessible_label(&window, "Run")
-            .next()
-            .ok_or("Missing Run button")?;
+        let find = |label| ElementHandle::find_by_accessible_label(&window, label).next();
+        let run = find("Run").ok_or("Missing Run button")?;
         assert!(
             run.size().height <= 36.0,
             "Run button size: {:?}",
@@ -202,6 +265,33 @@ mod tests {
             "Run button position: {:?}",
             run.absolute_position()
         );
+        let object = find("Object").ok_or("Missing expandable result")?;
+        let second = find("Second result").ok_or("Missing second expandable result")?;
+        let y = second.absolute_position().y;
+        let gap = y - object.absolute_position().y;
+        assert!((21.0..=32.0).contains(&gap), "Result row spacing: {gap}");
+        assert_eq!(object.accessible_expanded(), Some(false));
+        object.invoke_accessible_default_action();
+        assert_eq!(object.accessible_expanded(), Some(true));
+        let second = find("Second result").ok_or("Second result disappeared")?;
+        assert!(
+            second.absolute_position().y > y,
+            "Expanded rows did not grow: {y}"
+        );
+        rows.push(DeveloperConsoleRow {
+            text: "More output".into(),
+            ..Default::default()
+        });
+        assert_eq!(object.accessible_expanded(), Some(true));
+        window.invoke_focus_editor();
+        let editor = find("JavaScript").ok_or("Missing editor")?;
+        for expected in ["({total: 11})", "total = 10"] {
+            let text = Key::UpArrow.into();
+            window
+                .window()
+                .dispatch_event(WindowEvent::KeyPressed { text });
+            assert_eq!(editor.accessible_value().as_deref(), Some(expected));
+        }
         window.hide()?;
         Ok(())
     }

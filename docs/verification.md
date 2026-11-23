@@ -1509,6 +1509,41 @@ Strict Apple Silicon cross-target Clippy passed before the toolbar follow-up.
 Expandable object inspection, transcript spacing and native macOS interaction
 remain open.
 
+#### Expandable results and command recall
+
+The follow-up shows numbered commands and compact result rows. Array, object
+and global previews capture members on the entry's existing worker. Previews
+are shallow and capped at 100 members, with an omitted count when applicable.
+New output preserves expanded rows. Up Arrow recalls commands from the current
+transcript, and Clear History clears recall.
+
+The grouped Windows source gate passed strict Clippy, 917 Rust tests including
+the software-rendered pixel comparison, and 78 Python tests. The locked
+workspace build passed. The runtime regression covers both entry scopes,
+exception stacks, cyclic and sparse values, a throwing property getter,
+global values and reload. The headless widget regression checks row spacing,
+expansion, recall and the compact toolbar in the same run.
+
+On a private Windows desktop, the native menu opened both consoles. Windows
+UI Automation expanded an object and confirmed it stayed expanded after new
+output. Commands reached their respective entries, and the exact player
+process exited normally with both consoles open. The executable SHA-256 was
+`f06eb5af7693861bf6420a72fa55347d79c2508dd04723b05fce6c6144ec76f0`.
+
+Linux passed strict workspace Clippy, 123 focused plugin tests and the locked
+application build. On isolated X11, a pointer click opened the object and
+revealed `total: 11` and `nested: [Object]` immediately under its summary.
+Up Arrow recalled the command and Ctrl+Enter returned `12`. The global entry
+returned `101`. Reload closed both old tools and the replacement player entry
+returned `11` with fresh state. The first synthetic close request timed out.
+The rerun focused the playback window and synchronized delivery of the X11
+close request. Both windows closed and the exact process exited normally.
+The Linux executable and engine SHA-256 values were
+`11e00b51d5feea0a325fb4725415c3af671ca542855afa2f0fe71463e47cb8c6` and
+`84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`.
+Strict Apple Silicon cross-target Clippy passed. Native macOS interaction and
+matched console appearance remain open.
+
 ### Plugin playlist context menus 2026-11-23
 
 The headless player test sent a right click to a playlist row and checked
