@@ -96,7 +96,7 @@ pub(crate) fn install(
             };
             refresh(&window, &show_history, &show_collapsed_groups);
             show_last_revision.set(Some(revision(&show_history)));
-            if let Err(error) = window.show() {
+            if let Err(error) = crate::platform::show_window(&window) {
                 crate::diagnostics::report(
                     &app,
                     format!("Could not show Playback History: {error}"),

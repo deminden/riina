@@ -129,8 +129,8 @@ fn bring_all_to_front(state: &Rc<RefCell<ManagerState>>, owner: &PlayerWindow) {
     }
 }
 
-fn show_and_focus(window: &impl ComponentHandle, owner: &PlayerWindow) {
-    if let Err(error) = window.show() {
+fn show_and_focus(window: &(impl ComponentHandle + 'static), owner: &PlayerWindow) {
+    if let Err(error) = crate::platform::show_window(window) {
         crate::diagnostics::report(owner, format!("Could not show a player window: {error}"));
         return;
     }
@@ -187,7 +187,7 @@ fn open_player(
                 .get(index)
                 .map(|player| player.app.clone_strong())
         }) {
-            player.show().map_err(|error| error.to_string())?;
+            crate::platform::show_window(&player).map_err(|error| error.to_string())?;
             player.window().with_winit_window(|window| {
                 window.set_minimized(false);
                 window.focus_window();
@@ -214,7 +214,7 @@ fn open_player(
     };
     let id = manager.attach(&app, None, session);
     crate::window_aspect::connect(&app, &media_geometry);
-    if let Err(error) = app.show() {
+    if let Err(error) = crate::platform::show_window(&app) {
         close_player(state, id, false);
         return Err(error.to_string());
     }
@@ -354,7 +354,7 @@ fn show_welcome(state: &Rc<RefCell<ManagerState>>) -> Result<(), Box<dyn std::er
     manager.attach(&app, Some(welcome.clone_strong()), session);
     crate::window_aspect::connect(&app, &media_geometry);
     crate::platform::center_auxiliary_window(&welcome, &app);
-    welcome.show()?;
+    crate::platform::show_window(&welcome)?;
     crate::platform::enable_welcome_mica(&welcome);
     Ok(())
 }

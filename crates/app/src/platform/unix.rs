@@ -7,6 +7,8 @@ pub(crate) use session::SessionExtras;
 pub(crate) mod accessibility;
 mod dialogs;
 pub(crate) mod services;
+#[cfg(target_os = "linux")]
+pub(crate) mod visibility;
 pub(crate) use dialogs::open as open_dialog;
 
 // Unix currently uses the shared GL renderer. A real presentation value keeps

@@ -125,7 +125,7 @@ pub(crate) fn connect_player(
             } else {
                 format!("Search {} by title or filename.", provider_name(provider)).into()
             });
-            if let Err(error) = window.show() {
+            if let Err(error) = crate::platform::show_window(&window) {
                 crate::diagnostics::report(
                     &app,
                     format!("Could not show online subtitle search: {error}"),

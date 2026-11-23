@@ -894,6 +894,31 @@ the profile change from the later separation of application and UI compilation.
 
 ## Linux x64 application checks
 
+### Application-wide Hide Riina 2026-11-23
+
+On Ubuntu 26.04 in WSL, the isolated X11 baseline at `a393255` minimized only
+the invoking player. The new build minimized two independent players and the
+Settings window in the same process. The window manager restored all three
+with their original window IDs. The fixture stayed loaded and its playback
+position advanced after restore. Quit ended the process normally.
+
+The same executable issued one `xdg_toplevel.set_minimized` request per
+visible toplevel on isolated native Wayland, with a player and Settings open.
+Sway left both toplevels visible, the playback clock advanced, and Quit ended
+the process normally. This verifies request delivery on Wayland. Desktop
+environments that honor the request still need visible minimize/restore checks.
+
+The executable SHA-256 was
+`63347838ded3951968891999a3e6e47d967303b07aca3e123a52d1bc1e3b7e5e`.
+Both runs used the backported libmpv runtime with SHA-256
+`cdce854e1811942602587310026306d92d30c0f593f2be676f07659ae43061d8` and null audio.
+
+Strict workspace Clippy and all 830 workspace tests passed on Linux, including
+the window registration test for duplicate, hidden and released components.
+`cargo xtask check` passed 868 workspace tests and 78 Python tests on Windows.
+
+### Workspace and application builds
+
 At `0dc5222`, strict workspace Clippy, 829 Rust tests and the locked x86-64
 application build passed on Ubuntu 26.04 in WSL. The X11 plugin shortcut
 check used that executable.

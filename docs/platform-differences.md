@@ -81,10 +81,12 @@ for the ownership and composition invariants.
   routing require platform testing.
 - Hide Riina uses native application hiding on macOS. Windows minimizes the
   visible root windows belonging to the same executable, including independent
-  player sessions; their owned video/control surfaces follow them. Restore them
-  from the taskbar. Linux currently minimizes the invoking window. These actions
-  retain playback and do not close sessions; pause-on-minimize still follows its
-  separate preference on Windows/Linux.
+  player sessions, and their owned video and control surfaces follow them.
+  Linux requests minimization of every visible player and auxiliary window in
+  the current process. The window manager handles minimization and restore.
+  These actions keep sessions open. On Windows and Linux, pause-on-minimize
+  still follows its separate preference. Wayland compositors may ignore
+  minimization requests. [XDG shell protocol](https://wayland.app/protocols/xdg-shell#xdg_toplevel:request:set_minimized)
 - Windows/Linux wheel lines retain their magnitude, including fractional
   high-resolution mouse reports. Slint's 60-pixel line expansion is removed
   before applying the source sensitivity maps; pixel input stays in logical

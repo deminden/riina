@@ -89,7 +89,7 @@ pub(crate) fn connect(
                 .unwrap_or_default();
             crate::audio_preferences::install_window(&window, &stored_audio, &available_devices);
             refresh(&window, &app);
-            if let Err(error) = window.show() {
+            if let Err(error) = crate::platform::show_window(&window) {
                 app.set_status(error.to_string().into());
                 return;
             }

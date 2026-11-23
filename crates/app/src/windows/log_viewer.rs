@@ -327,7 +327,7 @@ pub(crate) fn connect(
             viewer
         };
         refresh_view(&viewer, &show_reader, &show_subsystems);
-        if let Err(error) = viewer.show() {
+        if let Err(error) = crate::platform::show_window(&viewer) {
             crate::diagnostics::report(&app, format!("Could not show Log Viewer: {error}"));
         } else {
             crate::platform::enable_log_viewer_acrylic(&viewer);

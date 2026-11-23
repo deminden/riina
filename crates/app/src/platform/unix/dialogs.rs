@@ -63,7 +63,7 @@ pub fn open(
         {
             // Continue releasing session resources if the window is closing.
             let _ = app.hide();
-            if let Err(error) = welcome.show() {
+            if let Err(error) = crate::platform::show_window(&welcome) {
                 crate::diagnostics::warn!("Could not restore the welcome window: {error}");
             }
             return;

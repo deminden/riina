@@ -178,7 +178,7 @@ fn install_for_kind(
             window
         };
         refresh(&app, &window, &show_latest, &show_settings, is_audio);
-        if let Err(error) = window.show() {
+        if let Err(error) = crate::platform::show_window(&window) {
             crate::diagnostics::report(&app, format!("Could not show filter window: {error}"));
         } else {
             crate::platform::enable_video_filters_acrylic(&window);

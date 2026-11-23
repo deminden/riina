@@ -32,7 +32,7 @@ pub(super) fn install_lifecycle(app: &PlayerWindow, welcome: Option<&WelcomeWind
     let hide_app = app.as_weak();
     app.global::<PlayerMenuActions>().on_hide_riina(move || {
         if let Some(app) = hide_app.upgrade()
-            && let Err(error) = platform::hide_application(app.window())
+            && let Err(error) = platform::hide_application()
         {
             app.set_status(error.into());
         }

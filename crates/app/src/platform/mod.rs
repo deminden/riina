@@ -534,25 +534,31 @@ pub(crate) fn double_click_interval() -> std::time::Duration {
     }
 }
 
-/// Windows has no Dock-based application hiding: minimize restorable taskbar
-/// owners, letting Windows hide their owned video/control surfaces together.
-pub(crate) fn hide_application(window: &slint::Window) -> Result<(), String> {
+pub(crate) fn show_window(
+    window: &(impl ComponentHandle + 'static),
+) -> Result<(), slint::PlatformError> {
+    window.show()?;
+    #[cfg(target_os = "linux")]
+    unix::visibility::track(window);
+    Ok(())
+}
+
+pub(crate) fn hide_application() -> Result<(), String> {
     #[cfg(target_os = "windows")]
     {
-        let _ = window;
+        // Minimizing the taskbar owners also hides their video and controls.
         windows::bring_to_front::minimize_all_riina_windows()
     }
     #[cfg(target_os = "macos")]
     {
-        let _ = window;
         let main_thread = objc2::MainThreadMarker::new()
             .ok_or_else(|| "Application hiding requires the main thread".to_owned())?;
         objc2_app_kit::NSApplication::sharedApplication(main_thread).hide(None);
         Ok(())
     }
-    #[cfg(not(any(target_os = "windows", target_os = "macos")))]
+    #[cfg(target_os = "linux")]
     {
-        minimize_window(window);
+        unix::visibility::minimize_all();
         Ok(())
     }
 }

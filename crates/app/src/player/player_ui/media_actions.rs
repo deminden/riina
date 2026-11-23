@@ -208,7 +208,7 @@ fn install_file_open(
                 .is_some_and(|welcome| welcome.window().is_visible());
             if welcome_is_visible {
                 platform::set_native_video_host_visible(file_open_host.as_ref(), true);
-                if let Err(error) = app.show() {
+                if let Err(error) = platform::show_window(&app) {
                     app.set_status(error.to_string().into());
                     return;
                 }
@@ -349,7 +349,7 @@ fn install_url_open(
                         return;
                     }
                     platform::set_native_video_host_visible(open_url_host.as_ref(), true);
-                    if let Err(error) = app.show() {
+                    if let Err(error) = platform::show_window(&app) {
                         app.set_status(error.to_string().into());
                         return;
                     }
@@ -441,7 +441,7 @@ fn install_welcome_recent(
                 .is_some_and(|welcome| welcome.window().is_visible());
             if from_welcome {
                 platform::set_native_video_host_visible(recent_host.as_ref(), true);
-                if let Err(error) = app.show() {
+                if let Err(error) = platform::show_window(&app) {
                     app.set_status(error.to_string().into());
                     return;
                 }

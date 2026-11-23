@@ -184,7 +184,7 @@ pub fn connect(app: &PlayerWindow) {
             if let Some(picker) = existing {
                 refresh_selection(&picker, &app);
                 picker.set_picker_active(true);
-                if let Err(error) = picker.show() {
+                if let Err(error) = crate::platform::show_window(&picker) {
                     picker.set_picker_active(false);
                     app.set_status(error.to_string().into());
                     return;
@@ -213,7 +213,7 @@ pub fn connect(app: &PlayerWindow) {
             crate::appearance_preferences::install_system_typography(&picker);
             refresh_selection(&picker, &app);
             install_lifecycle(&picker, &app);
-            if let Err(error) = picker.show() {
+            if let Err(error) = crate::platform::show_window(&picker) {
                 app.set_status(error.to_string().into());
                 return;
             }

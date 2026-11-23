@@ -150,10 +150,10 @@ fn run_shared_player(
     window_aspect::connect(&app, &media_geometry);
     if let Some(welcome) = &welcome {
         platform::center_auxiliary_window(welcome, &app);
-        welcome.show()?;
+        platform::show_window(welcome)?;
         application_menu.normalize();
     } else {
-        app.show()?;
+        platform::show_window(&app)?;
         application_menu.normalize();
         if action_after_launch.open_file_panel(supplied_media_argument) {
             app.global::<PlayerMenuActions>().invoke_open_file();

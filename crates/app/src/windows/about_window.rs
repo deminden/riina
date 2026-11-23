@@ -32,7 +32,7 @@ pub(crate) fn connect(app: &PlayerWindow, playback: crate::PlaybackStore) {
             .lock()
             .map(|state| refresh_engine_versions(&window, &state))
             .unwrap_or_else(|_| refresh_engine_versions(&window, &Playback::default()));
-        if let Err(error) = window.show() {
+        if let Err(error) = crate::platform::show_window(&window) {
             crate::diagnostics::report(&app, format!("Could not show About Riina: {error}"));
             return;
         }
