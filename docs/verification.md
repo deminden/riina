@@ -857,6 +857,12 @@ frame after a playback update. It passed after the host preserved window
 observations across playback snapshots, both at plugin activation and before
 the closing callback.
 
+At `7b0ce17`, the Windows workspace gate passed 868 Rust tests and 78 Python
+tests. The locked application build passed all ten private-desktop smoke
+checks and exited normally in 9.327 seconds.
+At `a6c1062`, the Windows workspace gate again passed 868 Rust tests and
+78 Python tests.
+
 On `954d4d6`, separate private-desktop runs reopened and played media after
 recovering a profile with an invalid setting type, a non-object JSON document,
 or invalid UTF-8. Each run showed the recovery notice, preserved the original
@@ -884,6 +890,10 @@ repeated app-file checks took 38.89 and 14.99 seconds with Cargo defaults, and
 the profile change from the later separation of application and UI compilation.
 
 ## Linux x64 application checks
+
+At `7b0ce17`, strict workspace Clippy, 829 Rust tests and the locked x86-64
+application build passed on Ubuntu 26.04 in WSL. The executable SHA-256 was
+`e8c701a7da28926e982cd75d07ef22baffb7cd7280c11234fd779c814238c6b9`.
 
 At `55fe191`, strict workspace Clippy, 828 Rust tests and the locked x86-64
 application build passed on Ubuntu 26.04 in WSL. The executable SHA-256 was
@@ -1113,7 +1123,23 @@ round trip and the window-manager close ended the player. In a separate
 920-pixel-wide player, enabling the same package through Reload All Plugins
 opened the sidebar during playback, but its WebKit surface stayed black.
 The same late-load trial at `63dfb72` showed the black surface too. Both
-players closed normally. Rendering a sidebar after a late load remains open.
+players closed normally.
+
+The X11 window tree isolated the late-load failure at `55fe191`. In the
+920-pixel-wide player, the sidebar container was 336 × 417 and its WebKit child
+stayed at 1 × 1. Resizing the player allocated the child and revealed the page.
+A sidebar loaded at startup resized correctly to the same wide player size.
+Forcing WebKitGTK's shared-memory transport did not alter the late-load result.
+The control at `0ba7173` reproduced the black WebKit child.
+
+Starting the child with the current viewport at `7b0ce17` restored rendering
+while playback continued. At `a6c1062`, replaying the allocation after GTK
+shows the child matched the 336 × 417 sidebar on both sides of the player.
+Both sessions opened a plugin during playback, completed its bidirectional
+message exchange, removed the native child on disable, and reopened it
+without resizing the player. Both players and their WebKit helpers exited.
+The Linux executable SHA-256 was
+`a9e8939d6a47e17fbf541d0959e6c57840cb9c734525b23ad322ed74c396863c`.
 
 ### macOS application menu composition 2026-10-14
 
