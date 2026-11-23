@@ -497,6 +497,34 @@ fresh and shared cache directories. Two of six fresh-cache starts stayed
 black through the last sample. All six shared-cache starts rendered motion.
 The result leaves the role of the cache unresolved.
 
+Two further standalone comparisons each alternated six starts per condition
+using libmpv 0.41.0. The cache comparison found a black framebuffer in two
+fresh-cache starts, zero starts with only Mesa's shader cache warmed, two
+starts with only mpv's cache warmed, and five starts with llvmpipe's worker
+threads disabled. The Mesa cache result is limited to this sample.
+
+With fresh caches in every GLX context, the bound llvmpipe framebuffer was
+black in three starts and nearly black in one. The default window
+framebuffer was black in two starts, and the client framebuffer left
+unbound on entry was black in five. All six standalone softpipe starts
+rendered motion. The fully black cases also returned a decoded 320 × 180
+video-only screenshot with 57,600 non-black pixels. The failure can occur
+with either framebuffer target and both client-framebuffer binding states.
+
+An isolated full-app comparison used the locked Linux build from `d8421ed`,
+the same libmpv version, and a new profile and Xvfb display per start. Three
+llvmpipe starts showed the fixture in both desktop captures. Three softpipe
+starts showed a black video area at the first capture, taken at playback
+positions between 0.25 and 0.42 seconds. One of those showed the fixture
+at the second capture near 1.54 seconds. All six sessions quit normally.
+An additional llvmpipe session showed a black video area through 1.5 seconds.
+Although 1,440 sampled pixels changed between its captures, both full
+1280 × 800 images had zero pixels in the blue range of the fixture's
+background. Control changes alone can satisfy a motion check. The app
+comparison checked the active fixture and playing state before each capture,
+verified the full desktop dimensions, and checked for pixels from the fixture.
+Linux startup presentation remains intermittent on this setup.
+
 ## Windows private-desktop smoke 2026-11-21
 
 The locked Windows x64 development build at `da50ecd` passed the ten native
