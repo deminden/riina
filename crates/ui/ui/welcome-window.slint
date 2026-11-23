@@ -117,6 +117,7 @@ export component WelcomeWindow inherits Window {
     in-out property <string> url-draft;
     in-out property <bool> url-entry-visible: false;
     in property <string> url-error;
+    in property <string> drop-error;
     in property <[RecentMediaRow]> recent-media;
     in property <[RecentMediaRow]> recent-documents;
     in property <int> recent-document-offset: 1;
@@ -180,6 +181,10 @@ export component WelcomeWindow inherits Window {
                 if root.url-error != "" : Text {
                     text: root.url-error; color: Theme.welcome-url-error; font-size: 11px;
                 }
+            }
+            if root.drop-error != "" : Text {
+                text: root.drop-error; color: Theme.welcome-url-error; font-size: 11px;
+                wrap: word-wrap;
             }
             Rectangle { height: 16px; }
             if root.recent-media.length > 0 : VerticalLayout {

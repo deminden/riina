@@ -7,14 +7,19 @@ use crate::{
     ui_dialogs::{self, Purpose},
 };
 use recent::{persist_recent_open_documents, remember_recent_open_document};
+use riina_core::sync::lock;
 use riina_core::{Command, RecentMedia};
 use riina_mpv::CommandSender;
 use riina_ui::PlayerMenuActions;
-use slint::ComponentHandle;
+use slint::{
+    ComponentHandle,
+    winit_030::{EventResult, WinitWindowAccessor},
+};
 use std::{
     cell::{Cell, RefCell},
     path::PathBuf,
     rc::Rc,
+    sync::{Arc, Mutex},
 };
 
 pub(super) struct Context<'a> {
@@ -31,6 +36,7 @@ pub(super) struct Context<'a> {
 enum PendingWelcomeOpen {
     Url(String),
     Recent(riina_core::RecentMedia, bool),
+    Drop(media_open::WelcomeDrop, i32),
 }
 
 fn dispatch_welcome_open(
@@ -43,16 +49,21 @@ fn dispatch_welcome_open(
         PendingWelcomeOpen::Recent(media, resume) => {
             media_open::open_recent(app, media, resume, sender.clone());
         }
+        PendingWelcomeOpen::Drop(drop, generation) => {
+            if app.get_media_request_generation() == generation {
+                drop.open(app, sender);
+            }
+        }
     }
 }
 
 type WelcomeHandle = Option<slint::Weak<WelcomeWindow>>;
 type OpenHost = Option<slint::Weak<NativeVideoHost>>;
-type WelcomeRequests = Rc<RefCell<Option<PendingWelcomeOpen>>>;
+type WelcomeRequests = Arc<Mutex<Option<PendingWelcomeOpen>>>;
 
 pub(super) fn install(app: &PlayerWindow, context: Context<'_>) {
     let welcome_window = context.welcome.map(ComponentHandle::as_weak);
-    let pending_welcome_open = Rc::new(RefCell::new(None));
+    let pending_welcome_open = WelcomeRequests::default();
     install_renderer_ready(app, context.commands, &pending_welcome_open);
     install_external_file_actions(
         app,
@@ -61,6 +72,7 @@ pub(super) fn install(app: &PlayerWindow, context: Context<'_>) {
         context.latest_playback,
     );
     install_file_open(app, context.commands, &context.open_host, &welcome_window);
+    install_welcome_drop(app, &context, &pending_welcome_open);
     install_open_recent_menu(app, &context);
     install_url_open(app, &context, &welcome_window, &pending_welcome_open);
     install_help_and_debug(app, context.latest_playback);
@@ -111,11 +123,97 @@ fn install_renderer_ready(
     let ready_app = app.as_weak();
     let ready_player = commands.clone();
     app.on_renderer_ready(move || {
-        if let Some(request) = ready_pending.borrow_mut().take()
+        let request = lock(&ready_pending).take();
+        if let Some(request) = request
             && let Some(app) = ready_app.upgrade()
         {
             dispatch_welcome_open(&app, request, &ready_player);
         }
+    });
+}
+
+fn submit_welcome_open(
+    app: &PlayerWindow,
+    sender: &CommandSender,
+    pending: &WelcomeRequests,
+    request: PendingWelcomeOpen,
+) {
+    if app.get_engine_ready() {
+        dispatch_welcome_open(app, request, sender);
+    } else {
+        *lock(pending) = Some(request);
+    }
+}
+
+fn install_welcome_drop(app: &PlayerWindow, context: &Context<'_>, pending: &WelcomeRequests) {
+    let Some(window) = context.welcome else {
+        return;
+    };
+    let welcome = window.as_weak();
+    let player = app.as_weak();
+    let sender = context.commands.clone();
+    let pending = pending.clone();
+    let host = context.open_host.clone();
+    let prefs_path = context.prefs_path.clone();
+    let (_, file_drop) = platform::batched_file_drops(move |paths| {
+        let (Some(welcome_window), Some(app)) = (welcome.upgrade(), player.upgrade()) else {
+            return;
+        };
+        if !welcome_window.window().is_visible() {
+            return;
+        }
+        let generation = media_open::invalidate(&app);
+        welcome_window.set_drop_error("".into());
+        let (welcome, player, sender, pending, host, prefs_path) = (
+            welcome.clone(),
+            player.clone(),
+            sender.clone(),
+            pending.clone(),
+            host.clone(),
+            prefs_path.clone(),
+        );
+        let started = crate::background::spawn_named("welcome-drop", move || {
+            let result = crate::preference_load::read_valid(&prefs_path)
+                .map_err(|error| error.to_string())
+                .and_then(|prefs| {
+                    media_open::WelcomeDrop::prepare(paths, &prefs.unwrap_or_default())
+                });
+            let _ = crate::background::to_ui(player, move |app| {
+                let Some(welcome) = welcome.upgrade() else {
+                    return;
+                };
+                if app.get_media_request_generation() != generation
+                    || !welcome.window().is_visible()
+                {
+                    return;
+                }
+                match result {
+                    Ok(drop) => {
+                        platform::set_native_video_host_visible(host.as_ref(), true);
+                        if let Err(error) = platform::show_window(&app) {
+                            platform::set_native_video_host_visible(host.as_ref(), false);
+                            welcome.set_drop_error(error.to_string().into());
+                            return;
+                        }
+                        let _ = welcome.hide();
+                        submit_welcome_open(
+                            &app,
+                            &sender,
+                            &pending,
+                            PendingWelcomeOpen::Drop(drop, generation),
+                        );
+                    }
+                    Err(error) => welcome.set_drop_error(error.into()),
+                }
+            });
+        });
+        if let Err(error) = started {
+            welcome_window.set_drop_error(error.to_string().into());
+        }
+    });
+    window.window().on_winit_window_event(move |_, event| {
+        file_drop(event);
+        EventResult::Propagate
     });
 }
 
@@ -207,6 +305,7 @@ fn install_file_open(
                 .and_then(slint::Weak::upgrade)
                 .is_some_and(|welcome| welcome.window().is_visible());
             if welcome_is_visible {
+                media_open::invalidate(&app);
                 platform::set_native_video_host_visible(file_open_host.as_ref(), true);
                 if let Err(error) = platform::show_window(&app) {
                     app.set_status(error.to_string().into());
@@ -348,6 +447,7 @@ fn install_url_open(
                         }
                         return;
                     }
+                    media_open::invalidate(&app);
                     platform::set_native_video_host_visible(open_url_host.as_ref(), true);
                     if let Err(error) = platform::show_window(&app) {
                         app.set_status(error.to_string().into());
@@ -359,11 +459,7 @@ fn install_url_open(
                         let _ = welcome.hide();
                     }
                     let request = PendingWelcomeOpen::Url(value.to_string());
-                    if app.get_engine_ready() {
-                        dispatch_welcome_open(&app, request, &open_url);
-                    } else {
-                        *url_pending.borrow_mut() = Some(request);
-                    }
+                    submit_welcome_open(&app, &open_url, &url_pending, request);
                 } else {
                     media_open::url(&app, value.as_str(), open_url.clone());
                 }
@@ -440,6 +536,7 @@ fn install_welcome_recent(
                 .and_then(slint::Weak::upgrade)
                 .is_some_and(|welcome| welcome.window().is_visible());
             if from_welcome {
+                media_open::invalidate(&app);
                 platform::set_native_video_host_visible(recent_host.as_ref(), true);
                 if let Err(error) = platform::show_window(&app) {
                     app.set_status(error.to_string().into());
@@ -454,11 +551,7 @@ fn install_welcome_recent(
                     app.global::<riina_ui::PlayerPreferences>()
                         .get_resume_last_position(),
                 );
-                if app.get_engine_ready() {
-                    dispatch_welcome_open(&app, request, &recent_player);
-                } else {
-                    *recent_pending.borrow_mut() = Some(request);
-                }
+                submit_welcome_open(&app, &recent_player, &recent_pending, request);
             } else {
                 media_open::open_recent(
                     &app,

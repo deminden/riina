@@ -126,25 +126,13 @@ fn install_window_events(
     PLAYER_WINDOWS.with(|registered| {
         registered.borrow_mut().push((registry_id, app.as_weak()));
     });
-    let pending_paths = Rc::new(RefCell::new(Vec::<std::ffi::OsString>::new()));
-    let flush_paths = pending_paths.clone();
     let weak_app = app.as_weak();
     let timer_player = player.clone();
-    let timer = Rc::new(slint::Timer::default());
-    timer.start(
-        slint::TimerMode::SingleShot,
-        Duration::from_millis(80),
-        move || {
-            let paths = std::mem::take(&mut *flush_paths.borrow_mut());
-            if !paths.is_empty()
-                && let Some(app) = weak_app.upgrade()
-            {
-                media_open::dropped(&app, paths, timer_player.clone());
-            }
-        },
-    );
-    let event_paths = pending_paths;
-    let event_timer = timer.clone();
+    let (timer, file_drop) = platform::batched_file_drops(move |paths| {
+        if let Some(app) = weak_app.upgrade() {
+            media_open::dropped(&app, paths, timer_player.clone());
+        }
+    });
     let focused = Rc::new(platform::PlayerFocus::new(
         app.window()
             .with_winit_window(|window| window.has_focus())
@@ -160,10 +148,7 @@ fn install_window_events(
         if handle_window_event(window, event) == EventResult::PreventDefault {
             return EventResult::PreventDefault;
         }
-        if let winit::event::WindowEvent::DroppedFile(path) = event {
-            event_paths.borrow_mut().push(path.clone().into_os_string());
-            event_timer.restart();
-        }
+        file_drop(event);
         if let winit::event::WindowEvent::Focused(now_focused) = event
             && let Some(focused) = event_focused.upgrade()
         {

@@ -1150,6 +1150,29 @@ locked build, strict workspace Clippy and 832 Rust tests passed. Strict
 workspace Clippy also passed the `aarch64-apple-darwin` source check with
 Zig 0.15.2. Native macOS input and playback still need a desktop run.
 
+### Welcome window file drops 2026-11-23
+
+The Welcome window accepts native file drops through the same batching and
+media preparation used by the player. It defers the open until the playback
+renderer is ready. Plain media batches use the current window preference.
+Mixed media and subtitles stay together in one playlist.
+
+On Ubuntu 26.04 in WSL, a GTK drag source sent a subtitle-only drop to the
+Welcome window. The window stayed open and displayed guidance. A second drop
+with video and subtitles opened the player, presented the blue video fixture
+and attached the dropped subtitle. The Welcome window hid, and Quit exited
+normally. The three 1280 × 800 desktop captures showed the original Welcome
+window, the error state and the playing fixture. The Linux executable SHA-256
+was `2c1b1fa405c002e6eda59a9ac34377a0f4fbd5edb76ea259ea76510732282b0d`.
+Dropping the same two video files opened two players with grouping disabled and
+one two-entry playlist with grouping enabled. Both configurations exited
+normally and left no Riina process.
+
+The Windows workspace gate passed 871 Rust and 78 Python tests. The locked
+Windows build passed ten native playback and shutdown checks on an isolated
+desktop in 9.094 s. The locked Linux build, strict workspace Clippy and 834 Rust
+tests passed. Native Welcome drop verification in this batch covers X11.
+
 ### Audio equalizer profile menu 2026-10-14
 
 Core/native coverage checks gains and the dedicated filter. Profile identity

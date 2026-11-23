@@ -265,6 +265,60 @@ pub fn dropped(app: &PlayerWindow, paths: Vec<OsString>, sender: CommandSender) 
     startup_selection(app, paths, None, sender, true);
 }
 
+pub(crate) struct WelcomeDrop {
+    command: Command,
+    new_players: Vec<String>,
+}
+
+impl WelcomeDrop {
+    pub(crate) fn prepare(
+        paths: Vec<OsString>,
+        preferences: &riina_core::Preferences,
+    ) -> Result<Self, String> {
+        let paths = paths
+            .into_iter()
+            .map(OsString::into_string)
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|_| "A media path contains invalid Unicode".to_owned())?;
+        let subtitles = dropped_subtitles(&paths);
+        let mut paths = file_selection::prepare(resolve_dropped_url_shortcuts(paths)?, true)?;
+        if paths.is_empty() {
+            return Err("Drop a playable file or folder to open it.".into());
+        }
+        let mut new_players = Vec::new();
+        let command = if subtitles.is_empty() {
+            if preferences.allow_multiple_windows
+                && !preferences.group_simultaneous_opens_in_playlist
+            {
+                paths = select_open_paths(&paths, &[], preferences.allow_duplicate_players, false);
+                new_players = paths.split_off(1);
+            }
+            Command::OpenFiles(paths)
+        } else {
+            Command::OpenFilesWithSubtitles { paths, subtitles }
+        };
+        Ok(Self {
+            command,
+            new_players,
+        })
+    }
+
+    pub(crate) fn open(self, app: &PlayerWindow, sender: &CommandSender) {
+        app.set_status("Opening…".into());
+        let result = (|| {
+            sender.send(self.command)?;
+            apply_manual_open_repeat(app, sender)?;
+            for path in self.new_players {
+                open_paths_in_new_player(app, &[path])?;
+            }
+            Ok::<(), String>(())
+        })();
+        if let Err(error) = result {
+            app.set_status(error.into());
+        }
+    }
+}
+
 fn dropped_lut(paths: &[OsString]) -> Option<Result<String, String>> {
     let [path] = paths else { return None };
     let extension = Path::new(path).extension()?;
@@ -417,15 +471,10 @@ fn selection_at(
     let generation = invalidate(app);
     let weak = app.as_weak();
     let failure = weak.clone();
-    let original_paths = paths.clone();
     app.set_status("Opening…".into());
     let started = crate::background::spawn_named("media-discovery", move || {
         let subtitles = if subtitle_fallback && !append {
-            original_paths
-                .iter()
-                .map(|path| crate::platform::resolve_alias_path(path))
-                .filter(|path| riina_core::file_selection::is_supported_subtitle(path))
-                .collect::<Vec<_>>()
+            dropped_subtitles(&paths)
         } else {
             Vec::new()
         };
@@ -544,6 +593,14 @@ enum PreparedSelection {
     Subtitles(Vec<String>),
 }
 
+fn dropped_subtitles(paths: &[String]) -> Vec<String> {
+    paths
+        .iter()
+        .map(|path| crate::platform::resolve_alias_path(path))
+        .filter(|path| riina_core::file_selection::is_supported_subtitle(path))
+        .collect()
+}
+
 fn resolve_dropped_url_shortcuts(paths: Vec<String>) -> Result<Vec<String>, String> {
     paths
         .into_iter()
@@ -590,6 +647,58 @@ mod tests {
     use super::manual_open_repeat_command;
     use super::{parse_internet_shortcut, select_open_paths, validate_url};
     use riina_core::{Command, LoopMode};
+
+    #[test]
+    fn welcome_drops_route_plain_media_through_the_window_preferences() {
+        use super::WelcomeDrop;
+        use riina_core::Preferences;
+
+        let paths = || vec!["a.mkv".into(), "b.mkv".into()];
+        let mut prefs = Preferences {
+            allow_multiple_windows: true,
+            group_simultaneous_opens_in_playlist: false,
+            ..Preferences::default()
+        };
+        let split = WelcomeDrop::prepare(paths(), &prefs).unwrap();
+        assert_eq!(split.command, Command::OpenFiles(vec!["a.mkv".into()]));
+        assert_eq!(split.new_players, ["b.mkv"]);
+
+        prefs.group_simultaneous_opens_in_playlist = true;
+        let grouped = WelcomeDrop::prepare(paths(), &prefs).unwrap();
+        assert_eq!(
+            grouped.command,
+            Command::OpenFiles(vec!["a.mkv".into(), "b.mkv".into()])
+        );
+        assert!(grouped.new_players.is_empty());
+
+        prefs.allow_multiple_windows = false;
+        prefs.group_simultaneous_opens_in_playlist = false;
+        let single_player = WelcomeDrop::prepare(paths(), &prefs).unwrap();
+        assert_eq!(single_player.command, grouped.command);
+        assert!(single_player.new_players.is_empty());
+    }
+
+    #[test]
+    fn welcome_drops_require_media_and_keep_its_dropped_subtitles() {
+        use super::WelcomeDrop;
+        use riina_core::Preferences;
+
+        let prefs = Preferences::default();
+        assert!(WelcomeDrop::prepare(vec!["subtitles.srt".into()], &prefs).is_err());
+        let mixed = WelcomeDrop::prepare(
+            vec!["a.mkv".into(), "b.mkv".into(), "subtitles.srt".into()],
+            &prefs,
+        )
+        .unwrap();
+        assert_eq!(
+            mixed.command,
+            Command::OpenFilesWithSubtitles {
+                paths: vec!["a.mkv".into(), "b.mkv".into()],
+                subtitles: vec!["subtitles.srt".into()],
+            }
+        );
+        assert!(mixed.new_players.is_empty());
+    }
 
     #[test]
     fn a_single_lut_drop_builds_a_filter_without_replacing_media() {

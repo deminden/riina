@@ -16,7 +16,8 @@ mod pip_session;
 pub(crate) use pip_session::PictureInPictureSession;
 mod player_input;
 pub(crate) use player_input::{
-    PlayerFocus, PlayerScrollMonitor, WinitWheelInput, player_gesture_handler, winit_wheel_input,
+    PlayerFocus, PlayerScrollMonitor, WinitWheelInput, batched_file_drops, player_gesture_handler,
+    winit_wheel_input,
 };
 mod plugin_presentation;
 pub(crate) use plugin_presentation::{

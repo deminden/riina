@@ -2,7 +2,12 @@
 use crate::PlayerWindow;
 use riina_mpv::CommandSender;
 use slint::winit_030::winit::event::{TouchPhase, WindowEvent};
-use std::cell::Cell;
+use std::{
+    cell::{Cell, RefCell},
+    ffi::OsString,
+    rc::Rc,
+    time::Duration,
+};
 
 #[cfg(target_os = "macos")]
 mod mac_gestures;
@@ -63,6 +68,33 @@ pub(crate) fn player_gesture_handler(
         let _ = (app, player, dispatch);
         |_: &WindowEvent| {}
     }
+}
+
+pub(crate) fn batched_file_drops(
+    open: impl Fn(Vec<OsString>) + 'static,
+) -> (Rc<slint::Timer>, impl Fn(&WindowEvent) + 'static) {
+    let paths = Rc::new(RefCell::new(Vec::new()));
+    let pending = paths.clone();
+    let timer = Rc::new(slint::Timer::default());
+    timer.start(
+        slint::TimerMode::SingleShot,
+        Duration::from_millis(80),
+        move || {
+            let files = std::mem::take(&mut *pending.borrow_mut());
+            if !files.is_empty() {
+                open(files);
+            }
+        },
+    );
+    timer.stop();
+    let restart = timer.clone();
+    (timer, move |event| {
+        // Winit delivers one event per file even when the source sends a batch.
+        if let WindowEvent::DroppedFile(path) = event {
+            paths.borrow_mut().push(path.clone().into_os_string());
+            restart.restart();
+        }
+    })
 }
 
 #[derive(Clone, Copy, Debug)]
