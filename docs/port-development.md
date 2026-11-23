@@ -1,9 +1,10 @@
 # macOS/Linux development
 
 Windows is the supported application target. Linux has a full x64 application
-build and isolated X11 playback and shutdown evidence. macOS needs full
-application and runtime verification. See [Verification](verification.md)
-for the measured scope and open rendering issues.
+build and playback and shutdown evidence on isolated X11 and native Wayland
+displays. macOS needs full application and runtime verification.
+See [Verification](verification.md) for the tested configurations and open
+checks.
 
 Use the repository's pinned Rust toolchain and lockfile:
 

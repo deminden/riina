@@ -649,6 +649,26 @@ The session exited through Quit. The application SHA-256 for these checks was
 `f0bd38db347be624413ca42ef72a813b9d033f4edf8baa77d4637f00c5947d7d`.
 These checks used null audio and a single 1280 × 800 virtual display.
 
+A follow-up X11 session at `63dfb72` used the same backported library.
+The GTK portal chooser loaded and selected an external WAV track and an
+external SRT track. Add to Playlist appended a video while the current
+file kept playing. Open in New Window opened a second player in the
+same process. A window-manager close request closed only the second
+player. The first player continued to show advancing video and exited
+through Quit.
+
+The same `63dfb72` executable ran on a private 1280 × 800 Sway 1.11
+Wayland display with XWayland disabled. A private mount namespace hid
+the WSL markers that otherwise select X11 in Slint. Software GL showed
+advancing frames in the native Wayland window. Keyboard input paused,
+resumed, sought backward, entered and left fullscreen, and quit the
+player. A compositor resize produced a 720 × 405 window. Stopping and
+reopening through libmpv IPC restored visible playback at that size.
+The synthetic Ctrl+Period input paused playback and did not unload the
+file, so the Stop shortcut remains unverified on Wayland. This run used
+null audio. Wayland file dialogs, plugin embedding and physical displays
+remain unverified.
+
 ## Windows private-desktop smoke 2026-11-21
 
 The locked Windows x64 development build at `da50ecd` passed the ten native
@@ -796,6 +816,12 @@ At `47f4380`, the Windows workspace gate passed 862 Rust tests and 78 Python
 tests. The new startup regression verifies the name of a required option and
 the original native error. All 55 pinned native engine tests passed.
 
+At `caf37b5`, `cargo xtask check` passed 862 Rust tests and 78 Python tests,
+including the headless pixel comparisons. `cargo build --workspace --locked`
+passed. The Windows private-desktop smoke passed all ten checks in 9.124
+seconds and exited normally. The check covered native controls, menu state,
+fullscreen entry and exit, minimize and restore after the last function splits.
+
 On `954d4d6`, separate private-desktop runs reopened and played media after
 recovering a profile with an invalid setting type, a non-object JSON document,
 or invalid UTF-8. Each run showed the recovery notice, preserved the original
@@ -823,6 +849,10 @@ repeated app-file checks took 38.89 and 14.99 seconds with Cargo defaults, and
 the profile change from the later separation of application and UI compilation.
 
 ## Linux x64 application checks
+
+At `63dfb72`, strict workspace Clippy, 823 Rust tests and a locked x86-64
+application build passed on Ubuntu 26.04 in WSL. The executable SHA-256 was
+`c5f5c1cb64a2009c5fde4dc1526ca3d8359181817b9a02ca1d18a28c24279f70`.
 
 At `17bd471`, strict workspace Clippy, 818 workspace tests, and the locked
 x86-64 application build passed on Ubuntu 26.04 in WSL. This includes the

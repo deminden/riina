@@ -10,6 +10,11 @@ interaction-bound lifetimes. The application now creates production threads
 through its named task owner. Direct thread creation elsewhere in the app
 source tree is in test code.
 
+Parsing Rust sources at `906296f` and `caf37b5` measured each function from
+its `fn` token to the closing brace, including comments and blank lines. The
+longest function went from 2,047 to 150 lines. The count at 200 lines or
+more went from 30 to zero. Clippy continues to enforce its 150-line limit.
+
 | Finding | Change | Local commits |
 |---|---|---|
 | H1 Preference recovery | Recover valid sections at startup, preserve the original bytes in quarantine, and report the reset sections. | `e63fce8`, `f90fffd` |
@@ -31,7 +36,7 @@ source tree is in test code.
 | H14 Idle media timers | Wake subtitle discovery and playlist metadata on state changes and worker results. Gate automatic subtitle lookup, Live Text and Windows video sampling by media and visibility. Keep Windows PiP polling active only for its preview or automatic minimize policy. | `9871d17`, `0887a00` |
 | H14 Windows presentation timers | Pause alignment, native backdrop and HDR polling while the framed owner is hidden or minimized. Resume at the existing intervals on restore. | `223656d`, `a6e9da3` |
 | O1 Preference ownership | Store committed settings in one model, project them through section bindings, and capture runtime state separately when the player closes. | `5581847`, `33e7926`, `a83c518` |
-| O2 Composition roots | Separate the Windows host and player session ownership, and split the history, crop and playback feedback handlers. Windows strict Clippy passed at the 150-line threshold. | `fc2bdb7`, `8bdb6e3`, `4684478` |
+| O2 Composition roots | Separate the Windows host and player session ownership, split history, crop and playback feedback handlers, and bring the remaining functions within 150 source lines. | `fc2bdb7`, `8bdb6e3`, `4684478`, `caf37b5` |
 | O3 Slint structure | Keep the player and Settings roots under 600 lines, centralize color tokens, and preserve all 51 software-rendered Windows baselines. | `4bbdd65`, `954d4d6`, `0887a00` |
 | O4 App and UI crate boundaries | Test app callbacks through the library target and compile Slint in its own crate. | `acb0fbf`, `57346d1`, `721035b` |
 | O6 Native worker ownership | Group pending replies, own the core in the event worker and share immutable playback snapshots. | `75eb5f4`, `8ed8c1a`, `2ef80b2`, `5802d69` |
