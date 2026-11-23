@@ -504,8 +504,9 @@ impl WorkerState {
                 break;
             }
         }
-        if self.resume_on_load {
-            self.resume_on_load = false;
+        // Manual navigation pauses before changing files. Use the preference
+        // at load completion so a change during loading takes effect as well.
+        if std::mem::take(&mut self.resume_on_load) && !self.playback.pause_when_open {
             let args = ["set".into(), "pause".into(), "no".into()];
             if let Err(error) = self.issue(handle, &args, ReplyKind::Plain) {
                 record_notice(&mut self.playback, NoticeSeverity::Error, error);

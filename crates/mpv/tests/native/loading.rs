@@ -37,11 +37,30 @@ fn pause_when_open_applies_to_replacement_and_batch_without_changing_current_pla
     let appended = harness.wait(|state| state.playlist.len() == 3);
     assert_eq!(appended.generation, batch.generation);
     assert!(appended.paused);
+    harness.send(Command::PlaylistNext).unwrap();
+    let next = harness.wait(|state| {
+        state.generation > appended.generation
+            && state.phase == Phase::Paused
+            && state.paused
+            && state.position.is_some()
+            && state.playlist.get(1).is_some_and(|entry| entry.current)
+    });
     harness.send(Command::SetPauseWhenOpen(false)).unwrap();
-    harness.wait(|state| !state.pause_when_open && state.paused);
+    let updated = harness.wait(|state| !state.pause_when_open);
+    assert!(
+        updated.paused,
+        "Changing the preference resumed the current file"
+    );
+    harness.send(Command::PlaylistPrevious).unwrap();
+    let previous = harness.wait(|state| {
+        state.generation > next.generation
+            && state.phase == Phase::Playing
+            && !state.paused
+            && state.playlist.first().is_some_and(|entry| entry.current)
+    });
     harness.send(Command::Load(media)).unwrap();
     harness.wait(|state| {
-        state.generation > batch.generation
+        state.generation > previous.generation
             && state.phase == Phase::Playing
             && !state.paused
             && state.position.is_some()
