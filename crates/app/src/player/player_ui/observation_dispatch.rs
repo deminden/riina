@@ -5,10 +5,10 @@ use super::{
     playback_mailbox::{Delivery, Mailbox},
 };
 use crate::{
-    PlaybackStore, PlayerWindow, crop_editor::Editor, opening_fullscreen::OpeningFullscreen,
-    playback_history::PlaybackHistoryState, plugin_files::PluginPlayerFileContext,
-    plugin_host::PluginHostHandle, screenshot_output::Scratch, video_osd::VideoOsd,
-    window_aspect::MediaGeometry,
+    PlaybackStore, PlayerWindow, background::CoalescedUiCallback, crop_editor::Editor,
+    opening_fullscreen::OpeningFullscreen, playback_history::PlaybackHistoryState,
+    plugin_files::PluginPlayerFileContext, plugin_host::PluginHostHandle,
+    screenshot_output::Scratch, video_osd::VideoOsd, window_aspect::MediaGeometry,
 };
 use riina_core::{
     Phase, Playback, Preferences, RecentMedia, music_mode, sync::lock, video_filters,
@@ -75,7 +75,6 @@ pub(super) fn prepare_observation(app: &PlayerWindow, inputs: Inputs<'_>) -> Pre
     if !native_presentation {
         super::music_mode::install_window_resize(app);
     }
-    let queued = Arc::new(AtomicBool::new(false));
     let crop_editor = Editor::default();
     let observed_crop_editor = crop_editor.clone();
     let mut video_osd = VideoOsd::new(prefs.disable_osd_speed, prefs.disable_osd_pause_resume);
@@ -88,7 +87,7 @@ pub(super) fn prepare_observation(app: &PlayerWindow, inputs: Inputs<'_>) -> Pre
     let opening_fullscreen = Arc::new(std::sync::Mutex::new(OpeningFullscreen::default()));
     let notification = PlaybackNotification {
         reported_playback,
-        queued,
+        delivery_callback: CoalescedUiCallback::default(),
         latest,
         history,
         delivery: WindowDelivery {
@@ -119,7 +118,7 @@ pub(super) fn prepare_observation(app: &PlayerWindow, inputs: Inputs<'_>) -> Pre
 
 pub(super) struct PlaybackNotification {
     reported_playback: PlaybackStore,
-    queued: Arc<AtomicBool>,
+    delivery_callback: CoalescedUiCallback,
     latest: Arc<Mailbox>,
     history: HistoryObservation,
     delivery: WindowDelivery,
@@ -137,16 +136,10 @@ impl PlaybackNotification {
         }
 
         self.latest.publish(state);
-        if self.queued.swap(true, Ordering::AcqRel) {
-            return;
-        }
-        let latest = self.latest.clone();
-        let queued = self.queued.clone();
-        let window = self.delivery.clone();
-        // The window may close before deferred UI work can be delivered.
-        let _ = slint::invoke_from_event_loop(move || {
-            queued.store(false, Ordering::Release);
-            window.deliver(&latest);
+        self.delivery_callback.post(|| {
+            let latest = self.latest.clone();
+            let window = self.delivery.clone();
+            move || window.deliver(&latest)
         });
     }
 }

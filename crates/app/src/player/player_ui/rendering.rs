@@ -1,20 +1,12 @@
 //! The rendering notifier owns GL resources until the backend tears down its context.
+use crate::background::CoalescedUiCallback;
 use crate::platform::{SharedVideoExtras, video_materials::set_video_material_sample};
 use crate::video_blur::VideoBlurSurface;
 use crate::{PlayerWindow, media_open};
 use riina_core::Command;
 use riina_mpv::{Player, video::VideoSurface};
 use slint::{ComponentHandle, GraphicsAPI, RenderingState, Weak};
-use std::{
-    cell::Cell,
-    ffi::OsString,
-    rc::Rc,
-    sync::{
-        Arc,
-        atomic::{AtomicBool, Ordering},
-    },
-    time::Duration,
-};
+use std::{cell::Cell, ffi::OsString, rc::Rc, time::Duration};
 
 pub(super) fn install(
     app: &PlayerWindow,
@@ -35,7 +27,7 @@ pub(super) fn install(
         surface: None,
         blur_surface: None,
         generation: Rc::new(Cell::new(0)),
-        repaint_pending: Arc::new(AtomicBool::new(false)),
+        repaint: CoalescedUiCallback::default(),
         extras,
     };
     app.window()
@@ -62,7 +54,7 @@ struct RenderSession {
     surface: Option<VideoSurface>,
     blur_surface: Option<VideoBlurSurface>,
     generation: Rc<Cell<u64>>,
-    repaint_pending: Arc<AtomicBool>,
+    repaint: CoalescedUiCallback,
     extras: SharedVideoExtras,
 }
 
@@ -82,13 +74,22 @@ impl RenderSession {
             return;
         };
         let weak = self.app.clone();
-        let pending = self.repaint_pending.clone();
+        let repaint = self.repaint.clone();
         // SAFETY: RenderingSetup has this window's GL context current.
         let video = unsafe {
             VideoSurface::new(
                 self.player.clone(),
                 get_proc_address,
-                Box::new(move || request_frame(&weak, &pending)),
+                Box::new(move || {
+                    repaint.post(|| {
+                        let weak = weak.clone();
+                        move || {
+                            if let Some(app) = weak.upgrade() {
+                                app.window().request_redraw();
+                            }
+                        }
+                    });
+                }),
             )
         };
         match video {
@@ -207,21 +208,6 @@ impl RenderSession {
             );
         }
     }
-}
-
-fn request_frame(weak: &Weak<PlayerWindow>, pending: &Arc<AtomicBool>) {
-    if pending.swap(true, Ordering::AcqRel) {
-        return;
-    }
-    let weak = weak.clone();
-    let pending = pending.clone();
-    // The window may close before deferred UI work can be delivered.
-    let _ = slint::invoke_from_event_loop(move || {
-        pending.store(false, Ordering::Release);
-        if let Some(app) = weak.upgrade() {
-            app.window().request_redraw();
-        }
-    });
 }
 
 fn project_blur(

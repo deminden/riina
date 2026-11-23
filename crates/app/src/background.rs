@@ -5,8 +5,8 @@ use std::{
     io,
     panic::{AssertUnwindSafe, catch_unwind, resume_unwind},
     sync::{
-        Mutex,
-        atomic::{AtomicU64, Ordering},
+        Arc, Mutex,
+        atomic::{AtomicBool, AtomicU64, Ordering},
     },
     thread,
 };
@@ -57,10 +57,61 @@ pub(crate) fn to_ui<T: slint::ComponentHandle + 'static>(
     weak.upgrade_in_event_loop(deliver)
 }
 
+/// At most one queued callback. The callback reads the latest state when run.
+#[derive(Clone, Default)]
+pub(crate) struct CoalescedUiCallback(Arc<AtomicBool>);
+
+impl CoalescedUiCallback {
+    pub(crate) fn post<F: FnOnce() + Send + 'static>(&self, prepare: impl FnOnce() -> F) {
+        if let Some(callback) = self.wrap(prepare) {
+            // Once the loop closes, delivery can fail or the queued callback
+            // can be dropped. Either path releases the reservation.
+            let _ = slint::invoke_from_event_loop(callback);
+        }
+    }
+
+    fn wrap<F: FnOnce() + Send + 'static>(
+        &self,
+        prepare: impl FnOnce() -> F,
+    ) -> Option<impl FnOnce() + Send + 'static> {
+        if self.0.swap(true, Ordering::AcqRel) {
+            return None;
+        }
+        let reservation = UiCallbackReservation(self.0.clone());
+        let callback = prepare();
+        Some(move || {
+            // New work can schedule another delivery while this callback runs.
+            drop(reservation);
+            callback();
+        })
+    }
+}
+
+struct UiCallbackReservation(Arc<AtomicBool>);
+
+impl Drop for UiCallbackReservation {
+    fn drop(&mut self) {
+        self.0.store(false, Ordering::Release);
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
     use std::{sync::mpsc, time::Duration};
+
+    #[test]
+    fn a_discarded_ui_callback_allows_the_next_delivery() {
+        let callback = CoalescedUiCallback::default();
+        let discarded = callback.wrap(|| || {}).unwrap();
+        assert!(callback.wrap(|| || {}).is_none());
+        drop(discarded);
+
+        let next = callback.clone();
+        callback
+            .wrap(|| move || assert!(next.wrap(|| || {}).is_some()))
+            .unwrap()();
+    }
 
     #[test]
     fn the_worker_is_registered_until_it_returns() {
