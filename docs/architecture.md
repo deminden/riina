@@ -109,7 +109,9 @@ that candidate through the same preference writer. See
 ## Platform boundary
 
 The Windows native presentation owns the video target used by the D3D11 route.
-The shared GL renderer uses the current Slint context. Video textures and the
+The platform startup adapter selects the presentation, configures the shared
+backend and owns application menu integration. The shared GL renderer uses
+the current Slint context. Video textures and the
 blur pass use the same framebuffer binding operations. Window focus, dialog
 modality, clipboard access, window document identity, file associations, and OS
 media integration belong to platform services. `SessionExtras` keeps each

@@ -20,8 +20,6 @@ mod subtitles;
 mod ui_dialogs;
 mod ui_models;
 mod windows;
-#[cfg(target_os = "windows")]
-use platform::file_dialog;
 #[doc(hidden)]
 pub use player::automatic_music_mode;
 use player::{
@@ -48,6 +46,7 @@ use preferences::{
 };
 use riina_ui::*;
 use slint::ComponentHandle;
+use std::ffi::{OsStr, OsString};
 use subtitles::{
     assrt_subtitles, online_subtitles_credentials, open_subtitles, shooter_subtitles,
     subtitle_discovery, subtitle_priority, subtitle_series,
@@ -60,9 +59,17 @@ use windows::{
 type PlaybackStore = std::sync::Arc<std::sync::Mutex<std::sync::Arc<riina_core::Playback>>>;
 
 struct StartupArguments {
-    media: Vec<std::ffi::OsString>,
+    renderer: RendererRequest,
+    media: Vec<OsString>,
     resume_position: Option<f64>,
     owner_center: Option<(i32, i32)>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum RendererRequest {
+    Default,
+    SharedGl,
+    NativeWindow,
 }
 
 /// Start the application using the process command line.
@@ -99,45 +106,18 @@ unsafe fn run() -> Result<(), Box<dyn std::error::Error>> {
     let loaded = preference_load::load(&preferences_path)?;
     // SAFETY: the application is still in single-threaded process startup.
     unsafe { prepare_online_video_path(&loaded.preferences) }?;
-    let action_after_launch = loaded.preferences.action_after_launch;
-    let startup = take_startup_arguments(std::env::args_os().skip(1))?;
-    let (_shared_gl, _native_video, media) = startup_arguments(startup.media.into_iter());
-    let resume_position = startup.resume_position;
-    let owner_center = startup.owner_center;
-    let supplied_media_argument = !media.is_empty();
-    #[cfg(target_os = "windows")]
-    // Native D3D11 preserves the Windows HDR presentation path. Its control
-    // overlay restores compositor alpha after Slint realizes the window.
-    if !_shared_gl {
-        return platform::native_window::run(media, resume_position, owner_center, loaded);
-    }
-    #[cfg(not(target_os = "windows"))]
-    if _native_video {
-        return Err("Native video presentation is currently available on Windows; use --shared-gl on this platform".into());
-    }
-    #[cfg(not(target_os = "windows"))]
-    let _ = owner_center;
-    let backend = slint::BackendSelector::new()
-        .backend_name("winit".into())
-        .renderer_name("femtovg".into());
-    #[cfg(target_os = "windows")]
-    let backend = {
-        // Slint only derives native alpha-window attributes from its scene on
-        // macOS. Create Windows auxiliary windows alpha-capable up front so a
-        // later DWM material request can reveal Mica or Acrylic. Slint keeps
-        // windows with its native menu opaque after this hook.
-        backend.with_winit_window_attributes_hook(|attributes| attributes.with_transparent(true))
-    };
-    #[cfg(target_os = "macos")]
-    let backend = {
-        use slint::winit_030::winit::platform::macos::WindowAttributesExtMacOS;
+    let arguments = take_startup_arguments(std::env::args_os().skip(1))?;
+    platform::startup::run_player(arguments, loaded)
+}
 
-        let accepts_first_mouse = loaded.preferences.controls.accepts_first_mouse;
-        backend.with_winit_window_attributes_hook(move |attributes| {
-            attributes.with_accepts_first_mouse(accepts_first_mouse)
-        })
-    };
-    backend.select()?;
+fn run_shared_player(
+    media: Vec<OsString>,
+    resume_position: Option<f64>,
+    loaded: preference_load::LoadedPreferences,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let action_after_launch = loaded.preferences.action_after_launch;
+    let supplied_media_argument = !media.is_empty();
+    platform::startup::select_shared_backend(&loaded.preferences)?;
     let app = PlayerWindow::new()?;
     let player_manager = player_manager::PlayerManager::new();
     // This entry point renders video in the Slint window and needs its menu bar.
@@ -166,18 +146,15 @@ unsafe fn run() -> Result<(), Box<dyn std::error::Error>> {
         welcome.as_ref().map(|window| window.clone_strong()),
         session,
     );
-    #[cfg(target_os = "macos")]
-    let application_menu_observer = platform::MacApplicationMenuObserver::new();
+    let application_menu = platform::startup::ApplicationMenu::new();
     window_aspect::connect(&app, &media_geometry);
     if let Some(welcome) = &welcome {
         platform::center_auxiliary_window(welcome, &app);
         welcome.show()?;
-        #[cfg(target_os = "macos")]
-        application_menu_observer.normalize();
+        application_menu.normalize();
     } else {
         app.show()?;
-        #[cfg(target_os = "macos")]
-        application_menu_observer.normalize();
+        application_menu.normalize();
         if action_after_launch.open_file_panel(supplied_media_argument) {
             app.global::<PlayerMenuActions>().invoke_open_file();
         }
@@ -192,7 +169,7 @@ unsafe fn run() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 fn take_startup_arguments(
-    args: impl Iterator<Item = std::ffi::OsString>,
+    args: impl Iterator<Item = OsString>,
 ) -> Result<StartupArguments, Box<dyn std::error::Error>> {
     // Keep internal launch hints separate from media references passed to a player.
     let mut args = args.peekable();
@@ -225,25 +202,31 @@ fn take_startup_arguments(
             media.push(argument);
         }
     }
+    let (renderer, media) = select_renderer_argument(media.into_iter());
     Ok(StartupArguments {
+        renderer,
         media,
         resume_position,
         owner_center,
     })
 }
 
-fn startup_arguments(
-    mut args: impl Iterator<Item = std::ffi::OsString>,
-) -> (bool, bool, Vec<std::ffi::OsString>) {
+fn select_renderer_argument(
+    mut args: impl Iterator<Item = OsString>,
+) -> (RendererRequest, Vec<OsString>) {
     let first = args.next();
-    let shared_gl = first.as_deref() == Some(std::ffi::OsStr::new("--shared-gl"));
-    let native_video = first.as_deref() == Some(std::ffi::OsStr::new("--native-video"));
-    let media = if shared_gl || native_video {
-        args.collect()
-    } else {
-        first.into_iter().chain(args).collect()
-    };
-    (shared_gl, native_video, media)
+    match first.as_deref() {
+        Some(flag) if flag == OsStr::new("--shared-gl") => {
+            (RendererRequest::SharedGl, args.collect())
+        }
+        Some(flag) if flag == OsStr::new("--native-video") => {
+            (RendererRequest::NativeWindow, args.collect())
+        }
+        _ => (
+            RendererRequest::Default,
+            first.into_iter().chain(args).collect(),
+        ),
+    }
 }
 
 unsafe fn prepare_online_video_path(
@@ -262,30 +245,39 @@ unsafe fn prepare_online_video_path(
 
 #[cfg(test)]
 mod tests {
-    use super::{startup_arguments, take_startup_arguments};
+    use super::{RendererRequest, take_startup_arguments};
     use std::ffi::OsString;
 
     #[test]
     fn startup_keeps_every_media_argument_after_an_internal_renderer_switch() {
-        let (shared_gl, native_video, media) = startup_arguments(
-            ["--shared-gl", "first file.mkv", "second.mkv"]
-                .into_iter()
-                .map(OsString::from),
-        );
-
-        assert!(shared_gl);
-        assert!(!native_video);
-        assert_eq!(media, ["first file.mkv", "second.mkv"].map(OsString::from));
+        for (flag, renderer) in [
+            ("--shared-gl", RendererRequest::SharedGl),
+            ("--native-video", RendererRequest::NativeWindow),
+        ] {
+            let arguments = take_startup_arguments(
+                [flag, "first file.mkv", "second.mkv"]
+                    .into_iter()
+                    .map(OsString::from),
+            )
+            .unwrap();
+            assert_eq!(arguments.renderer, renderer);
+            assert_eq!(
+                arguments.media,
+                ["first file.mkv", "second.mkv"].map(OsString::from)
+            );
+        }
     }
 
     #[test]
     fn startup_treats_all_arguments_as_media_without_a_renderer_switch() {
-        let (shared_gl, native_video, media) =
-            startup_arguments(["first.mkv", "second.mkv"].into_iter().map(OsString::from));
-
-        assert!(!shared_gl);
-        assert!(!native_video);
-        assert_eq!(media, ["first.mkv", "second.mkv"].map(OsString::from));
+        let arguments =
+            take_startup_arguments(["first.mkv", "second.mkv"].into_iter().map(OsString::from))
+                .unwrap();
+        assert_eq!(arguments.renderer, RendererRequest::Default);
+        assert_eq!(
+            arguments.media,
+            ["first.mkv", "second.mkv"].map(OsString::from)
+        );
     }
 
     #[test]

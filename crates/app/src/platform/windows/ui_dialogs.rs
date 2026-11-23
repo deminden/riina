@@ -1,5 +1,6 @@
 //! One owned picker per player; native HWNDs outlive its dedicated COM apartment.
-use crate::{NativeVideoHost, PlayerWindow, WelcomeWindow, file_dialog};
+use super::file_dialog;
+use crate::{NativeVideoHost, PlayerWindow, WelcomeWindow};
 use riina_mpv::CommandSender;
 use slint::{
     ComponentHandle,

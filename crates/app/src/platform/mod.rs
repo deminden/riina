@@ -26,6 +26,7 @@ mod plugin_resources;
 pub(crate) mod preferences;
 pub(crate) mod settings_file;
 mod shared_video;
+pub(crate) mod startup;
 pub(crate) mod text_recognition;
 pub(crate) use shared_video::SharedVideoExtras;
 mod system_media_session;
@@ -1142,16 +1143,16 @@ pub(crate) use windows::SessionExtras;
 #[cfg(target_os = "windows")]
 pub(crate) use windows::{
     NativePresentation, NativeVideoMaterialCapture, PluginOverlayPresenter, file_dialog,
-    native_window, open_dialog, services::*, window_sizing::WindowSizing,
+    open_dialog, services::*, window_sizing::WindowSizing,
 };
 
 #[cfg(target_os = "macos")]
 mod macos;
 #[cfg(target_os = "macos")]
 pub(crate) use macos::{
-    ControlGesture, GesturePhase, MacApplicationMenuObserver, MacPictureInPicture,
-    MacPluginMenuObserver, MacSubtitleColorPanel, RemoteMediaAction, SystemMediaControls,
-    display_identity, icc_profile_for_window, install_control_gestures,
+    ControlGesture, GesturePhase, MacPictureInPicture, MacPluginMenuObserver,
+    MacSubtitleColorPanel, RemoteMediaAction, SystemMediaControls, display_identity,
+    icc_profile_for_window, install_control_gestures,
 };
 
 #[cfg(target_os = "macos")]
