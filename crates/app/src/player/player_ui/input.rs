@@ -1,5 +1,5 @@
 //! Native input, focus registration and gesture state belong to one player window.
-use super::playlist_drop;
+use super::{playlist_drop, playlist_hover::PlaylistHover};
 use crate::{PlayerWindow, platform};
 use riina_core::{Command, Phase};
 use riina_ui::PlayerMenuActions;
@@ -155,11 +155,14 @@ fn install_window_events(
     let event_app = app.as_weak();
     let event_trackpad_pause_generation = trackpad_pause_generation;
     let event_focused = Rc::downgrade(&focused);
+    let playlist_hover = PlaylistHover::new(app);
     app.window().on_winit_window_event(move |window, event| {
         if handle_window_event(window, event) == EventResult::PreventDefault {
             return EventResult::PreventDefault;
         }
         file_drop(window, event);
+        // The target of the first file is captured before the temporary sidebar closes.
+        playlist_hover.on_event(event);
         if let winit::event::WindowEvent::Focused(now_focused) = event
             && let Some(focused) = event_focused.upgrade()
         {

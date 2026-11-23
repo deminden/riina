@@ -98,15 +98,38 @@ pub fn prepare(
             continue;
         }
         if Path::new(&path).is_dir() {
-            discover(Path::new(&path), &mut local_files)?;
-        } else if !is_supported_subtitle(&path)
-            && !MULTI_FILE_PLAYLIST_EXTENSIONS.contains(&extension(&path).as_str())
-        {
+            scan_folder(
+                Path::new(&path),
+                || false,
+                |media| {
+                    local_files.push(media);
+                    false
+                },
+            )?;
+        } else if accepts_playlist_file(&path) {
             local_files.push(path);
         }
     }
     flush_local_files(&mut local_files, &mut files, &mut seen, &compare_names);
     Ok(files)
+}
+
+/// Check a hovered path without collecting or sorting an entire directory.
+pub fn can_add_to_playlist(path: &str, cancelled: impl Fn() -> bool) -> bool {
+    if path.is_empty() || path.contains('\0') || cancelled() {
+        return false;
+    }
+    if Path::new(path).is_dir() {
+        scan_folder(Path::new(path), cancelled, |_| true).unwrap_or(false)
+    } else {
+        accepts_playlist_file(path)
+    }
+}
+
+fn accepts_playlist_file(path: &str) -> bool {
+    let extension = extension(path);
+    !SUPPORTED_SUBTITLE_EXTENSIONS.contains(&extension.as_str())
+        && !MULTI_FILE_PLAYLIST_EXTENSIONS.contains(&extension.as_str())
 }
 
 /// Recognize the subtitle formats accepted by IINA's file-drop fallback.
@@ -157,13 +180,23 @@ fn is_bluray_folder(path: &Path) -> bool {
         })
 }
 
-fn discover(root: &Path, files: &mut Vec<String>) -> Result<(), SelectionError> {
+fn scan_folder(
+    root: &Path,
+    cancelled: impl Fn() -> bool,
+    mut accept: impl FnMut(String) -> bool,
+) -> Result<bool, SelectionError> {
     // Iterative traversal bounds call-stack use for deep libraries. Do not follow
     // directory links into cycles or another tree; explicitly selected roots work.
     let mut pending = vec![(root.to_path_buf(), true)];
     while let Some((folder, is_root)) = pending.pop() {
+        if cancelled() {
+            return Ok(false);
+        }
         let entries = fs::read_dir(&folder).map_err(SelectionError::ScanFolder)?;
         for entry in entries {
+            if cancelled() {
+                return Ok(false);
+            }
             let entry = entry.map_err(SelectionError::ReadEntry)?;
             if is_root && entry.file_name().to_string_lossy().starts_with('.') {
                 // The compatibility rule checks the root-relative prefix, rather
@@ -179,13 +212,13 @@ fn discover(root: &Path, files: &mut Vec<String>) -> Result<(), SelectionError> 
                     .into_os_string()
                     .into_string()
                     .map_err(|_| SelectionError::InvalidUnicode)?;
-                if is_supported_media(&path) {
-                    files.push(path);
+                if is_supported_media(&path) && accept(path) {
+                    return Ok(true);
                 }
             }
         }
     }
-    Ok(())
+    Ok(false)
 }
 
 fn extension(path: &str) -> String {
@@ -262,6 +295,26 @@ mod tests {
             prepare(vec![tree.path("custom.format")], true).unwrap(),
             [tree.path("custom.format")]
         );
+    }
+
+    #[test]
+    fn playlist_hover_uses_the_same_file_and_folder_rules_as_insertion() {
+        use super::can_add_to_playlist;
+
+        let tree = TestTree::new();
+        tree.file("empty/captions.srt");
+        tree.file("empty/.hidden/clip.mkv");
+        tree.file("mixed/visible/.nested/clip.mkv");
+        for (name, accepted) in [
+            ("empty", false),
+            ("mixed", true),
+            ("empty/captions.srt", false),
+            ("folder.m3u8", false),
+            ("recording.unusual", true),
+        ] {
+            assert_eq!(can_add_to_playlist(&tree.path(name), || false), accepted);
+        }
+        assert!(!can_add_to_playlist(&tree.path("mixed"), || true));
     }
 
     #[test]

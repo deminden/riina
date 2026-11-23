@@ -1196,8 +1196,31 @@ The locked Windows build passed ten native playback and shutdown checks on an
 isolated desktop in 9.227 s. The pinned libmpv playlist group passed four tests.
 The locked Linux build, strict workspace Clippy and 836 Rust tests passed.
 Strict workspace Clippy passed the Apple Silicon source check with Zig 0.15.2.
-Native drag-and-drop verification in this batch covers X11. Automatic playlist
-reveal while dragging and raw URL or text drops remain open.
+Native drag-and-drop verification in this batch covers X11. Raw URL and text
+drops remain open.
+
+### Playlist reveal during file drags 2026-11-23
+
+Riina now checks the rightmost fifth of the player during a native file drag.
+Winit supplies paths on entry, so Riina samples the cursor during the drag.
+The playlist action runs after the cursor holds still for 300 ms with an
+eligible file or folder. Directory checks run off the UI thread and check for
+cancellation as they scan. The player reads the insertion location before closing the
+temporary playlist. Music Mode keeps its own playlist control.
+
+On Ubuntu 26.04 in WSL, a GTK drag confirmed that a subtitle-only payload left
+the playlist hidden. Moving away before the delay kept it hidden. Holding a
+folder at the edge revealed the playlist, and canceling closed it. A second
+drag revealed it again, inserted the folder's videos before the second row
+and closed the playlist. The original video stayed paused at 1.25 s. The
+1280 × 800 desktop captures showed the video with the playlist hidden,
+revealed and closed after cancellation. Quit left no Riina process.
+The Linux executable SHA-256 was
+`21fb04932fd8d7c18639a0d646d40d9d5670761311f38c93e84e9667aa626380`.
+
+The Windows locked build and workspace gate passed, including 875 Rust and
+78 Python tests. The Linux locked build, strict workspace Clippy and 838 Rust
+tests passed. Native drag-and-drop verification in this batch covers X11.
 
 ### Audio equalizer profile menu 2026-10-14
 
