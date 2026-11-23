@@ -20,6 +20,9 @@ mod workflows;
 #[path = "widgets/settings_navigation.rs"]
 mod settings_navigation;
 
+#[path = "widgets/plugin_menus.rs"]
+mod plugin_menus;
+
 fn flush() {
     slint::platform::update_timers_and_animations();
 }

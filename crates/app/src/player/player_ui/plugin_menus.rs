@@ -19,49 +19,35 @@ fn plugin_menu_rows_for_plugin(
         scope: &str,
         items: &[riina_core::plugin_menu::PluginMenuItem],
         ancestors_enabled: bool,
-        parents: &mut Vec<String>,
+        depth: i32,
         rows: &mut Vec<PluginMenuRow>,
     ) {
         for item in items {
-            if item.separator {
-                rows.push(PluginMenuRow {
-                    token: format!("{identifier}\u{1f}{scope}\u{1f}").into(),
-                    label: SLINT_MENU_SEPARATOR_TITLE.into(),
-                    enabled: false,
-                    selected: false,
-                    shortcut: Default::default(),
-                    section_header: false,
-                });
-                continue;
-            }
-            parents.push(item.title.clone());
+            let enabled = ancestors_enabled && item.enabled && !item.separator;
+            let submenu = !item.items.is_empty();
             rows.push(PluginMenuRow {
                 token: format!("{identifier}\u{1f}{scope}\u{1f}{}", item.id).into(),
-                label: parents.join(" › ").into(),
-                enabled: ancestors_enabled && item.enabled && item.items.is_empty(),
+                label: item.title.as_str().into(),
+                enabled,
                 selected: item.selected,
-                shortcut: item
-                    .key_binding
-                    .as_deref()
-                    .and_then(crate::key_binding_preferences::shortcut_keys)
-                    .unwrap_or_default(),
-                // A submenu container is navigational in IINA; only its leaves
-                // represent actions. The breadcrumb fallback must not invoke it.
-                section_header: !item.items.is_empty(),
+                shortcut: if submenu || !enabled {
+                    Default::default()
+                } else {
+                    item.key_binding
+                        .as_deref()
+                        .and_then(crate::key_binding_preferences::shortcut_keys)
+                        .unwrap_or_default()
+                },
+                depth,
+                submenu,
+                separator: item.separator,
+                ..Default::default()
             });
-            append(
-                identifier,
-                scope,
-                &item.items,
-                ancestors_enabled && item.enabled,
-                parents,
-                rows,
-            );
-            parents.pop();
+            append(identifier, scope, &item.items, enabled, depth + 1, rows);
         }
     }
     let mut rows = Vec::new();
-    append(identifier, scope, items, true, &mut Vec::new(), &mut rows);
+    append(identifier, scope, items, true, 0, &mut rows);
     rows
 }
 
@@ -133,10 +119,8 @@ fn updated_plugin_menu_rows(
         let mut plugin_rows = vec![PluginMenuRow {
             token: format!("{identifier}\u{1f}header\u{1f}").into(),
             label: plugin_name.into(),
-            enabled: false,
-            selected: false,
-            shortcut: Default::default(),
             section_header: true,
+            ..Default::default()
         }];
         plugin_rows.extend(global_rows);
         plugin_rows.extend(player_rows);
@@ -230,10 +214,7 @@ fn flatten_plugin_menu_groups_in_order(
             rows.push(PluginMenuRow {
                 token: PLUGIN_MENU_GROUP_SEPARATOR_TOKEN.into(),
                 label: SLINT_MENU_SEPARATOR_TITLE.into(),
-                enabled: false,
-                selected: false,
-                shortcut: Default::default(),
-                section_header: false,
+                ..Default::default()
             });
         }
         rows.extend(group);
@@ -325,11 +306,11 @@ mod plugin_menu_row_tests {
         assert!(rows.iter().any(|row| row.label == "Global action"));
         assert!(
             rows.iter()
-                .any(|row| row.label == "Global tools" && row.section_header)
+                .any(|row| row.label == "Global tools" && row.submenu && row.depth == 0)
         );
         assert!(
             rows.iter()
-                .any(|row| row.label == "Global tools › Run global tool")
+                .any(|row| row.label == "Run global tool" && row.depth == 1)
         );
         assert!(rows.iter().any(|row| row.label == "New player action"));
         assert!(!rows.iter().any(|row| row.label == "Old player action"));
@@ -350,15 +331,16 @@ mod plugin_menu_row_tests {
         let container = rows
             .iter()
             .find(|row| row.label == "Tools")
-            .expect("submenu breadcrumb is visible");
-        assert!(container.section_header);
-        assert!(!container.enabled);
+            .expect("submenu is visible");
+        assert!(container.submenu);
+        assert!(container.enabled);
 
         let leaf = rows
             .iter()
-            .find(|row| row.label == "Tools › Run tool")
+            .find(|row| row.label == "Run tool")
             .expect("nested action is visible");
         assert!(!leaf.section_header);
+        assert_eq!(leaf.depth, 1);
         assert!(leaf.token.as_str().ends_with("\u{1f}child"));
     }
 
@@ -397,10 +379,8 @@ mod plugin_menu_row_tests {
         let row = |identifier: &str| PluginMenuRow {
             token: format!("{identifier}\u{1f}header\u{1f}").into(),
             label: identifier.into(),
-            enabled: false,
-            selected: false,
-            shortcut: Default::default(),
             section_header: true,
+            ..Default::default()
         };
         let groups = BTreeMap::from([
             ("a.plugin".into(), vec![row("a.plugin")]),
@@ -422,10 +402,8 @@ mod plugin_menu_row_tests {
         let row = |identifier: &str, name: &str| PluginMenuRow {
             token: format!("{identifier}\u{1f}header\u{1f}").into(),
             label: name.into(),
-            enabled: false,
-            selected: false,
-            shortcut: Default::default(),
             section_header: true,
+            ..Default::default()
         };
         let groups = BTreeMap::from([
             ("a.plugin".into(), vec![row("a.plugin", "Zulu")]),

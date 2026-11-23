@@ -182,6 +182,20 @@ the realm closes, including during plugin reload. Connections, message sizes
 and send queues are bounded. A busy realm pauses socket reads until delivery
 can resume.
 
+### Plugin application menus
+
+The player keeps global and player contributions grouped by their package.
+Menu rows carry their depth and role up to the compiled Slint menu provider.
+The provider restores the subtree before Slint supplies entries to the native
+menu, the in-window menu or its shortcut dispatcher. Contributions after the
+fifth top-level row of a package go into More. Leaf entries retain the item
+identities that dispatch actions through the player to their owning entry.
+
+The provider extends the pinned Slint runtime interface in the UI crate.
+Slint continues to own presentation and menu lifetime on every platform.
+The provider refreshes the contribution tree when Slint assigns a new root
+identity after a binding change.
+
 ### Playlist plugin menus
 
 The player captures the row order and selection when opening a playlist menu

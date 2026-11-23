@@ -1,5 +1,16 @@
 export struct MenuCatalogRow { token: string, label: string, selected: bool }
-export struct PluginMenuRow { token: string, label: string, enabled: bool, selected: bool, shortcut: keys, section-header: bool }
+export struct PluginMenuRow {
+    token: string, label: string, enabled: bool, selected: bool, shortcut: keys,
+    section-header: bool, depth: int, submenu: bool, separator: bool,
+}
+
+export global PluginMenuDisplay {
+    public pure function menu-title(row: PluginMenuRow) -> string {
+        if row.token == "\u{1f}group-separator" { return row.label; }
+        let kind = row.separator ? "s" : row.section-header ? "h" : row.submenu ? "b" : "a";
+        return "\u{1f}riina-plugin-row:" + row.depth + ":" + kind + ":" + row.label;
+    }
+}
 export struct SavedFilterMenuRow {
     token: string,
     label: string,
@@ -595,14 +606,14 @@ export component NativeVideoHost inherits Window {
             MenuSeparator {}
             MenuItem { title: "Font…"; activated => { root.choose-subtitle-font(); } }
         }
-        Menu { title: "Plugin";
+        Menu { title: "\u{1f}riina-plugin-menu";
             MenuItem { title: "Manage Plugins…"; activated => { root.manage-plugins(); } }
             MenuItem { title: root.plugins-panel-open ? "Hide Plugins Panel" : "Show Plugins Panel"; shortcut: root.menu-shortcut(45);
                 activated => { root.show-plugins-panel(); } }
             MenuSeparator {}
             for row in root.plugin-menu-rows : MenuItem {
-                title: row.label;
-                enabled: row.enabled && !row.section-header;
+                title: PluginMenuDisplay.menu-title(row);
+                enabled: row.enabled;
                 checkable: false;
                 checked: row.selected;
                 shortcut: row.shortcut;

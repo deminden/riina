@@ -10,7 +10,7 @@ import { PlaybackVideoState } from "playback-video-state.slint";
 import { PlayerPreferences } from "player-preferences.slint";
 import { PlayerMenuActions } from "player-menu-actions.slint";
 import { CatalogRow, CatalogSelection } from "catalog-row.slint";
-import { MenuCatalogRow, MenuShortcutRow, PluginMenuRow, SavedFilterMenuRow } from "native-video.slint";
+import { MenuCatalogRow, MenuShortcutRow, PluginMenuDisplay, PluginMenuRow, SavedFilterMenuRow } from "native-video.slint";
 
 // Slint attaches its menus to the window. Menu items and player controls
 // share the same actions, which Rust registers on PlayerWindow.
@@ -493,7 +493,7 @@ export component PlayerMenuWindow inherits Window {
             MenuItem { title: "Font…"; enabled: !root.menu-value-crop-editing;
                 activated => { PlayerMenuActions.choose-subtitle-font(); } }
         }
-        Menu { title: "Plugin";
+        Menu { title: "\u{1f}riina-plugin-menu";
             MenuItem { title: "Manage Plugins…"; enabled: !root.menu-value-crop-editing;
                 activated => { root.menu-value-preferences-target-pane = 9; PlayerMenuActions.open-preferences(); } }
             MenuItem { title: (PlayerSidebarState.sidebar == 7 || PlayerSidebarState.leading-sidebar == 7) ? "Hide Plugins Panel" : "Show Plugins Panel"; enabled: !root.menu-value-crop-editing;
@@ -501,8 +501,8 @@ export component PlayerMenuWindow inherits Window {
                 activated => { PlayerMenuActions.toggle-plugins-pane(); } }
             MenuSeparator {}
             for row in root.menu-value-plugin-menu-rows : MenuItem {
-                title: row.label;
-                enabled: row.enabled && !row.section-header && !root.menu-value-crop-editing;
+                title: PluginMenuDisplay.menu-title(row);
+                enabled: row.enabled && !root.menu-value-crop-editing;
                 checkable: false;
                 checked: row.selected;
                 shortcut: root.player-shortcut(row.shortcut);

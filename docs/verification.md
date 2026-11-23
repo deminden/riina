@@ -1544,6 +1544,40 @@ The Linux executable and engine SHA-256 values were
 Strict Apple Silicon cross-target Clippy passed. Native macOS interaction and
 matched console appearance remain open.
 
+### Plugin application menu hierarchy 2026-11-23
+
+The Plugin menu preserves each package's global and player item order, with
+submenus, nested separators and disabled branches. It places contributions
+after the fifth top-level item under More. Slint's menu provider supplies
+the same tree to the native menu, the in-window menu and shortcut handling.
+The runtime still dispatches leaf actions to the entry that contributed them.
+
+The Windows workspace gate passed 918 Rust and 78 Python tests and the locked
+build. The headless regression reached a deepest-level action through its
+shortcut, tried a branch's shortcut, replaced the contribution model and
+verified that removal retired the old shortcut. The existing console layout
+and recall regression now runs in the 56-test widget batch used by UI-only
+checks. The software-rendered pixel comparison passed in the workspace gate.
+
+A private Windows desktop run checked the native Plugin submenu order, the
+More subtree, a nested separator, a checked leaf and a disabled branch with
+its disabled child. It invoked four native menu commands and verified receipts
+from the correct player or global entry. The selected state persisted after
+activation. The player exited normally. A second isolated run of the same
+binary passed all ten playback, native-menu, fullscreen and shutdown checks.
+The Windows executable SHA-256 was
+`217c79894e0623da7cf184d296bc6d3d492f1e7b490b701772a34c2ce2033812`.
+
+Linux passed strict workspace Clippy, 511 app unit tests, 53 widget tests and
+the locked application build. On an isolated X11 desktop, pointer navigation
+opened Global tools, Player tools and More and ran a leaf in each. Captures
+showed the checkmark and nested separator. The player exited normally. The
+Linux executable and engine SHA-256 values were
+`049c100df270d6b0fa29c57d129851794c696a1db906597a2d0f87717bc54857` and
+`84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`.
+Strict Apple Silicon cross-target Clippy passed. Native Wayland and macOS
+menu interaction and the matched macOS comparison remain open.
+
 ### Plugin playlist context menus 2026-11-23
 
 The headless player test sent a right click to a playlist row and checked

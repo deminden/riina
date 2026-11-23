@@ -191,7 +191,7 @@ fn console_row(line: &Line) -> DeveloperConsoleRow {
             format!("[{}]", line.prompt_number.unwrap_or(0)).into(),
             false,
         ),
-        Kind::Result => ("→".into(), false),
+        Kind::Result => ("â†’".into(), false),
         Kind::Error | Kind::Log(Level::Error) => ("Error".into(), true),
         Kind::Log(Level::Warning) => ("Warning".into(), false),
         Kind::Log(Level::Debug | Level::Info) => ("Log".into(), false),
@@ -209,90 +209,5 @@ fn console_row(line: &Line) -> DeveloperConsoleRow {
         text: line.text.as_str().into(),
         error,
         members: ModelRc::new(VecModel::from(members.collect::<Vec<_>>())),
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use i_slint_backend_testing::ElementHandle;
-    use slint::{
-        LogicalSize,
-        platform::{Key, WindowEvent},
-    };
-
-    #[test]
-    fn developer_tool_keeps_results_compact_and_recallable()
-    -> Result<(), Box<dyn std::error::Error>> {
-        i_slint_backend_testing::init_no_event_loop();
-        let window = PluginDeveloperTool::new()?;
-        window.window().set_size(LogicalSize::new(500.0, 400.0));
-        let members = ModelRc::new(VecModel::from(vec![DeveloperConsoleMember {
-            key: "total".into(),
-            value: "11".into(),
-        }]));
-        let rows = Rc::new(VecModel::from(vec![
-            DeveloperConsoleRow {
-                label: "→".into(),
-                text: "Object".into(),
-                members: members.clone(),
-                ..Default::default()
-            },
-            DeveloperConsoleRow {
-                label: "→".into(),
-                text: "Second result".into(),
-                members,
-                ..Default::default()
-            },
-        ]));
-        window.set_lines(ModelRc::from(Rc::clone(&rows)));
-        window.on_recall_command(|offset| match offset {
-            0 => "({total: 11})".into(),
-            1 => "total = 10".into(),
-            _ => "".into(),
-        });
-        window.show()?;
-        slint::platform::update_timers_and_animations();
-        let find = |label| ElementHandle::find_by_accessible_label(&window, label).next();
-        let run = find("Run").ok_or("Missing Run button")?;
-        assert!(
-            run.size().height <= 36.0,
-            "Run button size: {:?}",
-            run.size()
-        );
-        assert!(
-            run.absolute_position().y >= 240.0,
-            "Run button position: {:?}",
-            run.absolute_position()
-        );
-        let object = find("Object").ok_or("Missing expandable result")?;
-        let second = find("Second result").ok_or("Missing second expandable result")?;
-        let y = second.absolute_position().y;
-        let gap = y - object.absolute_position().y;
-        assert!((21.0..=32.0).contains(&gap), "Result row spacing: {gap}");
-        assert_eq!(object.accessible_expanded(), Some(false));
-        object.invoke_accessible_default_action();
-        assert_eq!(object.accessible_expanded(), Some(true));
-        let second = find("Second result").ok_or("Second result disappeared")?;
-        assert!(
-            second.absolute_position().y > y,
-            "Expanded rows did not grow: {y}"
-        );
-        rows.push(DeveloperConsoleRow {
-            text: "More output".into(),
-            ..Default::default()
-        });
-        assert_eq!(object.accessible_expanded(), Some(true));
-        window.invoke_focus_editor();
-        let editor = find("JavaScript").ok_or("Missing editor")?;
-        for expected in ["({total: 11})", "total = 10"] {
-            let text = Key::UpArrow.into();
-            window
-                .window()
-                .dispatch_event(WindowEvent::KeyPressed { text });
-            assert_eq!(editor.accessible_value().as_deref(), Some(expected));
-        }
-        window.hide()?;
-        Ok(())
     }
 }
