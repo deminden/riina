@@ -127,12 +127,14 @@ together. Linting includes the libraries and both test targets. Batches that
 also change application source run the app unit tests. Edits limited to visual
 tests or their baselines stay scoped to the UI crate. Script and workflow changes
 run the Python suite. Shared build inputs, test helpers and media fixtures
-select workspace-wide linting and tests.
+select workspace-wide linting and tests. Asset provenance edits run asset
+validation, and edits to the assets themselves also select the workspace.
 A clean checkout runs the portable core tests. Documentation-only batches stop
 after the source checks.
 Use `cargo xtask check --fast --base <revision>` to include a batch of local
 commits in the same check. Pass the commit immediately before the batch. The
-check also includes staged, unstaged and untracked changes.
+line-length exceptions are checked against that revision, and test selection
+also includes staged, unstaged and untracked changes.
 Use `cargo xtask check` at integration points for the full local gate, including
 the Python, parity, fixture and asset checks. Run `cargo xtask native` for the native
 engine suite with null audio output. It selects the native test target and reuses

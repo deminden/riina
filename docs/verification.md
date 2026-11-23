@@ -2257,7 +2257,7 @@ Native macOS interaction remains unverified.
 
 The host regression verified that a retired sidebar cannot send a delayed
 reply to a reloaded plugin, and that the current sidebar can still reply.
-The full Windows gate passed 925 workspace tests and 78 Python tests,
+The combined Windows gate passed 926 workspace tests and 78 Python tests,
 including the Windows headless pixel comparison. Linux passed strict
 workspace Clippy and the app and widget test groups.
 On isolated Ubuntu 26.04 X11 and Wayland displays, the sidebar exchanged

@@ -79,7 +79,14 @@ fn check(root: &Path) -> Result<(), String> {
 fn fast_check(root: &Path, base: &OsStr) -> Result<(), String> {
     let files = changed_files(root, base)?;
     cargo(root, &["fmt", "--all", "--", "--check"])?;
-    python(root, &["scripts/check-line-length.py"])?;
+    python(
+        root,
+        &[
+            OsStr::new("scripts/check-line-length.py"),
+            OsStr::new("--baseline"),
+            base,
+        ],
+    )?;
     if files.iter().any(|path| {
         path.starts_with("crates/ui/ui")
             || path == Path::new("crates/app/src/settings_search.rs")
@@ -206,7 +213,7 @@ fn is_app_widget_test(path: &Path) -> bool {
 
 fn shared_build_input(path: &Path) -> bool {
     path.starts_with(".cargo")
-        || path.starts_with("assets")
+        || (path.starts_with("assets") && path != Path::new("assets/provenance.json"))
         || path.starts_with("crates/test-support")
         || path.starts_with("tests/fixtures")
         || [
@@ -370,7 +377,7 @@ fn cargo(root: &Path, arguments: &[&str]) -> Result<(), String> {
         .args(arguments))
 }
 
-fn python(root: &Path, arguments: &[&str]) -> Result<(), String> {
+fn python(root: &Path, arguments: &[impl AsRef<OsStr>]) -> Result<(), String> {
     let executable = if cfg!(windows) { "python" } else { "python3" };
     run(Command::new(executable).current_dir(root).args(arguments))
 }
@@ -474,5 +481,11 @@ mod scope_tests {
         ]);
         assert!(!include_ui_consumers(&mut packages, &files));
         assert_eq!(packages, BTreeSet::from(["riina-ui".to_owned()]));
+    }
+
+    #[test]
+    fn asset_manifest_edits_only_need_asset_validation() {
+        assert!(!shared_build_input(Path::new("assets/provenance.json")));
+        assert!(shared_build_input(Path::new("assets/icons/chapters.svg")));
     }
 }
