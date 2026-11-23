@@ -14,7 +14,7 @@ pub(super) enum Target {
     },
 }
 
-#[cfg(any(target_os = "linux", target_os = "windows"))]
+#[cfg(any(target_os = "linux", target_os = "macos", target_os = "windows"))]
 pub(super) fn register_desktop(
     app: &PlayerWindow,
     sender: &CommandSender,

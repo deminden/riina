@@ -95,6 +95,12 @@ from the same event loop. Drop payloads are read in the background, and the
 compositor's surface-relative coordinates select the owning window and playlist
 row. Winit keeps ownership of the display.
 
+On macOS, AppKit routes Finder files, browser URLs and text to the Winit content
+view for the player or Welcome window. A subclass adds the drag destination
+methods to that view for the lifetime of its registration. AppKit supplies
+the release position, and a weak route delivers the drop on Slint's event loop.
+[AppKit drag destinations](https://developer.apple.com/library/archive/documentation/Cocoa/Conceptual/DragandDrop/Concepts/dragdestination.html)
+
 Each player retains its latest 16 engine notices. The status line and the
 plugin snapshot expose the active notice. Clearing it leaves prior notices in
 the history, and the engine logs each new notice when it occurs.

@@ -78,7 +78,7 @@ impl PlaylistHover {
         }
     }
 
-    #[cfg(any(target_os = "linux", target_os = "windows"))]
+    #[cfg(any(target_os = "linux", target_os = "macos", target_os = "windows"))]
     pub(super) fn on_desktop(&self, hover: platform::desktop_drop::Hover) {
         use platform::desktop_drop::Hover;
         match hover {
@@ -96,7 +96,7 @@ impl PlaylistHover {
         }
     }
 
-    #[cfg(any(target_os = "linux", target_os = "windows"))]
+    #[cfg(any(target_os = "linux", target_os = "macos", target_os = "windows"))]
     fn begin_desktop(&self, paths: Vec<PathBuf>, position: LogicalPosition, link: bool) {
         self.finish();
         let eligibility = Arc::new(Eligibility::default());

@@ -157,7 +157,7 @@ fn install_window_events(
     let event_trackpad_pause_generation = trackpad_pause_generation;
     let event_focused = Rc::downgrade(&focused);
     let playlist_hover = Rc::new(PlaylistHover::new(app));
-    #[cfg(any(target_os = "linux", target_os = "windows"))]
+    #[cfg(any(target_os = "linux", target_os = "macos", target_os = "windows"))]
     let native_drop = playlist_drop::register_desktop(app, &event_player, playlist_hover.clone());
     #[cfg(target_os = "windows")]
     if let Some(host) = native_host.and_then(|host| host.upgrade()) {
@@ -166,7 +166,7 @@ fn install_window_events(
     app.window().on_winit_window_event(move |window, event| {
         #[cfg(target_os = "linux")]
         let _ = &native_drop;
-        #[cfg(target_os = "windows")]
+        #[cfg(any(target_os = "macos", target_os = "windows"))]
         native_drop.attach(window);
         if handle_window_event(window, event) == EventResult::PreventDefault {
             return EventResult::PreventDefault;

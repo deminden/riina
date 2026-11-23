@@ -211,7 +211,7 @@ fn install_welcome_drop(app: &PlayerWindow, context: &Context<'_>, pending: &Wel
             welcome_window.set_drop_error(error.to_string().into());
         }
     });
-    #[cfg(any(target_os = "linux", target_os = "windows"))]
+    #[cfg(any(target_os = "linux", target_os = "macos", target_os = "windows"))]
     let native_drop = {
         let open = open.clone();
         platform::desktop_drop::register(
@@ -227,7 +227,7 @@ fn install_welcome_drop(app: &PlayerWindow, context: &Context<'_>, pending: &Wel
     window.window().on_winit_window_event(move |window, event| {
         #[cfg(target_os = "linux")]
         let _ = &native_drop;
-        #[cfg(target_os = "windows")]
+        #[cfg(any(target_os = "macos", target_os = "windows"))]
         native_drop.attach(window);
         file_drop(window, event);
         EventResult::Propagate

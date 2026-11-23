@@ -1279,6 +1279,18 @@ drag reopened media from Welcome, revealed the playlist and appended a folder
 while playback stayed paused at 1.25 s. A plain-text URL opened a loopback
 stream, and Quit closed Riina normally.
 
+### macOS file and URL drops 2026-11-23
+
+The AppKit destination reads modern and legacy file lists, browser URLs and
+plain-text media references. File lists take priority. The destination supplies
+the release position to the shared playlist target resolver before the
+temporary playlist closes.
+
+Strict workspace Clippy passed for `aarch64-apple-darwin` from Windows. The
+Windows workspace gate passed 878 Rust and 78 Python tests. A linked macOS
+build and desktop verification of Finder and Safari drops, playlist insertion
+and cancellation remain open.
+
 ### Audio equalizer profile menu 2026-10-14
 
 Core/native coverage checks gains and the dedicated filter. Profile identity

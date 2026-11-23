@@ -37,24 +37,10 @@ fn physical_cursor_position(window: &winit::window::Window) -> Option<(f64, f64)
 
 #[cfg(target_os = "macos")]
 fn physical_cursor_position(window: &winit::window::Window) -> Option<(f64, f64)> {
-    use objc2_app_kit::NSView;
-    use winit::raw_window_handle::{HasWindowHandle, RawWindowHandle};
-
-    let RawWindowHandle::AppKit(handle) = window.window_handle().ok()?.as_raw() else {
-        return None;
-    };
-    // SAFETY: the UI-thread window handle lends its live AppKit content view.
-    let view = unsafe { &*handle.ns_view.as_ptr().cast::<NSView>() };
+    use crate::platform::macos::view::{content_view, top_left_point};
+    let view = content_view(window)?;
     let location = view.window()?.mouseLocationOutsideOfEventStream();
-    let local = view.convertPoint_fromView(location, None);
-    let bounds = view.bounds();
-    let x = local.x - bounds.origin.x;
-    let y = local.y - bounds.origin.y;
-    let y = if view.isFlipped() {
-        y
-    } else {
-        bounds.size.height - y
-    };
+    let (x, y) = top_left_point(view, location);
     let scale = window.scale_factor();
     Some((x * scale, y * scale))
 }

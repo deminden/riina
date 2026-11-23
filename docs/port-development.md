@@ -26,6 +26,14 @@ Wayland desktop evidence. Wayland also accepts plain-text media URLs.
 [X11 playlist drop checks](verification.md#files-dropped-into-the-playlist-2026-11-23),
 [Wayland drop checks](verification.md#wayland-file-and-url-drops-2026-11-23)
 
+The macOS drop adapter needs a native desktop check. On one isolated profile,
+drop a Finder file on Welcome, then drop a folder into the middle of the active
+player's playlist. Check the right-edge reveal, cancellation, insertion order,
+and paused playback position. Drop a Safari link to a loopback media fixture and
+plain-text references on the player. Close the window during a drag and verify
+that the next window receives its own drops. Record the binary and OS with the
+[macOS drop checks](verification.md#macos-file-and-url-drops-2026-11-23).
+
 On Ubuntu 24.04, install the WebView development packages before building:
 
 ```sh

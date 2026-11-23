@@ -1,10 +1,12 @@
-//! Desktop drop data shared by the native Windows and Wayland targets.
+//! Desktop drop data and routing contracts shared by native targets.
 use slint::LogicalPosition;
 use std::{
     ffi::OsString,
     path::{Path, PathBuf},
 };
 
+#[cfg(target_os = "macos")]
+pub(crate) use super::macos::file_drop::{Registration, register};
 #[cfg(target_os = "linux")]
 pub(crate) use super::wayland_drop::Registration;
 #[cfg(target_os = "linux")]
