@@ -283,11 +283,20 @@ fn native(root: &Path, filter: Option<&OsStr>) -> Result<(), String> {
     let library = library
         .canonicalize()
         .map_err(|error| format!("Could not find libmpv at {}: {error}", library.display()))?;
+    let threads = env::var_os("RUST_TEST_THREADS").unwrap_or_else(|| {
+        // Each engine can start decoder and encoder threads of its own.
+        let limit = if cfg!(windows) { 4 } else { 1 };
+        std::thread::available_parallelism()
+            .map_or(1, |available| available.get().min(limit))
+            .to_string()
+            .into()
+    });
     let mut command = Command::new(cargo_program());
     command
         .current_dir(root)
         .env("RIINA_TEST_MPV_LIBRARY", library)
         .env("RIINA_TEST_MPV_AUDIO_OUTPUT", "null")
+        .env("RUST_TEST_THREADS", threads)
         .args([
             "test",
             "--workspace",
@@ -296,8 +305,6 @@ fn native(root: &Path, filter: Option<&OsStr>) -> Result<(), String> {
             "--locked",
             "--",
             "--ignored",
-            "--nocapture",
-            "--test-threads=1",
         ]);
     command.args(filter);
     run(&mut command)

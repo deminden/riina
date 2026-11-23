@@ -1103,6 +1103,14 @@ absent/null conflation, silent queue overflow and wake rearming failure.
 Inputs and logs are under `target/smarter-tests-sensitivity/`. This is targeted
 sensitivity evidence, not exhaustive mutation coverage. No test dependency was added.
 
+### Windows native suite execution 2026-11-23
+
+The 56 null-output libmpv tests passed in 35.17 s with one worker and in
+11.03 s with four workers on the same Windows host and pinned DLL. A second
+four-worker run passed in 11.01 s with capture retention enabled. Each of the
+five capture-producing tests wrote to its own directory. `cargo xtask native`
+now caps the Windows default at four, and `RUST_TEST_THREADS` can override it.
+
 ## Feature-specific records
 
 These retained records support links from the requirement inventory. Their

@@ -140,7 +140,9 @@ the harness built by the workspace gate. Tests in `crates/mpv/tests/native/` are
 grouped by feature. Run `cargo xtask native subtitles::` for the subtitle cases
 or substitute another module prefix. On Windows it uses the pinned development
 DLL from the setup above unless `RIINA_TEST_MPV_LIBRARY` points to another
-provisioned build.
+provisioned build. Windows runs up to four native tests at a time and other
+platforms run them serially by default. `RUST_TEST_THREADS=1` forces a serial
+run anywhere. Failed tests show their captured output.
 
 Native capture tests use disposable directories by default. To keep files for
 the pixel and format checkers, set `RIINA_TEST_ARTIFACT_DIR` to an existing
