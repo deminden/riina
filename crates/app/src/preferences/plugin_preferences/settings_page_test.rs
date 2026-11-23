@@ -1,10 +1,14 @@
 //! Opt-in desktop check for the native browser bridge and Settings ownership.
 use super::{PluginSettings, PreferencesWindow, register_settings_page};
 use crate::{platform, plugin_runtime::PluginPreferences};
+use i_slint_backend_testing::{AccessibleRole, ElementHandle};
 use riina_core::plugin::Manifest;
 use riina_test_support::TempDir;
 use serde_json::{Value, json};
-use slint::{ComponentHandle, Timer, TimerMode};
+use slint::{
+    ComponentHandle, LogicalSize, Timer, TimerMode, platform::PointerEventButton,
+    winit_030::WinitWindowAccessor,
+};
 use std::{
     cell::{Cell, RefCell},
     fs,
@@ -38,6 +42,32 @@ const probe = setInterval(() => {
 }, 30);
 </script>"#;
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Step {
+    Opening,
+    Editing,
+    Leaving,
+    Failed,
+    Finished,
+}
+
+async fn click(window: &PreferencesWindow, label: &str) -> bool {
+    let mut matches = ElementHandle::find_by_accessible_label(window, label)
+        .filter(|element| element.accessible_role() == Some(AccessibleRole::Button));
+    let (Some(button), None) = (matches.next(), matches.next()) else {
+        return false;
+    };
+    button.single_click(PointerEventButton::Left).await;
+    true
+}
+
+async fn open_form(window: &PreferencesWindow) -> bool {
+    window.window().winit_window().await.is_ok()
+        && click(window, "Plugins").await
+        && window.get_selected_pane() == 9
+        && click(window, "Settings for Plugin Form").await
+}
+
 #[test]
 #[ignore = "requires a native desktop and WebView runtime"]
 fn plugin_settings_page_persists_native_form_changes_on_close()
@@ -69,6 +99,11 @@ fn plugin_settings_page_persists_native_form_changes_on_close()
         manifest,
         directory: package,
     };
+    owner.set_plugin_rows(super::super::inventory::plugin_rows(
+        std::slice::from_ref(&installed),
+        &Default::default(),
+        true,
+    ));
     register_settings_page(
         &owner,
         &PluginSettings {
@@ -80,27 +115,55 @@ fn plugin_settings_page_persists_native_form_changes_on_close()
             runtime_available: true,
         },
     );
+    owner.window().set_size(LogicalSize::new(640.0, 620.0));
     platform::show_window(&owner)?;
-    owner.set_selected_pane(9);
-    owner.invoke_plugin_row_settings(0);
 
     let weak = owner.as_weak();
-    let ready = Rc::new(Cell::new(false));
-    let completed = ready.clone();
+    let state = Rc::new(Cell::new(Step::Opening));
+    let completed = state.clone();
+    let open_state = state.clone();
+    let open_owner = weak.clone();
+    slint::spawn_local(async move {
+        let mut opened = false;
+        if let Some(window) = open_owner.upgrade() {
+            opened = open_form(&window).await;
+        }
+        open_state.set(if opened { Step::Editing } else { Step::Failed });
+    })?;
     let saved = path.clone();
     let timer = Timer::default();
     let started = Instant::now();
-    let closing = Cell::new(false);
+    let quitting = Cell::new(false);
     timer.start(TimerMode::Repeated, Duration::from_millis(35), move || {
-        if closing.get() {
+        if quitting.get() {
             return;
         }
-        let form_updated = matches!(runtime.get("done"), Ok(Value::Object(_)));
-        if !form_updated && started.elapsed() < Duration::from_secs(12) {
+        if state.get() == Step::Editing && matches!(runtime.get("done"), Ok(Value::Object(_))) {
+            if saved.exists() {
+                state.set(Step::Failed);
+            } else {
+                state.set(Step::Leaving);
+                let owner = weak.clone();
+                let state = state.clone();
+                let _ = slint::spawn_local(async move {
+                    if let Some(window) = owner.upgrade()
+                        && click(&window, "General").await
+                        && window.get_selected_pane() == 0
+                    {
+                        return;
+                    }
+                    state.set(Step::Failed);
+                });
+            }
+        } else if state.get() == Step::Leaving && saved.exists() {
+            state.set(Step::Finished);
+        }
+        if matches!(state.get(), Step::Opening | Step::Editing | Step::Leaving)
+            && started.elapsed() < Duration::from_secs(12)
+        {
             return;
         }
-        ready.set(form_updated && !saved.exists());
-        closing.set(true);
+        quitting.set(true);
         let close = weak.clone();
         let _ = slint::spawn_local(async move {
             if let Some(owner) = close.upgrade() {
@@ -112,7 +175,12 @@ fn plugin_settings_page_persists_native_form_changes_on_close()
     });
     slint::run_event_loop()?;
     timer.stop();
-    assert!(completed.get(), "{}", owner.get_plugin_update_status());
+    assert_eq!(
+        completed.get(),
+        Step::Finished,
+        "{}",
+        owner.get_plugin_update_status()
+    );
     let saved: Value = serde_json::from_slice(&fs::read(path)?)?;
     assert_eq!(
         saved,

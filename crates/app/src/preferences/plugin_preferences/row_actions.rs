@@ -39,6 +39,18 @@ pub(super) fn register_settings_page(window: &PreferencesWindow, settings: &Plug
             );
         }
     });
+    let weak = window.as_weak();
+    window.on_plugin_settings_pane_left(move || {
+        let weak = weak.clone();
+        // Let the pane change finish before tearing down the native browser.
+        let _ = slint::spawn_local(async move {
+            if let Some(window) = weak.upgrade()
+                && window.get_selected_pane() != 9
+            {
+                window.invoke_close_plugin_settings();
+            }
+        });
+    });
 }
 
 pub(super) fn register_reorder(window: &PreferencesWindow, settings: &PluginSettings) {

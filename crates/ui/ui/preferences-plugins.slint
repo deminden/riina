@@ -189,6 +189,7 @@ export component PluginPreferencesRowView inherits Rectangle {
     }
     if root.entry.has-settings : PluginPageActionButton {
         x: parent.width - 105px; y: 28px; width: 65px; height: 24px; label: "Settings";
+        accessible-label: "Settings for " + root.entry.name;
         activated => { root.settings-requested(root.row-index); }
     }
 }

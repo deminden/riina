@@ -24,6 +24,8 @@ export component PreferenceNavItem inherits Rectangle {
     touch := TouchArea { clicked => { focus.focus(); root.activated(); } }
     focus := FocusScope {
         width: parent.width; height: parent.height;
+        // The TouchArea owns the press and moves keyboard focus on click.
+        focus-on-click: false;
         key-pressed(event) => {
             if event.text == Key.Return || event.text == " " { root.activated(); return accept; }
             return reject;
@@ -52,6 +54,7 @@ export component PreferenceSubNavItem inherits Rectangle {
     touch := TouchArea { clicked => { focus.focus(); root.activated(); } }
     focus := FocusScope {
         width: parent.width; height: parent.height;
+        focus-on-click: false;
         key-pressed(event) => {
             if event.text == Key.Return || event.text == " " { root.activated(); return accept; }
             return reject;

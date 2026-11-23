@@ -1386,7 +1386,8 @@ the WebView, changed text, checkbox, integer, decimal and radio fields, and
 received its structured value through the preferences bridge. The shared
 runtime store saw the edits before the dialog closed, and the persisted JSON
 matched after close. The test used isolated desktops and fresh stores.
-Pointer-driven opening and matched macOS sheet presentation remain open.
+The follow-up below covers pointer routing. Matched macOS sheet presentation
+remains open.
 
 Windows passed its locked workspace build, strict workspace Clippy, 908 Rust
 tests and 78 Python tests. Linux passed strict workspace Clippy, 120
@@ -1399,6 +1400,29 @@ retained the reopened page, applied Simple Mode content and exited normally.
 The Windows and Linux executable hashes were
 `3bb7c9974473f1c53e1818976572ea2b19094272bbb0a992ee77edf8bacfdcff` and
 `d591596ff14d708b593a8c6bd761ec8305873883c73fcf55058473c841e7bd70`.
+
+### Settings navigation and plugin form dismissal 2026-11-23
+
+The native Windows test initially failed when it replaced a direct Settings
+callback with pointer events. The category's keyboard focus handler consumed
+the first press. The category and subsection rows now move focus from their
+click handlers. The headless regression clicks History, selects Plugins and
+verifies that the Settings button opens the row that declared a form.
+
+The native desktop test passed after the fix on Windows, X11 and native
+Wayland. It dispatched pointer events to the Settings controls, verified
+edits in the real WebView, then selected General and checked the persisted
+JSON. Windows passed its locked workspace build, strict Clippy, 909 Rust
+tests and 78 Python tests. Linux passed its locked application build, strict
+workspace Clippy and 120 plugin tests. Apple Silicon cross-target Clippy also
+passed.
+
+An isolated X11 run clicked Plugins and the installed plugin's Settings button
+through the application windows. It verified form values after a process
+restart and closed both player instances normally. The Linux executable
+SHA-256 was `2412bfdf3876beb714df01622f15df1211e128306a5d77dec8d31fab89a4e5ea`.
+The same run found that the General switch for grouping files still needed a
+second click to toggle.
 
 ### Plugin playlist context menus 2026-11-23
 

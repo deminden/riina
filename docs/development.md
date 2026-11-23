@@ -165,8 +165,9 @@ For a palette or layout adjustment, the Windows-only
 `cargo test -p riina-ui --test headless_visual --locked` compares the committed
 pixels without compiling the player application or provisioning libmpv.
 
-On a Windows or Linux desktop, the opt-in native plugin settings test opens a
-package form, exercises its bindings and checks the JSON saved on close. Run
+On a Windows or Linux desktop, the opt-in native plugin settings test uses the
+Settings controls to open a package form, exercises its bindings and checks the
+JSON saved when switching panes. Run
 `cargo test -p riina --lib --locked plugin_settings_page_persists_native_form_changes_on_close -- --ignored`.
 
 `cargo xtask coverage` is optional. If `cargo-llvm-cov` and the pinned

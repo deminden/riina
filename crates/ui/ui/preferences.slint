@@ -294,6 +294,11 @@ export component PreferencesWindow inherits Window {
     callback plugin-row-actions(int);
     callback plugin-row-settings(int);
     callback close-plugin-settings();
+    callback plugin-settings-pane-left();
+
+    changed selected-pane => {
+        if root.selected-pane != 9 { root.plugin-settings-pane-left(); }
+    }
     in-out property <bool> custom-directory: false;
     PreferencesNavigation {
         x: 0; y: 0; width: 200px; height: parent.height;

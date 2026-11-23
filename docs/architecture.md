@@ -264,9 +264,9 @@ uses the same atomic replacement as application settings.
 An installed package can declare a local `preferencesPage`. Settings opens it
 in a native WebView with an isolated origin and confined package resources. Its
 bridge reads the same defaults and pending values as the plugin's realms.
-Form changes update that store, and closing the page or its owning Settings
-window saves the pending edits. The WebView uses the same native window shell
-as standalone plugin windows.
+Form changes update that store. Closing the page, leaving Plugins, or closing
+the owning Settings window saves the pending edits and releases the WebView.
+The WebView uses the same native window shell as standalone plugin windows.
 
 `preference_load` reads and validates the startup settings. Recovery preserves a
 copy of invalid input and loads recoverable fields. `PreferenceModel` holds the
