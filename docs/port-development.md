@@ -59,11 +59,13 @@ Custom libmpv builds need a scripting or C-plugin backend to expose the
 `load-scripts` option. Riina sets that option to `no` during startup.
 [libmpv option definition](https://github.com/mpv-player/mpv/blob/v0.41.0/options/options.c#L551-L557).
 
-Use a Linux runtime with mpv's scaler-padding fix when verifying OpenGL startup.
-The fix ships in libmpv 0.42.0 and can also be backported to 0.41.0. An affected
-runtime can show black video on Mesa llvmpipe while the playback clock advances.
-[Linux rendering checks](verification.md#linux-virtual-display-2026-11-21),
-[upstream fix](https://github.com/mpv-player/mpv/commit/72d43dc9c999a21d867cdc0f934f3e4cd2195aa9).
+Use a Linux runtime with mpv's scaler-padding and float-option fixes. An
+affected runtime can show black video on Mesa llvmpipe or reject the native
+`default` reset for `tone-mapping-param`. Both fixes ship in libmpv 0.42.0.
+A local 0.41.0 build with both backports passed the native suite.
+[Scaler-padding fix](https://github.com/mpv-player/mpv/commit/72d43dc9c999a21d867cdc0f934f3e4cd2195aa9),
+[float-option fix](https://github.com/mpv-player/mpv/commit/ae119448b2c388f4fdee30e59bb1ab84f2cde428),
+[Linux engine verification](verification.md#linux-tone-mapping-default-2026-11-23).
 
 Preferences use macOS `~/Library/Application Support/riina/preferences.json` or
 Linux `$XDG_CONFIG_HOME/riina/preferences.json` (normally

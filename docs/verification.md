@@ -1340,6 +1340,19 @@ both the current and earlier test binaries. Strict Apple Silicon workspace
 Clippy passed from Windows. The playlist context-menu builder and native
 macOS execution remain open.
 
+### Linux tone-mapping default 2026-11-23
+
+Direct libmpv calls isolated the failure to parsing `default` for the float
+option. The affected Linux build accepted the numerical override and rejected
+the reset both at startup and during playback. A local 0.41.0 rebuild added
+the upstream float-option fix alongside the existing scaler-padding fix.
+The rebuilt library accepted both reset paths, and all 57 native cases passed
+with null audio output in 32.62 s. The checked revision was `e0a9cb6`.
+This verifies option handling and playback state. Physical HDR is separate.
+The tested libmpv SHA-256 was
+`84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`.
+[Upstream float-option fix](https://github.com/mpv-player/mpv/commit/ae119448b2c388f4fdee30e59bb1ab84f2cde428).
+
 ### Plugin sidebar manifest discovery 2026-10-14
 
 Manifest tests cover bounded localized labels. Runtime tests cover confined
