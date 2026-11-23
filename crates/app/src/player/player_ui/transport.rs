@@ -1,4 +1,4 @@
-use super::{PlayerContext, bind};
+use super::{PlayerContext, bind, playlist_subtitles::Assignments};
 use crate::PlayerWindow;
 use riina_core::Command;
 use riina_mpv::CommandSender;
@@ -74,13 +74,18 @@ pub(super) fn install_pause(app: &PlayerWindow, context: &PlayerContext) {
     );
 }
 
-pub(super) fn install_stop_and_steps(app: &PlayerWindow, context: &PlayerContext) {
+pub(super) fn install_stop_and_steps(
+    app: &PlayerWindow,
+    context: &PlayerContext,
+    subtitle_assignments: Assignments,
+) {
     bind!(context, app.global::<PlayerMenuActions>(), on_stop, |ctx| {
         if let Some(app) = ctx.app() {
             app.global::<riina_ui::PlayerControlActions>()
                 .invoke_activity();
             crate::media_open::invalidate(&app);
         }
+        subtitle_assignments.reset();
         ctx.send_with_osd(Command::Stop, crate::video_osd::ActionFeedback::Stop, true);
     });
     bind!(

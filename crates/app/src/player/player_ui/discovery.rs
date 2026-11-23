@@ -1,14 +1,22 @@
 //! Folder expansion, subtitle discovery and selection run outside input callbacks.
-use crate::{PlayerWindow, subtitle_discovery::Readiness};
-use riina_core::{Command, Phase, Playback, TrackKind};
+use super::playlist_subtitles::Assignments;
+use crate::{
+    PlaybackStore, PlayerWindow,
+    subtitle_discovery::{AutoDiscovery, Readiness},
+};
+use riina_core::{
+    Command, Phase, Playback, TrackKind, subtitle_controls::AutoLoadPreferences, sync::lock,
+};
+use riina_mpv::CommandSender;
 use slint::ComponentHandle;
 use std::{cell::RefCell, rc::Rc, sync::Arc, time::Duration};
 
 pub(super) fn install(
     app: &PlayerWindow,
-    player: &riina_mpv::CommandSender,
-    latest_playback: crate::PlaybackStore,
+    player: &CommandSender,
+    latest_playback: PlaybackStore,
     subtitle_discovery_ready: Arc<Readiness>,
+    subtitle_assignments: Assignments,
 ) -> Rc<slint::Timer> {
     let subtitle_priority_timer = Rc::new(slint::Timer::default());
     let priority_player = player.clone();
@@ -16,19 +24,20 @@ pub(super) fn install(
     let priority_state = Rc::new(RefCell::new(
         crate::subtitle_priority::AutoPriority::default(),
     ));
-    let subtitle_discovery = Rc::new(RefCell::new(
-        crate::subtitle_discovery::AutoDiscovery::default(),
-    ));
+    let subtitles = RefCell::new(SubtitleDiscovery {
+        last_loaded: None,
+        automatic: AutoDiscovery::default(),
+        player: player.clone(),
+        playback: latest_playback.clone(),
+        assignments: subtitle_assignments,
+        ready: subtitle_discovery_ready,
+    });
     let auto_folder_discovery = Rc::new(RefCell::new(
         crate::auto_playlist::AutoFolderAdder::default(),
     ));
     let auto_folder_state = auto_folder_discovery.clone();
     let auto_folder_player = player.clone();
     let auto_folder_playback = latest_playback.clone();
-    let subtitle_discovery_state = subtitle_discovery.clone();
-    let subtitle_discovery_player = player.clone();
-    let subtitle_discovery_playback = latest_playback.clone();
-    let subtitle_discovery_ready_controller = subtitle_discovery_ready.clone();
     let priority_controller = priority_state.clone();
     let priority_app = app.as_weak();
     let settings_timer = Rc::downgrade(&subtitle_priority_timer);
@@ -49,10 +58,7 @@ pub(super) fn install(
             else {
                 return;
             };
-            let state = riina_core::sync::lock(&priority_playback).clone();
-            if preferences.mode == riina_core::subtitle_controls::AutoLoadMode::Disabled {
-                subtitle_discovery_ready_controller.mark_ready(state.generation);
-            }
+            let state = lock(&priority_playback).clone();
             if let Some(request) = auto_folder_state.borrow_mut().observe(
                 &state,
                 app.global::<riina_ui::PlayerPreferences>()
@@ -66,61 +72,7 @@ pub(super) fn install(
                     auto_folder_player.clone(),
                 );
             }
-            if let Some((generation, media_path)) = subtitle_discovery_state
-                .borrow_mut()
-                .observe(&state, &preferences)
-            {
-                let request = subtitle_discovery_ready_controller.begin(generation);
-                let preferences = preferences.clone();
-                let playback = subtitle_discovery_playback.clone();
-                let sender = subtitle_discovery_player.clone();
-                let weak_app = app.as_weak();
-                let ready = subtitle_discovery_ready_controller.clone();
-                let started =
-                    crate::background::spawn_named("riina-subtitle-discovery", move || {
-                        let files = crate::subtitle_discovery::find_matching_files(
-                            &media_path,
-                            &preferences,
-                        );
-                        let expected_path = media_path.to_string_lossy().into_owned();
-                        let current = ready.is_current(request) && {
-                            let state = riina_core::sync::lock(&playback);
-                            state.generation == generation
-                                && matches!(
-                                    state.phase,
-                                    Phase::Playing | Phase::Paused | Phase::Buffering
-                                )
-                                && state
-                                    .playlist
-                                    .iter()
-                                    .find(|entry| entry.current)
-                                    .is_some_and(|entry| entry.filename == expected_path)
-                        };
-                        if current
-                            && !files.is_empty()
-                            && let Err(error) = sender.send(Command::AddSubtitlesWithoutSelection(
-                                files
-                                    .into_iter()
-                                    .map(|path| path.to_string_lossy().into_owned())
-                                    .collect(),
-                            ))
-                        {
-                            let weak_app = weak_app.clone();
-                            // The result has no recipient once its window or event loop closes.
-                            let _ = crate::background::to_ui(weak_app, move |app| {
-                                crate::diagnostics::report(&app, error);
-                            });
-                        }
-                        ready.complete(request);
-                    });
-                if let Err(error) = started {
-                    subtitle_discovery_ready_controller.complete(request);
-                    crate::diagnostics::report(
-                        &app,
-                        format!("Could not start subtitle discovery: {error}"),
-                    );
-                }
-            }
+            subtitles.borrow_mut().observe(&app, &state, &preferences);
             let selected = priority_controller
                 .borrow_mut()
                 .observe(&state, &preferences);
@@ -135,6 +87,112 @@ pub(super) fn install(
         },
     );
     subtitle_priority_timer
+}
+
+struct SubtitleDiscovery {
+    last_loaded: Option<(u64, String)>,
+    automatic: AutoDiscovery,
+    player: CommandSender,
+    playback: PlaybackStore,
+    assignments: Assignments,
+    ready: Arc<Readiness>,
+}
+
+impl SubtitleDiscovery {
+    fn observe(&mut self, app: &PlayerWindow, state: &Playback, preferences: &AutoLoadPreferences) {
+        if state.phase == Phase::Stopped && state.playlist.is_empty() {
+            self.assignments.reset();
+            self.last_loaded = None;
+        }
+        let Some(filename) = current_media(state) else {
+            return;
+        };
+        let generation = state.generation;
+        if !self
+            .last_loaded
+            .as_ref()
+            .is_some_and(|(loaded_generation, loaded_file)| {
+                *loaded_generation == generation && loaded_file == filename
+            })
+        {
+            self.last_loaded = Some((generation, filename.into()));
+            self.load_manual(app, generation, filename);
+        }
+        let scan = self.automatic.observe(state, preferences);
+        let Some(epoch) = self.assignments.scan_epoch(filename).filter(|_| {
+            preferences.mode != riina_core::subtitle_controls::AutoLoadMode::Disabled
+                && crate::file_actions::local_media_path(filename).is_some()
+        }) else {
+            self.ready.mark_ready(generation);
+            return;
+        };
+        let Some((_, media_path)) = scan else { return };
+        let request = self.ready.begin(generation);
+        let ready = self.ready.clone();
+        let playback = self.playback.clone();
+        let assignments = self.assignments.clone();
+        let sender = self.player.clone();
+        let preferences = preferences.clone();
+        let filename = filename.to_owned();
+        let weak = app.as_weak();
+        let started = crate::background::spawn_named("riina-subtitle-discovery", move || {
+            let paths = crate::subtitle_discovery::find_matching_files(&media_path, &preferences)
+                .into_iter()
+                .filter_map(|path| path.into_os_string().into_string().ok())
+                .collect();
+            let still_current = {
+                let state = lock(&playback);
+                state.generation == generation && current_media(&state) == Some(filename.as_str())
+            };
+            if still_current && ready.is_current(request) {
+                let paths = assignments.record_automatic(&filename, epoch, generation, paths);
+                if !paths.is_empty()
+                    && let Err(error) = sender.send(Command::AddMatchedSubtitles {
+                        generation,
+                        paths,
+                        select_first: false,
+                    })
+                {
+                    let _ = crate::background::to_ui(weak, move |app| {
+                        crate::diagnostics::report(&app, error);
+                    });
+                }
+            }
+            ready.complete(request);
+        });
+        if let Err(error) = started {
+            self.ready.complete(request);
+            crate::diagnostics::report(app, format!("Could not start subtitle discovery: {error}"));
+        }
+    }
+
+    fn load_manual(&self, app: &PlayerWindow, generation: u64, filename: &str) {
+        let paths = self.assignments.manual(filename, generation);
+        for (batch, paths) in paths.chunks(64).enumerate() {
+            if let Err(error) = self.player.send(Command::AddMatchedSubtitles {
+                generation,
+                paths: paths.to_vec(),
+                select_first: batch == 0,
+            }) {
+                crate::diagnostics::report(app, error);
+                break;
+            }
+        }
+    }
+}
+
+fn current_media(state: &Playback) -> Option<&str> {
+    if !matches!(
+        state.phase,
+        Phase::Playing | Phase::Paused | Phase::Buffering | Phase::Seeking
+    ) {
+        return None;
+    }
+    state
+        .playlist
+        .iter()
+        .find(|entry| entry.current)
+        .map(|entry| entry.filename.as_str())
 }
 
 fn discover_playlist_files(
@@ -178,6 +236,7 @@ mod tests {
             &commands,
             crate::PlaybackStore::default(),
             Arc::default(),
+            Assignments::default(),
         );
         i_slint_backend_testing::mock_elapsed_time(Duration::from_millis(120));
         assert!(!timer.running());

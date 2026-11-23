@@ -675,23 +675,6 @@ fn subtitle_auto_load_preferences_keep_reference_choices_and_defaults() {
     assert_eq!(AutoLoadMode::Filename.index(), 1);
     assert_eq!(AutoLoadMode::Intelligent.index(), 2);
     assert_eq!(AutoLoadMode::from_index(3), None);
-    assert_eq!(
-        AutoLoadPreferences {
-            mode: AutoLoadMode::Disabled,
-            ..AutoLoadPreferences::default()
-        }
-        .mpv_matching_mode(),
-        "no"
-    );
-    assert_eq!(
-        AutoLoadPreferences {
-            mode: AutoLoadMode::Filename,
-            ..AutoLoadPreferences::default()
-        }
-        .mpv_matching_mode(),
-        "fuzzy"
-    );
-    assert_eq!(AutoLoadPreferences::default().mpv_matching_mode(), "exact");
 
     let configured = Preferences {
         subtitle_auto_load: AutoLoadPreferences {
@@ -711,24 +694,7 @@ fn subtitle_auto_load_preferences_keep_reference_choices_and_defaults() {
             .plan(&Playback::default())
             .unwrap()
             .commands,
-        [
-            ["set", "sub-auto", "fuzzy"].map(str::to_owned).to_vec(),
-            [
-                "set",
-                "sub-file-paths",
-                std::env::join_paths(["./subs", "../captions"])
-                    .unwrap()
-                    .to_string_lossy()
-                    .as_ref(),
-            ]
-            .map(str::to_owned)
-            .to_vec(),
-        ]
-    );
-    assert_eq!(
-        AutoLoadPreferences::default().mpv_search_paths(),
-        None,
-        "IINA's default glob is not an mpv directory path"
+        [["set", "sub-auto", "no"].map(str::to_owned).to_vec()]
     );
     for invalid in [
         r#"{"subtitle_auto_load":{"priority_keywords":"eng\nforced"}}"#,

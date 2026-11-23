@@ -216,6 +216,11 @@ pub enum Command {
         paths: Vec<String>,
     },
     AddSubtitlesWithoutSelection(Vec<String>),
+    AddMatchedSubtitles {
+        generation: u64,
+        paths: Vec<String>,
+        select_first: bool,
+    },
     AddAudio(String),
     AddVideo(String),
     AudioDelay(f64),

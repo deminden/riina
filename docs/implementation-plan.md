@@ -56,10 +56,11 @@ and Windows watch-later path identity. See the dated workflow record in
 [verification](verification.md) for final tested scope rather than treating these
 implementation changes as complete acceptance.
 
-Windows is the only available test machine. Linux CI now provisions the GTK and
-WebKit dependencies needed by the full application; neither that configuration
-change nor shared tests establish macOS/Linux playback support. Physical HDR,
-pass-through audio and other display/DPI combinations still need equipment.
+Windows 11 x64 is the supported release target. Isolated Linux desktop sessions
+cover specific application playback and lifecycle workflows. macOS cross-checks
+compile the full application's source. See [verification](verification.md) for
+the tested scope. Physical HDR, pass-through audio and other display and DPI
+combinations still need equipment.
 
 ## Work order
 

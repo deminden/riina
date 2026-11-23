@@ -2473,6 +2473,30 @@ exited normally. The executable SHA-256 was
 `9af4a3fb6097391c35875f98e145aa6212771c0addc9f1ea768b81ec5c4d1191`.
 Live Windows, Wayland and macOS duration presentation remains open.
 
+### Playlist subtitle associations 2026-11-23
+
+The Windows workspace gate and all 59 pinned libmpv null-output tests passed.
+The grouped regressions cover multi-row clearing, duplicate manual paths,
+deferred loading for the current entry, expired scans and picker responses
+after Stop, and playback-generation checks. The discovery fixtures also cover
+exact sidecars in the media directory with the default child-directory glob.
+
+After the compact-menu change, the grouped Windows check passed for the app,
+core and UI crates, including the widget and pixel tests. The locked Apple
+Silicon workspace also passed strict Clippy from Windows.
+
+In isolated Linux X11, a test XDG FileChooser service received the player's
+parent window, the media directory and the multiple-file filter. It returned
+two external subtitles, including a Unicode filename. Both loaded when the
+queued clip started and the first was selected. Wrong Subtitle cleared the
+two selected entries' assignments for their next playback. That covered
+manual files and an automatically matched sidecar. The compact menu kept
+Clear Playlist accessible, and the test player exited normally. The Linux
+executable SHA-256 was
+`f56b8e03f17db30c03fc4b935fd2ea8441cc5b34fc085336aef385d37d88ed1b`.
+Desktop file chooser interaction on Windows, Wayland and macOS remains open.
+Automatic matching currently runs as each entry starts.
+
 ### macOS application menu composition 2026-10-14
 
 The AppKit adapter consolidates application actions in one native menu while

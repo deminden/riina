@@ -20,6 +20,7 @@ mod playback_mailbox;
 mod playlist_actions;
 mod playlist_drop;
 mod playlist_hover;
+mod playlist_subtitles;
 mod rendering;
 mod startup;
 mod thumbnail_actions;
@@ -294,6 +295,7 @@ fn configure_with_engine(
         live_text_timer,
         pending_navigation,
         scroll_monitor,
+        subtitle_assignments,
     } = features::install(
         app,
         features::Inputs {
@@ -342,6 +344,7 @@ fn configure_with_engine(
             audio_equalizer: &session.audio_equalizer,
             pending_navigation: &pending_navigation,
             capture_transition_first,
+            subtitle_assignments,
         },
     );
     media_actions::install(
@@ -445,7 +448,6 @@ mod welcome_tests {
         let enabled = resume_engine_options(
             directory,
             true,
-            &riina_core::subtitle_controls::AutoLoadPreferences::default(),
             &riina_core::network_preferences::Connection::default(),
             &riina_core::network_preferences::Cache::default(),
             &riina_core::network_preferences::OnlineVideos::default(),
@@ -455,18 +457,16 @@ mod welcome_tests {
         assert_eq!(enabled[0].1, directory.to_string_lossy());
         assert_eq!(enabled[1], ("save-position-on-quit".into(), "yes".into()));
         assert_eq!(enabled[2], ("resume-playback".into(), "yes".into()));
-        assert_eq!(enabled[3], ("sub-auto".into(), "exact".into()));
-        assert_eq!(enabled[4], ("sub-file-paths".into(), "".into()));
-        assert_eq!(enabled[5], ("rtsp-transport".into(), "tcp".into()));
-        assert_eq!(enabled[6], ("cache".into(), "yes".into()));
-        assert_eq!(enabled[9], ("cache-secs".into(), "36000".into()));
-        assert_eq!(enabled[11], ("ytdl".into(), "yes".into()));
-        assert_eq!(enabled[12], ("ytdl-raw-options".into(), "".into()));
+        assert_eq!(enabled[3], ("sub-auto".into(), "no".into()));
+        assert_eq!(enabled[4], ("rtsp-transport".into(), "tcp".into()));
+        assert_eq!(enabled[5], ("cache".into(), "yes".into()));
+        assert_eq!(enabled[8], ("cache-secs".into(), "36000".into()));
+        assert_eq!(enabled[10], ("ytdl".into(), "yes".into()));
+        assert_eq!(enabled[11], ("ytdl-raw-options".into(), "".into()));
 
         let disabled = resume_engine_options(
             directory,
             false,
-            &riina_core::subtitle_controls::AutoLoadPreferences::default(),
             &riina_core::network_preferences::Connection::default(),
             &riina_core::network_preferences::Cache::default(),
             &riina_core::network_preferences::OnlineVideos::default(),

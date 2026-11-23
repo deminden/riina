@@ -2,8 +2,8 @@
 use super::{
     PendingNavigation, audio_controls, catalog,
     context::{PlayerContext, bind},
-    delays, dialogs, feedback, hdr_output, input, playlist_actions, subtitle_controls, transport,
-    video_controls, window_actions,
+    delays, dialogs, feedback, hdr_output, input, playlist_actions, playlist_subtitles,
+    subtitle_controls, transport, video_controls, window_actions,
 };
 use crate::{
     PlayerWindow, crop_editor::Editor, platform, screenshot_output::Scratch, video_osd::VideoOsd,
@@ -26,6 +26,7 @@ pub(super) struct Inputs<'a> {
     pub(super) audio_equalizer: &'a Arc<Mutex<audio_equalizer::Settings>>,
     pub(super) pending_navigation: &'a PendingNavigation,
     pub(super) capture_transition_first: bool,
+    pub(super) subtitle_assignments: playlist_subtitles::Assignments,
 }
 
 pub(super) fn install(app: &PlayerWindow, inputs: Inputs<'_>) {
@@ -38,6 +39,7 @@ pub(super) fn install(app: &PlayerWindow, inputs: Inputs<'_>) {
         audio_equalizer,
         pending_navigation,
         capture_transition_first,
+        subtitle_assignments,
     } = inputs;
     let command_sender = context.commands();
     crate::window_controls::install(app, native.map(platform::NativePresentation::host));
@@ -57,7 +59,7 @@ pub(super) fn install(app: &PlayerWindow, inputs: Inputs<'_>) {
     hdr_output::install(app, move |command| {
         hdr_player.send(command).map_err(String::from)
     });
-    transport::install_stop_and_steps(app, context);
+    transport::install_stop_and_steps(app, context, subtitle_assignments);
     playlist_actions::install_navigation(
         app,
         command_sender,

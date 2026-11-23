@@ -132,6 +132,9 @@ command_samples! {
     AddSubtitle["dialogue.srt".into()];
     AddSubtitlesForMedia { generation: 0, paths: vec!["dialogue.srt".into(), "translation.srt".into()] };
     AddSubtitlesWithoutSelection[vec!["dialogue.srt".into(), "translation.srt".into()]];
+    AddMatchedSubtitles {
+        generation: 0, paths: vec!["dialogue.srt".into(), "translation.srt".into()], select_first: true,
+    };
     AddAudio["commentary.flac".into()];
     AddVideo["alternate.mkv".into()];
     AudioDelay[0.375];

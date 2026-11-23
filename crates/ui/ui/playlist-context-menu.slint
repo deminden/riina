@@ -1,6 +1,6 @@
 import { PlayerCatalogState } from "player-catalog-state.slint";
 import { PlayerMenuActions } from "player-menu-actions.slint";
-import { PlaylistInteraction, PlaylistMenuOrigin } from "playlist-interaction.slint";
+import { PlaylistInteraction, PlaylistMenuOrigin, PlaylistSubtitleTargets } from "playlist-interaction.slint";
 import { PlaylistInsertionIndicator } from "playlist-row-input.slint";
 
 export component PlaylistContextMenu inherits ContextMenuArea {
@@ -9,12 +9,15 @@ export component PlaylistContextMenu inherits ContextMenuArea {
     in property <int> index: -1;
     in property <bool> network;
     private property <bool> local-files;
+    private property <PlaylistSubtitleTargets> subtitles;
     enabled: false;
 
     public function open-at(x: length, y: length) {
         if !PlaylistInteraction.request-playlist-menu(root.origin, root.token,
             (root.absolute-position.x + x) / 1px, (root.absolute-position.y + y) / 1px) {
             root.local-files = PlaylistInteraction.has-local-file-targets(root.token);
+            root.subtitles = root.origin == PlaylistMenuOrigin.sidebar ?
+                PlaylistInteraction.subtitle-targets(root.token) : { single: false, matched: 0, compact: false };
             root.show({ x: x, y: y });
         }
     }
@@ -67,6 +70,29 @@ export component PlaylistContextMenu inherits ContextMenuArea {
         if local-files : MenuItem {
             title: PlaylistInteraction.reveal-action-label;
             activated => { PlayerMenuActions.playlist-action(15, token); }
+        }
+        if subtitles.single || subtitles.matched > 0 : MenuSeparator {}
+        if !subtitles.compact && (subtitles.single || subtitles.matched > 0) : MenuItem {
+            title: "Subtitles (\{subtitles.matched} loaded)"; enabled: false;
+        }
+        if !subtitles.compact && subtitles.single : MenuItem {
+            title: "Add Subtitle…";
+            activated => { PlaylistInteraction.subtitle-action(add, token); }
+        }
+        if !subtitles.compact && subtitles.matched > 0 : MenuItem {
+            title: "Wrong Subtitle";
+            activated => { PlaylistInteraction.subtitle-action(clear, token); }
+        }
+        if subtitles.compact && (subtitles.single || subtitles.matched > 0) : Menu {
+            title: "Subtitles (\{subtitles.matched} loaded)";
+            if subtitles.single : MenuItem {
+                title: "Add Subtitle…";
+                activated => { PlaylistInteraction.subtitle-action(add, token); }
+            }
+            if subtitles.matched > 0 : MenuItem {
+                title: "Wrong Subtitle";
+                activated => { PlaylistInteraction.subtitle-action(clear, token); }
+            }
         }
         if index >= 0 : MenuSeparator {}
         MenuItem { title: "Add File…"; activated => { PlayerMenuActions.browse-files(4); } }

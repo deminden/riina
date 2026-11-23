@@ -118,7 +118,6 @@ pub(super) fn engine_options(
     let mut engine_options = resume_engine_options(
         watch_later_directory,
         prefs.resume_last_position,
-        &prefs.subtitle_auto_load,
         &prefs.network,
         &prefs.network_cache,
         &network_online_videos,
@@ -145,7 +144,6 @@ pub(super) fn engine_options(
 pub(super) fn resume_engine_options(
     watch_later_directory: &std::path::Path,
     resume_last_position: bool,
-    subtitle_auto_load: &riina_core::subtitle_controls::AutoLoadPreferences,
     network: &riina_core::network_preferences::Connection,
     network_cache: &riina_core::network_preferences::Cache,
     network_online_videos: &riina_core::network_preferences::OnlineVideos,
@@ -159,14 +157,7 @@ pub(super) fn resume_engine_options(
         ("save-position-on-quit".into(), enabled.clone()),
         ("resume-playback".into(), enabled),
     ];
-    options.push((
-        "sub-auto".into(),
-        subtitle_auto_load.mpv_matching_mode().into(),
-    ));
-    options.push((
-        "sub-file-paths".into(),
-        subtitle_auto_load.mpv_search_paths().unwrap_or_default(),
-    ));
+    options.push(("sub-auto".into(), "no".into()));
     options.extend(network.engine_options()?);
     options.extend(network_cache.engine_options()?);
     options.extend(network_online_videos.engine_options()?);

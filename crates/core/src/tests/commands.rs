@@ -935,3 +935,23 @@ fn downloaded_subtitles_are_bound_to_the_media_generation() {
     playback.generation = 5;
     assert!(command.plan(&playback).unwrap().commands.is_empty());
 }
+
+#[test]
+fn matched_subtitles_only_load_into_the_active_generation() {
+    let command = Command::AddMatchedSubtitles {
+        generation: 4,
+        paths: vec!["first.srt".into(), "second.ass".into()],
+        select_first: true,
+    };
+    let mut playback = Playback {
+        generation: 4,
+        phase: Phase::Paused,
+        ..Playback::default()
+    };
+    assert_eq!(command.plan(&playback).unwrap().commands[0][2], "select");
+    playback.phase = Phase::Stopped;
+    assert!(command.plan(&playback).unwrap().commands.is_empty());
+    playback.phase = Phase::Playing;
+    playback.generation = 5;
+    assert!(command.plan(&playback).unwrap().commands.is_empty());
+}

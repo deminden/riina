@@ -1,6 +1,6 @@
 use super::{Command, CommandError, cmd, flag, set};
 use crate::subtitle_controls;
-use crate::{Playback, TrackKind, valid_path};
+use crate::{Phase, Playback, Track, TrackKind, valid_path};
 
 impl Command {
     pub(super) fn subtitles_args(&self) -> Result<Vec<String>, CommandError> {
@@ -153,12 +153,56 @@ pub(super) fn auto_load(
     preferences: &subtitle_controls::AutoLoadPreferences,
 ) -> Result<Vec<Vec<String>>, CommandError> {
     preferences.validate().map_err(CommandError::Preference)?;
-    let mut commands = vec![set("sub-auto", preferences.mpv_matching_mode())];
-    commands.push(set(
-        "sub-file-paths",
-        preferences.mpv_search_paths().unwrap_or_default(),
-    ));
-    Ok(commands)
+    // The session matcher owns automatic associations, including their removal.
+    Ok(vec![set("sub-auto", "no")])
+}
+
+pub(super) fn load(state: &Playback, intent: &Command) -> Result<Vec<Vec<String>>, CommandError> {
+    match intent {
+        Command::AddSubtitle(path) => add(state, path),
+        Command::AddSubtitlesForMedia { generation, paths } if *generation == state.generation => {
+            let mut commands = Vec::new();
+            for path in paths {
+                commands.extend(add(state, path)?);
+            }
+            Ok(commands)
+        }
+        Command::AddSubtitlesWithoutSelection(paths) => add_without_selection(state, paths),
+        Command::AddMatchedSubtitles {
+            generation,
+            paths,
+            select_first,
+        } if *generation == state.generation
+            && matches!(
+                state.phase,
+                Phase::Playing | Phase::Paused | Phase::Buffering | Phase::Seeking
+            ) =>
+        {
+            let mut commands = add_without_selection(state, paths)?;
+            if let Some(path) = paths.first().filter(|_| *select_first) {
+                if let Some(track) = external_track(state, path) {
+                    commands.push(set("sid", track.id.to_string()));
+                } else {
+                    commands[0][2] = "select".into();
+                }
+            }
+            Ok(commands)
+        }
+        Command::AddSubtitlesForMedia { .. } | Command::AddMatchedSubtitles { .. } => {
+            Ok(Vec::new())
+        }
+        _ => unreachable!("subtitle load intent required"),
+    }
+}
+
+fn external_track<'a>(state: &'a Playback, path: &str) -> Option<&'a Track> {
+    state.tracks.iter().find(|track| {
+        track.kind == TrackKind::Sub
+            && track
+                .external_filename
+                .as_deref()
+                .is_some_and(|existing| same_external_path(existing, path))
+    })
 }
 
 pub(super) fn add(state: &Playback, path: &str) -> Result<Vec<Vec<String>>, CommandError> {
@@ -168,19 +212,11 @@ pub(super) fn add(state: &Playback, path: &str) -> Result<Vec<Vec<String>>, Comm
         });
     }
     // Reload an existing external file to avoid duplicate tracks, as IINA does.
-    Ok(
-        if let Some(track) = state.tracks.iter().find(|track| {
-            track.kind == TrackKind::Sub
-                && track
-                    .external_filename
-                    .as_deref()
-                    .is_some_and(|existing| same_external_path(existing, path))
-        }) {
-            vec![vec!["sub-reload".into(), track.id.to_string()]]
-        } else {
-            vec![cmd(["sub-add", path])]
-        },
-    )
+    Ok(if let Some(track) = external_track(state, path) {
+        vec![vec!["sub-reload".into(), track.id.to_string()]]
+    } else {
+        vec![cmd(["sub-add", path])]
+    })
 }
 
 pub(super) fn add_without_selection(
@@ -201,15 +237,10 @@ pub(super) fn add_without_selection(
                 what: "Invalid subtitle path",
             });
         }
-        let exists = state.tracks.iter().any(|track| {
-            track.kind == TrackKind::Sub
-                && track
-                    .external_filename
-                    .as_deref()
-                    .is_some_and(|existing| same_external_path(existing, path))
-        }) || added
-            .iter()
-            .any(|existing| same_external_path(existing, path));
+        let exists = external_track(state, path).is_some()
+            || added
+                .iter()
+                .any(|existing| same_external_path(existing, path));
         if !exists {
             added.push(path);
             commands.push(vec!["sub-add".into(), path.clone(), "auto".into()]);

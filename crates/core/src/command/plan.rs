@@ -137,18 +137,10 @@ impl Command {
             | Self::PlaylistPrevious
             | Self::RemovePlaylistEntry(_)
             | Self::MovePlaylistEntry { .. } => return self.plan_playlist_navigation(state),
-            Self::AddSubtitle(path) => subtitles::add(state, path)?,
-            Self::AddSubtitlesForMedia { generation, paths } if *generation == state.generation => {
-                let mut commands = Vec::new();
-                for path in paths {
-                    commands.extend(subtitles::add(state, path)?);
-                }
-                commands
-            }
-            Self::AddSubtitlesForMedia { .. } => Vec::new(),
-            Self::AddSubtitlesWithoutSelection(paths) => {
-                subtitles::add_without_selection(state, paths)?
-            }
+            Self::AddSubtitle(_)
+            | Self::AddSubtitlesForMedia { .. }
+            | Self::AddSubtitlesWithoutSelection(_)
+            | Self::AddMatchedSubtitles { .. } => subtitles::load(state, self)?,
             Self::CycleLoop => playback::set_loop_mode_commands(state.loop_mode().next()),
             Self::SetLoopMode(mode) => playback::set_loop_mode_commands(*mode),
             _ => vec![self.mpv_args()?],

@@ -45,7 +45,10 @@ impl AutoDiscovery {
             self.mode = Some(AutoLoadMode::Disabled);
             return None;
         }
-        if !matches!(state.phase, Phase::Playing | Phase::Paused) {
+        if !matches!(
+            state.phase,
+            Phase::Playing | Phase::Paused | Phase::Buffering | Phase::Seeking
+        ) {
             return None;
         }
         let media_path = state
@@ -53,9 +56,7 @@ impl AutoDiscovery {
             .iter()
             .find(|entry| entry.current)
             .map(|entry| entry.filename.clone())?;
-        if media_path.contains("://") {
-            return None;
-        }
+        let local_path = crate::file_actions::local_media_path(&media_path)?;
         if self.generation == Some(state.generation)
             && self.media_path == media_path
             && self.mode == Some(preferences.mode)
@@ -67,7 +68,7 @@ impl AutoDiscovery {
         self.media_path.clone_from(&media_path);
         self.mode = Some(preferences.mode);
         self.search_paths.clone_from(&preferences.search_paths);
-        Some((state.generation, PathBuf::from(media_path)))
+        Some((state.generation, local_path))
     }
 }
 
@@ -177,9 +178,12 @@ pub(crate) fn find_matching_files(
 }
 
 fn expand_search_paths(media_path: &Path, configured: &str) -> Vec<PathBuf> {
-    let media_directory = media_path.parent().unwrap_or_else(|| Path::new("."));
-    let mut directories = Vec::new();
-    let mut seen = HashSet::new();
+    let media_directory = media_path
+        .parent()
+        .filter(|path| !path.as_os_str().is_empty())
+        .unwrap_or_else(|| Path::new("."));
+    let mut directories = vec![media_directory.to_path_buf()];
+    let mut seen = HashSet::from([media_directory.to_path_buf()]);
     for configured_path in
         std::env::split_paths(configured).filter(|path| !path.as_os_str().is_empty())
     {
@@ -686,6 +690,7 @@ mod tests {
     #[test]
     fn expands_default_child_directory_glob_and_finds_supported_matching_subtitles() {
         let tree = TestTree::new();
+        let adjacent = tree.file("Movie.aa.srt");
         let english = tree.file("English/Movie.en.srt");
         tree.file("English/Other.en.srt");
         tree.file("English/Movie.en.txt");
@@ -695,7 +700,7 @@ mod tests {
             &tree.media(),
             &preferences(AutoLoadMode::Intelligent, "./*"),
         );
-        assert_eq!(found, [loose, english]);
+        assert_eq!(found, [adjacent, loose, english]);
     }
 
     #[test]

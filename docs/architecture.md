@@ -121,6 +121,16 @@ skips vanished or changed entries and removes the current entry last so playback
 can advance to a remaining item. Reveal groups items for Explorer, Finder or
 the freedesktop file-manager service.
 
+Playlist subtitle associations belong to the player session and use media
+filenames. The subtitle picker verifies the playlist entry before saving its
+selection. Manual matches load the next time the entry starts. Wrong Subtitle
+clears the associations for the selected rows and inhibits automatic rematching
+until Stop. The player owns automatic matching in the media directory and
+configured search locations. The decoder accepts matched files only for the
+generation that requested them.
+The fallback context menu groups the subtitle commands in a submenu when
+the player window is short.
+
 The desktop drop adapters publish the position of a playable offer to the same
 scroll view. X11 samples the native cursor after Winit reports the file list.
 The sidebar and Music Mode use their current scroll offsets for the cue and

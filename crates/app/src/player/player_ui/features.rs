@@ -1,7 +1,12 @@
 //! Install playback-powered windows and retain each feature's session resources.
 use super::{
-    PendingNavigation, catalog::install_playlist_metadata_refresh, discovery,
-    history_session::Tracking, input, live_text, thumbnail_actions, transitions,
+    PendingNavigation,
+    catalog::install_playlist_metadata_refresh,
+    discovery,
+    history_session::Tracking,
+    input, live_text,
+    playlist_subtitles::{self, Assignments},
+    thumbnail_actions, transitions,
 };
 use crate::{PlaybackStore, PlayerWindow, platform, plugin_host::PluginHostHandle};
 use riina_core::{Playback, music_mode, sync::lock, video_filters};
@@ -56,6 +61,7 @@ pub(super) struct Installed {
     pub(super) live_text_timer: Option<Rc<slint::Timer>>,
     pub(super) pending_navigation: PendingNavigation,
     pub(super) scroll_monitor: platform::PlayerScrollMonitor,
+    pub(super) subtitle_assignments: Assignments,
 }
 
 pub(super) struct Inputs<'a> {
@@ -114,6 +120,13 @@ pub(super) fn install(app: &PlayerWindow, inputs: Inputs<'_>) -> Installed {
         crate::automatic_music_mode::install(app, playback.clone(), music_mode.clone());
     *lock(plugin_commands) = Some(commands.clone());
     let subtitle_discovery_ready = Arc::new(crate::subtitle_discovery::Readiness::default());
+    let subtitle_assignments = Assignments::default();
+    playlist_subtitles::install(
+        app,
+        &subtitle_assignments,
+        playback,
+        native.map(platform::NativePresentation::host),
+    );
     let online_subtitles_window = crate::open_subtitles::connect_player(
         app,
         commands.clone(),
@@ -121,8 +134,13 @@ pub(super) fn install(app: &PlayerWindow, inputs: Inputs<'_>) -> Installed {
         subtitle_discovery_ready.clone(),
         plugin_host.cloned(),
     );
-    let subtitle_priority_timer =
-        discovery::install(app, commands, playback.clone(), subtitle_discovery_ready);
+    let subtitle_priority_timer = discovery::install(
+        app,
+        commands,
+        playback.clone(),
+        subtitle_discovery_ready,
+        subtitle_assignments.clone(),
+    );
     picture_in_picture.bind(app, commands, playback);
     let input::InstalledInput {
         file_drop_timer,
@@ -168,6 +186,7 @@ pub(super) fn install(app: &PlayerWindow, inputs: Inputs<'_>) -> Installed {
         live_text_timer,
         pending_navigation,
         scroll_monitor,
+        subtitle_assignments,
     }
 }
 

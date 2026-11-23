@@ -10,9 +10,7 @@ impl Command {
             }
             Self::PluginMpv(command) => command.arguments(),
             Self::ObserveMpvProperty(_) => {
-                return Err(CommandError::InvalidState {
-                    reason: "mpv property observation is handled by the player worker",
-                });
+                return invalid_state("mpv property observation is handled by the player worker");
             }
             Self::Load(_)
             | Self::LoadAtPosition { .. }
@@ -116,6 +114,7 @@ impl Command {
             | Self::AppendFiles(_)
             | Self::AddSubtitlesWithoutSelection(_)
             | Self::AddSubtitlesForMedia { .. }
+            | Self::AddMatchedSubtitles { .. }
             | Self::InsertPlaylistFiles { .. }
             | Self::InsertPlaylistFilesBefore { .. }
             | Self::SubtitleLetterboxMargins(_)
@@ -138,15 +137,9 @@ impl Command {
             | Self::MovePlaylistIdsBefore { .. }
             | Self::MovePlaylistId { .. }
             | Self::MovePlaylistIdBefore { .. } => {
-                return Err(CommandError::InvalidState {
-                    reason: "This intent requires a command plan",
-                });
+                return invalid_state("This intent requires a command plan");
             }
-            Self::Shutdown => {
-                return Err(CommandError::InvalidState {
-                    reason: "Shutdown is a lifecycle command",
-                });
-            }
+            Self::Shutdown => return invalid_state("Shutdown is a lifecycle command"),
             _ => {
                 return Err(CommandError::InvalidArgument {
                     what: "The requested value is out of range or non-finite",
@@ -155,4 +148,8 @@ impl Command {
         };
         Ok(args)
     }
+}
+
+fn invalid_state(reason: &'static str) -> Result<Vec<String>, CommandError> {
+    Err(CommandError::InvalidState { reason })
 }

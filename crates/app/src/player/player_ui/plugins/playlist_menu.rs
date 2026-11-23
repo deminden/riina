@@ -7,7 +7,7 @@ use crate::{
 use riina_core::plugin_menu::PluginMenuItem;
 use riina_ui::{
     PlayerCatalogState, PlayerMenuActions, PlayerMusicModeState, PlayerSidebarState,
-    PlaylistInteraction, PlaylistMenuOrigin,
+    PlaylistInteraction, PlaylistMenuOrigin, PlaylistSubtitleAction,
 };
 use slint::{ComponentHandle, LogicalPosition, Model, SharedString};
 
@@ -15,6 +15,7 @@ enum Action {
     Player(i32),
     AddFiles,
     AddUrl,
+    Subtitle(PlaylistSubtitleAction),
     Plugin { identifier: String, id: String },
 }
 
@@ -177,6 +178,9 @@ impl Request {
             }
             Action::AddFiles => actions.invoke_browse_files(4),
             Action::AddUrl => actions.invoke_open_playlist_url_dialog(),
+            Action::Subtitle(action) => app
+                .global::<PlaylistInteraction>()
+                .invoke_subtitle_action(action, self.token),
             Action::Plugin { identifier, id } => {
                 if let Err(error) = host.activate_playlist_menu_item(self.id(), identifier, id) {
                     crate::diagnostics::report(app, error);
@@ -198,6 +202,31 @@ impl Request {
                 interaction.get_reveal_action_label().as_str(),
             )
         });
+        if self.origin == PlaylistMenuOrigin::Sidebar && self.row.is_some() {
+            let subtitles = interaction.invoke_subtitle_targets(self.token.clone());
+            if subtitles.single || subtitles.matched > 0 {
+                separate(&mut entries);
+                entries.push(item(
+                    &format!("Subtitles ({} loaded)", subtitles.matched),
+                    Action::Player(0),
+                    false,
+                ));
+            }
+            if subtitles.single {
+                entries.push(item(
+                    "Add Subtitle…",
+                    Action::Subtitle(PlaylistSubtitleAction::Add),
+                    true,
+                ));
+            }
+            if subtitles.matched > 0 {
+                entries.push(item(
+                    "Wrong Subtitle",
+                    Action::Subtitle(PlaylistSubtitleAction::Clear),
+                    true,
+                ));
+            }
+        }
         if !contributions.is_empty() {
             separate(&mut entries);
             entries.push(item("Plugin", Action::Player(0), false));
