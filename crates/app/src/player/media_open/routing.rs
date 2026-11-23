@@ -5,6 +5,7 @@ use crate::file_selection;
 pub(super) struct PlayerSelection {
     pub(super) paths: Vec<String>,
     pub(super) duplicate_reference: Option<String>,
+    pub(super) explicit_playlist: bool,
 }
 
 pub(super) fn prepare_new_players(
@@ -17,6 +18,7 @@ pub(super) fn prepare_new_players(
             .then_some(PlayerSelection {
                 paths,
                 duplicate_reference: None,
+                explicit_playlist: false,
             })
             .into_iter()
             .collect());
@@ -39,6 +41,7 @@ pub(super) fn prepare_new_players(
             players.push(PlayerSelection {
                 paths,
                 duplicate_reference: Some(reference),
+                explicit_playlist: false,
             });
         }
     }

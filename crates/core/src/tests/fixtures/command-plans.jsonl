@@ -1,6 +1,7 @@
 {"command":"Load","mpv":[["set","icc-profile-auto","yes"],["set","target-prim","auto"],["set","target-trc","auto"],["set","screenshot-tag-colorspace","no"],["set","pause","no"],["loadfile","first.mkv","replace"]],"resume_on_load":false}
 {"command":"LoadAtPosition","mpv":[["set","icc-profile-auto","yes"],["set","target-prim","auto"],["set","target-trc","auto"],["set","screenshot-tag-colorspace","no"],["set","pause","no"],["loadfile","first.mkv","replace","-1","start=21.5"]],"resume_on_load":false}
 {"command":"OpenFiles","mpv":[["set","icc-profile-auto","yes"],["set","target-prim","auto"],["set","target-trc","auto"],["set","screenshot-tag-colorspace","no"],["set","pause","no"],["loadfile","first.mkv","replace"],["loadfile","second.mkv","append"]],"resume_on_load":false}
+{"command":"OpenPlaylist","mpv":[["set","icc-profile-auto","yes"],["set","target-prim","auto"],["set","target-trc","auto"],["set","screenshot-tag-colorspace","no"],["set","pause","no"],["loadfile","first.mkv","replace"],["loadfile","second.mkv","append"]],"resume_on_load":false}
 {"command":"OpenFilesWithSubtitles","mpv":[["set","icc-profile-auto","yes"],["set","target-prim","auto"],["set","target-trc","auto"],["set","screenshot-tag-colorspace","no"],["set","pause","no"],["loadfile","first.mkv","replace"]],"resume_on_load":false}
 {"command":"SetPauseWhenOpen","mpv":[],"resume_on_load":false}
 {"command":"SetPlaybackEndPolicy","mpv":[["set","keep-open","always"]],"resume_on_load":false}

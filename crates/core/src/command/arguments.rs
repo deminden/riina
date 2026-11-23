@@ -90,6 +90,7 @@ impl Command {
             | Self::AdjustSubtitlePosition(_)
             | Self::SubtitleSeek(_) => self.subtitles_args()?,
             Self::OpenFiles(_)
+            | Self::OpenPlaylist(_)
             | Self::OpenFilesWithSubtitles { .. }
             | Self::SetPauseWhenOpen(_)
             | Self::SetResumeLastPosition(_)

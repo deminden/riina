@@ -21,7 +21,7 @@ pub(crate) struct Request {
 
 impl AutoFolderAdder {
     pub(crate) fn observe(&mut self, state: &Playback, enabled: bool) -> Option<Request> {
-        if !enabled {
+        if !enabled || state.explicit_playlist {
             self.last_media = None;
             return None;
         }
@@ -53,7 +53,8 @@ impl AutoFolderAdder {
 }
 
 pub(crate) fn request_is_current(request: &Request, state: &Playback) -> bool {
-    state.generation == request.generation
+    !state.explicit_playlist
+        && state.generation == request.generation
         && state
             .playlist
             .iter()

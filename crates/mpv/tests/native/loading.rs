@@ -24,7 +24,7 @@ fn pause_when_open_applies_to_replacement_and_batch_without_changing_current_pla
             && state.position.is_some()
     });
     harness
-        .send(Command::OpenFiles(vec![media.clone(), media.clone()]))
+        .send(Command::OpenPlaylist(vec![media.clone(), media.clone()]))
         .unwrap();
     let batch = harness.wait(|state| {
         state.generation > replacement.generation
@@ -33,13 +33,30 @@ fn pause_when_open_applies_to_replacement_and_batch_without_changing_current_pla
             && state.playlist.len() == 2
     });
     harness
+        .send(Command::InsertPlaylistFilesAroundCurrent {
+            before: vec![
+                root.join("tests/fixtures/moving-square.avi")
+                    .to_string_lossy()
+                    .into_owned(),
+            ],
+            after: Vec::new(),
+        })
+        .unwrap();
+    harness
         .send(Command::AppendFiles(vec![
             audio.to_string_lossy().into_owned(),
         ]))
         .unwrap();
-    let appended = harness.wait(|state| state.playlist.len() == 3);
+    let appended = harness.wait(|state| {
+        state
+            .playlist
+            .iter()
+            .any(|entry| std::path::Path::new(&entry.filename).ends_with("external-tone.wav"))
+    });
     assert_eq!(appended.generation, batch.generation);
+    assert_eq!(appended.playlist.len(), 3);
     assert!(appended.paused);
+    assert!(appended.explicit_playlist);
     harness.send(Command::PlaylistNext).unwrap();
     let next = harness.wait(|state| {
         state.generation > appended.generation
@@ -71,6 +88,7 @@ fn pause_when_open_applies_to_replacement_and_batch_without_changing_current_pla
             && state.position.is_some()
     });
     for resumed in [&previous, &audio_playing] {
+        assert!(resumed.explicit_playlist);
         assert!(
             resumed
                 .mpv_events
@@ -81,11 +99,12 @@ fn pause_when_open_applies_to_replacement_and_batch_without_changing_current_pla
         );
     }
     harness.send(Command::Load(media)).unwrap();
-    harness.wait(|state| {
+    let ordinary_open = harness.wait(|state| {
         state.generation > audio_playing.generation
             && state.phase == Phase::Playing
             && !state.paused
     });
+    assert!(!ordinary_open.explicit_playlist);
 }
 
 #[test]

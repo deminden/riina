@@ -111,6 +111,7 @@ impl Command {
             }
             Self::RemovePlaylistIds(ids) => playlist::remove_ids(state, ids)?,
             Self::OpenFiles(paths)
+            | Self::OpenPlaylist(paths)
             | Self::AppendFiles(paths)
             | Self::OpenFilesWithSubtitles { paths, .. } => {
                 playlist::open_files(state, self, paths)?
@@ -121,6 +122,8 @@ impl Command {
             Self::InsertPlaylistFilesBefore { paths, before_id } => {
                 playlist::insert_files_before(state, paths, *before_id)?
             }
+            // A discovery result already queued during replacement still reaches the worker.
+            Self::InsertPlaylistFilesAroundCurrent { .. } if state.explicit_playlist => Vec::new(),
             Self::InsertPlaylistFilesAroundCurrent { before, after } => {
                 playlist::insert_files_around_current(state, before, after)?
             }

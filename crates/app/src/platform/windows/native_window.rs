@@ -36,7 +36,7 @@ pub fn run(
         media: InitialMedia {
             files: media,
             resume_position,
-            managed: None,
+            ..InitialMedia::default()
         },
         owner_center,
         loaded,

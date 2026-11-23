@@ -34,10 +34,49 @@ pub fn open_in_new_player(app: &PlayerWindow, path: &str) -> Result<(), String> 
     if path.is_empty() || path.contains('\0') {
         return Err("The media reference is invalid".into());
     }
-    open_player(app, &[path.to_owned()], Some(path), None)
+    open_player(app, &[path.to_owned()], Some(path), None, false)
 }
 
 pub fn selection_in_new_player(app: &PlayerWindow, paths: Vec<String>) {
+    new_player_selection(app, paths, NewPlayerSelection::Media);
+}
+
+#[derive(Clone, Copy)]
+pub(crate) enum HistoryDestination {
+    CurrentPlayer,
+    NewPlayer,
+}
+
+pub(crate) fn history_selection(
+    app: &PlayerWindow,
+    paths: Vec<String>,
+    destination: HistoryDestination,
+    sender: CommandSender,
+) {
+    match destination {
+        HistoryDestination::CurrentPlayer => {
+            selection_at(
+                app,
+                paths,
+                false,
+                None,
+                sender,
+                SelectionSource::ExplicitPlaylist,
+            );
+        }
+        HistoryDestination::NewPlayer => {
+            new_player_selection(app, paths, NewPlayerSelection::ExplicitPlaylist);
+        }
+    }
+}
+
+#[derive(Clone, Copy)]
+enum NewPlayerSelection {
+    Media,
+    ExplicitPlaylist,
+}
+
+fn new_player_selection(app: &PlayerWindow, paths: Vec<String>, selection: NewPlayerSelection) {
     if paths.is_empty() {
         return;
     }
@@ -54,7 +93,12 @@ pub fn selection_in_new_player(app: &PlayerWindow, paths: Vec<String>) {
     let weak = app.as_weak();
     let failure = weak.clone();
     let started = crate::background::spawn_named("new-player-media-discovery", move || {
-        let result = preferences_for_open().and_then(|prefs| prepare_new_players(paths, &prefs));
+        let result = match selection {
+            NewPlayerSelection::Media => {
+                preferences_for_open().and_then(|prefs| prepare_new_players(paths, &prefs))
+            }
+            NewPlayerSelection::ExplicitPlaylist => prepare_new_history_player(paths),
+        };
         // The result has no recipient once its window or event loop closes.
         let _ = crate::background::to_ui(weak, move |app| {
             if let Err(error) = result.and_then(|players| {
@@ -74,6 +118,18 @@ pub fn selection_in_new_player(app: &PlayerWindow, paths: Vec<String>) {
     }
 }
 
+fn prepare_new_history_player(paths: Vec<String>) -> Result<Vec<PlayerSelection>, String> {
+    let paths = file_selection::prepare(paths, true)?;
+    Ok((!paths.is_empty())
+        .then_some(PlayerSelection {
+            paths,
+            duplicate_reference: None,
+            explicit_playlist: true,
+        })
+        .into_iter()
+        .collect())
+}
+
 fn open_new_players(
     app: &PlayerWindow,
     players: impl IntoIterator<Item = PlayerSelection>,
@@ -84,6 +140,7 @@ fn open_new_players(
             &player.paths,
             player.duplicate_reference.as_deref(),
             None,
+            player.explicit_playlist,
         )?;
     }
     Ok(())
@@ -94,6 +151,7 @@ fn open_player(
     paths: &[String],
     duplicate_reference: Option<&str>,
     resume_position: Option<f64>,
+    explicit_playlist: bool,
 ) -> Result<(), String> {
     if paths.is_empty() {
         return Ok(());
@@ -110,9 +168,12 @@ fn open_player(
             )),
             duplicate_reference.unwrap_or_default().into(),
             resume_position.map_or(-1.0, |position| position as f32),
+            explicit_playlist,
         );
-    } else {
+    } else if !explicit_playlist {
         spawn_player(app, paths, resume_position)?;
+    } else {
+        return Err("The player window is still starting".into());
     }
     Ok(())
 }
@@ -185,7 +246,7 @@ fn open_single_in_separate_player(
     if !has_playlist(app) || !preferences_for_open()?.allow_multiple_windows {
         return Ok(false);
     }
-    open_player(app, &[path.to_owned()], Some(path), resume_position)?;
+    open_player(app, &[path.to_owned()], Some(path), resume_position, false)?;
     Ok(true)
 }
 
@@ -287,6 +348,7 @@ pub fn startup_at(
     app: &PlayerWindow,
     paths: Vec<OsString>,
     resume_position: Option<f64>,
+    explicit_playlist: bool,
     sender: CommandSender,
 ) {
     startup_selection(
@@ -294,7 +356,11 @@ pub fn startup_at(
         paths,
         resume_position,
         sender,
-        SelectionSource::Startup,
+        if explicit_playlist {
+            SelectionSource::ExplicitPlaylist
+        } else {
+            SelectionSource::Startup
+        },
     );
 }
 
@@ -303,6 +369,7 @@ enum SelectionSource {
     Startup,
     Interactive,
     DesktopDrop,
+    ExplicitPlaylist,
 }
 
 fn startup_selection(
@@ -470,7 +537,10 @@ fn prepare_selection(
     };
     if !append
         && resume_position.is_none()
-        && source != SelectionSource::Startup
+        && matches!(
+            source,
+            SelectionSource::Interactive | SelectionSource::DesktopDrop
+        )
         && subtitles.is_empty()
     {
         let prefs = preferences_for_open()?;
@@ -499,6 +569,8 @@ fn prepare_selection(
     }
     let command = if append {
         Command::AppendFiles(paths)
+    } else if source == SelectionSource::ExplicitPlaylist {
+        Command::OpenPlaylist(paths)
     } else if let Some(position) =
         resume_position.filter(|value| value.is_finite() && *value >= 0.0)
         && let [path] = paths.as_slice()
@@ -621,6 +693,33 @@ mod tests {
     use super::manual_open_repeat_command;
     use super::{parse_internet_shortcut, validate_url};
     use riina_core::{Command, LoopMode};
+
+    #[test]
+    fn history_actions_keep_the_selection_in_one_explicit_playlist() {
+        use super::{
+            PreparedSelection, SelectionSource, prepare_new_history_player, prepare_selection,
+        };
+
+        let paths = vec!["clip10.mkv".into(), "clip2.mkv".into()];
+        let expected = ["clip2.mkv", "clip10.mkv"];
+        let current = prepare_selection(
+            paths.clone(),
+            false,
+            None,
+            SelectionSource::ExplicitPlaylist,
+        );
+        assert!(
+            matches!(current, Ok(PreparedSelection::Command(Command::OpenPlaylist(paths))) if paths == expected)
+        );
+
+        let new = prepare_new_history_player(paths).unwrap();
+        let [player] = new.as_slice() else {
+            panic!("History opens one player")
+        };
+        assert_eq!(player.paths, expected);
+        assert!(player.explicit_playlist);
+        assert!(player.duplicate_reference.is_none());
+    }
 
     #[test]
     fn welcome_drops_route_plain_media_through_the_window_preferences() {

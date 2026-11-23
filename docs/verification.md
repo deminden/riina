@@ -2400,6 +2400,24 @@ Closing all four windows ended the exact test process normally. The executable
 SHA-256 was `a84f7cffae341a8f0ed87aea74379f7b560de2ebc84753a9dfc70b292caf53f0`.
 Live multi-window routing on Windows, Wayland and macOS remains unverified.
 
+### Playback History destinations 2026-11-23
+
+The full Windows workspace gate and all 58 pinned libmpv null-output tests
+passed. The application tests cover selection preparation for both History
+actions. Native tests confirm that the selected playlist survives a pending
+folder scan, an append and manual navigation, and that opening regular media
+restores the normal discovery policy.
+
+On isolated Linux X11, Return played a selected row in the existing window.
+Ctrl+A selected both history rows and Ctrl+Return opened them in one additional
+window, even with grouping and duplicate players disabled. The two playlists
+contained only the selected entries with same-folder discovery enabled. Closing
+History and both players in sequence ended the test process normally. The X11
+executable SHA-256 was
+`c9e63fbb02184f50a099c76622d9f773a216bfe092cb0f5d321b511da6e7e414`.
+The queued-scan guard was verified separately in the Windows native suite.
+Live Windows, Wayland and macOS History input remains unverified.
+
 ### macOS application menu composition 2026-10-14
 
 The AppKit adapter consolidates application actions in one native menu while

@@ -391,6 +391,16 @@ impl WorkerState {
             }
             let reply = ReplyKind::for_command(command, args.first().map(String::as_str));
             self.issue(handle, &args, reply)?;
+            if command.replaces_media()
+                && args.first().is_some_and(|name| name == "loadfile")
+                && args.get(2).is_some_and(|mode| mode == "replace")
+            {
+                let explicit = matches!(command, Command::OpenPlaylist(_));
+                if self.playback.explicit_playlist != explicit {
+                    self.playback.explicit_playlist = explicit;
+                    self.mark_changed();
+                }
+            }
             if rewriting_seek {
                 self.auto_seek.submitted(self.next_id);
             }

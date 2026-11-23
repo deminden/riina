@@ -153,6 +153,11 @@ shared player managers use each player's current media for duplicate checks on
 separate opens. An explicit grouped selection opens together even when only one
 playable item remains after filtering.
 
+Playback History sends selected rows to the current player or to one new player
+according to the chosen action. The engine retains that explicit playlist
+through navigation and appends. Same-folder media discovery skips it until a
+regular media open replaces it.
+
 ### Plugin mpv operations
 
 The player attaches its command sender before the plugin host starts entry

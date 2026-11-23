@@ -116,7 +116,7 @@ impl PlayerManager {
         app.set_in_process_player_manager(true);
         let state = Rc::downgrade(&self.state);
         let owner = app.as_weak();
-        app.on_open_player_requested(move |paths, reference, position| {
+        app.on_open_player_requested(move |paths, reference, position, explicit_playlist| {
             let Some(state) = state.upgrade() else { return };
             let Some(owner) = owner.upgrade() else { return };
             let paths = paths
@@ -125,9 +125,13 @@ impl PlayerManager {
                 .collect::<Vec<_>>();
             let resume_position =
                 (position.is_finite() && position >= 0.0).then_some(f64::from(position));
-            if let Err(error) =
-                open_player(&state, &owner, paths, reference.as_str(), resume_position)
-            {
+            let media = InitialMedia {
+                files: paths,
+                resume_position,
+                explicit_playlist,
+                ..InitialMedia::default()
+            };
+            if let Err(error) = open_player(&state, &owner, media, reference.as_str()) {
                 owner.set_status(error.into());
             }
         });
@@ -199,11 +203,10 @@ fn show_and_focus(window: &(impl ComponentHandle + 'static), owner: &PlayerWindo
 fn open_player(
     state: &Rc<RefCell<ManagerState>>,
     owner: &PlayerWindow,
-    media: Vec<OsString>,
+    media: InitialMedia,
     reference: &str,
-    resume_position: Option<f64>,
 ) -> Result<(), String> {
-    if media.is_empty() {
+    if media.files.is_empty() {
         return Err("No media was selected for the new player".into());
     }
     let preferences_path =
@@ -228,16 +231,7 @@ fn open_player(
         owner.set_status("The selected media is already open.".into());
         return Ok(());
     }
-    open_new_player(
-        state,
-        owner,
-        InitialMedia {
-            files: media,
-            resume_position,
-            managed: None,
-        },
-        loaded,
-    )?;
+    open_new_player(state, owner, media, loaded)?;
     Ok(())
 }
 

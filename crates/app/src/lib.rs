@@ -138,7 +138,7 @@ fn run_shared_player(
         InitialMedia {
             files: media,
             resume_position,
-            managed: None,
+            ..InitialMedia::default()
         },
         welcome.as_ref(),
         loaded,

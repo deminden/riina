@@ -27,6 +27,8 @@ pub enum Phase {
 pub struct Playback {
     /// File-opening policy is intent; `paused` remains native observed state.
     pub pause_when_open: bool,
+    /// Playback History and other explicit playlists own their complete selection.
+    pub explicit_playlist: bool,
     pub generation: u64,
     pub phase: Phase,
     /// Version string from the loaded libmpv runtime, when that property is available.

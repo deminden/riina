@@ -148,11 +148,10 @@ impl Application {
     fn open(
         self: &Rc<Self>,
         owner: &PlayerWindow,
-        media: Vec<OsString>,
+        media: InitialMedia,
         reference: &str,
-        resume_position: Option<f64>,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        if media.is_empty() {
+        if media.files.is_empty() {
             return Ok(());
         }
         let loaded = preference_load::load(&crate::platform::preferences_path()?)?;
@@ -172,11 +171,7 @@ impl Application {
         }
         self.launch(
             NativeLaunch {
-                media: InitialMedia {
-                    files: media,
-                    resume_position,
-                    managed: None,
-                },
+                media,
                 owner_center: crate::platform::player_window_center(owner.window()),
                 loaded,
             },
@@ -274,7 +269,7 @@ impl WindowActions {
         let owner = app.as_weak();
         let application = self.application.clone();
         let player = self.player.clone();
-        app.on_open_player_requested(move |paths, reference, position| {
+        app.on_open_player_requested(move |paths, reference, position, explicit_playlist| {
             let owner = owner.clone();
             let application = application.clone();
             let player = player.clone();
@@ -287,10 +282,15 @@ impl WindowActions {
                         .iter()
                         .map(|path| OsString::from(path.as_str()))
                         .collect();
-                    let resume =
+                    let resume_position =
                         (position.is_finite() && position >= 0.0).then_some(f64::from(position));
-                    if let Err(error) = application.open(&owner, paths, reference.as_str(), resume)
-                    {
+                    let media = InitialMedia {
+                        files: paths,
+                        resume_position,
+                        explicit_playlist,
+                        ..InitialMedia::default()
+                    };
+                    if let Err(error) = application.open(&owner, media, reference.as_str()) {
                         crate::diagnostics::report(&owner, error.to_string());
                     }
                 }

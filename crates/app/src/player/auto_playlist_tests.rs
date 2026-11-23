@@ -92,6 +92,10 @@ fn worker_results_cannot_attach_to_a_new_media_or_generation() {
     let mut state = state(&folder.file("clip.mp4"));
     folder.file("next.mp4");
     let request = AutoFolderAdder::default().observe(&state, true).unwrap();
+    state.explicit_playlist = true;
+    assert!(prepare(&request, &state).is_none());
+    assert!(AutoFolderAdder::default().observe(&state, true).is_none());
+    state.explicit_playlist = false;
     state.generation += 1;
     assert!(!request_is_current(&request, &state));
     assert!(prepare(&request, &state).is_none());

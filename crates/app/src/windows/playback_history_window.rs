@@ -1,4 +1,6 @@
-use crate::{PlaybackHistoryRow, PlaybackHistoryWindow, PlayerWindow};
+use crate::{
+    PlaybackHistoryRow, PlaybackHistoryWindow, PlayerWindow, media_open::HistoryDestination,
+};
 use chrono::{Local, TimeZone};
 use rfd::{MessageButtons, MessageDialog, MessageDialogResult};
 use riina_core::{RecentMedia, playback_history::Entry};
@@ -475,19 +477,22 @@ fn connect_context_actions(
         };
         let paths = context_selected_paths(&window, clicked_path.as_str());
         match action {
-            0 => {
+            0 | 1 => {
                 let playable = paths
                     .into_iter()
                     .filter(|path| describe(path).4)
                     .collect::<Vec<_>>();
-                crate::media_open::selection(&app, playable, false, context.player.clone());
-            }
-            1 => {
-                let playable = paths
-                    .into_iter()
-                    .filter(|path| describe(path).4)
-                    .collect::<Vec<_>>();
-                crate::media_open::selection_in_new_player(&app, playable);
+                let destination = if action == 0 {
+                    HistoryDestination::CurrentPlayer
+                } else {
+                    HistoryDestination::NewPlayer
+                };
+                crate::media_open::history_selection(
+                    &app,
+                    playable,
+                    destination,
+                    context.player.clone(),
+                );
             }
             2 => {
                 let files = paths

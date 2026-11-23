@@ -246,6 +246,7 @@ pub(super) fn install_toolbar_order(app: &PlayerWindow) {
 pub(crate) struct InitialMedia {
     pub(crate) files: Vec<std::ffi::OsString>,
     pub(crate) resume_position: Option<f64>,
+    pub(crate) explicit_playlist: bool,
     pub(crate) managed: Option<Arc<crate::plugins::plugin_players::Ticket>>,
 }
 
@@ -269,8 +270,8 @@ impl InitialMedia {
             .collect();
         Self {
             files,
-            resume_position: None,
             managed: Some(ticket),
+            ..Self::default()
         }
     }
 }
@@ -285,13 +286,14 @@ impl InitialOpen {
         let InitialMedia {
             files,
             resume_position,
+            explicit_playlist,
             ..
         } = self.media;
         if files.is_empty() {
             return;
         }
         let Some(plugins) = self.plugins else {
-            crate::media_open::startup_at(app, files, resume_position, sender);
+            crate::media_open::startup_at(app, files, resume_position, explicit_playlist, sender);
             return;
         };
 
@@ -301,7 +303,13 @@ impl InitialOpen {
             let _ = player.upgrade_in_event_loop(move |app| {
                 // A newer open request owns this player while plugins initialize.
                 if app.get_media_request_generation() == generation {
-                    crate::media_open::startup_at(&app, files, resume_position, sender);
+                    crate::media_open::startup_at(
+                        &app,
+                        files,
+                        resume_position,
+                        explicit_playlist,
+                        sender,
+                    );
                 }
             });
         });

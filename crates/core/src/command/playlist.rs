@@ -129,7 +129,7 @@ pub(super) fn open_files(
         .collect();
     if matches!(
         command,
-        Command::OpenFiles(_) | Command::OpenFilesWithSubtitles { .. }
+        Command::OpenFiles(_) | Command::OpenPlaylist(_) | Command::OpenFilesWithSubtitles { .. }
     ) {
         // PlayerCore.openURLs opens the first playable item, then appends
         // the remainder. Validate everything before replacing old media.

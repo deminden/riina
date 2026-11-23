@@ -46,6 +46,8 @@ pub enum Command {
         position: f64,
     },
     OpenFiles(Vec<String>),
+    /// Open an explicit playlist without discovering siblings of its entries.
+    OpenPlaylist(Vec<String>),
     OpenFilesWithSubtitles {
         paths: Vec<String>,
         subtitles: Vec<String>,
@@ -273,6 +275,7 @@ impl Command {
             Self::Load(_)
                 | Self::LoadAtPosition { .. }
                 | Self::OpenFiles(_)
+                | Self::OpenPlaylist(_)
                 | Self::OpenFilesWithSubtitles { .. }
                 | Self::Stop
         ) || matches!(self, Self::PluginMpv(command) if command.name() == "stop")
@@ -312,6 +315,7 @@ impl Command {
                 | Self::AppendFiles(_)
                 | Self::InsertPlaylistFilesBefore { .. }
                 | Self::OpenFiles(_)
+                | Self::OpenPlaylist(_)
                 | Self::OpenFilesWithSubtitles { .. }
         )
     }
