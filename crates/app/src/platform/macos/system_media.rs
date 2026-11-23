@@ -99,6 +99,7 @@ impl GeneratedArtworkTask {
                 fallback_time,
                 &worker_cancel,
             );
+            // The owner can drop the result receiver while canceling artwork.
             let _ = sender.send(result);
         })
         .map_err(|error| format!("Could not start Now Playing artwork extraction: {error}"))?;
@@ -123,6 +124,7 @@ impl Drop for GeneratedArtworkTask {
     fn drop(&mut self) {
         self.cancel();
         if let Some(thread) = self.thread.take() {
+            // The named worker logs panics before returning.
             let _ = thread.join();
         }
     }
@@ -278,6 +280,8 @@ impl SystemMediaControls {
         // accessed on the same UI thread as its remote command center.
         let now_playing = unsafe { MPNowPlayingInfoCenter::defaultCenter() };
         let lifecycle_notification_center = NSNotificationCenter::defaultCenter();
+        // Notification callbacks run on the UI thread. A full queue must not
+        // block the thread that drains it, and teardown can close the receiver.
         let sleep_sender = sender.clone();
         let sleep_block = RcBlock::new(move |_| {
             let _ = sleep_sender.try_send(RemoteMediaAction::Sleep);
@@ -897,6 +901,7 @@ fn capture_quick_look_request(url: &NSURL, cancel: &AtomicBool) -> Result<Vec<u8
                 let image = unsafe { representation.CGImage() };
                 encode_cgimage_jpeg(&image)
             };
+            // The capture deadline can expire before Quick Look replies.
             let _ = sender.send(result);
         },
     );

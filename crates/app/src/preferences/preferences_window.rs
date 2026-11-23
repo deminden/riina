@@ -100,6 +100,7 @@ pub(crate) fn connect(
                 available_devices,
             );
             let weak = window.as_weak();
+            // Settings is already visible. Deferred focus can expire with the window.
             let _ = slint::spawn_local(async move {
                 if let Some(window) = weak.upgrade()
                     && let Ok(native) = window.window().winit_window().await

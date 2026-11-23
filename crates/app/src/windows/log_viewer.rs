@@ -419,9 +419,9 @@ fn connect_window(
             .collect::<Vec<_>>()
             .join("\n");
         let app = app.as_weak();
-        let viewer = viewer.as_weak();
-        let _ = slint::spawn_local(async move {
-            let (Some(app), Some(viewer)) = (app.upgrade(), viewer.upgrade()) else {
+        let weak_viewer = viewer.as_weak();
+        let scheduled = slint::spawn_local(async move {
+            let (Some(app), Some(viewer)) = (app.upgrade(), weak_viewer.upgrade()) else {
                 return;
             };
             app.global::<riina_ui::PlayerDialogState>()
@@ -453,12 +453,19 @@ fn connect_window(
             match result {
                 Ok(true) => viewer.set_status_text("Filtered logs saved".into()),
                 Ok(false) => {}
-                Err(error) => {
-                    viewer.set_status_text(format!("Could not save logs: {error}").into())
-                }
+                Err(error) => report_save_failure(&viewer, &error),
             }
         });
+        if let Err(error) = scheduled {
+            report_save_failure(&viewer, &error);
+        }
     });
+}
+
+fn report_save_failure(viewer: &LogViewerWindow, error: &dyn std::fmt::Display) {
+    let message = format!("Could not save logs: {error}");
+    crate::diagnostics::warn!("{message}");
+    viewer.set_status_text(message.into());
 }
 
 fn filtered_rows(

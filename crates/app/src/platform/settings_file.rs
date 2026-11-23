@@ -60,7 +60,11 @@ impl Drop for PendingReplacement {
     fn drop(&mut self) {
         // Successful replacement already consumed this name. Failure removes only
         // the exclusively owned temporary file, preserving the previous settings.
-        let _ = std::fs::remove_file(&self.0);
+        if let Err(error) = std::fs::remove_file(&self.0)
+            && error.kind() != std::io::ErrorKind::NotFound
+        {
+            crate::diagnostics::warn!("Could not remove a temporary settings file: {error}");
+        }
     }
 }
 

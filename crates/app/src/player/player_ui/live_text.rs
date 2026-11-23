@@ -31,7 +31,7 @@ pub(super) fn initialize(app: &PlayerWindow, enabled: bool, use_system_services:
     }
     if use_system_services && text_recognition::SUPPORTED {
         let weak = app.as_weak();
-        let _ = text_recognition::check_availability(move |available| {
+        let probe = text_recognition::check_availability(move |available| {
             // The result has no recipient once its window or event loop closes.
             let _ = crate::background::to_ui(weak, move |app| {
                 app.set_live_text_available(available);
@@ -40,6 +40,9 @@ pub(super) fn initialize(app: &PlayerWindow, enabled: bool, use_system_services:
                 }
             });
         });
+        if let Err(error) = probe {
+            crate::diagnostics::warn!("Could not check Live Text availability: {error}");
+        }
     }
 }
 

@@ -47,7 +47,11 @@ pub(super) fn local(window: &PreferencesWindow, app: &PlayerWindow, settings: &P
         match staged.install(&plugins) {
             Ok(path) => {
                 if let Err(error) = save_granted_permissions(&preferences_path, &manifest) {
-                    let _ = fs::remove_dir_all(&path);
+                    if let Err(cleanup_error) = fs::remove_dir_all(&path) {
+                        crate::diagnostics::warn!(
+                            "Could not remove a plugin without saved grants: {cleanup_error}"
+                        );
+                    }
                     window.set_plugin_update_status(
                         format!("Could not save plugin permissions: {error}").into(),
                     );
@@ -164,7 +168,11 @@ pub(super) fn github(window: &PreferencesWindow, app: &PlayerWindow, settings: &
                 if let Err(error) =
                     save_granted_permissions(&preferences_path_for_github, &manifest)
                 {
-                    let _ = fs::remove_dir_all(&path);
+                    if let Err(cleanup_error) = fs::remove_dir_all(&path) {
+                        crate::diagnostics::warn!(
+                            "Could not remove a plugin without saved grants: {cleanup_error}"
+                        );
+                    }
                     window.set_plugin_update_status(
                         format!("Could not save plugin permissions: {error}").into(),
                     );

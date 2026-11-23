@@ -182,7 +182,9 @@ fn plugin_menu_handle(hwnd: HWND) -> isize {
 }
 impl Drop for MenuFocus {
     fn drop(&mut self) {
-        let _ = self.set_visible(true);
+        if let Err(error) = self.set_visible(true) {
+            crate::diagnostics::warn!("Could not restore the native menu on teardown: {error}");
+        }
         if let Some(context) = self.context.take() {
             let pointer = (&*context as *const MenuContext) as usize;
             // SAFETY: the callback context remains owned until removal.
@@ -313,7 +315,9 @@ unsafe extern "system" fn menu_proc(
         if matches!(message, WM_KEYUP | WM_SYSKEYUP) {
             // F10 can reach the framed owner directly, without visiting the
             // shared controls. Use the same queued entry for either input scope.
-            let _ = request(hwnd.0 as isize);
+            if let Err(error) = request(hwnd.0 as isize) {
+                crate::diagnostics::warn!("Could not queue native menu entry: {error}");
+            }
             return LRESULT(0);
         }
     }
@@ -397,7 +401,7 @@ unsafe extern "system" fn menu_proc(
         // Windows still unwinds focus internally here. Restore through its own
         // queue; a later menu loop invalidates this restoration generation.
         // SAFETY: this retained owner receives its registered message on the UI thread.
-        let _ = unsafe {
+        let restore = unsafe {
             PostMessageW(
                 Some(hwnd),
                 context.restore_message,
@@ -405,6 +409,10 @@ unsafe extern "system" fn menu_proc(
                 LPARAM(0),
             )
         };
+        if let Err(error) = restore {
+            context.active.set(false);
+            crate::diagnostics::warn!("Could not queue native menu focus restoration: {error}");
+        }
     }
     if message == context.restore_message {
         if wparam.0 == context.generation.get() {

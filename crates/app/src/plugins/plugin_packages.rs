@@ -50,7 +50,7 @@ impl StageLease {
 impl Drop for StageLease {
     fn drop(&mut self) {
         drop(self.file.take());
-        let _ = fs::remove_file(&self.path);
+        remove_stage_lease(&self.path);
     }
 }
 
@@ -184,7 +184,11 @@ fn stage(source: impl Read + Seek, plugins_directory: &Path) -> Result<StagedPac
     let lease = match StageLease::acquire(&stage_directory) {
         Ok(lease) => lease,
         Err(error) => {
-            let _ = fs::remove_dir(&stage_directory);
+            if let Err(cleanup_error) = fs::remove_dir(&stage_directory) {
+                crate::diagnostics::warn!(
+                    "Could not discard an unclaimed plugin stage: {cleanup_error}"
+                );
+            }
             return Err(error.to_string());
         }
     };
@@ -201,7 +205,13 @@ fn stage(source: impl Read + Seek, plugins_directory: &Path) -> Result<StagedPac
             manifest,
         }),
         Err(error) => {
-            let _ = fs::remove_dir_all(&stage_directory);
+            if let Err(cleanup_error) = fs::remove_dir_all(&stage_directory)
+                && cleanup_error.kind() != io::ErrorKind::NotFound
+            {
+                crate::diagnostics::warn!(
+                    "Could not discard a rejected plugin stage: {cleanup_error}"
+                );
+            }
             Err(error)
         }
     }
@@ -277,9 +287,17 @@ fn sweep_stage(root: &Path, path: &Path) -> io::Result<()> {
     fs::remove_dir_all(path)?;
     if let Some(lease) = lease {
         drop(lease);
-        let _ = fs::remove_file(marker);
+        remove_stage_lease(&marker);
     }
     Ok(())
+}
+
+fn remove_stage_lease(path: &Path) {
+    if let Err(error) = fs::remove_file(path)
+        && error.kind() != io::ErrorKind::NotFound
+    {
+        crate::diagnostics::warn!("Could not remove a plugin stage lease: {error}");
+    }
 }
 
 fn generated_directory_name(name: &str, prefix: &str) -> bool {

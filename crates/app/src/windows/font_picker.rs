@@ -192,6 +192,7 @@ pub fn connect(app: &PlayerWindow) {
                 crate::platform::enable_font_picker_acrylic(&picker);
                 follow_player_theme(&picker, &app, &show_appearance_timer);
                 let window = picker.as_weak();
+                // The picker is already visible. Deferred focus can expire with the window.
                 let _ = slint::spawn_local(async move {
                     if let Some(picker) = window.upgrade()
                         && let Ok(window) = picker.window().winit_window().await

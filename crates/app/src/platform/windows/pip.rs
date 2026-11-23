@@ -39,27 +39,18 @@ impl DwmThumbnail {
         // SAFETY: both HWNDs belong to the retained PiP and playback windows.
         let handle = unsafe { DwmRegisterThumbnail(destination, source) }
             .map_err(|error| format!("Could not attach the video to PiP: {error}"))?;
-        // SAFETY: successful registration produced this live thumbnail handle.
-        let source_size = match unsafe { DwmQueryThumbnailSourceSize(handle) } {
-            Ok(size) if size.cx > 0 && size.cy > 0 => size,
-            Ok(_) => {
-                // SAFETY: this branch owns the registered handle and exits after releasing it.
-                let _ = unsafe { DwmUnregisterThumbnail(handle) };
-                return Err("The video window has no drawable size".into());
-            }
-            Err(error) => {
-                // SAFETY: the failed query has not consumed the registered handle.
-                let _ = unsafe { DwmUnregisterThumbnail(handle) };
-                return Err(format!(
-                    "Could not inspect the video surface for PiP: {error}"
-                ));
-            }
-        };
-        Ok(Self {
+        let mut thumbnail = Self {
             handle,
-            source_size,
+            source_size: SIZE::default(),
             destination_rect: None,
-        })
+        };
+        // SAFETY: the thumbnail owns the registration until this query returns.
+        thumbnail.source_size = unsafe { DwmQueryThumbnailSourceSize(thumbnail.handle) }
+            .map_err(|error| format!("Could not inspect the video surface for PiP: {error}"))?;
+        if thumbnail.source_size.cx <= 0 || thumbnail.source_size.cy <= 0 {
+            return Err("The video window has no drawable size".into());
+        }
+        Ok(thumbnail)
     }
 
     pub(crate) fn source_size(&self) -> SIZE {
@@ -105,7 +96,11 @@ impl DwmThumbnail {
 impl Drop for DwmThumbnail {
     fn drop(&mut self) {
         // SAFETY: this owner releases its registration once, before either HWND is destroyed.
-        let _ = unsafe { DwmUnregisterThumbnail(self.handle) };
+        if let Err(error) = unsafe { DwmUnregisterThumbnail(self.handle) } {
+            crate::diagnostics::warn!(
+                "Could not release the Picture-in-Picture thumbnail: {error}"
+            );
+        }
     }
 }
 
@@ -337,7 +332,7 @@ fn toggle(controller: Rc<RefCell<Controller>>) {
             controller.commands.clone(),
         )
     };
-    let _ = slint::spawn_local(async move {
+    let scheduled = slint::spawn_local(async move {
         let result = async {
             let player = player_weak
                 .upgrade()
@@ -394,44 +389,7 @@ fn toggle(controller: Rc<RefCell<Controller>>) {
             thumbnail.set_visible(destination_rect, true)?;
             thumbnail.destination_rect = Some(destination_rect);
 
-            let was_paused = player.get_paused();
-            if effects.pause_playback {
-                commands
-                    .send(Command::SetPaused(true))
-                    .map_err(|error| error.to_string())?;
-            }
-            if behavior != WindowBehavior::DoNothing {
-                // Do the fallible player-window request before parking the
-                // renderer HWND, so a rejected PiP entry cannot strand video off-screen.
-                match behavior {
-                    WindowBehavior::Hide => {
-                        if let Err(error) = player.window().hide() {
-                            // A rejected hide may leave the window state uncertain. Restore
-                            // the visible entry surface and the pause state before aborting.
-                            if let Err(restore_error) = player.window().show() {
-                                crate::diagnostics::warn!("Could not restore the player after rejected Picture-in-Picture entry: {restore_error}");
-                            }
-                            if effects.pause_playback && !was_paused
-                                && let Err(restore_error) = commands.send(Command::SetPaused(false))
-                            {
-                                crate::diagnostics::warn!("Could not restore playback after rejected Picture-in-Picture entry: {restore_error}");
-                            }
-                            return Err(error.to_string());
-                        }
-                    }
-                    WindowBehavior::Minimize => {
-                        player
-                            .window()
-                            .with_winit_window(|window| window.set_minimized(true));
-                    }
-                    WindowBehavior::DoNothing => {}
-                }
-                // Keep the renderer HWND alive and drawable while its pixels are
-                // projected; the player-level policy only affects its chrome.
-                host.window().with_winit_window(|window| {
-                    window.set_outer_position(PhysicalPosition::new(-32_000, -32_000));
-                });
-            }
+            apply_entry_policy(&player, &host, &commands, behavior, effects.pause_playback)?;
             Ok(ActiveSession {
                 _thumbnail: thumbnail,
                 host_geometry,
@@ -454,7 +412,7 @@ fn toggle(controller: Rc<RefCell<Controller>>) {
             }
             Err(error) => {
                 if let Some(player) = player_weak.upgrade() {
-                    player.set_status(error.into());
+                    crate::diagnostics::report(&player, error);
                 }
                 if let Some(pip) = pip_weak.upgrade() {
                     // Continue releasing session resources if the window is closing.
@@ -463,6 +421,61 @@ fn toggle(controller: Rc<RefCell<Controller>>) {
             }
         }
     });
+    if let Err(error) = scheduled {
+        controller.borrow().entering.set(false);
+        crate::diagnostics::warn!("Could not schedule Picture-in-Picture entry: {error}");
+    }
+}
+
+fn apply_entry_policy(
+    player: &PlayerWindow,
+    host: &NativeVideoHost,
+    commands: &CommandSender,
+    behavior: WindowBehavior,
+    pause_playback: bool,
+) -> Result<(), String> {
+    let was_paused = player.get_paused();
+    if pause_playback {
+        commands
+            .send(Command::SetPaused(true))
+            .map_err(|error| error.to_string())?;
+    }
+    // Do the fallible player-window request before parking the renderer HWND,
+    // so a rejected PiP entry cannot strand video off-screen.
+    match behavior {
+        WindowBehavior::Hide => {
+            if let Err(error) = player.window().hide() {
+                // A rejected hide may leave the window state uncertain. Restore
+                // the visible entry surface and the pause state before aborting.
+                if let Err(restore_error) = player.window().show() {
+                    crate::diagnostics::warn!(
+                        "Could not restore the player after rejected Picture-in-Picture entry: {restore_error}"
+                    );
+                }
+                if pause_playback
+                    && !was_paused
+                    && let Err(restore_error) = commands.send(Command::SetPaused(false))
+                {
+                    crate::diagnostics::warn!(
+                        "Could not restore playback after rejected Picture-in-Picture entry: {restore_error}"
+                    );
+                }
+                return Err(error.to_string());
+            }
+        }
+        WindowBehavior::Minimize => {
+            player
+                .window()
+                .with_winit_window(|window| window.set_minimized(true));
+        }
+        WindowBehavior::DoNothing => return Ok(()),
+    }
+    // Keep the renderer HWND alive and drawable while its pixels are
+    // projected; the player-level policy only affects its chrome.
+    host.window().with_winit_window(|window| {
+        window.set_outer_position(PhysicalPosition::new(-32_000, -32_000));
+    });
+    Ok(())
 }
 
 fn exit(controller: Rc<RefCell<Controller>>) {
@@ -572,8 +585,24 @@ fn same_rect(left: Option<RECT>, right: Option<RECT>) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::{fit_source_in_rect, same_rect};
+    use super::{Controller, NativeVideoHost, PlayerWindow, fit_source_in_rect, same_rect, toggle};
     use windows::Win32::Foundation::{RECT, SIZE};
+
+    #[test]
+    fn rejected_picture_in_picture_entry_releases_the_pending_state()
+    -> Result<(), Box<dyn std::error::Error>> {
+        i_slint_backend_testing::init_no_event_loop();
+        let player = PlayerWindow::new()?;
+        let host = NativeVideoHost::new()?;
+        let (commands, _) = riina_mpv::CommandSender::recording(1);
+        let controller = Controller::install(&player, &host, 0, commands)?;
+
+        toggle(controller.clone());
+
+        assert!(!controller.borrow().entering.get());
+        assert!(controller.borrow().active.borrow().is_none());
+        Ok(())
+    }
 
     #[test]
     fn picture_in_picture_video_is_aspect_fitted_inside_controls_area() {

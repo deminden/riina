@@ -30,6 +30,7 @@ pub(super) fn run_entry_worker(
     ready: SyncSender<Result<(), String>>,
     network: NetworkWorkerContext,
 ) {
+    // The starter can time out and disconnect before receiving initialization errors.
     let execution = host.execution.clone();
     let events = host.events.clone();
     let interrupt_control = execution.clone();
@@ -256,6 +257,7 @@ fn run_callbacks(
             }
             Some(RuntimeCommand::Shutdown) => break,
             Some(RuntimeCommand::Barrier(response)) => {
+                // A caller can time out before the worker reaches its barrier.
                 let _ = response.send(());
                 continue;
             }

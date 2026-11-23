@@ -132,7 +132,7 @@ pub(crate) fn install(app: &PlayerWindow, host: Option<slint::Weak<NativeVideoHo
     let handler = Rc::new(RefCell::new(None));
     let installed = handler.clone();
     let weak = app.as_weak();
-    let _ = slint::spawn_local(async move {
+    let scheduled = slint::spawn_local(async move {
         let Some(app) = weak.upgrade() else { return };
         let window = if let Some(host) = host {
             let Some(host) = host.upgrade() else { return };
@@ -145,8 +145,11 @@ pub(crate) fn install(app: &PlayerWindow, host: Option<slint::Weak<NativeVideoHo
             .and_then(|window| super::WindowSizing::install(&window, app.as_weak()))
         {
             Ok(handler) => *installed.borrow_mut() = Some(handler),
-            Err(error) => app.set_status(error.into()),
+            Err(error) => crate::diagnostics::report(&app, error),
         }
     });
+    if let Err(error) = scheduled {
+        crate::diagnostics::warn!("Could not schedule window sizing setup: {error}");
+    }
     Guard { _handler: handler }
 }
