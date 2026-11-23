@@ -2,6 +2,7 @@
 use super::{
     placement::StartupCenter,
     surfaces::{align, dismiss_unaligned_transition_cover, set_overlay_visibility},
+    visibility::window_is_drawable,
 };
 use crate::{NativeVideoHost, PlayerWindow};
 use slint::{
@@ -94,6 +95,9 @@ pub(super) fn install_filter(host: &NativeVideoHost, inputs: FilterInputs) {
                 app,
                 super::super::presentation::hdr_display_active_for_slint(host),
             );
+            if !host.with_winit_window(window_is_drawable).unwrap_or(false) {
+                return result;
+            }
             let aligned = align(host, app);
             if !aligned {
                 // Hide only a proven mismatch; the retry loop restores it once

@@ -5,6 +5,7 @@ mod menu_actions;
 mod menus;
 mod placement;
 mod surfaces;
+mod visibility;
 use crate::{
     NativeVideoHost, PlayerWindow,
     player_ui::{UiSession, configure_player},
@@ -62,6 +63,7 @@ struct NativeApp {
     session: Slot<UiSession>,
     smoke: Slot<super::package_smoke::SmokeRun>,
     welcome_window: Slot<crate::WelcomeWindow>,
+    visibility_monitor: Slot<visibility::VisibilityMonitor>,
     material_policy_timer: Rc<slint::Timer>,
     overlay_hidden_for_alignment: Rc<Cell<bool>>,
     surface_alignment_timer: Rc<slint::Timer>,
@@ -115,6 +117,7 @@ impl NativeApp {
             next_owner: owner,
             chrome: Default::default(),
             welcome_window: Default::default(),
+            visibility_monitor: Default::default(),
             session: Default::default(),
             pip_controller: Default::default(),
             smoke: Default::default(),
@@ -149,6 +152,7 @@ impl NativeApp {
         let startup_surface_alignment_timer = self.surface_alignment_timer.clone();
         let startup_overlay_hidden = self.overlay_hidden_for_alignment.clone();
         let startup_material_policy_timer = self.material_policy_timer.clone();
+        let startup_visibility_monitor = self.visibility_monitor.clone();
         let startup_menu_lifecycle = self.menu_lifecycle.clone();
         let startup_menu_focus = self.menu_focus.clone();
         let placement = self.placement.clone();
@@ -183,6 +187,14 @@ impl NativeApp {
                     &startup_surface_alignment_timer,
                     &startup_overlay_hidden,
                 );
+                match visibility::VisibilityMonitor::install(
+                    video_hwnd,
+                    &startup_surface_alignment_timer,
+                    &startup_material_policy_timer,
+                ) {
+                    Ok(monitor) => *startup_visibility_monitor.borrow_mut() = Some(monitor),
+                    Err(error) => crate::diagnostics::warn!("{error}"),
+                }
                 let title_host = host.as_weak();
                 app.on_window_title_changed(move |title| {
                     if let Some(host) = title_host.upgrade() {
@@ -326,6 +338,7 @@ impl NativeApp {
     fn run(self) -> Result<(), Box<dyn std::error::Error>> {
         slint::run_event_loop()?;
         drop(self.smoke.borrow_mut().take());
+        drop(self.visibility_monitor.borrow_mut().take());
         self.surface_alignment_timer.stop();
         self.material_policy_timer.stop();
         close(
