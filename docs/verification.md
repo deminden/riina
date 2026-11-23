@@ -631,6 +631,21 @@ At `63c10a6`, the Windows workspace gate passed strict Clippy, 860 Rust tests,
 78 Python tests, and the headless player and Settings pixel comparisons.
 This grouped check covers the track language and mouse wheel adapter moves.
 
+At `84fbd90`, `cargo xtask check` passed 861 Rust tests, 78 Python tests,
+and the headless pixel comparisons on Windows. The snapshot wait test
+verified that a disconnected worker fails immediately. The pinned DLL passed
+all 55 `cargo xtask native` tests with null audio in 35.71 seconds. This
+batch includes the libavformat field-order and AVIF filename checks that
+previously ran separately.
+
+The saved-frame checker passed all 36 explicit libavformat captures. The
+default-demuxer comparison reproduced the six known field-pattern mismatches
+for the original v210 BFF fixture with deinterlacing enabled. The other 66
+default-demuxer frames passed. Separate checkers passed all six native image
+formats and confirmed that the hidden-subtitle capture exactly matched the
+video-only capture. These tests exercised engine output without launching
+Riina's application window.
+
 On `954d4d6`, separate private-desktop runs reopened and played media after
 recovering a profile with an invalid setting type, a non-object JSON document,
 or invalid UTF-8. Each run showed the recovery notice, preserved the original

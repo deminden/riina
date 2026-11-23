@@ -35,7 +35,7 @@ source tree is in test code.
 | O6 Native worker ownership | Group pending replies, own the core in the event worker and share immutable playback snapshots. | `75eb5f4`, `8ed8c1a`, `2ef80b2`, `5802d69` |
 | O7 Command planning and frame state | Separate argument and plan domains, share filter-chain planning and use typed frame slots. | `2f49a5c`, `8e9a1fb`, `ae692a8` |
 | D2 and D3 Duplicate command logic | Share audio and video filter commands and use one replay plan for ended playback. The command goldens cover both. | `8e9a1fb`, `ae692a8` |
-| Test suite structure | Share temporary directories and snapshot waits, group native cases by subsystem, generate inputs for parsers and geometry, and inspect workflow structure. The optional coverage report has no threshold. | `502e61b`, `b7d0278`, `75852b8`, `0db351b`, `1ef80d2`, `975a51c`, `b018f68` |
+| Test suite structure | Share temporary directories and snapshot waits, group all 55 native cases by subsystem, generate inputs for parsers and geometry, and inspect workflow structure. The optional coverage report has no threshold. | `502e61b`, `b7d0278`, `75852b8`, `0db351b`, `1ef80d2`, `975a51c`, `b018f68`, `84fbd90` |
 
 | In progress | Verified progress | Local commits |
 |---|---|---|
