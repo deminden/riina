@@ -3,7 +3,7 @@
 mod context;
 mod encoding;
 
-pub(crate) use context::PluginPlayerFileContext;
+pub(crate) use context::{PluginPlayerFileContext, PluginPlaylist};
 use encoding::decode_text;
 use serde::Serialize;
 use std::{
@@ -147,6 +147,13 @@ impl PluginFiles {
         self.player_context
             .lock()
             .map(|context| context.chapters.clone())
+            .map_err(|_| "Player file context was poisoned".to_owned())
+    }
+
+    pub(crate) fn playlist(&self) -> Result<PluginPlaylist, String> {
+        self.player_context
+            .lock()
+            .map(|context| context.playlist.clone())
             .map_err(|_| "Player file context was poisoned".to_owned())
     }
 

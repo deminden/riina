@@ -5,6 +5,12 @@ use std::{
     sync::Arc,
 };
 
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub(crate) struct PluginPlaylist {
+    pub(crate) active: bool,
+    pub(crate) entries: Arc<Vec<riina_core::PlaylistEntry>>,
+}
+
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct PluginPlayerFileContext {
     media_generation: u64,
@@ -15,6 +21,7 @@ pub(crate) struct PluginPlayerFileContext {
     observed_mpv_properties: Arc<BTreeMap<String, serde_json::Value>>,
     mpv_events: Arc<VecDeque<riina_core::MpvEventRecord>>,
     pub(super) chapters: Vec<serde_json::Value>,
+    pub(super) playlist: PluginPlaylist,
     pub(super) core_version: serde_json::Value,
     pub(super) core_window_properties: BTreeMap<String, serde_json::Value>,
     pub(super) recent_documents: Vec<serde_json::Value>,
@@ -41,6 +48,7 @@ impl PluginPlayerFileContext {
             observed_mpv_properties: Arc::default(),
             mpv_events: Arc::default(),
             chapters: Vec::new(),
+            playlist: PluginPlaylist::default(),
             core_version: serde_json::Value::Null,
             core_window_properties: BTreeMap::from([
                 ("loaded".into(), serde_json::Value::Bool(false)),
@@ -67,6 +75,23 @@ impl PluginPlayerFileContext {
 
     pub(crate) fn with_media_ready(mut self, ready: bool) -> Self {
         self.media_ready = ready;
+        self
+    }
+
+    pub(crate) fn with_playlist(mut self, playback: &riina_core::Playback) -> Self {
+        use riina_core::Phase;
+        self.playlist = PluginPlaylist {
+            active: matches!(
+                playback.phase,
+                Phase::Loading
+                    | Phase::Playing
+                    | Phase::Paused
+                    | Phase::Buffering
+                    | Phase::Seeking
+                    | Phase::Ended
+            ),
+            entries: playback.playlist.clone(),
+        };
         self
     }
 

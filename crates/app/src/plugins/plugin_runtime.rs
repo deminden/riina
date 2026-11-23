@@ -12,6 +12,7 @@ mod modules;
 mod network;
 mod output;
 mod permissions;
+mod playlist_api;
 #[cfg(test)]
 mod tests;
 mod timers;

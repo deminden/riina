@@ -1310,6 +1310,36 @@ remain unverified.
 validation only when enabled. Live preference interaction and exact native loop
 behavior require their own evidence.
 
+### Plugin playlist operations 2026-11-23
+
+Player plugins can read the native playlist and queue additions, removals,
+moves and playback navigation. QuickJS tests cover row fields, idle reads,
+malformed arguments, partial additions and permission checks. The native test
+inserts a fourth item and resolves both move IDs against the updated playlist.
+Plugin requests used the same engine route as the playlist controls.
+
+An isolated Windows plugin added two files, moved a row, played the next and
+previous files, selected a specific row, and removed the other two rows. The
+first run exposed that manual playlist transitions resumed playback with Pause
+When Media Is Opened enabled. The worker now checks the current preference at
+load completion. The repeated workflow kept the last file paused. Native
+tests cover both preserving pause and resuming with the preference disabled.
+Closing the framed player window ended the isolated Windows process normally.
+The tested executable SHA-256 was
+`4cee3b306fa3528f09cd27ab453dc46693aa57b8d846b5414d0118c124b69357`.
+The separate Windows playback and controls smoke passed all ten checks and
+exited normally in 9.066 s.
+
+The Windows workspace gate passed 880 Rust and 78 Python tests. The locked
+Windows build passed, and the pinned libmpv suite passed all 57 tests in
+10.84 s. Linux x64 passed strict workspace Clippy, the locked application
+build and 841 Rust tests. The Linux native loading and playlist group passed
+nine of ten cases, including both playlist changes. The same Linux libmpv
+build rejected `tone-mapping-param` in the unrelated UI-open regression on
+both the current and earlier test binaries. Strict Apple Silicon workspace
+Clippy passed from Windows. The playlist context-menu builder and native
+macOS execution remain open.
+
 ### Plugin sidebar manifest discovery 2026-10-14
 
 Manifest tests cover bounded localized labels. Runtime tests cover confined

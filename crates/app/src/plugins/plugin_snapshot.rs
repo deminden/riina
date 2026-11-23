@@ -304,6 +304,7 @@ pub(crate) fn player_file_context(
         recent_media.truncate(10);
     }
     PluginPlayerFileContext::from_playback(playback)
+        .with_playlist(playback)
         .with_media_generation(playback.generation)
         .with_media_ready(matches!(
             playback.phase,

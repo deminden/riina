@@ -1,7 +1,7 @@
 //! A QuickJS realm and every callback stay on one worker until cancellation.
 use super::{
-    AvailablePermissions, MAX_RUNTIME_MEMORY, MAX_STACK_BYTES, PluginWorkerHost, RuntimeCommand,
-    UiEffect,
+    AvailablePermissions, GlobalApiMode, MAX_RUNTIME_MEMORY, MAX_STACK_BYTES, PluginWorkerHost,
+    RuntimeCommand, UiEffect,
     core_api::install_plugin_core_api,
     events,
     file_api::install_plugin_file_api,
@@ -9,7 +9,7 @@ use super::{
     messaging, modules, network,
     network::NetworkWorkerContext,
     output::{menu_js_error, record, record_plugin_menu},
-    timers,
+    playlist_api, timers,
     timers::PluginTimers,
     webviews,
 };
@@ -169,6 +169,15 @@ fn initialize_realm(
         permissions,
         network.allowed_domains.clone(),
     )?;
+    if global_api_mode != Some(GlobalApiMode::Controller) {
+        playlist_api::install(
+            &api,
+            &events,
+            &file_system,
+            permissions,
+            &network.allowed_domains,
+        )?;
+    }
     network::install(ctx.clone(), file_system.clone(), permissions, network)?;
     modules::install(ctx.clone(), module_context.clone())?;
     if let Some(mode) = global_api_mode {

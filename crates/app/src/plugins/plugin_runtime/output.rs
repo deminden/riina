@@ -76,6 +76,22 @@ fn overlay_effect_size(effect: &OverlayEffect) -> usize {
     }
 }
 
+pub(super) fn record_playlist_command(
+    events: &Mutex<Vec<HostEvent>>,
+    command: riina_core::Command,
+) -> bool {
+    let mut events = riina_core::sync::lock(events);
+    let candidate = HostEvent::Ui(UiEffect::CoreCommand(command));
+    let pending_size = events.iter().map(host_event_size).sum::<usize>();
+    if events.len() >= MAX_HOST_EVENTS
+        || pending_size.saturating_add(host_event_size(&candidate)) > MAX_HOST_OUTPUT_BYTES
+    {
+        return false;
+    }
+    events.push(candidate);
+    true
+}
+
 pub(super) fn record_plugin_sidebar(
     events: &Mutex<Vec<HostEvent>>,
     state: &Mutex<PluginSidebarState>,

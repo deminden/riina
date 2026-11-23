@@ -112,7 +112,7 @@ pub struct Chapter {
     pub title: Option<String>,
 }
 
-#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
 pub struct PlaylistEntry {
     pub id: i64,
     pub filename: String,

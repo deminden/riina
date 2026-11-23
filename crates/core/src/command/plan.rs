@@ -105,7 +105,8 @@ impl Command {
             Self::SortPlaylist(sort) => playlist::reorder(&state.playlist, *sort)?,
             Self::SelectPlaylistId(id)
             | Self::RemovePlaylistId(id)
-            | Self::MovePlaylistId { id, .. } => {
+            | Self::MovePlaylistId { id, .. }
+            | Self::MovePlaylistIdBefore { id, .. } => {
                 return self.plan_playlist_id(state, *id);
             }
             Self::RemovePlaylistIds(ids) => playlist::remove_ids(state, ids)?,

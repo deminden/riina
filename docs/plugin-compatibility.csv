@@ -8,7 +8,7 @@ http,iina/JavascriptAPIHttp.swift,partial,localhost HTTP and download transport 
 websocket,iina/JavascriptAPIWebSocket.swift,missing,pending,Network lifecycle not implemented
 input,iina/JavascriptAPIInput.swift,missing,pending,Keybinding contribution not implemented
 menus,iina/JavascriptAPIMenu.swift,partial,menu tree and host dispatch tests,"Global and player entries contribute menu items. Tests cover nested disabled items and dispatch back to the owning entry. Live menu rendering, focus and shortcut delivery remain open."
-playlist,iina/JavascriptAPIPlaylist.swift,missing,pending,Playlist API not implemented
+playlist,iina/JavascriptAPIPlaylist.swift,partial,QuickJS and native libmpv tests; isolated Windows playlist workflow tested,"Player realms expose list, count, add, remove, move, play, playNext and playPrevious. Playlist additions reuse reviewed media permissions and indexed edits resolve observed entry IDs. The playlist context-menu builder remains open."
 preferences,iina/JavascriptAPIPreferences.swift,missing,pending,Plugin storage not implemented
 subtitles,iina/JavascriptAPISubtitle.swift,missing,pending,Subtitle provider integration not implemented
 utilities,iina/JavascriptAPIUtils.swift,missing,pending,Capability checks and helper execution not implemented

@@ -1,6 +1,65 @@
 use super::*;
 
 #[test]
+#[ignore = "requires provisioned libmpv; verifies a stable playlist move during playback"]
+fn stable_playlist_move_resolves_both_rows_after_an_insertion() {
+    let root = fixture_root();
+    let harness = Harness::start(&root).unwrap();
+    let path = |name| {
+        root.join("tests/fixtures")
+            .join(name)
+            .to_string_lossy()
+            .into_owned()
+    };
+    harness
+        .send(Command::Load(path("moving-square.avi")))
+        .unwrap();
+    harness.wait(|state| state.phase == Phase::Playing);
+    harness.send(Command::SetPaused(true)).unwrap();
+    harness
+        .send(Command::AppendFiles(vec![
+            path("catalog.mkv"),
+            path("external-tone.wav"),
+        ]))
+        .unwrap();
+    let loaded = harness.wait(|state| state.paused && state.playlist.len() == 3);
+    let ids = [
+        loaded.playlist[0].id,
+        loaded.playlist[1].id,
+        loaded.playlist[2].id,
+    ];
+    harness
+        .send(Command::InsertPlaylistFilesBefore {
+            paths: vec![path("hdr-hlg.mkv")],
+            before_id: Some(ids[1]),
+        })
+        .unwrap();
+    let inserted = harness.wait(|state| {
+        state.playlist.len() == 4
+            && std::path::Path::new(&state.playlist[1].filename)
+                .file_name()
+                .is_some_and(|name| name == "hdr-hlg.mkv")
+    });
+    let inserted_id = inserted.playlist[1].id;
+    harness
+        .send(Command::MovePlaylistIdBefore {
+            id: ids[0],
+            before_id: ids[2],
+        })
+        .unwrap();
+    let moved = harness.wait(|state| {
+        state
+            .playlist
+            .iter()
+            .map(|entry| entry.id)
+            .eq([inserted_id, ids[1], ids[0], ids[2]])
+    });
+    assert_eq!(moved.generation, loaded.generation);
+    assert!(moved.paused && moved.playlist[2].current);
+    assert_eq!(moved.error(), None);
+}
+
+#[test]
 #[ignore = "requires provisioned libmpv; verifies Play restarts media after EOF"]
 fn play_restarts_media_after_end_of_file() {
     let root = fixture_root();

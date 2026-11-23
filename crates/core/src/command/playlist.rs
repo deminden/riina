@@ -53,6 +53,21 @@ impl Command {
                     to: index + 2,
                 }
             }
+            Self::MovePlaylistIdBefore { before_id, .. } if *before_id != id => {
+                let to = state
+                    .playlist
+                    .iter()
+                    .position(|entry| entry.id == *before_id)
+                    .ok_or(CommandError::Unavailable {
+                        what: "The playlist move destination is no longer available",
+                    })?;
+                Self::MovePlaylistEntry { from: index, to }
+            }
+            Self::MovePlaylistIdBefore { .. } => {
+                return Err(CommandError::InvalidArgument {
+                    what: "The playlist entry cannot move before itself",
+                });
+            }
             Self::MovePlaylistId { .. } => {
                 return Err(CommandError::InvalidState {
                     reason: "The playlist entry cannot move in that direction",

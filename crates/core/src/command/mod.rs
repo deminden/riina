@@ -173,6 +173,10 @@ pub enum Command {
         id: i64,
         direction: i32,
     },
+    MovePlaylistIdBefore {
+        id: i64,
+        before_id: i64,
+    },
     AppendFiles(Vec<String>),
     InsertPlaylistFiles {
         paths: Vec<String>,
@@ -246,6 +250,7 @@ pub enum AbLoopPoint {
 
 pub struct CommandPlan {
     pub commands: Vec<Vec<String>>,
+    /// Resume after manual navigation when the current pause-on-open preference permits it.
     pub resume_on_load: bool,
 }
 
@@ -288,6 +293,7 @@ impl Command {
             Self::SortPlaylist(_)
                 | Self::MovePlaylistEntry { .. }
                 | Self::MovePlaylistId { .. }
+                | Self::MovePlaylistIdBefore { .. }
                 | Self::RemovePlaylistEntry(_)
                 | Self::RemovePlaylistId(_)
                 | Self::RemovePlaylistIds(_)

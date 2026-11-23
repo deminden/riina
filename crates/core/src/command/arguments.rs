@@ -130,7 +130,8 @@ impl Command {
             | Self::SelectPlaylistId(_)
             | Self::RemovePlaylistId(_)
             | Self::RemovePlaylistIds(_)
-            | Self::MovePlaylistId { .. } => {
+            | Self::MovePlaylistId { .. }
+            | Self::MovePlaylistIdBefore { .. } => {
                 return Err(CommandError::InvalidState {
                     reason: "This intent requires a command plan",
                 });
