@@ -863,6 +863,9 @@ checks and exited normally in 9.327 seconds.
 At `a6c1062`, the Windows workspace gate again passed 868 Rust tests and
 78 Python tests.
 
+At `0dc5222`, `cargo xtask check` passed 868 Rust tests and 78 Python tests
+on Windows.
+
 On `954d4d6`, separate private-desktop runs reopened and played media after
 recovering a profile with an invalid setting type, a non-object JSON document,
 or invalid UTF-8. Each run showed the recovery notice, preserved the original
@@ -890,6 +893,10 @@ repeated app-file checks took 38.89 and 14.99 seconds with Cargo defaults, and
 the profile change from the later separation of application and UI compilation.
 
 ## Linux x64 application checks
+
+At `0dc5222`, strict workspace Clippy, 829 Rust tests and the locked x86-64
+application build passed on Ubuntu 26.04 in WSL. The X11 plugin shortcut
+check used that executable.
 
 At `7b0ce17`, strict workspace Clippy, 829 Rust tests and the locked x86-64
 application build passed on Ubuntu 26.04 in WSL. The executable SHA-256 was
@@ -1115,8 +1122,7 @@ plugin page using WebKitGTK. The page sent a readiness token to the plugin, and
 the plugin's reply changed the page background. The full desktop capture
 contained 16,321 pixels of the reply color. A window-manager close request
 ended the player and its WebKit helpers. GTK logged frame-clock warnings.
-Quit from a focused WebView, Wayland embedding and native macOS plugin
-behavior remain unverified.
+Wayland embedding and native macOS plugin behavior remain unverified.
 
 At `55fe191`, the startup-enabled X11 sidebar again completed the message
 round trip and the window-manager close ended the player. In a separate
@@ -1140,6 +1146,14 @@ message exchange, removed the native child on disable, and reopened it
 without resizing the player. Both players and their WebKit helpers exited.
 The Linux executable SHA-256 was
 `a9e8939d6a47e17fbf541d0959e6c57840cb9c734525b23ad322ed74c396863c`.
+
+With focus in a plugin text field, `a6c1062` accepted typing but Ctrl+Q left
+the player open. At `0dc5222`, the field still accepted typing, Ctrl+Shift+Q
+left the player open, and Ctrl+Q exited normally through the application's
+Quit action. A separate run opened two players in one process. The second
+player's plugin text field accepted a bare Q key, and Ctrl+Q closed both
+players and exited normally. The Linux executable SHA-256 was
+`f6ed04be4c8bec1404f21ff8695e84a1b24836a5165cf0249d8a16bbf8aa1997`.
 
 ### macOS application menu composition 2026-10-14
 
