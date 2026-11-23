@@ -1,8 +1,13 @@
 use crate::{PlayerWindow, key_binding_preferences::CurrentMediaLocation};
-use riina_core::{Command, Playback, sync::lock};
+use riina_core::{Playback, sync::lock};
 use riina_mpv::CommandSender;
 use slint::ComponentHandle;
 use slint::winit_030::WinitWindowAccessor;
+
+mod playlist;
+pub(crate) use playlist::{
+    PlaylistFile, local_media_path, reveal_playlist_files, trash_playlist_files,
+};
 
 pub(crate) fn downloaded_subtitle_path(playback: &Playback) -> Option<std::path::PathBuf> {
     let cache_root = dirs::cache_dir()?.join("riina").join("online-subtitles");
@@ -117,8 +122,6 @@ pub(crate) fn delete_current_media(
         app.set_status("There is no current media file to delete".into());
         return;
     };
-    let entry_id = entry.id;
-    let filename = entry.filename.clone();
     let path = match crate::key_binding_preferences::current_media_location(&snapshot) {
         CurrentMediaLocation::Local(path) => path,
         CurrentMediaLocation::NoMedia => {
@@ -136,54 +139,9 @@ pub(crate) fn delete_current_media(
             return;
         }
     };
-    if !path.is_file() {
-        app.set_status("The current media file is not available to delete".into());
-        return;
-    }
-
-    let weak_app = app.as_weak();
-    let observed_playback = latest_playback.clone();
-    let trash_name = crate::platform::system_trash_name();
-    crate::diagnostics::report(
+    trash_playlist_files(
         app,
-        crate::diagnostics::UserMessage::info(format!("Moving current media to the {trash_name}…")),
+        vec![PlaylistFile::new(entry.id, entry.filename.clone(), path)],
+        player,
     );
-    let started = crate::background::spawn_named("riina-file-trash", move || {
-        let result = trash::delete(&path).map_err(|error| error.to_string());
-        // The result has no recipient once its window or event loop closes.
-        let _ = crate::background::to_ui(weak_app, move |app| match result {
-            Ok(()) => {
-                let still_listed = lock(&observed_playback)
-                    .playlist
-                    .iter()
-                    .any(|entry| entry.id == entry_id && entry.filename == filename);
-                if still_listed && let Err(error) = player.send(Command::RemovePlaylistId(entry_id))
-                {
-                    crate::diagnostics::report(
-                        &app,
-                        format!(
-                            "File moved to the {trash_name}, but its playlist item could not be removed: {error}"
-                        ),
-                    );
-                    return;
-                }
-                crate::diagnostics::report(
-                    &app,
-                    crate::diagnostics::UserMessage::info(format!(
-                        "Moved current media to the {trash_name}"
-                    )),
-                );
-            }
-            Err(error) => crate::diagnostics::report(
-                &app,
-                format!("Could not move the current media to the {trash_name}: {error}"),
-            ),
-        });
-    });
-    if let Err(error) = started {
-        crate::diagnostics::report(
-            app,
-            format!("Could not start the file Trash operation: {error}"),
-        );
-    }
 }

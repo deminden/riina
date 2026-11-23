@@ -8,11 +8,13 @@ export component PlaylistContextMenu inherits ContextMenuArea {
     in property <string> token;
     in property <int> index: -1;
     in property <bool> network;
+    private property <bool> local-files;
     enabled: false;
 
     public function open-at(x: length, y: length) {
         if !PlaylistInteraction.request-playlist-menu(root.origin, root.token,
             (root.absolute-position.x + x) / 1px, (root.absolute-position.y + y) / 1px) {
+            root.local-files = PlaylistInteraction.has-local-file-targets(root.token);
             root.show({ x: x, y: y });
         }
     }
@@ -56,6 +58,15 @@ export component PlaylistContextMenu inherits ContextMenuArea {
         }
         if network : MenuItem {
             title: "Copy URL"; activated => { PlayerMenuActions.playlist-action(11, token); }
+        }
+        if local-files : MenuSeparator {}
+        if local-files : MenuItem {
+            title: PlaylistInteraction.trash-action-label;
+            activated => { PlayerMenuActions.playlist-action(14, token); }
+        }
+        if local-files : MenuItem {
+            title: PlaylistInteraction.reveal-action-label;
+            activated => { PlayerMenuActions.playlist-action(15, token); }
         }
         if index >= 0 : MenuSeparator {}
         MenuItem { title: "Add File…"; activated => { PlayerMenuActions.browse-files(4); } }

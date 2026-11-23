@@ -78,23 +78,28 @@ pub(super) fn install_playlist_selection(app: &PlayerWindow, selected: &[String]
 }
 
 pub(super) fn selected_playlist_paths(app: &PlayerWindow, clicked_token: &str) -> Vec<String> {
+    selected_playlist_rows(app, clicked_token)
+        .into_iter()
+        .map(|row| row.path.to_string())
+        .collect()
+}
+
+pub(super) fn selected_playlist_rows(app: &PlayerWindow, clicked_token: &str) -> Vec<CatalogRow> {
     let selected = app
         .global::<riina_ui::PlaylistInteraction>()
         .get_selected_playlist_tokens()
         .iter()
-        .map(|token| token.to_string())
-        .collect::<Vec<_>>();
-    let selected = if selected.iter().any(|token| token == clicked_token) {
-        selected
-    } else {
-        vec![clicked_token.to_owned()]
-    };
+        .collect::<std::collections::BTreeSet<_>>();
     let rows = app.global::<riina_ui::PlayerCatalogState>().get_playlist();
-    (0..rows.row_count())
-        .filter_map(|index| rows.row_data(index))
-        .filter(|row| selected.iter().any(|token| token == row.token.as_str()))
-        .map(|row| row.path.to_string())
-        .collect()
+    let clicked = rows.iter().find(|row| row.token.as_str() == clicked_token);
+    match clicked {
+        Some(row) if selected.contains(&row.token) => rows
+            .iter()
+            .filter(|row| selected.contains(&row.token))
+            .collect(),
+        Some(row) => vec![row],
+        None => Vec::new(),
+    }
 }
 
 pub(super) fn selected_playlist_ids(

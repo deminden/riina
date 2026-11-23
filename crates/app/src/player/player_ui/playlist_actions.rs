@@ -3,14 +3,17 @@ use super::{
     PendingNavigation,
     catalog::{
         install_playlist_selection, playlist_paste_index, selected_playlist_ids,
-        selected_playlist_paths,
+        selected_playlist_paths, selected_playlist_rows,
     },
     show_osd_message,
 };
-use crate::PlayerWindow;
+use crate::{
+    PlayerWindow,
+    file_actions::{self, PlaylistFile},
+};
 use riina_core::Command;
 use riina_mpv::CommandSender;
-use riina_ui::PlayerMenuActions;
+use riina_ui::{PlayerMenuActions, PlaylistInteraction};
 use slint::{ComponentHandle, Model};
 use std::{cell::RefCell, rc::Rc, time::Instant};
 
@@ -20,6 +23,19 @@ pub(super) fn install(
     pending_navigation: &PendingNavigation,
     capture_transition_first: bool,
 ) {
+    let interaction = app.global::<PlaylistInteraction>();
+    interaction
+        .set_trash_action_label(format!("Move to {}", crate::platform::system_trash_name()).into());
+    interaction
+        .set_reveal_action_label(format!("Show in {}", app.get_current_file_manager_name()).into());
+    let weak = app.as_weak();
+    interaction.on_has_local_file_targets(move |token| {
+        weak.upgrade().is_some_and(|app| {
+            selected_playlist_rows(&app, token.as_str())
+                .iter()
+                .any(|row| file_actions::local_media_path(row.path.as_str()).is_some())
+        })
+    });
     install_actions(
         app,
         command_sender,
@@ -75,7 +91,7 @@ fn install_actions(
                 }
                 return;
             }
-            if matches!(action, 6..=11) {
+            if matches!(action, 6..=11 | 14..=15) {
                 handle_playlist_external_action(&window, &playlist_player, action, token.as_str());
                 return;
             }
@@ -192,6 +208,29 @@ fn handle_playlist_external_action(
                 Err("Select an HTTP or HTTPS playlist entry first".into())
             } else {
                 crate::platform::clipboard::copy_text(&urls.join("\n"))
+            }
+        }
+        14 | 15 => {
+            let files = selected_playlist_rows(window, token)
+                .into_iter()
+                .filter_map(|row| {
+                    let id = row.token.parse().ok()?;
+                    let path = file_actions::local_media_path(row.path.as_str())?;
+                    Some(PlaylistFile::new(id, row.path.to_string(), path))
+                })
+                .collect::<Vec<_>>();
+            if files.is_empty() {
+                Err("Select a local playlist file first".into())
+            } else {
+                if action == 14 {
+                    file_actions::trash_playlist_files(window, files, playlist_player.clone());
+                } else {
+                    window
+                        .global::<PlaylistInteraction>()
+                        .invoke_clear_selection();
+                    file_actions::reveal_playlist_files(window, files);
+                }
+                Ok(())
             }
         }
         _ => unreachable!(),

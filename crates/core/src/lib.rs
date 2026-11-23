@@ -56,7 +56,7 @@ pub use command::{
     MAX_PLUGIN_MPV_ARGUMENTS, PluginMpvCommand, validate_plugin_mpv_arguments,
 };
 pub use loop_mode::{DefaultRepeatMode, LoopMode};
-pub use media_catalog::{Chapter, PlaylistEntry, Track, TrackKind};
+pub use media_catalog::{Chapter, PlaylistEntry, PlaylistFileReference, Track, TrackKind};
 mod engine_notice;
 pub use engine_notice::{EngineNotice, EngineNotices, NoticeSeverity};
 pub use playback::{

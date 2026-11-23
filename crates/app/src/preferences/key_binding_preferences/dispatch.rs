@@ -410,23 +410,10 @@ pub(crate) fn current_media_location(playback: &riina_core::Playback) -> Current
         .iter()
         .find(|entry| entry.playing)
         .or_else(|| playback.playlist.iter().find(|entry| entry.current))
-        .map(|entry| entry.filename.clone())
+        .map(|entry| entry.filename.as_str())
     else {
         return CurrentMediaLocation::NoMedia;
     };
-    let filename = if filename
-        .split_once(':')
-        .is_some_and(|(scheme, _)| scheme.eq_ignore_ascii_case("file"))
-    {
-        riina_core::playlist::clipboard_references(&filename)
-            .into_iter()
-            .next()
-    } else if filename.contains("://") {
-        return CurrentMediaLocation::NonLocal;
-    } else {
-        Some(filename)
-    };
-    filename.map_or(CurrentMediaLocation::NonLocal, |filename| {
-        CurrentMediaLocation::Local(std::path::PathBuf::from(filename))
-    })
+    crate::file_actions::local_media_path(filename)
+        .map_or(CurrentMediaLocation::NonLocal, CurrentMediaLocation::Local)
 }

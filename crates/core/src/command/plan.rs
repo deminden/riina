@@ -109,10 +109,10 @@ impl Command {
             | Self::MovePlaylistIdBefore { id, .. } => {
                 return self.plan_playlist_id(state, *id);
             }
-            Self::RemovePlaylistIds(ids) => playlist::remove_ids(state, ids)?,
-            Self::QueuePlaylistIdsNext(_) | Self::MovePlaylistIdsBefore { .. } => {
-                playlist::move_entries(state, self)?
-            }
+            Self::RemovePlaylistIds(_)
+            | Self::RemoveTrashedPlaylistEntries(_)
+            | Self::QueuePlaylistIdsNext(_)
+            | Self::MovePlaylistIdsBefore { .. } => playlist::edit_selection(state, self)?,
             Self::OpenFiles(paths)
             | Self::OpenPlaylist(paths)
             | Self::AppendFiles(paths)

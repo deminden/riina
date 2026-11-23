@@ -27,6 +27,7 @@ enum Surface {
 struct Row {
     index: usize,
     network: bool,
+    local_files: bool,
 }
 
 struct Request {
@@ -98,9 +99,18 @@ impl Request {
         } else {
             let index = playlist.iter().position(|row| row == &token)?;
             let network = rows.row_data(index)?.network;
+            let indices = selected_indices(app, &playlist, index);
+            let local_files = indices
+                .iter()
+                .filter_map(|&index| rows.row_data(index))
+                .any(|row| crate::file_actions::local_media_path(row.path.as_str()).is_some());
             (
-                Some(Row { index, network }),
-                selected_indices(app, &playlist, index),
+                Some(Row {
+                    index,
+                    network,
+                    local_files,
+                }),
+                indices,
             )
         };
         Some((
@@ -143,7 +153,7 @@ impl Request {
         if !self.current(app) {
             return;
         }
-        let entries = self.entries(contributions);
+        let entries = self.entries(app, contributions);
         let owner = app.as_weak();
         let host = host.clone();
         if let Err(error) = playlist_menu::popup(app, self.position, entries, move |action| {
@@ -175,11 +185,19 @@ impl Request {
         }
     }
 
-    fn entries(&self, contributions: Vec<PlaylistMenuContribution>) -> Vec<Entry<Action>> {
-        let mut entries = self
-            .row
-            .as_ref()
-            .map_or_else(Vec::new, |row| row.entries(self.playlist.len()));
+    fn entries(
+        &self,
+        app: &PlayerWindow,
+        contributions: Vec<PlaylistMenuContribution>,
+    ) -> Vec<Entry<Action>> {
+        let interaction = app.global::<PlaylistInteraction>();
+        let mut entries = self.row.as_ref().map_or_else(Vec::new, |row| {
+            row.entries(
+                self.playlist.len(),
+                interaction.get_trash_action_label().as_str(),
+                interaction.get_reveal_action_label().as_str(),
+            )
+        });
         if !contributions.is_empty() {
             separate(&mut entries);
             entries.push(item("Plugin", Action::Player(0), false));
@@ -219,7 +237,7 @@ impl Surface {
 }
 
 impl Row {
-    fn entries(&self, count: usize) -> Vec<Entry<Action>> {
+    fn entries(&self, count: usize, trash_label: &str, reveal_label: &str) -> Vec<Entry<Action>> {
         let player = |title, action, enabled| item(title, Action::Player(action), enabled);
         let mut entries = vec![
             player("Play", 12, true),
@@ -239,6 +257,13 @@ impl Row {
                 Entry::Separator,
                 player("Open in Browser", 10, true),
                 player("Copy URL", 11, true),
+            ]);
+        }
+        if self.local_files {
+            entries.extend([
+                Entry::Separator,
+                player(trash_label, 14, true),
+                player(reveal_label, 15, true),
             ]);
         }
         entries

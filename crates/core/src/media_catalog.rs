@@ -2,6 +2,13 @@
 use crate::track_labels;
 use serde::{Deserialize, Serialize};
 
+/// Playlist identity captured before an operation that completes asynchronously.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct PlaylistFileReference {
+    pub id: i64,
+    pub filename: String,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum TrackKind {

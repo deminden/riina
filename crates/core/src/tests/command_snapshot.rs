@@ -112,6 +112,12 @@ command_samples! {
     SelectPlaylistId[20];
     RemovePlaylistId[20];
     RemovePlaylistIds[vec![20, 30]];
+    RemoveTrashedPlaylistEntries[vec![
+        PlaylistFileReference { id: 10, filename: "b.mkv".into() },
+        PlaylistFileReference { id: 20, filename: "a.mkv".into() },
+        PlaylistFileReference { id: 30, filename: "old-c.mkv".into() },
+        PlaylistFileReference { id: 40, filename: "removed.mkv".into() },
+    ]];
     QueuePlaylistIdsNext[vec![10, 30]];
     MovePlaylistIdsBefore { ids: vec![10, 20], before_id: None };
     MovePlaylistId { id: 20, direction: -1 };
@@ -313,6 +319,7 @@ fn worker_routes_every_command_to_the_expected_lifecycle() {
         "RemovePlaylistEntry",
         "RemovePlaylistId",
         "RemovePlaylistIds",
+        "RemoveTrashedPlaylistEntries",
         "QueuePlaylistIdsNext",
         "MovePlaylistIdsBefore",
         "ClearPlaylist",

@@ -110,6 +110,13 @@ engine as one request. Play Next resolves the current entry and moves the
 selected entries immediately after it in playlist order. The engine plans the
 ordered moves before sending them to mpv, and only selected entries move.
 
+Playlist file actions use the selection resolved by the context menu. Trash work
+runs off the UI thread and groups repeated references to the same path. Successful
+moves send the original entry IDs and filenames back to the engine. The engine
+skips vanished or changed entries and removes the current entry last so playback
+can advance to a remaining item. Reveal groups items for Explorer, Finder or
+the freedesktop file-manager service.
+
 The desktop drop adapters publish the position of a playable offer to the same
 scroll view. X11 samples the native cursor after Winit reports the file list.
 The sidebar and Music Mode use their current scroll offsets for the cue and

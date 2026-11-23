@@ -2437,6 +2437,24 @@ both windows closed normally. The Linux executable SHA-256 was
 The Linux run preceded the final internal command-dispatch refactor. Live
 interaction on Windows, Wayland and macOS and the plugin menu path remain open.
 
+### Playlist file actions 2026-11-23
+
+The full Windows workspace gate and all 58 pinned libmpv null-output tests
+passed. The file-action test covers repeated references and partial Trash
+failure. The command snapshot checks that the engine skips vanished or changed
+entries and removes the current entry after the other completed entries. The
+Finder adapter passed source checking and strict Clippy for Apple Silicon.
+
+On isolated Linux X11, Show in File Manager sent both selected file URLs in
+one request to a test FileManager1 service. Move to Trash moved two disposable
+media files into the test profile's Trash and removed their three selected
+playlist entries. The unavailable selected file and the unselected file kept
+their rows. Playback advanced to the remaining playable clip and the test
+process exited normally. The executable SHA-256 was
+`d502cf1a48cbf31be72c678be0317c89920c1a7002246fc9b7a5d3d505215332`.
+Live verification remains open for Explorer, Finder, Wayland, Linux desktop
+file-manager presentation and the plugin-contributed menu path.
+
 ### macOS application menu composition 2026-10-14
 
 The AppKit adapter consolidates application actions in one native menu while

@@ -1,6 +1,9 @@
 use super::{Command, CommandError, cmd};
 use super::{CommandPlan, flag, set};
-use crate::{Playback, PlaylistEntry, hdr_preferences, playlist, valid_path};
+use crate::{
+    Playback, PlaylistEntry, PlaylistFileReference, hdr_preferences, playlist, valid_path,
+};
+use std::collections::HashSet;
 
 impl Command {
     pub(super) fn playlist_args(&self) -> Result<Vec<String>, CommandError> {
@@ -79,7 +82,7 @@ impl Command {
     }
 }
 
-pub(super) fn remove_ids(state: &Playback, ids: &[i64]) -> Result<Vec<Vec<String>>, CommandError> {
+fn remove_ids(state: &Playback, ids: &[i64]) -> Result<Vec<Vec<String>>, CommandError> {
     let mut indices = Vec::with_capacity(ids.len());
     for id in ids {
         let Some(index) = state.playlist.iter().position(|entry| entry.id == *id) else {
@@ -104,15 +107,44 @@ pub(super) fn remove_ids(state: &Playback, ids: &[i64]) -> Result<Vec<Vec<String
         .collect())
 }
 
-pub(super) fn move_entries(
+pub(super) fn edit_selection(
     state: &Playback,
     command: &Command,
 ) -> Result<Vec<Vec<String>>, CommandError> {
     match command {
+        Command::RemovePlaylistIds(ids) => remove_ids(state, ids),
+        Command::RemoveTrashedPlaylistEntries(files) => Ok(remove_trashed(state, files)),
         Command::QueuePlaylistIdsNext(ids) => queue_next(state, ids),
         Command::MovePlaylistIdsBefore { ids, before_id } => move_before(state, ids, *before_id),
         _ => unreachable!(),
     }
+}
+
+fn remove_trashed(state: &Playback, files: &[PlaylistFileReference]) -> Vec<Vec<String>> {
+    let trashed = files
+        .iter()
+        .map(|file| (file.id, file.filename.as_str()))
+        .collect::<HashSet<_>>();
+    let mut current = None;
+    let mut commands = Vec::new();
+    for (index, entry) in state.playlist.iter().enumerate().rev() {
+        if !trashed.contains(&(entry.id, entry.filename.as_str())) {
+            continue;
+        }
+        if entry.current {
+            current = Some(index);
+        } else {
+            commands.push(vec!["playlist-remove".into(), index.to_string()]);
+            if let Some(index) = &mut current {
+                *index -= 1;
+            }
+        }
+    }
+    // Let mpv advance after the remaining trashed entries have been removed.
+    if let Some(index) = current {
+        commands.push(vec!["playlist-remove".into(), index.to_string()]);
+    }
+    commands
 }
 
 fn queue_next(state: &Playback, ids: &[i64]) -> Result<Vec<Vec<String>>, CommandError> {
