@@ -1473,6 +1473,35 @@ locked application build, strict workspace Clippy, 845 Rust tests and all
 from the workspace tests with the same Cargo target. Strict Apple Silicon
 workspace Clippy passed from Windows.
 
+### Plugin mpv commands 2026-11-23
+
+The command-plan test and native suite cover literal arguments, acknowledged
+playback commands and the active volume range. The plugin policy test rejects
+unreviewed media loads, process execution, NUL arguments and unsupported
+Quit forms.
+
+On isolated Windows and Linux X11 desktops, a plugin appended a second AVI
+using its reviewed filesystem grant and read the updated native playlist
+immediately. It sought to two seconds and selected the second file. Both
+players were paused when the plugin received the second file's loaded
+notification. The test also checked that punctuation in a text argument did
+not alter playback and that a 150% volume request remained at 100% with
+boost off. Both players exited normally after the plugin called
+`iina.mpv.command("quit")`.
+
+The Windows executable SHA-256 was
+`f99f22fad657a56671f291bccb27861823e590b2d2a3a58f970be97d04fda045`.
+The Linux executable SHA-256 was
+`d8aabe3b0660db8b5705e9600a5c91b686db4dc5a68546c9d0aa315aca640709`.
+Both used the native libraries recorded in the property-read verification.
+
+Windows passed the locked workspace build, strict Clippy, 885 Rust tests,
+78 Python tests and all 57 null-output native tests. Linux x64 passed the
+locked application build, strict workspace Clippy, 846 Rust tests and all
+57 null-output native tests. Strict Apple Silicon workspace Clippy passed
+from Windows. macOS playback, native rendering interactions and the
+remaining plugin command forms still need verification.
+
 ### Plugin sidebar manifest discovery 2026-10-14
 
 Manifest tests cover bounded localized labels. Runtime tests cover confined

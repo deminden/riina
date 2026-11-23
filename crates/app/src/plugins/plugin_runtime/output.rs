@@ -80,8 +80,12 @@ pub(super) fn record_playlist_command(
     events: &Mutex<Vec<HostEvent>>,
     command: riina_core::Command,
 ) -> bool {
+    try_record_ui_effect(events, UiEffect::CoreCommand(command))
+}
+
+pub(super) fn try_record_ui_effect(events: &Mutex<Vec<HostEvent>>, effect: UiEffect) -> bool {
     let mut events = riina_core::sync::lock(events);
-    let candidate = HostEvent::Ui(UiEffect::CoreCommand(command));
+    let candidate = HostEvent::Ui(effect);
     let pending_size = events.iter().map(host_event_size).sum::<usize>();
     if events.len() >= MAX_HOST_EVENTS
         || pending_size.saturating_add(host_event_size(&candidate)) > MAX_HOST_OUTPUT_BYTES

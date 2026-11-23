@@ -1,13 +1,13 @@
 //! The event worker owns the player; the GUI owns only its OpenGL render context.
 mod auto_seek;
+mod client_request;
+pub use client_request::MpvPropertyFormat;
 mod error;
 pub use error::EngineError;
 mod ffi;
 pub mod gl_support;
 mod pending;
 mod properties;
-mod property_request;
-pub use property_request::MpvPropertyFormat;
 #[cfg(feature = "test-support")]
 mod recording;
 mod seek_feedback;
@@ -61,7 +61,7 @@ mod worker;
 
 enum Message {
     Intent(Command),
-    Property(property_request::Request),
+    Client(client_request::Request),
     Wake,
     Shutdown,
 }

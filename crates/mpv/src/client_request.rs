@@ -1,5 +1,6 @@
-//! Typed asynchronous property operations and their one-shot replies.
+//! Acknowledged plugin operations on the playback worker.
 use crate::{CommandQueue, CommandSender, EngineError, Message, ffi::format, send_error};
+use riina_core::Command;
 use serde_json::Value;
 use std::{
     ffi::{CString, c_int},
@@ -30,19 +31,18 @@ impl MpvPropertyFormat {
 }
 
 pub(super) struct Request {
-    pub(super) name: CString,
     pub(super) operation: Operation,
     pub(super) pending: Pending,
 }
 
 impl Request {
-    pub(super) fn apply_volume_limit(&mut self, boost: bool) -> Result<(), EngineError> {
-        if self.name.as_c_str() != c"volume" {
-            return Ok(());
-        }
-        let Operation::Write(value) = &mut self.operation else {
+    pub(super) fn apply_volume_limit(&mut self, limit: f64) -> Result<(), EngineError> {
+        let Operation::Write { name, value } = &mut self.operation else {
             return Ok(());
         };
+        if name.as_c_str() != c"volume" {
+            return Ok(());
+        }
         let number = value
             .as_f64()
             .or_else(|| value.as_str()?.parse::<f64>().ok())
@@ -50,15 +50,21 @@ impl Request {
             .ok_or(EngineError::InvalidArgument {
                 reason: "Volume must be a finite number",
             })?;
-        let limit = if boost { 200.0 } else { 100.0 };
         *value = Value::from(number.clamp(0.0, limit));
         Ok(())
     }
 }
 
 pub(super) enum Operation {
-    Read(MpvPropertyFormat),
-    Write(Value),
+    Read {
+        name: CString,
+        format: MpvPropertyFormat,
+    },
+    Write {
+        name: CString,
+        value: Value,
+    },
+    Intent(Command),
 }
 
 pub(super) struct Pending {
@@ -75,7 +81,13 @@ impl CommandSender {
         format: MpvPropertyFormat,
         deadline: Instant,
     ) -> Result<Value, EngineError> {
-        self.request_mpv_property(name, Operation::Read(format), deadline)
+        self.request_client(
+            Operation::Read {
+                name: property_name(name)?,
+                format,
+            },
+            deadline,
+        )
     }
 
     /// Use from a non-UI thread. A successful return acknowledges the native write.
@@ -85,46 +97,68 @@ impl CommandSender {
         value: Value,
         deadline: Instant,
     ) -> Result<(), EngineError> {
-        self.request_mpv_property(name, Operation::Write(value), deadline)
+        self.request_client(
+            Operation::Write {
+                name: property_name(name)?,
+                value,
+            },
+            deadline,
+        )
+        .map(|_| ())
+    }
+
+    /// Use from a plugin worker. Resolve when the native command replies.
+    pub fn run_plugin_command(
+        &self,
+        command: Command,
+        deadline: Instant,
+    ) -> Result<(), EngineError> {
+        self.request_client(Operation::Intent(command), deadline)
             .map(|_| ())
     }
 
-    fn request_mpv_property(
+    fn request_client(
         &self,
-        name: &str,
         operation: Operation,
         deadline: Instant,
     ) -> Result<Value, EngineError> {
         if self.stopped.load(Ordering::Acquire) {
             return Err(EngineError::Stopped);
         }
-        if name.is_empty() || name.len() > 256 || name.chars().any(char::is_control) {
-            return Err(invalid_name());
-        }
         if Instant::now() >= deadline {
-            return Err(EngineError::PropertyTimeout);
+            return Err(EngineError::ClientTimeout);
         }
-        let name = CString::new(name).map_err(|_| invalid_name())?;
         let (reply, response) = mpsc::sync_channel(1);
         let request = Request {
-            name,
             operation,
             pending: Pending { deadline, reply },
         };
         match &self.sender {
             CommandQueue::Native(sender) => sender
-                .try_send(Message::Property(request))
+                .try_send(Message::Client(request))
                 .map_err(send_error)?,
             #[cfg(feature = "test-support")]
-            CommandQueue::Recording(_) => return Ok(Value::Null),
+            CommandQueue::Recording(sender) => {
+                if let Operation::Intent(command) = request.operation {
+                    sender.try_send(command).map_err(send_error)?;
+                }
+                return Ok(Value::Null);
+            }
         }
         response
             .recv_timeout(deadline.saturating_duration_since(Instant::now()))
             .map_err(|error| match error {
-                mpsc::RecvTimeoutError::Timeout => EngineError::PropertyTimeout,
+                mpsc::RecvTimeoutError::Timeout => EngineError::ClientTimeout,
                 mpsc::RecvTimeoutError::Disconnected => EngineError::Stopped,
             })?
     }
+}
+
+fn property_name(name: &str) -> Result<CString, EngineError> {
+    if name.is_empty() || name.len() > 256 || name.chars().any(char::is_control) {
+        return Err(invalid_name());
+    }
+    CString::new(name).map_err(|_| invalid_name())
 }
 
 fn invalid_name() -> EngineError {

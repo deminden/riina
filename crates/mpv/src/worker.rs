@@ -6,10 +6,10 @@ use super::{Message, WakeupContext, diag, record_notice, trace_shutdown};
 use crate::{
     EngineError,
     auto_seek::AutoSeek,
+    client_request::{Operation, Pending, Request},
     ffi::{Api, end_reason, event_id, format},
     pending::{PendingCommand, ReplyKind},
     properties::OBSERVED,
-    property_request::{Pending, Request},
     seek_feedback::{self, SeekFeedback},
 };
 use riina_core::{CapturedFrame, Command, CommandPlan, NoticeSeverity, Phase, Playback};
@@ -103,7 +103,7 @@ impl<N: Fn(Arc<Playback>)> Start<N> {
                         return;
                     }
                     Message::Intent(command) => state.handle_intent(&handle, command),
-                    Message::Property(request) => state.request_property(&handle, request),
+                    Message::Client(request) => state.request_client(&handle, request),
                     Message::Shutdown => return,
                 }
                 state.drain_events(&mut handle);
@@ -223,7 +223,7 @@ struct WorkerState {
     observers: BTreeMap<u64, String>,
     next_observer: u64,
     pending: HashMap<u64, PendingCommand>,
-    property_requests: HashMap<u64, Pending>,
+    client_requests: HashMap<u64, Pending>,
     volume_boost: bool,
     pending_drop_subtitles: Vec<String>,
     resume_on_load: bool,
@@ -361,6 +361,9 @@ impl WorkerState {
         );
         // The complete intent is planned before native submission begins.
         for mut args in plan.commands {
+            if let (Command::Volume(volume), [_, _, value]) = (command, args.as_mut_slice()) {
+                *value = volume.min(self.volume_limit()).to_string();
+            }
             let rewriting_seek = is_auto_seek && args.first().is_some_and(|arg| arg == "seek");
             if rewriting_seek && args.len() >= 3 {
                 args[2] = self.auto_seek.flags().into();
@@ -378,6 +381,11 @@ impl WorkerState {
             }
             if matches!(command, Command::TogglePlaylistShuffle) {
                 self.playback.playlist_shuffled = !self.playback.playlist_shuffled;
+                self.mark_changed();
+            } else if let Command::PluginMpv(native) = command
+                && matches!(native.name(), "playlist-shuffle" | "playlist-unshuffle")
+            {
+                self.playback.playlist_shuffled = native.name() == "playlist-shuffle";
                 self.mark_changed();
             } else if command.resets_playlist_shuffle() && self.playback.playlist_shuffled {
                 self.playback.playlist_shuffled = false;
@@ -419,42 +427,73 @@ impl WorkerState {
         Ok(())
     }
 
-    fn request_property(&mut self, handle: &Handle, mut request: Request) {
-        const MAX_PENDING_PROPERTIES: usize = 32;
+    fn volume_limit(&self) -> f64 {
+        if self.volume_boost { 200.0 } else { 100.0 }
+    }
+
+    fn request_client(&mut self, handle: &Handle, mut request: Request) {
+        const MAX_PENDING_REQUESTS: usize = 32;
         let now = Instant::now();
-        self.property_requests
+        self.client_requests
             .retain(|_, pending| pending.deadline > now);
-        let error = if request.pending.deadline <= now {
-            EngineError::PropertyTimeout
-        } else if self.property_requests.len() >= MAX_PENDING_PROPERTIES {
-            EngineError::QueueFull
-        } else if let Err(error) = request.apply_volume_limit(self.volume_boost) {
-            error
+        let sent = if request.pending.deadline <= now {
+            Err(EngineError::ClientTimeout)
+        } else if self.client_requests.len() >= MAX_PENDING_REQUESTS {
+            Err(EngineError::QueueFull)
         } else {
-            self.next_id += 1;
-            match handle.request_property(self.next_id, &request) {
-                Ok(()) => {
-                    self.property_requests.insert(self.next_id, request.pending);
-                    return;
-                }
-                Err(error) => error,
-            }
+            request
+                .apply_volume_limit(self.volume_limit())
+                .and_then(|()| self.submit_client(handle, request.operation))
         };
-        let _ = request.pending.reply.send(Err(error));
+        match sent {
+            Ok(Some(id)) => {
+                self.client_requests.insert(id, request.pending);
+            }
+            result => {
+                let _ = request
+                    .pending
+                    .reply
+                    .send(result.map(|_| serde_json::Value::Null));
+            }
+        }
+    }
+
+    fn submit_client(
+        &mut self,
+        handle: &Handle,
+        operation: Operation,
+    ) -> Result<Option<u64>, EngineError> {
+        if let Operation::Intent(command) = operation {
+            let before = self.next_id;
+            self.handle_intent(handle, command);
+            // The final submitted step of a typed intent acknowledges the command.
+            // Every step still goes through the regular command-reply handling.
+            return Ok(
+                (self.next_id != before && self.pending.contains_key(&self.next_id))
+                    .then_some(self.next_id),
+            );
+        }
+        self.next_id += 1;
+        handle.request_property(self.next_id, &operation)?;
+        Ok(Some(self.next_id))
     }
 
     fn drain_events(&mut self, handle: &mut Handle) {
         while let Some(event) = handle.wait() {
             if matches!(
                 event.id(),
-                event_id::GET_PROPERTY_REPLY | event_id::SET_PROPERTY_REPLY
+                event_id::GET_PROPERTY_REPLY
+                    | event_id::SET_PROPERTY_REPLY
+                    | event_id::COMMAND_REPLY
             ) {
-                if let Some(pending) = self.property_requests.remove(&event.userdata())
+                if let Some(pending) = self.client_requests.remove(&event.userdata())
                     && pending.deadline > Instant::now()
                 {
-                    let _ = pending.reply.send(event.property_reply());
+                    let _ = pending.reply.send(event.client_reply());
                 }
-                continue;
+                if event.id() != event_id::COMMAND_REPLY {
+                    continue;
+                }
             }
             // Native events update playback, retained plugin history, or both.
             self.mark_changed();
@@ -505,7 +544,7 @@ impl WorkerState {
                 event.apply_property(&mut self.playback, observer);
             }
             event_id::QUEUE_OVERFLOW => {
-                self.property_requests.clear();
+                self.client_requests.clear();
                 record_notice(
                     &mut self.playback,
                     NoticeSeverity::Error,

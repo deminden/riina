@@ -1,14 +1,23 @@
-//! Synchronous JavaScript property operations on this player's engine.
+//! Synchronous JavaScript operations on this player's engine.
 use super::{
-    AvailablePermissions,
-    core_api::plugin_media_reference,
+    AvailablePermissions, HostEvent, UiEffect,
     execution::ExecutionControl,
+    mpv_commands::{self, Action, scoped_media_reference},
     mpv_properties::{Scope, scope},
+    output::try_record_ui_effect,
 };
 use crate::{diagnostics, plugin_files::PluginFiles};
+use riina_core::{MAX_PLUGIN_MPV_ARGUMENT_BYTES, MAX_PLUGIN_MPV_ARGUMENTS, plugin::WindowAction};
 use riina_mpv::{CommandSender, EngineError, MpvPropertyFormat};
-use rquickjs::{Ctx, Object, Value, function::Func};
-use std::{rc::Rc, sync::Arc};
+use rquickjs::{
+    Array, Ctx, Object, Value,
+    function::{Func, Opt},
+};
+use std::{
+    rc::Rc,
+    sync::{Arc, Mutex},
+    time::Instant,
+};
 
 struct Queries {
     player: Option<CommandSender>,
@@ -20,6 +29,7 @@ struct Writes {
     files: PluginFiles,
     permissions: AvailablePermissions,
     allowed_domains: Vec<String>,
+    events: Arc<Mutex<Vec<HostEvent>>>,
 }
 
 impl Queries {
@@ -39,6 +49,7 @@ pub(super) fn install<'js>(
     files: &PluginFiles,
     permissions: AvailablePermissions,
     allowed_domains: &[String],
+    events: &Arc<Mutex<Vec<HostEvent>>>,
 ) -> rquickjs::Result<()> {
     let queries = Rc::new(Queries { player, execution });
     let api = Object::new(iina.ctx().clone())?;
@@ -76,47 +87,83 @@ pub(super) fn install<'js>(
             ),
         )?;
     }
-    let writes = Writes {
+    let writes = Rc::new(Writes {
         engine: queries,
         files: files.clone(),
         permissions,
         allowed_domains: allowed_domains.to_vec(),
-    };
+        events: events.clone(),
+    });
+    let properties = writes.clone();
     api.set(
         "set",
         Func::from(move |ctx: Ctx<'js>, name: String, value: Value<'js>| {
-            writes.set(&ctx, &name, value)
+            properties.set(&name, json_value(&ctx, value)?)
+        }),
+    )?;
+    api.set(
+        "command",
+        Func::from(move |name: String, args: Opt<Array<'js>>| {
+            writes.command(&name, read_arguments(args.0)?)
         }),
     )?;
     iina.set("mpv", api)
 }
 
 impl Writes {
-    fn set<'js>(&self, ctx: &Ctx<'js>, name: &str, value: Value<'js>) -> rquickjs::Result<()> {
+    fn set(&self, name: &str, json: serde_json::Value) -> rquickjs::Result<()> {
         let scope = scope(name, self.permissions).map_err(js_error)?;
-        let json = json_value(ctx, value)?;
         let json = match scope {
             Scope::Playback => json,
             Scope::FileList => self.resolve_files(json).map_err(js_error)?,
         };
-        let (player, deadline) = self
-            .engine
+        let (player, deadline) = self.engine()?;
+        report_native_reply(
+            "mpv.set",
+            name,
+            player.write_mpv_property(name, json, deadline),
+        )
+    }
+
+    fn command(&self, name: &str, args: Vec<String>) -> rquickjs::Result<()> {
+        match mpv_commands::plan(
+            name,
+            args,
+            &self.files,
+            self.permissions,
+            &self.allowed_domains,
+        )
+        .map_err(js_error)?
+        {
+            Action::Playback(command) => {
+                let (player, deadline) = self.engine()?;
+                report_native_reply(
+                    "mpv.command",
+                    name,
+                    player.run_plugin_command(command, deadline),
+                )
+            }
+            Action::SetProperty { name, value } => {
+                self.set(&name, serde_json::Value::String(value))
+            }
+            Action::Quit => {
+                if try_record_ui_effect(&self.events, UiEffect::WindowAction(WindowAction::Quit)) {
+                    Ok(())
+                } else {
+                    Err(js_error(
+                        "mpv.command: the player event queue is full".into(),
+                    ))
+                }
+            }
+        }
+    }
+
+    fn engine(&self) -> rquickjs::Result<(&CommandSender, Instant)> {
+        self.engine
             .player
             .as_ref()
             .zip(self.engine.execution.deadline())
-            .ok_or_else(|| js_error("mpv.set: the player engine is unavailable".into()))?;
-        match player.write_mpv_property(name, json, deadline) {
-            Ok(()) => Ok(()),
-            Err(error @ EngineError::Native { .. }) => {
-                diagnostics::log_args(
-                    diagnostics::Level::Warning,
-                    module_path!(),
-                    format_args!("mpv.set {name}: {error}"),
-                );
-                Ok(())
-            }
-            Err(error) => Err(js_error(format!("mpv.set: {name}: {error}"))),
-        }
+            .ok_or_else(|| js_error("The player engine is unavailable".into()))
     }
 
     fn resolve_files(&self, input: serde_json::Value) -> Result<serde_json::Value, String> {
@@ -129,25 +176,51 @@ impl Writes {
             .iter()
             .map(|item| {
                 let path = item.as_str().ok_or("mpv.set: file lists require strings")?;
-                if riina_core::media_reference::is_network_url_candidate(path)
-                    || url::Url::parse(path).is_ok_and(|url| url.scheme() == "file")
-                {
-                    plugin_media_reference(
-                        path,
-                        &self.files,
-                        true,
-                        self.permissions.network_request,
-                        &self.allowed_domains,
-                    )
-                } else {
-                    self.files
-                        .existing_path(path, true)
-                        .map(|path| path.to_string_lossy().into_owned())
-                }
-                .map(serde_json::Value::String)
+                scoped_media_reference(path, &self.files, self.permissions, &self.allowed_domains)
+                    .map(serde_json::Value::String)
             })
             .collect::<Result<Vec<_>, _>>()
             .map(serde_json::Value::Array)
+    }
+}
+
+fn read_arguments(args: Option<Array<'_>>) -> rquickjs::Result<Vec<String>> {
+    let Some(args) = args else {
+        return Ok(Vec::new());
+    };
+    let count = args.len();
+    if count > MAX_PLUGIN_MPV_ARGUMENTS {
+        return Err(js_error("mpv.command: too many arguments".into()));
+    }
+    let mut arguments = Vec::with_capacity(count);
+    let mut bytes = 0;
+    for index in 0..count {
+        let argument = args.get::<String>(index)?;
+        bytes += argument.len();
+        if bytes > MAX_PLUGIN_MPV_ARGUMENT_BYTES {
+            return Err(js_error("mpv.command: arguments exceed 16 KiB".into()));
+        }
+        arguments.push(argument);
+    }
+    Ok(arguments)
+}
+
+fn report_native_reply(
+    api: &str,
+    name: &str,
+    result: Result<(), EngineError>,
+) -> rquickjs::Result<()> {
+    match result {
+        Ok(()) => Ok(()),
+        Err(error @ EngineError::Native { .. }) => {
+            diagnostics::log_args(
+                diagnostics::Level::Warning,
+                module_path!(),
+                format_args!("{api} {name}: {error}"),
+            );
+            Ok(())
+        }
+        Err(error) => Err(js_error(format!("{api}: {name}: {error}"))),
     }
 }
 
@@ -171,5 +244,5 @@ fn json_value<'js>(ctx: &Ctx<'js>, value: Value<'js>) -> rquickjs::Result<serde_
 }
 
 fn js_error(message: String) -> rquickjs::Error {
-    rquickjs::Error::new_from_js_message("iina.mpv", "writable player property", message)
+    rquickjs::Error::new_from_js_message("iina.mpv", "valid player operation", message)
 }

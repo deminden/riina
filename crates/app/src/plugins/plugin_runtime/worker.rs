@@ -182,6 +182,7 @@ fn initialize_realm(
             &file_system,
             permissions,
             &network.allowed_domains,
+            &events,
         )?;
         playlist_api::install(
             &api,

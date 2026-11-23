@@ -8,6 +8,7 @@ impl Command {
             Self::MpvInputAction(action) => {
                 key_bindings::mpv_action_args(action).map_err(CommandError::InputBinding)?
             }
+            Self::PluginMpv(command) => command.arguments(),
             Self::ObserveMpvProperty(_) => {
                 return Err(CommandError::InvalidState {
                     reason: "mpv property observation is handled by the player worker",

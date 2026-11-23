@@ -50,7 +50,10 @@ mod playback;
 mod preferences;
 
 pub use captured_frame::{CapturedFrame, FrameError};
-pub use command::{AbLoopPoint, Command, CommandError, CommandPlan};
+pub use command::{
+    AbLoopPoint, Command, CommandError, CommandPlan, MAX_PLUGIN_MPV_ARGUMENT_BYTES,
+    MAX_PLUGIN_MPV_ARGUMENTS, PluginMpvCommand, validate_plugin_mpv_arguments,
+};
 pub use loop_mode::{DefaultRepeatMode, LoopMode};
 pub use media_catalog::{Chapter, PlaylistEntry, Track, TrackKind};
 mod engine_notice;

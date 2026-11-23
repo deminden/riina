@@ -46,6 +46,7 @@ pub enum WindowAction {
     SetOnTop(bool),
     SetSidebar(Option<String>),
     SetMiniaturized(bool),
+    Quit,
 }
 
 /// Commands crossing from the isolated plugin runtime to a platform webview.

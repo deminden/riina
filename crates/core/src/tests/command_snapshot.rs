@@ -31,6 +31,7 @@ command_samples! {
     SetPaused[false];
     TogglePause;
     MpvInputAction["seek 5; set pause yes".into()];
+    PluginMpv[sample_plugin_command()];
     Stop;
     Seek { seconds: 4.25, absolute: false };
     SeekWithType { seconds: 31.5, seek_type: control_preferences::SeekType::Exact };
@@ -156,6 +157,11 @@ command_samples! {
     SetAbLoop { a: Some(11.5), b: Some(30.25) };
     SetAbLoopPoint { point: AbLoopPoint::B, value: Some(34.0) };
     Shutdown;
+}
+
+fn sample_plugin_command() -> PluginMpvCommand {
+    PluginMpvCommand::new("show-text", vec!["literal; stop".into()])
+        .expect("The show-text sample is within the plugin capability")
 }
 
 fn sample_filter(name: &str, label: Option<&str>) -> crop::VideoFilter {

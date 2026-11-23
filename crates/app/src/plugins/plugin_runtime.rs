@@ -10,6 +10,7 @@ mod menu;
 mod messaging;
 mod modules;
 mod mpv_api;
+mod mpv_commands;
 mod mpv_properties;
 mod network;
 mod output;

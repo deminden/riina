@@ -2,11 +2,11 @@
 use super::super::{WakeupContext, diag, trace_shutdown, wakeup};
 use crate::{
     EngineError,
+    client_request::Operation,
     ffi::{
         Api, CommandReply, EndFile, Event, Property, event_id, format, property_string, with_node,
     },
     properties::{apply_property, observed_property_value, queried_property_value},
-    property_request::{Operation, Request},
 };
 use riina_core::{CapturedFrame, Playback};
 use std::{
@@ -56,20 +56,22 @@ impl Handle {
         })
     }
 
-    pub(super) fn request_property(&self, id: u64, request: &Request) -> Result<(), EngineError> {
-        match &request.operation {
-            Operation::Read(format) => {
+    pub(super) fn request_property(
+        &self,
+        id: u64,
+        operation: &Operation,
+    ) -> Result<(), EngineError> {
+        match operation {
+            Operation::Read { name, format } => {
                 // SAFETY: the live core copies the name and format for the async read.
                 self.api.check("mpv_get_property_async", unsafe {
-                    (self.api.get_property)(
-                        self.raw.as_ptr(),
-                        id,
-                        request.name.as_ptr(),
-                        format.native(),
-                    )
+                    (self.api.get_property)(self.raw.as_ptr(), id, name.as_ptr(), format.native())
                 })
             }
-            Operation::Write(value) => self.write_property(id, &request.name, value),
+            Operation::Write { name, value } => self.write_property(id, name, value),
+            Operation::Intent(_) => Err(EngineError::InvalidArgument {
+                reason: "A playback command cannot be sent as a native property",
+            }),
         }
     }
 
@@ -179,7 +181,11 @@ pub(super) struct EventRef<'a> {
 }
 
 impl EventRef<'_> {
-    pub(super) fn property_reply(&self) -> Result<serde_json::Value, EngineError> {
+    pub(super) fn client_reply(&self) -> Result<serde_json::Value, EngineError> {
+        if self.id() == event_id::COMMAND_REPLY {
+            self.api.check("mpv_command_async", self.event.error)?;
+            return Ok(serde_json::Value::Null);
+        }
         if self.id() == event_id::SET_PROPERTY_REPLY {
             self.api.check("mpv_set_property_async", self.event.error)?;
             return Ok(serde_json::Value::Null);

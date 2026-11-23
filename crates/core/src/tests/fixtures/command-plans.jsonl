@@ -8,6 +8,7 @@
 {"command":"SetPaused","mpv":[["set","pause","no"]],"resume_on_load":false}
 {"command":"TogglePause","mpv":[["cycle","pause"]],"resume_on_load":false}
 {"command":"MpvInputAction","mpv":[["seek","5"],["set","pause","yes"]],"resume_on_load":false}
+{"command":"PluginMpv","mpv":[["show-text","literal; stop"]],"resume_on_load":false}
 {"command":"Stop","mpv":[["write-watch-later-config"],["stop"]],"resume_on_load":false}
 {"command":"Seek","mpv":[["seek","4.25","relative"]],"resume_on_load":false}
 {"command":"SeekWithType","mpv":[["seek","31.5","relative+exact"]],"resume_on_load":false}

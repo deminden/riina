@@ -7,6 +7,11 @@ pub use error::CommandError;
 mod filters;
 mod network;
 mod plan;
+mod plugin_mpv;
+pub use plugin_mpv::{
+    MAX_PLUGIN_MPV_ARGUMENT_BYTES, MAX_PLUGIN_MPV_ARGUMENTS, PluginMpvCommand,
+    validate_plugin_mpv_arguments,
+};
 mod playback;
 mod playlist;
 mod screenshot_plan;
@@ -55,6 +60,7 @@ pub enum Command {
     TogglePause,
     /// A validated mpv input.conf action from the active key binding profile.
     MpvInputAction(String),
+    PluginMpv(PluginMpvCommand),
     Stop,
     Seek {
         seconds: f64,
@@ -264,7 +270,7 @@ impl Command {
                 | Self::OpenFiles(_)
                 | Self::OpenFilesWithSubtitles { .. }
                 | Self::Stop
-        )
+        ) || matches!(self, Self::PluginMpv(command) if command.name() == "stop")
     }
 
     /// Reset navigation feedback when an intent may create its own decoder seek.

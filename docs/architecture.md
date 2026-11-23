@@ -116,7 +116,7 @@ On the shared GL route, the renderer retains player ownership until rendering
 teardown frees the GL surface. The worker unregisters its wakeup callback, destroys
 the native engine and only then releases the callback context.
 
-### Plugin mpv properties
+### Plugin mpv operations
 
 The player attaches its command sender before the plugin host starts entry
 scripts. Getters and setters send typed requests to that player's mpv worker.
@@ -131,6 +131,13 @@ options require a reviewed network grant. External file lists require a
 filesystem grant, and URL entries also use the plugin's allowed domains.
 The worker clamps volume writes to the range selected in Preferences and
 updates that range in the same queue as property requests.
+
+Plugin commands use the same queue and wait for native replies. Standard
+seek, Stop and playlist actions use existing player intents. Supported
+native commands carry separate arguments through to libmpv. Media loading
+and external tracks use reviewed file and network access. Quit is routed
+to the application's shutdown handler so the player can release its
+rendering and plugin resources.
 
 ### Playlist plugin menus
 

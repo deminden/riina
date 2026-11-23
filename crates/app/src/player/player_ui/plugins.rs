@@ -602,6 +602,7 @@ fn apply_plugin_window_action(
     use riina_core::plugin::WindowAction;
 
     match action {
+        WindowAction::Quit => app.global::<PlayerMenuActions>().invoke_quit_riina(),
         WindowAction::SetFrame {
             x,
             y,

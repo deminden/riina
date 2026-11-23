@@ -151,6 +151,20 @@ fn verify_property_requests(commands: &CommandSender) -> Result<(), EngineError>
             Some(expected)
         );
     }
+    let deadline = || Instant::now() + Duration::from_secs(2);
+    commands.run_plugin_command(Command::Volume(180.0), deadline())?;
+    assert_eq!(
+        read(commands, "volume", MpvPropertyFormat::Number)?.as_f64(),
+        Some(100.0)
+    );
+    commands.run_plugin_command(Command::SetMuted(false), deadline())?;
+    assert_eq!(read(commands, "mute", MpvPropertyFormat::Flag)?, false);
+    let message = riina_core::PluginMpvCommand::new("show-text", vec!["literal; stop".into()])
+        .map_err(|_| EngineError::InvalidArgument {
+            reason: "Valid native test command rejected",
+        })?;
+    commands.run_plugin_command(Command::PluginMpv(message), deadline())?;
+    assert!(read(commands, "path", MpvPropertyFormat::Text)?.is_string());
     Ok(())
 }
 
