@@ -151,7 +151,7 @@ fn configure(
     headless: bool,
     options: Vec<(String, String)>,
 ) -> Result<Vec<String>, EngineError> {
-    for (key, value) in [
+    for (name, value) in [
         ("config", "no"),
         ("load-scripts", "no"),
         ("idle", "yes"),
@@ -189,9 +189,14 @@ fn configure(
         // and speed. Reset in mpv too, not just in our UI snapshot.
         ("reset-on-next-file", "ab-loop-a,ab-loop-b"),
     ] {
-        let key = CString::new(key).unwrap();
+        let key = CString::new(name).unwrap();
         let value = CString::new(value).unwrap();
-        handle.set_option(&key, &value)?;
+        handle
+            .set_option(&key, &value)
+            .map_err(|source| EngineError::RequiredStartupOption {
+                name,
+                source: Box::new(source),
+            })?;
     }
     let mut ignored = Vec::new();
     for (key, value) in options {

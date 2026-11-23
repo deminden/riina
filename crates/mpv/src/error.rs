@@ -27,6 +27,10 @@ pub enum EngineError {
     WorkerStart(io::Error),
     WorkerHandshake(mpsc::RecvError),
     StartupOption(NulError),
+    RequiredStartupOption {
+        name: &'static str,
+        source: Box<EngineError>,
+    },
     WindowsApartment(i32),
     Render {
         call: &'static str,
@@ -83,6 +87,9 @@ impl fmt::Display for EngineError {
             Self::Frame(error) => error.fmt(f),
             Self::WorkerHandshake(error) => write!(f, "{error}"),
             Self::StartupOption(error) => write!(f, "{error}"),
+            Self::RequiredStartupOption { name, source } => {
+                write!(f, "Could not set required libmpv option {name}: {source}")
+            }
             Self::WindowsApartment(error) => {
                 write!(f, "Could not initialize Windows playback COM: {error:#x}")
             }
@@ -111,6 +118,7 @@ impl std::error::Error for EngineError {
             Self::LibraryLoad(error) => Some(error),
             Self::WorkerHandshake(error) => Some(error),
             Self::StartupOption(error) => Some(error),
+            Self::RequiredStartupOption { source, .. } => Some(source.as_ref()),
             Self::Frame(error) => Some(error),
             _ => None,
         }
@@ -120,5 +128,34 @@ impl std::error::Error for EngineError {
 impl From<EngineError> for String {
     fn from(error: EngineError) -> Self {
         error.to_string()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::EngineError;
+    use std::error::Error;
+
+    #[test]
+    fn required_startup_option_reports_its_name_and_native_cause() {
+        let error = EngineError::RequiredStartupOption {
+            name: "load-scripts",
+            source: Box::new(EngineError::Native {
+                call: "mpv_set_option_string",
+                message: "option not found".into(),
+            }),
+        };
+
+        assert_eq!(
+            error.to_string(),
+            "Could not set required libmpv option load-scripts: option not found"
+        );
+        assert!(matches!(
+            error.source().unwrap().downcast_ref::<EngineError>(),
+            Some(EngineError::Native {
+                call: "mpv_set_option_string",
+                ..
+            })
+        ));
     }
 }
