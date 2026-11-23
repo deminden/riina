@@ -1,9 +1,11 @@
 import { Theme } from "theme.slint";
 import { PlayerCatalogState } from "player-catalog-state.slint";
+import { PlayerSidebarActions } from "player-sidebar-actions.slint";
 import { CatalogRow } from "catalog-row.slint";
 
 import { PlaylistInteraction, PlaylistMenuOrigin } from "playlist-interaction.slint";
 import { PlaylistContextMenu } from "playlist-context-menu.slint";
+import { PlaylistInsertionIndicator, PlaylistRowInput } from "playlist-row-input.slint";
 
 export component CatalogSidebarRow inherits Rectangle {
     in property <CatalogRow> entry;
@@ -12,8 +14,6 @@ export component CatalogSidebarRow inherits Rectangle {
     in property <bool> dark-theme;
     in property <color> interactive-accent-color;
     callback select-row(string);
-    callback select-playlist-row(int, bool, bool) -> [string];
-    callback reorder-playlist([string], int);
 
     property <int> current-playlist-focus-index: PlaylistInteraction.playlist-focus-index;
     height: pane-kind < 3 || pane-kind == 6 ? 26px : pane-kind == 3 ? 40px
@@ -26,11 +26,11 @@ export component CatalogSidebarRow inherits Rectangle {
         x: 0; y: parent.height - 1px; width: parent.width; height: 1px;
         background: Theme.sidebar-material-border(root.dark-theme);
     }
-    if pane-kind == 4 && PlaylistInteraction.playlist-drag-active && PlaylistInteraction.playlist-drop-index == index : Rectangle {
-        x: 0; y: 0; width: parent.width; height: 2px; background: root.interactive-accent-color;
-    }
-    if pane-kind == 4 && PlaylistInteraction.playlist-drag-active && PlaylistInteraction.playlist-drop-index == PlayerCatalogState.playlist.length && index == PlayerCatalogState.playlist.length - 1 : Rectangle {
-        x: 0; y: parent.height - 2px; width: parent.width; height: 2px; background: root.interactive-accent-color;
+    if pane-kind == 4 : PlaylistInsertionIndicator {
+        width: parent.width;
+        height: parent.height;
+        index: root.index;
+        accent: root.interactive-accent-color;
     }
     accessible-action-default => { root.select-row(entry.token); }
     if row-focus.has-focus : Rectangle { border-width: 1px; border-color: root.interactive-accent-color; border-radius: 3px; background: transparent; }
@@ -56,55 +56,19 @@ export component CatalogSidebarRow inherits Rectangle {
         background: Theme.sidebar-language-badge(root.dark-theme);
         Text { text: entry.language; color: Theme.sidebar-heading-text(root.dark-theme);
             font-size: 11px; horizontal-alignment: center; vertical-alignment: center; } }
-    TouchArea {
-        clicked => { row-focus.focus(); if pane-kind < 3 || pane-kind == 6 { root.select-row(entry.token); }
-            if pane-kind == 4 { PlaylistInteraction.selected-playlist-token = entry.token; } }
-        double-clicked => { if pane-kind >= 3 { root.select-row(entry.token); PlaylistInteraction.selected-playlist-token = ""; PlaylistInteraction.selected-playlist-tokens = []; } }
-        pointer-event(event) => {
-            if pane-kind == 4 && event.button == PointerEventButton.right
-                && event.kind == PointerEventKind.up
-                && self.mouse-x >= 0px && self.mouse-x < self.width
-                && self.mouse-y >= 0px && self.mouse-y < self.height {
-                row-menu.open-at(self.mouse-x, self.mouse-y);
-            } else if pane-kind == 4 && event.button == PointerEventButton.left && event.kind == PointerEventKind.down {
-                PlaylistInteraction.playlist-drag-token = entry.token;
-                PlaylistInteraction.playlist-focus-index = index;
-                PlaylistInteraction.playlist-drag-start-x = self.mouse-x / 1px;
-                PlaylistInteraction.playlist-drag-start-y = self.mouse-y / 1px;
-                PlaylistInteraction.playlist-drag-active = false;
-                PlaylistInteraction.playlist-drag-extend = event.modifiers.control || event.modifiers.meta;
-                PlaylistInteraction.playlist-drag-range = event.modifiers.shift;
-                PlaylistInteraction.playlist-drop-index = index;
-            } else if pane-kind == 4 && event.button == PointerEventButton.left && event.kind == PointerEventKind.up && PlaylistInteraction.playlist-drag-token == entry.token {
-                if PlaylistInteraction.playlist-drag-active {
-                    root.reorder-playlist(PlaylistInteraction.selected-playlist-tokens, PlaylistInteraction.playlist-drop-index);
-                } else {
-                    PlaylistInteraction.selected-playlist-tokens = root.select-playlist-row(index,
-                        PlaylistInteraction.playlist-drag-extend, PlaylistInteraction.playlist-drag-range);
-                }
-                PlaylistInteraction.selected-playlist-token = entry.token;
-                PlaylistInteraction.playlist-drag-token = "";
-                PlaylistInteraction.playlist-drag-active = false;
-                PlaylistInteraction.playlist-drop-index = -1;
-            }
-        }
-        moved => {
-            if pane-kind == 4 && self.pressed && PlaylistInteraction.playlist-drag-token == entry.token {
-                let distance-x = abs(self.mouse-x / 1px - PlaylistInteraction.playlist-drag-start-x);
-                let distance-y = abs(self.mouse-y / 1px - PlaylistInteraction.playlist-drag-start-y);
-                if distance-x + distance-y >= 5 {
-                    if !entry.selected
-                        || PlaylistInteraction.playlist-drag-extend || PlaylistInteraction.playlist-drag-range {
-                        PlaylistInteraction.selected-playlist-tokens = root.select-playlist-row(index,
-                            PlaylistInteraction.playlist-drag-extend, PlaylistInteraction.playlist-drag-range);
-                    }
-                    PlaylistInteraction.selected-playlist-token = entry.token;
-                    PlaylistInteraction.playlist-drag-active = true;
-                    // The layout's 1px gap is included in the displayed row stride.
-                    let content-y = (parent.y + self.mouse-y)
-                        / (PlayerCatalogState.playlist-metadata-visible ? 39px : 31px);
-                    PlaylistInteraction.playlist-drop-index = clamp(floor(content-y), 0, PlayerCatalogState.playlist.length);
-                }
+    row-input := PlaylistRowInput {
+        reorderable: root.pane-kind == 4;
+        index: root.index;
+        token: root.entry.token;
+        selected: root.entry.selected;
+        open-menu(x, y) => { row-menu.open-at(x, y); }
+        focus-row => { row-focus.focus(); }
+        clicked => { if pane-kind != 4 { row-focus.focus(); if pane-kind < 3 || pane-kind == 6 { root.select-row(entry.token); } } }
+        double-clicked => {
+            if pane-kind >= 3 && !PlaylistInteraction.playlist-drag-active {
+                row-input.cancel-drag();
+                root.select-row(entry.token);
+                PlaylistInteraction.clear-selection();
             }
         }
     }
@@ -117,6 +81,7 @@ export component CatalogSidebarRow inherits Rectangle {
     row-focus := FocusScope {
         width: 0px;
         key-pressed(event) => {
+            if event.text == Key.Escape && row-input.cancel-drag() { return accept; }
             if pane-kind == 4 && event.text == Key.F10 && event.modifiers.shift
                 && !event.modifiers.alt && !event.modifiers.control && !event.modifiers.meta {
                 row-menu.open-at(12px, root.height);
@@ -126,7 +91,7 @@ export component CatalogSidebarRow inherits Rectangle {
             if event.modifiers.alt || event.modifiers.control || event.modifiers.meta || event.modifiers.shift { return reject; }
             if event.text == Key.Return {
                 root.select-row(entry.token);
-                PlaylistInteraction.selected-playlist-token = "";
+                if pane-kind == 4 { PlaylistInteraction.clear-selection(); }
                 return accept;
             }
             if pane-kind == 4 && (event.text == Key.UpArrow || event.text == Key.DownArrow)
@@ -135,7 +100,7 @@ export component CatalogSidebarRow inherits Rectangle {
                     ? max(0, index - 1)
                     : min(PlayerCatalogState.playlist.length - 1, index + 1);
                 PlaylistInteraction.playlist-focus-index = next-index;
-                PlaylistInteraction.selected-playlist-tokens = root.select-playlist-row(next-index,
+                PlaylistInteraction.selected-playlist-tokens = PlayerSidebarActions.select-playlist-row(next-index,
                     event.modifiers.control || event.modifiers.meta, event.modifiers.shift);
                 PlaylistInteraction.selected-playlist-token = PlayerCatalogState.playlist[next-index].token;
                 return accept;

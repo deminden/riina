@@ -214,6 +214,14 @@ fn install_selection(app: &PlayerWindow, command_sender: &CommandSender) {
     let selection_anchor = playlist_selection_anchor.clone();
     let weak = app.as_weak();
     app.global::<riina_ui::PlayerSidebarActions>()
+        .on_clear_playlist_selection(move || {
+            *playlist_selection_anchor.borrow_mut() = None;
+            if let Some(app) = weak.upgrade() {
+                install_playlist_selection(&app, &[]);
+            }
+        });
+    let weak = app.as_weak();
+    app.global::<riina_ui::PlayerSidebarActions>()
         .on_select_playlist_row(move |index, extend, range| {
             let Some(app) = weak.upgrade() else {
                 return slint::ModelRc::default();

@@ -1,4 +1,5 @@
 import { ScrollView } from "std-widgets.slint";
+import { PlaylistInteraction } from "playlist-interaction.slint";
 
 export struct PlaylistDropViewport {
     x: length,
@@ -10,6 +11,7 @@ export struct PlaylistDropViewport {
 
 // The visible list and its scroll offset move independently of the sidebar frame.
 export component PlaylistDropScrollView inherits ScrollView {
+    in property <bool> playlist-can-reorder;
     out property <PlaylistDropViewport> drop-viewport: {
         x: root.absolute-position.x,
         y: root.absolute-position.y,
@@ -17,4 +19,27 @@ export component PlaylistDropScrollView inherits ScrollView {
         height: root.visible-height,
         content-y: root.content-y,
     };
+    callback playlist-auto-scrolled();
+
+    private property <length> drag-x: PlaylistInteraction.playlist-drag-x - root.absolute-position.x;
+    private property <length> drag-y: PlaylistInteraction.playlist-drag-y - root.absolute-position.y;
+    private property <length> edge-band: min(24px, root.visible-height / 3);
+    private property <bool> tracking-drag: root.playlist-can-reorder && PlaylistInteraction.playlist-drag-active
+        && root.drag-x >= 0px && root.drag-x < root.visible-width
+        && root.drag-y >= 0px && root.drag-y < root.visible-height;
+    private property <length> drag-step: !root.tracking-drag ? 0px
+        : root.drag-y < root.edge-band ? 3px + (root.edge-band - root.drag-y) / 2
+        : root.drag-y >= root.visible-height - root.edge-band
+            ? -3px - (root.drag-y + root.edge-band - root.visible-height) / 2 : 0px;
+    private property <length> drag-scroll-y: clamp(root.content-y + root.drag-step,
+        min(0px, root.visible-height - root.content-height), 0px);
+
+    Timer {
+        interval: 32ms;
+        running: root.drag-step != 0px && root.drag-scroll-y != root.content-y;
+        triggered => {
+            root.playlist-auto-scrolled();
+            root.content-y = root.drag-scroll-y;
+        }
+    }
 }

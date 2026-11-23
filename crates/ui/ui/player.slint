@@ -108,7 +108,12 @@ export component PlayerWindow inherits PlayerMenuWindow {
     changed video-mirrored => { PlayerMenuActions.video-menu-changed(); }
     changed video-flipped => { PlayerMenuActions.video-menu-changed(); }
     callback crop-window-controls-changed();
-    changed crop-editing => { PlayerMenuActions.video-menu-changed(); root.crop-window-controls-changed(); root.refresh-fullscreen-info(); }
+    changed crop-editing => {
+        PlayerMenuActions.video-menu-changed();
+        root.crop-window-controls-changed();
+        root.refresh-fullscreen-info();
+        if root.crop-editing { PlaylistInteraction.cancel-playlist-drag(); }
+    }
 
     menu-bar-visible: !native-video && !(PlayerAppearance.platform-windows && PlayerMusicModeState.music-mode);
     menu-value-menu-shortcuts: root.menu-shortcuts;
@@ -199,6 +204,7 @@ export component PlayerWindow inherits PlayerMenuWindow {
     callback music-mode-changed();
     callback auto-switch-music-mode-changed(bool);
     changed music-mode => {
+        PlaylistInteraction.cancel-playlist-drag();
         if PlayerMusicModeState.music-mode {
             // IINA's compact audio surface is independent of main-window sidebars.
             PlayerSidebarState.leading-sidebar = 0;
@@ -211,7 +217,12 @@ export component PlayerWindow inherits PlayerMenuWindow {
     out property <bool> observe-automatic-music-mode: root.loaded && PlayerMusicModeState.auto-switch-to-music-mode;
     callback automatic-music-observation-changed(bool);
     changed observe-automatic-music-mode => { root.automatic-music-observation-changed(root.observe-automatic-music-mode); }
-    changed music-mode-show-playlist => { if PlayerMusicModeState.music-mode { root.music-mode-changed(); } }
+    changed music-mode-show-playlist => {
+        if PlayerMusicModeState.music-mode {
+            if !root.music-mode-show-playlist { PlaylistInteraction.cancel-playlist-drag(); }
+            root.music-mode-changed();
+        }
+    }
     changed music-mode-show-album-art => { if PlayerMusicModeState.music-mode { root.music-mode-changed(); } }
     changed music-mode-artwork-aspect-ratio => { if PlayerMusicModeState.music-mode { root.music-mode-changed(); } }
     callback renderer-ready();
@@ -445,6 +456,7 @@ export component PlayerWindow inherits PlayerMenuWindow {
                 layout-settings-changed => { root.layout-settings-changed(); }
                 if pane-kind != 5 && (pane-kind != 7 || !PlayerPluginSidebarState.composited) : QuickSettingsScrollPage {
                     page-kind: pane-kind;
+                    playlist-can-reorder: pane-kind == 4 && sidebar-frame.sidebar-open && !root.music-mode;
                     changed drop-viewport => {
                         if side == 0 { PlayerSidebarState.leading-list-drop-viewport = self.drop-viewport; }
                         else { PlayerSidebarState.trailing-list-drop-viewport = self.drop-viewport; }
@@ -599,8 +611,7 @@ export component PlayerWindow inherits PlayerMenuWindow {
                     PlaylistInteraction.selected-playlist-tokens = [token];
                 }
                 play-row(token) => {
-                    PlaylistInteraction.selected-playlist-token = "";
-                    PlaylistInteraction.selected-playlist-tokens = [];
+                    PlaylistInteraction.clear-selection();
                     PlayerMenuActions.select-item(CatalogSelection.playlist, token);
                 }
             }

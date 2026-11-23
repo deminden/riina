@@ -1,3 +1,5 @@
+import { PlayerSidebarActions } from "player-sidebar-actions.slint";
+
 export enum PlaylistMenuOrigin { sidebar, music-mode }
 
 // Selection and keyboard focus belong to the player, not a recycled row.
@@ -7,11 +9,19 @@ export global PlaylistInteraction {
     in-out property <string> selected-playlist-token: "";
     in-out property <[string]> selected-playlist-tokens: [];
     in-out property <string> playlist-drag-token: "";
-    in-out property <float> playlist-drag-start-x: 0;
-    in-out property <float> playlist-drag-start-y: 0;
     in-out property <bool> playlist-drag-active: false;
-    in-out property <int> playlist-drop-index: -1;
-    in-out property <bool> playlist-drag-extend: false;
-    in-out property <bool> playlist-drag-range: false;
+    in-out property <length> playlist-drag-x;
+    in-out property <length> playlist-drag-y;
     in-out property <int> playlist-focus-index: -1;
+
+    public function cancel-playlist-drag() {
+        root.playlist-drag-token = "";
+        root.playlist-drag-active = false;
+    }
+
+    public function clear-selection() {
+        root.selected-playlist-token = "";
+        root.selected-playlist-tokens = [];
+        PlayerSidebarActions.clear-playlist-selection();
+    }
 }

@@ -1,0 +1,92 @@
+import { PlayerCatalogState } from "player-catalog-state.slint";
+import { PlayerSidebarActions } from "player-sidebar-actions.slint";
+import { PlayerSidebarState } from "player-sidebar-state.slint";
+import { PlaylistInteraction } from "playlist-interaction.slint";
+
+export component PlaylistInsertionIndicator inherits Rectangle {
+    in property <int> index;
+    in property <color> accent;
+    private property <int> slot: PlayerSidebarState.playlist-reorder-slot;
+    private property <bool> after-last: root.slot == PlayerCatalogState.playlist.length
+        && root.index == PlayerCatalogState.playlist.length - 1;
+
+    visible: root.slot == root.index || root.after-last;
+    Rectangle {
+        width: root.width;
+        height: 2px;
+        y: root.after-last ? root.height - self.height : 0px;
+        background: root.accent;
+    }
+}
+
+export component PlaylistRowInput inherits TouchArea {
+    in property <bool> reorderable: true;
+    in property <int> index;
+    in property <string> token;
+    in property <bool> selected;
+    callback open-menu(length, length);
+    callback focus-row();
+
+    private property <bool> extend-selection;
+    private property <bool> range-selection;
+    private property <bool> owns-gesture: root.reorderable && root.token != ""
+        && PlaylistInteraction.playlist-drag-token == root.token;
+
+    public function cancel-drag() -> bool {
+        if !root.owns-gesture { return false; }
+        PlaylistInteraction.cancel-playlist-drag();
+        return true;
+    }
+
+    function update-drag-position() {
+        // Window coordinates stay fixed while the grabbed row scrolls beneath the pointer.
+        PlaylistInteraction.playlist-drag-x = root.absolute-position.x + root.mouse-x;
+        PlaylistInteraction.playlist-drag-y = root.absolute-position.y + root.mouse-y;
+    }
+
+    function select-row() {
+        PlaylistInteraction.selected-playlist-tokens = PlayerSidebarActions.select-playlist-row(root.index,
+            root.extend-selection, root.range-selection);
+        PlaylistInteraction.selected-playlist-token = root.token;
+    }
+
+    pointer-event(event) => {
+        if !root.reorderable { return; }
+        if event.button == PointerEventButton.right && event.kind == PointerEventKind.up
+            && root.mouse-x >= 0px && root.mouse-x < root.width && root.mouse-y >= 0px && root.mouse-y < root.height {
+            root.open-menu(root.mouse-x, root.mouse-y);
+        } else if event.button == PointerEventButton.left && event.kind == PointerEventKind.down {
+            PlaylistInteraction.cancel-playlist-drag();
+            PlaylistInteraction.playlist-drag-token = root.token;
+            PlaylistInteraction.playlist-focus-index = root.index;
+            root.focus-row();
+            root.extend-selection = event.modifiers.control || event.modifiers.meta;
+            root.range-selection = event.modifiers.shift;
+        } else if event.kind == PointerEventKind.cancel {
+            root.cancel-drag();
+        } else if root.owns-gesture && event.button == PointerEventButton.left && event.kind == PointerEventKind.up {
+            if PlaylistInteraction.playlist-drag-active {
+                root.update-drag-position();
+                let slot = PlayerSidebarState.playlist-reorder-slot;
+                let tokens = PlaylistInteraction.selected-playlist-tokens;
+                PlaylistInteraction.cancel-playlist-drag();
+                if slot >= 0 && tokens.length > 0 { PlayerSidebarActions.reorder-playlist(tokens, slot); }
+            } else {
+                root.select-row();
+                PlaylistInteraction.cancel-playlist-drag();
+            }
+        }
+    }
+
+    moved => {
+        if !root.pressed || !root.owns-gesture { return; }
+        if PlaylistInteraction.playlist-drag-active {
+            root.update-drag-position();
+        } else if abs(root.mouse-x - root.pressed-x) + abs(root.mouse-y - root.pressed-y) >= 5px {
+            if !root.selected || root.extend-selection || root.range-selection { root.select-row(); }
+            PlaylistInteraction.selected-playlist-token = root.token;
+            root.update-drag-position();
+            PlaylistInteraction.playlist-drag-active = true;
+        }
+    }
+}

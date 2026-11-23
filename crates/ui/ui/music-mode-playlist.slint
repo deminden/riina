@@ -5,6 +5,7 @@ import { PlayerCatalogState } from "player-catalog-state.slint";
 import { CatalogRow } from "catalog-row.slint";
 import { PlayerSidebarState } from "player-sidebar-state.slint";
 import { PlaylistDropScrollView } from "playlist-drop-viewport.slint";
+import { PlaylistInsertionIndicator, PlaylistRowInput } from "playlist-row-input.slint";
 
 export component MusicModePlaylist inherits Rectangle {
     in property <bool> dark-theme;
@@ -16,8 +17,10 @@ export component MusicModePlaylist inherits Rectangle {
     background: Theme.music-mode-playlist-surface(root.dark-theme);
     PlaylistDropScrollView {
         width: parent.width; height: parent.height;
+        playlist-can-reorder: true;
         content-width: self.visible-width;
         content-height: max(self.visible-height, music-rows.preferred-height);
+        init => { PlayerSidebarState.music-list-drop-viewport = self.drop-viewport; }
         changed drop-viewport => { PlayerSidebarState.music-list-drop-viewport = self.drop-viewport; }
         music-rows := VerticalLayout {
             spacing: 1px;
@@ -29,6 +32,12 @@ export component MusicModePlaylist inherits Rectangle {
                 background: row.selected || PlaylistInteraction.selected-playlist-token == row.token
                     ? Theme.music-mode-playlist-selection(root.dark-theme) :
                     music-row-touch.has-hover ? Theme.music-mode-playlist-hover(root.dark-theme) : transparent;
+                PlaylistInsertionIndicator {
+                    width: parent.width;
+                    height: parent.height;
+                    index: index;
+                    accent: root.platform-windows ? root.windows-accent-color : Theme.playback-progress-accent;
+                }
                 if row.playing : Image {
                     x: 8px; y: 8px; width: 14px; height: 14px;
                     source: @image-url("../../../assets/icons/play.svg");
@@ -47,16 +56,18 @@ export component MusicModePlaylist inherits Rectangle {
                     width: parent.width - (row.playing ? 38px : 20px); text: row.label;
                     color: Theme.music-mode-playlist-title(root.dark-theme); font-size: 12px;
                     vertical-alignment: center; overflow: elide; }
-                music-row-touch := TouchArea {
-                    clicked => { music-row-focus.focus(); root.select-row(row.token); }
-                    double-clicked => { root.play-row(row.token); }
-                    pointer-event(event) => {
-                        if event.button == PointerEventButton.right && event.kind == PointerEventKind.up
-                            && self.mouse-x >= 0px && self.mouse-x < self.width
-                            && self.mouse-y >= 0px && self.mouse-y < self.height {
-                            music-row-menu.open-at(self.mouse-x, self.mouse-y);
+                music-row-touch := PlaylistRowInput {
+                    index: index;
+                    token: row.token;
+                    selected: row.selected;
+                    focus-row => { music-row-focus.focus(); }
+                    double-clicked => {
+                        if !PlaylistInteraction.playlist-drag-active {
+                            music-row-touch.cancel-drag();
+                            root.play-row(row.token);
                         }
                     }
+                    open-menu(x, y) => { music-row-menu.open-at(x, y); }
                 }
                 music-row-menu := PlaylistContextMenu {
                     origin: PlaylistMenuOrigin.music-mode;
@@ -65,6 +76,7 @@ export component MusicModePlaylist inherits Rectangle {
                 music-row-focus := FocusScope {
                     width: 0px;
                     key-pressed(event) => {
+                        if event.text == Key.Escape && music-row-touch.cancel-drag() { return accept; }
                         if event.text == Key.F10 && event.modifiers.shift && !event.modifiers.alt
                             && !event.modifiers.control && !event.modifiers.meta {
                             music-row-menu.open-at(12px, parent.height);

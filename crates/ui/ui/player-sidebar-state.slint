@@ -2,6 +2,7 @@ import { PlayerCatalogState } from "player-catalog-state.slint";
 import { PlayerCropState } from "player-crop-state.slint";
 import { PlayerMusicModeState } from "player-music-mode-state.slint";
 import { PlaylistDropViewport } from "playlist-drop-viewport.slint";
+import { PlaylistInteraction } from "playlist-interaction.slint";
 
 // The leading and trailing sidebars retain their own pane and width.
 export global PlayerSidebarState {
@@ -22,6 +23,12 @@ export global PlayerSidebarState {
     in-out property <PlaylistDropViewport> leading-list-drop-viewport;
     in-out property <PlaylistDropViewport> trailing-list-drop-viewport;
     in-out property <PlaylistDropViewport> music-list-drop-viewport;
+    out property <int> playlist-reorder-slot: PlaylistInteraction.playlist-drag-active
+        ? root.playlist-drop-slot(PlaylistInteraction.playlist-drag-x / 1px,
+            PlaylistInteraction.playlist-drag-y / 1px) : -1;
+
+    changed sidebar => { PlaylistInteraction.cancel-playlist-drag(); }
+    changed leading-sidebar => { PlaylistInteraction.cancel-playlist-drag(); }
 
     pure function drop-slot-in(view: PlaylistDropViewport, x: length, y: length) -> int {
         let local-x = x - view.x;

@@ -89,6 +89,14 @@ preserves playlist hover as the pointer moves between the two windows and
 queues media commands on Slint's event loop.
 [Win32 drop-target interface](https://learn.microsoft.com/en-us/windows/win32/api/oleidl/nn-oleidl-idroptarget)
 
+The main sidebar and Music Mode share playlist row gestures and insertion
+geometry. An active row drag retains its pointer in window coordinates, so the
+drop indicator follows the rows while the view scrolls beneath a stationary
+pointer. The scroll view owns the edge timer and stops it on release or
+cancellation. Selection and metadata refresh update existing rows in place
+when their identities and order are stable. Structural changes retire the
+gesture before a release can act on a different order.
+
 On Wayland, the application registers one data device per seat on Winit's
 display. Winit reads the display socket and Riina dispatches its drop queue
 from the same event loop. Drop payloads are read in the background, and the

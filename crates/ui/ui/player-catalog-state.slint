@@ -3,6 +3,7 @@ import { MenuCatalogRow } from "native-video.slint";
 import { PlayerMenuActions } from "player-menu-actions.slint";
 import { PlayerMusicModeState } from "player-music-mode-state.slint";
 import { PlayerPreferences } from "player-preferences.slint";
+import { PlaylistInteraction } from "playlist-interaction.slint";
 
 // Each player publishes its own catalog rows and current playback labels.
 export global PlayerCatalogState {
@@ -17,6 +18,9 @@ export global PlayerCatalogState {
 
     changed recent-open-menu-rows => { PlayerMenuActions.video-menu-changed(); }
     changed chapters => { PlayerMenuActions.video-menu-changed(); }
-    changed playlist => { PlayerMenuActions.video-menu-changed(); }
+    changed playlist => {
+        PlaylistInteraction.cancel-playlist-drag();
+        PlayerMenuActions.video-menu-changed();
+    }
     changed loop-label => { PlayerMenuActions.video-menu-changed(); }
 }

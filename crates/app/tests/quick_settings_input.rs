@@ -23,6 +23,9 @@ mod settings_navigation;
 #[path = "widgets/plugin_menus.rs"]
 mod plugin_menus;
 
+#[path = "widgets/playlist_drag.rs"]
+mod playlist_drag;
+
 fn flush() {
     slint::platform::update_timers_and_animations();
 }

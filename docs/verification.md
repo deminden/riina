@@ -2331,6 +2331,25 @@ exited normally. The executable SHA-256 was
 Native Windows and macOS Help windows and live third-party repository updates
 remain unverified.
 
+### Playlist row reordering 2026-11-23
+
+The pinned IINA MiniPlayer hosts the main window's playlist view. Riina's
+sidebar and Music Mode now share row drag handling, insertion geometry and
+edge scrolling while retaining their own visual presentations.
+
+The full Windows workspace gate passed, including 553 app tests, 59 widget
+tests and the software pixel comparison. The two drag regressions exercise
+scrolling in both directions with a simulated clock, then verify release and
+pointer cancellation. All 58 pinned libmpv null-output tests passed.
+
+The locked Linux build opened 70 sibling video entries on isolated X11 and
+kept playback paused. A stationary edge drag moved the first sidebar entry
+to row 33 and the first Music Mode entry to row 16. Both moves occurred on
+release and preserved the other entries' order, as observed through the
+player's local mpv socket. The test instance exited normally. Its executable
+SHA-256 was `75830f3b97c0e19ad52b53928821c5258f71f8f88bdbee68e68fdb8916c63ebb`.
+Native Windows, Wayland and macOS drag interaction remain unverified.
+
 ### macOS application menu composition 2026-10-14
 
 The AppKit adapter consolidates application actions in one native menu while

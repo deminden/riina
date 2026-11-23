@@ -35,6 +35,7 @@ export component QuickSettingsScrollPage inherits PlaylistDropScrollView {
     // Winit wheel input starts a physics animation before scrolled fires.
     // Observe the subsequent positions, including its final settled frame.
     scrolled => { if !root.restoring { root.user-scrolling = true; } }
+    playlist-auto-scrolled => { if !root.restoring { root.user-scrolling = true; } }
     changed content-y => {
         if !root.restoring && root.user-scrolling && root.active-kind == root.page-kind {
             root.position-changed(root.page-kind,

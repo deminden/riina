@@ -76,8 +76,6 @@ export component PlayerSidebarPage inherits VerticalLayout {
         dark-theme: PlayerAppearance.dark-theme;
         interactive-accent-color: PlayerAppearance.interactive-accent-color;
         select-row(token) => { PlayerMenuActions.select-item(root.selection-for-pane(pane-kind), token); }
-        select-playlist-row(index, extend, range) => { PlayerSidebarActions.select-playlist-row(index, extend, range) }
-        reorder-playlist(tokens, index) => { PlayerSidebarActions.reorder-playlist(tokens, index); }
     }
     if pane-kind == 6 : VideoQuickSettingsPage {
         sidebar-width: root.sidebar-width;
