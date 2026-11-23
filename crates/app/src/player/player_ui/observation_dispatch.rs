@@ -220,12 +220,9 @@ impl WindowDelivery {
             self.crop_editor.observe(&app, &state);
             let audio_device_sender = lock(&self.audio_device_sender).clone();
             crate::automatic_music_mode::observe(&app, &state, &self.music_mode_state);
-            if let Some(timers) = &mut observer.borrow_mut().timers {
-                timers.observe(&state);
-            }
             let resize_for_media = update_ui(
                 &app,
-                state,
+                &state,
                 UiUpdateResources {
                     audio_device_player: audio_device_sender.as_ref(),
                     saved_video_filters: &self.saved_video_filters,
@@ -235,6 +232,9 @@ impl WindowDelivery {
                 },
                 &mut observer.borrow_mut(),
             );
+            if let Some(timers) = &mut observer.borrow_mut().timers {
+                timers.observe(&app, &state);
+            }
             if resize_for_media {
                 // Apply the complete geometry after automatic music mode has
                 // restored the video window. Coalesced snapshots may omit

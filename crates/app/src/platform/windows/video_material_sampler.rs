@@ -4,7 +4,7 @@ use crate::platform::{
     self,
     video_materials::{native_blur, set_video_material_sample},
 };
-use riina_core::{Command, Phase};
+use riina_core::{Command, Phase, Playback};
 use slint::ComponentHandle;
 use std::{
     cell::Cell,
@@ -45,12 +45,14 @@ struct MaterialFrameKey {
 }
 
 struct MaterialTransformRequest {
+    epoch: u64,
     key: MaterialFrameKey,
     frame: Arc<riina_core::CapturedFrame>,
     captured_at: Option<Instant>,
 }
 
 struct MaterialTransformResult {
+    epoch: u64,
     key: MaterialFrameKey,
     captured_at: Option<Instant>,
     transform_time: Duration,
@@ -101,11 +103,13 @@ fn start_material_transform_worker() -> (
                 }
             }
             let result = MaterialTransformResult {
+                epoch: request.epoch,
                 key: request.key,
                 captured_at: request.captured_at,
                 transform_time: started.elapsed(),
                 pixels,
             };
+            // The UI consumes at display cadence and may already own a pending result.
             let _ = result_sender.try_send(result);
         }
     });
@@ -158,25 +162,63 @@ pub(crate) fn install_windows_material_policy_monitor(app: &PlayerWindow) -> Rc<
     timer
 }
 
+pub(crate) struct MaterialTimer {
+    timer: Rc<slint::Timer>,
+    sampler: Rc<MaterialSampler>,
+}
+
+impl MaterialTimer {
+    pub(crate) fn observe(&self, app: &PlayerWindow, state: &Playback) {
+        self.sampler.observe_generation(app, state);
+        if app.get_native_video_material_visible()
+            && playback_active(state)
+            && !self.timer.running()
+        {
+            self.timer.restart();
+        }
+    }
+}
+
 pub(crate) fn install_native_video_material_sampler(
     app: &PlayerWindow,
     sender: riina_mpv::CommandSender,
     latest: crate::PlaybackStore,
     capture: Option<platform::NativeVideoMaterialCapture>,
-) -> Rc<slint::Timer> {
+) -> MaterialTimer {
     let timer = Rc::new(slint::Timer::default());
     let weak = app.as_weak();
-    let sampler = MaterialSampler::new(sender, latest, capture);
+    let sampler = Rc::new(MaterialSampler::new(sender, latest, capture));
+    let tick_sampler = sampler.clone();
+    let tick_timer = Rc::downgrade(&timer);
     timer.start(
         slint::TimerMode::Repeated,
         NATIVE_MATERIAL_UPDATE_INTERVAL,
         move || {
-            if let Some(app) = weak.upgrade() {
-                sampler.tick(&app);
+            if weak.upgrade().is_some_and(|app| tick_sampler.tick(&app)) {
+                return;
+            }
+            if let Some(timer) = tick_timer.upgrade() {
+                timer.stop();
             }
         },
     );
-    timer
+    timer.stop();
+    let visibility_timer = Rc::downgrade(&timer);
+    let visibility_app = app.as_weak();
+    let visibility_sampler = Rc::downgrade(&sampler);
+    app.on_native_video_material_visibility_changed(move |visible| {
+        if visible
+            && let (Some(app), Some(timer), Some(sampler)) = (
+                visibility_app.upgrade(),
+                visibility_timer.upgrade(),
+                visibility_sampler.upgrade(),
+            )
+        {
+            let state = riina_core::sync::lock(&sampler.latest).clone();
+            MaterialTimer { timer, sampler }.observe(&app, &state);
+        }
+    });
+    MaterialTimer { timer, sampler }
 }
 
 struct MaterialSampler {
@@ -185,6 +227,7 @@ struct MaterialSampler {
     capture: Option<platform::NativeVideoMaterialCapture>,
     transform_sender: std::sync::mpsc::SyncSender<MaterialTransformRequest>,
     transform_results: std::sync::mpsc::Receiver<MaterialTransformResult>,
+    activity_epoch: Cell<u64>,
     last_request: Cell<Option<(u64, u64, Instant)>>,
     displayed: Cell<Option<MaterialFrameKey>>,
     displayed_at: Cell<Option<Instant>>,
@@ -208,6 +251,7 @@ impl MaterialSampler {
             capture,
             transform_sender,
             transform_results,
+            activity_epoch: Cell::new(0),
             last_request: Cell::new(None),
             displayed: Cell::new(None),
             displayed_at: Cell::new(None),
@@ -219,25 +263,21 @@ impl MaterialSampler {
         }
     }
 
-    fn tick(&self, app: &PlayerWindow) {
+    fn tick(&self, app: &PlayerWindow) -> bool {
         let state = riina_core::sync::lock(&self.latest).clone();
         let completed_transform = self.transform_results.try_recv().ok();
-        let visible = material_visible(app);
         self.observe_generation(app, &state);
-        let playback_active = state.video.is_some()
-            && matches!(state.phase, Phase::Playing | Phase::Paused | Phase::Seeking);
-
-        if !visible || !playback_active {
+        if !app.get_native_video_material_visible() || !playback_active(&state) {
             self.clear_inactive_sample(app);
-            return;
+            return false;
         }
         if let Some(result) = completed_transform {
             self.publish_transform(app, &state, result);
         }
-        if self.poll_native_capture(&state) {
-            return;
+        if !self.poll_native_capture(&state) {
+            self.poll_mpv_capture(app, &state);
         }
-        self.poll_mpv_capture(app, &state);
+        true
     }
 
     fn observe_generation(&self, app: &PlayerWindow, state: &riina_core::Playback) {
@@ -256,6 +296,8 @@ impl MaterialSampler {
     }
 
     fn clear_inactive_sample(&self, app: &PlayerWindow) {
+        self.activity_epoch
+            .set(self.activity_epoch.get().wrapping_add(1));
         if let Some(capture) = &self.capture {
             capture.set_enabled(false);
         }
@@ -274,6 +316,9 @@ impl MaterialSampler {
         state: &riina_core::Playback,
         result: MaterialTransformResult,
     ) {
+        if result.epoch != self.activity_epoch.get() {
+            return;
+        }
         let key = result.key;
         if self.submitted.get() == Some(key) {
             self.submitted.set(None);
@@ -327,6 +372,7 @@ impl MaterialSampler {
                 };
                 if self.displayed.get() != Some(key) && self.submitted.get() != Some(key) {
                     let request = MaterialTransformRequest {
+                        epoch: self.activity_epoch.get(),
                         key,
                         frame: sample.frame.clone(),
                         captured_at: Some(sample.captured_at),
@@ -365,6 +411,7 @@ impl MaterialSampler {
             && let Some(frame) = state.material_frame.frame.as_ref()
         {
             let request = MaterialTransformRequest {
+                epoch: self.activity_epoch.get(),
                 key: frame_key,
                 frame: frame.clone(),
                 captured_at: state.material_frame.captured_at,
@@ -430,33 +477,48 @@ impl MaterialSampler {
     }
 }
 
-fn material_visible(app: &PlayerWindow) -> bool {
-    let appearance = app.global::<riina_ui::PlayerAppearance>();
-    let controls = app.global::<riina_ui::PlayerControlsState>();
-    let music = app.global::<riina_ui::PlayerMusicModeState>();
-    let sidebars = app.global::<riina_ui::PlayerSidebarState>();
-    let preferences = app.global::<riina_ui::PlayerPreferences>();
-    let appearance = appearance;
-    let video = app.global::<riina_ui::PlaybackVideoState>();
-    let osd = app.global::<riina_ui::PlayerOsdState>();
-    appearance.get_system_materials_enabled()
-        && app.get_native_video()
-        && !app.global::<riina_ui::PlayerRenderedVideo>().get_native_transition_frame()
-        && !app.global::<riina_ui::PlayerCropState>().get_crop_editing()
-        // The Slint overlay is SDR. Keep the native HDR composition
-        // on its existing tint instead of mixing an 8-bit screenshot.
-        && !(video.get_hdr_source_detected() && video.get_hdr_enabled())
-        && ((appearance.get_liquid_glass_osc()
-            && app.get_loaded()
-            && (controls.get_controls_visible() || music.get_music_mode()))
-            || (appearance.get_liquid_glass_sidebar()
-                && (sidebars.get_sidebar() != 0 || sidebars.get_leading_sidebar() != 0))
-            || (appearance.get_liquid_glass_osd()
-                && app.get_loaded()
-                && (osd.get_video_osd_visible()
-                    || osd.get_seek_osd_visible()
-                    || !osd.get_plugin_osd_message().is_empty()
-                    || (app.get_fullscreen()
-                        && controls.get_controls_visible()
-                        && preferences.get_display_time_and_battery_in_fullscreen()))))
+fn playback_active(state: &Playback) -> bool {
+    state.video.is_some() && matches!(state.phase, Phase::Playing | Phase::Paused | Phase::Seeking)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn material_sampler_wakes_for_visible_sdr_video_and_stops_under_hdr()
+    -> Result<(), slint::PlatformError> {
+        i_slint_backend_testing::init_no_event_loop();
+        let app = PlayerWindow::new()?;
+        let latest = crate::PlaybackStore::default();
+        let (sender, recording) = riina_mpv::CommandSender::recording(4);
+        let sampler = install_native_video_material_sampler(&app, sender, latest.clone(), None);
+        assert!(!sampler.timer.running());
+
+        app.set_native_video(true);
+        app.set_loaded(true);
+        let state = Arc::new(Playback {
+            phase: Phase::Playing,
+            video: Some(serde_json::from_value(serde_json::json!({ "w": 320, "h": 180 })).unwrap()),
+            ..Playback::default()
+        });
+        *riina_core::sync::lock(&latest) = state.clone();
+        sampler.observe(&app, &state);
+        assert!(sampler.timer.running());
+        i_slint_backend_testing::mock_elapsed_time(NATIVE_MATERIAL_UPDATE_INTERVAL);
+        assert_eq!(
+            recording.commands.try_recv(),
+            Ok(Command::CaptureMaterialFrame)
+        );
+
+        app.global::<riina_ui::PlaybackVideoState>()
+            .set_hdr_source_detected(true);
+        i_slint_backend_testing::mock_elapsed_time(NATIVE_MATERIAL_UPDATE_INTERVAL);
+        assert!(!sampler.timer.running());
+        assert_eq!(
+            recording.commands.try_recv(),
+            Err(std::sync::mpsc::TryRecvError::Empty)
+        );
+        Ok(())
+    }
 }

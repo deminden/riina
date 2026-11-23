@@ -162,6 +162,10 @@ export component PlayerWindow inherits PlayerMenuWindow {
     in-out property <bool> live-text-available: false;
     changed live-text-available => { PlayerMenuActions.video-menu-changed(); root.toolbar-settings-changed(); }
     in property <bool> live-text-selectable: false;
+    in property <bool> live-text-frame-paused: false;
+    out property <bool> observe-live-text: live-text-enabled && live-text-available && loaded && live-text-frame-paused && !crop-editing && !music-mode;
+    callback live-text-observation-changed(bool);
+    changed observe-live-text => { root.live-text-observation-changed(root.observe-live-text); }
     callback copy-live-text(string);
     private property <bool> music-mode: PlayerMusicModeState.music-mode;
     private property <bool> auto-switch-to-music-mode: PlayerMusicModeState.auto-switch-to-music-mode;
@@ -230,9 +234,15 @@ export component PlayerWindow inherits PlayerMenuWindow {
     in property <bool> primary-shortcut-is-meta: false;
     in property <string> status: "Open a file to begin";
     in property <string> startup-status;
-    private property <bool> open-subtitles-auto-search: PlayerPreferences.open-subtitles-auto-search;
+    private property <bool> open-subtitles-auto-search: loaded && PlayerPreferences.open-subtitles-auto-search;
     callback open-subtitles-auto-search-changed(bool);
-    changed open-subtitles-auto-search => { root.open-subtitles-auto-search-changed(PlayerPreferences.open-subtitles-auto-search); }
+    changed open-subtitles-auto-search => { root.open-subtitles-auto-search-changed(root.open-subtitles-auto-search); }
+    out property <bool> show-playlist-metadata: PlayerPreferences.playlist-show-metadata && (!PlayerPreferences.playlist-show-metadata-in-music-mode || music-mode);
+    callback refresh-playlist-metadata();
+    changed show-playlist-metadata => { root.refresh-playlist-metadata(); }
+    out property <bool> native-video-material-visible: PlayerAppearance.native-video-material-visible(native-video, loaded, fullscreen);
+    callback native-video-material-visibility-changed(bool);
+    changed native-video-material-visible => { root.native-video-material-visibility-changed(root.native-video-material-visible); }
     private property <float> volume-limit: PlayerPreferences.volume-boost ? 200 : 100;
     in property <bool> engine-ready: false;
     private property <int> sidebar: PlayerSidebarState.sidebar;

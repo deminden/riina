@@ -6,7 +6,7 @@ use crate::{
 use riina_core::{Command, Phase, Playback, TrackKind, sync::lock, time_label};
 use riina_ui::PlayerMenuActions;
 use slint::{ComponentHandle, Model};
-use std::{cell::Cell, path::PathBuf, rc::Rc, time::Duration};
+use std::{path::PathBuf, rc::Rc, time::Duration};
 
 pub(super) fn install_catalog_selection(app: &PlayerWindow, context: &PlayerContext) {
     bind!(
@@ -344,6 +344,7 @@ fn update_chapters(app: &PlayerWindow, state: &Playback) {
 }
 
 fn update_playlist(app: &PlayerWindow, state: &Playback) {
+    let show_metadata = app.get_show_playlist_metadata();
     let selected_playlist_tokens = app
         .global::<riina_ui::PlaylistInteraction>()
         .get_selected_playlist_tokens();
@@ -364,17 +365,9 @@ fn update_playlist(app: &PlayerWindow, state: &Playback) {
                             )
                         }
                     });
-                    let metadata = (app
-                        .global::<riina_ui::PlayerPreferences>()
-                        .get_playlist_show_metadata()
-                        && (!app
-                            .global::<riina_ui::PlayerPreferences>()
-                            .get_playlist_show_metadata_in_music_mode()
-                            || app
-                                .global::<riina_ui::PlayerMusicModeState>()
-                                .get_music_mode()))
-                    .then(|| crate::playlist_metadata::lookup(&entry.filename))
-                    .flatten();
+                    let metadata = show_metadata
+                        .then(|| crate::playlist_metadata::lookup(&entry.filename))
+                        .flatten();
                     CatalogRow {
                         token: token.clone().into(),
                         path: entry.filename.clone().into(),
@@ -430,37 +423,85 @@ fn update_playlist(app: &PlayerWindow, state: &Playback) {
     install_playlist_selection(app, &retained_selection);
 }
 
+pub(super) struct PlaylistMetadataRefresh {
+    _timer: Rc<slint::Timer>,
+    _subscription: crate::playlist_metadata::Subscription,
+}
+
 pub(super) fn install_playlist_metadata_refresh(
     app: &PlayerWindow,
     playback: crate::PlaybackStore,
-) -> Rc<slint::Timer> {
+) -> PlaylistMetadataRefresh {
     let timer = Rc::new(slint::Timer::default());
     let weak = app.as_weak();
-    let last_state = Rc::new(Cell::new(None::<(u64, bool, bool, bool)>));
-    let observed = last_state.clone();
     timer.start(
-        slint::TimerMode::Repeated,
+        slint::TimerMode::SingleShot,
         Duration::from_millis(300),
         move || {
             let Some(app) = weak.upgrade() else { return };
-            let state = (
-                crate::playlist_metadata::revision(),
-                app.global::<riina_ui::PlayerPreferences>()
-                    .get_playlist_show_metadata(),
-                app.global::<riina_ui::PlayerPreferences>()
-                    .get_playlist_show_metadata_in_music_mode(),
-                app.global::<riina_ui::PlayerMusicModeState>()
-                    .get_music_mode(),
-            );
-            if observed.get() == Some(state) {
-                return;
-            }
-            observed.set(Some(state));
             let snapshot = riina_core::sync::lock(&playback).clone();
-            update_catalog(&app, &snapshot);
+            update_playlist(&app, &snapshot);
         },
     );
-    timer
+    let weak_timer = Rc::downgrade(&timer);
+    app.on_refresh_playlist_metadata(move || {
+        if let Some(timer) = weak_timer.upgrade() {
+            super::features::wake_timer(&timer);
+        }
+    });
+    let weak_app = app.as_weak();
+    let delivery = crate::background::CoalescedUiCallback::default();
+    let subscription = crate::playlist_metadata::subscribe(move || {
+        delivery.post(|| {
+            let weak = weak_app.clone();
+            move || {
+                if let Some(app) = weak.upgrade()
+                    && app.get_show_playlist_metadata()
+                    && app
+                        .global::<riina_ui::PlayerCatalogState>()
+                        .get_playlist()
+                        .row_count()
+                        > 0
+                {
+                    app.invoke_refresh_playlist_metadata();
+                }
+            }
+        });
+    });
+    PlaylistMetadataRefresh {
+        _timer: timer,
+        _subscription: subscription,
+    }
+}
+
+#[cfg(test)]
+mod metadata_tests {
+    use super::*;
+
+    #[test]
+    fn metadata_refresh_coalesces_changes_into_one_tick() -> Result<(), slint::PlatformError> {
+        i_slint_backend_testing::init_no_event_loop();
+        let app = PlayerWindow::new()?;
+        let refresh = install_playlist_metadata_refresh(&app, crate::PlaybackStore::default());
+        i_slint_backend_testing::mock_elapsed_time(Duration::from_millis(300));
+        assert!(!refresh._timer.running());
+
+        let preferences = app.global::<riina_ui::PlayerPreferences>();
+        preferences.set_playlist_show_metadata(false);
+        i_slint_backend_testing::mock_elapsed_time(Duration::ZERO);
+        assert!(!refresh._timer.running());
+
+        preferences.set_playlist_show_metadata(true);
+        preferences.set_playlist_show_metadata_in_music_mode(false);
+        i_slint_backend_testing::mock_elapsed_time(Duration::ZERO);
+        assert!(app.get_show_playlist_metadata());
+        assert!(refresh._timer.running());
+        i_slint_backend_testing::mock_elapsed_time(Duration::from_millis(299));
+        app.invoke_refresh_playlist_metadata();
+        i_slint_backend_testing::mock_elapsed_time(Duration::from_millis(1));
+        assert!(!refresh._timer.running());
+        Ok(())
+    }
 }
 
 pub(super) fn current_chapter(state: &Playback) -> Option<usize> {

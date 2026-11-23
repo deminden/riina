@@ -31,7 +31,7 @@ pub(super) fn install(
     app.global::<PlayerPreferences>()
         .on_thumbnail_settings_changed(move || {
             if let Some(timer) = settings_timer.upgrade() {
-                wake(&timer);
+                super::features::wake_timer(&timer);
             }
         });
     thumbnail_preview_timer.start(
@@ -63,12 +63,6 @@ pub(super) fn install(
         },
     );
     thumbnail_preview_timer
-}
-
-pub(super) fn wake(timer: &slint::Timer) {
-    if !timer.running() {
-        timer.restart();
-    }
 }
 
 #[cfg(test)]

@@ -1,4 +1,11 @@
 import { PlayerPreferences } from "player-preferences.slint";
+import { PlaybackVideoState } from "playback-video-state.slint";
+import { PlayerControlsState } from "player-controls-state.slint";
+import { PlayerCropState } from "player-crop-state.slint";
+import { PlayerMusicModeState } from "player-music-mode-state.slint";
+import { PlayerOsdState } from "player-osd-state.slint";
+import { PlayerRenderedVideo } from "player-rendered-video.slint";
+import { PlayerSidebarState } from "player-sidebar-state.slint";
 import { Theme } from "theme.slint";
 
 // Appearance and material choices are owned by the player window.
@@ -10,6 +17,17 @@ export global PlayerAppearance {
         liquid-glass-sidebar && (!platform-windows || system-materials-enabled);
     out property <bool> active-liquid-glass-osd:
         liquid-glass-osd && (!platform-windows || system-materials-enabled);
+    public pure function native-video-material-visible(native-video: bool, loaded: bool, fullscreen: bool) -> bool {
+        // The sampled material is SDR. Preserve the native tint during HDR.
+        return system-materials-enabled && native-video
+            && !PlayerRenderedVideo.native-transition-frame && !PlayerCropState.crop-editing
+            && !(PlaybackVideoState.hdr-source-detected && PlaybackVideoState.hdr-enabled)
+            && ((liquid-glass-osc && loaded && (PlayerControlsState.controls-visible || PlayerMusicModeState.music-mode))
+                || (liquid-glass-sidebar && (PlayerSidebarState.sidebar != 0 || PlayerSidebarState.leading-sidebar != 0))
+                || (liquid-glass-osd && loaded && (PlayerOsdState.video-osd-visible || PlayerOsdState.seek-osd-visible
+                    || PlayerOsdState.plugin-osd-message != ""
+                    || (fullscreen && PlayerControlsState.controls-visible && PlayerPreferences.display-time-and-battery-in-fullscreen))));
+    }
     // Both Windows renderer paths use the calibrated video-backed Acrylic
     // strength; the weaker shared-renderer layer made Windows surfaces opaque.
     public pure function video-material-sample-opacity(native-video: bool) -> float {

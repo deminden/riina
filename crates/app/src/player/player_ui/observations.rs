@@ -29,7 +29,7 @@ pub(super) struct UiUpdateResources<'a> {
 
 pub(super) fn update_ui(
     app: &PlayerWindow,
-    state: Arc<Playback>,
+    state: &Arc<Playback>,
     resources: UiUpdateResources<'_>,
     observer: &mut UiObserverState,
 ) -> bool {
@@ -41,15 +41,15 @@ pub(super) fn update_ui(
         screenshot: last_screenshot,
         ..
     } = observer;
-    update_transition_cover(app, &state, &resources);
+    update_transition_cover(app, state, &resources);
     let previous_generation = media_geometry.observe(state.generation);
-    update_filter_menu_rows(app, &state, &resources);
-    let title = platform::window_document::playback_title(app.window(), &state);
+    update_filter_menu_rows(app, state, &resources);
+    let title = platform::window_document::playback_title(app.window(), state);
     app.set_window_title(title.into());
-    update_media_actions(app, &state);
+    update_media_actions(app, state);
     update_feedback(
         app,
-        &state,
+        state,
         displayed.as_deref(),
         last_seek,
         last_video,
@@ -60,7 +60,7 @@ pub(super) fn update_ui(
     timeline.set_seek_duration_label(seek_osd::clock(state.duration).into());
     app.global::<riina_ui::PlayerCatalogState>()
         .set_playlist_shuffled(state.playlist_shuffled);
-    if should_fallback_removed_audio_device(displayed.as_deref(), &state)
+    if should_fallback_removed_audio_device(displayed.as_deref(), state)
         && let Some(audio_device_player) = resources.audio_device_player
         && let Err(error) = audio_device_player.send(Command::AudioDevice("auto".into()))
     {
@@ -78,9 +78,9 @@ pub(super) fn update_ui(
             || old.audio_devices != state.audio_devices
             || old.audio_device != state.audio_device
             || old.audio_output != state.audio_output
-            || current_chapter(old) != current_chapter(&state)
+            || current_chapter(old) != current_chapter(state)
     }) {
-        update_catalog(app, &state);
+        update_catalog(app, state);
         *displayed = Some(state.clone());
     }
     let first_loaded = (!app.get_loaded() || previous_generation != Some(state.generation))
@@ -88,13 +88,13 @@ pub(super) fn update_ui(
             state.phase,
             Phase::Playing | Phase::Paused | Phase::Buffering | Phase::Ended
         );
-    let resize_for_media = update_playback_phase(app, &state, previous_generation);
+    let resize_for_media = update_playback_phase(app, state, previous_generation);
     if first_loaded {
-        notify_media_loaded(app, &state);
+        notify_media_loaded(app, state);
     }
-    update_transport(app, &state);
-    update_video_and_artwork(app, &state);
-    update_delays_and_subtitle_style(app, &state);
+    update_transport(app, state);
+    update_video_and_artwork(app, state);
+    update_delays_and_subtitle_style(app, state);
     app.global::<riina_ui::PlayerCatalogState>().set_loop_label(
         match state.loop_mode() {
             LoopMode::Off => "Off",
@@ -103,7 +103,7 @@ pub(super) fn update_ui(
         }
         .into(),
     );
-    update_hdr_source(app, &state, first_loaded);
+    update_hdr_source(app, state, first_loaded);
     app.set_media_title(state.title.as_str().into());
     app.global::<riina_ui::PlayerMusicModeState>()
         .set_music_artist(state.artist.as_deref().unwrap_or_default().into());
@@ -381,6 +381,7 @@ fn update_playback_phase(
         Phase::Stopped | Phase::Failed | Phase::Loading
     ));
     app.set_paused(state.paused);
+    app.set_live_text_frame_paused(state.phase == Phase::Paused);
     app.set_playing(state.phase == Phase::Playing);
     if matches!(state.phase, Phase::Paused | Phase::Ended | Phase::Failed) {
         app.global::<riina_ui::PlayerControlsState>()

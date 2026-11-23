@@ -1,5 +1,6 @@
 //! Own native video-material refresh for the player's presentation lifetime.
 use crate::{PlaybackStore, PlayerWindow, platform::NativePresentation};
+use riina_core::Playback;
 use riina_mpv::CommandSender;
 use slint::ComponentHandle;
 
@@ -14,7 +15,7 @@ pub(crate) const WINDOWS_NATIVE_MATERIAL_SAMPLE_HEIGHT: f32 = 180.0;
 
 pub(crate) struct Monitor {
     #[cfg(target_os = "windows")]
-    _sample: Option<std::rc::Rc<slint::Timer>>,
+    sample: Option<super::windows::video_material_sampler::MaterialTimer>,
     #[cfg(target_os = "windows")]
     _policy: std::rc::Rc<slint::Timer>,
 }
@@ -40,7 +41,7 @@ impl Monitor {
         });
         let policy = install_windows_material_policy_monitor(app);
         Self {
-            _sample: sample,
+            sample,
             _policy: policy,
         }
     }
@@ -54,6 +55,16 @@ impl Monitor {
     ) -> Self {
         Self {}
     }
+
+    #[cfg(target_os = "windows")]
+    pub(crate) fn observe(&self, app: &PlayerWindow, state: &Playback) {
+        if let Some(sample) = &self.sample {
+            sample.observe(app, state);
+        }
+    }
+
+    #[cfg(not(target_os = "windows"))]
+    pub(crate) fn observe(&self, _: &PlayerWindow, _: &Playback) {}
 }
 
 pub(crate) fn set_video_material_sample(app: &PlayerWindow, image: slint::Image, ready: bool) {

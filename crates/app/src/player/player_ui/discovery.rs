@@ -31,8 +31,15 @@ pub(super) fn install(
     let subtitle_discovery_ready_controller = subtitle_discovery_ready.clone();
     let priority_controller = priority_state.clone();
     let priority_app = app.as_weak();
+    let settings_timer = Rc::downgrade(&subtitle_priority_timer);
+    app.global::<riina_ui::PlayerPreferences>()
+        .on_discovery_settings_changed(move || {
+            if let Some(timer) = settings_timer.upgrade() {
+                super::features::wake_timer(&timer);
+            }
+        });
     subtitle_priority_timer.start(
-        slint::TimerMode::Repeated,
+        slint::TimerMode::SingleShot,
         Duration::from_millis(120),
         move || {
             let Some(app) = priority_app.upgrade() else {
@@ -149,4 +156,37 @@ pub(super) fn install(
         },
     );
     subtitle_priority_timer
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use riina_ui::PlayerPreferences;
+
+    #[test]
+    fn discovery_observes_settings_once_and_returns_to_idle() -> Result<(), slint::PlatformError> {
+        i_slint_backend_testing::init_no_event_loop();
+        let app = PlayerWindow::new()?;
+        let (commands, recording) = riina_mpv::CommandSender::recording(4);
+        let timer = install(
+            &app,
+            &commands,
+            crate::PlaybackStore::default(),
+            Arc::default(),
+        );
+        i_slint_backend_testing::mock_elapsed_time(Duration::from_millis(120));
+        assert!(!timer.running());
+
+        app.global::<PlayerPreferences>()
+            .set_subtitle_auto_load_priority("test".into());
+        i_slint_backend_testing::mock_elapsed_time(Duration::ZERO);
+        assert!(timer.running());
+        i_slint_backend_testing::mock_elapsed_time(Duration::from_millis(120));
+        assert!(!timer.running());
+        assert_eq!(
+            recording.commands.try_recv(),
+            Err(std::sync::mpsc::TryRecvError::Empty)
+        );
+        Ok(())
+    }
 }

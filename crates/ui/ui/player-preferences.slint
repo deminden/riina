@@ -129,6 +129,11 @@ export global PlayerPreferences {
     in-out property <int> subtitle-auto-load-mode-index: 2;
     in-out property <string> subtitle-auto-load-priority;
     in-out property <string> subtitle-search-paths: "./*";
+    callback discovery-settings-changed();
+    changed playlist-auto-add => { self.discovery-settings-changed(); }
+    changed subtitle-auto-load-mode-index => { self.discovery-settings-changed(); }
+    changed subtitle-auto-load-priority => { self.discovery-settings-changed(); }
+    changed subtitle-search-paths => { self.discovery-settings-changed(); }
     in-out property <bool> subtitle-display-in-letterbox: true;
     in-out property <bool> subtitle-scale-with-window: true;
     in-out property <string> subtitle-margin-x-text: "25";

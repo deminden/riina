@@ -3,10 +3,10 @@
 use lofty::{file::TaggedFileExt, probe::Probe, tag::ItemKey};
 use riina_core::sync::lock;
 use std::{
-    collections::HashMap,
+    collections::{BTreeMap, HashMap},
     path::{Path, PathBuf},
     sync::{
-        OnceLock,
+        Arc, Mutex, OnceLock,
         atomic::{AtomicU64, Ordering},
         mpsc::{SyncSender, TrySendError, sync_channel},
     },
@@ -19,30 +19,51 @@ pub(crate) struct Metadata {
 }
 
 struct Cache {
-    entries: std::sync::Mutex<HashMap<PathBuf, Option<Metadata>>>,
+    entries: Mutex<HashMap<PathBuf, Option<Metadata>>>,
     requests: SyncSender<PathBuf>,
-    revision: AtomicU64,
 }
 
 static CACHE: OnceLock<Cache> = OnceLock::new();
 const MAX_CACHE_ENTRIES: usize = 2048;
 
+type Listener = Arc<dyn Fn() + Send + Sync>;
+static LISTENERS: Mutex<BTreeMap<u64, Listener>> = Mutex::new(BTreeMap::new());
+
+pub(crate) struct Subscription(u64);
+
+pub(crate) fn subscribe(listener: impl Fn() + Send + Sync + 'static) -> Subscription {
+    static NEXT: AtomicU64 = AtomicU64::new(0);
+    let id = NEXT.fetch_add(1, Ordering::Relaxed);
+    lock(&LISTENERS).insert(id, Arc::new(listener));
+    Subscription(id)
+}
+
+impl Drop for Subscription {
+    fn drop(&mut self) {
+        lock(&LISTENERS).remove(&self.0);
+    }
+}
+
 fn cache() -> &'static Cache {
     CACHE.get_or_init(|| {
         let (requests, receiver) = sync_channel::<PathBuf>(128);
         let cache = Cache {
-            entries: std::sync::Mutex::new(HashMap::new()),
+            entries: Mutex::new(HashMap::new()),
             requests,
-            revision: AtomicU64::new(0),
         };
         let worker = crate::background::spawn_named("riina-playlist-tags", move || {
             while let Ok(path) = receiver.recv() {
                 let metadata = read_metadata(&path);
                 let Some(cache) = CACHE.get() else { continue };
-                let mut entries = lock(&cache.entries);
-                if let Some(entry) = entries.get_mut(&path) {
+                if let Some(entry) = lock(&cache.entries).get_mut(&path) {
                     *entry = metadata;
-                    cache.revision.fetch_add(1, Ordering::Release);
+                } else {
+                    continue;
+                }
+                // A completed request can also make room to retry a full queue.
+                let listeners: Vec<_> = lock(&LISTENERS).values().cloned().collect();
+                for listener in listeners {
+                    listener();
                 }
             }
         });
@@ -51,10 +72,6 @@ fn cache() -> &'static Cache {
         }
         cache
     })
-}
-
-pub(crate) fn revision() -> u64 {
-    cache().revision.load(Ordering::Acquire)
 }
 
 pub(crate) fn lookup(reference: &str) -> Option<Metadata> {

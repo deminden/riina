@@ -513,9 +513,10 @@ fn install_automatic_search(
                 .invoke_find_online_subtitles();
         },
     );
-    if !app
-        .global::<riina_ui::PlayerPreferences>()
-        .get_open_subtitles_auto_search()
+    if !app.get_loaded()
+        || !app
+            .global::<riina_ui::PlayerPreferences>()
+            .get_open_subtitles_auto_search()
     {
         auto_timer.stop();
     }
@@ -587,6 +588,9 @@ mod tests {
         app.global::<riina_ui::PlayerPreferences>()
             .set_open_subtitles_auto_search(true);
         i_slint_backend_testing::mock_elapsed_time(Duration::ZERO);
+        assert!(!timer.running());
+        app.set_loaded(true);
+        i_slint_backend_testing::mock_elapsed_time(Duration::ZERO);
         assert!(timer.running());
         i_slint_backend_testing::mock_elapsed_time(Duration::from_millis(500));
         assert!(!requested.get());
@@ -600,6 +604,9 @@ mod tests {
             .set_open_subtitles_auto_search(true);
         i_slint_backend_testing::mock_elapsed_time(Duration::ZERO);
         assert!(timer.running());
+        app.set_loaded(false);
+        i_slint_backend_testing::mock_elapsed_time(Duration::ZERO);
+        assert!(!timer.running());
         drop(timer);
         app.global::<riina_ui::PlayerPreferences>()
             .set_open_subtitles_auto_search(false);
