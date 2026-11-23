@@ -257,7 +257,7 @@ Pause on minimize follows the owning window's minimize and restore events.
 | Playlist metadata | 300 ms | Refresh visible playlist rows | One delayed pass after a lookup completes or the display policy changes |
 | Automatic Music Mode | 100 ms | Complete the track-catalog debounce | While media is loaded and automatic switching is enabled, including paused playback |
 | Subtitle discovery | 120 ms | Discover sibling media and select a matching subtitle track | One delayed pass at setup and after relevant playback or discovery settings change |
-| Windows picture-in-picture | 250 ms | Check automatic enter/exit on minimize or restore and refresh active preview | While the native PiP controller owns the player |
+| Windows picture-in-picture | 250 ms | Check automatic enter/exit on minimize or restore and refresh active preview | While PiP is active or the automatic minimize policy applies. Stops at shutdown |
 | macOS Now Playing | 50 ms | Sync media controls and drain system actions | While system media controls or application focus policy are active |
 | Windows package smoke | 100 ms | Advance the package verification steps | For the lifetime of the smoke run |
 | Live Text | 300 ms | Request and project paused-frame recognition | While recognition is enabled and paused video is eligible, with one cleanup tick after eligibility ends |

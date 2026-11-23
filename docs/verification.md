@@ -562,6 +562,20 @@ Live Text and Windows video material sampling start and stop. All 53 pinned
 native tests passed with null audio output. The locked workspace build passed
 all ten private-desktop checks in 9.227 seconds and exited normally.
 
+At `e887960`, `cargo xtask check` passed 858 Rust tests and 78 Python tests.
+The new headless PiP case verified that rejecting the UI task releases the
+pending entry state. The 53 pinned native tests passed with null audio output.
+
+At `0887a00`, the Windows workspace gate passed 859 Rust tests and 78 Python
+tests. A headless PiP regression checked the timer at player initialization,
+when automatic minimize handling is enabled and disabled, during PiP display,
+and after shutdown. The 51 software-rendered reference comparisons passed.
+The locked build passed all ten private-desktop checks in 9.149 seconds,
+then the test player exited normally.
+
+At `2df984f`, `cargo xtask check --fast` passed strict app Clippy and all
+558 app and widget tests after the native-window and capture cleanup audit.
+
 On `954d4d6`, separate private-desktop runs reopened and played media after
 recovering a profile with an invalid setting type, a non-object JSON document,
 or invalid UTF-8. Each run showed the recovery notice, preserved the original
@@ -580,6 +594,14 @@ took 14.06 seconds for the baseline and 69.07 seconds for the current tree.
 These timings measure an app-file edit with built dependencies. Background
 builds during the measurements and the baseline's spread limit precision.
 
+The earlier profile comparison used the same `9c7f48c` source for both
+configurations and independent empty build directories. A locked application
+build took 358.68 seconds and used 7.41 GiB with Cargo defaults. The line-table
+profile took 565.16 seconds and used 3.92 GiB. After priming both caches,
+repeated app-file checks took 38.89 and 14.99 seconds with Cargo defaults, and
+14.67 and 15.91 seconds with the line-table profile. This comparison isolates
+the profile change from the later separation of application and UI compilation.
+
 ## Linux x64 application checks
 
 At `17bd471`, strict workspace Clippy, 818 workspace tests, and the locked
@@ -593,6 +615,17 @@ At `9871d17`, Ubuntu 26.04 in WSL passed strict workspace Clippy, 821
 workspace tests and the locked x86-64 application build. The timer tests
 exercised the portable subtitle, playlist metadata and Live Text scheduling
 paths.
+
+At `e887960`, strict workspace Clippy, 821 workspace tests and the locked
+x86-64 application build also passed in WSL. The PiP rejection test ran on
+Windows because it exercises that platform's window controller.
+
+For `0887a00`, the Linux workspace passed strict Clippy, 821 tests, and the
+locked x86-64 build. The source copy used an earlier version of the Windows-only
+PiP timer test. Linux compiles the shared Slint bindings and excludes that test.
+
+At `2df984f`, the focused Linux app check passed strict app Clippy and 473
+library tests. The earlier workspace check covered the shared widget suite.
 
 At `a83c518`, Ubuntu 26.04 in WSL passed strict workspace Clippy, 814
 workspace tests, and the locked x86-64 application build.
