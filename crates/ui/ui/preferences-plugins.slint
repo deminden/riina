@@ -2,6 +2,7 @@ import { Theme } from "theme.slint";
 import { MotionSettings } from "preferences-controls.slint";
 
 export struct PluginPreferencesRow {
+    has-settings: bool,
     identifier: string,
     name: string,
     version: string,
@@ -92,6 +93,35 @@ export component PluginPageIconButton inherits FocusScope {
     }
 }
 
+export component PluginPageActionButton inherits FocusScope {
+    in property <string> label;
+    callback activated();
+    accessible-role: button;
+    accessible-label: root.label;
+    accessible-action-default => { root.activated(); }
+    width: 120px;
+    height: 27px;
+    Rectangle {
+        width: parent.width; height: parent.height; border-radius: 6px;
+        border-width: 1px; border-color: Theme.settings-card-border;
+        background: Theme.settings-plugin-button-fill(touch.has-hover || root.has-focus);
+    }
+    Text {
+        width: parent.width; height: parent.height; text: root.label;
+        font-size: 11px; color: Theme.settings-control-label; horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+    touch := TouchArea { clicked => { root.focus(); root.activated(); } }
+    key-pressed(event) => {
+        if event.text == Key.Return || event.text == Key.Space { root.activated(); return accept; }
+        return reject;
+    }
+    if root.has-focus : Rectangle {
+        x: -2px; y: -2px; width: parent.width + 4px; height: parent.height + 4px;
+        border-width: 1px; border-color: Theme.settings-plugin-action-focus; border-radius: 8px; background: transparent;
+    }
+}
+
 export component PluginPreferencesRowView inherits Rectangle {
     in property <PluginPreferencesRow> entry;
     in property <int> row-index;
@@ -99,6 +129,7 @@ export component PluginPreferencesRowView inherits Rectangle {
     callback enabled-toggled(int, bool);
     callback about-requested(int);
     callback actions-requested(int);
+    callback settings-requested(int);
     pure callback plugin-id-transfer(string) -> data-transfer;
     pure callback plugin-id-from-transfer(data-transfer) -> string;
     callback reorder-requested(string, string);
@@ -139,7 +170,7 @@ export component PluginPreferencesRowView inherits Rectangle {
         vertical-alignment: center; overflow: elide;
     }
     Text {
-        x: 61px; y: 32px; width: parent.width - 102px; height: 18px;
+        x: 61px; y: 32px; width: parent.width - 102px - (root.entry.has-settings ? 72px : 0px); height: 18px;
         text: root.entry.description; font-size: 11px; color: Theme.settings-plugin-description;
         vertical-alignment: center; overflow: elide;
     }
@@ -156,33 +187,8 @@ export component PluginPreferencesRowView inherits Rectangle {
         x: parent.width - 34px; y: 28px; icon-kind: 1; label: "Plugin information";
         activated => { root.about-requested(root.row-index); }
     }
-}
-
-export component PluginPageActionButton inherits FocusScope {
-    in property <string> label;
-    callback activated();
-    accessible-role: button;
-    accessible-label: root.label;
-    accessible-action-default => { root.activated(); }
-    width: 120px;
-    height: 27px;
-    Rectangle {
-        width: parent.width; height: parent.height; border-radius: 6px;
-        border-width: 1px; border-color: Theme.settings-card-border;
-        background: Theme.settings-plugin-button-fill(touch.has-hover || root.has-focus);
-    }
-    Text {
-        width: parent.width; height: parent.height; text: root.label;
-        font-size: 11px; color: Theme.settings-control-label; horizontal-alignment: center;
-        vertical-alignment: center;
-    }
-    touch := TouchArea { clicked => { root.focus(); root.activated(); } }
-    key-pressed(event) => {
-        if event.text == Key.Return || event.text == Key.Space { root.activated(); return accept; }
-        return reject;
-    }
-    if root.has-focus : Rectangle {
-        x: -2px; y: -2px; width: parent.width + 4px; height: parent.height + 4px;
-        border-width: 1px; border-color: Theme.settings-plugin-action-focus; border-radius: 8px; background: transparent;
+    if root.entry.has-settings : PluginPageActionButton {
+        x: parent.width - 105px; y: 28px; width: 65px; height: 24px; label: "Settings";
+        activated => { root.settings-requested(root.row-index); }
     }
 }

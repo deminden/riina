@@ -69,6 +69,7 @@ pub(crate) fn connect(
     row_actions::register_enabled(window, app, &settings, host.as_ref(), player);
     update_actions::register_about(window, app, &settings, &requests);
     row_actions::register_open_folder(window, &settings);
+    row_actions::register_settings_page(window, &settings);
 }
 
 #[cfg(test)]

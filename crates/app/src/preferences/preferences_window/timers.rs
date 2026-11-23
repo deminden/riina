@@ -27,6 +27,7 @@ impl VisibleSettings {
                 if let Some(audio_devices) = audio_devices.upgrade() {
                     audio_devices.stop();
                 }
+                window.invoke_close_plugin_settings();
                 // Continue releasing session resources if the window is closing.
                 let _ = window.hide();
             }

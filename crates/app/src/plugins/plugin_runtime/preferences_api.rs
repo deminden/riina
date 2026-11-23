@@ -5,17 +5,33 @@ use rquickjs::{Ctx, Object, Value, function::Func};
 use serde_json::{Map, Value as JsonValue};
 use std::{path::Path, sync::Arc};
 
-pub(super) struct PluginPreferences {
+pub(crate) struct PluginPreferences {
     store: Arc<Store>,
     defaults: Map<String, JsonValue>,
 }
 
 impl PluginPreferences {
-    pub(super) fn for_package(root: &Path, manifest: &Manifest) -> Result<Self, String> {
+    pub(crate) fn for_package(root: &Path, manifest: &Manifest) -> Result<Self, String> {
         Ok(Self {
             store: Store::for_package(root, &manifest.identifier)?,
             defaults: manifest.preference_defaults.clone(),
         })
+    }
+
+    pub(crate) fn get(&self, key: &str) -> Result<JsonValue, String> {
+        Ok(self
+            .store
+            .get(key)?
+            .or_else(|| self.defaults.get(key).cloned())
+            .unwrap_or(JsonValue::Null))
+    }
+
+    pub(crate) fn set(&self, key: String, value: JsonValue) -> Result<(), String> {
+        self.store.set(key, value)
+    }
+
+    pub(crate) fn sync(&self) -> Result<(), String> {
+        self.store.sync()
     }
 
     #[cfg(test)]
@@ -31,24 +47,21 @@ pub(super) fn install<'js>(
     iina: &Object<'js>,
     preferences: PluginPreferences,
 ) -> rquickjs::Result<()> {
-    let PluginPreferences { store, defaults } = preferences;
     let api = Object::new(iina.ctx().clone())?;
-    let read = store.clone();
+    let preferences = Arc::new(preferences);
+    let read = preferences.clone();
     api.set(
         "get",
         Func::from(
             move |ctx: Ctx<'js>, key: String| -> rquickjs::Result<Value<'js>> {
                 let value = read.get(&key).map_err(js_error)?;
-                let Some(value) = value.as_ref().or_else(|| defaults.get(&key)) else {
-                    return Ok(Value::new_null(ctx));
-                };
                 let json =
-                    serde_json::to_string(value).map_err(|error| js_error(error.to_string()))?;
+                    serde_json::to_string(&value).map_err(|error| js_error(error.to_string()))?;
                 ctx.json_parse(json)
             },
         ),
     )?;
-    let write = store.clone();
+    let write = preferences.clone();
     api.set(
         "set",
         Func::from(
@@ -66,7 +79,10 @@ pub(super) fn install<'js>(
             },
         ),
     )?;
-    api.set("sync", Func::from(move || store.sync().map_err(js_error)))?;
+    api.set(
+        "sync",
+        Func::from(move || preferences.sync().map_err(js_error)),
+    )?;
     iina.set("preferences", api)
 }
 

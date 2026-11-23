@@ -292,6 +292,8 @@ export component PreferencesWindow inherits Window {
     callback plugin-enabled-changed(int, bool);
     callback plugin-row-about(int);
     callback plugin-row-actions(int);
+    callback plugin-row-settings(int);
+    callback close-plugin-settings();
     in-out property <bool> custom-directory: false;
     PreferencesNavigation {
         x: 0; y: 0; width: 200px; height: parent.height;
@@ -541,6 +543,7 @@ export component PreferencesWindow inherits Window {
         plugin-enabled-changed(value1, value2) => { root.plugin-enabled-changed(value1, value2); }
         plugin-row-about(value1) => { root.plugin-row-about(value1); }
         plugin-row-actions(value1) => { root.plugin-row-actions(value1); }
+        plugin-row-settings(value1) => { root.plugin-row-settings(value1); }
         plugin-reordered(value1, value2) => { root.plugin-reordered(value1, value2); }
     }
 

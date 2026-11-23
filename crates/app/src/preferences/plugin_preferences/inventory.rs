@@ -100,6 +100,7 @@ pub(super) fn plugin_rows(
                     .into(),
                 enabled: enabled.contains(&plugin.manifest.identifier),
                 runtime_ready: runtime_available && current_runtime_supports(&plugin.manifest),
+                has_settings: plugin.manifest.preferences_page.is_some(),
             })
             .collect::<Vec<_>>(),
     ))

@@ -328,6 +328,7 @@ pub struct Manifest {
     pub github_version: Option<u64>,
     pub sidebar_tab_name: Option<String>,
     pub subtitle_providers: Vec<SubtitleProvider>,
+    pub preferences_page: Option<PathBuf>,
     pub preference_defaults: serde_json::Map<String, serde_json::Value>,
 }
 
@@ -358,6 +359,8 @@ struct RawManifest {
     sidebar_tab: Option<serde_json::Value>,
     #[serde(rename = "subtitleProviders")]
     subtitle_providers: Option<serde_json::Value>,
+    #[serde(rename = "preferencesPage")]
+    preferences_page: Option<serde_json::Value>,
     #[serde(rename = "preferenceDefaults")]
     preference_defaults: Option<serde_json::Value>,
     localized: Option<serde_json::Value>,
@@ -430,6 +433,12 @@ impl Manifest {
             github_version: raw.github_version,
             sidebar_tab_name,
             subtitle_providers: subtitle_providers(raw.subtitle_providers),
+            preferences_page: raw
+                .preferences_page
+                .as_ref()
+                .and_then(serde_json::Value::as_str)
+                .filter(|path| !path.contains([':', '\\', '\0']))
+                .and_then(|path| safe_relative_path(path).ok()),
             preference_defaults: match raw.preference_defaults {
                 Some(serde_json::Value::Object(values)) => values,
                 _ => serde_json::Map::new(),
@@ -454,11 +463,15 @@ impl Manifest {
         let manifest_path = root.join("Info.json");
         let bytes = fs::read(&manifest_path).map_err(PluginManifestError::ReadManifest)?;
         let text = std::str::from_utf8(&bytes).map_err(PluginManifestError::Encoding)?;
-        let manifest = Self::parse_with_locale(text, locale)?;
+        let mut manifest = Self::parse_with_locale(text, locale)?;
         verify_package_file(&root, &manifest.entry)?;
         if let Some(path) = manifest.global_entry.as_deref() {
             verify_package_file(&root, path)?;
         }
+        // A missing optional page does not prevent the entry script from loading.
+        manifest.preferences_page = manifest
+            .preferences_page
+            .filter(|path| verify_package_file(&root, path).is_ok());
         Ok(manifest)
     }
 
@@ -710,6 +723,41 @@ mod tests {
                 .map(|row| row.id.as_str())
                 .collect::<Vec<_>>(),
             ["captions.en", "captions.fr"]
+        );
+    }
+
+    #[test]
+    fn manifest_settings_pages_are_optional_and_confined() {
+        let mut json: serde_json::Value = serde_json::from_str(MANIFEST).unwrap();
+        for invalid in ["../settings.html", "https://example.invalid/settings.html"] {
+            json["preferencesPage"] = invalid.into();
+            assert!(
+                Manifest::parse(&json.to_string())
+                    .unwrap()
+                    .preferences_page
+                    .is_none()
+            );
+        }
+
+        let package = riina_test_support::TempDir::new("manifest-settings").unwrap();
+        let root = package.path();
+        json["preferencesPage"] = "settings.html".into();
+        fs::write(root.join("Info.json"), json.to_string()).unwrap();
+        fs::write(root.join("main.js"), "").unwrap();
+        fs::write(root.join("global.js"), "").unwrap();
+        assert!(
+            Manifest::load_from_directory(root)
+                .unwrap()
+                .preferences_page
+                .is_none()
+        );
+        fs::write(root.join("settings.html"), "<!doctype html>").unwrap();
+        assert_eq!(
+            Manifest::load_from_directory(root)
+                .unwrap()
+                .preferences_page
+                .as_deref(),
+            Some(Path::new("settings.html"))
         );
     }
 

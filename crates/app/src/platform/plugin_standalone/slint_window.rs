@@ -1,36 +1,28 @@
-use super::page::Page;
-use crate::{PlayerWindow, platform, plugin_runtime::standalone::Endpoint};
-use riina_core::plugin_window::{Frame, Presentation, Properties};
+use crate::platform;
+use riina_core::plugin_window::{Frame, Properties};
 use riina_ui::PluginStandaloneWindow;
 use slint::{CloseRequestResponse, ComponentHandle, winit_030::WinitWindowAccessor};
-use std::sync::Arc;
 use wry::{
-    WebView,
+    WebView, WebViewBuilder,
     dpi::{LogicalPosition, LogicalSize},
 };
 
-pub(super) struct Shell {
+pub(in crate::platform) struct Shell {
     window: PluginStandaloneWindow,
     #[cfg(target_os = "macos")]
     browser_bounds: std::cell::Cell<Option<wry::Rect>>,
 }
 
 impl Shell {
-    pub(super) fn new(
-        app: &PlayerWindow,
-        endpoint: &Arc<Endpoint>,
-        view: &Presentation,
+    pub(in crate::platform) fn new(
+        parent: &(impl ComponentHandle + 'static),
+        title: &str,
+        on_close: impl Fn() -> CloseRequestResponse + 'static,
     ) -> Result<Self, String> {
         let window = PluginStandaloneWindow::new().map_err(|error| error.to_string())?;
-        window.set_window_title(title(&endpoint.name, &view.properties).into());
-        let owner = Arc::downgrade(endpoint);
-        window.window().on_close_requested(move || {
-            if let Some(owner) = owner.upgrade() {
-                owner.user_closed();
-            }
-            CloseRequestResponse::HideWindow
-        });
-        platform::center_auxiliary_window(&window, app);
+        window.set_window_title(title.into());
+        window.window().on_close_requested(on_close);
+        platform::center_auxiliary_window(&window, parent);
         platform::show_window(&window).map_err(|error| error.to_string())?;
         Ok(Self {
             window,
@@ -39,20 +31,17 @@ impl Shell {
         })
     }
 
-    pub(super) fn can_build(&self) -> bool {
+    pub(in crate::platform) fn can_build(&self) -> bool {
         self.window.window().has_winit_window()
     }
 
-    pub(super) fn build_webview(
+    pub(in crate::platform) fn build_webview(
         &self,
-        page: &Page,
-        endpoint: &Arc<Endpoint>,
-        url: &str,
+        builder: WebViewBuilder<'_>,
     ) -> Result<WebView, String> {
         self.window
             .window()
             .with_winit_window(|window| {
-                let builder = page.builder(endpoint, url);
                 #[cfg(target_os = "macos")]
                 {
                     // Keep Slint's NSView attached so Winit retains its native
@@ -64,11 +53,11 @@ impl Shell {
                 #[cfg(not(target_os = "macos"))]
                 builder.build(window)
             })
-            .ok_or("The native standalone window is unavailable")?
+            .ok_or("The native plugin window is unavailable")?
             .map_err(|error| error.to_string())
     }
 
-    pub(super) fn set_visible(&self, visible: bool) -> Result<(), String> {
+    pub(in crate::platform) fn set_visible(&self, visible: bool) -> Result<(), String> {
         if visible {
             platform::show_window(&self.window).map_err(|error| error.to_string())?;
             self.window
@@ -80,8 +69,8 @@ impl Shell {
         Ok(())
     }
 
-    pub(super) fn set_properties(&self, name: &str, properties: &Properties) {
-        self.window.set_window_title(title(name, properties).into());
+    pub(in crate::platform) fn set_properties(&self, title: &str, properties: &Properties) {
+        self.window.set_window_title(title.into());
         self.window.window().with_winit_window(|window| {
             window.set_resizable(properties.resizable.unwrap_or(true));
             #[cfg(target_os = "windows")]
@@ -94,7 +83,7 @@ impl Shell {
         });
     }
 
-    pub(super) fn set_frame(&self, frame: Frame, previous: Frame) {
+    pub(in crate::platform) fn set_frame(&self, frame: Frame, previous: Frame) {
         self.window.window().with_winit_window(|window| {
             let scale = window.scale_factor();
             let current = window.inner_size().to_logical::<f64>(scale);
@@ -140,7 +129,10 @@ impl Drop for Shell {
 
 #[cfg(target_os = "macos")]
 impl Shell {
-    pub(super) fn refresh_browser_bounds(&self, browser: &WebView) -> Result<(), String> {
+    pub(in crate::platform) fn refresh_browser_bounds(
+        &self,
+        browser: &WebView,
+    ) -> Result<(), String> {
         if let Some(bounds) = self.window.window().with_winit_window(mac_bounds)
             && Some(bounds) != self.browser_bounds.get()
         {
@@ -162,13 +154,6 @@ fn mac_bounds(window: &slint::winit_030::winit::window::Window) -> wry::Rect {
             .to_logical::<f64>(window.scale_factor())
             .into(),
     }
-}
-
-fn title(name: &str, properties: &Properties) -> String {
-    format!(
-        "{} — {name}",
-        properties.title.as_deref().unwrap_or("Window")
-    )
 }
 
 fn changed(current: Option<f64>, previous: Option<f64>) -> Option<f64> {

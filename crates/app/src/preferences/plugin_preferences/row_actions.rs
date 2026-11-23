@@ -1,4 +1,8 @@
 //! Persist plugin enablement and ordering from the installed package list.
+#[cfg(all(test, any(target_os = "windows", target_os = "linux")))]
+#[path = "settings_page_test.rs"]
+mod settings_page_test;
+
 use super::{
     PluginSettings,
     inventory::{load_plugin_order, refresh, save_enabled, save_plugin_order},
@@ -6,6 +10,36 @@ use super::{
 use crate::{PlayerWindow, PreferencesWindow, plugin_host::PluginHostHandle};
 use riina_mpv::CommandSender;
 use slint::ComponentHandle;
+
+pub(super) fn register_settings_page(window: &PreferencesWindow, settings: &PluginSettings) {
+    let pages = crate::platform::plugin_settings::Presenter::default();
+    let weak = window.as_weak();
+    let entries = settings.inventory.clone();
+    let show = pages.clone();
+    window.on_plugin_row_settings(move |index| {
+        let (Some(window), Ok(index)) = (weak.upgrade(), usize::try_from(index)) else {
+            return;
+        };
+        let Some(plugin) = entries.borrow().get(index).cloned() else {
+            return;
+        };
+        if let Err(error) = show.open(&window, &plugin.directory, &plugin.manifest) {
+            window.set_plugin_update_status(
+                format!("Could not open plugin settings: {error}").into(),
+            );
+        }
+    });
+    let weak = window.as_weak();
+    window.on_close_plugin_settings(move || {
+        if let Err(error) = pages.close()
+            && let Some(window) = weak.upgrade()
+        {
+            window.set_plugin_update_status(
+                format!("Could not save plugin settings: {error}").into(),
+            );
+        }
+    });
+}
 
 pub(super) fn register_reorder(window: &PreferencesWindow, settings: &PluginSettings) {
     let runtime_available = settings.runtime_available;

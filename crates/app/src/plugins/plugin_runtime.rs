@@ -37,7 +37,7 @@ use messaging::validate_plugin_message;
 use modules::{PluginModuleContext, read_package_script};
 use network::NetworkWorkerContext;
 use permissions::{AvailablePermissions, reviewed_permissions};
-use preferences_api::PluginPreferences;
+pub(crate) use preferences_api::PluginPreferences;
 use riina_core::{
     Command,
     plugin::{Manifest, OverlayEffect, WindowAction},

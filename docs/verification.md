@@ -1373,6 +1373,33 @@ tests passed. Linux x64 passed the locked application build, strict workspace
 Clippy and 843 Rust tests. Strict Apple Silicon workspace Clippy passed from
 Windows. The plugin settings WebView and macOS desktop verification remain open.
 
+### Plugin settings pages 2026-11-23
+
+The manifest regression covers unavailable optional pages and external or
+traversing paths. A Linux linked-package test verifies that the page serves
+resources from the link target and uses the same installed preference store as
+the plugin runtime.
+
+The opt-in desktop test invoked the plugin row's Settings callback directly
+on Windows, Linux X11 and native Wayland. A package page loaded defaults in
+the WebView, changed text, checkbox, integer, decimal and radio fields, and
+received its structured value through the preferences bridge. The shared
+runtime store saw the edits before the dialog closed, and the persisted JSON
+matched after close. The test used isolated desktops and fresh stores.
+Pointer-driven opening and matched macOS sheet presentation remain open.
+
+Windows passed its locked workspace build, strict workspace Clippy, 908 Rust
+tests and 78 Python tests. Linux passed strict workspace Clippy, 120
+plugin-related tests and its locked application build. Strict Apple Silicon
+workspace Clippy passed from Windows.
+
+The standalone window regression passed on Windows, X11 and Wayland after
+sharing the window shell. The applications loaded their two plugin windows,
+retained the reopened page, applied Simple Mode content and exited normally.
+The Windows and Linux executable hashes were
+`3bb7c9974473f1c53e1818976572ea2b19094272bbb0a992ee77edf8bacfdcff` and
+`d591596ff14d708b593a8c6bd761ec8305873883c73fcf55058473c841e7bd70`.
+
 ### Plugin playlist context menus 2026-11-23
 
 The headless player test sent a right click to a playlist row and checked

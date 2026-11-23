@@ -2,20 +2,25 @@
 mod page;
 #[cfg_attr(target_os = "linux", path = "plugin_standalone/gtk_window.rs")]
 #[cfg_attr(not(target_os = "linux"), path = "plugin_standalone/slint_window.rs")]
-mod shell;
+pub(super) mod shell;
 
 use crate::{
     PlayerWindow,
     plugin_runtime::standalone::{Endpoint, Hub},
 };
 use page::Page;
-use riina_core::plugin_window::{Document, Presentation};
+use riina_core::plugin_window::{Document, Presentation, Properties};
 use shell::Shell;
 use std::{
     collections::BTreeMap,
     sync::{Arc, Weak},
 };
 use wry::WebView;
+
+fn title(name: &str, properties: &Properties) -> String {
+    let title = properties.title.as_deref().unwrap_or("Window");
+    format!("{title} — {name}")
+}
 
 pub(crate) struct Presenter {
     hub: Hub,
@@ -79,14 +84,21 @@ impl Entry {
             && endpoint.is_live()
         {
             if self.shell.is_none() {
-                self.shell = Some(Shell::new(app, endpoint, view)?);
+                let owner = Arc::downgrade(endpoint);
+                let title = title(&endpoint.name, &view.properties);
+                self.shell = Some(Shell::new(app, &title, move || {
+                    if let Some(owner) = owner.upgrade() {
+                        owner.user_closed();
+                    }
+                    slint::CloseRequestResponse::HideWindow
+                })?);
             }
             // Slint realizes a new Winit window after returning to the event
             // loop. Keep its shell alive until the native WebView can attach.
             if self.shell.as_ref().is_some_and(Shell::can_build)
                 && let (Some(shell), Some(view)) = (self.shell.take(), self.pending.take())
             {
-                self.window = Some(BrowserWindow::new(shell, endpoint, view)?);
+                self.window = Some(BrowserWindow::new(shell, app, endpoint, view)?);
             }
         }
         if let Some(window) = &mut self.window {
@@ -107,12 +119,28 @@ struct BrowserWindow {
 }
 
 impl BrowserWindow {
-    fn new(shell: Shell, endpoint: &Arc<Endpoint>, view: Presentation) -> Result<Self, String> {
+    fn new(
+        shell: Shell,
+        app: &PlayerWindow,
+        endpoint: &Arc<Endpoint>,
+        view: Presentation,
+    ) -> Result<Self, String> {
         let page = Page::new(view.document_id, endpoint.origin);
         let url = page.url(&view)?;
-        shell.set_properties(&endpoint.name, &view.properties);
+        shell.set_properties(&title(&endpoint.name, &view.properties), &view.properties);
         shell.set_frame(view.frame, Default::default());
-        let browser = shell.build_webview(&page, endpoint, &url)?;
+        let browser = shell.build_webview(page.builder(endpoint, &url))?;
+        #[cfg(target_os = "linux")]
+        {
+            use slint::ComponentHandle;
+            super::unix::plugin_shortcuts::bind(
+                &browser,
+                app.as_weak(),
+                Some(Arc::downgrade(endpoint)),
+            );
+        }
+        #[cfg(not(target_os = "linux"))]
+        let _ = app;
         shell.set_visible(view.visible)?;
         #[cfg(target_os = "macos")]
         let _ = browser.focus();
@@ -135,7 +163,8 @@ impl BrowserWindow {
                 .map_err(|error| error.to_string())?;
         }
         if next.properties != self.view.properties {
-            self.shell.set_properties(name, &next.properties);
+            self.shell
+                .set_properties(&title(name, &next.properties), &next.properties);
         }
         if next.frame != self.view.frame {
             self.shell.set_frame(next.frame, self.view.frame);

@@ -28,6 +28,7 @@ pub(crate) use plugin_presentation::{
     PluginMenuObservation, PluginOverlayDelivery, PluginPresenters, pump_plugin_webviews,
 };
 mod plugin_resources;
+pub(crate) mod plugin_settings;
 pub(crate) mod plugin_standalone;
 pub(crate) mod preferences;
 pub(crate) mod settings_file;

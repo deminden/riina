@@ -1,71 +1,51 @@
-use super::page::Page;
-use crate::{PlayerWindow, platform::unix::plugin_shortcuts, plugin_runtime::standalone::Endpoint};
 use gtk::prelude::*;
-use riina_core::plugin_window::{Frame, Presentation, Properties};
-use slint::ComponentHandle;
-use std::sync::Arc;
-use wry::{WebView, WebViewBuilderExtUnix};
+use riina_core::plugin_window::{Frame, Properties};
+use slint::{CloseRequestResponse, ComponentHandle};
+use wry::{WebView, WebViewBuilder, WebViewBuilderExtUnix};
 
-pub(super) struct Shell {
+pub(in crate::platform) struct Shell {
     window: gtk::Window,
     content: gtk::Box,
-    player: slint::Weak<PlayerWindow>,
 }
 
 impl Shell {
-    pub(super) fn new(
-        app: &PlayerWindow,
-        endpoint: &Arc<Endpoint>,
-        view: &Presentation,
+    pub(in crate::platform) fn new(
+        _parent: &(impl ComponentHandle + 'static),
+        title: &str,
+        on_close: impl Fn() -> CloseRequestResponse + 'static,
     ) -> Result<Self, String> {
         if !gtk::is_initialized_main_thread() {
             gtk::init().map_err(|error| format!("Could not start GTK: {error}"))?;
         }
         let window = gtk::Window::new(gtk::WindowType::Toplevel);
+        window.set_title(title);
         window.set_default_size(600, 400);
         window.set_position(gtk::WindowPosition::Center);
         let content = gtk::Box::new(gtk::Orientation::Vertical, 0);
         window.add(&content);
-        let owner = Arc::downgrade(endpoint);
         window.connect_delete_event(move |window, _| {
-            if let Some(owner) = owner.upgrade() {
-                owner.user_closed();
+            if matches!(on_close(), CloseRequestResponse::HideWindow) {
+                window.hide();
             }
-            window.hide();
             gtk::glib::Propagation::Stop
         });
-        let shell = Self {
-            window,
-            content,
-            player: app.as_weak(),
-        };
-        shell.set_properties(&endpoint.name, &view.properties);
-        Ok(shell)
+        Ok(Self { window, content })
     }
 
-    pub(super) fn can_build(&self) -> bool {
+    pub(in crate::platform) fn can_build(&self) -> bool {
         true
     }
 
-    pub(super) fn build_webview(
+    pub(in crate::platform) fn build_webview(
         &self,
-        page: &Page,
-        endpoint: &Arc<Endpoint>,
-        url: &str,
+        builder: WebViewBuilder<'_>,
     ) -> Result<WebView, String> {
-        let webview = page
-            .builder(endpoint, url)
+        builder
             .build_gtk(&self.content)
-            .map_err(|error| error.to_string())?;
-        plugin_shortcuts::bind(
-            &webview,
-            self.player.clone(),
-            Some(Arc::downgrade(endpoint)),
-        );
-        Ok(webview)
+            .map_err(|error| error.to_string())
     }
 
-    pub(super) fn set_visible(&self, visible: bool) -> Result<(), String> {
+    pub(in crate::platform) fn set_visible(&self, visible: bool) -> Result<(), String> {
         if visible {
             self.window.show_all();
             self.window.present();
@@ -75,11 +55,8 @@ impl Shell {
         Ok(())
     }
 
-    pub(super) fn set_properties(&self, name: &str, properties: &Properties) {
-        self.window.set_title(&format!(
-            "{} — {name}",
-            properties.title.as_deref().unwrap_or("Window")
-        ));
+    pub(in crate::platform) fn set_properties(&self, title: &str, properties: &Properties) {
+        self.window.set_title(title);
         self.window
             .set_resizable(properties.resizable.unwrap_or(true));
         self.window.set_decorated(
@@ -88,7 +65,7 @@ impl Shell {
         );
     }
 
-    pub(super) fn set_frame(&self, frame: Frame, previous: Frame) {
+    pub(in crate::platform) fn set_frame(&self, frame: Frame, previous: Frame) {
         let (width, height) = if self.window.is_visible() {
             self.window.size()
         } else {
