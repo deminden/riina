@@ -525,6 +525,39 @@ comparison checked the active fixture and playing state before each capture,
 verified the full desktop dimensions, and checked for pixels from the fixture.
 Linux startup presentation remains intermittent on this setup.
 
+The earlier standalone probes read playback position synchronously on the
+render thread. A follow-up used an asynchronous load request and polled
+position from libmpv property events. It alternated eight cold starts per
+condition with libmpv 0.41.0 and Mesa 26.0.8 llvmpipe. Three desktop GL
+starts, five desktop GL starts with advanced render control, and three
+OpenGL ES 3.2 starts stayed black or nearly black at all four samples.
+All eight starts that converted video to packed RGB24 before upload rendered
+changing frames. The basic desktop and ES cases with dark output also
+returned software screenshots with all 57,600 video pixels non-black.
+Advanced render control can route screenshots through the same OpenGL
+renderer, so the dark screenshots in that condition leave decoded pixels
+unverified. [libmpv render threading contract](https://github.com/mpv-player/mpv/blob/v0.41.0/include/mpv/render.h),
+[libmpv screenshot dispatch](https://github.com/mpv-player/mpv/blob/v0.41.0/video/out/vo_libmpv.c),
+[software screenshot fallback](https://github.com/mpv-player/mpv/blob/v0.41.0/player/screenshot.c).
+
+The locked app at `4f7ee4e` also compared three ordinary
+`yuv420p` starts with three RGB24 starts using isolated Linux profiles.
+The player reported the requested format and active fixture at each
+capture. One ordinary start had zero fixture-blue pixels in the full
+1280 × 800 desktop at 0.417 seconds and recovered by 1.5 seconds.
+The first capture of each RGB24 start showed the fixture, at playback
+positions of 0.375, 0.458 and 0.500 seconds. All six sessions exited through
+Quit. The conversion was a diagnostic setting in the test profiles.
+
+A separate standalone run alternated six cold starts for each of five
+video formats. Two default `yuv420p` starts stayed dark through 1.5 seconds
+and returned software screenshots with 57,600 non-black pixels. All 24
+starts using `nv12`, `yuv444p`, `gbrp` or `rgb24` showed changing
+framebuffer contents at the sampled positions. NV12 shares the 4:2:0
+chroma subsampling with the default format, while YUV444P and GBRP also
+use three planes. Converting the input changes the upload data and
+processing, so the exact failing OpenGL operation remains unresolved.
+
 ## Windows private-desktop smoke 2026-11-21
 
 The locked Windows x64 development build at `da50ecd` passed the ten native
