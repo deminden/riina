@@ -57,6 +57,39 @@ fn stable_playlist_move_resolves_both_rows_after_an_insertion() {
     assert_eq!(moved.generation, loaded.generation);
     assert!(moved.paused && moved.playlist[2].current);
     assert_eq!(moved.error(), None);
+
+    harness
+        .send(Command::QueuePlaylistIdsNext(vec![
+            ids[0],
+            ids[2],
+            inserted_id,
+        ]))
+        .unwrap();
+    let queued = harness.wait(|state| {
+        state
+            .playlist
+            .iter()
+            .map(|entry| entry.id)
+            .eq([ids[1], ids[0], inserted_id, ids[2]])
+    });
+    assert_eq!(queued.generation, loaded.generation);
+    assert!(queued.paused && queued.playlist[1].current);
+
+    harness
+        .send(Command::MovePlaylistIdsBefore {
+            ids: vec![ids[2], ids[1]],
+            before_id: Some(inserted_id),
+        })
+        .unwrap();
+    let dropped = harness.wait(|state| {
+        state
+            .playlist
+            .iter()
+            .map(|entry| entry.id)
+            .eq([ids[0], ids[1], ids[2], inserted_id])
+    });
+    assert_eq!(dropped.generation, loaded.generation);
+    assert!(dropped.paused && dropped.playlist[0].current);
 }
 
 #[test]

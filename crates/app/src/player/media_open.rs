@@ -30,11 +30,8 @@ fn manual_open_repeat_command(enabled: bool, mode_index: i32) -> Result<Option<C
     Ok(Some(Command::SetLoopMode(mode.loop_mode())))
 }
 
-pub fn open_in_new_player(app: &PlayerWindow, path: &str) -> Result<(), String> {
-    if path.is_empty() || path.contains('\0') {
-        return Err("The media reference is invalid".into());
-    }
-    open_player(app, &[path.to_owned()], Some(path), None, false)
+pub(super) fn playlist_in_new_player(app: &PlayerWindow, paths: Vec<String>) {
+    new_player_selection(app, paths, NewPlayerSelection::ExplicitPlaylist);
 }
 
 pub fn selection_in_new_player(app: &PlayerWindow, paths: Vec<String>) {
@@ -65,7 +62,7 @@ pub(crate) fn history_selection(
             );
         }
         HistoryDestination::NewPlayer => {
-            new_player_selection(app, paths, NewPlayerSelection::ExplicitPlaylist);
+            playlist_in_new_player(app, paths);
         }
     }
 }
@@ -97,7 +94,7 @@ fn new_player_selection(app: &PlayerWindow, paths: Vec<String>, selection: NewPl
             NewPlayerSelection::Media => {
                 preferences_for_open().and_then(|prefs| prepare_new_players(paths, &prefs))
             }
-            NewPlayerSelection::ExplicitPlaylist => prepare_new_history_player(paths),
+            NewPlayerSelection::ExplicitPlaylist => prepare_explicit_player(paths),
         };
         // The result has no recipient once its window or event loop closes.
         let _ = crate::background::to_ui(weak, move |app| {
@@ -118,7 +115,7 @@ fn new_player_selection(app: &PlayerWindow, paths: Vec<String>, selection: NewPl
     }
 }
 
-fn prepare_new_history_player(paths: Vec<String>) -> Result<Vec<PlayerSelection>, String> {
+fn prepare_explicit_player(paths: Vec<String>) -> Result<Vec<PlayerSelection>, String> {
     let paths = file_selection::prepare(paths, true)?;
     Ok((!paths.is_empty())
         .then_some(PlayerSelection {
@@ -697,7 +694,7 @@ mod tests {
     #[test]
     fn history_actions_keep_the_selection_in_one_explicit_playlist() {
         use super::{
-            PreparedSelection, SelectionSource, prepare_new_history_player, prepare_selection,
+            PreparedSelection, SelectionSource, prepare_explicit_player, prepare_selection,
         };
 
         let paths = vec!["clip10.mkv".into(), "clip2.mkv".into()];
@@ -712,7 +709,7 @@ mod tests {
             matches!(current, Ok(PreparedSelection::Command(Command::OpenPlaylist(paths))) if paths == expected)
         );
 
-        let new = prepare_new_history_player(paths).unwrap();
+        let new = prepare_explicit_player(paths).unwrap();
         let [player] = new.as_slice() else {
             panic!("History opens one player")
         };

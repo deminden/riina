@@ -90,6 +90,8 @@ fn install_actions(
                     .map_err(|error: std::num::ParseIntError| error.to_string()),
                 4 => Ok(Command::ClearPlaylist),
                 5 => Ok(Command::CycleLoop),
+                13 => selected_playlist_ids(&window, token.as_str())
+                    .map(Command::QueuePlaylistIdsNext),
                 _ => Err("Unknown playlist action".into()),
             };
             window
@@ -99,19 +101,17 @@ fn install_actions(
                 command.and_then(|command| playlist_player.send(command).map_err(String::from))
             {
                 window.set_status(error.into());
-            } else if action == 4 {
+                return;
+            }
+            if action == 4 {
                 let message = crate::video_osd::action_message(
                     crate::video_osd::ActionFeedback::PlaylistCleared,
                 );
                 show_osd_message(&window, message.text, false);
-            } else if action == 1 {
+            } else if matches!(action, 1 | 13) {
                 window
                     .global::<riina_ui::PlaylistInteraction>()
-                    .set_selected_playlist_token("".into());
-                window
-                    .global::<riina_ui::PlaylistInteraction>()
-                    .set_selected_playlist_tokens(slint::ModelRc::default());
-                install_playlist_selection(&window, &[]);
+                    .invoke_clear_selection();
             }
         });
 }
@@ -125,11 +125,6 @@ fn handle_playlist_external_action(
     window
         .global::<riina_ui::PlayerControlActions>()
         .invoke_activity();
-    let rows = window
-        .global::<riina_ui::PlayerCatalogState>()
-        .get_playlist();
-    let selected_index = (0..rows.row_count())
-        .find(|index| rows.row_data(*index).is_some_and(|row| row.token == token));
     let result = match action {
         6 | 7 => {
             let paths = selected_playlist_paths(window, token);
@@ -165,10 +160,15 @@ fn handle_playlist_external_action(
                     show_osd_message(window, message.text, false);
                 })
         }),
-        9 => selected_index
-            .and_then(|index| rows.row_data(index))
-            .ok_or_else(|| "Select a playlist item first".to_owned())
-            .and_then(|row| crate::media_open::open_in_new_player(window, row.path.as_str())),
+        9 => {
+            let paths = selected_playlist_paths(window, token);
+            if paths.is_empty() {
+                Err("Select a playlist item first".into())
+            } else {
+                crate::media_open::playlist_in_new_player(window, paths);
+                Ok(())
+            }
+        }
         10 => {
             let urls = selected_playlist_paths(window, token)
                 .into_iter()
@@ -292,32 +292,31 @@ fn install_selection(app: &PlayerWindow, command_sender: &CommandSender) {
             app.global::<riina_ui::PlayerControlActions>()
                 .invoke_activity();
             let rows = app.global::<riina_ui::PlayerCatalogState>().get_playlist();
-            let entries = (0..rows.row_count())
-                .filter_map(|index| rows.row_data(index))
-                .map(|row| row.token.parse::<i64>().ok())
-                .collect::<Option<Vec<_>>>();
-            let selected = tokens
-                .iter()
-                .map(|token| token.parse::<i64>().ok())
-                .collect::<Option<Vec<_>>>();
-            let plan =
-                entries
-                    .as_deref()
-                    .zip(selected.as_deref())
-                    .and_then(|(entries, selected)| {
-                        usize::try_from(insertion_slot).ok().and_then(|slot| {
-                            riina_core::playlist::reorder_selection(entries, selected, slot)
-                        })
-                    });
-            let Some(plan) = plan else {
-                app.set_status("The playlist drop position is no longer available".into());
-                return;
-            };
-            for (from, to) in plan {
-                if let Err(error) = reorder_player.send(Command::MovePlaylistEntry { from, to }) {
-                    crate::diagnostics::report(&app, error);
-                    break;
-                }
+            let result = (|| {
+                let slot = usize::try_from(insertion_slot).map_err(|error| error.to_string())?;
+                let before_id = if slot == rows.row_count() {
+                    None
+                } else {
+                    let row = rows
+                        .row_data(slot)
+                        .ok_or("The playlist drop position is no longer available")?;
+                    Some(
+                        row.token
+                            .parse::<i64>()
+                            .map_err(|error| error.to_string())?,
+                    )
+                };
+                let ids = tokens
+                    .iter()
+                    .map(|token| token.parse::<i64>())
+                    .collect::<Result<Vec<_>, _>>()
+                    .map_err(|error| error.to_string())?;
+                reorder_player
+                    .send(Command::MovePlaylistIdsBefore { ids, before_id })
+                    .map_err(String::from)
+            })();
+            if let Err(error) = result {
+                crate::diagnostics::report(&app, error);
             }
         });
     let shuffle_player = command_sender.clone();

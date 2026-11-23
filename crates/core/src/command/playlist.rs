@@ -104,6 +104,73 @@ pub(super) fn remove_ids(state: &Playback, ids: &[i64]) -> Result<Vec<Vec<String
         .collect())
 }
 
+pub(super) fn move_entries(
+    state: &Playback,
+    command: &Command,
+) -> Result<Vec<Vec<String>>, CommandError> {
+    match command {
+        Command::QueuePlaylistIdsNext(ids) => queue_next(state, ids),
+        Command::MovePlaylistIdsBefore { ids, before_id } => move_before(state, ids, *before_id),
+        _ => unreachable!(),
+    }
+}
+
+fn queue_next(state: &Playback, ids: &[i64]) -> Result<Vec<Vec<String>>, CommandError> {
+    let current = state.playlist.iter().position(|entry| entry.current);
+    let mut selected = ids.to_vec();
+    if let Some(current) = current
+        && let Some(position) = selected
+            .iter()
+            .position(|id| *id == state.playlist[current].id)
+    {
+        selected.remove(position);
+        if selected.is_empty() {
+            return Ok(Vec::new());
+        }
+    }
+    move_selection(state, &selected, current.map_or(0, |index| index + 1))
+}
+
+fn move_before(
+    state: &Playback,
+    ids: &[i64],
+    before_id: Option<i64>,
+) -> Result<Vec<Vec<String>>, CommandError> {
+    let slot = match before_id {
+        Some(id) => state
+            .playlist
+            .iter()
+            .position(|entry| entry.id == id)
+            .ok_or(CommandError::Unavailable {
+                what: "The playlist move destination is no longer available",
+            })?,
+        None => state.playlist.len(),
+    };
+    move_selection(state, ids, slot)
+}
+
+fn move_selection(
+    state: &Playback,
+    ids: &[i64],
+    slot: usize,
+) -> Result<Vec<Vec<String>>, CommandError> {
+    let entries = state
+        .playlist
+        .iter()
+        .map(|entry| entry.id)
+        .collect::<Vec<_>>();
+    playlist::reorder_selection(&entries, ids, slot)
+        .map(|moves| {
+            moves
+                .into_iter()
+                .map(|(from, to)| vec!["playlist-move".into(), from.to_string(), to.to_string()])
+                .collect()
+        })
+        .ok_or(CommandError::Unavailable {
+            what: "A selected playlist entry is no longer available",
+        })
+}
+
 pub(super) fn open_files(
     state: &Playback,
     command: &Command,

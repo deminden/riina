@@ -177,6 +177,11 @@ pub enum Command {
     SelectPlaylistId(i64),
     RemovePlaylistId(i64),
     RemovePlaylistIds(Vec<i64>),
+    QueuePlaylistIdsNext(Vec<i64>),
+    MovePlaylistIdsBefore {
+        ids: Vec<i64>,
+        before_id: Option<i64>,
+    },
     MovePlaylistId {
         id: i64,
         direction: i32,
@@ -311,6 +316,8 @@ impl Command {
                 | Self::RemovePlaylistEntry(_)
                 | Self::RemovePlaylistId(_)
                 | Self::RemovePlaylistIds(_)
+                | Self::QueuePlaylistIdsNext(_)
+                | Self::MovePlaylistIdsBefore { .. }
                 | Self::ClearPlaylist
                 | Self::AppendFiles(_)
                 | Self::InsertPlaylistFilesBefore { .. }

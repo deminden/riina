@@ -2418,6 +2418,25 @@ executable SHA-256 was
 The queued-scan guard was verified separately in the Windows native suite.
 Live Windows, Wayland and macOS History input remains unverified.
 
+### Playlist selection actions 2026-11-23
+
+The full Windows workspace gate and all 58 pinned libmpv null-output tests
+passed. The playlist engine scenario inserted a row, queued selected rows
+around the playing entry, then moved a selection to an observed destination.
+It checked stable IDs, the current entry, and preservation of playback
+generation and pause. The portable ordering tests verify that only selected
+rows move across all insertion slots of small playlists.
+
+In isolated Linux X11, Play Next moved two rows from opposite sides of the
+current entry to immediately after it, preserving order and pause. Dragging
+both rows moved them together without changing the playing entry. Play in New
+Window created one player whose playlist contained only the two selected clips,
+with same-folder discovery enabled. The original player kept its playlist and
+both windows closed normally. The Linux executable SHA-256 was
+`58d4a765c664c2ed2cd4883c92efb1e3aefc3047ec4e7d04a7b34b5d50b2355d`.
+The Linux run preceded the final internal command-dispatch refactor. Live
+interaction on Windows, Wayland and macOS and the plugin menu path remain open.
+
 ### macOS application menu composition 2026-10-14
 
 The AppKit adapter consolidates application actions in one native menu while

@@ -1,5 +1,5 @@
 //! Deterministic playlist ordering for the sidebar sorting actions.
-use std::path::Path;
+use std::{collections::HashSet, path::Path};
 
 use crate::PlaylistEntry;
 mod file_reference;
@@ -35,32 +35,42 @@ pub fn reorder_selection(
         return None;
     }
 
-    let mut selected_entries = Vec::with_capacity(selected.len());
-    for id in entries {
-        if selected.contains(id) && !selected_entries.contains(id) {
-            selected_entries.push(*id);
-        }
-    }
-    if selected_entries.is_empty() || selected_entries.len() != selected.len() {
+    let targets = selected.iter().copied().collect::<HashSet<_>>();
+    let selected_entries = entries
+        .iter()
+        .copied()
+        .filter(|id| targets.contains(id))
+        .collect::<Vec<_>>();
+    if targets.is_empty()
+        || targets.len() != selected.len()
+        || selected_entries.len() != targets.len()
+    {
         return None;
     }
 
-    let removed_before_slot = entries[..insertion_slot]
+    // The first unselected row at or after the insertion slot stays in place
+    // relative to the other unselected rows and anchors the entire move batch.
+    let anchor = entries[insertion_slot..]
         .iter()
-        .filter(|id| selected_entries.contains(id))
-        .count();
-    let destination = insertion_slot - removed_before_slot;
-    let mut desired = entries
-        .iter()
-        .copied()
-        .filter(|id| !selected_entries.contains(id))
-        .collect::<Vec<_>>();
-    desired.splice(destination..destination, selected_entries);
+        .find(|id| !targets.contains(id));
+    let end = anchor
+        .and_then(|anchor| entries.iter().position(|id| id == anchor))
+        .unwrap_or(entries.len());
+    if end
+        .checked_sub(selected_entries.len())
+        .is_some_and(|start| entries[start..end] == selected_entries)
+    {
+        return Some(Vec::new());
+    }
 
     let mut current = entries.to_vec();
     let mut moves = Vec::new();
-    for (destination, id) in desired.into_iter().enumerate() {
+    for id in selected_entries {
         let source = current.iter().position(|entry| *entry == id)?;
+        let slot = anchor
+            .and_then(|anchor| current.iter().position(|id| id == anchor))
+            .unwrap_or(current.len());
+        let destination = drop_destination(source, slot, current.len())?;
         if source == destination {
             continue;
         }
@@ -232,6 +242,7 @@ mod tests {
                     for (from, command_target) in moves {
                         let destination = command_target - usize::from(command_target > from);
                         let entry = actual.remove(from);
+                        assert!(selected.contains(&entry));
                         actual.insert(destination, entry);
                     }
 

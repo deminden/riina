@@ -223,6 +223,7 @@ impl Row {
         let player = |title, action, enabled| item(title, Action::Player(action), enabled);
         let mut entries = vec![
             player("Play", 12, true),
+            player("Play Next", 13, count > 1),
             player("Play in New Window", 9, true),
             player("Remove", 1, true),
             Entry::Separator,

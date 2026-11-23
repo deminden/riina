@@ -22,6 +22,10 @@ export component PlaylistContextMenu inherits ContextMenuArea {
             title: "Play"; activated => { PlayerMenuActions.playlist-action(12, token); }
         }
         if index >= 0 : MenuItem {
+            title: "Play Next"; enabled: PlayerCatalogState.playlist.length > 1;
+            activated => { PlayerMenuActions.playlist-action(13, token); }
+        }
+        if index >= 0 : MenuItem {
             title: "Play in New Window"; activated => { PlayerMenuActions.playlist-action(9, token); }
         }
         if index >= 0 : MenuItem {

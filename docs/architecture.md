@@ -105,6 +105,11 @@ cancellation. Selection and metadata refresh update existing rows in place
 when their identities and order are stable. Structural changes retire the
 gesture before a release can act on a different order.
 
+Playlist drags send the selected entry IDs and destination entry ID to the
+engine as one request. Play Next resolves the current entry and moves the
+selected entries immediately after it in playlist order. The engine plans the
+ordered moves before sending them to mpv, and only selected entries move.
+
 The desktop drop adapters publish the position of a playable offer to the same
 scroll view. X11 samples the native cursor after Winit reports the file list.
 The sidebar and Music Mode use their current scroll offsets for the cue and
@@ -154,9 +159,10 @@ separate opens. An explicit grouped selection opens together even when only one
 playable item remains after filtering.
 
 Playback History sends selected rows to the current player or to one new player
-according to the chosen action. The engine retains that explicit playlist
-through navigation and appends. Same-folder media discovery skips it until a
-regular media open replaces it.
+according to the chosen action. Play in New Window in the playlist menu uses
+the same explicit playlist open. The engine retains the selection policy through
+navigation and appends. Same-folder media discovery skips it until a regular
+media open replaces it.
 
 ### Plugin mpv operations
 
