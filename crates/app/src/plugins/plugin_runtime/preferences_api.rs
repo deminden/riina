@@ -120,8 +120,13 @@ mod tests {
         )
         .unwrap();
         let manifest = Manifest::load_from_directory(&package).unwrap();
-        let global =
-            PluginRuntimeSession::start_package_global_entry(&package, &manifest, &[]).unwrap();
+        let global = PluginRuntimeSession::start_package_global_entry(
+            &package,
+            &manifest,
+            &[],
+            Default::default(),
+        )
+        .unwrap();
         let saved = plugins.join(".preferences/org.example.settings.json");
         assert!(!saved.exists(), "set must leave disk unchanged until sync");
         let player = PluginRuntimeSession::start_package_entry(&package, &manifest, &[]).unwrap();

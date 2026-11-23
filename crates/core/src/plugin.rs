@@ -31,6 +31,8 @@ pub enum Permission {
     ShowAlert,
     VideoOverlay,
     FileSystem,
+    ProcessExecution,
+    OpenExternal,
 }
 
 /// Typed operations accepted by IINA's `core.window` plugin proxy.
@@ -293,6 +295,8 @@ impl Permission {
             "show-alert" => Some(Self::ShowAlert),
             "video-overlay" => Some(Self::VideoOverlay),
             "file-system" => Some(Self::FileSystem),
+            "process-execution" => Some(Self::ProcessExecution),
+            "open-external" => Some(Self::OpenExternal),
             _ => None,
         }
     }
@@ -300,7 +304,11 @@ impl Permission {
     pub const fn is_dangerous(self) -> bool {
         matches!(
             self,
-            Self::NetworkRequest | Self::NetworkListener | Self::FileSystem
+            Self::NetworkRequest
+                | Self::NetworkListener
+                | Self::FileSystem
+                | Self::ProcessExecution
+                | Self::OpenExternal
         )
     }
 }

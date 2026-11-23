@@ -41,6 +41,8 @@ pub(super) fn permission_name(permission: Permission) -> &'static str {
         Permission::ShowAlert => "show-alert",
         Permission::VideoOverlay => "video-overlay",
         Permission::FileSystem => "file-system",
+        Permission::ProcessExecution => "process-execution",
+        Permission::OpenExternal => "open-external",
     }
 }
 
@@ -54,6 +56,10 @@ pub(super) fn permission_description(permission: Permission) -> &'static str {
         Permission::ShowAlert => "Show alerts",
         Permission::VideoOverlay => "Display content over video",
         Permission::FileSystem => "Read and modify files on this device (sensitive)",
+        Permission::ProcessExecution => {
+            "Run native programs with your account's access (sensitive)"
+        }
+        Permission::OpenExternal => "Open links and folders in other applications (sensitive)",
     }
 }
 

@@ -5140,6 +5140,7 @@ dependencies = [
  "icu_locale",
  "image",
  "keyring",
+ "libc",
  "lofty",
  "md-5",
  "muda",

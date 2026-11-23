@@ -5,7 +5,7 @@ mod ui_activity;
 
 use crate::{
     plugin_files::PluginPlayerFileContext,
-    plugin_runtime::{HostEvent, PluginRuntimeSession, UiEffect, input},
+    plugin_runtime::{HostEvent, PluginRuntimeSession, UiEffect, input, utilities::FileDialogs},
     plugin_snapshot::{playback_history_values, recent_document_values, version_snapshot},
 };
 pub(crate) use playlist_menu::PlaylistMenuContribution;
@@ -67,6 +67,7 @@ pub(crate) enum PluginHostMessage {
 
 #[derive(Clone)]
 pub(crate) struct PluginHostHandle {
+    pub(crate) file_dialogs: FileDialogs,
     pub(crate) input: input::Router,
     commands: mpsc::SyncSender<PluginCommand>,
     messages: Arc<Mutex<Vec<PluginHostMessage>>>,
@@ -318,6 +319,8 @@ impl PluginHost {
         let worker_activity = ui_activity.clone();
         let input = input::Router::default();
         let worker_input = input.clone();
+        let file_dialogs = FileDialogs::default();
+        let worker_dialogs = file_dialogs.clone();
         let initial_player_context = PluginPlayerFileContext::default()
             .with_core_version(version_snapshot(None))
             .with_recent_documents(recent_document_values(recent_media))
@@ -329,6 +332,7 @@ impl PluginHost {
             crate::plugin_packages::sweep_staging(&plugins_directory);
             run_host(
                 PluginHostPaths {
+                    file_dialogs: worker_dialogs,
                     input: worker_input,
                     plugins_directory,
                     permissions_path,
@@ -344,6 +348,7 @@ impl PluginHost {
         .map_err(|error| format!("Could not start plugin host: {error}"))?;
         Ok(Self {
             handle: PluginHostHandle {
+                file_dialogs,
                 input,
                 commands,
                 messages,
@@ -541,6 +546,7 @@ fn run_host(
 }
 
 struct PluginHostPaths {
+    file_dialogs: FileDialogs,
     input: input::Router,
     plugins_directory: PathBuf,
     permissions_path: PathBuf,
@@ -1098,8 +1104,13 @@ fn activate(
         .global_entry
         .as_ref()
         .map(|_| {
-            PluginRuntimeSession::start_package_global_entry(directory, manifest, &grants)
-                .map_err(|error| format!("Could not start global {}: {error}", manifest.name))
+            PluginRuntimeSession::start_package_global_entry(
+                directory,
+                manifest,
+                &grants,
+                paths.file_dialogs.clone(),
+            )
+            .map_err(|error| format!("Could not start global {}: {error}", manifest.name))
         })
         .transpose()?;
     let session = PluginRuntimeSession::start_package_entry_with_player_context(
@@ -1109,6 +1120,7 @@ fn activate(
         player_context.clone(),
         paths.player_mpv.clone(),
         paths.input.bindings.clone(),
+        paths.file_dialogs.clone(),
     )
     .map_err(|error| format!("Could not start {}: {error}", manifest.name))?;
     if let Some(global) = global {

@@ -8,6 +8,8 @@ pub(super) struct AvailablePermissions {
     pub(super) network_request: bool,
     pub(super) network_listener: bool,
     pub(super) file_system: bool,
+    pub(super) process_execution: bool,
+    pub(super) open_external: bool,
 }
 
 pub(super) fn reviewed_permissions(
@@ -28,6 +30,8 @@ pub(super) fn reviewed_permissions(
             "network-request" => available.network_request = true,
             "network-listener" => available.network_listener = true,
             "file-system" => available.file_system = true,
+            "process-execution" => available.process_execution = true,
+            "open-external" => available.open_external = true,
             _ => return Err(format!("Unknown plugin permission {permission}")),
         }
     }

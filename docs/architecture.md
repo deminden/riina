@@ -209,6 +209,24 @@ discarded, and a reply that arrives after the player has moved on has no effect.
 Text editors, dialogs, crop controls and reserved native menus keep their own
 input paths.
 
+### Plugin utilities
+
+The player and global realms share a utility API. Filename lookup and path
+resolution follow the filesystem grant and reuse the plugin's existing path
+scope. Helper execution also requires the reviewed `process-execution` grant.
+A helper receives an argument vector and a limited environment. Its supervisor
+reads stdout and stderr independently and delivers output and completion to
+the owning realm. Each realm allows two active helpers with a two-minute
+deadline and 1 MiB per output stream. Closing the realm cancels those jobs.
+Native helpers run with the user's account permissions.
+
+The `open-external` grant permits HTTP(S) links and scoped folders to open in
+other applications. Local file associations also require `process-execution`,
+since an association can execute native code. Utility credentials are stored
+by the platform credential service under the plugin, service and account
+identity. The player permits one plugin picker at a time. Picker results
+return only to the requesting realm, and a stale selection is discarded.
+
 ## Preferences
 
 Plugin preferences use a separate store per installed identifier and profile.

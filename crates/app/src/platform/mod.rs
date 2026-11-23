@@ -15,6 +15,7 @@ pub(crate) mod file_associations;
 pub(crate) mod folder_dialog;
 pub(crate) mod language;
 mod pip_session;
+pub(crate) mod plugin_file_dialog;
 pub(crate) use pip_session::PictureInPictureSession;
 mod player_input;
 pub(crate) mod playlist_menu;
@@ -971,6 +972,10 @@ pub fn screenshot_directory(configured: Option<&str>) -> std::io::Result<std::pa
 }
 
 pub fn open_directory(path: &std::path::Path) -> std::io::Result<()> {
+    open_associated_path(path)
+}
+
+pub(crate) fn open_associated_path(path: &std::path::Path) -> std::io::Result<()> {
     #[cfg(target_os = "windows")]
     {
         use ::windows::{
@@ -979,8 +984,7 @@ pub fn open_directory(path: &std::path::Path) -> std::io::Result<()> {
         };
         use std::os::windows::ffi::OsStrExt;
         let path: Vec<u16> = path.as_os_str().encode_wide().chain(Some(0)).collect();
-        // SAFETY: the owned directory string is NUL-terminated through the call;
-        // the user's menu action opens the system file manager without a shell.
+        // SAFETY: the owned path is NUL-terminated and live through the call.
         let result = unsafe {
             ShellExecuteW(
                 None,
@@ -992,7 +996,9 @@ pub fn open_directory(path: &std::path::Path) -> std::io::Result<()> {
             )
         };
         if result.0 as isize <= 32 {
-            return Err(std::io::Error::other("Could not open screenshot folder"));
+            return Err(std::io::Error::other(
+                "Could not open the associated application",
+            ));
         }
     }
     #[cfg(any(target_os = "macos", target_os = "linux"))]

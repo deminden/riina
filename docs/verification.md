@@ -1613,6 +1613,31 @@ Clippy and 109 plugin-related tests. Strict Apple Silicon workspace Clippy
 passed from Windows. Native macOS input, pressure-sensitive devices, native-menu
 shortcuts and key sequences remain open.
 
+### Plugin utilities 2026-11-23
+
+The utility regressions check grant review, private path containment, credential
+namespacing, picker selection and cancellation, independent stdout and stderr
+delivery, nonzero exit status, missing helpers, cancellation and the output cap.
+The launcher runs native programs under the user's account with a limited
+environment and a direct argument vector.
+
+An isolated Windows player ran a reviewed helper, compared streamed output to
+the resolved result and returned cancellation from its native file picker. An
+isolated Linux X11 player passed spaces, an ampersand and Unicode as literal
+arguments, confirmed a nonzero exit and received the numeric missing-binary
+error. Both players stayed paused and closed normally. The Windows executable
+SHA-256 was `1198520cbb3e2322ebbcae53284dbd9e78c1a52867f2939dc93b28fda9672cb3`.
+The Linux executable SHA-256 was
+`c67bc52bad4757f4006f49dc64198def97c840b1c94396ffdb28b82794a41957`.
+Both tests used the pinned libmpv libraries recorded under the property-read checks.
+
+Windows passed the locked workspace build, strict Clippy, 901 Rust tests and 78
+Python tests. Linux x64 passed the locked application build, strict workspace
+Clippy and 114 plugin-related tests. Both platforms passed 58 native playback
+tests. Strict Apple Silicon workspace Clippy passed from Windows. Native
+credential-store round trips, live file selection and native macOS utility
+behavior remain open.
+
 ### Plugin sidebar manifest discovery 2026-10-14
 
 Manifest tests cover bounded localized labels. Runtime tests cover confined

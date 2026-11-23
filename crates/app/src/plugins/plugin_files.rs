@@ -100,6 +100,10 @@ struct DirectoryEntry {
 }
 
 impl PluginFiles {
+    pub(super) fn storage_identity(&self) -> Option<&str> {
+        self.data_root.file_name()?.to_str()
+    }
+
     pub(crate) fn for_package(package_root: &Path, identifier: &str) -> Self {
         let plugins_root = package_root.parent().unwrap_or(package_root);
         let identifier = safe_identifier(identifier);
@@ -443,7 +447,7 @@ impl PluginFiles {
         serde_json::to_string(&entries).map_err(|error| error.to_string())
     }
 
-    fn resolve(
+    pub(super) fn resolve(
         &self,
         value: &str,
         file_system_granted: bool,
@@ -579,7 +583,7 @@ impl PluginFiles {
             .map_err(|error| format!("Could not resolve plugin storage: {error}"))
     }
 
-    fn is_private_path(&self, path: &Path) -> Result<bool, String> {
+    pub(super) fn is_private_path(&self, path: &Path) -> Result<bool, String> {
         Ok(path.starts_with(self.canonical_root(&self.data_root)?)
             || path.starts_with(self.canonical_root(&self.temp_root)?))
     }

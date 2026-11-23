@@ -12,7 +12,7 @@ use super::{
     output::{menu_js_error, record, record_plugin_menu},
     playlist_api, preferences_api, subtitles, timers,
     timers::PluginTimers,
-    web_socket, webviews,
+    utilities, web_socket, webviews,
 };
 use riina_core::plugin_menu::PluginMenuItem;
 use riina_core::{plugin::OverlayState, plugin_sidebar::PluginSidebarState};
@@ -69,6 +69,11 @@ pub(super) fn run_entry_worker(
         hooks: mpv_hooks::RealmHooks::default(),
         web_socket: web_socket::RealmWebSocket::default(),
         subtitles: subtitles::Realm::new(host.file_system.clone(), permissions),
+        helper_workers: utilities::Workers::default(),
+    };
+    let _cancel_on_exit = CancelOnExit {
+        execution: execution.clone(),
+        workers: services.helper_workers.clone(),
     };
     execution.begin();
     let initialized =
@@ -92,6 +97,18 @@ pub(super) fn run_entry_worker(
     run_callbacks(&context, &runtime, commands, &execution, &events, &services);
 }
 
+struct CancelOnExit {
+    execution: Arc<super::ExecutionControl>,
+    workers: utilities::Workers,
+}
+
+impl Drop for CancelOnExit {
+    fn drop(&mut self) {
+        self.execution.cancel();
+        self.workers.finish();
+    }
+}
+
 struct RealmServices {
     overlay: Arc<Mutex<OverlayState>>,
     sidebar: Arc<Mutex<PluginSidebarState>>,
@@ -99,6 +116,7 @@ struct RealmServices {
     hooks: mpv_hooks::RealmHooks,
     web_socket: web_socket::RealmWebSocket,
     subtitles: subtitles::Realm,
+    helper_workers: utilities::Workers,
 }
 
 fn initialize_realm(
@@ -110,6 +128,7 @@ fn initialize_realm(
     services: &RealmServices,
 ) -> rquickjs::Result<()> {
     let PluginWorkerHost {
+        file_dialogs,
         input,
         global_api_mode,
         module_context,
@@ -151,6 +170,15 @@ fn initialize_realm(
         )?;
     }
     globals.set("iina", api.clone())?;
+    utilities::install(
+        &api,
+        &file_system,
+        permissions,
+        execution.clone(),
+        network.commands.clone(),
+        file_dialogs,
+        services.helper_workers.clone(),
+    )?;
     preferences_api::install(&api, preferences)?;
     events::install(
         ctx.clone(),
@@ -225,17 +253,7 @@ fn initialize_realm(
         services.overlay.clone(),
         services.sidebar.clone(),
     )?;
-    let console = Object::new(ctx.clone())?;
-    for method in ["log", "info", "warn", "error"] {
-        let log_events = events.clone();
-        console.set(
-            method,
-            Func::from(move |message: String| {
-                record(&log_events, UiEffect::Log(message));
-            }),
-        )?;
-    }
-    globals.set("console", console)?;
+    install_console(&globals, events)?;
 
     // Keep the entry's path on the stack only while it is being evaluated:
     // nested CommonJS loads resolve relative to that file.
@@ -260,6 +278,21 @@ fn initialize_realm(
         current_files.pop();
     }
     evaluated
+}
+
+fn install_console<'js>(
+    globals: &Object<'js>,
+    events: Arc<Mutex<Vec<super::HostEvent>>>,
+) -> rquickjs::Result<()> {
+    let console = Object::new(globals.ctx().clone())?;
+    for method in ["log", "info", "warn", "error"] {
+        let log_events = events.clone();
+        console.set(
+            method,
+            Func::from(move |message: String| record(&log_events, UiEffect::Log(message))),
+        )?;
+    }
+    globals.set("console", console)
 }
 
 fn run_callbacks(
@@ -365,22 +398,6 @@ fn run_callbacks(
                 message_script("iina.event.__dispatch", &name, &data),
                 "player event callback",
             ),
-            Some(RuntimeCommand::DeliverInput(request)) => {
-                execution.begin();
-                let evaluated = request.dispatch(context);
-                if finish_turn(runtime, execution, events, "input listener", evaluated) {
-                    break;
-                }
-                continue;
-            }
-            Some(RuntimeCommand::DeliverMpvHook(index, next)) => {
-                execution.begin();
-                let evaluated = mpv_hooks::dispatch(context, index, next);
-                if finish_turn(runtime, execution, events, "mpv hook", evaluated) {
-                    break;
-                }
-                continue;
-            }
             Some(RuntimeCommand::DeliverNetworkResult(id, result)) => (
                 network_result_script("__riinaDeliverHttp", id, result),
                 "HTTP response callback",
@@ -398,18 +415,16 @@ fn run_callbacks(
                 network_result_script("__riinaDeliverXmlrpc", id, result),
                 "XML-RPC response callback",
             ),
-            Some(RuntimeCommand::DeliverWebSocket(delivery)) => {
+            Some(
+                command @ (RuntimeCommand::DeliverUtility(_)
+                | RuntimeCommand::DeliverInput(_)
+                | RuntimeCommand::DeliverMpvHook(..)
+                | RuntimeCommand::DeliverWebSocket(_)
+                | RuntimeCommand::RunSubtitleProvider(_)),
+            ) => {
                 execution.begin();
-                let evaluated = services.web_socket.dispatch(context, delivery);
-                if finish_turn(runtime, execution, events, "WebSocket callback", evaluated) {
-                    break;
-                }
-                continue;
-            }
-            Some(RuntimeCommand::RunSubtitleProvider(job)) => {
-                execution.begin();
-                let evaluated = services.subtitles.dispatch(context, job);
-                if finish_turn(runtime, execution, events, "subtitle provider", evaluated) {
+                let (label, evaluated) = dispatch_typed_callback(context, services, command);
+                if finish_turn(runtime, execution, events, label, evaluated) {
                     break;
                 }
                 continue;
@@ -420,6 +435,34 @@ fn run_callbacks(
         if finish_turn(runtime, execution, events, label, evaluated) {
             break;
         }
+    }
+}
+
+fn dispatch_typed_callback(
+    context: &Context,
+    services: &RealmServices,
+    command: RuntimeCommand,
+) -> (&'static str, Result<(), String>) {
+    match command {
+        RuntimeCommand::DeliverUtility(delivery) => {
+            ("utility callback", delivery.dispatch(context))
+        }
+        RuntimeCommand::DeliverInput(request) => ("input listener", request.dispatch(context)),
+        RuntimeCommand::DeliverMpvHook(index, next) => {
+            ("mpv hook", mpv_hooks::dispatch(context, index, next))
+        }
+        RuntimeCommand::DeliverWebSocket(delivery) => (
+            "WebSocket callback",
+            services.web_socket.dispatch(context, delivery),
+        ),
+        RuntimeCommand::RunSubtitleProvider(job) => (
+            "subtitle provider",
+            services.subtitles.dispatch(context, job),
+        ),
+        _ => (
+            "typed callback",
+            Err("Unexpected runtime command for typed callback".into()),
+        ),
     }
 }
 

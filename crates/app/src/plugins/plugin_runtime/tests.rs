@@ -221,6 +221,7 @@ fn execute_with_files(
         None,
         None,
         PluginStorageContext {
+            file_dialogs: Default::default(),
             input_bindings: Default::default(),
             file_system: files,
             player_mpv: None,
@@ -467,6 +468,7 @@ fn core_status_chapter_recent_document_and_version_reads_follow_playback_context
         None,
         None,
         PluginStorageContext {
+            file_dialogs: Default::default(),
             input_bindings: Default::default(),
             file_system: files,
             player_mpv: None,

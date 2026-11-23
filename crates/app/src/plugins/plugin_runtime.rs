@@ -24,6 +24,7 @@ pub(crate) mod subtitles;
 #[cfg(test)]
 mod tests;
 mod timers;
+pub(crate) mod utilities;
 mod web_socket;
 mod webviews;
 mod worker;
@@ -104,6 +105,7 @@ enum RuntimeCommand {
     DeliverXmlRpcResult(u32, Result<serde_json::Value, String>),
     DeliverWebSocket(web_socket::Delivery),
     RunSubtitleProvider(subtitles::Job),
+    DeliverUtility(utilities::Delivery),
     Shutdown,
 }
 
@@ -114,6 +116,7 @@ enum GlobalApiMode {
 }
 
 struct PluginWorkerHost {
+    file_dialogs: utilities::FileDialogs,
     input: Arc<input::Endpoint>,
     execution: Arc<ExecutionControl>,
     global_api_mode: Option<GlobalApiMode>,
@@ -128,6 +131,7 @@ struct PluginWorkerHost {
 }
 
 struct PluginStorageContext {
+    file_dialogs: utilities::FileDialogs,
     input_bindings: input::Bindings,
     file_system: PluginFiles,
     player_mpv: Option<riina_mpv::CommandSender>,
@@ -138,6 +142,7 @@ struct PluginStorageContext {
 impl PluginStorageContext {
     fn for_package(root: &Path, manifest: &Manifest) -> Result<Self, String> {
         Ok(Self {
+            file_dialogs: utilities::FileDialogs::default(),
             input_bindings: input::Bindings::default(),
             file_system: PluginFiles::for_package(root, &manifest.identifier),
             player_mpv: None,
@@ -174,6 +179,7 @@ impl PluginRuntimeSession {
             PluginPlayerFileContext::default(),
             None,
             input::Bindings::default(),
+            utilities::FileDialogs::default(),
         )
     }
 
@@ -184,12 +190,14 @@ impl PluginRuntimeSession {
         player_context: PluginPlayerFileContext,
         player_mpv: Option<riina_mpv::CommandSender>,
         input_bindings: input::Bindings,
+        file_dialogs: utilities::FileDialogs,
     ) -> Result<Self, String> {
         let (source, module_context) = read_package_script(package_root, &manifest.entry)?;
         let mut storage = PluginStorageContext::for_package(package_root, manifest)?;
         storage.file_system.set_player_context(player_context);
         storage.player_mpv = player_mpv;
         storage.input_bindings = input_bindings;
+        storage.file_dialogs = file_dialogs;
         Self::start_entry_with_context(
             &source,
             &manifest.identifier,
@@ -205,11 +213,14 @@ impl PluginRuntimeSession {
         package_root: &Path,
         manifest: &Manifest,
         granted_permissions: &[String],
+        file_dialogs: utilities::FileDialogs,
     ) -> Result<Self, String> {
         let Some(entry) = manifest.global_entry.as_deref() else {
             return Err("Plugin does not declare a global entry".into());
         };
         let (source, module_context) = read_package_script(package_root, entry)?;
+        let mut storage = PluginStorageContext::for_package(package_root, manifest)?;
+        storage.file_dialogs = file_dialogs;
         Self::start_entry_with_context(
             &source,
             &format!("{}.global", manifest.identifier),
@@ -217,7 +228,7 @@ impl PluginRuntimeSession {
             granted_permissions,
             Some(GlobalApiMode::Controller),
             Some(module_context),
-            PluginStorageContext::for_package(package_root, manifest)?,
+            storage,
         )
     }
 
@@ -236,6 +247,7 @@ impl PluginRuntimeSession {
             None,
             None,
             PluginStorageContext {
+                file_dialogs: utilities::FileDialogs::default(),
                 input_bindings: input::Bindings::default(),
                 file_system: PluginFiles::temporary(plugin_identifier),
                 player_mpv: None,
@@ -295,6 +307,7 @@ impl PluginRuntimeSession {
                 plugin_identifier,
                 permissions,
                 PluginWorkerHost {
+                    file_dialogs: storage.file_dialogs,
                     input: worker_input,
                     execution: worker_execution,
                     global_api_mode,

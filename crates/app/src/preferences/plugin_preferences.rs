@@ -76,9 +76,11 @@ mod tests {
     use super::inventory::runtime_supports_permission;
 
     #[test]
-    fn plugin_runtime_advertises_supported_network_and_file_permissions() {
+    fn plugin_runtime_advertises_reviewed_permissions() {
         assert!(runtime_supports_permission("network-request"));
         assert!(runtime_supports_permission("file-system"));
+        assert!(runtime_supports_permission("process-execution"));
+        assert!(runtime_supports_permission("open-external"));
         assert!(!runtime_supports_permission("unknown-permission"));
     }
 }
