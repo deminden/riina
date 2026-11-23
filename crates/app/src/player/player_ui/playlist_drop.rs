@@ -14,17 +14,17 @@ pub(super) enum Target {
     },
 }
 
-#[cfg(target_os = "linux")]
-pub(super) fn register_wayland(
+#[cfg(any(target_os = "linux", target_os = "windows"))]
+pub(super) fn register_desktop(
     app: &PlayerWindow,
     sender: &CommandSender,
     hover: std::rc::Rc<super::playlist_hover::PlaylistHover>,
-) -> platform::wayland_drop::Registration {
+) -> platform::desktop_drop::Registration {
     let weak = app.as_weak();
     let sender = sender.clone();
-    platform::wayland_drop::register(
+    platform::desktop_drop::register(
         app,
-        move |event| hover.on_wayland(event),
+        move |event| hover.on_desktop(event),
         move |position| {
             let app = weak.upgrade()?;
             let target = target_at(&app, position);

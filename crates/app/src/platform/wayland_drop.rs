@@ -2,6 +2,7 @@
 mod payload;
 mod protocol;
 
+use super::desktop_drop::{Hover, OpenDrop};
 use slint::{
     ComponentHandle, LogicalPosition,
     winit_030::{
@@ -16,19 +17,9 @@ use slint::{
 };
 use std::{
     cell::RefCell,
-    ffi::OsString,
-    path::PathBuf,
     rc::{Rc, Weak},
 };
 use wayland_client::{Connection, EventQueue, backend::Backend};
-
-pub(crate) enum Hover {
-    Entered(Vec<PathBuf>, LogicalPosition),
-    Moved(LogicalPosition),
-    Left,
-}
-
-pub(crate) type OpenDrop = Box<dyn FnOnce(Vec<OsString>)>;
 
 struct Target {
     surface: Box<dyn Fn() -> Option<(usize, f32)>>,

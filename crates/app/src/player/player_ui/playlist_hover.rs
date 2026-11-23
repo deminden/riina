@@ -78,21 +78,15 @@ impl PlaylistHover {
         }
     }
 
-    #[cfg(target_os = "linux")]
-    pub(super) fn on_wayland(&self, hover: platform::wayland_drop::Hover) {
-        use platform::wayland_drop::Hover;
+    #[cfg(any(target_os = "linux", target_os = "windows"))]
+    pub(super) fn on_desktop(&self, hover: platform::desktop_drop::Hover) {
+        use platform::desktop_drop::Hover;
         match hover {
             Hover::Entered(paths, position) => {
-                self.finish();
-                *self.drag.borrow_mut() = Some(Drag {
-                    paths,
-                    position: Some(position),
-                    eligibility: Arc::default(),
-                    dwell: Dwell::default(),
-                    revealed: false,
-                });
-                self.timer.restart();
+                self.begin_desktop(paths, position, false);
             }
+            #[cfg(target_os = "windows")]
+            Hover::Link(position) => self.begin_desktop(Vec::new(), position, true),
             Hover::Moved(position) => {
                 if let Some(drag) = self.drag.borrow_mut().as_mut() {
                     drag.position = Some(position);
@@ -100,6 +94,21 @@ impl PlaylistHover {
             }
             Hover::Left => self.finish(),
         }
+    }
+
+    #[cfg(any(target_os = "linux", target_os = "windows"))]
+    fn begin_desktop(&self, paths: Vec<PathBuf>, position: LogicalPosition, link: bool) {
+        self.finish();
+        let eligibility = Arc::new(Eligibility::default());
+        eligibility.playable.store(link, Ordering::Relaxed);
+        *self.drag.borrow_mut() = Some(Drag {
+            paths,
+            position: Some(position),
+            eligibility,
+            dwell: Dwell::default(),
+            revealed: false,
+        });
+        self.timer.restart();
     }
 }
 

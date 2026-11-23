@@ -9,6 +9,8 @@ use std::{
     time::{Duration, Instant},
 };
 pub(crate) mod clipboard;
+#[cfg(any(target_os = "linux", target_os = "windows"))]
+pub(crate) mod desktop_drop;
 pub(crate) mod file_associations;
 pub(crate) mod folder_dialog;
 pub(crate) mod language;

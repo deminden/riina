@@ -3,6 +3,7 @@ pub(crate) use session::SessionExtras;
 pub(crate) mod accessibility;
 pub(crate) mod bring_to_front;
 pub(crate) mod file_dialog;
+pub(crate) mod file_drop;
 mod frame_capture;
 mod host_input;
 pub(crate) mod materials;

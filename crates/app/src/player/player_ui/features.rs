@@ -127,7 +127,14 @@ pub(super) fn install(app: &PlayerWindow, inputs: Inputs<'_>) -> Installed {
         file_drop_timer,
         player_window_focus,
         scroll_monitor,
-    } = input::install(app, commands, playback.clone(), resize_filter);
+    } = input::install(
+        app,
+        commands,
+        playback.clone(),
+        resize_filter,
+        #[cfg(target_os = "windows")]
+        native.map(platform::NativePresentation::host),
+    );
     let thumbnail_preview_timer = thumbnail_actions::install(app, playback, plugin_host.cloned());
     let (transition_frame_timer, pending_navigation) = transitions::install(
         capture_transition_first,

@@ -3,7 +3,6 @@ use std::{
     ffi::OsString,
     io::{self, Read},
     os::{fd::AsFd, unix::net::UnixStream},
-    path::Path,
     sync::{
         Arc,
         atomic::{AtomicBool, Ordering},
@@ -93,24 +92,7 @@ fn parse(bytes: &[u8], allow_plain_paths: bool) -> Vec<OsString> {
     let Ok(text) = std::str::from_utf8(bytes) else {
         return Vec::new();
     };
-    text.lines()
-        .map(str::trim)
-        .filter(|line| !line.is_empty() && !line.starts_with('#') && !line.contains('\0'))
-        .filter_map(|line| parse_reference(line, allow_plain_paths))
-        .collect()
-}
-
-fn parse_reference(line: &str, allow_plain_paths: bool) -> Option<OsString> {
-    if allow_plain_paths && Path::new(line).is_absolute() {
-        return Some(line.into());
-    }
-    let uri = url::Url::parse(line).ok()?;
-    if uri.scheme() == "file" {
-        return uri.to_file_path().ok().map(|path| path.into_os_string());
-    }
-    riina_core::media_reference::validate_network_url(line)
-        .ok()
-        .map(OsString::from)
+    crate::platform::desktop_drop::parse_references(text, allow_plain_paths)
 }
 
 #[cfg(test)]

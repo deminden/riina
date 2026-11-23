@@ -211,10 +211,10 @@ fn install_welcome_drop(app: &PlayerWindow, context: &Context<'_>, pending: &Wel
             welcome_window.set_drop_error(error.to_string().into());
         }
     });
-    #[cfg(target_os = "linux")]
-    let wayland_drop = {
+    #[cfg(any(target_os = "linux", target_os = "windows"))]
+    let native_drop = {
         let open = open.clone();
-        platform::wayland_drop::register(
+        platform::desktop_drop::register(
             window,
             |_| {},
             move |_| {
@@ -226,7 +226,9 @@ fn install_welcome_drop(app: &PlayerWindow, context: &Context<'_>, pending: &Wel
     let (_, file_drop) = platform::batched_file_drops(|_| (), move |(), paths| open(paths));
     window.window().on_winit_window_event(move |window, event| {
         #[cfg(target_os = "linux")]
-        let _ = &wayland_drop;
+        let _ = &native_drop;
+        #[cfg(target_os = "windows")]
+        native_drop.attach(window);
         file_drop(window, event);
         EventResult::Propagate
     });

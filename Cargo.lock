@@ -5166,6 +5166,7 @@ dependencies = [
  "url",
  "wayland-client",
  "windows",
+ "windows-core",
  "winresource",
  "wry",
  "zbus",

@@ -1245,6 +1245,32 @@ build passed. The Linux locked build, strict workspace Clippy and 839 Rust
 tests passed. On X11, the same executable opened a mixed media and subtitle
 drop from Welcome, attached the subtitle and quit normally.
 
+### Windows file and URL drops 2026-11-23
+
+The Windows OLE target handles Explorer file lists, browser URL formats and
+plain Unicode text. File lists take precedence when a source offers both files
+and a URL. The framed video window and its aligned controls share the same
+playlist hover state. The target uses the release position to capture a playlist
+insertion row before closing a temporary playlist.
+[Windows Shell transfer formats](https://learn.microsoft.com/en-us/windows/win32/shell/clipboard)
+
+Windows tests used a Shell data object to decode a Unicode file list and both
+browser URL and text formats. A hidden HWND test verified registration and
+revocation during destruction. A handoff test exercised crossing from video
+to controls and capturing the target before closing the hover state. A pointer
+drag from a Windows browser remains to be checked on an interactive desktop.
+
+The Windows workspace gate passed 878 Rust and 78 Python tests. The locked
+build passed ten playback, window and shutdown checks on an isolated Windows
+desktop in 9.216 s. The test process exited normally. The checked Windows
+executable SHA-256 was
+`3a080c4cf0b985b4d5582c1eeab461a3dfad328d860814282a7ad13eed30aa16`.
+
+The Linux workspace gate passed 839 Rust tests. On isolated native Wayland, a GTK
+drag reopened media from Welcome, revealed the playlist and appended a folder
+while playback stayed paused at 1.25 s. A plain-text URL opened a loopback
+stream, and Quit closed Riina normally.
+
 ### Audio equalizer profile menu 2026-10-14
 
 Core/native coverage checks gains and the dedicated filter. Profile identity

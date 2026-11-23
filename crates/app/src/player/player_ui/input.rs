@@ -120,6 +120,7 @@ fn install_window_events(
     playback: crate::PlaybackStore,
     trackpad_pause_generation: Rc<Cell<Option<u64>>>,
     scroll_input: Rc<Cell<ScrollInputState>>,
+    #[cfg(target_os = "windows")] native_host: Option<slint::Weak<crate::NativeVideoHost>>,
     mut handle_window_event: impl FnMut(&slint::Window, &winit::event::WindowEvent) -> EventResult
     + 'static,
 ) -> (Rc<slint::Timer>, PlayerWindowFocusRegistration) {
@@ -156,11 +157,17 @@ fn install_window_events(
     let event_trackpad_pause_generation = trackpad_pause_generation;
     let event_focused = Rc::downgrade(&focused);
     let playlist_hover = Rc::new(PlaylistHover::new(app));
-    #[cfg(target_os = "linux")]
-    let wayland_drop = playlist_drop::register_wayland(app, &event_player, playlist_hover.clone());
+    #[cfg(any(target_os = "linux", target_os = "windows"))]
+    let native_drop = playlist_drop::register_desktop(app, &event_player, playlist_hover.clone());
+    #[cfg(target_os = "windows")]
+    if let Some(host) = native_host.and_then(|host| host.upgrade()) {
+        native_drop.attach_owner(host.window());
+    }
     app.window().on_winit_window_event(move |window, event| {
         #[cfg(target_os = "linux")]
-        let _ = &wayland_drop;
+        let _ = &native_drop;
+        #[cfg(target_os = "windows")]
+        native_drop.attach(window);
         if handle_window_event(window, event) == EventResult::PreventDefault {
             return EventResult::PreventDefault;
         }
@@ -385,6 +392,7 @@ pub(super) fn install(
     player: &riina_mpv::CommandSender,
     latest_playback: crate::PlaybackStore,
     resize_filter: Option<crate::window_aspect::WindowEventFilter>,
+    #[cfg(target_os = "windows")] native_host: Option<slint::Weak<crate::NativeVideoHost>>,
 ) -> InstalledInput {
     let scroll_input = Rc::new(Cell::new(ScrollInputState::default()));
     let scroll_monitor = {
@@ -436,6 +444,8 @@ pub(super) fn install(
         latest_playback.clone(),
         trackpad_pause_generation.clone(),
         scroll_input.clone(),
+        #[cfg(target_os = "windows")]
+        native_host,
         move |window, event| {
             gestures(event);
             resize_filter

@@ -83,6 +83,12 @@ Slint has one Winit event callback per window. The player combines file drops,
 focus, wheel input, trackpad gestures and shared-renderer resize events in that
 callback. The framed Windows video owner registers its own event callback.
 
+On Windows, the framed video window and its controls share one OLE drop route.
+The window that receives the drop supplies its client coordinates. The route
+preserves playlist hover as the pointer moves between the two windows and
+queues media commands on Slint's event loop.
+[Win32 drop-target interface](https://learn.microsoft.com/en-us/windows/win32/api/oleidl/nn-oleidl-idroptarget)
+
 On Wayland, the application registers one data device per seat on Winit's
 display. Winit reads the display socket and Riina dispatches its drop queue
 from the same event loop. Drop payloads are read in the background, and the

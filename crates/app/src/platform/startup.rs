@@ -42,8 +42,12 @@ pub(crate) fn select_shared_backend(preferences: &Preferences) -> Result<(), Pla
     // macOS. Create Windows auxiliary windows alpha-capable up front so a
     // later DWM material request can reveal Mica or Acrylic. Slint keeps
     // windows with its native menu opaque after this hook.
-    let backend =
-        backend.with_winit_window_attributes_hook(|attributes| attributes.with_transparent(true));
+    let backend = {
+        use slint::winit_030::winit::platform::windows::WindowAttributesExtWindows;
+        backend.with_winit_window_attributes_hook(|attributes| {
+            attributes.with_transparent(true).with_drag_and_drop(false)
+        })
+    };
     #[cfg(target_os = "macos")]
     let backend = {
         use slint::winit_030::winit::platform::macos::WindowAttributesExtMacOS;

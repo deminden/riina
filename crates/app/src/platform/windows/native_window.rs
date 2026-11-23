@@ -87,6 +87,7 @@ impl NativeApp {
             .backend_name("winit".into())
             .renderer_name("femtovg".into())
             .with_winit_window_attributes_hook(move |attributes| {
+                let attributes = attributes.with_drag_and_drop(false);
                 // Consume the next adapter's owner once. Leaving it installed also
                 // styles auxiliary windows as transparent, taskbar-hidden overlays.
                 let handle = hook_owner.swap(0, Ordering::Relaxed);
