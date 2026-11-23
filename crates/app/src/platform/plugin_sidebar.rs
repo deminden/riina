@@ -1,7 +1,10 @@
 //! Confined plugin sidebar documents hosted as child WebViews.
 
 use super::plugin_resources::{plugin_file_url, resource_response};
-use crate::plugin_host::{PluginHostHandle, PluginHostMessage};
+use crate::{
+    PlayerWindow,
+    plugin_host::{PluginHostHandle, PluginHostMessage},
+};
 use riina_core::plugin_sidebar::PluginSidebarEffect;
 use slint::winit_030::winit::window::Window;
 use std::{
@@ -51,11 +54,27 @@ pub(crate) struct PluginSidebarPresenter {
 }
 
 impl PluginSidebarPresenter {
+    pub(crate) fn viewport(app: &PlayerWindow) -> Rect {
+        Rect {
+            position: LogicalPosition::new(
+                f64::from(app.get_plugin_sidebar_view_x()),
+                f64::from(app.get_plugin_sidebar_view_y()),
+            )
+            .into(),
+            size: LogicalSize::new(
+                f64::from(app.get_plugin_sidebar_view_width().max(1.0)),
+                f64::from(app.get_plugin_sidebar_view_height().max(1.0)),
+            )
+            .into(),
+        }
+    }
+
     pub(crate) fn apply_host_message(
         &mut self,
         parent: &Window,
         host: &PluginHostHandle,
         message: PluginHostMessage,
+        viewport: Rect,
     ) -> Result<(), String> {
         let PluginHostMessage::Sidebar {
             plugin_identifier,
@@ -65,7 +84,14 @@ impl PluginSidebarPresenter {
         else {
             return Ok(());
         };
-        self.apply(parent, host, plugin_identifier, plugin_directory, effect)
+        self.apply(
+            parent,
+            host,
+            plugin_identifier,
+            plugin_directory,
+            effect,
+            viewport,
+        )
     }
 
     fn apply(
@@ -75,6 +101,7 @@ impl PluginSidebarPresenter {
         identifier: String,
         directory: PathBuf,
         effect: PluginSidebarEffect,
+        viewport: Rect,
     ) -> Result<(), String> {
         match effect {
             PluginSidebarEffect::LoadFile(path) => {
@@ -83,7 +110,7 @@ impl PluginSidebarPresenter {
                 if let Some(entry) = self.entries.get_mut(&identifier) {
                     if entry.root != root {
                         self.entries.remove(&identifier);
-                        self.create_entry(parent, host, &identifier, root, &url)?;
+                        self.create_entry(parent, host, &identifier, root, &url, viewport)?;
                     } else {
                         entry.ready.set(false);
                         entry.messages.clear();
@@ -91,7 +118,7 @@ impl PluginSidebarPresenter {
                         entry.webview.load_url(&url).map_err(webview_error)?;
                     }
                 } else {
-                    self.create_entry(parent, host, &identifier, root, &url)?;
+                    self.create_entry(parent, host, &identifier, root, &url, viewport)?;
                 }
             }
             PluginSidebarEffect::Show | PluginSidebarEffect::Hide => {}
@@ -117,19 +144,8 @@ impl PluginSidebarPresenter {
         }
     }
 
-    pub(crate) fn update(
-        &mut self,
-        x: f32,
-        y: f32,
-        width: f32,
-        height: f32,
-        selected: Option<String>,
-    ) {
+    pub(crate) fn update(&mut self, bounds: Rect, selected: Option<String>) {
         self.selected = selected;
-        let bounds = Rect {
-            position: LogicalPosition::new(f64::from(x), f64::from(y)).into(),
-            size: LogicalSize::new(f64::from(width.max(1.0)), f64::from(height.max(1.0))).into(),
-        };
         for (identifier, entry) in &mut self.entries {
             if entry.bounds != Some(bounds) && entry.webview.set_bounds(bounds).is_ok() {
                 entry.bounds = Some(bounds);
@@ -158,6 +174,7 @@ impl PluginSidebarPresenter {
         identifier: &str,
         root: PathBuf,
         url: &str,
+        viewport: Rect,
     ) -> Result<(), String> {
         #[cfg(target_os = "linux")]
         prepare_linux_webview(parent)?;
@@ -168,10 +185,9 @@ impl PluginSidebarPresenter {
         let ipc_host = host.clone();
         let ipc_identifier = identifier.to_owned();
         let webview = WebViewBuilder::new()
-            .with_bounds(Rect {
-                position: LogicalPosition::new(0.0, 0.0).into(),
-                size: LogicalSize::new(1.0, 1.0).into(),
-            })
+            // On X11 the GTK child can retain its initial allocation until a
+            // later resize. Create it with the current sidebar viewport.
+            .with_bounds(viewport)
             .with_transparent(true)
             .with_visible(false)
             .with_initialization_script(BRIDGE_SCRIPT)

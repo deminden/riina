@@ -143,9 +143,12 @@ impl PluginEffects {
             }
         }
         let result = app.window().with_winit_window(|parent| {
-            self.sidebar
-                .borrow_mut()
-                .apply_host_message(parent, &self.sidebar_host, message)
+            self.sidebar.borrow_mut().apply_host_message(
+                parent,
+                &self.sidebar_host,
+                message,
+                platform::PluginSidebarPresenter::viewport(app),
+            )
         });
         if let Some(Err(error)) = result {
             app.set_status(error.into());
@@ -167,12 +170,8 @@ impl PluginEffects {
         } else {
             None
         };
-        self.sidebar.borrow_mut().update(
-            app.get_plugin_sidebar_view_x(),
-            app.get_plugin_sidebar_view_y(),
-            app.get_plugin_sidebar_view_width(),
-            app.get_plugin_sidebar_view_height(),
-            selected,
-        );
+        self.sidebar
+            .borrow_mut()
+            .update(platform::PluginSidebarPresenter::viewport(app), selected);
     }
 }
