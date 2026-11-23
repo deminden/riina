@@ -1,11 +1,15 @@
 //! Install and execute typed profile actions without retaining playback owners.
 use super::{
-    bindings::Bindings, builtins::mappings_for, keys::recorded_key, menus::menu_shortcut_rows,
+    bindings::Bindings,
+    builtins::mappings_for,
+    keys::{normalize_profile_key, recorded_key},
+    menus::menu_shortcut_rows,
 };
 use crate::{PlayerWindow, preferences::model::PreferenceSection};
 use riina_core::key_bindings::{ActionKind, Mapping, Settings, normalize_mpv_key};
 use riina_ui::PlayerMenuActions;
 use slint::{ComponentHandle, ModelRc, VecModel};
+use std::rc::Rc;
 
 pub(crate) fn install_player(
     app: &PlayerWindow,
@@ -20,12 +24,17 @@ pub(crate) fn install_player(
             Vec::new()
         }
     };
-    let mappings = Bindings::new(mappings);
+    let mappings = Rc::new(Bindings::new(mappings));
     let input_bindings = slint::SharedString::from(plugin_input_bindings(&mappings));
     app.set_plugin_input_bindings(input_bindings.clone());
     // Player entries can start before Slint delivers property change callbacks.
     app.invoke_plugin_input_bindings_changed(input_bindings);
     app.set_menu_shortcuts(ModelRc::new(VecModel::from(menu_shortcut_rows(&mappings))));
+    let profile = mappings.clone();
+    app.on_profile_has_shortcut(move |key| {
+        profile.get(&normalize_profile_key(key.as_str())).is_some()
+    });
+    crate::player_ui::refresh_plugin_menu_shortcuts(app);
     let player = app.as_weak();
     let observed_playback = latest_playback;
     app.global::<riina_ui::PlayerControlActions>()

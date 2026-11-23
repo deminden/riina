@@ -1,10 +1,14 @@
 export struct MenuCatalogRow { token: string, label: string, selected: bool }
 export struct PluginMenuRow {
-    token: string, label: string, enabled: bool, selected: bool, shortcut: keys,
+    token: string, label: string, enabled: bool, selected: bool, key-binding: string, shortcut: keys,
     section-header: bool, depth: int, submenu: bool, separator: bool,
 }
 
 export global PluginMenuDisplay {
+    public pure function conflict-title(count: int) -> string {
+        return @tr("Conflicting key shortcuts… ({})", count);
+    }
+
     public pure function menu-title(row: PluginMenuRow) -> string {
         if row.token == "\u{1f}group-separator" { return row.label; }
         let kind = row.separator ? "s" : row.section-header ? "h" : row.submenu ? "b" : "a";
@@ -34,6 +38,7 @@ export component NativeVideoHost inherits Window {
     callback activate-plugin-menu-item(string);
     callback open-plugin-developer-tool(string);
     in property <[PluginMenuRow]> plugin-menu-rows: [];
+    in property <int> plugin-menu-conflicts;
     in property <[MenuCatalogRow]> plugin-developer-rows: [];
     callback open-media-file();
     callback open-in-new-window();
@@ -607,6 +612,9 @@ export component NativeVideoHost inherits Window {
             MenuItem { title: "Font…"; activated => { root.choose-subtitle-font(); } }
         }
         Menu { title: "\u{1f}riina-plugin-menu";
+            if root.plugin-menu-conflicts > 0 : MenuItem {
+                title: PluginMenuDisplay.conflict-title(root.plugin-menu-conflicts); enabled: false;
+            }
             MenuItem { title: "Manage Plugins…"; activated => { root.manage-plugins(); } }
             MenuItem { title: root.plugins-panel-open ? "Hide Plugins Panel" : "Show Plugins Panel"; shortcut: root.menu-shortcut(45);
                 activated => { root.show-plugins-panel(); } }

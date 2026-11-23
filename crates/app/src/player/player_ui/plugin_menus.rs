@@ -30,13 +30,10 @@ fn plugin_menu_rows_for_plugin(
                 label: item.title.as_str().into(),
                 enabled,
                 selected: item.selected,
-                shortcut: if submenu || !enabled {
+                key_binding: if item.separator {
                     Default::default()
                 } else {
-                    item.key_binding
-                        .as_deref()
-                        .and_then(crate::key_binding_preferences::shortcut_keys)
-                        .unwrap_or_default()
+                    item.key_binding.as_deref().unwrap_or_default().into()
                 },
                 depth,
                 submenu,
@@ -58,36 +55,26 @@ pub(super) fn replace_plugin_menu_rows(
     global: bool,
     items: &[riina_core::plugin_menu::PluginMenuItem],
 ) {
-    let current_rows = (0..app.get_plugin_menu_rows().row_count())
-        .filter_map(|index| app.get_plugin_menu_rows().row_data(index))
-        .collect();
-    app.set_plugin_menu_rows(slint::ModelRc::new(slint::VecModel::from(
-        updated_plugin_menu_rows(current_rows, identifier, plugin_name, global, items),
-    )));
-    let order = (0..app.get_plugin_menu_order().row_count())
-        .filter_map(|index| app.get_plugin_menu_order().row_data(index))
-        .map(|identifier| identifier.to_string())
-        .collect::<Vec<_>>();
-    reorder_plugin_menu_rows(app, &order);
+    let rows = updated_plugin_menu_rows(
+        app.get_plugin_menu_rows().iter(),
+        identifier,
+        plugin_name,
+        global,
+        items,
+        &menu_order(app),
+    );
+    publish_rows(app, rows);
 }
 
 fn updated_plugin_menu_rows(
-    current_rows: Vec<PluginMenuRow>,
+    current_rows: impl IntoIterator<Item = PluginMenuRow>,
     identifier: &str,
     plugin_name: &str,
     global: bool,
     items: &[riina_core::plugin_menu::PluginMenuItem],
+    order: &[String],
 ) -> Vec<PluginMenuRow> {
-    let mut groups = BTreeMap::<String, Vec<PluginMenuRow>>::new();
-    for row in current_rows {
-        if row.token.as_str() == PLUGIN_MENU_GROUP_SEPARATOR_TOKEN {
-            continue;
-        }
-        if let Some((plugin, _)) = row.token.as_str().split_once('\u{1f}') {
-            groups.entry(plugin.to_owned()).or_default().push(row);
-        }
-    }
-
+    let mut groups = menu_groups(current_rows);
     let mut global_rows = Vec::new();
     let mut player_rows = Vec::new();
     if let Some(old_rows) = groups.remove(identifier) {
@@ -126,14 +113,59 @@ fn updated_plugin_menu_rows(
         plugin_rows.extend(player_rows);
         groups.insert(identifier.to_owned(), plugin_rows);
     }
-    flatten_plugin_menu_groups(groups)
+    flatten_plugin_menu_groups_in_order(groups, order)
 }
 
 pub(super) fn reorder_plugin_menu_rows(app: &PlayerWindow, order: &[String]) {
+    let groups = menu_groups(app.get_plugin_menu_rows().iter());
+    publish_rows(app, flatten_plugin_menu_groups_in_order(groups, order));
+}
+
+pub(super) fn remove_plugin_menu_rows(app: &PlayerWindow, identifier: &str) {
+    let mut groups = menu_groups(app.get_plugin_menu_rows().iter());
+    groups.remove(identifier);
+    publish_rows(
+        app,
+        flatten_plugin_menu_groups_in_order(groups, &menu_order(app)),
+    );
+}
+
+pub(crate) fn refresh_plugin_menu_shortcuts(app: &PlayerWindow) {
+    let rows = app.get_plugin_menu_rows();
+    if rows.row_count() != 0 {
+        publish_rows(app, rows.iter().collect());
+    }
+}
+
+fn publish_rows(app: &PlayerWindow, mut rows: Vec<PluginMenuRow>) {
+    let mut conflicts = 0_i32;
+    for row in &mut rows {
+        let conflict =
+            !row.key_binding.is_empty() && app.invoke_profile_has_shortcut(row.key_binding.clone());
+        conflicts = conflicts.saturating_add(i32::from(conflict));
+        row.shortcut = if row.enabled && !row.submenu && !conflict {
+            crate::key_binding_preferences::shortcut_keys(row.key_binding.as_str())
+                .unwrap_or_default()
+        } else {
+            Default::default()
+        };
+    }
+    app.set_plugin_menu_conflicts(conflicts);
+    app.set_plugin_menu_rows(slint::ModelRc::new(slint::VecModel::from(rows)));
+}
+
+fn menu_order(app: &PlayerWindow) -> Vec<String> {
+    app.get_plugin_menu_order()
+        .iter()
+        .map(|identifier| identifier.to_string())
+        .collect()
+}
+
+fn menu_groups(
+    rows: impl IntoIterator<Item = PluginMenuRow>,
+) -> BTreeMap<String, Vec<PluginMenuRow>> {
     let mut groups = BTreeMap::<String, Vec<PluginMenuRow>>::new();
-    for row in (0..app.get_plugin_menu_rows().row_count())
-        .filter_map(|index| app.get_plugin_menu_rows().row_data(index))
-    {
+    for row in rows {
         if row.token.as_str() == PLUGIN_MENU_GROUP_SEPARATOR_TOKEN {
             continue;
         }
@@ -141,37 +173,7 @@ pub(super) fn reorder_plugin_menu_rows(app: &PlayerWindow, order: &[String]) {
             groups.entry(identifier.to_owned()).or_default().push(row);
         }
     }
-    app.set_plugin_menu_rows(slint::ModelRc::new(slint::VecModel::from(
-        flatten_plugin_menu_groups_in_order(groups, order),
-    )));
-}
-
-pub(super) fn remove_plugin_menu_rows(app: &PlayerWindow, identifier: &str) {
-    let mut groups = BTreeMap::<String, Vec<PluginMenuRow>>::new();
-    for row in (0..app.get_plugin_menu_rows().row_count())
-        .filter_map(|index| app.get_plugin_menu_rows().row_data(index))
-    {
-        if row.token.as_str() == PLUGIN_MENU_GROUP_SEPARATOR_TOKEN {
-            continue;
-        }
-        if let Some((plugin, _)) = row.token.as_str().split_once('\u{1f}')
-            && plugin != identifier
-        {
-            groups.entry(plugin.to_owned()).or_default().push(row);
-        }
-    }
-    app.set_plugin_menu_rows(slint::ModelRc::new(slint::VecModel::from(
-        flatten_plugin_menu_groups(groups),
-    )));
-    let order = (0..app.get_plugin_menu_order().row_count())
-        .filter_map(|index| app.get_plugin_menu_order().row_data(index))
-        .map(|identifier| identifier.to_string())
-        .collect::<Vec<_>>();
-    reorder_plugin_menu_rows(app, &order);
-}
-
-fn flatten_plugin_menu_groups(groups: BTreeMap<String, Vec<PluginMenuRow>>) -> Vec<PluginMenuRow> {
-    flatten_plugin_menu_groups_in_order(groups, &[])
+    groups
 }
 
 fn flatten_plugin_menu_groups_in_order(
@@ -224,9 +226,8 @@ fn flatten_plugin_menu_groups_in_order(
 
 #[cfg(test)]
 mod plugin_menu_row_tests {
-    use super::{PluginMenuRow, flatten_plugin_menu_groups_in_order, updated_plugin_menu_rows};
+    use super::*;
     use riina_core::plugin_menu::PluginMenuItem;
-    use std::collections::BTreeMap;
 
     fn menu_item(id: &str, title: &str) -> PluginMenuItem {
         PluginMenuItem {
@@ -248,6 +249,7 @@ mod plugin_menu_row_tests {
             "Example Plugin",
             true,
             &[menu_item("global-action", "Global action")],
+            &[],
         );
         let rows = updated_plugin_menu_rows(
             rows,
@@ -255,6 +257,7 @@ mod plugin_menu_row_tests {
             "Example Plugin",
             false,
             &[menu_item("player-action", "Player action")],
+            &[],
         );
 
         assert_eq!(
@@ -280,6 +283,7 @@ mod plugin_menu_row_tests {
             "Example Plugin",
             true,
             &[menu_item("global-action", "Global action"), global_parent],
+            &[],
         );
         let rows = updated_plugin_menu_rows(
             rows,
@@ -287,6 +291,7 @@ mod plugin_menu_row_tests {
             "Example Plugin",
             false,
             &[menu_item("old-player-action", "Old player action")],
+            &[],
         );
         let rows = updated_plugin_menu_rows(
             rows,
@@ -294,6 +299,7 @@ mod plugin_menu_row_tests {
             "Example Plugin",
             false,
             &[menu_item("new-player-action", "New player action")],
+            &[],
         );
 
         assert_eq!(
@@ -326,6 +332,7 @@ mod plugin_menu_row_tests {
             "Example Plugin",
             false,
             &[parent],
+            &[],
         );
 
         let container = rows
@@ -357,6 +364,7 @@ mod plugin_menu_row_tests {
             "Example Plugin",
             false,
             &[parent, menu_item("sibling", "Available action")],
+            &[],
         );
 
         assert!(
@@ -372,6 +380,51 @@ mod plugin_menu_row_tests {
                 .unwrap()
                 .enabled
         );
+    }
+
+    #[test]
+    fn profile_switches_restore_plugin_shortcuts_and_unload_clears_conflicts() {
+        i_slint_backend_testing::init_no_event_loop();
+        let app = PlayerWindow::new().unwrap();
+        let install_profile = |name: &str| {
+            crate::key_binding_preferences::install_player(
+                &app,
+                &riina_core::key_bindings::Settings {
+                    current_profile: name.to_owned(),
+                    ..Default::default()
+                },
+                crate::PlaybackStore::default(),
+            );
+        };
+        install_profile("IINA Default");
+
+        let mut capture = menu_item("capture", "Plugin capture");
+        capture.key_binding = Some("Cmd+s".into());
+        let mut playback = menu_item("playback", "Plugin play");
+        playback.key_binding = Some("Space".into());
+        let mut tools = menu_item("tools", "Tools");
+        tools.items = vec![capture, playback];
+        replace_plugin_menu_rows(&app, "org.example.test", "Example", true, &[tools]);
+
+        let capture_row = || {
+            app.get_plugin_menu_rows()
+                .iter()
+                .find(|row| row.token.ends_with("\u{1f}capture"))
+                .unwrap()
+        };
+        assert_eq!(app.get_plugin_menu_conflicts(), 2);
+        assert_eq!(capture_row().shortcut, slint::Keys::default());
+        assert!(capture_row().enabled);
+
+        install_profile("mpv Default");
+        assert_eq!(app.get_plugin_menu_conflicts(), 1);
+        assert_eq!(
+            capture_row().shortcut,
+            crate::key_binding_preferences::shortcut_keys("Cmd+s").unwrap()
+        );
+
+        remove_plugin_menu_rows(&app, "org.example.test");
+        assert_eq!(app.get_plugin_menu_conflicts(), 0);
     }
 
     #[test]

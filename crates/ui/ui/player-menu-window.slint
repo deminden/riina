@@ -35,6 +35,7 @@ export component PlayerMenuWindow inherits Window {
     in property <bool> menu-value-picture-in-picture-active;
     in property <bool> menu-value-picture-in-picture-available;
     in property <[PluginMenuRow]> menu-value-plugin-menu-rows;
+    in property <int> menu-value-plugin-menu-conflicts;
     in property <[MenuCatalogRow]> menu-value-plugin-developer-rows;
     in-out property <int> menu-value-preferences-target-pane;
     in property <bool> menu-value-primary-shortcut-is-meta;
@@ -494,6 +495,9 @@ export component PlayerMenuWindow inherits Window {
                 activated => { PlayerMenuActions.choose-subtitle-font(); } }
         }
         Menu { title: "\u{1f}riina-plugin-menu";
+            if root.menu-value-plugin-menu-conflicts > 0 : MenuItem {
+                title: PluginMenuDisplay.conflict-title(root.menu-value-plugin-menu-conflicts); enabled: false;
+            }
             MenuItem { title: "Manage Plugins…"; enabled: !root.menu-value-crop-editing;
                 activated => { root.menu-value-preferences-target-pane = 9; PlayerMenuActions.open-preferences(); } }
             MenuItem { title: (PlayerSidebarState.sidebar == 7 || PlayerSidebarState.leading-sidebar == 7) ? "Hide Plugins Panel" : "Show Plugins Panel"; enabled: !root.menu-value-crop-editing;

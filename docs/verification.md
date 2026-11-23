@@ -1578,6 +1578,31 @@ Linux executable and engine SHA-256 values were
 Strict Apple Silicon cross-target Clippy passed. Native Wayland and macOS
 menu interaction and the matched macOS comparison remain open.
 
+### Plugin menu shortcut conflicts 2026-11-23
+
+The headless profile regression changed the active profile from IINA Default to
+mpv Default while nested plugin menu items were present. It verified that the
+newly free accelerator was restored, the other conflict stayed visible, and
+unloading cleared the count. The grouped Windows app and UI gate passed strict
+Clippy, 550 app unit tests, 56 interaction tests and the headless pixel check.
+
+A private Windows player showed two conflicts at the top of its native Plugin
+menu. Both actions remained selectable with their accelerators removed. An
+unrelated accelerator was still displayed. A player action changed its
+shortcut and the warning count dropped to one. The global action removed its
+own menu item and the warning cleared. The exact player closed normally. The
+locked workspace build's executable SHA-256 was
+`c3d3ce4719b377e6eccb524d06012989249b7b3d011954d999594f74c0f36653`.
+
+The locked Linux build passed strict workspace Clippy, 517 app tests and
+53 interaction tests. On isolated X11 and native Wayland displays, Space
+retained its playback action and F8 reached the nested plugin item. Both menu
+captures included the conflict count. Both test players closed normally. The
+Linux executable SHA-256 was
+`1afabe50aa482a84161de3650a72ff609eef44d5d6b17c520d79f2d9bee0fb86`.
+Strict Apple Silicon cross-target Clippy passed. Native macOS interaction and
+the matched Plugin menu remain open.
+
 ### Multiple native Windows players 2026-11-23
 
 The Windows application owns the native players opened from its windows.

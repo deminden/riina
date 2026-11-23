@@ -256,6 +256,11 @@ discarded, and a reply that arrives after the player has moved on has no effect.
 Text editors, dialogs, crop controls and reserved native menus keep their own
 input paths.
 
+The installed keyboard profile resolves conflicts for plugin menu shortcuts
+using the same platform key normalization as playback. The player retains the
+requested shortcut so it can restore the accelerator after a profile change.
+Both menu presenters receive the resolved shortcut and the conflict count.
+
 ### Plugin video overlays
 
 The player owns each overlay WebView. On native Windows it sits in the video

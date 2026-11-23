@@ -41,6 +41,7 @@ use engine_start::EngineStart;
 use transitions::PendingNavigation;
 mod session_preferences;
 
+pub(crate) use plugin_menus::refresh_plugin_menu_shortcuts;
 use plugin_menus::reorder_plugin_menu_rows;
 
 use crate::{
