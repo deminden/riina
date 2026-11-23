@@ -137,17 +137,17 @@ pub(crate) fn connect(app: &PlayerWindow, path: PathBuf, baseline: Preferences) 
         }
     });
 
+    connect_window_level(app, path_for_window_level, baseline_for_window_level);
+}
+
+fn connect_window_level(app: &PlayerWindow, path: PathBuf, baseline: Preferences) {
     let weak = app.as_weak();
     app.on_window_level_toggle_requested(move |requested| {
         let Some(app) = weak.upgrade() else { return };
-        let result = crate::preference_store::update(
-            &path_for_window_level,
-            &baseline_for_window_level,
-            |preferences| {
-                preferences.always_float_on_top = requested;
-                Ok(())
-            },
-        );
+        let result = crate::preference_store::update(&path, &baseline, |preferences| {
+            preferences.always_float_on_top = requested;
+            Ok(())
+        });
         if let Err(error) = result {
             // The UI optimistically updates the native window; restore its last
             // saved level if atomic preference persistence fails.

@@ -2,6 +2,5 @@
 # Entries identify the path and SHA-256 of the trimmed source line. Remove as lines are fixed.
 crates/app/src/localized_number.rs	985b8fa3b506607e0ca0944211d08864aef01b72a15a2b8ff81ae60372d5436b
 crates/app/src/platform/settings_file.rs	3214201d4f9fb623f3efa22e5ce698233eb48824fe136b1b31227d3d7d46de93
-crates/app/src/platform/windows/menu_focus.rs	fe63a37d4405fbc31dfbbbd0cbc2f005433d389b7406ac1d188d79d4dfc937f4
 crates/core/src/crop.rs	3b9d2bbbb26f470caeafee2438a4093201c40c785a6993f4b756120ebf473799
 crates/core/src/crop.rs	adc4163ae4848e3cb69f7aef532b31ae2335ac2936d0004443252d8322966c72

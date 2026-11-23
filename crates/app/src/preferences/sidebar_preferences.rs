@@ -32,11 +32,6 @@ fn plugin_panel_destination(
 }
 
 pub(crate) fn connect(app: &PlayerWindow, path: PathBuf, baseline: Preferences) {
-    let saved = Rc::new(Cell::new((
-        baseline.leading_sidebar_width,
-        baseline.trailing_sidebar_width,
-    )));
-    let weak = app.as_weak();
     let weak_settings = app.as_weak();
     app.global::<PlayerMenuActions>()
         .on_toggle_settings_pane(move |kind| {
@@ -152,6 +147,15 @@ pub(crate) fn connect(app: &PlayerWindow, path: PathBuf, baseline: Preferences) 
                 show_plugins_panel(&app);
             }
         });
+    connect_width_persistence(app, path, baseline);
+}
+
+fn connect_width_persistence(app: &PlayerWindow, path: PathBuf, baseline: Preferences) {
+    let saved = Rc::new(Cell::new((
+        baseline.leading_sidebar_width,
+        baseline.trailing_sidebar_width,
+    )));
+    let weak = app.as_weak();
     app.on_sidebar_resize_finished(move || {
         let Some(app) = weak.upgrade() else { return };
         let widths = (

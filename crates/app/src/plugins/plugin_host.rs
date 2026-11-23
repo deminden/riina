@@ -593,22 +593,30 @@ fn handle_command(
             identifier,
             global,
             item_id,
-        } => {
-            let key = if global {
-                PluginInstanceKey::global(&identifier)
-            } else {
-                PluginInstanceKey::player(&identifier)
-            };
-            if let Some(session) = sessions.get(&key)
-                && let Err(error) = session.deliver_plugin_menu_action(item_id)
-            {
-                record(messages, PluginHostMessage::Status(error));
-            }
-        }
+        } => activate_menu_item(&identifier, global, item_id, messages, sessions),
         PluginCommand::Shutdown => return true,
     }
     pump_session_events(messages, sessions, plugin_directories);
     false
+}
+
+fn activate_menu_item(
+    identifier: &str,
+    global: bool,
+    item_id: String,
+    messages: &Mutex<Vec<PluginHostMessage>>,
+    sessions: &BTreeMap<PluginInstanceKey, PluginRuntimeSession>,
+) {
+    let key = if global {
+        PluginInstanceKey::global(identifier)
+    } else {
+        PluginInstanceKey::player(identifier)
+    };
+    if let Some(session) = sessions.get(&key)
+        && let Err(error) = session.deliver_plugin_menu_action(item_id)
+    {
+        record(messages, PluginHostMessage::Status(error));
+    }
 }
 
 fn remove_plugin(

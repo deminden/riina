@@ -184,30 +184,18 @@ impl NativeApp {
                 app.set_native_video(true);
                 app.global::<riina_ui::PlayerAppearance>()
                     .set_system_materials_enabled(super::materials::native_materials_enabled());
-                surfaces::watch_alignment(
+                connect_video_surfaces(
                     &host,
                     &app,
-                    &startup_surface_alignment_timer,
-                    &startup_overlay_hidden,
-                );
-                super::presentation::watch_hdr_display(&host, &app, &startup_hdr_display_timer);
-                match visibility::VisibilityMonitor::install(
                     video_hwnd,
                     [
                         &startup_surface_alignment_timer,
                         &startup_material_policy_timer,
                         &startup_hdr_display_timer,
                     ],
-                ) {
-                    Ok(monitor) => *startup_visibility_monitor.borrow_mut() = Some(monitor),
-                    Err(error) => crate::diagnostics::warn!("{error}"),
-                }
-                let title_host = host.as_weak();
-                app.on_window_title_changed(move |title| {
-                    if let Some(host) = title_host.upgrade() {
-                        host.set_display_title(title);
-                    }
-                });
+                    &startup_overlay_hidden,
+                    &startup_visibility_monitor,
+                );
                 placement.watch_initial_media(&host, &app, owner_center);
                 install_music_mode_window(&host, &app, &startup_menu_lifecycle);
                 restore_recreated_chrome(&host, &app)?;
@@ -632,6 +620,29 @@ fn install_chrome_close_handlers(
         }
         // Shutdown may already have ended the event loop.
         let _ = slint::quit_event_loop();
+    });
+}
+
+fn connect_video_surfaces(
+    host: &NativeVideoHost,
+    app: &PlayerWindow,
+    video_hwnd: isize,
+    timers: [&Rc<slint::Timer>; 3],
+    overlay_hidden: &Rc<Cell<bool>>,
+    monitor: &Slot<visibility::VisibilityMonitor>,
+) {
+    let [alignment, _, hdr_display] = timers;
+    surfaces::watch_alignment(host, app, alignment, overlay_hidden);
+    super::presentation::watch_hdr_display(host, app, hdr_display);
+    match visibility::VisibilityMonitor::install(video_hwnd, timers) {
+        Ok(watcher) => *monitor.borrow_mut() = Some(watcher),
+        Err(error) => crate::diagnostics::warn!("{error}"),
+    }
+    let title_host = host.as_weak();
+    app.on_window_title_changed(move |title| {
+        if let Some(host) = title_host.upgrade() {
+            host.set_display_title(title);
+        }
     });
 }
 

@@ -415,39 +415,52 @@ unsafe extern "system" fn menu_proc(
         }
     }
     if message == context.restore_message {
-        if wparam.0 == context.generation.get() {
-            context.active.set(false);
-            if let Some(app) = context.app.upgrade() {
-                // Cancelling by activating another application must not bring
-                // this player back. Only recover within this owner/popup pair.
-                // SAFETY: this only queries the foreground handle.
-                let foreground = unsafe { GetForegroundWindow() };
-                let owns_foreground = foreground == hwnd || app.window().with_winit_window(|window| {
-                    window.window_handle().is_ok_and(|handle| {
-                        matches!(handle.as_raw(), RawWindowHandle::Win32(handle) if HWND(handle.hwnd.get() as *mut _) == foreground)
-                    })
-                }).unwrap_or(false);
-                if owns_foreground {
-                    // Query after the modal loop unwinds. The sign bit reports
-                    // current physical state; the low "pressed since" bit is not reliable.
-                    // SAFETY: VK_MENU is a valid virtual key; this reads input state only.
-                    let alt_held = unsafe { GetAsyncKeyState(VK_MENU.0 as i32) } < 0;
-                    super::menu_modifiers::reconcile_alt(app.window(), alt_held);
-                    // An action may have opened an editor/dialog. Repair its
-                    // modifier state too, while retaining its native focus.
-                    if !app
-                        .global::<riina_ui::PlayerDialogState>()
-                        .get_dialog_open()
-                    {
-                        focus_chrome(app.window());
-                    }
-                }
-            }
-        }
+        restore_player_focus(hwnd, context, wparam.0);
         return LRESULT(0);
     }
     // SAFETY: preserve the original subclass chain for all other messages.
     unsafe { DefSubclassProc(hwnd, message, wparam, lparam) }
+}
+
+fn restore_player_focus(hwnd: HWND, context: &MenuContext, generation: usize) {
+    if generation != context.generation.get() {
+        return;
+    }
+    context.active.set(false);
+    let Some(app) = context.app.upgrade() else {
+        return;
+    };
+    // Cancelling by activating another application must not bring
+    // this player back. Only recover within this owner/popup pair.
+    // SAFETY: this only queries the foreground handle.
+    let foreground = unsafe { GetForegroundWindow() };
+    let owns_foreground = foreground == hwnd
+        || app
+            .window()
+            .with_winit_window(|window| {
+                window.window_handle().is_ok_and(|handle| {
+                    let RawWindowHandle::Win32(handle) = handle.as_raw() else {
+                        return false;
+                    };
+                    HWND(handle.hwnd.get() as *mut _) == foreground
+                })
+            })
+            .unwrap_or(false);
+    if owns_foreground {
+        // Query after the modal loop unwinds. The sign bit reports
+        // current physical state; the low "pressed since" bit is not reliable.
+        // SAFETY: VK_MENU is a valid virtual key; this reads input state only.
+        let alt_held = unsafe { GetAsyncKeyState(VK_MENU.0 as i32) } < 0;
+        super::menu_modifiers::reconcile_alt(app.window(), alt_held);
+        // An action may have opened an editor/dialog. Repair its
+        // modifier state too, while retaining its native focus.
+        if !app
+            .global::<riina_ui::PlayerDialogState>()
+            .get_dialog_open()
+        {
+            focus_chrome(app.window());
+        }
+    }
 }
 
 fn dispatch_system_media_shortcut(app: &PlayerWindow, lparam: LPARAM) -> bool {

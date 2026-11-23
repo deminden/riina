@@ -101,24 +101,16 @@ fn connect_with_credentials(
         else {
             return;
         };
-        let decoder_index = window.get_hardware_decoder_index();
-        let Some(decoder) = crate::codec_preferences::hardware_decoder(decoder_index) else {
-            app.set_status("Invalid hardware decoder selection".into());
-            refresh(&window, &app);
-            return;
-        };
-        let Some(applied_decoder) = read_or_refresh(
-            AppliedDecoderSettings::apply(
+        let Some((decoder, applied_decoder)) = read_or_refresh(
+            apply_decoder_edit(
                 &app,
+                &window,
                 &decoder_player,
                 DecoderState {
                     boost: display.previous_volume_boost,
                     volume: previous_volume,
                     decoder_index: previous_decoder,
                 },
-                window.get_volume_boost(),
-                decoder_index,
-                decoder,
             ),
             &app,
             &window,
@@ -181,17 +173,7 @@ fn connect_with_credentials(
                 restart_notice,
             ),
             Err(error) => {
-                window
-                    .global::<riina_ui::GeneralSettingsState>()
-                    .set_allow_multiple_windows(saved.allow_multiple_windows);
-                window
-                    .global::<riina_ui::GeneralSettingsState>()
-                    .set_group_simultaneous_opens_in_playlist(
-                        saved.group_simultaneous_opens_in_playlist,
-                    );
-                window
-                    .global::<riina_ui::GeneralSettingsState>()
-                    .set_allow_duplicate_players(saved.allow_duplicate_players);
+                restore_window_open_policy(&window, &saved);
                 playback.restore(&app, &window, &decoder_player, &general, &playback_changes);
                 subtitles.restore_tracks(&app, &decoder_player);
                 applied_subtitles.restore(&app, &decoder_player, &subtitles);
@@ -208,6 +190,39 @@ fn connect_with_credentials(
             }
         }
     });
+}
+
+fn apply_decoder_edit(
+    app: &PlayerWindow,
+    window: &PreferencesWindow,
+    sender: &riina_mpv::CommandSender,
+    previous: DecoderState,
+) -> Result<
+    (
+        riina_core::video_controls::HardwareDecoder,
+        AppliedDecoderSettings,
+    ),
+    String,
+> {
+    let index = window.get_hardware_decoder_index();
+    let decoder = crate::codec_preferences::hardware_decoder(index)
+        .ok_or_else(|| "Invalid hardware decoder selection".to_owned())?;
+    let applied = AppliedDecoderSettings::apply(
+        app,
+        sender,
+        previous,
+        window.get_volume_boost(),
+        index,
+        decoder,
+    )?;
+    Ok((decoder, applied))
+}
+
+fn restore_window_open_policy(window: &PreferencesWindow, saved: &riina_core::Preferences) {
+    let general = window.global::<riina_ui::GeneralSettingsState>();
+    general.set_allow_multiple_windows(saved.allow_multiple_windows);
+    general.set_group_simultaneous_opens_in_playlist(saved.group_simultaneous_opens_in_playlist);
+    general.set_allow_duplicate_players(saved.allow_duplicate_players);
 }
 
 fn capture_preferences(

@@ -1,6 +1,6 @@
 //! Folder expansion, subtitle discovery and selection run outside input callbacks.
 use crate::{PlayerWindow, subtitle_discovery::Readiness};
-use riina_core::{Command, Phase, TrackKind};
+use riina_core::{Command, Phase, Playback, TrackKind};
 use slint::ComponentHandle;
 use std::{cell::RefCell, rc::Rc, sync::Arc, time::Duration};
 
@@ -58,34 +58,13 @@ pub(super) fn install(
                 app.global::<riina_ui::PlayerPreferences>()
                     .get_playlist_auto_add(),
             ) {
-                let snapshot = state.clone();
-                let request_check = request.clone();
-                let playback = auto_folder_playback.clone();
-                let sender = auto_folder_player.clone();
-                let weak_app = app.as_weak();
-                let started =
-                    crate::background::spawn_named("riina-playlist-auto-add", move || {
-                        let Some(command) = crate::auto_playlist::prepare(&request, &snapshot)
-                        else {
-                            return;
-                        };
-                        let still_current = crate::auto_playlist::request_is_current(
-                            &request_check,
-                            &riina_core::sync::lock(&playback),
-                        );
-                        if still_current && let Err(error) = sender.send(command) {
-                            // The result has no recipient once its window or event loop closes.
-                            let _ = crate::background::to_ui(weak_app, move |app| {
-                                crate::diagnostics::report(&app, error);
-                            });
-                        }
-                    });
-                if let Err(error) = started {
-                    crate::diagnostics::report(
-                        &app,
-                        format!("Could not start playlist discovery: {error}"),
-                    );
-                }
+                discover_playlist_files(
+                    &app,
+                    request,
+                    state.clone(),
+                    auto_folder_playback.clone(),
+                    auto_folder_player.clone(),
+                );
             }
             if let Some((generation, media_path)) = subtitle_discovery_state
                 .borrow_mut()
@@ -156,6 +135,32 @@ pub(super) fn install(
         },
     );
     subtitle_priority_timer
+}
+
+fn discover_playlist_files(
+    app: &PlayerWindow,
+    request: crate::auto_playlist::Request,
+    snapshot: Arc<Playback>,
+    playback: crate::PlaybackStore,
+    sender: riina_mpv::CommandSender,
+) {
+    let weak_app = app.as_weak();
+    let started = crate::background::spawn_named("riina-playlist-auto-add", move || {
+        let Some(command) = crate::auto_playlist::prepare(&request, &snapshot) else {
+            return;
+        };
+        let still_current =
+            crate::auto_playlist::request_is_current(&request, &riina_core::sync::lock(&playback));
+        if still_current && let Err(error) = sender.send(command) {
+            // The result has no recipient once its window or event loop closes.
+            let _ = crate::background::to_ui(weak_app, move |app| {
+                crate::diagnostics::report(&app, error);
+            });
+        }
+    });
+    if let Err(error) = started {
+        crate::diagnostics::report(app, format!("Could not start playlist discovery: {error}"));
+    }
 }
 
 #[cfg(test)]
