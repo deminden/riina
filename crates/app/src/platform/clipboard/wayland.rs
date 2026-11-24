@@ -6,6 +6,24 @@ use wl_clipboard_rs::{
 
 const URI_LIST: &str = "text/uri-list";
 
+pub(super) fn references_available() -> Option<bool> {
+    use paste::{ClipboardType::Regular, Error, MimeType, Seat::Unspecified};
+
+    match paste::get_mime_types(Regular, Unspecified) {
+        Ok(types) => Some(
+            paste::select_mime_type(
+                types.into_iter().collect(),
+                MimeType::TextWithPriority(URI_LIST),
+            )
+            .is_some(),
+        ),
+        Err(
+            Error::SocketOpenError(_) | Error::WaylandConnection(_) | Error::MissingProtocol { .. },
+        ) => None,
+        Err(_) => Some(false),
+    }
+}
+
 pub(super) fn copy_file_list(paths: &[String], text: &str) -> Result<(), String> {
     let uris = encode_file_list(paths).ok_or("Could not encode the playlist as file URLs")?;
     Options::new()

@@ -13,7 +13,7 @@ import { PlaybackAudioState } from "playback-audio-state.slint";
 import { PlaybackSubtitleState } from "playback-subtitle-state.slint";
 import { PlaybackVideoState } from "playback-video-state.slint";
 import { PlayerPreferences } from "player-preferences.slint";
-import { PlayerMenuActions } from "player-menu-actions.slint";
+import { PlayerMenuActions, PlayerEdit } from "player-menu-actions.slint";
 import { CatalogRow, CatalogSelection } from "catalog-row.slint";
 import { MenuCatalogRow, MenuShortcutRow, PluginMenuDisplay, PluginMenuRow, SavedFilterMenuRow } from "native-video.slint";
 
@@ -172,18 +172,26 @@ export component PlayerMenuWindow inherits Window {
                 activated => { PlayerMenuActions.close-player(); } }
         }
         Menu { title: ApplicationMenuText.edit-title;
-            MenuItem { title: ApplicationMenuText.undo; enabled: false;
+            MenuItem { title: ApplicationMenuText.undo; enabled: PlayerMenuActions.edit-menu-state.undo;
+                activated => { PlayerMenuActions.edit(PlayerEdit.undo); }
                 shortcut: root.player-shortcut(root.menu-value-primary-shortcut-is-meta ? @keys(Meta + Z) : @keys(Control + Z)); }
-            MenuItem { title: ApplicationMenuText.redo; enabled: false;
+            MenuItem { title: ApplicationMenuText.redo; enabled: PlayerMenuActions.edit-menu-state.redo;
+                activated => { PlayerMenuActions.edit(PlayerEdit.redo); }
                 shortcut: root.player-shortcut(root.menu-value-primary-shortcut-is-meta ? @keys(Meta + Shift + Z) : @keys(Control + Shift + Z)); }
             MenuSeparator {}
-            MenuItem { title: ApplicationMenuText.cut; enabled: false;
+            MenuItem { title: ApplicationMenuText.cut; enabled: PlayerMenuActions.edit-menu-state.cut;
+                activated => { PlayerMenuActions.edit(PlayerEdit.cut); }
                 shortcut: root.player-shortcut(root.menu-value-primary-shortcut-is-meta ? @keys(Meta + X) : @keys(Control + X)); }
-            MenuItem { title: ApplicationMenuText.copy; enabled: false;
+            MenuItem { title: ApplicationMenuText.copy; enabled: PlayerMenuActions.edit-menu-state.copy;
+                activated => { PlayerMenuActions.edit(PlayerEdit.copy); }
                 shortcut: root.player-shortcut(root.menu-value-primary-shortcut-is-meta ? @keys(Meta + C) : @keys(Control + C)); }
-            MenuItem { title: ApplicationMenuText.paste; enabled: false;
+            MenuItem { title: ApplicationMenuText.paste; enabled: PlayerMenuActions.edit-menu-state.paste;
+                activated => { PlayerMenuActions.edit(PlayerEdit.paste); }
                 shortcut: root.player-shortcut(root.menu-value-primary-shortcut-is-meta ? @keys(Meta + V) : @keys(Control + V)); }
-            MenuItem { title: ApplicationMenuText.select-all; enabled: false;
+            MenuItem { title: ApplicationMenuText.delete; enabled: PlayerMenuActions.edit-menu-state.delete;
+                activated => { PlayerMenuActions.edit(PlayerEdit.delete); } }
+            MenuItem { title: ApplicationMenuText.select-all; enabled: PlayerMenuActions.edit-menu-state.select-all;
+                activated => { PlayerMenuActions.edit(PlayerEdit.select-all); }
                 shortcut: root.player-shortcut(root.menu-value-primary-shortcut-is-meta ? @keys(Meta + A) : @keys(Control + A)); }
         }
         Menu { title: root.playback-entry("playback", @tr("Playback"));

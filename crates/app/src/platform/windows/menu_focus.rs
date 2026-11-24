@@ -1,4 +1,6 @@
 //! Keep native menu input on the owner until Windows finishes its menu loop.
+mod edit_popup;
+
 use crate::PlayerWindow;
 use slint::{
     ComponentHandle,
@@ -194,7 +196,7 @@ fn update_information_label(
     Ok(())
 }
 
-fn plugin_menu_handle(hwnd: HWND, plugin_title: &str) -> isize {
+fn submenu_handle(hwnd: HWND, submenu_title: &str) -> isize {
     // A Slint rebuild can replace submenu handles. Resolve the current handle
     // at activation instead of comparing against an earlier menu generation.
     // SAFETY: the menu notification supplies the live owner HWND on this thread.
@@ -208,7 +210,7 @@ fn plugin_menu_handle(hwnd: HWND, plugin_title: &str) -> isize {
         let mut title = [0u16; 64];
         // SAFETY: the positional index is from this menu and the title slice is writable.
         let length = unsafe { GetMenuStringW(menu, index as u32, Some(&mut title), MF_BYPOSITION) };
-        if length > 0 && String::from_utf16_lossy(&title[..length as usize]) == plugin_title {
+        if length > 0 && String::from_utf16_lossy(&title[..length as usize]) == submenu_title {
             // SAFETY: the same live menu still owns the submenu at this index.
             return unsafe { GetSubMenu(menu, index) }.0 as isize;
         }
@@ -287,6 +289,11 @@ fn refresh_popup(app: &PlayerWindow, hwnd: HWND, wparam: WPARAM) {
     use riina_ui::{
         PlaybackAudioState, PlaybackMenuText, PlaybackSubtitleState, PlaybackTimelineState,
     };
+    let app_menu = app.global::<riina_ui::ApplicationMenuText>();
+    if wparam.0 != 0 && wparam.0 as isize == submenu_handle(hwnd, &app_menu.get_edit_title()) {
+        edit_popup::refresh(app, HMENU(wparam.0 as *mut _));
+        return;
+    }
     let text = app.global::<PlaybackMenuText>();
     let audio = app.global::<PlaybackAudioState>();
     let marker: slint::SharedString = MENU_VALUE_MARKER.into();
@@ -319,10 +326,7 @@ fn refresh_popup(app: &PlayerWindow, hwnd: HWND, wparam: WPARAM) {
             crate::diagnostics::report(app, format!("Could not refresh playback menu: {error}"));
         }
     }
-    let plugin_title = app
-        .global::<riina_ui::ApplicationMenuText>()
-        .get_plugin_title();
-    let plugin_menu = plugin_menu_handle(hwnd, &plugin_title);
+    let plugin_menu = submenu_handle(hwnd, &app_menu.get_plugin_title());
     if plugin_menu != 0 && wparam.0 as isize == plugin_menu {
         app.invoke_plugin_menu_will_open();
     }

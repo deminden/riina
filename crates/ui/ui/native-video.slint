@@ -1,5 +1,6 @@
 import { ApplicationMenuText } from "application-menu-text.slint";
 import { PlaybackMenuText } from "playback-menu-text.slint";
+import { PlayerEdit } from "player-menu-actions.slint";
 export struct MenuCatalogRow { token: string, label: string, selected: bool }
 export struct PluginMenuRow {
     token: string, label: string, enabled: bool, selected: bool, key-binding: string, shortcut: keys,
@@ -35,6 +36,7 @@ export struct MenuShortcutRow { shortcut: keys }
 // The native video window owns OS-level menus while the shared chrome provides controls.
 export component NativeVideoHost inherits Window {
 
+    callback edit(PlayerEdit);
     callback window-minimized-changed(bool);
     changed minimized => { root.window-minimized-changed(root.minimized); }
     icon: @image-url("../../../assets/branding/svg/riina-app-icon-dark.svg");
@@ -288,17 +290,25 @@ export component NativeVideoHost inherits Window {
         }
         Menu { title: ApplicationMenuText.edit-title;
             MenuItem { title: ApplicationMenuText.undo; enabled: false;
+                activated => { root.edit(PlayerEdit.undo); }
                 shortcut: root.primary-shortcut-is-meta ? @keys(Meta + Z) : @keys(Control + Z); }
             MenuItem { title: ApplicationMenuText.redo; enabled: false;
+                activated => { root.edit(PlayerEdit.redo); }
                 shortcut: root.primary-shortcut-is-meta ? @keys(Meta + Shift + Z) : @keys(Control + Shift + Z); }
             MenuSeparator {}
             MenuItem { title: ApplicationMenuText.cut; enabled: false;
+                activated => { root.edit(PlayerEdit.cut); }
                 shortcut: root.primary-shortcut-is-meta ? @keys(Meta + X) : @keys(Control + X); }
             MenuItem { title: ApplicationMenuText.copy; enabled: false;
+                activated => { root.edit(PlayerEdit.copy); }
                 shortcut: root.primary-shortcut-is-meta ? @keys(Meta + C) : @keys(Control + C); }
             MenuItem { title: ApplicationMenuText.paste; enabled: false;
+                activated => { root.edit(PlayerEdit.paste); }
                 shortcut: root.primary-shortcut-is-meta ? @keys(Meta + V) : @keys(Control + V); }
+            MenuItem { title: ApplicationMenuText.delete; enabled: false;
+                activated => { root.edit(PlayerEdit.delete); } }
             MenuItem { title: ApplicationMenuText.select-all; enabled: false;
+                activated => { root.edit(PlayerEdit.select-all); }
                 shortcut: root.primary-shortcut-is-meta ? @keys(Meta + A) : @keys(Control + A); }
         }
         Menu { title: @tr("Playback");

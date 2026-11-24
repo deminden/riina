@@ -10,8 +10,10 @@ slint::slint! {
         in property <bool> source-read-only;
         callback focus-source;
         callback focus-destination;
+        callback focus-popup;
         focus-source => { source.focus(); }
         focus-destination => { destination.focus(); }
+        focus-popup => { popup.focus(); }
         source := TextInput {
             x: 5px; y: 5px; width: 250px; height: 30px;
             read-only: root.source-read-only;
@@ -20,7 +22,37 @@ slint::slint! {
         destination := TextInput {
             x: 5px; y: 50px; width: 250px; height: 30px;
         }
+        popup := FocusScope {}
     }
+}
+
+#[test]
+fn menu_focus_handoff_preserves_the_text_selection() {
+    i_slint_backend_testing::init_no_event_loop();
+    let component = Editors::new().unwrap();
+    component.show().unwrap();
+    let editor = Editor::new(component.window());
+    component.invoke_focus_source();
+    assert!(editor.perform(Edit::SelectAll, true));
+
+    // Windows retains the focused item while the framed owner handles its menu.
+    component
+        .window()
+        .dispatch_event(slint::platform::WindowEvent::WindowActiveChanged(false));
+    assert!(editor.perform(Edit::Copy, false));
+    component
+        .window()
+        .dispatch_event(slint::platform::WindowEvent::WindowActiveChanged(true));
+
+    // The in-client menu takes focus and then restores the same item and range.
+    let focus = PopupFocus::capture(component.window()).unwrap();
+    component.invoke_focus_popup();
+    assert!(!editor.has_text_focus());
+    focus.restore(component.window());
+    assert!(editor.perform(Edit::Copy, true));
+    component.invoke_focus_destination();
+    assert!(editor.perform(Edit::Paste, true));
+    assert_eq!(component.get_destination_text(), "Café 🙂");
 }
 
 #[test]

@@ -1,4 +1,9 @@
 //! Route application menu edits to the focused Slint text item.
+use crate::PlayerWindow;
+#[cfg(any(target_os = "linux", target_os = "windows", test))]
+use riina_ui::PlayerEditMenuState;
+use riina_ui::{PlayerMenuActions, PlaylistEdit, PlaylistInteraction};
+use slint::ComponentHandle;
 use slint::private_unstable_api::re_exports::{
     ItemRc, ItemRef, TextChangeNotify, TextInput, WindowAdapter, WindowInner,
 };
@@ -7,15 +12,43 @@ use std::{
     rc::{Rc, Weak},
 };
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(super) enum Edit {
-    Undo,
-    Redo,
-    Cut,
-    Copy,
-    Paste,
-    Delete,
-    SelectAll,
+pub(super) use riina_ui::PlayerEdit as Edit;
+
+#[cfg(any(target_os = "linux", test))]
+mod popup_focus;
+#[cfg(target_os = "windows")]
+mod windows;
+
+#[cfg(any(target_os = "linux", test))]
+pub(super) use popup_focus::PopupFocus;
+
+pub(crate) fn install_player_menu(app: &PlayerWindow) {
+    let editor = Editor::new(app.window());
+    let owner = app.as_weak();
+    app.global::<PlayerMenuActions>().on_edit(move |edit| {
+        if let Some(app) = owner.upgrade() {
+            editor.player_edit(&app, edit, true);
+        }
+    });
+    #[cfg(target_os = "windows")]
+    if !app.get_native_video() {
+        windows::track_shared_player(app);
+    }
+}
+
+#[cfg(any(target_os = "linux", target_os = "windows", test))]
+pub(super) fn menu_state(app: &PlayerWindow) -> PlayerEditMenuState {
+    let editor = Editor::new(app.window());
+    let enabled = |edit| editor.player_edit(app, edit, false);
+    PlayerEditMenuState {
+        undo: enabled(Edit::Undo),
+        redo: enabled(Edit::Redo),
+        cut: enabled(Edit::Cut),
+        copy: enabled(Edit::Copy),
+        paste: enabled(Edit::Paste),
+        delete: enabled(Edit::Delete),
+        select_all: enabled(Edit::SelectAll),
+    }
 }
 
 #[derive(Clone)]
@@ -28,29 +61,38 @@ impl Editor {
         ))
     }
 
+    #[cfg(any(target_os = "macos", test))]
     pub(super) fn is_live(&self) -> bool {
         self.0.strong_count() != 0
     }
 
-    #[cfg(target_os = "macos")]
     pub(super) fn has_text_focus(&self) -> bool {
         self.0
             .upgrade()
-            .is_some_and(|adapter| WindowInner::from_pub(adapter.window()).text_input_focused())
+            .and_then(|adapter| focused_text(&adapter))
+            .is_some()
+    }
+
+    pub(super) fn player_edit(&self, app: &PlayerWindow, edit: Edit, apply: bool) -> bool {
+        if self.has_text_focus() {
+            return self.perform(edit, apply);
+        }
+        let edit = match edit {
+            Edit::Cut => PlaylistEdit::Cut,
+            Edit::Copy => PlaylistEdit::Copy,
+            Edit::Paste => PlaylistEdit::Paste,
+            Edit::Delete => PlaylistEdit::Remove,
+            Edit::SelectAll => PlaylistEdit::SelectAll,
+            Edit::Undo | Edit::Redo => return false,
+        };
+        app.global::<PlaylistInteraction>().invoke_edit(edit, apply)
     }
 
     pub(super) fn perform(&self, edit: Edit, apply: bool) -> bool {
         let Some(adapter) = self.0.upgrade() else {
             return false;
         };
-        let window = WindowInner::from_pub(adapter.window());
-        if !window.text_input_focused() {
-            return false;
-        }
-        let Some(item) = window
-            .try_component()
-            .and_then(|root| focused(ItemRc::new_root(root)))
-        else {
+        let Some(item) = focused_text(&adapter) else {
             return false;
         };
         let Some(input) = ItemRef::downcast_pin::<TextInput>(item.borrow()) else {
@@ -76,22 +118,18 @@ impl Editor {
     }
 }
 
-fn focused(item: ItemRc) -> Option<ItemRc> {
-    if ItemRef::downcast_pin::<TextInput>(item.borrow()).is_some_and(|input| {
-        TextInput::FIELD_OFFSETS.has_focus().apply_pin(input).get()
-            && TextInput::FIELD_OFFSETS.enabled().apply_pin(input).get()
-    }) && item.is_visible()
-    {
-        return Some(item);
-    }
-    let mut child = item.first_child();
-    while let Some(next) = child {
-        child = next.next_sibling();
-        if let Some(input) = focused(next) {
-            return Some(input);
-        }
-    }
-    None
+fn focused_text(adapter: &Rc<dyn WindowAdapter>) -> Option<ItemRc> {
+    // The Windows framed owner can take native focus while the controls retain
+    // their focused item and selection for the duration of the menu.
+    WindowInner::from_pub(adapter.window())
+        .focus_item
+        .borrow()
+        .upgrade()
+        .filter(|item| {
+            item.is_visible()
+                && ItemRef::downcast_pin::<TextInput>(item.borrow())
+                    .is_some_and(|input| TextInput::FIELD_OFFSETS.enabled().apply_pin(input).get())
+        })
 }
 
 fn can_edit(input: Pin<&TextInput>, edit: Edit) -> bool {

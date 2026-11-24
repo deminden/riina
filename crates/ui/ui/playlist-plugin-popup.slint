@@ -144,7 +144,10 @@ export component PlaylistPluginPopup inherits FocusScope {
     visible: PlaylistPluginPopupState.shown;
     enabled: self.visible;
     focus-on-click: false;
-    changed visible => { if self.visible { self.focus(); } else { root.restore-player-focus(); } }
+    changed visible => {
+        if self.visible { self.focus(); }
+        else if !PlaylistPluginPopupState.player-menu { root.restore-player-focus(); }
+    }
 
     TouchArea {
         width: parent.width; height: parent.height;

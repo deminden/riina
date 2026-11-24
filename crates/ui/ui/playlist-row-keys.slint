@@ -35,9 +35,10 @@ export component PlaylistRowKeys inherits FocusScope {
             PlaylistInteraction.edit-focus-target = "";
         }
     }
-    focus-changed-event => {
+    focus-changed-event(reason) => {
         if root.playlist && root.has-focus { PlaylistInteraction.focused-playlist-token = root.token; }
-        if !root.has-focus && PlaylistInteraction.focused-playlist-token == root.token {
+        if !root.has-focus && reason != FocusReason.window-activation
+            && PlaylistInteraction.focused-playlist-token == root.token {
             PlaylistInteraction.focused-playlist-token = "";
         }
         if root.has-focus { root.focus-entered(); }

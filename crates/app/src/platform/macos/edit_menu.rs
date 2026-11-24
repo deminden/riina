@@ -14,7 +14,6 @@ use objc2_app_kit::{
     NSApplication, NSEventModifierFlags as Modifiers, NSMenu, NSMenuItem, NSMenuItemValidation,
 };
 use objc2_foundation::{NSObjectProtocol, NSString};
-use riina_ui::{PlaylistEdit, PlaylistInteraction};
 use slint::{ComponentHandle, Weak, winit_030::WinitWindowAccessor};
 use std::{
     any::Any,
@@ -279,25 +278,10 @@ fn with_edit(main: MainThreadMarker, row: &NSMenuItem, apply: bool) -> bool {
             .cloned()
     });
     if let Some(editor) = editor {
-        if editor.text.has_text_focus() {
-            return editor.text.perform(command.edit, apply);
-        }
-        let edit = match command.edit {
-            Edit::Cut => PlaylistEdit::Cut,
-            Edit::Copy => PlaylistEdit::Copy,
-            Edit::Paste => PlaylistEdit::Paste,
-            Edit::Delete => PlaylistEdit::Remove,
-            Edit::SelectAll => PlaylistEdit::SelectAll,
-            Edit::Undo | Edit::Redo => return false,
+        return match editor.player.and_then(|player| player.upgrade()) {
+            Some(player) => editor.text.player_edit(&player, command.edit, apply),
+            None => editor.text.perform(command.edit, apply),
         };
-        return editor
-            .player
-            .and_then(|player| player.upgrade())
-            .is_some_and(|player| {
-                player
-                    .global::<PlaylistInteraction>()
-                    .invoke_edit(edit, apply)
-            });
     }
     forward(main, &app, command, row, apply)
 }

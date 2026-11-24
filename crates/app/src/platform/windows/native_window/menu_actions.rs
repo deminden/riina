@@ -25,6 +25,9 @@ pub(super) fn install(host: &NativeVideoHost, app: &PlayerWindow) {
 }
 
 fn install_application_actions(host: &NativeVideoHost, app: &PlayerWindow) {
+    forward!(host, app, on_edit, |edit| {
+        app.global::<PlayerMenuActions>().invoke_edit(edit);
+    });
     forward!(host, app, on_create_welcome_window, || {
         app.global::<PlayerMenuActions>()
             .invoke_create_welcome_window();

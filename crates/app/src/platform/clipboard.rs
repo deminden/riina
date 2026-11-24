@@ -284,8 +284,19 @@ pub(crate) fn playlist_paste_available() -> bool {
             .availableTypeFromArray(&NSArray::from_slice(&types))
             .is_some()
     }
-    #[cfg(not(target_os = "macos"))]
+    #[cfg(target_os = "windows")]
     {
+        use clipboard_win::{formats, is_format_avail};
+
+        is_format_avail(formats::CF_HDROP) || is_format_avail(formats::CF_UNICODETEXT)
+    }
+    #[cfg(not(any(target_os = "macos", target_os = "windows")))]
+    {
+        #[cfg(target_os = "linux")]
+        if let Some(available) = wayland::references_available() {
+            return available;
+        }
+
         read_playlist_references().is_ok_and(|paths| !paths.is_empty())
     }
 }

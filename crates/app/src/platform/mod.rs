@@ -44,8 +44,7 @@ pub(crate) mod settings_file;
 mod shared_video;
 pub(crate) mod startup;
 pub(crate) mod startup_input;
-#[cfg(any(target_os = "macos", test))]
-mod text_edit;
+pub(crate) mod text_edit;
 pub(crate) mod text_recognition;
 pub(crate) use shared_video::SharedVideoExtras;
 mod system_media_session;

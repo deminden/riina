@@ -34,6 +34,7 @@ pub(super) fn install(
     );
     install_selection(app, command_sender);
     install_keyboard_editing(app, command_sender);
+    crate::platform::text_edit::install_player_menu(app);
 }
 
 fn install_actions(

@@ -1,7 +1,20 @@
 import { CatalogSelection } from "catalog-row.slint";
 
+export enum PlayerEdit { undo, redo, cut, copy, paste, delete, select-all }
+export struct PlayerEditMenuState {
+    undo: bool,
+    redo: bool,
+    cut: bool,
+    copy: bool,
+    paste: bool,
+    delete: bool,
+    select-all: bool,
+}
+
 // The player, native owner, and Slint menu dispatch commands to the same window session.
 export global PlayerMenuActions {
+    in property <PlayerEditMenuState> edit-menu-state;
+    callback edit(PlayerEdit);
     callback video-menu-changed();
     callback activate-plugin-menu-item(string);
     callback open-plugin-developer-tool(string);

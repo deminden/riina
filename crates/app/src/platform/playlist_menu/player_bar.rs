@@ -1,8 +1,11 @@
 use super::{Entry, Target, client};
 use crate::PlayerWindow;
-use riina_ui::{PlayerMenuCatalog, PlayerMenuItem};
+use riina_ui::{PlayerMenuActions, PlayerMenuCatalog, PlayerMenuItem};
 use slint::{ComponentHandle, LogicalPosition, PlatformError, SharedString};
 use std::rc::Rc;
+
+#[cfg(test)]
+mod edit_tests;
 
 pub(crate) fn new_player() -> Result<PlayerWindow, PlatformError> {
     let (app, source) = PlayerMenuCatalog::new_player()?;
@@ -13,9 +16,13 @@ pub(crate) fn new_player() -> Result<PlayerWindow, PlatformError> {
             return;
         };
         client::dismiss(&app);
+        app.global::<PlayerMenuActions>()
+            .set_edit_menu_state(crate::platform::text_edit::menu_state(&app));
         let items = usize::try_from(family)
             .map_or_else(|_| source.items(), |family| source.items_in_family(family));
         if items.is_empty() {
+            app.global::<PlayerMenuActions>()
+                .set_edit_menu_state(Default::default());
             return;
         }
         let entries = items.into_iter().map(project).collect();

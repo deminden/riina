@@ -42,7 +42,9 @@ Implementation does not imply every state or platform is verified.
   out of the queue. The sidebar and Music Mode accept focused edit shortcuts.
   Paste expands folders and inserts before the first selected row. Windows
   publishes native file lists and Unicode text for local selections. On Wayland,
-  a separate GTK app read both the file URL list and text from Riina.
+  a separate GTK app read both the file URL list and text from Riina. Edit menu
+  commands follow the focused playlist row or text editor on the shared and
+  Windows native menu paths.
 - **Open URL:** one dialog serves the File menu, Welcome and the windowless
   macOS application menu. It previews the default HTTP scheme, offers HTTP
   authentication, and can stop a pending load.

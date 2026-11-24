@@ -4580,3 +4580,38 @@ special characters, unsupported file authorities, and the X11 fallback.
 
 - Linux application SHA-256 `41a9c8dfd26a3834d9eb3e29401bc024835fe04a142c5b0912c26b4e571dd202`
 - Linux libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`
+
+### Edit menu focus and routing 2026-11-24
+
+Edit commands on Windows and Linux use the same text editor or playlist
+row as keyboard editing. The Linux menu restores the original focused item
+and its text selection when it closes. Native Windows menu activation
+preserves the playlist target while the menu owner has keyboard focus.
+The framed video owner updates the live Edit submenu in place.
+
+The Windows workspace gate passed strict Clippy, 650 application unit tests,
+70 widget checks and the headless player and Settings pixel comparison.
+New unit tests cover selection retention during native window activation
+and an in-client popup, and dispatch to the restored playlist row. The
+Apple Silicon application passed a source cross-check. Native AppKit menu
+interaction and matched reference pixels remain open.
+
+The same Linux binary passed isolated X11 and native Sway sessions. The
+tests selected Copy and Delete using the Edit menu and continued with
+keyboard playlist navigation, folder Paste and Cut. GTK read the file list
+and text from the Wayland copy. Playback kept its pause state and volume.
+The exact test player exited normally in each session.
+
+Isolated Windows sessions on the shared renderer and the default video
+renderer verified that Delete was disabled without a focused editing target.
+The native Edit menu enabled Delete after row selection, removed the row,
+and allowed Return to start a remaining clip while paused. Both test
+processes exited normally. The final native popup change passed the
+affected application and UI package gate, including both new unit tests,
+all 70 widgets and the headless pixel comparison.
+
+- Linux application SHA-256 `139d08e45d6a049d89bf6481517c6e98640f77ba9e095cddc89dd594212329f9`
+- Linux libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`
+- Windows shared-renderer application SHA-256 `09a1df16164271ae2da364a485c36ee4150ad186dfb0ff1d7c85217a3b225ccc`
+- Windows default renderer application SHA-256 `f46c060b3301a16d1a5b15c3b9055e5b3c6628343d537edaf827f4da9e53d780`
+- Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
