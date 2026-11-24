@@ -1,7 +1,7 @@
 //! Use the trackpad's native pressure and pinch phases for player actions.
 use crate::{PlayerWindow, platform};
 use riina_mpv::CommandSender;
-use riina_ui::PlayerMenuActions;
+use riina_ui::{PlayerControlActions, PlayerMenuActions};
 use slint::{
     ComponentHandle,
     winit_030::{WinitWindowAccessor, winit::event::WindowEvent},
@@ -74,6 +74,12 @@ pub(super) fn handler(
         let Some(app) = weak.upgrade() else { return };
         match gesture {
             platform::ControlGesture::Pressure { stage } => {
+                if app
+                    .global::<PlayerControlActions>()
+                    .invoke_controller_arrow_pressure(i32::try_from(stage).unwrap_or(i32::MAX))
+                {
+                    return;
+                }
                 if stage < 2 {
                     force_touch_active.set(false);
                 } else if stage == 2 && !force_touch_active.replace(true) {

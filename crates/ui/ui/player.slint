@@ -5,8 +5,9 @@ export { PluginReviewText } from "plugin-review-text.slint";
 export { PlayerDialogState } from "player-dialog-state.slint";
 import { PlayerDialogState } from "player-dialog-state.slint";
 import { PlayerVideoInput } from "player-video-input.slint";
-export { PlayerPluginPointerPhase } from "player-control-actions.slint";
+export { ControllerArrowPhase, PlayerPluginPointerPhase } from "player-control-actions.slint";
 export { PlayerControlActions } from "player-control-actions.slint";
+import { ControllerArrowPhase, PlayerControlActions } from "player-control-actions.slint";
 import { PlayerCropState } from "player-crop-state.slint";
 export { PlayerCropState } from "player-crop-state.slint";
 import { PlayerControlsState } from "player-controls-state.slint";
@@ -273,7 +274,10 @@ export component PlayerWindow inherits PlayerMenuWindow {
     callback focus-player();
     focus-player => { keys.focus(); }
     in property <bool> paused: true;
-    changed paused => { PlayerMenuActions.video-menu-changed(); }
+    changed paused => {
+        if root.paused { PlayerControlActions.reset-controller-arrow(); }
+        PlayerMenuActions.video-menu-changed();
+    }
     in-out property <bool> menu-alternates-visible: false;
     changed menu-alternates-visible => { PlayerMenuActions.video-menu-changed(); }
     in property <bool> playing: false;
@@ -693,10 +697,14 @@ export component PlayerWindow inherits PlayerMenuWindow {
             PlaylistPluginPopupState.input(PlaylistPopupInput.dismiss, 0, 0, 0);
         }
         PlayerMenuActions.video-menu-changed();
-        if !root.loaded { keys.focus(); }
+        if !root.loaded {
+            PlayerControlActions.reset-controller-arrow();
+            keys.focus();
+        }
         root.refresh-fullscreen-info();
     }
     changed controls-visible => {
+        if !root.controls-visible { PlayerControlActions.controller-arrow(false, ControllerArrowPhase.cancelled); }
         if PlayerControlsState.plugin-ui-disabled && PlayerControlsState.controls-visible {
             PlayerControlsState.controls-visible = false;
             return;

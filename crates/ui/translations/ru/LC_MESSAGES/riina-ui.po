@@ -2465,3 +2465,33 @@ msgstr "Прошедшее время"
 
 msgid "Playback Position"
 msgstr "Позиция воспроизведения"
+
+msgid "Use left/right button for"
+msgstr "Действие кнопок влево и вправо"
+
+msgid "Playback speed"
+msgstr "Скорость"
+
+msgid "Playlist navigation"
+msgstr "Плейлист"
+
+msgid "Seek 10 seconds"
+msgstr "Перемотка на 10 с"
+
+msgid "Previous media"
+msgstr "Предыдущий файл"
+
+msgid "Next media"
+msgstr "Следующий файл"
+
+msgid "Back 10 Seconds"
+msgstr "Назад на 10 секунд"
+
+msgid "Forward 10 Seconds"
+msgstr "Вперёд на 10 секунд"
+
+msgid "Decrease playback speed"
+msgstr "Снизить скорость воспроизведения"
+
+msgid "Increase playback speed"
+msgstr "Увеличить скорость воспроизведения"

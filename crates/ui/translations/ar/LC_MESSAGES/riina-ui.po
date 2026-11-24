@@ -2468,3 +2468,33 @@ msgstr "الوقت المنقضي"
 
 msgid "Playback Position"
 msgstr "موضع التشغيل"
+
+msgid "Use left/right button for"
+msgstr "استخدام زري اليسار واليمين من أجل"
+
+msgid "Playback speed"
+msgstr "سرعة التشغيل"
+
+msgid "Playlist navigation"
+msgstr "التنقل في القائمة"
+
+msgid "Seek 10 seconds"
+msgstr "تقديم أو إرجاع ١٠ ثوانٍ"
+
+msgid "Previous media"
+msgstr "الوسائط السابقة"
+
+msgid "Next media"
+msgstr "الوسائط التالية"
+
+msgid "Back 10 Seconds"
+msgstr "الرجوع ١٠ ثوانٍ"
+
+msgid "Forward 10 Seconds"
+msgstr "التقدم ١٠ ثوانٍ"
+
+msgid "Decrease playback speed"
+msgstr "خفض سرعة التشغيل"
+
+msgid "Increase playback speed"
+msgstr "زيادة سرعة التشغيل"

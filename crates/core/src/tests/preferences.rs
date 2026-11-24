@@ -327,6 +327,7 @@ fn legacy_preferences_keep_osd_defaults_and_customization_round_trips() {
             auto_hide_enabled: false,
             auto_hide_timeout_secs: 4.25,
             controller: osc_preferences::ControllerOptions {
+                arrow_action: osc_preferences::ArrowAction::Seek,
                 stick_to_center: false,
                 show_remaining_time: true,
                 scale_remaining_time: true,

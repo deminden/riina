@@ -17,9 +17,11 @@ export global PlayerControlsState {
     in-out property <bool> title-bar-hovered: false;
     in-out property <bool> control-bar-hovered: false;
     in-out property <bool> control-bar-dragging: false;
+    in-out property <bool> controller-arrow-pressed: false;
+    out property <bool> control-bar-interaction-held: control-bar-dragging || controller-arrow-pressed;
 
     callback control-bar-hover-changed();
     changed title-bar-hovered => { self.control-bar-hover-changed(); }
     changed control-bar-hovered => { self.control-bar-hover-changed(); }
-    changed control-bar-dragging => { self.control-bar-hover-changed(); }
+    changed control-bar-interaction-held => { self.control-bar-hover-changed(); }
 }

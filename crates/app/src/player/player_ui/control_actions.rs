@@ -2,8 +2,8 @@
 use super::{
     PendingNavigation, audio_controls, catalog,
     context::{PlayerContext, bind},
-    delays, dialogs, feedback, hdr_output, input, playlist_actions, playlist_subtitles,
-    subtitle_controls, transport, video_controls,
+    controller_arrows, delays, dialogs, feedback, hdr_output, input, playlist_actions,
+    playlist_subtitles, subtitle_controls, transport, video_controls,
 };
 use crate::{
     PlayerWindow, crop_editor::Editor, platform, screenshot_output::Scratch, video_osd::VideoOsd,
@@ -112,6 +112,7 @@ pub(super) fn install(app: &PlayerWindow, inputs: Inputs<'_>) {
         native.map(platform::NativePresentation::host),
     );
     transport::install_seek(app, command_sender);
+    controller_arrows::install(app, context.clone());
     dialogs::install_time_and_url(app, command_sender);
     audio_controls::install_volume(app, command_sender);
     transport::install_relative_speed(app, command_sender);

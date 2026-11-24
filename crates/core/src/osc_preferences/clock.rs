@@ -1,3 +1,4 @@
+use super::ArrowAction;
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
@@ -34,6 +35,8 @@ impl TimePrecision {
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
 #[serde(default)]
 pub struct ControllerOptions {
+    #[serde(skip_serializing_if = "ArrowAction::is_default")]
+    pub arrow_action: ArrowAction,
     pub stick_to_center: bool,
     pub show_remaining_time: bool,
     pub scale_remaining_time: bool,
@@ -43,6 +46,7 @@ pub struct ControllerOptions {
 impl Default for ControllerOptions {
     fn default() -> Self {
         Self {
+            arrow_action: ArrowAction::default(),
             stick_to_center: true,
             show_remaining_time: false,
             scale_remaining_time: false,

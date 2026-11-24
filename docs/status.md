@@ -28,6 +28,9 @@ Implementation does not imply every state or platform is verified.
   time displays, and a scrubber with cached thumbnails. The second clock has
   its own saved mode. AppKit supplies the customization menu on supported Macs.
   Physical Touch Bar interaction and appearance still need a native macOS session.
+- **Controller arrows:** Interface Settings selects playback speed, playlist
+  navigation, or a 10-second seek. The main controller and Touch Bar use the
+  selected action. The Music Mode arrows navigate the playlist.
 - **File opens:** the primary File commands follow the new-window preference,
   and their modifier shortcuts invert it. Active menus show the actual destination.
 - **Open URL:** one dialog serves the File menu, Welcome and the windowless

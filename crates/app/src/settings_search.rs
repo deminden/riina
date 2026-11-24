@@ -302,6 +302,13 @@ const ENTRIES: &[Entry] = &[
         page_index: 1,
         page: "Interface",
         section: "On-Screen Controller",
+        title: "Use left/right button for",
+        terms: "osc transport arrow playback speed playlist navigation seek scrub 10 seconds",
+    },
+    Entry {
+        page_index: 1,
+        page: "Interface",
+        section: "On-Screen Controller",
         title: "Prevent scroll wheel from changing playback position",
         terms: "disable seek slider scrolling mouse",
     },

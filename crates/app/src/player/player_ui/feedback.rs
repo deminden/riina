@@ -88,7 +88,7 @@ fn schedule_control_hide(app: &PlayerWindow, timer: &slint::Timer) {
                     .get_control_bar_hovered(),
                 control_bar_dragging: app
                     .global::<riina_ui::PlayerControlsState>()
-                    .get_control_bar_dragging(),
+                    .get_control_bar_interaction_held(),
                 settings_panel_open: app.global::<riina_ui::PlayerSidebarState>().get_sidebar()
                     != 0
                     || app
@@ -468,7 +468,7 @@ fn install_controls_deadline(app: &PlayerWindow) {
                     .get_control_bar_hovered()
                 || app
                     .global::<riina_ui::PlayerControlsState>()
-                    .get_control_bar_dragging()
+                    .get_control_bar_interaction_held()
             {
                 auto_hide_timer.stop();
                 app.global::<riina_ui::PlayerControlsState>()
@@ -506,7 +506,7 @@ fn install_controls_deadline(app: &PlayerWindow) {
                     .get_control_bar_hovered()
                 || app
                     .global::<riina_ui::PlayerControlsState>()
-                    .get_control_bar_dragging()
+                    .get_control_bar_interaction_held()
             {
                 hover_timer.stop();
                 app.global::<riina_ui::PlayerControlsState>()

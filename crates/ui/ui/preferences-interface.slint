@@ -57,6 +57,7 @@ export component InterfacePreferencesPage inherits ScrollView {
     in-out property <bool> control-auto-hide-enabled;
     in-out property <string> control-auto-hide-timeout-text;
     in-out property <bool> control-stick-to-center;
+    in-out property <int> control-arrow-action;
     in-out property <bool> control-show-remaining-time;
     in-out property <bool> control-scale-remaining-time;
     in-out property <bool> control-disable-play-slider-scrolling;
@@ -318,12 +319,23 @@ export component InterfacePreferencesPage inherits ScrollView {
             enabled: root.control-show-remaining-time;
             toggled => { root.settings-changed(); }
         }
-        PreferenceSwitch { x: 36px; y: 226px; width: 128px;
+        Text { x: 36px; y: 226px; width: parent.width - 206px; height: 36px;
+            text: @tr("Use left/right button for");
+            font-size: 12px; color: Theme.settings-page-heading;
+            wrap: word-wrap; vertical-alignment: center;
+        }
+        ComboBox { x: parent.width - 158px; y: 232px; width: 122px; height: 24px;
+            accessible-label: @tr("Use left/right button for");
+            model: [@tr("Playback speed"), @tr("Playlist navigation"), @tr("Seek 10 seconds")];
+            current-index <=> root.control-arrow-action;
+            selected => { root.settings-changed(); }
+        }
+        PreferenceSwitch { x: 36px; y: 266px; width: 128px;
             label: @tr("Auto hide after:");
             checked <=> root.control-auto-hide-enabled;
             toggled => { root.settings-changed(); }
         }
-        Rectangle { x: 170px; y: 228px; width: 70px; height: 24px;
+        Rectangle { x: 170px; y: 268px; width: 70px; height: 24px;
             border-width: 1px; border-color: Theme.settings-field-border; border-radius: Theme.settings-text-field-corner; background: Theme.settings-field-surface;
             TextInput { x: 5px; y: 1px; width: parent.width - 10px; height: parent.height - 2px;
                 text <=> root.control-auto-hide-timeout-text; enabled: root.control-auto-hide-enabled;
@@ -331,27 +343,27 @@ export component InterfacePreferencesPage inherits ScrollView {
                 accepted => { root.settings-changed(); }
             }
         }
-        Text { x: 244px; y: 228px; width: 20px; height: 24px; text: "s";
+        Text { x: 244px; y: 268px; width: 20px; height: 24px; text: "s";
             font-size: 11px; color: Theme.settings-interface-unit-text(root.control-auto-hide-enabled);
             vertical-alignment: center; }
-        PreferenceSwitch { x: 36px; y: 260px; width: parent.width - 48px;
+        PreferenceSwitch { x: 36px; y: 300px; width: parent.width - 48px;
             label: @tr("Prevent scroll wheel from changing playback position");
             checked <=> root.control-disable-play-slider-scrolling;
             toggled => { root.settings-changed(); }
         }
-        PreferenceSwitch { x: 36px; y: 296px; width: parent.width - 48px;
+        PreferenceSwitch { x: 36px; y: 336px; width: parent.width - 48px;
             label: @tr("Prevent scroll wheel from changing volume");
             checked <=> root.control-disable-volume-slider-scrolling;
             toggled => { root.settings-changed(); }
         }
-        Text { x: 36px; y: 328px; text: @tr("Toolbar buttons");
+        Text { x: 36px; y: 368px; text: @tr("Toolbar buttons");
             font-size: 12px; font-weight: 600; color: Theme.settings-page-heading; }
-        PreferenceActionButton { x: parent.width - 112px; y: 324px;
+        PreferenceActionButton { x: parent.width - 112px; y: 364px;
             label: @tr("Restore Default");
             activated => { root.toolbar-reset(); }
         }
         for action-kind[index] in root.toolbar-order : ToolbarPreferenceRow {
-            x: 36px; y: 348px + index * 28px; width: parent.width - 72px;
+            x: 36px; y: 388px + index * 28px; width: parent.width - 72px;
             label: action-kind == 0 ? @tr("Quick Settings") :
                 action-kind == 1 ? @tr("Playlist and chapters") :
                 action-kind == 2 ? @tr("Picture in Picture") :

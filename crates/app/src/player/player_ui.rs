@@ -2,6 +2,7 @@ mod audio_controls;
 mod catalog;
 mod context;
 mod control_actions;
+mod controller_arrows;
 mod controller_clock;
 mod delays;
 mod dialogs;

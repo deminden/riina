@@ -235,6 +235,7 @@ fn player_glue_worker() -> Result<(), Box<dyn std::error::Error>> {
     exercise_transport_settings(&harness);
     exercise_dialogs_and_relative_controls(&harness);
     exercise_observation_and_volume(&harness)?;
+    exercise_controller_arrows(&harness);
     drop(harness);
 
     let capture = Harness::start(profile.join("capture/preferences.json"), true)?;
@@ -629,4 +630,44 @@ fn exercise_observation_and_volume(harness: &Harness) -> Result<(), Box<dyn std:
         .invoke_set_volume(140.0);
     harness.expect(Command::Volume(140.0));
     Ok(())
+}
+
+fn exercise_controller_arrows(harness: &Harness) {
+    use riina_core::osc_preferences::ArrowAction;
+    use riina_ui::{
+        ControllerArrowPhase, PlayerControlActions, PlayerControlsState, PlayerPreferences,
+    };
+
+    let preferences = harness.app.global::<PlayerPreferences>();
+    let controls = harness.app.global::<PlayerControlsState>();
+    let actions = harness.app.global::<PlayerControlActions>();
+    assert_eq!(
+        preferences.get_control_arrow_action(),
+        ArrowAction::Speed.index()
+    );
+    actions.invoke_controller_arrow(true, ControllerArrowPhase::Pressed);
+    assert_eq!(harness.engine.commands.try_recv(), Ok(Command::Speed(0.5)));
+    harness.expect(Command::SetPaused(false));
+    assert!(controls.get_control_bar_interaction_held());
+    actions.invoke_controller_arrow(true, ControllerArrowPhase::Released);
+    harness.expect_idle();
+    assert!(!controls.get_control_bar_interaction_held());
+
+    preferences.set_control_arrow_action(ArrowAction::Seek.index());
+    actions.invoke_controller_arrow(true, ControllerArrowPhase::Activated);
+    harness.expect(Command::Seek {
+        seconds: -10.0,
+        absolute: false,
+    });
+    actions.invoke_controller_arrow(false, ControllerArrowPhase::Activated);
+    harness.expect(Command::Seek {
+        seconds: 10.0,
+        absolute: false,
+    });
+
+    preferences.set_control_arrow_action(ArrowAction::Playlist.index());
+    actions.invoke_controller_arrow(true, ControllerArrowPhase::Activated);
+    harness.expect(Command::PlaylistPrevious);
+    actions.invoke_controller_arrow(false, ControllerArrowPhase::Activated);
+    harness.expect(Command::PlaylistNext);
 }

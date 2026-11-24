@@ -13,6 +13,8 @@ export component Tool inherits Rectangle {
     in property <bool> windows-acrylic-surface: false;
     in property <color> accent-color: Theme.player-focus-accent;
     callback activated();
+    in property <bool> pointer-handles-activation: false;
+    callback pointer-input(PointerEvent, bool);
     callback focus-entered(length, length);
     width: circular ? circular-size : 30px; height: circular ? circular-size : 28px;
     border-radius: circular ? circular-size / 2 : 5px;
@@ -52,5 +54,17 @@ export component Tool inherits Rectangle {
     }
     // Keep pointer activation above the focus helper in Slint's stacking order;
     // otherwise a mouse press can focus a toolbar item without activating it.
-    touch := TouchArea { enabled: root.enabled; clicked => { focus.focus(); root.activated(); } }
+    touch := TouchArea {
+        enabled: root.enabled;
+        clicked => {
+            focus.focus();
+            if !root.pointer-handles-activation { root.activated(); }
+        }
+        pointer-event(event) => {
+            if root.pointer-handles-activation {
+                root.pointer-input(event, self.mouse-x >= 0px && self.mouse-x <= self.width
+                    && self.mouse-y >= 0px && self.mouse-y <= self.height);
+            }
+        }
+    }
 }

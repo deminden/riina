@@ -1,7 +1,9 @@
 //! Shared policy for when the on-screen controller fades after interaction.
+mod arrows;
 mod clock;
 
 use crate::PreferenceError;
+pub use arrows::{ArrowAction, ArrowDirection, ArrowSpeed};
 pub use clock::{ControllerOptions, TimePrecision};
 use serde::{Deserialize, Serialize};
 

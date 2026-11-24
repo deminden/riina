@@ -2,7 +2,7 @@
 use super::model::{PreferenceSection, SectionError};
 use crate::{PlayerWindow, PreferencesWindow};
 use riina_core::Preferences;
-use riina_core::osc_preferences::{ControllerOptions, Settings, TimePrecision};
+use riina_core::osc_preferences::{ArrowAction, ControllerOptions, Settings, TimePrecision};
 use slint::{ComponentHandle, Model, ModelRc, VecModel};
 
 impl PreferenceSection for Settings {
@@ -142,6 +142,8 @@ pub(crate) fn install_preferences(window: &PreferencesWindow, settings: Settings
 pub(crate) fn player_controller_options(window: &PlayerWindow) -> ControllerOptions {
     let preferences = window.global::<riina_ui::PlayerPreferences>();
     ControllerOptions {
+        arrow_action: ArrowAction::from_index(preferences.get_control_arrow_action())
+            .unwrap_or_default(),
         stick_to_center: preferences.get_control_stick_to_center(),
         show_remaining_time: preferences.get_control_show_remaining_time(),
         scale_remaining_time: preferences.get_control_scale_remaining_time(),
@@ -154,6 +156,8 @@ pub(crate) fn form_controller_options(
     window: &PreferencesWindow,
 ) -> Result<ControllerOptions, String> {
     Ok(ControllerOptions {
+        arrow_action: ArrowAction::from_index(window.get_control_arrow_action())
+            .ok_or_else(|| "Invalid controller arrow action".to_owned())?,
         stick_to_center: window.get_control_stick_to_center(),
         show_remaining_time: window.get_control_show_remaining_time(),
         scale_remaining_time: window.get_control_scale_remaining_time(),
@@ -164,6 +168,7 @@ pub(crate) fn form_controller_options(
 
 pub(crate) fn install_player_controller_options(window: &PlayerWindow, options: ControllerOptions) {
     let preferences = window.global::<riina_ui::PlayerPreferences>();
+    preferences.set_control_arrow_action(options.arrow_action.index());
     preferences.set_control_stick_to_center(options.stick_to_center);
     preferences.set_control_show_remaining_time(options.show_remaining_time);
     preferences.set_control_scale_remaining_time(options.scale_remaining_time);
@@ -174,6 +179,7 @@ pub(crate) fn install_form_controller_options(
     window: &PreferencesWindow,
     options: ControllerOptions,
 ) {
+    window.set_control_arrow_action(options.arrow_action.index());
     window.set_control_stick_to_center(options.stick_to_center);
     window.set_control_show_remaining_time(options.show_remaining_time);
     window.set_control_scale_remaining_time(options.scale_remaining_time);

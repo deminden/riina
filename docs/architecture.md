@@ -74,6 +74,12 @@ open request before pausing. Its seek and resume commands also carry the media
 generation through the mpv queue. The Touch Bar's end-clock mode belongs to the
 saved profile and is shared by its windows independently of the controller clock.
 
+The controller arrows and Touch Bar transport buttons read the same saved arrow
+action. A held speed arrow keeps the controller visible and applies speed changes
+to the media that received the press. AppKit pressure events for an active arrow
+gesture reach that session before the general Force Touch action. Playlist and
+seek modes use the existing transport commands.
+
 Linux publishes one MPRIS service per application with an eligible player.
 It follows the focused player while retaining the last focus when such
 observations are available. Without a keyboard seat it selects the newest

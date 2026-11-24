@@ -6,7 +6,7 @@ use riina_core::{
     sync::lock,
     touch_bar::{ScrubOrigin, ScrubSession, Settings, seekable_duration},
 };
-use riina_ui::{PlayerMenuActions, TouchBarText};
+use riina_ui::{ControllerArrowPhase, PlayerControlActions, PlayerMenuActions, TouchBarText};
 use slint::{ComponentHandle, Model};
 use std::{
     cell::{Cell, RefCell},
@@ -195,11 +195,11 @@ impl Session {
                 }
             }
             Action::Rewind | Action::FastForward => {
-                let playback = lock(self.context.playback()).clone();
-                menu.invoke_speed(if action == Action::Rewind { 0.5 } else { 2.0 });
-                if active(&playback) && playback.paused {
-                    self.send(playback.generation, Command::SetPaused(false));
-                }
+                app.global::<PlayerControlActions>()
+                    .invoke_controller_arrow(
+                        action == Action::Rewind,
+                        ControllerArrowPhase::Activated,
+                    );
             }
         }
     }

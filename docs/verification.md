@@ -4401,3 +4401,34 @@ Physical Touch Bar layout, customization, gesture delivery, and the handoff
 between active macOS windows still need a native desktop session. Rewind and
 Fast Forward currently use the app's existing speed controls. The configurable
 IINA on-screen arrow actions remain open.
+
+### Configurable controller arrows 2026-11-24
+
+Interface Settings offers playback speed, playlist navigation and 10-second
+seeks. The on-screen arrows and Touch Bar share the selected action. The Music
+Mode arrows move between playlist entries. The speed tests cover
+direction changes, short and long presses, and changes in pressure during a
+press. The application test covers all three command routes and keeps the
+controller visible while an arrow is held.
+
+The full Windows workspace gate, all 63 native playback tests, the locked
+Windows and Linux builds, and the strict Apple Silicon source check passed.
+The new Settings row changed eight pixels on the Interface scrollbar in the
+software-rendered suite. The updated comparison preserves the 750 × 670 capture
+size. Physical macOS Force Touch and Touch Bar delivery remain open.
+
+On a maximized player in a private Windows desktop, a short pointer press
+retained 2× speed. A long press on the opposite arrow restored 1× after release.
+Settings search reached the arrow selector. The native selection saved Seek
+and Playlist modes. Pointer presses in Seek mode moved the paused clock from
+0 to 10 seconds and back. Playlist mode moved to the next video and returned.
+The Settings and player windows closed, and the test process exited normally.
+
+An isolated Wayland desktop used the saved playlist mode to switch from the
+first paused video to the second and back. The 900 × 540 frame and window
+identity stayed the same. The tested process exited normally.
+
+- Linux application SHA-256 `a58c129e843434dbb3d98bc5ca4e7233170ac0311c518244206ded752e18a697`
+- Linux libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`
+- Windows application SHA-256 `31fbfa27eec0f47c869847f31d61bd39a4e2b7a951d04e52265886ca82ef51a3`
+- Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`

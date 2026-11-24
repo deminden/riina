@@ -1,6 +1,7 @@
 
 // Key, pointer, and transport intents are dispatched by the active player.
 export enum PlayerPluginPointerPhase { down, up, move, cancel }
+export enum ControllerArrowPhase { pressed, released, cancelled, activated }
 
 export global PlayerControlActions {
     callback open-application-menu();
@@ -10,6 +11,9 @@ export global PlayerControlActions {
     callback publish-controller-options();
     callback refresh-controller-options();
     callback controller-snap-aligned();
+    callback controller-arrow(bool, ControllerArrowPhase);
+    callback controller-arrow-pressure(int) -> bool;
+    callback reset-controller-arrow();
     callback activate-saved-filter-shortcut(string, bool, bool, bool, bool) -> bool;
     callback dispatch-key-binding(string, bool, bool, bool, bool) -> bool;
     callback begin-plugin-key(string, bool, bool, bool, bool, bool, bool) -> bool;

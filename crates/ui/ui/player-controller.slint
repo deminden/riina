@@ -12,6 +12,7 @@ import { Theme } from "theme.slint";
 import { MusicModeControls } from "music-mode-controls.slint";
 import { ToolbarAction } from "player-chrome-controls.slint";
 import { Tool } from "player-tool.slint";
+import { ControllerArrow } from "controller-arrow.slint";
 import { PlayerSlider } from "shared-controls.slint";
 import { ControllerTimeLabel } from "controller-time-label.slint";
 
@@ -257,16 +258,12 @@ export component PlayerController inherits Rectangle {
             Rectangle { horizontal-stretch: 1; background: transparent; }
             HorizontalLayout {
                 spacing: PlayerMusicModeState.music-mode ? 2px : PlayerLayoutState.osc-position == 0 ? 24px : 16px;
-                if root.layout.transport-neighbor-actions-fit : Tool { accent-color: PlayerAppearance.interactive-accent-color;
+                if root.layout.transport-neighbor-actions-fit : ControllerArrow {
+                    accent-color: PlayerAppearance.interactive-accent-color;
                     dark-theme: PlayerAppearance.dark-theme; width: 24px; height: root.layout.osc-row-height; icon-size: 24px;
-                    icon: PlayerMusicModeState.music-mode
-                        ? @image-url("../../../assets/icons/skip-previous.svg")
-                        : @image-url("../../../assets/icons/speed-down.svg");
-                    hint: PlayerMusicModeState.music-mode ? "Previous media" : "Half playback speed";
-                    activated => {
-                        if PlayerMusicModeState.music-mode { PlayerMenuActions.playlist-previous(); }
-                        else { PlayerMenuActions.speed(0.5); }
-                    }
+                    left: true;
+                    show-speed: PlayerLayoutState.osc-position == 0 && root.side-controls-fit
+                        && !PlayerMusicModeState.music-mode;
                 }
                 Tool { accent-color: PlayerAppearance.interactive-accent-color; dark-theme: PlayerAppearance.dark-theme;
                     width: 24px; height: root.layout.osc-row-height; icon-size: 24px;
@@ -276,16 +273,12 @@ export component PlayerController inherits Rectangle {
                     icon-optical-offset-x: root.paused ? 2.5px : 0px;
                     icon: root.paused ? @image-url("../../../assets/icons/osc-play.svg") : @image-url("../../../assets/icons/osc-pause.svg"); hint: root.paused ? "Play" : "Pause";
                     activated => { PlayerMenuActions.toggle-pause(); } }
-                if root.layout.transport-neighbor-actions-fit : Tool { accent-color: PlayerAppearance.interactive-accent-color;
+                if root.layout.transport-neighbor-actions-fit : ControllerArrow {
+                    accent-color: PlayerAppearance.interactive-accent-color;
                     dark-theme: PlayerAppearance.dark-theme; width: 24px; height: root.layout.osc-row-height; icon-size: 24px;
-                    icon: PlayerMusicModeState.music-mode
-                        ? @image-url("../../../assets/icons/skip-next.svg")
-                        : @image-url("../../../assets/icons/speed-up.svg");
-                    hint: PlayerMusicModeState.music-mode ? "Next media" : "Double playback speed";
-                    activated => {
-                        if PlayerMusicModeState.music-mode { PlayerMenuActions.playlist-next(); }
-                        else { PlayerMenuActions.speed(2); }
-                    }
+                    left: false;
+                    show-speed: PlayerLayoutState.osc-position == 0 && root.side-controls-fit
+                        && !PlayerMusicModeState.music-mode;
                 }
             }
             if !PlayerMusicModeState.music-mode : Rectangle { horizontal-stretch: 1; background: transparent; }

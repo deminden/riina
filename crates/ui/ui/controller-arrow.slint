@@ -1,0 +1,61 @@
+import { ControllerArrowPhase, PlayerControlActions } from "player-control-actions.slint";
+import { PlayerMenuActions } from "player-menu-actions.slint";
+import { PlayerPreferences } from "player-preferences.slint";
+import { PlayerMusicModeState } from "player-music-mode-state.slint";
+import { PlayerAppearance } from "player-appearance.slint";
+import { PlaybackTimelineState } from "playback-timeline-state.slint";
+import { Theme } from "theme.slint";
+import { Tool } from "player-tool.slint";
+
+export component ControllerArrow inherits Tool {
+    in property <bool> left;
+    in property <bool> show-speed: false;
+    private property <bool> playlist-action:
+        PlayerMusicModeState.music-mode || PlayerPreferences.control-arrow-action == 1;
+    private property <bool> seek-action: PlayerPreferences.control-arrow-action == 2;
+    pointer-handles-activation: !root.playlist-action && !root.seek-action;
+
+    icon: root.playlist-action ? root.left
+        ? @image-url("../../../assets/icons/skip-previous.svg")
+        : @image-url("../../../assets/icons/skip-next.svg")
+        : root.left ? @image-url("../../../assets/icons/speed-down.svg")
+        : @image-url("../../../assets/icons/speed-up.svg");
+
+    hint: root.playlist-action ? root.left ? @tr("Previous media") : @tr("Next media")
+        : root.seek-action ? root.left ? @tr("Back 10 Seconds") : @tr("Forward 10 Seconds")
+        : root.left ? @tr("Decrease playback speed") : @tr("Increase playback speed");
+
+    if root.show-speed && (root.left ? PlaybackTimelineState.speed-value < 1
+        : PlaybackTimelineState.speed-value > 1) : Text {
+        x: root.left ? -42px : root.width + 6px;
+        width: 36px; height: root.height;
+        text: "⁦" + PlaybackTimelineState.speed-edit-value + "×⁩";
+        color: Theme.sidebar-action-text(PlayerAppearance.dark-theme, false);
+        font-size: 10px;
+        horizontal-alignment: root.left ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
+        vertical-alignment: center;
+    }
+
+    activated => {
+        if PlayerMusicModeState.music-mode {
+            if root.left { PlayerMenuActions.playlist-previous(); }
+            else { PlayerMenuActions.playlist-next(); }
+        } else {
+            PlayerControlActions.controller-arrow(root.left, ControllerArrowPhase.activated);
+        }
+    }
+
+    pointer-input(event, inside) => {
+        if !root.pointer-handles-activation { return; }
+        if event.kind == PointerEventKind.cancel {
+            PlayerControlActions.controller-arrow(root.left, ControllerArrowPhase.cancelled);
+        } else if event.button == PointerEventButton.left {
+            if event.kind == PointerEventKind.down {
+                PlayerControlActions.controller-arrow(root.left, ControllerArrowPhase.pressed);
+            } else if event.kind == PointerEventKind.up {
+                PlayerControlActions.controller-arrow(root.left, inside
+                    ? ControllerArrowPhase.released : ControllerArrowPhase.cancelled);
+            }
+        }
+    }
+}
