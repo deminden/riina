@@ -1,4 +1,6 @@
 //! Plugin dialogs use the player's existing modal exclusion.
+#[cfg(target_os = "macos")]
+mod application;
 mod interaction;
 
 use crate::{
@@ -15,7 +17,11 @@ struct ApplicationOwner {
 }
 
 #[derive(Default)]
-pub(crate) struct ApplicationOwners(Arc<Mutex<Vec<Weak<ApplicationOwner>>>>);
+pub(crate) struct ApplicationOwners {
+    players: Arc<Mutex<Vec<Weak<ApplicationOwner>>>>,
+    #[cfg(target_os = "macos")]
+    application: std::rc::Rc<application::Dialogs>,
+}
 
 pub(crate) struct OwnerRegistration {
     _owner: Arc<ApplicationOwner>,
@@ -23,10 +29,17 @@ pub(crate) struct OwnerRegistration {
 
 impl ApplicationOwners {
     pub(crate) fn install(&self, dialogs: &PluginDialogs) {
-        let owners = self.0.clone();
+        let owners = self.players.clone();
+        #[cfg(target_os = "macos")]
+        let application = self.application.bind_to_thread();
         dialogs.install(move |request| {
             let owners = owners.clone();
             slint::invoke_from_event_loop(move || {
+                #[cfg(target_os = "macos")]
+                if matches!(request, DialogRequest::Notice(_)) {
+                    application::present(application, request);
+                    return;
+                }
                 let owners = {
                     let mut registrations = riina_core::sync::lock(&owners);
                     let mut owners = Vec::new();
@@ -41,8 +54,8 @@ impl ApplicationOwners {
                 };
                 let target = owners
                     .iter()
-                    .filter_map(|owner| owner.player.upgrade().map(|app| (app, &owner.native)))
-                    .max_by_key(|(app, native)| {
+                    .filter_map(|owner| {
+                        let app = owner.player.upgrade()?;
                         let rank = |window: &slint::Window| {
                             if window.with_winit_window(|window| window.has_focus()) == Some(true) {
                                 2
@@ -50,16 +63,26 @@ impl ApplicationOwners {
                                 u8::from(window.is_visible())
                             }
                         };
-                        rank(app.window()).max(
-                            native
+                        let rank = rank(app.window()).max(
+                            owner
+                                .native
                                 .as_ref()
                                 .and_then(slint::Weak::upgrade)
                                 .map_or(0, |host| rank(host.window())),
-                        )
-                    });
-                if let Some((app, native)) = target {
+                        );
+                        #[cfg(target_os = "macos")]
+                        if rank == 0 {
+                            return None;
+                        }
+                        Some((rank, app, &owner.native))
+                    })
+                    .max_by_key(|(rank, _, _)| *rank);
+                if let Some((_, app, native)) = target {
                     present(&app, native.clone(), request);
                 } else {
+                    #[cfg(target_os = "macos")]
+                    application::present(application, request);
+                    #[cfg(not(target_os = "macos"))]
                     request.fail("No player window is available for the plugin dialog".into());
                 }
             })
@@ -76,10 +99,23 @@ impl ApplicationOwners {
             player: app.as_weak(),
             native,
         });
-        let mut registrations = riina_core::sync::lock(&self.0);
+        let mut registrations = riina_core::sync::lock(&self.players);
         registrations.retain(|entry| entry.strong_count() != 0);
         registrations.push(Arc::downgrade(&owner));
         OwnerRegistration { _owner: owner }
+    }
+
+    #[cfg(target_os = "macos")]
+    pub(crate) fn bind_application_close(
+        &self,
+        callback: std::rc::Rc<crate::windows::close_observer::CloseObserver>,
+    ) {
+        self.application.bind_close(callback);
+    }
+
+    #[cfg(target_os = "macos")]
+    pub(crate) fn application_dialog_visible(&self) -> bool {
+        self.application.is_visible()
     }
 }
 
@@ -182,9 +218,20 @@ async fn pick(
     #[cfg(not(windows))]
     let _ = native_host;
 
-    let mut dialog = rfd::AsyncFileDialog::new()
-        .set_title(&request.title)
-        .set_parent(owner.as_ref());
+    pick_request(Some(owner.as_ref()), request).await
+}
+
+async fn pick_request(
+    owner: Option<&slint::winit_030::winit::window::Window>,
+    request: &FileRequest,
+) -> Result<Option<String>, String> {
+    if request.is_cancelled() {
+        return Ok(None);
+    }
+    let mut dialog = rfd::AsyncFileDialog::new().set_title(&request.title);
+    if let Some(owner) = owner {
+        dialog = dialog.set_parent(owner);
+    }
     if !request.extensions.is_empty() && !request.folder {
         dialog = dialog.add_filter("Allowed files", &request.extensions);
     }

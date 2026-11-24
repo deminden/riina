@@ -88,7 +88,7 @@ impl Presenter {
         let title = format!("{name} — {label}");
         let controller = Rc::downgrade(&self.0);
         let owner_weak = owner.as_weak();
-        let shell = Shell::new(owner, &title, move || {
+        let shell = Shell::new(Some(owner), &title, move || {
             let controller = controller.clone();
             let owner = owner_weak.clone();
             let _ = slint::spawn_local(async move {

@@ -36,6 +36,15 @@ impl PluginDialogs {
         self.stopped.load(Ordering::Acquire)
     }
 
+    #[cfg(target_os = "macos")]
+    pub(crate) fn notice(&self, title: String, message: String) -> Result<(), String> {
+        self.present(DialogRequest::Notice(Notice {
+            title,
+            message,
+            slot: self.claim()?,
+        }))
+    }
+
     pub(super) fn open(
         &self,
         id: u32,
@@ -130,6 +139,8 @@ fn valid_title(title: &str) -> bool {
 pub(crate) enum DialogRequest {
     File(FileRequest),
     Interaction(InteractionRequest),
+    #[cfg(target_os = "macos")]
+    Notice(Notice),
 }
 
 impl DialogRequest {
@@ -137,7 +148,23 @@ impl DialogRequest {
         match self {
             Self::File(request) => request.finish(Err(message)),
             Self::Interaction(request) => request.finish(Err(message)),
+            #[cfg(target_os = "macos")]
+            Self::Notice(_) => crate::diagnostics::warn!("{message}"),
         }
+    }
+}
+
+#[cfg(target_os = "macos")]
+pub(crate) struct Notice {
+    pub(crate) title: String,
+    pub(crate) message: String,
+    slot: Slot,
+}
+
+#[cfg(target_os = "macos")]
+impl Notice {
+    pub(crate) fn is_cancelled(&self) -> bool {
+        self.slot.stopped.load(Ordering::Acquire)
     }
 }
 

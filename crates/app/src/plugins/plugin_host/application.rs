@@ -34,6 +34,8 @@ pub(crate) struct GlobalHandle {
     commands: mpsc::SyncSender<Request>,
     next_player: Arc<AtomicU64>,
     launches: Arc<Mutex<Vec<Arc<Ticket>>>>,
+    #[cfg(any(target_os = "macos", test))]
+    activity: Arc<UiActivity>,
 }
 
 pub(super) struct PlayerPort {
@@ -54,6 +56,8 @@ pub(super) enum PackageChange {
 }
 
 enum Request {
+    #[cfg(any(target_os = "macos", test))]
+    LoadEnabledGlobals,
     Join(Weak<PlayerPort>),
     Ensure(
         Weak<PlayerPort>,
@@ -79,9 +83,20 @@ impl GlobalHost {
         let worker_ui = ui.clone();
         let launches = Arc::new(Mutex::new(Vec::new()));
         let worker_launches = launches.clone();
+        #[cfg(any(target_os = "macos", test))]
+        let activity = Arc::new(UiActivity::new());
+        #[cfg(any(target_os = "macos", test))]
+        let worker_activity = activity.clone();
         let profile = preferences_path.to_path_buf();
         let worker = crate::background::spawn_named("riina-application-plugins", move || {
-            Coordinator::new(&profile, worker_ui, worker_launches).run(requests);
+            Coordinator::new(
+                &profile,
+                worker_ui,
+                worker_launches,
+                #[cfg(any(target_os = "macos", test))]
+                worker_activity,
+            )
+            .run(requests);
         })
         .map_err(|error| format!("Could not start global plugin host: {error}"))?;
         Ok(Self {
@@ -90,6 +105,8 @@ impl GlobalHost {
                 commands,
                 next_player: Arc::default(),
                 launches,
+                #[cfg(any(target_os = "macos", test))]
+                activity,
             },
             worker: Some(worker),
         })
@@ -111,6 +128,16 @@ impl Drop for GlobalHost {
 }
 
 impl GlobalHandle {
+    #[cfg(any(target_os = "macos", test))]
+    pub(crate) fn set_ui_waker(&self, wake: impl Fn() + Send + Sync + 'static) {
+        self.activity.set_waker(wake);
+    }
+
+    #[cfg(any(target_os = "macos", test))]
+    pub(crate) fn load_enabled_globals(&self) -> Result<(), String> {
+        self.send(Request::LoadEnabledGlobals)
+    }
+
     pub(crate) fn enable(&self, manifest: Manifest, directory: PathBuf) -> Result<(), String> {
         self.change(PackageChange::Enable(Arc::new(manifest), directory))
     }
@@ -251,10 +278,17 @@ struct Coordinator {
     suspended: BTreeSet<String>,
     players: Vec<Weak<PlayerPort>>,
     launches: Arc<Mutex<Vec<Arc<Ticket>>>>,
+    #[cfg(any(target_os = "macos", test))]
+    activity: Arc<UiActivity>,
 }
 
 impl Coordinator {
-    fn new(profile: &Path, ui: PluginUi, launches: Arc<Mutex<Vec<Arc<Ticket>>>>) -> Self {
+    fn new(
+        profile: &Path,
+        ui: PluginUi,
+        launches: Arc<Mutex<Vec<Arc<Ticket>>>>,
+        #[cfg(any(target_os = "macos", test))] activity: Arc<UiActivity>,
+    ) -> Self {
         let directory = profile.with_file_name("Plugins");
         crate::plugin_packages::sweep_staging(&directory);
         Self {
@@ -266,10 +300,14 @@ impl Coordinator {
             suspended: BTreeSet::new(),
             players: Vec::new(),
             launches,
+            #[cfg(any(target_os = "macos", test))]
+            activity,
         }
     }
 
     fn run(mut self, requests: mpsc::Receiver<Request>) {
+        #[cfg(any(target_os = "macos", test))]
+        let mut shown_revision = self.ui.windows.revision();
         loop {
             let request = if self.entries.is_empty() {
                 requests
@@ -285,11 +323,21 @@ impl Coordinator {
             }
             let players = self.live_players();
             self.pump(&players);
+            #[cfg(any(target_os = "macos", test))]
+            {
+                let revision = self.ui.windows.revision();
+                if revision != shown_revision {
+                    shown_revision = revision;
+                    self.activity.wake();
+                }
+            }
         }
     }
 
     fn handle(&mut self, request: Request) {
         match request {
+            #[cfg(any(target_os = "macos", test))]
+            Request::LoadEnabledGlobals => self.load_enabled_globals(),
             Request::Join(player) => {
                 if let Some(port) = player.upgrade() {
                     for (identifier, entry) in &mut self.entries {
@@ -333,6 +381,16 @@ impl Coordinator {
                 }
             }
             Request::Shutdown => {}
+        }
+    }
+
+    fn load_enabled_globals(&mut self) {
+        for plugin in enabled_packages(&self.directory, &self.enabled) {
+            if !self.suspended.contains(&plugin.manifest.identifier)
+                && let Err(error) = self.ensure(&plugin.manifest, &plugin.directory)
+            {
+                self.report(error);
+            }
         }
     }
 
@@ -402,6 +460,8 @@ impl Coordinator {
         if let Some(response) = response {
             let _ = response.try_send(schedule);
         }
+        #[cfg(any(target_os = "macos", test))]
+        self.activity.wake();
     }
 
     fn apply_change(&mut self, change: &PackageChange) -> Result<(), String> {
@@ -422,13 +482,7 @@ impl Coordinator {
             }
             PackageChange::Reload(_) => {
                 self.entries.clear();
-                for plugin in enabled_packages(&self.directory, &self.enabled) {
-                    if !self.suspended.contains(&plugin.manifest.identifier)
-                        && let Err(error) = self.ensure(&plugin.manifest, &plugin.directory)
-                    {
-                        self.report(error);
-                    }
-                }
+                self.load_enabled_globals();
                 Ok(())
             }
         }
@@ -447,7 +501,11 @@ impl Coordinator {
     }
 
     fn report(&mut self, message: String) {
-        for port in self.live_players() {
+        let players = self.live_players();
+        if players.is_empty() {
+            crate::diagnostics::warn!("{message}");
+        }
+        for port in players {
             port.publish(PluginHostMessage::Status(message.clone()));
         }
     }
@@ -470,11 +528,18 @@ impl Coordinator {
                         entry.route(identifier, message, players);
                     }
                     HostEvent::CreatePluginPlayer(id, options) => {
-                        if let Err(error) =
-                            entry.create_player(identifier, id, options, &self.launches)
-                            && let Some(port) = players.last()
-                        {
-                            port.publish(PluginHostMessage::Status(error));
+                        match entry.create_player(identifier, id, options, &self.launches) {
+                            Ok(()) => {
+                                #[cfg(any(target_os = "macos", test))]
+                                self.activity.wake();
+                            }
+                            Err(error) => {
+                                if let Some(port) = players.last() {
+                                    port.publish(PluginHostMessage::Status(error));
+                                } else {
+                                    crate::diagnostics::warn!("{error}");
+                                }
+                            }
                         }
                     }
                     HostEvent::MenuUpdate(items) => {
@@ -486,6 +551,14 @@ impl Coordinator {
                     HostEvent::Ui(effect) => {
                         if let Some(port) = players.last() {
                             port.publish(host_message(&entry.name, effect));
+                        } else {
+                            #[cfg(target_os = "macos")]
+                            if let super::UiEffect::ShowAlert(message) = effect
+                                && let Err(error) =
+                                    self.ui.dialogs.notice(entry.name.clone(), message)
+                            {
+                                crate::diagnostics::warn!("Could not show plugin alert: {error}");
+                            }
                         }
                     }
                     HostEvent::Console(message) => {

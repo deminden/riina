@@ -10,7 +10,7 @@ pub(in crate::platform) struct Shell {
 
 impl Shell {
     pub(in crate::platform) fn new(
-        _parent: &(impl ComponentHandle + 'static),
+        _parent: Option<&(impl ComponentHandle + 'static)>,
         title: &str,
         on_close: impl Fn() -> CloseRequestResponse + 'static,
     ) -> Result<Self, String> {

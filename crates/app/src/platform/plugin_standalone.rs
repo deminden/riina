@@ -24,6 +24,8 @@ fn title(name: &str, properties: &Properties) -> String {
 pub(crate) struct Presenter {
     hub: Hub,
     entries: BTreeMap<u64, Entry>,
+    #[cfg(target_os = "macos")]
+    closed: Option<std::rc::Rc<crate::windows::close_observer::CloseObserver>>,
 }
 
 impl Presenter {
@@ -31,10 +33,41 @@ impl Presenter {
         Self {
             hub,
             entries: BTreeMap::new(),
+            #[cfg(target_os = "macos")]
+            closed: None,
         }
     }
 
     pub(crate) fn update(&mut self, app: &PlayerWindow) {
+        self.present(Some(app));
+    }
+
+    #[cfg(target_os = "macos")]
+    pub(crate) fn bind_application_close(
+        &mut self,
+        closed: std::rc::Rc<crate::windows::close_observer::CloseObserver>,
+    ) {
+        self.closed = Some(closed);
+    }
+
+    #[cfg(target_os = "macos")]
+    pub(crate) fn update_from_application(&mut self) {
+        self.present(None);
+    }
+
+    #[cfg(target_os = "macos")]
+    pub(crate) fn is_visible(&self) -> bool {
+        self.entries.values().any(Entry::is_visible)
+    }
+
+    #[cfg(target_os = "macos")]
+    pub(crate) fn hide_for_quit(&mut self) {
+        self.entries.clear();
+    }
+
+    fn present(&mut self, app: Option<&PlayerWindow>) {
+        #[cfg(target_os = "macos")]
+        let was_visible = self.is_visible();
         self.entries
             .retain(|_, entry| entry.owner.upgrade().is_some_and(|owner| owner.is_live()));
         for endpoint in self.hub.live_entries() {
@@ -45,15 +78,29 @@ impl Presenter {
                 shell: None,
                 window: None,
             });
-            if let Err(error) = entry.update(app, &endpoint) {
+            if let Err(error) = entry.update(
+                app,
+                &endpoint,
+                #[cfg(target_os = "macos")]
+                self.closed.as_ref(),
+            ) {
                 if let Some(revision) = entry.revision {
                     endpoint.presentation_failed(revision);
                 }
                 entry.shell = None;
                 entry.window = None;
                 crate::diagnostics::warn!("{} standalone window: {error}", endpoint.name);
-                app.set_status(format!("{} window: {error}", endpoint.name).into());
+                if let Some(app) = app {
+                    app.set_status(format!("{} window: {error}", endpoint.name).into());
+                }
             }
+        }
+        #[cfg(target_os = "macos")]
+        if was_visible
+            && !self.is_visible()
+            && let Some(closed) = &self.closed
+        {
+            closed.notify();
         }
     }
 }
@@ -67,7 +114,23 @@ struct Entry {
 }
 
 impl Entry {
-    fn update(&mut self, app: &PlayerWindow, endpoint: &Arc<Endpoint>) -> Result<(), String> {
+    #[cfg(target_os = "macos")]
+    fn is_visible(&self) -> bool {
+        self.shell.as_ref().is_some_and(Shell::is_visible)
+            || self
+                .window
+                .as_ref()
+                .is_some_and(|window| window.shell.is_visible())
+    }
+
+    fn update(
+        &mut self,
+        app: Option<&PlayerWindow>,
+        endpoint: &Arc<Endpoint>,
+        #[cfg(target_os = "macos")] closed: Option<
+            &std::rc::Rc<crate::windows::close_observer::CloseObserver>,
+        >,
+    ) -> Result<(), String> {
         if let Some(next) = endpoint.snapshot(self.revision) {
             self.revision = Some(next.revision);
             if let Some(window) = &mut self.window {
@@ -85,9 +148,15 @@ impl Entry {
             if self.shell.is_none() {
                 let owner = Arc::downgrade(endpoint);
                 let title = title(&endpoint.name, &view.properties);
+                #[cfg(target_os = "macos")]
+                let closed = closed.cloned();
                 self.shell = Some(Shell::new(app, &title, move || {
                     if let Some(owner) = owner.upgrade() {
                         owner.user_closed();
+                    }
+                    #[cfg(target_os = "macos")]
+                    if let Some(closed) = &closed {
+                        closed.notify();
                     }
                     slint::CloseRequestResponse::HideWindow
                 })?);
@@ -120,7 +189,7 @@ struct BrowserWindow {
 impl BrowserWindow {
     fn new(
         shell: Shell,
-        app: &PlayerWindow,
+        app: Option<&PlayerWindow>,
         endpoint: &Arc<Endpoint>,
         view: Presentation,
     ) -> Result<Self, String> {
@@ -140,7 +209,7 @@ impl BrowserWindow {
             || {},
         ))?;
         #[cfg(target_os = "linux")]
-        {
+        if let Some(app) = app {
             use slint::ComponentHandle;
             super::unix::plugin_shortcuts::bind(
                 &browser,

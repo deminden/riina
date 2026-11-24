@@ -18,7 +18,8 @@ pub(super) fn present(
             request.finish(Err("The player has closed".into()));
             return;
         };
-        let response = interact(&app, native_host, &request).await;
+        let dark = app.global::<PlayerAppearance>().get_dark_theme();
+        let response = interact(Some(&app), native_host, dark, &request).await;
         set_interaction_active(&app, false);
         request.finish(response);
     })
@@ -35,9 +36,10 @@ fn set_interaction_active(app: &PlayerWindow, active: bool) {
     set_active(app, active);
 }
 
-async fn interact(
-    app: &PlayerWindow,
+pub(super) async fn interact(
+    app: Option<&PlayerWindow>,
     native_host: Option<slint::Weak<NativeVideoHost>>,
+    dark: bool,
     request: &InteractionRequest,
 ) -> Result<Option<String>, String> {
     if request.is_cancelled() {
@@ -45,7 +47,7 @@ async fn interact(
     }
     let window = PluginInteractionWindow::new().map_err(|error| error.to_string())?;
     crate::appearance_preferences::install_system_typography(&window);
-    window.set_dark_theme(app.global::<PlayerAppearance>().get_dark_theme());
+    window.set_dark_theme(dark);
     window.set_asks_for_text(request.kind == InteractionKind::Prompt);
     window.set_message(request.title.as_str().into());
     let (answer, response) = oneshot::channel();
@@ -59,10 +61,16 @@ async fn interact(
         complete(&close_answer, None);
         CloseRequestResponse::KeepWindowShown
     });
-    crate::platform::center_auxiliary_window(&window, app);
+    if let Some(app) = app {
+        crate::platform::center_auxiliary_window(&window, app);
+    }
     crate::platform::show_window(&window).map_err(|error| error.to_string())?;
     #[cfg(windows)]
-    let _modal = windows_modal(&window, app, native_host).await;
+    let _modal = if let Some(app) = app {
+        Some(windows_modal(&window, app, native_host).await)
+    } else {
+        None
+    };
     #[cfg(not(windows))]
     let _ = native_host;
     window.invoke_focus_default();

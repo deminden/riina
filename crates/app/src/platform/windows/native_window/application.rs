@@ -90,11 +90,12 @@ pub(super) fn run(
             let loaded = preference_load::load(&path).map_err(|error| error.to_string())?;
             let launch = NativeLaunch {
                 media: InitialMedia::for_plugin(ticket),
-                owner_center: crate::platform::player_window_center(parent.window()),
+                owner_center: parent
+                    .and_then(|app| crate::platform::player_window_center(app.window())),
                 loaded,
             };
             let player = app
-                .launch(launch, Some(Origin::Player(parent.as_weak())))
+                .launch(launch, parent.map(|app| Origin::Player(app.as_weak())))
                 .map_err(|error| error.to_string())?;
             let player = Rc::downgrade(&player);
             let owner = owner.clone();

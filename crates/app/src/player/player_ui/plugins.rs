@@ -3,6 +3,8 @@ mod application;
 mod developer;
 mod effects;
 mod input;
+#[cfg(target_os = "macos")]
+mod windowless;
 use super::playlist_menu;
 
 use crate::{

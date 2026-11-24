@@ -315,6 +315,7 @@ impl ApplicationServices {
         self.open_url.closed.bind(callback.clone());
         self.updates.closed.bind(callback.clone());
         self.settings.closed.bind(callback.clone());
+        self.plugins.closed.bind(callback.clone());
         self.highlights.closed.bind(callback);
     }
 
@@ -327,6 +328,7 @@ impl ApplicationServices {
             || self.updates.is_visible()
             || self.highlights.is_visible()
             || self.settings.is_visible()
+            || self.plugins.auxiliary_is_visible()
     }
 
     #[cfg(target_os = "macos")]
@@ -337,6 +339,7 @@ impl ApplicationServices {
         self.updates.hide_for_quit();
         self.highlights.hide();
         self.settings.hide();
+        self.plugins.hide_for_quit();
     }
 
     #[cfg(target_os = "macos")]

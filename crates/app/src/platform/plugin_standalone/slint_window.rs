@@ -15,14 +15,16 @@ pub(in crate::platform) struct Shell {
 
 impl Shell {
     pub(in crate::platform) fn new(
-        parent: &(impl ComponentHandle + 'static),
+        parent: Option<&(impl ComponentHandle + 'static)>,
         title: &str,
         on_close: impl Fn() -> CloseRequestResponse + 'static,
     ) -> Result<Self, String> {
         let window = PluginStandaloneWindow::new().map_err(|error| error.to_string())?;
         window.set_window_title(title.into());
         window.window().on_close_requested(on_close);
-        platform::center_auxiliary_window(&window, parent);
+        if let Some(parent) = parent {
+            platform::center_auxiliary_window(&window, parent);
+        }
         platform::show_window(&window).map_err(|error| error.to_string())?;
         Ok(Self {
             window,
@@ -33,6 +35,11 @@ impl Shell {
 
     pub(in crate::platform) fn can_build(&self) -> bool {
         self.window.window().has_winit_window()
+    }
+
+    #[cfg(target_os = "macos")]
+    pub(super) fn is_visible(&self) -> bool {
+        self.window.window().is_visible()
     }
 
     pub(in crate::platform) fn build_webview(

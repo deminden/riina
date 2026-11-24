@@ -337,6 +337,14 @@ changes to those sessions and waits for their acknowledgements before an
 installer can replace an active package. Closing the application retires the
 global entries.
 
+On macOS, startup loads enabled global entries even if the selected launch
+action leaves the app without a player. The coordinator wakes the UI when a
+global entry requests a player or changes a standalone window. The application
+opens those tools directly and checks WebView frames only while a tool is
+visible. Prompts and file pickers can use the application when no visible
+player can host them. Standalone windows and application dialogs participate
+in the same quit policy as other app-owned tools.
+
 Settings and both plugin hosts share package discovery. Links and development
 folders keep their project location, with permissions and preferences stored
 in the Riina profile. If two packages declare the same identifier, discovery

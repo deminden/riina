@@ -125,9 +125,13 @@ fn run_shared_player(
     let player_manager = player_manager::PlayerManager::new();
     #[cfg(target_os = "macos")]
     match platform::preferences_path() {
-        Ok(path) => player_manager
-            .services()
-            .configure_application_updates(&path, &loaded.preferences),
+        Ok(path) => {
+            let services = player_manager.services();
+            services.configure_application_updates(&path, &loaded.preferences);
+            if let Err(error) = player_manager.prepare_application_plugins(&path) {
+                diagnostics::warn!("Could not load application plugins: {error}");
+            }
+        }
         Err(error) => diagnostics::warn!("Could not load the application update schedule: {error}"),
     }
     let application_menu = platform::startup::ApplicationMenu::new();

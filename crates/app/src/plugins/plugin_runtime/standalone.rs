@@ -5,13 +5,19 @@ mod tests;
 use super::{ExecutionControl, RuntimeCommand};
 use riina_core::plugin_window::{Frame, Intent, Presentation, Properties, State, validate_message};
 use rquickjs::{Context, Function, Object, Value, function::Func};
+#[cfg(any(target_os = "macos", test))]
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::{
     path::{Path, PathBuf},
     sync::{Arc, Mutex, Weak, mpsc::SyncSender},
 };
 
 #[derive(Clone, Default)]
-pub(crate) struct Hub(Arc<Mutex<Registry>>);
+pub(crate) struct Hub {
+    registry: Arc<Mutex<Registry>>,
+    #[cfg(any(target_os = "macos", test))]
+    revision: Arc<AtomicU64>,
+}
 
 #[derive(Default)]
 struct Registry {
@@ -27,7 +33,7 @@ impl Hub {
         execution: Arc<ExecutionControl>,
         commands: SyncSender<RuntimeCommand>,
     ) -> Arc<Endpoint> {
-        let mut registry = riina_core::sync::lock(&self.0);
+        let mut registry = riina_core::sync::lock(&self.registry);
         let id = registry.next_id;
         registry.next_id = registry.next_id.wrapping_add(1);
         let endpoint = Arc::new(Endpoint {
@@ -38,13 +44,15 @@ impl Hub {
             execution,
             commands,
             state: Mutex::default(),
+            #[cfg(any(target_os = "macos", test))]
+            revision: self.revision.clone(),
         });
         registry.entries.push(Arc::downgrade(&endpoint));
         endpoint
     }
 
     pub(crate) fn live_entries(&self) -> Vec<Arc<Endpoint>> {
-        let mut registry = riina_core::sync::lock(&self.0);
+        let mut registry = riina_core::sync::lock(&self.registry);
         let mut open = Vec::new();
         registry.entries.retain(|weak| {
             let Some(endpoint) = weak.upgrade().filter(|endpoint| endpoint.is_live()) else {
@@ -54,6 +62,11 @@ impl Hub {
             true
         });
         open
+    }
+
+    #[cfg(any(target_os = "macos", test))]
+    pub(crate) fn revision(&self) -> u64 {
+        self.revision.load(Ordering::Acquire)
     }
 }
 
@@ -65,6 +78,8 @@ pub(crate) struct Endpoint {
     execution: Arc<ExecutionControl>,
     commands: SyncSender<RuntimeCommand>,
     state: Mutex<State>,
+    #[cfg(any(target_os = "macos", test))]
+    revision: Arc<AtomicU64>,
 }
 
 impl Endpoint {
@@ -155,7 +170,17 @@ impl Endpoint {
             .state
             .lock()
             .map_err(|_| "Standalone window state is unavailable")?;
-        state.apply(intent)
+        state.apply(intent)?;
+        #[cfg(any(target_os = "macos", test))]
+        self.revision.fetch_add(1, Ordering::Release);
+        Ok(())
+    }
+}
+
+#[cfg(any(target_os = "macos", test))]
+impl Drop for Endpoint {
+    fn drop(&mut self) {
+        self.revision.fetch_add(1, Ordering::Release);
     }
 }
 

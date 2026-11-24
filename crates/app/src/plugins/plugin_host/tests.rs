@@ -573,6 +573,98 @@ fn verify_playlist_menu_actions(handle: &PluginHostHandle) {
 }
 
 #[test]
+fn enabled_global_realms_start_before_any_player_joins() {
+    let scratch = TempDir::new("windowless-application-plugin").unwrap();
+    let profile = scratch.path().join("preferences.json");
+    for identifier in ["org.example.enabled", "org.example.disabled"] {
+        let package = scratch
+            .path()
+            .join("Plugins")
+            .join(format!("{identifier}.iinaplugin"));
+        fs::create_dir_all(&package).unwrap();
+        fs::write(
+            package.join("Info.json"),
+            serde_json::json!({
+                "name": identifier,
+                "identifier": identifier,
+                "version": "1",
+                "author": {"name": "Test"},
+                "entry": "main.js",
+                "globalEntry": "main.js",
+            })
+            .to_string(),
+        )
+        .unwrap();
+        fs::write(
+            package.join("main.js"),
+            r"
+                iina.standaloneWindow.simpleMode();
+                iina.standaloneWindow.setContent('Startup view');
+                iina.standaloneWindow.open();
+                iina.global.createPlayerInstance({label: 'Startup player', disableUI: true});
+            ",
+        )
+        .unwrap();
+    }
+    fs::write(
+        scratch.path().join("plugin-enabled.json"),
+        r#"["org.example.enabled"]"#,
+    )
+    .unwrap();
+
+    let global = GlobalHost::start(&profile).unwrap();
+    let handle = global.handle();
+    let (wake, ready) = mpsc::sync_channel(16);
+    handle.set_ui_waker(move || {
+        let _ = wake.try_send(());
+    });
+    handle.load_enabled_globals().unwrap();
+    let mut tickets = Vec::new();
+    let presentation = wait_for_windowless_work(&ready, || {
+        tickets.extend(handle.take_player_launches());
+        if tickets.is_empty() {
+            return None;
+        }
+        handle
+            .ui
+            .windows
+            .live_entries()
+            .iter()
+            .find_map(|entry| entry.snapshot(None).filter(|view| view.visible))
+    });
+    assert_eq!(tickets.len(), 1);
+    assert_eq!(tickets[0].package, "org.example.enabled");
+    assert_eq!(tickets[0].options.label.as_deref(), Some("Startup player"));
+    assert!(matches!(
+        presentation.document,
+        riina_core::plugin_window::Document::Simple { .. }
+    ));
+    let (_, realms) = handle.ui.developer.list(0).unwrap();
+    assert_eq!(realms.len(), 1);
+    assert_eq!(realms[0].1, "org.example.enabled (Global)");
+
+    handle.disable("org.example.enabled".into()).unwrap();
+    wait_for_windowless_work(&ready, || {
+        (!tickets[0].is_open() && handle.ui.windows.live_entries().is_empty()).then_some(())
+    });
+}
+
+fn wait_for_windowless_work<T>(
+    ready: &mpsc::Receiver<()>,
+    mut observe: impl FnMut() -> Option<T>,
+) -> T {
+    let deadline = Instant::now() + Duration::from_secs(3);
+    loop {
+        ready
+            .recv_timeout(deadline.saturating_duration_since(Instant::now()))
+            .expect("The application did not receive a plugin wake");
+        if let Some(result) = observe() {
+            return result;
+        }
+    }
+}
+
+#[test]
 fn global_entry_owns_managed_players_and_routes_each_kind_of_message() {
     let scratch = TempDir::new("application-plugin").unwrap();
     let root = scratch.path();

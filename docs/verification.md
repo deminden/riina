@@ -3882,3 +3882,34 @@ launches, Settings focus, the review sheet and closing it during shutdown.
 - Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
 - Linux application SHA-256 `8f1b90fe164e9381e60535a79d4ef4691a01dc74bb8d47ce2f871881e85a887d`
 - Linux libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`
+
+### macOS global plugins before playback 2026-11-24
+
+macOS startup loads enabled global plugin entries before playback. Global
+requests can wake the application to open a standalone tool, create a
+player or present a dialog. Changes to plugin tools and application dialog
+closure participate in the application's quit policy. The application
+checks WebView frames while a standalone tool is visible and uses host
+wake notifications while idle.
+
+A host test loads two installed packages with only one enabled and no
+player registered. It observes the enabled package opening a standalone
+surface and reserving a player, then disables the package and checks that
+both resources retire and the application receives a wake.
+
+Private Windows and isolated Linux X11 desktop runs answered a plugin's
+startup confirmation, opened separate global and player tools, and closed
+the player tool independently. The Windows Plugin menu reopened the same
+global window during paused playback. Both test processes exited normally.
+The Windows workspace gate, locked Windows and Linux builds, 593 Linux
+application tests, 61 pinned Windows libmpv tests and strict Apple Silicon
+cross-Clippy passed.
+
+The windowless AppKit routes, native dialog focus and deferred quit still
+need a native macOS desktop run. Idle Plugin menu contributions remain
+pending.
+
+- Windows application SHA-256 `78aa1a537f35173d80a503b31404551933c51253a48be57cab45e3bad5788a05`
+- Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
+- Linux application SHA-256 `39b98b751459870e3f0106b0cba9342da13bd6e9ce9d43bae8ff9ec039a342e2`
+- Linux libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`

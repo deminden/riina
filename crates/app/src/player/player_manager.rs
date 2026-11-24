@@ -86,7 +86,7 @@ impl PlayerManager {
                     .map_err(|error| error.to_string())?;
                 let id = open_new_player(
                     &application,
-                    Some(owner),
+                    owner,
                     InitialMedia::for_plugin(ticket),
                     loaded,
                 )?;
@@ -247,6 +247,20 @@ impl PlayerManager {
             player.session.save(&player.app)?;
         }
         Ok(())
+    }
+
+    #[cfg(target_os = "macos")]
+    pub(crate) fn prepare_application_plugins(&self, path: &std::path::Path) -> Result<(), String> {
+        let plugins = self.services().plugins;
+        let global = plugins.host(path)?;
+        let state = Rc::downgrade(&self.state);
+        plugins.bind_windowless(global.clone(), move || {
+            state.upgrade().is_some_and(|state| {
+                let state = state.borrow();
+                !state.quitting && state.players.is_empty()
+            })
+        });
+        global.load_enabled_globals()
     }
 }
 
@@ -492,6 +506,8 @@ fn close_player(state: &Rc<RefCell<ManagerState>>, id: u64, from_welcome: bool) 
     if !empty {
         return;
     }
+    #[cfg(target_os = "macos")]
+    state.borrow().services.plugins.request_windowless();
     #[cfg(target_os = "macos")]
     if state.borrow().services.auxiliary_is_visible() {
         state.borrow_mut().last_player_closed_with_tools |= player_was_visible;
