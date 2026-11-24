@@ -339,11 +339,16 @@ global entries.
 
 On macOS, startup loads enabled global entries even if the selected launch
 action leaves the app without a player. The coordinator wakes the UI when a
-global entry requests a player or changes a standalone window. The application
-opens those tools directly and checks WebView frames only while a tool is
+global entry requests a player or changes its standalone window, menu or
+developer registration. The AppKit application menu reads published global
+contributions and defers menu mutations until tracking ends. An action carries
+the generation of its owning realm so a selection from before reload cannot
+reach a replacement entry. The Developer Tool uses the same global console
+whether or not a player is open, and retires it when its realm stops.
+The application checks WebView frames and console output while the tools are
 visible. Prompts and file pickers can use the application when no visible
-player can host them. Standalone windows and application dialogs participate
-in the same quit policy as other app-owned tools.
+player can host them. Plugin tools and application dialogs participate in the
+same quit policy as other app-owned tools.
 
 Settings and both plugin hosts share package discovery. Links and development
 folders keep their project location, with permissions and preferences stored

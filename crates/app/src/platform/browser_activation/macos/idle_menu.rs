@@ -1,5 +1,5 @@
 //! Keep application commands available when there is no Slint player menu.
-use super::LaunchTarget;
+use super::{LaunchTarget, plugin_menu};
 use objc2::{
     MainThreadMarker, MainThreadOnly,
     rc::Retained,
@@ -27,6 +27,7 @@ pub(super) fn prepare(
     for submenu in [
         application_menu(main, target),
         file_menu(main, target, enable_new_window_shortcut),
+        plugin_menu::new(main, target),
         window_menu(main, target),
         help_menu(main, target),
     ] {
@@ -226,6 +227,7 @@ pub(crate) fn show_idle_menu() {
                 .is_some_and(|active| std::ptr::eq(active, &**menu))
         {
             refresh_file_menu(main, menu);
+            refresh_plugins_in(menu, false);
             app.setMainMenu(Some(menu));
             if let Some(window) = menu
                 .itemWithTitle(&NSString::from_str("Window"))
@@ -248,8 +250,31 @@ pub(super) fn refresh() {
         IDLE_MENU.with_borrow(|menu| {
             if let Some(menu) = menu {
                 refresh_file_menu(main, menu);
+                refresh_plugins_in(menu, true);
             }
         });
+    }
+}
+
+pub(super) fn refresh_plugins(force: bool) {
+    let menu = IDLE_MENU.with_borrow(Clone::clone);
+    if let Some(menu) = menu {
+        refresh_plugins_in(&menu, force);
+    }
+}
+
+fn refresh_plugins_in(bar: &NSMenu, force: bool) {
+    if let Some(plugins) = bar
+        .itemWithTitle(&NSString::from_str("Plugin"))
+        .and_then(|item| item.submenu())
+        && let Some(target) = plugins.itemAtIndex(0).and_then(|item| item.target())
+        && let Ok(target) = target.downcast::<LaunchTarget>()
+    {
+        use objc2::DefinedClass;
+        target
+            .ivars()
+            .plugins
+            .refresh(bar, &plugins, &target, force);
     }
 }
 
@@ -351,7 +376,7 @@ pub(super) fn clear() {
     }
 }
 
-fn item(
+pub(super) fn item(
     main: MainThreadMarker,
     title: &str,
     action: Option<Sel>,

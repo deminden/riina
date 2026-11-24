@@ -19,6 +19,8 @@ pub(super) struct Presenter {
 pub(super) struct Scope {
     directory: Directory,
     windows: Rc<RefCell<BTreeMap<u64, ToolWindow>>>,
+    #[cfg(target_os = "macos")]
+    closed: Option<Rc<crate::windows::close_observer::CloseObserver>>,
 }
 
 struct RealmMenu {
@@ -32,10 +34,20 @@ impl Scope {
         Self {
             directory,
             windows: Rc::default(),
+            #[cfg(target_os = "macos")]
+            closed: None,
         }
     }
 
-    fn open(&self, app: &PlayerWindow, id: u64) -> Result<(), String> {
+    #[cfg(target_os = "macos")]
+    pub(super) fn bind_application_close(
+        &mut self,
+        closed: Rc<crate::windows::close_observer::CloseObserver>,
+    ) {
+        self.closed = Some(closed);
+    }
+
+    fn open(&self, app: Option<&PlayerWindow>, id: u64) -> Result<(), String> {
         let realm = self
             .directory
             .get(id)
@@ -44,10 +56,67 @@ impl Scope {
         let window = match windows.entry(id) {
             std::collections::btree_map::Entry::Occupied(entry) => entry.into_mut(),
             std::collections::btree_map::Entry::Vacant(entry) => {
-                entry.insert(ToolWindow::new(app, realm)?)
+                let window = ToolWindow::new(app, realm)?;
+                #[cfg(target_os = "macos")]
+                if let Some(closed) = self.closed.clone() {
+                    window.window.window().on_close_requested(move || {
+                        closed.notify();
+                        slint::CloseRequestResponse::HideWindow
+                    });
+                }
+                entry.insert(window)
             }
         };
         window.show()
+    }
+
+    #[cfg(target_os = "macos")]
+    pub(super) fn open_windowless(&self, id: u64) -> Result<(), String> {
+        self.open(None, id)
+    }
+
+    #[cfg(target_os = "macos")]
+    pub(super) fn present_windowless(&self) -> bool {
+        let Ok(mut windows) = self.windows.try_borrow_mut() else {
+            return true;
+        };
+        let was_visible = visible(&windows);
+        windows.retain(|id, _| self.directory.get(*id).is_some());
+        let is_visible = visible(&windows);
+        if was_visible
+            && !is_visible
+            && let Some(closed) = &self.closed
+        {
+            closed.notify();
+        }
+        refresh_visible(&mut windows);
+        is_visible
+    }
+
+    #[cfg(target_os = "macos")]
+    pub(super) fn is_visible(&self) -> bool {
+        self.windows
+            .try_borrow()
+            .map_or(true, |windows| visible(&windows))
+    }
+
+    pub(super) fn close_all(&self) {
+        self.windows.borrow_mut().clear();
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn visible(windows: &BTreeMap<u64, ToolWindow>) -> bool {
+    windows
+        .values()
+        .any(|window| window.window.window().is_visible())
+}
+
+fn refresh_visible(windows: &mut BTreeMap<u64, ToolWindow>) {
+    for window in windows.values_mut() {
+        if window.window.window().is_visible() {
+            window.refresh();
+        }
     }
 }
 
@@ -72,11 +141,7 @@ impl RealmMenu {
         } else {
             false
         };
-        for window in windows.values_mut() {
-            if window.window.window().is_visible() {
-                window.refresh();
-            }
-        }
+        refresh_visible(&mut windows);
         changed
     }
 
@@ -131,13 +196,13 @@ impl Presenter {
     }
 
     pub(super) fn close_all(&mut self) {
-        self.player.scope.windows.borrow_mut().clear();
+        self.player.scope.close_all();
     }
 
     fn open(&self, app: &PlayerWindow, scope: &str, id: u64) -> Result<(), String> {
         match scope {
-            "player" => self.player.scope.open(app, id),
-            "global" => self.global.scope.open(app, id),
+            "player" => self.player.scope.open(Some(app), id),
+            "global" => self.global.scope.open(Some(app), id),
             _ => Err("Unknown plugin console scope".into()),
         }
     }
@@ -151,14 +216,16 @@ struct ToolWindow {
 }
 
 impl ToolWindow {
-    fn new(app: &PlayerWindow, realm: Realm) -> Result<Self, String> {
+    fn new(app: Option<&PlayerWindow>, realm: Realm) -> Result<Self, String> {
         let title = realm.title.clone();
         let window = PluginDeveloperTool::new().map_err(|error| error.to_string())?;
         let console = Rc::new(realm.attach().ok_or("The plugin console is unavailable")?);
         let rows = Rc::new(VecModel::default());
         window.set_lines(ModelRc::from(Rc::clone(&rows)));
         window.set_realm_title(title.into());
-        window.set_primary_shortcut_is_meta(app.get_primary_shortcut_is_meta());
+        window.set_primary_shortcut_is_meta(app.map_or(cfg!(target_os = "macos"), |app| {
+            app.get_primary_shortcut_is_meta()
+        }));
         let callback = Rc::downgrade(&console);
         let weak = window.as_weak();
         window.on_evaluate(move |source| {
@@ -192,7 +259,9 @@ impl ToolWindow {
                 .unwrap_or_default()
                 .into()
         });
-        platform::center_auxiliary_window(&window, app);
+        if let Some(app) = app {
+            platform::center_auxiliary_window(&window, app);
+        }
         Ok(Self {
             window,
             console,

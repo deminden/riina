@@ -162,25 +162,31 @@ impl PlayerManager {
         }
     }
 
-    pub(crate) fn show_application_settings(&self) {
+    pub(crate) fn show_application_settings(&self, pane: Option<i32>) {
         if self.is_quitting() {
             return;
         }
         if let Some((app, _)) = self.services().history.browser_destination() {
             // Welcome can own a configured player even before the first file.
+            let previous_pane = app.get_preferences_target_pane();
+            if let Some(pane) = pane {
+                app.set_preferences_target_pane(pane);
+            }
             app.global::<riina_ui::PlayerMenuActions>()
                 .invoke_open_preferences();
+            app.set_preferences_target_pane(previous_pane);
             return;
         }
-        if let Err(error) = self.open_application_settings() {
+        if let Err(error) = self.open_application_settings(pane) {
             crate::diagnostics::warn!("Could not open Settings: {error}");
         }
     }
 
-    fn open_application_settings(&self) -> Result<(), String> {
+    fn open_application_settings(&self, pane: Option<i32>) -> Result<(), String> {
         let path = crate::platform::preferences_path().map_err(|error| error.to_string())?;
         let loaded = preference_load::load(&path).map_err(|error| error.to_string())?;
-        self.services().show_application_settings(&path, loaded)
+        self.services()
+            .show_application_settings(&path, loaded, pane)
     }
 
     pub(crate) fn clear_application_recents(&self) {
@@ -242,7 +248,7 @@ impl PlayerManager {
                 crate::platform::browser_activation::show_idle_menu();
             }
             let result = self
-                .open_application_settings()
+                .open_application_settings(Some(crate::preferences_window::PLUGINS_PANE))
                 .and_then(|()| self.services().open_plugin_archive(archive.to_owned()));
             if let Err(error) = result {
                 crate::diagnostics::warn!("Could not open the plugin package: {error}");

@@ -45,17 +45,20 @@ impl ApplicationPlugins {
         let dialogs = plugin_dialogs::ApplicationOwners::default();
         dialogs.install(&handle.ui.dialogs);
         let standalone = plugin_standalone::Presenter::new(handle.ui.windows.clone());
+        let developer = developer::Scope::new(handle.ui.developer.clone());
         #[cfg(target_os = "macos")]
-        let standalone = {
+        let (standalone, developer) = {
             dialogs.bind_application_close(self.closed.clone());
             let mut standalone = standalone;
             standalone.bind_application_close(self.closed.clone());
-            standalone
+            let mut developer = developer;
+            developer.bind_application_close(self.closed.clone());
+            (standalone, developer)
         };
         *services = Some(Services {
             host,
             standalone: Rc::new(RefCell::new(standalone)),
-            developer: developer::Scope::new(handle.ui.developer.clone()),
+            developer,
             dialogs,
         });
         Ok(handle)
@@ -88,28 +91,52 @@ impl ApplicationPlugins {
 
     #[cfg(target_os = "macos")]
     fn present_windowless(&self, global: &GlobalHandle) -> bool {
+        crate::platform::browser_activation::refresh_idle_plugins();
         if let Ok(mut managed) = self.managed.try_borrow_mut() {
             managed.update_for_owner(None, global);
         }
-        let standalone = self
+        let views = self
             .services
             .borrow()
             .as_ref()
-            .map(|services| services.standalone.clone());
-        let Some(standalone) = standalone else {
+            .map(|services| (services.standalone.clone(), services.developer.clone()));
+        let Some((standalone, developer)) = views else {
             return false;
         };
+        let console_visible = developer.present_windowless();
         let Ok(mut standalone) = standalone.try_borrow_mut() else {
             return true;
         };
         standalone.update_from_application();
-        standalone.is_visible()
+        standalone.is_visible() || console_visible
+    }
+
+    #[cfg(target_os = "macos")]
+    pub(crate) fn global_handle(&self) -> Option<GlobalHandle> {
+        self.services
+            .borrow()
+            .as_ref()
+            .map(|services| services.host.handle())
+    }
+
+    #[cfg(target_os = "macos")]
+    pub(crate) fn open_developer_tool(&self, realm: u64) -> Result<(), String> {
+        let developer = self
+            .services
+            .borrow()
+            .as_ref()
+            .map(|services| services.developer.clone())
+            .ok_or("The global plugin host is unavailable")?;
+        developer.open_windowless(realm)?;
+        self.request_windowless();
+        Ok(())
     }
 
     #[cfg(target_os = "macos")]
     pub(crate) fn auxiliary_is_visible(&self) -> bool {
         self.services.borrow().as_ref().is_some_and(|services| {
             services.dialogs.application_dialog_visible()
+                || services.developer.is_visible()
                 || services
                     .standalone
                     .try_borrow()
@@ -122,6 +149,7 @@ impl ApplicationPlugins {
         self.windowless.borrow_mut().take();
         if let Some(services) = self.services.borrow().as_ref() {
             services.host.handle().ui.dialogs.stop();
+            services.developer.close_all();
             if let Ok(mut standalone) = services.standalone.try_borrow_mut() {
                 standalone.hide_for_quit();
             }

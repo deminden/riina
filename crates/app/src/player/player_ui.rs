@@ -347,10 +347,11 @@ impl ApplicationServices {
         &self,
         path: &std::path::Path,
         loaded: crate::preference_load::LoadedPreferences,
+        pane: Option<i32>,
     ) -> Result<(), String> {
         if self
             .settings
-            .show_visible(None)
+            .show_visible(pane)
             .map_err(|error| error.to_string())?
         {
             return Ok(());
@@ -382,6 +383,9 @@ impl ApplicationServices {
         self.power.initialize(saved.playback_power);
         let baseline = saved.clone();
         self.settings.show(path, saved, clear, |window| {
+            if let Some(pane) = pane {
+                window.set_selected_pane(pane);
+            }
             let report = crate::preferences_window::application_status(window);
             self.updates.connect_settings(window, report.clone());
             self.updates.refresh_settings(window);

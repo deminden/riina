@@ -23,6 +23,18 @@ const MAX_PLAYERS_PER_PLUGIN: usize = 16;
 const MAX_PENDING_PLAYERS: usize = 32;
 type Acknowledgement = mpsc::Receiver<Result<(), String>>;
 
+#[cfg(any(target_os = "macos", test))]
+#[derive(Clone, PartialEq, Eq)]
+pub(crate) struct GlobalMenu {
+    pub(crate) package: String,
+    pub(crate) generation: u64,
+    pub(crate) title: String,
+    pub(crate) items: Vec<PluginMenuItem>,
+}
+
+#[cfg(any(target_os = "macos", test))]
+type GlobalMenus = Arc<Mutex<Vec<GlobalMenu>>>;
+
 pub(crate) struct GlobalHost {
     handle: GlobalHandle,
     worker: Option<JoinHandle<()>>,
@@ -36,6 +48,8 @@ pub(crate) struct GlobalHandle {
     launches: Arc<Mutex<Vec<Arc<Ticket>>>>,
     #[cfg(any(target_os = "macos", test))]
     activity: Arc<UiActivity>,
+    #[cfg(any(target_os = "macos", test))]
+    menus: GlobalMenus,
 }
 
 pub(super) struct PlayerPort {
@@ -58,6 +72,8 @@ pub(super) enum PackageChange {
 enum Request {
     #[cfg(any(target_os = "macos", test))]
     LoadEnabledGlobals,
+    #[cfg(any(target_os = "macos", test))]
+    ActivateIdleMenu(String, u64, String),
     Join(Weak<PlayerPort>),
     Ensure(
         Weak<PlayerPort>,
@@ -87,6 +103,10 @@ impl GlobalHost {
         let activity = Arc::new(UiActivity::new());
         #[cfg(any(target_os = "macos", test))]
         let worker_activity = activity.clone();
+        #[cfg(any(target_os = "macos", test))]
+        let menus = GlobalMenus::default();
+        #[cfg(any(target_os = "macos", test))]
+        let worker_menus = menus.clone();
         let profile = preferences_path.to_path_buf();
         let worker = crate::background::spawn_named("riina-application-plugins", move || {
             Coordinator::new(
@@ -95,6 +115,8 @@ impl GlobalHost {
                 worker_launches,
                 #[cfg(any(target_os = "macos", test))]
                 worker_activity,
+                #[cfg(any(target_os = "macos", test))]
+                worker_menus,
             )
             .run(requests);
         })
@@ -107,6 +129,8 @@ impl GlobalHost {
                 launches,
                 #[cfg(any(target_os = "macos", test))]
                 activity,
+                #[cfg(any(target_os = "macos", test))]
+                menus,
             },
             worker: Some(worker),
         })
@@ -128,6 +152,26 @@ impl Drop for GlobalHost {
 }
 
 impl GlobalHandle {
+    #[cfg(any(target_os = "macos", test))]
+    pub(crate) fn menus(&self) -> Vec<GlobalMenu> {
+        lock(&self.menus).clone()
+    }
+
+    #[cfg(any(target_os = "macos", test))]
+    pub(crate) fn activate_idle_menu(
+        &self,
+        package: String,
+        generation: u64,
+        id: String,
+    ) -> Result<(), String> {
+        self.send(Request::ActivateIdleMenu(package, generation, id))
+    }
+
+    #[cfg(any(target_os = "macos", test))]
+    pub(crate) fn reload_all(&self) -> Result<(), String> {
+        self.change(PackageChange::Reload(BTreeSet::new()))
+    }
+
     #[cfg(any(target_os = "macos", test))]
     pub(crate) fn set_ui_waker(&self, wake: impl Fn() + Send + Sync + 'static) {
         self.activity.set_waker(wake);
@@ -251,6 +295,8 @@ impl GlobalHandle {
 struct Entry {
     session: PluginRuntimeSession,
     name: String,
+    #[cfg(any(target_os = "macos", test))]
+    generation: u64,
     menu: Option<Vec<PluginMenuItem>>,
     managed: BTreeMap<u64, PendingPlayer>,
 }
@@ -280,6 +326,10 @@ struct Coordinator {
     launches: Arc<Mutex<Vec<Arc<Ticket>>>>,
     #[cfg(any(target_os = "macos", test))]
     activity: Arc<UiActivity>,
+    #[cfg(any(target_os = "macos", test))]
+    menus: GlobalMenus,
+    #[cfg(any(target_os = "macos", test))]
+    next_generation: u64,
 }
 
 impl Coordinator {
@@ -288,6 +338,7 @@ impl Coordinator {
         ui: PluginUi,
         launches: Arc<Mutex<Vec<Arc<Ticket>>>>,
         #[cfg(any(target_os = "macos", test))] activity: Arc<UiActivity>,
+        #[cfg(any(target_os = "macos", test))] menus: GlobalMenus,
     ) -> Self {
         let directory = profile.with_file_name("Plugins");
         crate::plugin_packages::sweep_staging(&directory);
@@ -302,12 +353,16 @@ impl Coordinator {
             launches,
             #[cfg(any(target_os = "macos", test))]
             activity,
+            #[cfg(any(target_os = "macos", test))]
+            menus,
+            #[cfg(any(target_os = "macos", test))]
+            next_generation: 0,
         }
     }
 
     fn run(mut self, requests: mpsc::Receiver<Request>) {
         #[cfg(any(target_os = "macos", test))]
-        let mut shown_revision = self.ui.windows.revision();
+        let mut shown = self.ui_revisions();
         loop {
             let request = if self.entries.is_empty() {
                 requests
@@ -325,19 +380,33 @@ impl Coordinator {
             self.pump(&players);
             #[cfg(any(target_os = "macos", test))]
             {
-                let revision = self.ui.windows.revision();
-                if revision != shown_revision {
-                    shown_revision = revision;
+                let current = self.ui_revisions();
+                if current != shown {
+                    shown = current;
                     self.activity.wake();
                 }
             }
         }
     }
 
+    #[cfg(any(target_os = "macos", test))]
+    fn ui_revisions(&self) -> (u64, u64) {
+        (self.ui.windows.revision(), self.ui.developer.revision())
+    }
+
     fn handle(&mut self, request: Request) {
         match request {
             #[cfg(any(target_os = "macos", test))]
             Request::LoadEnabledGlobals => self.load_enabled_globals(),
+            #[cfg(any(target_os = "macos", test))]
+            Request::ActivateIdleMenu(package, generation, id) => {
+                if let Some(entry) = self.entries.get(&package)
+                    && entry.generation == generation
+                    && let Err(error) = entry.session.deliver_plugin_menu_action(id)
+                {
+                    self.report(error);
+                }
+            }
             Request::Join(player) => {
                 if let Some(port) = player.upgrade() {
                     for (identifier, entry) in &mut self.entries {
@@ -415,11 +484,18 @@ impl Coordinator {
             self.ui.clone(),
         )
         .map_err(|error| format!("Could not start global {}: {error}", manifest.name))?;
+        #[cfg(any(target_os = "macos", test))]
+        let generation = {
+            self.next_generation = self.next_generation.wrapping_add(1);
+            self.next_generation
+        };
         self.entries.insert(
             manifest.identifier.clone(),
             Entry {
                 session,
                 name: manifest.name.clone(),
+                #[cfg(any(target_os = "macos", test))]
+                generation,
                 menu: None,
                 managed: BTreeMap::new(),
             },
@@ -461,7 +537,10 @@ impl Coordinator {
             let _ = response.try_send(schedule);
         }
         #[cfg(any(target_os = "macos", test))]
-        self.activity.wake();
+        {
+            self.refresh_menus();
+            self.activity.wake();
+        }
     }
 
     fn apply_change(&mut self, change: &PackageChange) -> Result<(), String> {
@@ -511,6 +590,8 @@ impl Coordinator {
     }
 
     fn pump(&mut self, players: &[Arc<PlayerPort>]) {
+        #[cfg(any(target_os = "macos", test))]
+        let mut menu_changed = false;
         for (identifier, entry) in &mut self.entries {
             entry.managed.retain(|_, player| player.ticket.is_open());
             let events = match entry.session.drain_events() {
@@ -543,6 +624,10 @@ impl Coordinator {
                         }
                     }
                     HostEvent::MenuUpdate(items) => {
+                        #[cfg(any(target_os = "macos", test))]
+                        {
+                            menu_changed = true;
+                        }
                         for port in players.iter().filter(|port| port.allows(identifier)) {
                             port.menu(menu_update(identifier, &entry.name, items.clone()));
                         }
@@ -572,6 +657,42 @@ impl Coordinator {
                 }
             }
         }
+        #[cfg(any(target_os = "macos", test))]
+        if menu_changed {
+            self.refresh_menus();
+            self.activity.wake();
+        }
+    }
+
+    #[cfg(any(target_os = "macos", test))]
+    fn refresh_menus(&self) {
+        let mut next = self
+            .entries
+            .iter()
+            .filter_map(|(package, entry)| {
+                let items = entry.menu.as_ref().filter(|items| !items.is_empty())?;
+                Some(GlobalMenu {
+                    package: package.clone(),
+                    generation: entry.generation,
+                    title: entry.name.clone(),
+                    items: items.clone(),
+                })
+            })
+            .collect::<Vec<_>>();
+        let order = super::read_plugin_order(&self.enabled);
+        next.sort_by(|left, right| {
+            let position = |package: &str| {
+                order
+                    .iter()
+                    .position(|id| id == package)
+                    .unwrap_or(usize::MAX)
+            };
+            position(&left.package)
+                .cmp(&position(&right.package))
+                .then_with(|| left.title.cmp(&right.title))
+                .then_with(|| left.package.cmp(&right.package))
+        });
+        *lock(&self.menus) = next;
     }
 }
 

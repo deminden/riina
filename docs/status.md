@@ -88,8 +88,10 @@ Implementation does not imply every state or platform is verified.
   Supported packages enable after approval, and unsupported packages stay
   installed and disabled. Finder delivery still needs native verification.
 - **macOS plugin startup:** enabled global plugins can initialize without a
-  player and request a tool window, prompt, picker or new player. The idle
-  app owns those tools and includes them in shutdown. Native macOS desktop
+  player and request a tool window, prompt, picker or new player. The
+  application Plugin menu shows global contributions and opens Plugins
+  Settings or a global developer console between playback sessions.
+  Application-owned tools participate in shutdown. Native macOS desktop
   verification remains pending.
 
 Volume defaults to 0-100%; the optional boost setting allows 200%.

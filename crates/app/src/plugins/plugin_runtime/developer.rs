@@ -45,6 +45,11 @@ pub(super) struct Registration {
 }
 
 impl Directory {
+    #[cfg(any(target_os = "macos", test))]
+    pub(crate) fn revision(&self) -> u64 {
+        lock(&self.0).revision
+    }
+
     pub(super) fn prepare(
         &self,
         name: &str,

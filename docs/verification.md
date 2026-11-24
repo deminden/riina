@@ -3906,10 +3906,39 @@ application tests, 61 pinned Windows libmpv tests and strict Apple Silicon
 cross-Clippy passed.
 
 The windowless AppKit routes, native dialog focus and deferred quit still
-need a native macOS desktop run. Idle Plugin menu contributions remain
-pending.
+need a native macOS desktop run.
 
 - Windows application SHA-256 `78aa1a537f35173d80a503b31404551933c51253a48be57cab45e3bad5788a05`
 - Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
 - Linux application SHA-256 `39b98b751459870e3f0106b0cba9342da13bd6e9ce9d43bae8ff9ec039a342e2`
+- Linux libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`
+
+### macOS Plugin menu before playback 2026-11-24
+
+With no player open, the application menu offers Manage Plugins, global
+actions, the global Developer Tool and Reload All Plugins. Manage Plugins
+selects the Plugins pane in application Settings. Menu sections use the
+profile's package order, with nested items and overflow under More. Menu
+updates published during tracking appear after the current menu closes.
+Global consoles remain attached to their own realm and close when it stops.
+
+The windowless host regression covers a selected nested action, a disabled
+parent, action-driven checkmark changes, and reload with a reused action ID.
+An action from the old realm is discarded. Disabling the replacement clears
+its menu, player request and standalone window.
+
+The Windows workspace gate and locked Windows and Linux builds passed, with
+629 Windows application tests, 593 Linux application tests and 61 tests against
+the pinned Windows libmpv. Both isolated desktops answered the startup prompt,
+opened separate standalone tools and shut down normally. On Windows the native
+menu also opened both developer consoles, which closed independently. The
+first immediate standalone-window reopen timed out. After a short interval
+following close, the same named action reopened the original window and
+playback stayed paused. Apple Silicon cross-Clippy passed. Native macOS menu
+tracking, key equivalents, Settings focus, console behavior and shutdown still
+need a Mac desktop run.
+
+- Windows application SHA-256 `0880e01b64bc9129de291176ca1a423ac4a06372998340b48919c41252d7fbbf`
+- Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
+- Linux application SHA-256 `581bb56b6016a0fbf7c9681daedf17aef694a6757d6ef8382fcf4d708e9ee7ec`
 - Linux libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`

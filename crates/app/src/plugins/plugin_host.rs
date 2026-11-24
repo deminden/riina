@@ -10,6 +10,8 @@ use crate::{
     plugin_snapshot::{playback_history_values, recent_document_values, version_snapshot},
     plugins::plugin_players::Ticket,
 };
+#[cfg(any(target_os = "macos", test))]
+pub(crate) use application::GlobalMenu;
 pub(crate) use application::{GlobalHandle, GlobalHost};
 use application::{PackageChange, PlayerPort};
 pub(crate) use playlist_menu::PlaylistMenuContribution;

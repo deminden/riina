@@ -1,5 +1,7 @@
 //! Receive Finder, Dock and URL events while Winit retains the application delegate.
 mod idle_menu;
+mod plugin_menu;
+mod plugin_shortcuts;
 
 use crate::{
     browser_links::{Inbox, Link},
@@ -12,7 +14,9 @@ use objc2::{
     runtime::{AnyObject, NSObject, ProtocolObject, Sel},
     sel,
 };
-use objc2_app_kit::{NSApplication, NSApplicationWillFinishLaunchingNotification};
+use objc2_app_kit::{
+    NSApplication, NSApplicationWillFinishLaunchingNotification, NSMenu, NSMenuDelegate, NSMenuItem,
+};
 use objc2_foundation::{
     NSAppleEventDescriptor, NSAppleEventManager, NSNotificationCenter, NSObjectProtocol,
 };
@@ -28,6 +32,10 @@ pub(crate) fn refresh_idle_menu() {
     idle_menu::refresh();
 }
 
+pub(crate) fn refresh_idle_plugins() {
+    idle_menu::refresh_plugins(false);
+}
+
 const CORE_EVENT: u32 = u32::from_be_bytes(*b"aevt");
 const OPEN_DOCUMENTS: u32 = u32::from_be_bytes(*b"odoc");
 const REOPEN: u32 = u32::from_be_bytes(*b"rapp");
@@ -41,6 +49,7 @@ struct Launch {
     default_action: Cell<Option<ActionAfterLaunch>>,
     documents: RefCell<Vec<String>>,
     document_timer: slint::Timer,
+    plugins: plugin_menu::IdlePlugins,
 }
 
 impl Launch {
@@ -112,6 +121,25 @@ define_class!(
 
     // SAFETY: NSObject provides the protocol implementation.
     unsafe impl NSObjectProtocol for LaunchTarget {}
+
+    // SAFETY: only this application's Plugin menu uses this main-thread delegate.
+    unsafe impl NSMenuDelegate for LaunchTarget {
+        #[unsafe(method(menuNeedsUpdate:))]
+        fn menu_needs_update(&self, _menu: &NSMenu) {
+            refresh_idle_plugins();
+        }
+
+        #[unsafe(method(menuWillOpen:))]
+        fn menu_will_open(&self, _menu: &NSMenu) {
+            self.ivars().plugins.set_tracking(true);
+        }
+
+        #[unsafe(method(menuDidClose:))]
+        fn menu_did_close(&self, _menu: &NSMenu) {
+            self.ivars().plugins.set_tracking(false);
+            let _ = slint::spawn_local(async { refresh_idle_plugins() });
+        }
+    }
 
     impl LaunchTarget {
         #[unsafe(method(riinaOpenURL:reply:))]
@@ -211,7 +239,29 @@ define_class!(
         fn idle_settings(&self, _sender: Option<&AnyObject>) {
             let launch = self.ivars();
             launch.default_action.take();
-            launch.manager.show_application_settings();
+            launch.manager.show_application_settings(None);
+        }
+
+        #[unsafe(method(riinaIdleManagePlugins:))]
+        fn idle_manage_plugins(&self, _sender: Option<&AnyObject>) {
+            let launch = self.ivars();
+            launch.default_action.take();
+            launch.manager.show_application_settings(Some(crate::preferences_window::PLUGINS_PANE));
+        }
+
+        #[unsafe(method(riinaIdlePluginAction:))]
+        fn idle_plugin_action(&self, sender: Option<&NSMenuItem>) {
+            plugin_menu::activate(self, sender);
+        }
+
+        #[unsafe(method(riinaIdlePluginDeveloper:))]
+        fn idle_plugin_developer(&self, sender: Option<&NSMenuItem>) {
+            plugin_menu::open_console(self, sender);
+        }
+
+        #[unsafe(method(riinaIdleReloadPlugins:))]
+        fn idle_reload_plugins(&self, _sender: Option<&AnyObject>) {
+            plugin_menu::reload(self);
         }
 
         #[unsafe(method(riinaIdleHelpLink:))]
@@ -286,6 +336,7 @@ impl ApplicationEvents {
             default_action: Cell::new(default_action),
             documents: RefCell::default(),
             document_timer: slint::Timer::default(),
+            plugins: plugin_menu::IdlePlugins::default(),
         });
         let allocated = LaunchTarget::alloc(main).set_ivars(launch.clone());
         // SAFETY: the target's superclass is NSObject and supplies this initializer.

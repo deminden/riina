@@ -24,7 +24,7 @@ use slint::{ComponentHandle, winit_030::WinitWindowAccessor};
 use std::{cell::RefCell, path::PathBuf, rc::Rc};
 
 #[cfg(target_os = "macos")]
-const PLUGINS_PANE: i32 = 9;
+pub(crate) const PLUGINS_PANE: i32 = 9;
 
 pub(crate) struct Session {
     pub(crate) decoder_player: riina_mpv::CommandSender,

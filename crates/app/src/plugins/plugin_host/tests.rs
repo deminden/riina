@@ -602,6 +602,16 @@ fn enabled_global_realms_start_before_any_player_joins() {
                 iina.standaloneWindow.setContent('Startup view');
                 iina.standaloneWindow.open();
                 iina.global.createPlayerInstance({label: 'Startup player', disableUI: true});
+                let hits = 0;
+                const tools = iina.menu.item('Windowless tools', null);
+                tools.addSubMenuItem(iina.menu.item('Run', item => {
+                    iina.standaloneWindow.setContent(`Action count: ${++hits}`);
+                    item.selected = false;
+                }, {selected: true}));
+                const blocked = iina.menu.item('Blocked', null, {enabled: false});
+                blocked.addSubMenuItem(iina.menu.item('Disabled action', () => { hits++; }));
+                iina.menu.addItem(tools);
+                iina.menu.addItem(blocked);
             ",
         )
         .unwrap();
@@ -642,11 +652,77 @@ fn enabled_global_realms_start_before_any_player_joins() {
     let (_, realms) = handle.ui.developer.list(0).unwrap();
     assert_eq!(realms.len(), 1);
     assert_eq!(realms[0].1, "org.example.enabled (Global)");
+    let initial_realm = realms[0].0;
+
+    let menus: Vec<GlobalMenu> = wait_for_windowless_work(&ready, || {
+        let menus = handle.menus();
+        (menus.first()?.items.len() == 2).then_some(menus)
+    });
+    assert_eq!(menus.len(), 1);
+    assert_eq!(menus[0].package, "org.example.enabled");
+    assert_eq!(menus[0].title, "org.example.enabled");
+    let first = &menus[0];
+    assert_eq!(first.items[0].title, "Windowless tools");
+    assert!(first.items[0].items[0].selected);
+    assert!(!first.items[1].enabled);
+    for parent in [1, 0] {
+        handle
+            .activate_idle_menu(
+                first.package.clone(),
+                first.generation,
+                first.items[parent].items[0].id.clone(),
+            )
+            .unwrap();
+    }
+    wait_for_windowless_work(&ready, || {
+        has_action_content(&handle, "Action count: 1")?;
+        (!handle.menus()[0].items[0].items[0].selected).then_some(())
+    });
+
+    handle.reload_all().unwrap();
+    wait_for_windowless_work(&ready, || {
+        tickets.extend(handle.take_player_launches());
+        (!tickets[0].is_open()
+            && tickets.len() == 2
+            && handle
+                .ui
+                .developer
+                .list(0)
+                .is_some_and(|(_, realms)| realms.len() == 1 && realms[0].0 != initial_realm))
+        .then_some(())
+    });
+    let reloaded = wait_for_windowless_work(&ready, || {
+        handle
+            .menus()
+            .into_iter()
+            .find(|menu| menu.generation != first.generation && menu.items.len() == 2)
+    });
+    let id = reloaded.items[0].items[0].id.clone();
+    assert_eq!(id, first.items[0].items[0].id);
+    for generation in [first.generation, reloaded.generation] {
+        handle
+            .activate_idle_menu(reloaded.package.clone(), generation, id.clone())
+            .unwrap();
+    }
+    wait_for_windowless_work(&ready, || has_action_content(&handle, "Action count: 1"));
 
     handle.disable("org.example.enabled".into()).unwrap();
     wait_for_windowless_work(&ready, || {
-        (!tickets[0].is_open() && handle.ui.windows.live_entries().is_empty()).then_some(())
+        (!tickets[1].is_open()
+            && handle.ui.windows.live_entries().is_empty()
+            && handle.menus().is_empty())
+        .then_some(())
     });
+}
+
+fn has_action_content(handle: &GlobalHandle, expected: &str) -> Option<()> {
+    handle.ui.windows.live_entries().iter().find_map(|entry| {
+        let view = entry.snapshot(None)?;
+        let riina_core::plugin_window::Document::Simple { content, .. } = view.document else {
+            return None;
+        };
+        (content.as_deref() == Some(expected)).then_some(())
+    })
 }
 
 fn wait_for_windowless_work<T>(
@@ -655,12 +731,12 @@ fn wait_for_windowless_work<T>(
 ) -> T {
     let deadline = Instant::now() + Duration::from_secs(3);
     loop {
-        ready
-            .recv_timeout(deadline.saturating_duration_since(Instant::now()))
-            .expect("The application did not receive a plugin wake");
         if let Some(result) = observe() {
             return result;
         }
+        ready
+            .recv_timeout(deadline.saturating_duration_since(Instant::now()))
+            .expect("The application did not receive a plugin wake");
     }
 }
 
