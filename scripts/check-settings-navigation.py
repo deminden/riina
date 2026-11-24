@@ -246,7 +246,8 @@ def main():
     assert "content-y <=> VideoSettingsState.video-scroll-position" in video, (
         "Video Settings search results must scroll to their selected section"
     )
-    assert "video.set_video_scroll_position" in SEARCH_SOURCE
+    assert "window.invoke_reveal_video_setting" in SEARCH_SOURCE
+    assert "root.height - video-content-height" in SOURCE
     for label in ["Decoding", "Number of threads", "Hardware decoder", "Color and HDR"]:
         assert f'text: "{label}"' in video, f"Video preferences are missing {label!r}"
     assert 'label: "Tone Mapping"' in video, "Video preferences are missing tone mapping"
@@ -307,7 +308,7 @@ def main():
         "interface-appearance-card-y: 81px;" in SOURCE
         and "interface-appearance-card-height: 122px + liquid-glass-detail-height;" in SOURCE
         and "liquid-glass-detail-height: liquid-glass-expanded ? 96px : 0px;" in SOURCE
-        and 'label: root.surface-material-title' in INTERFACE_SOURCE
+        and 'label: MediaSettingsText.material-caption(root.surface-material-title)' in INTERFACE_SOURCE
         and '"Liquid Glass"' in (ROOT / "crates/app/src/platform/mod.rs").read_text(encoding="utf-8")
         and '"Translucent Surfaces"' in (ROOT / "crates/app/src/platform/mod.rs").read_text(encoding="utf-8")
         and 'label: "On-Screen Display"' in INTERFACE_SOURCE

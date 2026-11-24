@@ -4222,3 +4222,41 @@ confirmed the shortened captions fit the visible controls.
 - Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
 - Linux application SHA-256 `50f8015774dd9c8eac35213f68e4c4487af21280f08ca5370c722d6498e7ac16`
 - Linux libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`
+
+### Localized Interface, Video and Audio Settings 2026-11-24
+
+Russian and Arabic captions cover the Interface, Video and Audio controls and
+their Settings search results. The regression covers translated results,
+disclosure expansion, runtime Live Text availability, and the tone-mapping
+scroll range at 600 × 480. Choice tests cover tone-mapping order, the
+ReplayGain and gapless enums, and preservation of a disconnected audio
+device's recorded name and description.
+
+The Windows workspace gate passed before the narrow-window follow-up. The
+final focused gate passed with strict Clippy, 639 application tests, the
+widget tests and all 51 software-rendered pixel baselines. The longer
+Interface card shifted six pixels at the bottom of one scrollbar thumb.
+The other 50 baseline files matched exactly.
+
+The locked Windows build passed a private desktop test. Selecting the
+English search results through native accessibility reached OSD seek
+suppression, HDR target-peak override and the Audio device selector. Both
+edited switches saved in each direction. The player retained the same
+physical frame and paused state and exited normally. All 61 null-output
+libmpv tests passed with the pinned Windows DLL. Strict Apple Silicon
+cross-target Clippy passed.
+
+The Linux suite passed 602 application and 65 widget tests. In private
+Wayland sessions at 600 × 480, Russian and Arabic searches reached OSD
+suppression, the expanded target-peak setting and gapless playback. Both
+languages saved and restored the OSD and target-peak switches and displayed
+the localized gapless choices. The players kept their original frames and
+exited normally. Captures confirmed the fullscreen time-and-battery
+caption fits on its own row. The Russian OSD sidebar label and two Audio
+captions still truncate at this width. The Arabic target-peak range needs
+left-to-right isolation for its digits.
+
+- Windows application SHA-256 `a5f29b44b87648999894850dfcd21633fc8cc6bb0c3cd77cefbee50a434a86af`
+- Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
+- Linux application SHA-256 `141f1d3be93caa94f86c47381d67ea2cddd0d35e81352ff572b7b9ee798d2d5f`
+- Linux libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`

@@ -270,6 +270,27 @@ const ENTRIES: &[Entry] = &[
     Entry {
         page_index: 1,
         page: "Interface",
+        section: "On-Screen Controller",
+        title: "Prevent scroll wheel from changing playback position",
+        terms: "disable seek slider scrolling mouse",
+    },
+    Entry {
+        page_index: 1,
+        page: "Interface",
+        section: "On-Screen Controller",
+        title: "Prevent scroll wheel from changing volume",
+        terms: "disable volume slider scrolling mouse",
+    },
+    Entry {
+        page_index: 1,
+        page: "Interface",
+        section: "On-Screen Controller",
+        title: "Toolbar buttons",
+        terms: "arrange reorder hide customization",
+    },
+    Entry {
+        page_index: 1,
+        page: "Interface",
         section: "On-Screen Display",
         title: "Enable OSD",
         terms: "overlay display messages",
@@ -361,6 +382,34 @@ const ENTRIES: &[Entry] = &[
     Entry {
         page_index: 1,
         page: "Interface",
+        section: "Thumbnail Preview",
+        title: "Enable thumbnail preview",
+        terms: "timeline scrub hover",
+    },
+    Entry {
+        page_index: 1,
+        page: "Interface",
+        section: "Thumbnail Preview",
+        title: "Maximum cache size",
+        terms: "thumbnail previews disk limit MB",
+    },
+    Entry {
+        page_index: 1,
+        page: "Interface",
+        section: "Thumbnail Preview",
+        title: "Generate previews for files on remote volumes",
+        terms: "thumbnail network remote drives",
+    },
+    Entry {
+        page_index: 1,
+        page: "Interface",
+        section: "Thumbnail Preview",
+        title: "Thumbnail width",
+        terms: "thumbnail preview dimensions size",
+    },
+    Entry {
+        page_index: 1,
+        page: "Interface",
         section: "Accessibility",
         title: "Disable animations",
         terms: "accessibility reduce motion animation vestibular",
@@ -390,29 +439,106 @@ const ENTRIES: &[Entry] = &[
         page_index: 2,
         page: "Video",
         section: "Color and HDR",
+        title: "Load ICC profile",
+        terms: "color management display profile SDR",
+    },
+    Entry {
+        page_index: 2,
+        page: "Video",
+        section: "Color and HDR",
+        title: "Enable HDR mode",
+        terms: "enable high dynamic range by default",
+    },
+    Entry {
+        page_index: 2,
+        page: "Video",
+        section: "Color and HDR",
         title: "Tone Mapping",
-        terms: "hdr peak nits algorithm clip mobius reinhard hable bt2390 gamma linear parameter",
+        terms: "hdr map high dynamic range brightness",
+    },
+    Entry {
+        page_index: 2,
+        page: "Video",
+        section: "Color and HDR",
+        title: "Override target peak",
+        terms: "hdr tone mapping luminance brightness nits",
+    },
+    Entry {
+        page_index: 2,
+        page: "Video",
+        section: "Color and HDR",
+        title: "Tone mapping algorithm",
+        terms: "hdr tone mapping algorithm clip mobius reinhard hable bt2390 gamma linear",
+    },
+    Entry {
+        page_index: 2,
+        page: "Video",
+        section: "Color and HDR",
+        title: "Override tone-mapping parameter",
+        terms: "hdr tone mapping parameter",
     },
     Entry {
         page_index: 3,
         page: "Audio",
         section: "Hardware",
-        title: "Audio threads and driver",
-        terms: "hardware backend output device wasapi coreaudio pipewire",
+        title: "Audio decoding threads",
+        terms: "audio decoder parallel decode automatic",
+    },
+    Entry {
+        page_index: 3,
+        page: "Audio",
+        section: "Hardware",
+        title: "Audio driver",
+        terms: "audio threads and driver hardware backend wasapi coreaudio pipewire",
+    },
+    Entry {
+        page_index: 3,
+        page: "Audio",
+        section: "Hardware",
+        title: "Preferred audio device",
+        terms: "audio output device speakers headphones",
+    },
+    Entry {
+        page_index: 3,
+        page: "Audio",
+        section: "Hardware",
+        title: "S/PDIF output",
+        terms: "spdif digital passthrough ac3 eac3 dts truehd",
     },
     Entry {
         page_index: 3,
         page: "Audio",
         section: "Volume",
-        title: "Initial volume and ReplayGain",
-        terms: "volume replay gain preamp clipping fallback",
+        title: "Initial volume",
+        terms: "initial audio volume start",
     },
     Entry {
         page_index: 3,
         page: "Audio",
-        section: "Other",
-        title: "Gapless playback and languages",
-        terms: "gapless audio alang language",
+        section: "Volume",
+        title: "ReplayGain",
+        terms: "initial volume and replay gain track album off normalization",
+    },
+    Entry {
+        page_index: 3,
+        page: "Audio",
+        section: "Volume",
+        title: "ReplayGain preamp (dB)",
+        terms: "replay gain preamplifier",
+    },
+    Entry {
+        page_index: 3,
+        page: "Audio",
+        section: "Volume",
+        title: "Prevent clipping",
+        terms: "replay gain distortion",
+    },
+    Entry {
+        page_index: 3,
+        page: "Audio",
+        section: "Volume",
+        title: "ReplayGain fallback (dB)",
+        terms: "replay gain amplification without tags",
     },
     Entry {
         page_index: 3,
@@ -420,6 +546,20 @@ const ENTRIES: &[Entry] = &[
         section: "Volume",
         title: "Allow volume boost (up to 200%)",
         terms: "amplify gain volume cap",
+    },
+    Entry {
+        page_index: 3,
+        page: "Audio",
+        section: "Other",
+        title: "Gapless playback",
+        terms: "audio seamless disabled weak strong",
+    },
+    Entry {
+        page_index: 3,
+        page: "Audio",
+        section: "Other",
+        title: "Preferred audio languages",
+        terms: "gapless playback and languages audio language alang",
     },
     Entry {
         page_index: 4,
@@ -823,15 +963,18 @@ fn build_index(labels: &SearchLabels) -> Vec<IndexedEntry> {
     let mut index = ENTRIES
         .iter()
         .enumerate()
-        .filter(|(_, source)| {
-            cfg!(target_os = "macos")
-                || !matches!(
-                    source.title,
-                    "Window becomes inactive/active" | "Pause when machine goes to sleep"
-                )
-        })
         .map(|(target, source)| {
             let title = translated(labels, source.title);
+            let visible_label = match source.title {
+                "Platform Materials" => "Translucent Surfaces",
+                "Preferred audio languages" => "Preferred languages",
+                "Tone mapping algorithm" => "Algorithm",
+                "Suppress file-start messages" => "File start",
+                "Suppress pause and resume messages" => "Pause / Resume",
+                "Suppress seek messages" => "Seek",
+                "Suppress speed messages" => "Speed",
+                _ => source.title,
+            };
             IndexedEntry {
                 source,
                 row: PreferencesSearchResult {
@@ -844,7 +987,13 @@ fn build_index(labels: &SearchLabels) -> Vec<IndexedEntry> {
                     ..Default::default()
                 },
                 // Page and section labels organize results. Titles and aliases match queries.
-                searchable: format!("{} {title} {}", source.title, source.terms).to_lowercase(),
+                searchable: format!(
+                    "{} {title} {} {}",
+                    source.title,
+                    source.terms,
+                    translated(labels, visible_label)
+                )
+                .to_lowercase(),
             }
         })
         .collect::<Vec<_>>();
@@ -861,6 +1010,8 @@ fn build_index(labels: &SearchLabels) -> Vec<IndexedEntry> {
 fn localized_results_for_query(
     query: &str,
     index: &[IndexedEntry],
+    platform_macos: bool,
+    live_text_available: bool,
 ) -> Vec<PreferencesSearchResult> {
     let query = normalized_query(query);
     if query.is_empty() {
@@ -868,9 +1019,16 @@ fn localized_results_for_query(
     }
 
     let terms = query.split_whitespace().collect::<Vec<_>>();
-    let matches = index
-        .iter()
-        .filter(|item| terms.iter().all(|term| item.searchable.contains(term)));
+    let matches = index.iter().filter(|item| {
+        let available = match item.source.title {
+            "Window becomes inactive/active"
+            | "Pause when machine goes to sleep"
+            | "Load ICC profile" => platform_macos,
+            "Live Text" => live_text_available,
+            _ => true,
+        };
+        available && terms.iter().all(|term| item.searchable.contains(term))
+    });
     let mut seen = BTreeSet::new();
 
     let mut results = Vec::new();
@@ -911,7 +1069,10 @@ pub(crate) fn connect(window: &PreferencesWindow) {
         if let Some(window) = weak.upgrade() {
             window.set_selected_search_index(-1);
             window.set_search_results(ModelRc::new(VecModel::from(localized_results_for_query(
-                &query, &index,
+                &query,
+                &index,
+                window.get_platform_macos(),
+                window.get_live_text_available(),
             ))));
         }
     });
@@ -951,13 +1112,7 @@ fn activate_target(window: &PreferencesWindow, target: i32) {
     else {
         return;
     };
-    activate_result(
-        window,
-        entry.page_index,
-        entry.section,
-        entry.title,
-        anchor_y(entry),
-    );
+    activate_result(window, entry.page_index, entry.section, entry.title);
 }
 
 fn result_rows(window: &PreferencesWindow) -> Vec<PreferencesSearchResult> {
@@ -1037,12 +1192,20 @@ fn general_target(window: &PreferencesWindow, section: &str, title: &str) -> f32
     }
 }
 
-fn activate_result(window: &PreferencesWindow, page: i32, section: &str, title: &str, anchor: i32) {
+fn activate_result(window: &PreferencesWindow, page: i32, section: &str, title: &str) {
     if page == 0 {
         let target = general_target(window, section, title);
         window.set_general_scroll_position(target);
     }
     if page == 1 {
+        match title {
+            "Platform Materials" => window.set_liquid_glass_expanded(true),
+            "Suppress file-start messages"
+            | "Suppress pause and resume messages"
+            | "Suppress seek messages"
+            | "Suppress speed messages" => window.set_osd_suppression_expanded(true),
+            _ => {}
+        }
         window.set_selected_interface_section(match section {
             "Window" => 1,
             "On-Screen Controller" => 2,
@@ -1065,10 +1228,24 @@ fn activate_result(window: &PreferencesWindow, page: i32, section: &str, title: 
     }
     if page == 2 {
         let video = window.global::<VideoSettingsState>();
-        if title == "Tone Mapping" {
+        let target = match title {
+            "Number of threads" => 52.0,
+            "Hardware decoder" => 125.0,
+            "Live Text" => 378.0,
+            "Load ICC profile" => window.get_video_color_card_y(),
+            "Enable HDR mode" => window.get_video_hdr_card_y(),
+            _ => window.get_video_tone_mapping_card_y(),
+        };
+        if matches!(
+            title,
+            "Tone Mapping"
+                | "Override target peak"
+                | "Tone mapping algorithm"
+                | "Override tone-mapping parameter"
+        ) {
             video.set_tone_mapping_expanded(true);
         }
-        video.set_video_scroll_position((52 - anchor).max(-540) as f32);
+        window.invoke_reveal_video_setting(target);
     }
     if page == 4 {
         if section == "Auto Load" && title != "Subtitle matching mode" {
@@ -1115,7 +1292,7 @@ mod tests {
     use super::*;
 
     fn results_for_query(query: &str) -> Vec<PreferencesSearchResult> {
-        localized_results_for_query(query, &build_index(&SearchLabels::new()))
+        localized_results_for_query(query, &build_index(&SearchLabels::new()), true, true)
     }
 
     fn item_results(query: &str) -> Vec<PreferencesSearchResult> {
@@ -1135,15 +1312,16 @@ mod tests {
 
     #[test]
     fn audio_preferences_search_into_their_matching_sections() {
-        for (query, expected_section) in [
-            ("threads driver", "Hardware"),
-            ("ReplayGain preamp", "Volume"),
-            ("gapless languages", "Other"),
+        for (query, expected_section, title) in [
+            ("threads driver", "Hardware", "Audio driver"),
+            ("ReplayGain preamp", "Volume", "ReplayGain preamp (dB)"),
+            ("gapless languages", "Other", "Preferred audio languages"),
         ] {
             let result = item_results(query);
             assert_eq!(result.len(), 1, "query: {query}");
             assert_eq!(result[0].page_name, "Audio");
             assert_eq!(result[0].section_name, expected_section);
+            assert_eq!(result[0].title, title);
         }
     }
 
@@ -1244,6 +1422,68 @@ mod tests {
     }
 
     #[test]
+    fn localized_media_results_open_live_sections() -> Result<(), Box<dyn std::error::Error>> {
+        i_slint_backend_testing::init_no_event_loop();
+        let window = PreferencesWindow::new()?;
+        window
+            .window()
+            .set_size(slint::LogicalSize::new(600.0, 480.0));
+        window.show()?;
+        let video = window.global::<VideoSettingsState>();
+
+        for (locale, suppression, peak, languages) in [
+            (
+                "ru",
+                "сообщение о перемотке",
+                "пиковую яркость",
+                "предпочтительные языки",
+            ),
+            ("ar", "رسائل التنقل", "ذروة السطوع", "اللغات المفضّلة"),
+        ] {
+            slint::select_bundled_translation(locale)?;
+            window.set_platform_macos(locale == "ru");
+            window.set_live_text_available(false);
+            connect(&window);
+            window.invoke_search_query_changed("selectable frame text".into());
+            assert_eq!(window.get_search_results().row_count(), 0);
+            window.set_live_text_available(true);
+            window.invoke_search_query_changed("selectable frame text".into());
+            assert_eq!(window.get_search_results().row_count(), 2);
+            window.set_live_text_available(locale == "ru");
+            window.set_osd_suppression_expanded(false);
+            video.set_tone_mapping_expanded(false);
+
+            for (query, page) in [(suppression, 1), (peak, 2), (languages, 3)] {
+                window.invoke_search_query_changed(query.into());
+                let row = window
+                    .get_search_results()
+                    .iter()
+                    .find(|row| !row.is_header && row.page_index == page)
+                    .ok_or("Missing localized Settings result")?;
+                window.invoke_search_result_activated(row.target);
+                slint::platform::update_timers_and_animations();
+                assert_eq!(window.get_selected_pane(), page);
+                match page {
+                    1 => {
+                        assert!(window.get_osd_suppression_expanded());
+                        assert_eq!(window.get_selected_interface_section(), 3);
+                    }
+                    2 => {
+                        assert!(video.get_tone_mapping_expanded());
+                        let card_top = video.get_video_scroll_position()
+                            + window.get_video_tone_mapping_card_y();
+                        assert!((62.0..=66.0).contains(&card_top));
+                    }
+                    _ => assert_eq!(window.get_selected_audio_section(), 2),
+                }
+            }
+        }
+        slint::select_bundled_translation("en")?;
+        window.hide()?;
+        Ok(())
+    }
+
+    #[test]
     fn interface_search_results_use_the_captured_subsection_scroll_anchors() {
         for (query, section, anchor) in [
             ("system appearance", "Appearance", 0),
@@ -1328,13 +1568,17 @@ mod tests {
                 "Clear Saved Playback Progress",
             ),
             ("hidden notifications", "Restore Suppressed Alerts"),
-            ("thumbnail cache", "Clear Thumbnail Cache"),
+            ("clear thumbnail cache", "Clear Thumbnail Cache"),
         ] {
             let result = item_results(query);
             assert_eq!(result.len(), 1, "query: {query}");
             assert_eq!(result[0].page_name, "Utilities");
             assert_eq!(result[0].title, expected_title);
         }
+        let results = item_results("thumbnail cache");
+        assert_eq!(results.len(), 2);
+        assert_eq!(results[0].title, "Maximum cache size");
+        assert_eq!(results[1].title, "Clear Thumbnail Cache");
     }
 
     #[test]

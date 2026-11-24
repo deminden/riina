@@ -1097,3 +1097,426 @@ msgstr "فك الترميز"
 
 msgid "Color and HDR"
 msgstr "الألوان وHDR"
+
+msgid "Dark"
+msgstr "داكن"
+
+msgid "Light"
+msgstr "فاتح"
+
+msgid "Match System Appearance"
+msgstr "مطابقة مظهر النظام"
+
+msgid "Translucent Surfaces"
+msgstr "الأسطح شبه الشفافة"
+
+msgid "Platform Materials"
+msgstr "مواد النظام"
+
+msgid "Sidebar"
+msgstr "الشريط الجانبي"
+
+msgid "Compact Interface"
+msgstr "واجهة مضغوطة"
+
+msgid "Compact interface"
+msgstr "واجهة مضغوطة"
+
+msgid "Initial window size"
+msgstr "حجم النافذة الأولي"
+
+msgid "Initial window position"
+msgstr "موضع النافذة الأولي"
+
+msgid "Width"
+msgstr "العرض"
+
+msgid "Height"
+msgstr "الارتفاع"
+
+msgid "point"
+msgstr "نقطة"
+
+msgid "% of screen"
+msgstr "٪ من الشاشة"
+
+msgid "X Offset:"
+msgstr "إزاحة X:"
+
+msgid "Y Offset:"
+msgstr "إزاحة Y:"
+
+msgid "to the"
+msgstr "من"
+
+msgid "side of screen"
+msgstr "الشاشة"
+
+msgid "left"
+msgstr "يسار"
+
+msgid "right"
+msgstr "يمين"
+
+msgid "bottom"
+msgstr "أسفل"
+
+msgid "top"
+msgstr "أعلى"
+
+msgid "Resize window to:"
+msgstr "حجم النافذة:"
+
+msgid "Resize window to"
+msgstr "حجم النافذة"
+
+msgid "Fit Screen"
+msgstr "ملاءمة الشاشة"
+
+msgid "0.5x Video Size"
+msgstr "‏0.5× حجم الفيديو"
+
+msgid "1x Video Size"
+msgstr "حجم الفيديو"
+
+msgid "1.5x Video Size"
+msgstr "‏1.5× حجم الفيديو"
+
+msgid "2x Video Size"
+msgstr "‏2× حجم الفيديو"
+
+msgid "Always when playing a new file"
+msgstr "عند تشغيل أي ملف جديد"
+
+msgid "When media is opened manually"
+msgstr "عند فتح الوسائط يدويًا"
+
+msgid "Do not resize"
+msgstr "عدم تغيير الحجم"
+
+msgid "Use physical resolution on Retina displays"
+msgstr "استخدام الدقة الفعلية لشاشات Retina"
+
+msgid "Always float on top"
+msgstr "إبقاء النافذة فوق غيرها دائمًا"
+
+msgid "Always show float on top status in the title bar"
+msgstr "إظهار حالة التثبيت في شريط العنوان دائمًا"
+
+msgid "On-Screen Controller:"
+msgstr "عناصر التحكم:"
+
+msgid "Floating"
+msgstr "عائمة"
+
+msgid "Top"
+msgstr "أعلى"
+
+msgid "Bottom"
+msgstr "أسفل"
+
+msgid "Floating, Top, Bottom"
+msgstr "عائمة، أعلى، أسفل"
+
+msgid "Dock control bar and titlebar"
+msgstr "تثبيت شريط التحكم وشريط العنوان"
+
+msgid "Show chapter position in progress bar"
+msgstr "إظهار مواضع الفصول في شريط التقدم"
+
+msgid "Auto hide after:"
+msgstr "الإخفاء بعد:"
+
+msgid "Prevent scroll wheel from changing playback position"
+msgstr "منع عجلة الفأرة من تغيير موضع التشغيل"
+
+msgid "Prevent scroll wheel from changing volume"
+msgstr "منع عجلة الفأرة من تغيير مستوى الصوت"
+
+msgid "Toolbar buttons"
+msgstr "أزرار شريط الأدوات"
+
+msgid "Restore Default"
+msgstr "استعادة الافتراضي"
+
+msgid "Enable OSD"
+msgstr "إظهار الرسائل على الشاشة"
+
+msgid "Suppress messages for:"
+msgstr "إخفاء الرسائل عند:"
+
+msgid "Suppress file-start messages"
+msgstr "إخفاء رسائل بدء الملف"
+
+msgid "Suppress pause and resume messages"
+msgstr "إخفاء رسائل الإيقاف المؤقت والاستئناف"
+
+msgid "Suppress seek messages"
+msgstr "إخفاء رسائل التنقل"
+
+msgid "Suppress speed messages"
+msgstr "إخفاء رسائل تغيير السرعة"
+
+msgid "File start"
+msgstr "بدء الملف"
+
+msgid "Pause / Resume"
+msgstr "الإيقاف المؤقت والاستئناف"
+
+msgid "Seek"
+msgstr "التنقل"
+
+msgid "Speed"
+msgstr "السرعة"
+
+msgid "Text size:"
+msgstr "حجم النص:"
+
+msgid "Time and battery in full screen"
+msgstr "الوقت والبطارية في وضع ملء الشاشة"
+
+msgid "Window after entering"
+msgstr "حالة النافذة بعد الدخول"
+
+msgid "Automatically pause playback"
+msgstr "إيقاف التشغيل مؤقتًا تلقائيًا"
+
+msgid "Toggle Picture-in-Picture by minimizing/un-minimizing the window"
+msgstr "تبديل صورة داخل صورة عند تصغير النافذة أو استعادتها"
+
+msgid "Only for video files"
+msgstr "لملفات الفيديو فقط"
+
+msgid "Enable thumbnail preview"
+msgstr "إظهار معاينة الصور المصغّرة"
+
+msgid "Maximum cache size"
+msgstr "أقصى حجم للذاكرة المؤقتة"
+
+msgid "Generate previews for files on remote volumes"
+msgstr "إنشاء معاينات للملفات على وحدات تخزين بعيدة"
+
+msgid "Thumbnail width"
+msgstr "عرض الصورة المصغّرة"
+
+msgid "Width is measured in points and applies to generated previews."
+msgstr "عرض المعاينات التي يتم إنشاؤها بالنقاط."
+
+msgid "Disable animations"
+msgstr "تعطيل الحركة"
+
+msgid "Turn off interface motion."
+msgstr "إيقاف حركة عناصر الواجهة."
+
+msgid "Number of threads"
+msgstr "عدد خيوط المعالجة"
+
+msgid "Default: 0 (Auto)"
+msgstr "الافتراضي: 0 (تلقائي)"
+
+msgid "Hardware decoder"
+msgstr "وحدة فك الترميز العتادية"
+
+msgid "Show a text-selection overlay when video is paused."
+msgstr "إظهار طبقة لتحديد النص عند إيقاف الفيديو مؤقتًا."
+
+msgid "Load ICC profile"
+msgstr "تحميل ملف تعريف ICC"
+
+msgid "Load the current display profile to transform video RGB to screen output. (Only for SDR mode)"
+msgstr "استخدام ملف تعريف الشاشة لتحويل ألوان الفيديو. في وضع SDR فقط."
+
+msgid "Enable HDR mode"
+msgstr "تفعيل وضع HDR"
+
+msgid "Enable HDR mode by default when playing HDR videos."
+msgstr "تفعيل HDR افتراضيًا عند تشغيل فيديو HDR."
+
+msgid "Tone Mapping"
+msgstr "تعيين درجات اللون"
+
+msgid "Map high dynamic range video for the display."
+msgstr "ملاءمة درجات سطوع فيديو HDR للشاشة."
+
+msgid "Tone mapping options"
+msgstr "خيارات تعيين درجات اللون"
+
+msgid "Override target peak"
+msgstr "تعيين ذروة السطوع يدويًا"
+
+msgid "nits (10–10,000)"
+msgstr "شمعة/م² ‏(10–10,000)"
+
+msgid "Algorithm"
+msgstr "الخوارزمية"
+
+msgid "Override tone-mapping parameter"
+msgstr "تعيين معلمة درجات اللون يدويًا"
+
+msgid "Uses the selected algorithm's parameter."
+msgstr "استخدام معلمة الخوارزمية المحددة."
+
+msgid "Audio decoding threads"
+msgstr "خيوط فك ترميز الصوت"
+
+msgid "Audio driver"
+msgstr "برنامج تشغيل الصوت"
+
+msgid "Preferred audio device"
+msgstr "جهاز الصوت المفضّل"
+
+msgid "S/PDIF output"
+msgstr "خرج S/PDIF"
+
+msgid "Allow volume boost (up to 200%)"
+msgstr "السماح برفع الصوت حتى 200٪"
+
+msgid "Initial volume"
+msgstr "مستوى الصوت الأولي"
+
+msgid "Initial audio volume"
+msgstr "مستوى الصوت عند البدء"
+
+msgid "Enable"
+msgstr "تفعيل"
+
+msgid "ReplayGain preamp (dB)"
+msgstr "التضخيم المسبق لـ ReplayGain (ديسيبل)"
+
+msgid "ReplayGain preamp in decibels"
+msgstr "التضخيم المسبق لـ ReplayGain بالديسيبل"
+
+msgid "Prevent clipping"
+msgstr "منع تشوّه الصوت"
+
+msgid "ReplayGain fallback (dB)"
+msgstr "القيمة الاحتياطية لـ ReplayGain (ديسيبل)"
+
+msgid "ReplayGain fallback in decibels"
+msgstr "القيمة الاحتياطية لـ ReplayGain بالديسيبل"
+
+msgid "Gapless playback"
+msgstr "التشغيل بلا فواصل"
+
+msgid "Preferred languages"
+msgstr "اللغات المفضّلة"
+
+msgid "Comma-separated language codes, in preference order."
+msgstr "رموز اللغات مفصولة بفاصلة حسب ترتيب الأفضلية."
+
+msgid "Quick Settings"
+msgstr "الإعدادات السريعة"
+
+msgid "Playlist and chapters"
+msgstr "قائمة التشغيل والفصول"
+
+msgid "Picture in Picture"
+msgstr "صورة داخل صورة"
+
+msgid "Full Screen"
+msgstr "ملء الشاشة"
+
+msgid "Music Mode"
+msgstr "وضع الموسيقى"
+
+msgid "Subtitle Track"
+msgstr "مسار الترجمة"
+
+msgid "Screenshot"
+msgstr "لقطة شاشة"
+
+msgid "Hide"
+msgstr "إخفاء"
+
+msgid "Auto"
+msgstr "تلقائي"
+
+msgid "Disabled"
+msgstr "معطّل"
+
+msgid "System Default"
+msgstr "إعداد النظام الافتراضي"
+
+msgid "Video decoding threads"
+msgstr "خيوط فك ترميز الفيديو"
+
+msgid "Auto (Copy)"
+msgstr "تلقائي (نسخ)"
+
+msgid "Disable hardware decoding."
+msgstr "تعطيل فك الترميز العتادي."
+
+msgid "Enable hardware decoding. However, most of the video filters won't work properly."
+msgstr "تفعيل فك الترميز العتادي. لن تعمل معظم مرشّحات الفيديو بشكل صحيح."
+
+msgid "Enable hardware decoding. It will consume double the memory but work with video filters."
+msgstr "تفعيل فك الترميز العتادي مع دعم مرشّحات الفيديو. يستهلك ضعف الذاكرة."
+
+msgid "Off"
+msgstr "إيقاف"
+
+msgid "Track"
+msgstr "المقطع"
+
+msgid "Album"
+msgstr "الألبوم"
+
+msgid "Weak"
+msgstr "ضعيف"
+
+msgid "Strong"
+msgstr "قوي"
+
+msgid "Autoselect device"
+msgstr "اختيار الجهاز تلقائيًا"
+
+msgid "{} (missing)"
+msgstr "{} (غير متاح)"
+
+msgid "[{}] {}"
+msgstr "[{}] {}"
+
+msgid "Clip"
+msgstr "قص السطوع"
+
+msgid "Gamma"
+msgstr "غاما"
+
+msgid "Linear"
+msgstr "خطي"
+
+msgid "Tone mapping algorithm"
+msgstr "خوارزمية تعيين درجات اللون"
+
+msgid "Target peak (nits)"
+msgstr "ذروة السطوع (شمعة/م²)"
+
+msgid "Tone-mapping parameter"
+msgstr "معلمة تعيين درجات اللون"
+
+msgid "Auto hide after"
+msgstr "الإخفاء بعد"
+
+msgid "Text size"
+msgstr "حجم النص"
+
+msgid "Toggle by minimizing the window"
+msgstr "التبديل عند تصغير النافذة"
+
+msgid "Preferred audio languages"
+msgstr "لغات الصوت المفضّلة"
+
+msgid "Move toolbar action up"
+msgstr "نقل زر شريط الأدوات لأعلى"
+
+msgid "Move toolbar action down"
+msgstr "نقل زر شريط الأدوات لأسفل"
+
+msgid "Drag to reorder {}"
+msgstr "اسحب «{}» لإعادة ترتيبه"
+
+msgid "Remove preferred language {}"
+msgstr "إزالة اللغة المفضّلة {}"
+
+msgid "Add a preferred language code"
+msgstr "إضافة رمز لغة مفضّلة"

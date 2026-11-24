@@ -6,9 +6,8 @@ use slint::ComponentHandle;
 
 pub(crate) fn install_window(window: &PreferencesWindow, settings: &Settings) {
     let video = window.global::<VideoSettingsState>();
-    video.set_tone_mapping_algorithm_options(slint::ModelRc::new(slint::VecModel::from(
-        algorithm_labels(),
-    )));
+    let text = window.global::<riina_ui::MediaSettingsText>();
+    video.set_tone_mapping_algorithm_options(text.get_tone_mapping_algorithms());
     video.set_tone_mapping_enabled(settings.enabled);
     video.set_tone_mapping_target_peak_enabled(settings.target_peak_override_enabled);
     video.set_tone_mapping_target_peak_text(settings.target_peak_nits.to_string().into());
@@ -61,29 +60,35 @@ pub(crate) fn current_window(window: &PreferencesWindow) -> Result<Settings, Str
     Ok(settings)
 }
 
-pub(crate) fn algorithm_labels() -> Vec<slint::SharedString> {
-    [
-        "Auto", "Clip", "Mobius", "Reinhard", "Hable", "BT.2390", "Gamma", "Linear",
-    ]
-    .into_iter()
-    .map(Into::into)
-    .collect()
-}
-
 #[cfg(test)]
 mod tests {
-    use super::algorithm_labels;
+    use super::*;
+    use slint::Model;
 
     #[test]
-    fn labels_follow_the_pinned_codec_popup_order() {
+    fn labels_follow_the_pinned_codec_popup_order() -> Result<(), Box<dyn std::error::Error>> {
+        i_slint_backend_testing::init_no_event_loop();
+        let window = PreferencesWindow::new()?;
+        let text = window.global::<riina_ui::MediaSettingsText>();
+        slint::select_bundled_translation("en")?;
         assert_eq!(
-            algorithm_labels()
+            text.get_tone_mapping_algorithms()
                 .iter()
-                .map(ToString::to_string)
+                .map(|item| item.to_string())
                 .collect::<Vec<_>>(),
             [
                 "Auto", "Clip", "Mobius", "Reinhard", "Hable", "BT.2390", "Gamma", "Linear"
             ]
         );
+        for (locale, auto, linear) in [("ru", "Авто", "Линейный"), ("ar", "تلقائي", "خطي")]
+        {
+            slint::select_bundled_translation(locale)?;
+            let labels = text.get_tone_mapping_algorithms();
+            assert_eq!(labels.row_data(0).ok_or("Missing automatic mode")?, auto);
+            assert_eq!(labels.row_data(5).ok_or("Missing BT.2390 mode")?, "BT.2390");
+            assert_eq!(labels.row_data(7).ok_or("Missing linear mode")?, linear);
+        }
+        slint::select_bundled_translation("en")?;
+        Ok(())
     }
 }

@@ -561,8 +561,13 @@ the save succeeds. Update and playback power controls save through application
 services, with failures reported by the Settings owner.
 Settings search builds a localized index when the window connects. Each result
 carries an index into the original actions, so keyboard and pointer activation
-share the same disclosure and scroll targets. General reads the live layout
-after expanding a disclosure.
+share the same disclosure and scroll targets. General and Interface read the
+live layout after expanding a disclosure. Video search shares the rendered
+card positions, including the offsets introduced by Live Text or the macOS
+display profile control. Search checks feature availability on each query
+because text recognition can become available after the window opens.
+Audio device models keep the recorded name and description separate from the
+display caption, including when the last selected device is disconnected.
 The idle macOS AppKit menu opens an application-owned Settings form from the
 current profile. It saves validated edits under the same profile lock as
 player sessions. The store merges differences between successive form values,

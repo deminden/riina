@@ -1,0 +1,21 @@
+export global MediaSettingsText {
+    out property <string> system-default: @tr("System Default");
+    out property <string> automatic-device: @tr("Autoselect device");
+    out property <[string]> replay-gain-options: [@tr("Off"), @tr("Track"), @tr("Album")];
+    out property <[string]> gapless-options: [@tr("Disabled"), @tr("Weak"), @tr("Strong")];
+    out property <[string]> tone-mapping-algorithms: [
+        @tr("Auto"), @tr("Clip"), "Mobius", "Reinhard", "Hable", "BT.2390", @tr("Gamma"), @tr("Linear"),
+    ];
+
+    public pure function device-caption(description: string, name: string) -> string {
+        return @tr("[{}] {}", description, name);
+    }
+
+    public pure function missing-device(description: string) -> string {
+        return @tr("{} (missing)", description);
+    }
+
+    public pure function material-caption(title: string) -> string {
+        return title == "Translucent Surfaces" ? @tr("Translucent Surfaces") : title;
+    }
+}

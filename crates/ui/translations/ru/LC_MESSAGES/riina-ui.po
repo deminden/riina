@@ -874,16 +874,16 @@ msgid "On Screen Controller"
 msgstr "Управление на экране"
 
 msgid "On Screen Display"
-msgstr "Информация на экране"
+msgstr "Экранные сообщения"
 
 msgid "On-Screen Controller"
 msgstr "Управление на экране"
 
 msgid "On-Screen Display"
-msgstr "Информация на экране"
+msgstr "Экранные сообщения"
 
 msgid "Thumbnail Preview"
-msgstr "Эскизы на шкале времени"
+msgstr "Эскизы кадров"
 
 msgid "Picture-in-Picture"
 msgstr "Картинка в картинке"
@@ -1094,3 +1094,426 @@ msgstr "Декодирование"
 
 msgid "Color and HDR"
 msgstr "Цвет и HDR"
+
+msgid "Dark"
+msgstr "Тёмная"
+
+msgid "Light"
+msgstr "Светлая"
+
+msgid "Match System Appearance"
+msgstr "Как в системе"
+
+msgid "Translucent Surfaces"
+msgstr "Полупрозрачные поверхности"
+
+msgid "Platform Materials"
+msgstr "Системные материалы"
+
+msgid "Sidebar"
+msgstr "Боковая панель"
+
+msgid "Compact Interface"
+msgstr "Компактный интерфейс"
+
+msgid "Compact interface"
+msgstr "Компактный интерфейс"
+
+msgid "Initial window size"
+msgstr "Начальный размер окна"
+
+msgid "Initial window position"
+msgstr "Начальное положение окна"
+
+msgid "Width"
+msgstr "Ширина"
+
+msgid "Height"
+msgstr "Высота"
+
+msgid "point"
+msgstr "пт"
+
+msgid "% of screen"
+msgstr "% экрана"
+
+msgid "X Offset:"
+msgstr "Сдвиг по X:"
+
+msgid "Y Offset:"
+msgstr "Сдвиг по Y:"
+
+msgid "to the"
+msgstr "от"
+
+msgid "side of screen"
+msgstr "края экрана"
+
+msgid "left"
+msgstr "левого"
+
+msgid "right"
+msgstr "правого"
+
+msgid "bottom"
+msgstr "нижнего"
+
+msgid "top"
+msgstr "верхнего"
+
+msgid "Resize window to:"
+msgstr "Размер окна:"
+
+msgid "Resize window to"
+msgstr "Размер окна"
+
+msgid "Fit Screen"
+msgstr "Уместить на экране"
+
+msgid "0.5x Video Size"
+msgstr "0,5× от размера видео"
+
+msgid "1x Video Size"
+msgstr "Размер видео"
+
+msgid "1.5x Video Size"
+msgstr "1,5× от размера видео"
+
+msgid "2x Video Size"
+msgstr "2× от размера видео"
+
+msgid "Always when playing a new file"
+msgstr "При каждом новом файле"
+
+msgid "When media is opened manually"
+msgstr "При открытии вручную"
+
+msgid "Do not resize"
+msgstr "Не менять размер"
+
+msgid "Use physical resolution on Retina displays"
+msgstr "Использовать физическое разрешение экранов Retina"
+
+msgid "Always float on top"
+msgstr "Всегда поверх окон"
+
+msgid "Always show float on top status in the title bar"
+msgstr "Показывать значок закрепления в заголовке"
+
+msgid "On-Screen Controller:"
+msgstr "Управление:"
+
+msgid "Floating"
+msgstr "Плавающая"
+
+msgid "Top"
+msgstr "Сверху"
+
+msgid "Bottom"
+msgstr "Снизу"
+
+msgid "Floating, Top, Bottom"
+msgstr "Плавающая, сверху, снизу"
+
+msgid "Dock control bar and titlebar"
+msgstr "Закрепить панель и заголовок"
+
+msgid "Show chapter position in progress bar"
+msgstr "Отмечать главы на шкале времени"
+
+msgid "Auto hide after:"
+msgstr "Скрывать через:"
+
+msgid "Prevent scroll wheel from changing playback position"
+msgstr "Запретить перемотку колесом мыши"
+
+msgid "Prevent scroll wheel from changing volume"
+msgstr "Запретить регулировку громкости колесом мыши"
+
+msgid "Toolbar buttons"
+msgstr "Кнопки панели инструментов"
+
+msgid "Restore Default"
+msgstr "Восстановить исходные"
+
+msgid "Enable OSD"
+msgstr "Показывать сообщения на экране"
+
+msgid "Suppress messages for:"
+msgstr "Не показывать сообщения при:"
+
+msgid "Suppress file-start messages"
+msgstr "Скрывать сообщение о начале файла"
+
+msgid "Suppress pause and resume messages"
+msgstr "Скрывать сообщения о паузе и продолжении"
+
+msgid "Suppress seek messages"
+msgstr "Скрывать сообщение о перемотке"
+
+msgid "Suppress speed messages"
+msgstr "Скрывать сообщение об изменении скорости"
+
+msgid "File start"
+msgstr "Начало файла"
+
+msgid "Pause / Resume"
+msgstr "Пауза и продолжение"
+
+msgid "Seek"
+msgstr "Перемотка"
+
+msgid "Speed"
+msgstr "Скорость"
+
+msgid "Text size:"
+msgstr "Размер текста:"
+
+msgid "Time and battery in full screen"
+msgstr "Время и заряд в полноэкранном режиме"
+
+msgid "Window after entering"
+msgstr "Действие с окном при входе"
+
+msgid "Automatically pause playback"
+msgstr "Автоматически приостанавливать видео"
+
+msgid "Toggle Picture-in-Picture by minimizing/un-minimizing the window"
+msgstr "Переключать «Картинку в картинке» при сворачивании окна"
+
+msgid "Only for video files"
+msgstr "Только для видеофайлов"
+
+msgid "Enable thumbnail preview"
+msgstr "Показывать эскизы предпросмотра"
+
+msgid "Maximum cache size"
+msgstr "Макс. размер кэша"
+
+msgid "Generate previews for files on remote volumes"
+msgstr "Создавать эскизы для файлов на сетевых дисках"
+
+msgid "Thumbnail width"
+msgstr "Ширина эскиза"
+
+msgid "Width is measured in points and applies to generated previews."
+msgstr "Ширина создаваемых эскизов в пунктах."
+
+msgid "Disable animations"
+msgstr "Отключить анимации"
+
+msgid "Turn off interface motion."
+msgstr "Убирает движение элементов интерфейса."
+
+msgid "Number of threads"
+msgstr "Число потоков"
+
+msgid "Default: 0 (Auto)"
+msgstr "По умолчанию: 0 (авто)"
+
+msgid "Hardware decoder"
+msgstr "Аппаратный декодер"
+
+msgid "Show a text-selection overlay when video is paused."
+msgstr "Позволяет выделять текст в видео на паузе."
+
+msgid "Load ICC profile"
+msgstr "Загружать профиль ICC"
+
+msgid "Load the current display profile to transform video RGB to screen output. (Only for SDR mode)"
+msgstr "Преобразует цвета видео по профилю дисплея. Только в SDR."
+
+msgid "Enable HDR mode"
+msgstr "Включить режим HDR"
+
+msgid "Enable HDR mode by default when playing HDR videos."
+msgstr "Включать HDR по умолчанию для видео HDR."
+
+msgid "Tone Mapping"
+msgstr "Тональная компрессия"
+
+msgid "Map high dynamic range video for the display."
+msgstr "Преобразует яркость HDR-видео для экрана."
+
+msgid "Tone mapping options"
+msgstr "Параметры тональной компрессии"
+
+msgid "Override target peak"
+msgstr "Задать пиковую яркость"
+
+msgid "nits (10–10,000)"
+msgstr "нит (10–10 000)"
+
+msgid "Algorithm"
+msgstr "Алгоритм"
+
+msgid "Override tone-mapping parameter"
+msgstr "Задать параметр алгоритма"
+
+msgid "Uses the selected algorithm's parameter."
+msgstr "Используется параметр выбранного алгоритма."
+
+msgid "Audio decoding threads"
+msgstr "Потоки декодирования аудио"
+
+msgid "Audio driver"
+msgstr "Аудиодрайвер"
+
+msgid "Preferred audio device"
+msgstr "Аудиоустройство"
+
+msgid "S/PDIF output"
+msgstr "Выход S/PDIF"
+
+msgid "Allow volume boost (up to 200%)"
+msgstr "Разрешить усиление громкости до 200%"
+
+msgid "Initial volume"
+msgstr "Начальная громкость"
+
+msgid "Initial audio volume"
+msgstr "Начальная громкость звука"
+
+msgid "Enable"
+msgstr "Включить"
+
+msgid "ReplayGain preamp (dB)"
+msgstr "Предусиление ReplayGain (дБ)"
+
+msgid "ReplayGain preamp in decibels"
+msgstr "Предусиление ReplayGain в децибелах"
+
+msgid "Prevent clipping"
+msgstr "Предотвращать клиппинг"
+
+msgid "ReplayGain fallback (dB)"
+msgstr "Резервное усиление ReplayGain (дБ)"
+
+msgid "ReplayGain fallback in decibels"
+msgstr "Резервное усиление ReplayGain в децибелах"
+
+msgid "Gapless playback"
+msgstr "Без пауз между треками"
+
+msgid "Preferred languages"
+msgstr "Предпочтительные языки"
+
+msgid "Comma-separated language codes, in preference order."
+msgstr "Коды языков через запятую в порядке предпочтения."
+
+msgid "Quick Settings"
+msgstr "Быстрые настройки"
+
+msgid "Playlist and chapters"
+msgstr "Плейлист и главы"
+
+msgid "Picture in Picture"
+msgstr "Картинка в картинке"
+
+msgid "Full Screen"
+msgstr "Полноэкранный режим"
+
+msgid "Music Mode"
+msgstr "Режим музыки"
+
+msgid "Subtitle Track"
+msgstr "Дорожка субтитров"
+
+msgid "Screenshot"
+msgstr "Снимок экрана"
+
+msgid "Hide"
+msgstr "Скрыть"
+
+msgid "Auto"
+msgstr "Авто"
+
+msgid "Disabled"
+msgstr "Отключено"
+
+msgid "System Default"
+msgstr "Системное по умолчанию"
+
+msgid "Video decoding threads"
+msgstr "Потоки декодирования видео"
+
+msgid "Auto (Copy)"
+msgstr "Авто (копирование)"
+
+msgid "Disable hardware decoding."
+msgstr "Отключить аппаратное декодирование."
+
+msgid "Enable hardware decoding. However, most of the video filters won't work properly."
+msgstr "Включить аппаратное декодирование. Большинство видеофильтров будет недоступно."
+
+msgid "Enable hardware decoding. It will consume double the memory but work with video filters."
+msgstr "Включить аппаратное декодирование с поддержкой видеофильтров. Требует вдвое больше памяти."
+
+msgid "Off"
+msgstr "Выкл."
+
+msgid "Track"
+msgstr "Дорожка"
+
+msgid "Album"
+msgstr "Альбом"
+
+msgid "Weak"
+msgstr "Мягкий"
+
+msgid "Strong"
+msgstr "Строгий"
+
+msgid "Autoselect device"
+msgstr "Выбирать устройство автоматически"
+
+msgid "{} (missing)"
+msgstr "{} (недоступно)"
+
+msgid "[{}] {}"
+msgstr "[{}] {}"
+
+msgid "Clip"
+msgstr "Отсечение"
+
+msgid "Gamma"
+msgstr "Гамма"
+
+msgid "Linear"
+msgstr "Линейный"
+
+msgid "Tone mapping algorithm"
+msgstr "Алгоритм тональной компрессии"
+
+msgid "Target peak (nits)"
+msgstr "Пиковая яркость (нит)"
+
+msgid "Tone-mapping parameter"
+msgstr "Параметр тональной компрессии"
+
+msgid "Auto hide after"
+msgstr "Скрывать через"
+
+msgid "Text size"
+msgstr "Размер текста"
+
+msgid "Toggle by minimizing the window"
+msgstr "Переключать при сворачивании окна"
+
+msgid "Preferred audio languages"
+msgstr "Предпочтительные языки аудио"
+
+msgid "Move toolbar action up"
+msgstr "Переместить кнопку вверх"
+
+msgid "Move toolbar action down"
+msgstr "Переместить кнопку вниз"
+
+msgid "Drag to reorder {}"
+msgstr "Перетащите кнопку «{}»"
+
+msgid "Remove preferred language {}"
+msgstr "Удалить предпочитаемый язык {}"
+
+msgid "Add a preferred language code"
+msgstr "Добавить код предпочитаемого языка"

@@ -50,14 +50,18 @@ export component AudioPreferencesPage inherits ScrollView {
     Rectangle {
         x: 20px; y: 76px; width: parent.width - 40px; height: 240px;
         border-radius: 12px; border-width: 1px; border-color: Theme.settings-audio-card-border; background: Theme.settings-audio-card-surface(root.mica-backdrop-enabled);
-        Text { x: 14px; y: 8px; width: 150px; height: 26px; text: "Number of threads"; font-size: 12px; color: Theme.settings-control-label; vertical-alignment: center; }
-        PreferenceNumericInput { label: "Audio decoding threads"; font-size: 12px; x: 250px; y: 9px; width: 70px; height: 24px; text <=> AudioSettingsState.audio-threads-text; accepted => { root.settings-changed(); } }
-        Text { x: 176px; y: 32px; width: parent.width - 194px; height: 16px; text: "Default: 0 (Auto)"; font-size: 10px; color: Theme.settings-section-heading; vertical-alignment: center; }
-        Text { x: 14px; y: 54px; width: 150px; height: 26px; text: "Audio driver"; font-size: 12px; color: Theme.settings-control-label; vertical-alignment: center; }
-        ComboBox { x: 176px; y: 54px; width: parent.width - 194px; height: 25px; model: AudioSettingsState.audio-driver-options; current-index <=> AudioSettingsState.audio-driver-index; selected => { root.settings-changed(); } }
-        Text { x: 14px; y: 90px; width: 150px; height: 26px; text: "Preferred audio device"; font-size: 12px; color: Theme.settings-control-label; vertical-alignment: center; }
-        ComboBox { x: 176px; y: 90px; width: parent.width - 194px; height: 25px; model: AudioSettingsState.audio-device-options; current-index <=> AudioSettingsState.audio-device-index; selected => { root.settings-changed(); } }
-        Text { x: 14px; y: 130px; text: "S/PDIF output"; font-size: 12px; font-weight: 600; color: Theme.settings-control-label; }
+        Text { x: 14px; y: 8px; width: 150px; height: 26px; text: @tr("Number of threads"); font-size: 12px; color: Theme.settings-control-label; vertical-alignment: center; }
+        PreferenceNumericInput { label: @tr("Audio decoding threads"); font-size: 12px; x: 250px; y: 9px; width: 70px; height: 24px; text <=> AudioSettingsState.audio-threads-text; accepted => { root.settings-changed(); } }
+        Text { x: 176px; y: 32px; width: parent.width - 194px; height: 16px; text: @tr("Default: 0 (Auto)"); font-size: 10px; color: Theme.settings-section-heading; vertical-alignment: center; }
+        Text { x: 14px; y: 54px; width: 150px; height: 26px; text: @tr("Audio driver"); font-size: 12px; color: Theme.settings-control-label; vertical-alignment: center; }
+        ComboBox { x: 176px; y: 54px; width: parent.width - 194px; height: 25px;
+            accessible-label: @tr("Audio driver");
+            model: AudioSettingsState.audio-driver-options; current-index <=> AudioSettingsState.audio-driver-index; selected => { root.settings-changed(); } }
+        Text { x: 14px; y: 90px; width: 150px; height: 26px; text: @tr("Preferred audio device"); font-size: 12px; color: Theme.settings-control-label; vertical-alignment: center; }
+        ComboBox { x: 176px; y: 90px; width: parent.width - 194px; height: 25px;
+            accessible-label: @tr("Preferred audio device");
+            model: AudioSettingsState.audio-device-options; current-index <=> AudioSettingsState.audio-device-index; selected => { root.settings-changed(); } }
+        Text { x: 14px; y: 130px; text: @tr("S/PDIF output"); font-size: 12px; font-weight: 600; color: Theme.settings-control-label; }
         CheckBox { x: 14px; y: 158px; text: "AC-3"; checked <=> AudioSettingsState.audio-spdif-ac3; toggled => { root.settings-changed(); } }
         CheckBox { x: 104px; y: 158px; text: "DTS"; checked <=> AudioSettingsState.audio-spdif-dts; toggled => { root.settings-changed(); } }
         CheckBox { x: 194px; y: 158px; text: "DTS-HD"; checked <=> AudioSettingsState.audio-spdif-dts-hd; toggled => { root.settings-changed(); } }
@@ -68,31 +72,35 @@ export component AudioPreferencesPage inherits ScrollView {
     Rectangle {
         x: 20px; y: root.audio-volume-title-y + 26px; width: parent.width - 40px; height: 250px;
         border-radius: 12px; border-width: 1px; border-color: Theme.settings-audio-card-border; background: Theme.settings-audio-card-surface(root.mica-backdrop-enabled);
-        CheckBox { x: 14px; y: 12px; height: 24px; text: "Allow volume boost (up to 200%)"; checked <=> root.volume-boost; toggled => { root.settings-changed(); } }
-        Text { x: 14px; y: 48px; width: 150px; height: 26px; text: "Initial volume"; font-size: 12px; color: Theme.settings-control-label; vertical-alignment: center; }
-        CheckBox { x: 168px; y: 48px; text: "Enable"; checked <=> AudioSettingsState.audio-initial-volume-enabled; toggled => { root.settings-changed(); } }
-        PreferenceNumericInput { label: "Initial audio volume"; font-size: 12px; x: 270px; y: 49px; width: 68px; height: 24px; enabled: AudioSettingsState.audio-initial-volume-enabled; text <=> AudioSettingsState.audio-initial-volume-text; accepted => { root.settings-changed(); } }
+        CheckBox { x: 14px; y: 12px; height: 24px; text: @tr("Allow volume boost (up to 200%)"); checked <=> root.volume-boost; toggled => { root.settings-changed(); } }
+        Text { x: 14px; y: 48px; width: 150px; height: 26px; text: @tr("Initial volume"); font-size: 12px; color: Theme.settings-control-label; vertical-alignment: center; }
+        CheckBox { x: 168px; y: 48px; text: @tr("Enable"); checked <=> AudioSettingsState.audio-initial-volume-enabled; toggled => { root.settings-changed(); } }
+        PreferenceNumericInput { label: @tr("Initial audio volume"); font-size: 12px; x: 270px; y: 49px; width: 68px; height: 24px; enabled: AudioSettingsState.audio-initial-volume-enabled; text <=> AudioSettingsState.audio-initial-volume-text; accepted => { root.settings-changed(); } }
         Text { x: 14px; y: 86px; width: 150px; height: 26px; text: "ReplayGain"; font-size: 12px; color: Theme.settings-control-label; vertical-alignment: center; }
-        ComboBox { x: 176px; y: 86px; width: parent.width - 194px; height: 25px; model: AudioSettingsState.audio-replay-gain-options; current-index <=> AudioSettingsState.audio-replay-gain-index; selected => { root.settings-changed(); } }
-        Text { x: 14px; y: 124px; width: 150px; height: 26px; text: "ReplayGain preamp (dB)"; font-size: 12px; color: Theme.settings-control-label; vertical-alignment: center; }
-        PreferenceNumericInput { label: "ReplayGain preamp in decibels"; font-size: 12px; x: 176px; y: 125px; width: 68px; height: 24px; text <=> AudioSettingsState.audio-replay-gain-preamp-text; accepted => { root.settings-changed(); } }
-        CheckBox { x: 14px; y: 158px; height: 24px; text: "Prevent clipping"; checked <=> AudioSettingsState.audio-replay-gain-clip; toggled => { root.settings-changed(); } }
-        Text { x: 14px; y: 194px; width: 150px; height: 38px; text: "ReplayGain fallback (dB)"; font-size: 12px; color: Theme.settings-control-label; vertical-alignment: center; wrap: word-wrap; }
-        PreferenceNumericInput { label: "ReplayGain fallback in decibels"; font-size: 12px; x: 176px; y: 201px; width: 68px; height: 24px; text <=> AudioSettingsState.audio-replay-gain-fallback-text; accepted => { root.settings-changed(); } }
+        ComboBox { x: 176px; y: 86px; width: parent.width - 194px; height: 25px;
+            accessible-label: "ReplayGain";
+            model: AudioSettingsState.audio-replay-gain-options; current-index <=> AudioSettingsState.audio-replay-gain-index; selected => { root.settings-changed(); } }
+        Text { x: 14px; y: 121px; width: 150px; height: 32px; text: @tr("ReplayGain preamp (dB)"); font-size: 12px; color: Theme.settings-control-label; vertical-alignment: center; wrap: word-wrap; }
+        PreferenceNumericInput { label: @tr("ReplayGain preamp in decibels"); font-size: 12px; x: 176px; y: 125px; width: 68px; height: 24px; text <=> AudioSettingsState.audio-replay-gain-preamp-text; accepted => { root.settings-changed(); } }
+        CheckBox { x: 14px; y: 158px; height: 24px; text: @tr("Prevent clipping"); checked <=> AudioSettingsState.audio-replay-gain-clip; toggled => { root.settings-changed(); } }
+        Text { x: 14px; y: 194px; width: 150px; height: 38px; text: @tr("ReplayGain fallback (dB)"); font-size: 12px; color: Theme.settings-control-label; vertical-alignment: center; wrap: word-wrap; }
+        PreferenceNumericInput { label: @tr("ReplayGain fallback in decibels"); font-size: 12px; x: 176px; y: 201px; width: 68px; height: 24px; text <=> AudioSettingsState.audio-replay-gain-fallback-text; accepted => { root.settings-changed(); } }
     }
     Text { x: 28px; y: root.audio-other-title-y; text: @tr("Other"); font-size: 13px; font-weight: 600; color: Theme.settings-section-heading; }
     Rectangle {
         x: 20px; y: root.audio-other-title-y + 26px; width: parent.width - 40px; height: 220px;
         border-radius: 12px; border-width: 1px; border-color: Theme.settings-audio-card-border; background: Theme.settings-audio-card-surface(root.mica-backdrop-enabled);
-        Text { x: 14px; y: 14px; width: 150px; height: 26px; text: "Gapless playback"; font-size: 12px; color: Theme.settings-control-label; vertical-alignment: center; }
-        ComboBox { x: 176px; y: 14px; width: parent.width - 194px; height: 25px; model: AudioSettingsState.audio-gapless-options; current-index <=> AudioSettingsState.audio-gapless-index; selected => { root.settings-changed(); } }
-        Text { x: 14px; y: 52px; width: 150px; height: 34px; text: "Preferred languages"; font-size: 12px; color: Theme.settings-control-label; vertical-alignment: center; }
+        Text { x: 14px; y: 14px; width: 150px; height: 26px; text: @tr("Gapless playback"); font-size: 12px; color: Theme.settings-control-label; vertical-alignment: center; }
+        ComboBox { x: 176px; y: 14px; width: parent.width - 194px; height: 25px;
+            accessible-label: @tr("Gapless playback");
+            model: AudioSettingsState.audio-gapless-options; current-index <=> AudioSettingsState.audio-gapless-index; selected => { root.settings-changed(); } }
+        Text { x: 14px; y: 52px; width: 150px; height: 34px; text: @tr("Preferred languages"); font-size: 12px; color: Theme.settings-control-label; vertical-alignment: center; }
         LanguageTokenEditor { x: 176px; y: 56px; width: parent.width - 194px; height: 24px;
             tokens: AudioSettingsState.audio-language-tokens;
             add-token(entry) => { root.add-audio-language-token(entry); }
             remove-token(index) => { root.remove-audio-language-token(index); }
         }
-        Text { x: 176px; y: 84px; width: parent.width - 194px; height: 34px; text: "Comma-separated language codes, in preference order."; font-size: 10px; color: Theme.settings-section-heading; wrap: word-wrap; }
+        Text { x: 176px; y: 84px; width: parent.width - 194px; height: 34px; text: @tr("Comma-separated language codes, in preference order."); font-size: 10px; color: Theme.settings-section-heading; wrap: word-wrap; }
     }
     }
 }

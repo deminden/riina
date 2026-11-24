@@ -1,3 +1,4 @@
+import { MediaSettingsText } from "media-settings-text.slint";
 import { PreferenceSwitch, PreferenceActionButton, ToolbarPreferenceRow, PreferenceNumericInput, PreferenceChoiceRow, PreferenceRadioRow, PreferenceToggle, PreferenceDisclosure, PreferenceDetailRow } from "preferences-controls.slint";
 import { Theme } from "theme.slint";
 import { CheckBox, ComboBox, ScrollView } from "std-widgets.slint";
@@ -76,6 +77,7 @@ export component InterfacePreferencesPage inherits ScrollView {
     callback toolbar-drag-finished();
     in property <length> interface-osd-y;
     in property <length> osd-suppression-detail-height;
+    in property <length> osd-settings-height;
     in-out property <bool> osd-enabled;
     in-out property <bool> osd-suppression-expanded;
     in-out property <bool> disable-osd-file-start;
@@ -123,12 +125,12 @@ export component InterfacePreferencesPage inherits ScrollView {
         Text { x: 36px; y: 8px; text: @tr("Appearance");
             font-size: 12px; color: Theme.settings-page-heading; vertical-alignment: center; }
         ComboBox { x: 160px; y: 4px; width: 190px; height: 24px;
-            model: ["Dark", "Light", "Match System Appearance"];
+            model: [@tr("Dark"), @tr("Light"), @tr("Match System Appearance")];
             current-index <=> root.appearance-index;
             selected => { root.settings-changed(); }
         }
         PreferenceDetailRow { x: 36px; y: 44px; width: parent.width - 60px;
-            label: root.surface-material-title; expanded: root.liquid-glass-expanded;
+            label: MediaSettingsText.material-caption(root.surface-material-title); expanded: root.liquid-glass-expanded;
             toggled => { root.liquid-glass-expanded = !root.liquid-glass-expanded; }
         }
         if root.liquid-glass-expanded : VerticalLayout {
@@ -141,13 +143,13 @@ export component InterfacePreferencesPage inherits ScrollView {
                 checked <=> root.liquid-glass-osc;
                 toggled => { root.settings-changed(); }
             }
-            PreferenceSwitch { height: 28px; label: "Sidebar";
+            PreferenceSwitch { height: 28px; label: @tr("Sidebar");
                 checked <=> root.liquid-glass-sidebar;
                 toggled => { root.settings-changed(); }
             }
         }
         PreferenceSwitch { x: 36px; y: 84px + root.liquid-glass-detail-height;
-            width: parent.width - 48px; label: "Compact Interface";
+            width: parent.width - 48px; label: @tr("Compact Interface");
             checked <=> root.compact-ui;
             toggled => { root.settings-changed(); }
         }
@@ -157,13 +159,13 @@ export component InterfacePreferencesPage inherits ScrollView {
     Rectangle { x: 20px; y: root.interface-window-y; width: parent.width - 40px; height: root.interface-window-card-height;
         border-width: 1px; border-color: Theme.settings-option-border; border-radius: Theme.settings-card-corner; background: Theme.settings-card-surface(root.mica-backdrop-enabled);
         PreferenceToggle { x: 24px; y: 4px; width: parent.width - 48px;
-            label: "Initial window size"; checked <=> root.initial-window-size-enabled;
+            label: @tr("Initial window size"); checked <=> root.initial-window-size-enabled;
             toggled => { root.settings-changed(); }
         }
         if root.initial-window-size-enabled : Rectangle {
             x: 32px; y: 42px; width: parent.width - 64px; height: 26px; background: transparent;
             ComboBox { x: 0; y: 1px; width: 92px; height: 23px;
-                model: ["Width", "Height"];
+                model: [@tr("Width"), @tr("Height")];
                 current-index <=> root.initial-window-size-axis-index;
                 selected => { root.settings-changed(); }
             }
@@ -175,20 +177,20 @@ export component InterfacePreferencesPage inherits ScrollView {
                 }
             }
             ComboBox { x: 190px; y: 1px; width: 116px; height: 23px;
-                model: ["point", "% of screen"];
+                model: [@tr("point"), @tr("% of screen")];
                 current-index <=> root.initial-window-size-unit-index;
                 selected => { root.settings-changed(); }
             }
         }
         PreferenceToggle { x: 24px; y: 44px + root.initial-window-size-detail-height;
-            width: parent.width - 48px; label: "Initial window position";
+            width: parent.width - 48px; label: @tr("Initial window position");
             checked <=> root.initial-window-position-enabled;
             toggled => { root.settings-changed(); }
         }
         if root.initial-window-position-enabled : Rectangle {
             x: 32px; y: 80px + root.initial-window-size-detail-height;
             width: parent.width - 64px; height: 96px; background: transparent;
-            Text { x: 0; y: 0; width: 60px; height: 23px; text: "X Offset:";
+            Text { x: 0; y: 0; width: 60px; height: 23px; text: @tr("X Offset:");
                 font-size: 11px; color: Theme.settings-control-label; vertical-alignment: center; }
             Rectangle { x: 62px; y: 0; width: 56px; height: 23px;
                 border-width: 1px; border-color: Theme.settings-field-border; border-radius: Theme.settings-text-field-corner; background: Theme.settings-field-surface;
@@ -198,20 +200,20 @@ export component InterfacePreferencesPage inherits ScrollView {
                 }
             }
             ComboBox { x: 122px; y: 0; width: 94px; height: 23px;
-                model: ["point", "% of screen"];
+                model: [@tr("point"), @tr("% of screen")];
                 current-index <=> root.initial-window-x-unit-index;
                 selected => { root.settings-changed(); }
             }
-            Text { x: 16px; y: 24px; width: 34px; height: 23px; text: "to the";
+            Text { x: 16px; y: 24px; width: 34px; height: 23px; text: @tr("to the");
                 font-size: 11px; color: Theme.settings-control-label; vertical-alignment: center; }
             ComboBox { x: 52px; y: 24px; width: 84px; height: 23px;
-                model: ["left", "right"];
+                model: [@tr("left"), @tr("right")];
                 current-index <=> root.initial-window-x-anchor-index;
                 selected => { root.settings-changed(); }
             }
-            Text { x: 140px; y: 24px; width: 92px; height: 23px; text: "side of screen";
+            Text { x: 140px; y: 24px; width: 92px; height: 23px; text: @tr("side of screen");
                 font-size: 11px; color: Theme.settings-control-label; vertical-alignment: center; }
-            Text { x: 0; y: 48px; width: 60px; height: 23px; text: "Y Offset:";
+            Text { x: 0; y: 48px; width: 60px; height: 23px; text: @tr("Y Offset:");
                 font-size: 11px; color: Theme.settings-control-label; vertical-alignment: center; }
             Rectangle { x: 62px; y: 48px; width: 56px; height: 23px;
                 border-width: 1px; border-color: Theme.settings-field-border; border-radius: Theme.settings-text-field-corner; background: Theme.settings-field-surface;
@@ -221,82 +223,82 @@ export component InterfacePreferencesPage inherits ScrollView {
                 }
             }
             ComboBox { x: 122px; y: 48px; width: 94px; height: 23px;
-                model: ["point", "% of screen"];
+                model: [@tr("point"), @tr("% of screen")];
                 current-index <=> root.initial-window-y-unit-index;
                 selected => { root.settings-changed(); }
             }
-            Text { x: 16px; y: 72px; width: 34px; height: 23px; text: "to the";
+            Text { x: 16px; y: 72px; width: 34px; height: 23px; text: @tr("to the");
                 font-size: 11px; color: Theme.settings-control-label; vertical-alignment: center; }
             ComboBox { x: 52px; y: 72px; width: 84px; height: 23px;
-                model: ["bottom", "top"];
+                model: [@tr("bottom"), @tr("top")];
                 current-index <=> root.initial-window-y-anchor-index;
                 selected => { root.settings-changed(); }
             }
-            Text { x: 140px; y: 72px; width: 92px; height: 23px; text: "side of screen";
+            Text { x: 140px; y: 72px; width: 92px; height: 23px; text: @tr("side of screen");
                 font-size: 11px; color: Theme.settings-control-label; vertical-alignment: center; }
         }
     }
     Rectangle { x: 20px; y: root.interface-resize-y; width: parent.width - 40px; height: 118px;
         border-width: 1px; border-color: Theme.settings-option-border; border-radius: Theme.settings-card-corner; background: Theme.settings-card-surface(root.mica-backdrop-enabled);
-        Text { x: 36px; y: 7px; width: 150px; height: 24px; text: "Resize window to:";
+        Text { x: 36px; y: 7px; width: 150px; height: 24px; text: @tr("Resize window to:");
             font-size: 12px; color: Theme.settings-page-heading; vertical-alignment: center; }
         ComboBox { x: 232px; y: 4px; width: parent.width - 252px; height: 24px;
-            model: ["Fit Screen", "0.5x Video Size", "1x Video Size", "1.5x Video Size", "2x Video Size"];
+            model: [@tr("Fit Screen"), @tr("0.5x Video Size"), @tr("1x Video Size"), @tr("1.5x Video Size"), @tr("2x Video Size")];
             current-index <=> root.window-resize-option-index;
             selected => { root.settings-changed(); }
         }
         PreferenceRadioRow { x: 28px; y: 40px; width: parent.width - 48px;
-            label: "Always when playing a new file"; checked: root.window-resize-timing-index == 0;
+            label: @tr("Always when playing a new file"); checked: root.window-resize-timing-index == 0;
             activated => { root.window-resize-timing-index = 0; root.settings-changed(); }
         }
         PreferenceRadioRow { x: 28px; y: 64px; width: parent.width - 48px;
-            label: "When media is opened manually"; checked: root.window-resize-timing-index == 1;
+            label: @tr("When media is opened manually"); checked: root.window-resize-timing-index == 1;
             activated => { root.window-resize-timing-index = 1; root.settings-changed(); }
         }
         PreferenceRadioRow { x: 28px; y: 88px; width: parent.width - 48px;
-            label: "Do not resize"; checked: root.window-resize-timing-index == 2;
+            label: @tr("Do not resize"); checked: root.window-resize-timing-index == 2;
             activated => { root.window-resize-timing-index = 2; root.settings-changed(); }
         }
     }
     Rectangle { x: 20px; y: root.interface-physical-resolution-y; width: parent.width - 40px; height: 40px;
         border-width: 1px; border-color: Theme.settings-option-border; border-radius: Theme.settings-card-corner; background: Theme.settings-card-surface(root.mica-backdrop-enabled);
-        PreferenceSwitch { x: 36px; y: 6px; width: parent.width - 48px; label: "Use physical resolution on Retina displays";
+        PreferenceSwitch { x: 36px; y: 6px; width: parent.width - 48px; label: @tr("Use physical resolution on Retina displays");
             checked <=> root.use-physical-resolution;
             toggled => { root.settings-changed(); }
         }
     }
     Rectangle { x: 20px; y: root.interface-float-y; width: parent.width - 40px; height: 80px;
         border-width: 1px; border-color: Theme.settings-option-border; border-radius: Theme.settings-card-corner; background: Theme.settings-card-surface(root.mica-backdrop-enabled);
-        PreferenceSwitch { x: 36px; y: 4px; width: parent.width - 48px; label: "Always float on top";
+        PreferenceSwitch { x: 36px; y: 4px; width: parent.width - 48px; label: @tr("Always float on top");
             checked <=> root.always-float-on-top;
             toggled => { root.settings-changed(); }
         }
-        PreferenceSwitch { x: 36px; y: 44px; width: parent.width - 48px; label: "Always show float on top status in the title bar";
+        PreferenceSwitch { x: 36px; y: 44px; width: parent.width - 48px; label: @tr("Always show float on top status in the title bar");
             checked <=> root.always-show-on-top-icon;
             toggled => { root.settings-changed(); }
         }
     }
     Rectangle { x: 20px; y: root.interface-osc-y; width: parent.width - 40px; height: root.interface-osc-card-height;
         border-width: 1px; border-color: Theme.settings-option-border; border-radius: Theme.settings-card-corner; background: Theme.settings-card-surface(root.mica-backdrop-enabled);
-        Text { x: 0; y: 8px; text: "On-Screen Controller:";
+        Text { x: 0; y: 8px; text: @tr("On-Screen Controller:");
             font-weight: 600; font-size: 13px; color: Theme.settings-page-heading; }
         ComboBox { x: 160px; y: 4px; width: 150px; height: 24px;
-            model: ["Floating", "Top", "Bottom"];
+            model: [@tr("Floating"), @tr("Top"), @tr("Bottom")];
             current-index <=> root.osc-position;
             selected => { root.settings-changed(); }
         }
-        CheckBox { x: 160px; y: 42px; height: 24px; text: "Dock control bar and titlebar";
+        CheckBox { x: 160px; y: 42px; height: 24px; text: @tr("Dock control bar and titlebar");
             checked <=> root.docked-controls;
             enabled: !root.edge-to-edge-video;
             toggled => { root.settings-changed(); }
         }
         PreferenceSwitch { x: 36px; y: 82px; width: parent.width - 48px;
-            label: "Show chapter position in progress bar";
+            label: @tr("Show chapter position in progress bar");
             checked <=> root.show-chapter-pos;
             toggled => { root.settings-changed(); }
         }
         PreferenceSwitch { x: 36px; y: 116px; width: 128px;
-            label: "Auto hide after:";
+            label: @tr("Auto hide after:");
             checked <=> root.control-auto-hide-enabled;
             toggled => { root.settings-changed(); }
         }
@@ -312,31 +314,31 @@ export component InterfacePreferencesPage inherits ScrollView {
             font-size: 11px; color: Theme.settings-interface-unit-text(root.control-auto-hide-enabled);
             vertical-alignment: center; }
         PreferenceSwitch { x: 36px; y: 150px; width: parent.width - 48px;
-            label: "Prevent scroll wheel from changing playback position";
+            label: @tr("Prevent scroll wheel from changing playback position");
             checked <=> root.control-disable-play-slider-scrolling;
             toggled => { root.settings-changed(); }
         }
         PreferenceSwitch { x: 36px; y: 186px; width: parent.width - 48px;
-            label: "Prevent scroll wheel from changing volume";
+            label: @tr("Prevent scroll wheel from changing volume");
             checked <=> root.control-disable-volume-slider-scrolling;
             toggled => { root.settings-changed(); }
         }
-        Text { x: 36px; y: 218px; text: "Toolbar buttons";
+        Text { x: 36px; y: 218px; text: @tr("Toolbar buttons");
             font-size: 12px; font-weight: 600; color: Theme.settings-page-heading; }
         PreferenceActionButton { x: parent.width - 112px; y: 214px;
-            label: "Restore Default";
+            label: @tr("Restore Default");
             activated => { root.toolbar-reset(); }
         }
         for action-kind[index] in root.toolbar-order : ToolbarPreferenceRow {
             x: 36px; y: 238px + index * 28px; width: parent.width - 72px;
-            label: action-kind == 0 ? "Quick Settings" :
-                action-kind == 1 ? "Playlist and chapters" :
-                action-kind == 2 ? "Picture in Picture" :
-                action-kind == 3 ? "Full Screen" :
-                action-kind == 4 ? "Music Mode" :
-                action-kind == 5 ? "Subtitle Track" :
-                action-kind == 6 ? "Screenshot" :
-                action-kind == 7 ? "Plugins" : "Live Text";
+            label: action-kind == 0 ? @tr("Quick Settings") :
+                action-kind == 1 ? @tr("Playlist and chapters") :
+                action-kind == 2 ? @tr("Picture in Picture") :
+                action-kind == 3 ? @tr("Full Screen") :
+                action-kind == 4 ? @tr("Music Mode") :
+                action-kind == 5 ? @tr("Subtitle Track") :
+                action-kind == 6 ? @tr("Screenshot") :
+                action-kind == 7 ? @tr("Plugins") : @tr("Live Text");
             position: index; count: root.toolbar-order.length;
             drag-index: root.toolbar-drag-index;
             drop-index: root.toolbar-drop-index;
@@ -384,40 +386,41 @@ export component InterfacePreferencesPage inherits ScrollView {
     Rectangle { x: 20px; y: root.interface-osd-y; width: parent.width - 40px;
         height: 92px + root.osd-suppression-detail-height;
         border-width: 1px; border-color: Theme.settings-option-border; border-radius: Theme.settings-card-corner; background: Theme.settings-card-surface(root.mica-backdrop-enabled);
-        PreferenceSwitch { x: 36px; y: 4px; width: parent.width - 48px; label: "Enable OSD";
+        PreferenceSwitch { x: 36px; y: 4px; width: parent.width - 48px; label: @tr("Enable OSD");
             checked <=> root.osd-enabled;
             toggled => { root.settings-changed(); }
         }
-        PreferenceDisclosure { x: 36px; y: 40px; label: "Suppress messages for:";
+        PreferenceDisclosure { x: 36px; y: 40px; label: @tr("Suppress messages for:");
             expanded: root.osd-suppression-expanded;
             toggled => { root.osd-suppression-expanded = !root.osd-suppression-expanded; }
         }
         if root.osd-suppression-expanded : VerticalLayout {
             x: 52px; y: 64px; width: parent.width - 68px; height: 108px; spacing: 0px;
-            PreferenceSwitch { height: 27px; label: "File start";
+            PreferenceSwitch { height: 27px; label: @tr("File start");
                 checked <=> root.disable-osd-file-start;
                 toggled => { root.settings-changed(); }
             }
-            PreferenceSwitch { height: 27px; label: "Pause / Resume";
+            PreferenceSwitch { height: 27px; label: @tr("Pause / Resume");
                 checked <=> root.disable-osd-pause-resume;
                 toggled => { root.settings-changed(); }
             }
-            PreferenceSwitch { height: 27px; label: "Seek";
+            PreferenceSwitch { height: 27px; label: @tr("Seek");
                 checked <=> root.disable-osd-seek;
                 toggled => { root.settings-changed(); }
             }
-            PreferenceSwitch { height: 27px; label: "Speed";
+            PreferenceSwitch { height: 27px; label: @tr("Speed");
                 checked <=> root.disable-osd-speed;
                 toggled => { root.settings-changed(); }
             }
         }
     }
     Rectangle { x: 20px; y: root.interface-osd-y + 108px + root.osd-suppression-detail-height;
-        width: parent.width - 40px; height: 112px;
+        width: parent.width - 40px; height: root.osd-settings-height;
+        private property <bool> stacked-status: root.osd-settings-height > 112px;
         border-width: 1px; border-color: Theme.settings-option-border; border-radius: Theme.settings-card-corner; background: Theme.settings-card-surface(root.mica-backdrop-enabled);
         Text { x: 36px; y: 4px; text: @tr("On-Screen Display");
             font-size: 12px; color: Theme.settings-page-heading; vertical-alignment: center; }
-        Text { x: 36px; y: 39px; width: 132px; height: 24px; text: "Auto hide after:";
+        Text { x: 36px; y: 39px; width: 132px; height: 24px; text: @tr("Auto hide after:");
             font-size: 12px; color: Theme.settings-page-heading; vertical-alignment: center; }
         Rectangle { x: 170px; y: 39px; width: 70px; height: 24px;
             border-width: 1px; border-color: Theme.settings-field-border; border-radius: Theme.settings-text-field-corner; background: Theme.settings-field-surface;
@@ -428,7 +431,7 @@ export component InterfacePreferencesPage inherits ScrollView {
         }
         Text { x: 244px; y: 39px; width: 20px; height: 24px; text: "s";
             font-size: 11px; color: Theme.settings-interface-unit-text(true); vertical-alignment: center; }
-        Text { x: 36px; y: 68px; width: 132px; height: 24px; text: "Text size:";
+        Text { x: 36px; y: 68px; width: 132px; height: 24px; text: @tr("Text size:");
             font-size: 12px; color: Theme.settings-page-heading; vertical-alignment: center; }
         Rectangle { x: 170px; y: 68px; width: 70px; height: 24px;
             border-width: 1px; border-color: Theme.settings-field-border; border-radius: Theme.settings-text-field-corner; background: Theme.settings-field-surface;
@@ -439,8 +442,10 @@ export component InterfacePreferencesPage inherits ScrollView {
         }
         Text { x: 244px; y: 68px; width: 24px; height: 24px; text: "pt";
             font-size: 11px; color: Theme.settings-interface-unit-text(true); vertical-alignment: center; }
-        PreferenceSwitch { x: 270px; y: 67px; width: parent.width - 282px;
-            label: "Time and battery in full screen";
+        PreferenceSwitch { x: parent.stacked-status ? 36px : 270px;
+            y: parent.stacked-status ? 100px : 67px;
+            width: parent.width - self.x - 12px;
+            label: @tr("Time and battery in full screen");
             checked <=> root.display-time-and-battery-in-fullscreen;
             toggled => { root.settings-changed(); }
         }
@@ -452,21 +457,21 @@ export component InterfacePreferencesPage inherits ScrollView {
         height: root.interface-pip-card-height;
         border-width: 1px; border-color: Theme.settings-input-card-border; border-radius: 10px; background: Theme.settings-card-surface(root.mica-backdrop-enabled);
         VerticalLayout { x: 8px; y: 2px; width: parent.width - 16px; height: parent.height - 4px; spacing: 0px;
-            PreferenceChoiceRow { width: parent.width; label: "Window after entering";
-                options: ["Do nothing", "Hide", "Minimize"];
+            PreferenceChoiceRow { width: parent.width; label: @tr("Window after entering");
+                options: [@tr("Do nothing"), @tr("Hide"), @tr("Minimize")];
                 selected-index <=> root.pip-window-behavior-index;
                 selected => { root.settings-changed(); }
             }
-            PreferenceSwitch { width: parent.width; label: "Automatically pause playback";
+            PreferenceSwitch { width: parent.width; label: @tr("Automatically pause playback");
                 checked <=> root.pip-pause-when-entering;
                 toggled => { root.settings-changed(); }
             }
             PreferenceSwitch { width: parent.width;
-                label: "Toggle Picture-in-Picture by minimizing/un-minimizing the window";
+                label: @tr("Toggle Picture-in-Picture by minimizing/un-minimizing the window");
                 checked <=> root.pip-toggle-by-minimizing;
                 toggled => { root.settings-changed(); }
             }
-            PreferenceSwitch { width: parent.width; label: "Only for video files";
+            PreferenceSwitch { width: parent.width; label: @tr("Only for video files");
                 enabled: root.pip-toggle-by-minimizing;
                 checked <=> root.pip-minimize-toggle-video-only;
                 toggled => { root.settings-changed(); }
@@ -480,12 +485,12 @@ export component InterfacePreferencesPage inherits ScrollView {
         Text { x: 0; y: 8px; text: @tr("Thumbnail Preview");
             font-weight: 600; font-size: 13px; color: Theme.settings-page-heading; }
         PreferenceSwitch { x: 16px; y: 36px; width: parent.width - 32px;
-            label: "Enable thumbnail preview";
+            label: @tr("Enable thumbnail preview");
             checked <=> root.thumbnail-preview-enabled;
             toggled => { root.settings-changed(); }
         }
         Text { x: 16px; y: 76px; width: 210px; height: 24px;
-            text: "Maximum cache size"; font-size: 12px; color: Theme.settings-control-label;
+            text: @tr("Maximum cache size"); font-size: 12px; color: Theme.settings-control-label;
             vertical-alignment: center; }
         PreferenceNumericInput { x: parent.width - 91px; y: 76px; width: 57px; height: 24px;
             text <=> root.thumbnail-cache-size-text;
@@ -495,13 +500,13 @@ export component InterfacePreferencesPage inherits ScrollView {
         Text { x: parent.width - 29px; y: 76px; width: 24px; height: 24px;
             text: "MB"; font-size: 11px; color: Theme.settings-section-heading; vertical-alignment: center; }
         PreferenceSwitch { x: 16px; y: 112px; width: parent.width - 32px;
-            label: "Generate previews for files on remote volumes";
+            label: @tr("Generate previews for files on remote volumes");
             checked <=> root.thumbnail-remote-enabled;
             enabled: root.thumbnail-preview-enabled;
             toggled => { root.settings-changed(); }
         }
         Text { x: 16px; y: 150px; width: 210px; height: 24px;
-            text: "Thumbnail width"; font-size: 12px; color: Theme.settings-control-label;
+            text: @tr("Thumbnail width"); font-size: 12px; color: Theme.settings-control-label;
             vertical-alignment: center; }
         PreferenceNumericInput { x: parent.width - 91px; y: 150px; width: 57px; height: 24px;
             text <=> root.thumbnail-width-text;
@@ -511,7 +516,7 @@ export component InterfacePreferencesPage inherits ScrollView {
         Text { x: parent.width - 29px; y: 150px; width: 24px; height: 24px;
             text: "pt"; font-size: 11px; color: Theme.settings-section-heading; vertical-alignment: center; }
         Text { x: 16px; y: 182px; width: parent.width - 32px;
-            text: "Width is measured in points and applies to generated previews.";
+            text: @tr("Width is measured in points and applies to generated previews.");
             font-size: 10px; color: Theme.settings-section-heading; }
     }
     Rectangle {
@@ -521,10 +526,10 @@ export component InterfacePreferencesPage inherits ScrollView {
         Text { x: 0; y: 8px; text: @tr("Accessibility");
             font-weight: 600; font-size: 13px; color: Theme.settings-page-heading; }
         PreferenceSwitch { x: 16px; y: 29px; width: parent.width - 32px;
-            label: "Disable animations"; checked <=> root.disable-animations;
+            label: @tr("Disable animations"); checked <=> root.disable-animations;
             toggled => { root.settings-changed(); }
         }
-        Text { x: 16px; y: 58px; text: "Turn off interface motion.";
+        Text { x: 16px; y: 58px; text: @tr("Turn off interface motion.");
             font-size: 10px; color: Theme.settings-section-heading; }
     }
     }

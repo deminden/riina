@@ -125,7 +125,9 @@ export component PreferencesWindow inherits Window {
     out property <length> interface-osc-card-height: 500px;
     out property <length> interface-osd-y: interface-osc-y + interface-osc-card-height + 16px;
     out property <length> osd-suppression-detail-height: osd-suppression-expanded ? 112px : 0px;
-    out property <length> interface-thumbnail-y: interface-osd-y + 108px + osd-suppression-detail-height + 128px;
+    private property <length> osd-settings-height: root.width < 820px ? 144px : 112px;
+    out property <length> interface-thumbnail-y: interface-osd-y + 108px + osd-suppression-detail-height
+        + osd-settings-height + 16px;
     out property <length> interface-pip-y: interface-thumbnail-y + 236px;
     out property <length> interface-pip-card-height: 148px;
     out property <length> interface-accessibility-y: interface-pip-y + interface-pip-card-height + 44px;
@@ -247,6 +249,14 @@ export component PreferencesWindow inherits Window {
     callback remove-audio-language-token(int);
     in-out property <bool> live-text-enabled <=> VideoSettingsState.live-text-enabled;
     in property <bool> live-text-available: false;
+    out property <length> video-color-card-y: live-text-available ? 516px : 402px;
+    out property <length> video-hdr-card-y: video-color-card-y + (platform-macos ? 100px : 0px);
+    out property <length> video-tone-mapping-card-y: video-hdr-card-y + 100px;
+    private property <length> video-content-height:
+        video-tone-mapping-card-y + (VideoSettingsState.tone-mapping-expanded ? 418px : 158px);
+    public function reveal-video-setting(target: length) {
+        VideoSettingsState.video-scroll-position = max(16px - target, min(0px, root.height - video-content-height));
+    }
     in property <[PluginPreferencesRow]> plugin-rows: [];
     in-out property <bool> plugin-information-open;
     in property <PluginInformation> plugin-information;
@@ -454,6 +464,7 @@ export component PreferencesWindow inherits Window {
         toolbar-drag-finished => { root.toolbar-drag-finished(); }
         interface-osd-y: root.interface-osd-y;
         osd-suppression-detail-height: root.osd-suppression-detail-height;
+        osd-settings-height: root.osd-settings-height;
         osd-enabled <=> root.osd-enabled;
         osd-suppression-expanded <=> root.osd-suppression-expanded;
         disable-osd-file-start <=> root.disable-osd-file-start;
@@ -482,6 +493,10 @@ export component PreferencesWindow inherits Window {
         x: 200px; y: 0; width: parent.width - 200px; height: parent.height;
         platform-macos: root.platform-macos;
         live-text-available: root.live-text-available;
+        color-card-y: root.video-color-card-y;
+        hdr-card-y: root.video-hdr-card-y;
+        tone-mapping-card-y: root.video-tone-mapping-card-y;
+        video-content-height: root.video-content-height;
         mica-backdrop-enabled: root.mica-backdrop-enabled;
         settings-changed => { root.settings-changed(); }
     }

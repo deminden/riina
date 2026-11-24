@@ -158,23 +158,30 @@ pub(crate) fn install_window(
 fn install_driver(window: &PreferencesWindow, preferences: &Settings) {
     let audio = window.global::<AudioSettingsState>();
     let drivers = Driver::choices_for_current_platform();
+    let default_caption = window
+        .global::<riina_ui::MediaSettingsText>()
+        .get_system_default();
     audio.set_audio_threads_text(preferences.audio_threads.to_string().into());
+    audio.set_audio_driver_options(slint::ModelRc::new(slint::VecModel::from(
+        drivers
+            .iter()
+            .map(|driver| match driver {
+                Driver::Default => default_caption.clone(),
+                driver => driver.label().into(),
+            })
+            .collect::<Vec<slint::SharedString>>(),
+    )));
     audio.set_audio_driver_index(
         drivers
             .iter()
             .position(|driver| *driver == preferences.driver)
             .unwrap_or(0) as i32,
     );
-    audio.set_audio_driver_options(slint::ModelRc::new(slint::VecModel::from(
-        drivers
-            .iter()
-            .map(|driver| driver.label().into())
-            .collect::<Vec<slint::SharedString>>(),
-    )));
 }
 
 fn install_output_options(window: &PreferencesWindow, preferences: &Settings) {
     let audio = window.global::<AudioSettingsState>();
+    let text = window.global::<riina_ui::MediaSettingsText>();
     let replay_gain = [ReplayGain::Off, ReplayGain::Track, ReplayGain::Album];
     let gapless = [Gapless::Disabled, Gapless::Weak, Gapless::Strong];
     audio.set_audio_spdif_ac3(preferences.spdif.contains(&SpdifCodec::Ac3));
@@ -190,12 +197,7 @@ fn install_output_options(window: &PreferencesWindow, preferences: &Settings) {
             .position(|value| *value == preferences.replay_gain)
             .unwrap_or(0) as i32,
     );
-    audio.set_audio_replay_gain_options(slint::ModelRc::new(slint::VecModel::from(
-        ["Off", "Track", "Album"]
-            .into_iter()
-            .map(Into::into)
-            .collect::<Vec<slint::SharedString>>(),
-    )));
+    audio.set_audio_replay_gain_options(text.get_replay_gain_options());
     audio.set_audio_replay_gain_preamp_text(preferences.replay_gain_preamp.to_string().into());
     audio.set_audio_replay_gain_clip(preferences.replay_gain_clip);
     audio.set_audio_replay_gain_fallback_text(preferences.replay_gain_fallback.to_string().into());
@@ -205,12 +207,7 @@ fn install_output_options(window: &PreferencesWindow, preferences: &Settings) {
             .position(|value| *value == preferences.gapless)
             .unwrap_or(1) as i32,
     );
-    audio.set_audio_gapless_options(slint::ModelRc::new(slint::VecModel::from(
-        ["Disabled", "Weak", "Strong"]
-            .into_iter()
-            .map(Into::into)
-            .collect::<Vec<slint::SharedString>>(),
-    )));
+    audio.set_audio_gapless_options(text.get_gapless_options());
     audio.set_audio_preferred_languages(preferences.preferred_languages.clone().into());
     crate::language_token_preferences::install_audio(window, &preferences.preferred_languages);
 }
@@ -221,6 +218,7 @@ pub(crate) fn install_devices(
     available_devices: &[OutputDevice],
 ) {
     let audio = window.global::<AudioSettingsState>();
+    let text = window.global::<riina_ui::MediaSettingsText>();
     let mut devices = vec![("auto".to_owned(), "Autoselect device".to_owned())];
     devices.extend(
         available_devices
@@ -228,17 +226,18 @@ pub(crate) fn install_devices(
             .filter(|device| device.name != "auto")
             .map(|device| (device.name.clone(), device.description.clone())),
     );
-    if !devices.iter().any(|(name, _)| name == &preferences.device) {
+    let missing = !devices.iter().any(|(name, _)| name == &preferences.device);
+    if missing {
         devices.push((
             preferences.device.clone(),
-            format!("{} (missing)", preferences.device_description),
+            preferences.device_description.clone(),
         ));
     }
     let selected_device = devices
         .iter()
         .position(|(name, _)| name == &preferences.device)
         .unwrap_or(0);
-    audio.set_audio_device_index(selected_device as i32);
+    let automatic_caption = text.get_automatic_device();
     audio.set_audio_device_names(slint::ModelRc::new(slint::VecModel::from(
         devices
             .iter()
@@ -255,15 +254,18 @@ pub(crate) fn install_devices(
         devices
             .into_iter()
             .map(|(name, description)| {
-                let label = if name == "auto" {
-                    "[Autoselect device] auto".to_owned()
+                let caption = if name == "auto" {
+                    automatic_caption.clone()
+                } else if missing && name == preferences.device {
+                    text.invoke_missing_device(description.into())
                 } else {
-                    format!("[{description}] {name}")
+                    description.into()
                 };
-                label.into()
+                text.invoke_device_caption(caption, name.into())
             })
             .collect::<Vec<slint::SharedString>>(),
     )));
+    audio.set_audio_device_index(selected_device as i32);
 }
 
 #[cfg(test)]
@@ -279,5 +281,50 @@ mod tests {
             Driver::Default,
             "coreaudio/{endpoint}"
         ));
+    }
+
+    #[test]
+    fn localized_device_caption_keeps_the_saved_device_description()
+    -> Result<(), Box<dyn std::error::Error>> {
+        i_slint_backend_testing::init_no_event_loop();
+        let window = PreferencesWindow::new()?;
+        let audio = window.global::<AudioSettingsState>();
+        let preferences = Settings {
+            device: "fixture/missing-device".into(),
+            device_description: "Fixture speakers".into(),
+            replay_gain: ReplayGain::Album,
+            gapless: Gapless::Strong,
+            ..Default::default()
+        };
+
+        for (locale, missing, default_driver) in [
+            ("en", "missing", "System Default"),
+            ("ru", "недоступно", "Системное по умолчанию"),
+            ("ar", "غير متاح", "إعداد النظام الافتراضي"),
+        ] {
+            slint::select_bundled_translation(locale)?;
+            install_window(&window, &preferences, &[]);
+            assert_eq!(
+                audio
+                    .get_audio_driver_options()
+                    .row_data(0)
+                    .ok_or("Missing driver")?,
+                default_driver
+            );
+            assert_eq!(
+                audio
+                    .get_audio_device_options()
+                    .row_data(1)
+                    .ok_or("Missing device option")?,
+                format!("[Fixture speakers ({missing})] fixture/missing-device").as_str()
+            );
+            let current = current_window(&window)?;
+            assert_eq!(current.device, preferences.device);
+            assert_eq!(current.device_description, preferences.device_description);
+            assert_eq!(current.replay_gain, ReplayGain::Album);
+            assert_eq!(current.gapless, Gapless::Strong);
+        }
+        slint::select_bundled_translation("en")?;
+        Ok(())
     }
 }
