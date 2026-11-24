@@ -1,4 +1,5 @@
 import { Theme } from "theme.slint";
+import { ConfirmationSheet } from "confirmation-sheet.slint";
 import { KeyBindingDialogs } from "preferences-key-binding-dialogs.slint";
 import { PluginsPreferencesPage, PluginInstallDialog } from "preferences-plugin-page.slint";
 import { PluginInformation, PluginInformationAction, PluginInformationDialog } from "preferences-plugin-information.slint";
@@ -579,7 +580,10 @@ export component PreferencesWindow inherits Window {
         utilities-open-default-apps => { root.utilities-open-default-apps(); }
         utilities-restore-alerts => { root.utilities-restore-alerts(); }
         utilities-clear-progress => { root.utilities-clear-progress(); }
-        utilities-clear-history => { root.utilities-clear-history(); }
+        utilities-clear-history => {
+            UtilitySettingsState.utilities-history-confirmation-open = true;
+            history-confirmation.focus();
+        }
         utilities-clear-thumbnail-cache => { root.utilities-clear-thumbnail-cache(); }
         utilities-browser-extension(browser) => { root.utilities-browser-extension(browser); }
     }
@@ -630,6 +634,19 @@ export component PreferencesWindow inherits Window {
         confirmed(video, audio, playlist) => {
             UtilitySettingsState.utilities-default-app-sheet-open = false;
             root.utilities-default-apps-requested(video, audio, playlist);
+        }
+    }
+
+    history-confirmation := ConfirmationSheet {
+        width: root.width;
+        height: root.height;
+        visible: UtilitySettingsState.utilities-history-confirmation-open;
+        title: "Clear Playback History";
+        description: "Clear Playback History, Open Recent, and the Welcome window’s Resume item?";
+        action: "Clear History";
+        answered(accepted) => {
+            UtilitySettingsState.utilities-history-confirmation-open = false;
+            if accepted { root.utilities-clear-history(); }
         }
     }
 }

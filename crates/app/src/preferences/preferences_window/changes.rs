@@ -13,13 +13,11 @@ use crate::{PlayerWindow, PreferencesWindow, preferences::model::PreferenceModel
 #[cfg(test)]
 use riina_core::Command;
 use slint::ComponentHandle;
-use std::path::PathBuf;
 
 pub(super) fn connect(
     app: &PlayerWindow,
     window: &PreferencesWindow,
     decoder_player: riina_mpv::CommandSender,
-    path: PathBuf,
     model: PreferenceModel,
     key_binding_playback: crate::PlaybackStore,
 ) {
@@ -27,7 +25,6 @@ pub(super) fn connect(
         app,
         window,
         decoder_player,
-        path,
         model,
         key_binding_playback,
         CredentialStore::system(),
@@ -52,7 +49,6 @@ fn connect_with_credentials(
     app: &PlayerWindow,
     window: &PreferencesWindow,
     decoder_player: riina_mpv::CommandSender,
-    path: PathBuf,
     model: PreferenceModel,
     key_binding_playback: crate::PlaybackStore,
     credentials: CredentialStore,
@@ -152,9 +148,6 @@ fn connect_with_credentials(
                 display.put(&mut preferences);
                 playback.put(&mut preferences);
                 subtitles.put_tracks(&mut preferences);
-                // Utilities can clear history while this window remains open;
-                // preserve that live system action over its original snapshot.
-                crate::utilities_preferences::preserve_saved_history(&mut preferences, &path);
                 save_preferences(&window, &app, &model, preferences)
             });
         match result {

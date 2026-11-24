@@ -167,7 +167,7 @@ impl ApplicationHistory {
             .map(|(app, route)| (app, route.display))
     }
 
-    pub(super) fn sync_plugins(&self, entries: &[Entry]) -> Result<(), String> {
+    pub(crate) fn sync_plugins(&self, entries: &[Entry]) -> Result<(), String> {
         let routes = self.destinations.borrow().clone();
         let mut failure = None;
         for route in routes {

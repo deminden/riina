@@ -46,7 +46,7 @@ fn playlist_api_reads_the_observed_rows_and_queues_typed_commands() {
         "#,
     )
     .unwrap();
-    let context = player_file_context(&playback(Phase::Paused), &mut Vec::new(), &[]);
+    let context = player_file_context(&playback(Phase::Paused), &[], &[]);
     let session = PluginRuntimeSession::start_package_entry_with_player_context(
         root.path(),
         &manifest,
@@ -120,11 +120,7 @@ fn playlist_api_rejects_stale_idle_state_and_malformed_arguments() {
     )
     .unwrap();
     for (phase, log) in [(Phase::Stopped, "idle"), (Phase::Playing, "active")] {
-        session.update_player_file_context(player_file_context(
-            &playback(phase),
-            &mut Vec::new(),
-            &[],
-        ));
+        session.update_player_file_context(player_file_context(&playback(phase), &[], &[]));
         session
             .deliver_player_event("iina.menu-update".into(), serde_json::Value::Null)
             .unwrap();

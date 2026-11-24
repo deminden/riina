@@ -3281,3 +3281,36 @@ with URL registration disabled. Strict Apple Silicon cross-Clippy passed.
 The grouped fast gate ran the browser and packaging suites with application
 and UI tests. Separate Edge and Safari runtime checks and signed extension
 packages remain open.
+
+### Shared recent activity and history clearing 2026-11-24
+
+Player menus, Welcome and plugin snapshots share the profile’s Open Recent
+list. Welcome resolves the Resume card from the saved local file and uses
+the document list for its other rows. The standalone History window and
+the File menu keep their independent clear actions. Settings Utilities
+clears the archive, Open Recent and the saved Resume entry.
+
+An isolated Linux X11 playback session opened two paused video windows and
+a shared History window. Both clips appeared in Open Recent and Playback
+History. Escape and closing Settings with the confirmation
+open preserved both profile files byte for byte. Reopening Settings left
+the previous confirmation closed. Tab and Return accepted the new sheet
+and the History window refreshed to its empty state while both videos
+remained paused. Closing the first player left the second open. Quitting
+the second preserved the empty lists and exited the isolated process.
+
+The headless player regression exercises shared menu and Welcome updates,
+independent Open Recent clearing, stale shutdown saves and a new open whose
+playlist entry arrives after the ready phase. A separate persistence test
+verifies that a writer holding the old revision cannot restore the Resume
+entry. The core serialization fixture covers the original preference bytes
+before any clear.
+
+The full Windows workspace gate passed with the confirmation changes. The
+grouped gate passed with the delayed-playlist follow-up, including the
+Windows player and Settings pixel baselines. All 60 pinned native engine
+tests and strict Apple Silicon cross-Clippy passed. Native Windows and macOS
+dialog interaction remain unverified for this batch.
+
+- Linux application SHA-256 `c5b460b936ab701a6e054234070d20eae9b3b8e0dcc3268401e978c2b5bdc5e2`
+- X11 libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`

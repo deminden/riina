@@ -376,6 +376,7 @@ export component PlayerWindow inherits PlayerMenuWindow {
     changed leading-sidebar-width => { root.crop-viewport-changed(); }
     changed trailing-sidebar-width => { root.crop-viewport-changed(); }
     callback open-recent(int);
+    callback recent-files-visibility-changed();
     callback subtitle-font-selected(string);
     callback dismiss-font-picker();
     callback refresh-fullscreen-info();

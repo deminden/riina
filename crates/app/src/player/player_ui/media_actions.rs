@@ -1,14 +1,12 @@
 //! File, URL, recent-document and welcome-window actions share one command sender.
 pub(super) mod recent;
 
-use super::help_menu_url;
+use super::{help_menu_url, recent_activity::RecentActivity, startup::SessionRecents};
 use crate::{
-    MenuCatalogRow, NativeVideoHost, PlayerWindow, WelcomeWindow, media_open, platform,
+    NativeVideoHost, PlayerWindow, WelcomeWindow, media_open, platform,
     ui_dialogs::{self, Purpose},
 };
-use recent::{persist_recent_open_documents, remember_recent_open_document};
-use riina_core::sync::lock;
-use riina_core::{Command, RecentMedia};
+use riina_core::{Command, sync::lock};
 use riina_mpv::CommandSender;
 use riina_ui::PlayerMenuActions;
 use slint::{
@@ -16,7 +14,6 @@ use slint::{
     winit_030::{EventResult, WinitWindowAccessor},
 };
 use std::{
-    cell::{Cell, RefCell},
     path::PathBuf,
     rc::Rc,
     sync::{Arc, Mutex},
@@ -26,9 +23,7 @@ pub(super) struct Context<'a> {
     pub commands: &'a CommandSender,
     pub open_host: Option<slint::Weak<NativeVideoHost>>,
     pub welcome: Option<&'a WelcomeWindow>,
-    pub recent_media: &'a Rc<RefCell<Vec<RecentMedia>>>,
-    pub recent_open_documents: &'a Rc<RefCell<Vec<RecentMedia>>>,
-    pub recent_open_cleared: &'a Rc<Cell<bool>>,
+    pub recent: &'a SessionRecents,
     pub prefs_path: &'a PathBuf,
     pub latest_playback: &'a crate::PlaybackStore,
 }
@@ -62,6 +57,13 @@ type OpenHost = Option<slint::Weak<NativeVideoHost>>;
 type WelcomeRequests = Arc<Mutex<Option<PendingWelcomeOpen>>>;
 
 pub(super) fn install(app: &PlayerWindow, context: Context<'_>) {
+    install_resume_preference(
+        app,
+        context.commands,
+        context.welcome,
+        &context.recent.activity,
+    );
+    install_pause_on_open(app, context.commands);
     let welcome_window = context.welcome.map(ComponentHandle::as_weak);
     let pending_welcome_open = WelcomeRequests::default();
     install_renderer_ready(app, context.commands, &pending_welcome_open);
@@ -80,29 +82,36 @@ pub(super) fn install(app: &PlayerWindow, context: Context<'_>) {
     install_media_opened(app, &context, &welcome_window);
 }
 
-pub(super) fn install_resume_preference(
+fn install_resume_preference(
     app: &PlayerWindow,
     commands: &CommandSender,
     welcome: Option<&WelcomeWindow>,
-    recent_media: &Rc<RefCell<Vec<RecentMedia>>>,
+    recent: &Rc<RecentActivity>,
 ) {
     let resume_player = commands.clone();
     let resume_app = app.as_weak();
-    let resume_welcome = welcome.map(WelcomeWindow::as_weak);
-    let recent_media_for_resume = recent_media.clone();
     app.on_resume_last_position_changed(move |enabled| {
-        if let Err(error) = resume_player.send(Command::SetResumeLastPosition(enabled))
-            && let Some(app) = resume_app.upgrade()
-        {
-            crate::diagnostics::report(&app, error);
+        if let Some(app) = resume_app.upgrade() {
+            if let Err(error) = resume_player.send(Command::SetResumeLastPosition(enabled)) {
+                crate::diagnostics::report(&app, error);
+            }
+            app.invoke_recent_files_visibility_changed();
         }
-        if let Some(welcome) = resume_welcome.as_ref().and_then(slint::Weak::upgrade) {
-            recent::refresh_welcome_history(&welcome, &recent_media_for_resume.borrow(), enabled);
+    });
+    let welcome = welcome.map(WelcomeWindow::as_weak);
+    let weak = app.as_weak();
+    let recent = recent.clone();
+    app.on_recent_files_visibility_changed(move || {
+        if let (Some(app), Some(welcome)) = (
+            weak.upgrade(),
+            welcome.as_ref().and_then(slint::Weak::upgrade),
+        ) {
+            recent.refresh_welcome(&app, &welcome);
         }
     });
 }
 
-pub(super) fn install_pause_on_open(app: &PlayerWindow, commands: &CommandSender) {
+fn install_pause_on_open(app: &PlayerWindow, commands: &CommandSender) {
     let opening_player = commands.clone();
     let opening_app = app.as_weak();
     app.on_pause_when_open_changed(move |pause| {
@@ -333,94 +342,37 @@ fn install_file_open(
 }
 
 fn install_open_recent_menu(app: &PlayerWindow, context: &Context<'_>) {
-    let Context {
-        commands,
-        recent_open_documents,
-        prefs_path,
-        recent_open_cleared,
-        ..
-    } = *context;
-    let remember_documents = recent_open_documents.clone();
-    let remember_preferences_path = prefs_path.clone();
-    let remember_app = app.as_weak();
+    let recent = &context.recent.activity;
+    let remember = recent.clone();
+    let weak = app.as_weak();
     app.on_remember_recent_path(move |path| {
-        if let Some(app) = remember_app.upgrade() {
+        if let Some(app) = weak.upgrade() {
             let title = PathBuf::from(path.as_str()).file_name().map_or_else(
                 || path.to_string(),
                 |name| name.to_string_lossy().into_owned(),
             );
-            remember_recent_open_document(
-                &app,
-                &remember_documents,
-                &remember_preferences_path,
-                path.to_string(),
-                title,
-            );
+            remember.remember_document(&app, path.to_string(), title);
         }
     });
-    let open_recent_documents = recent_open_documents.clone();
-    let open_recent_preferences_path = prefs_path.clone();
-    let recent_player = commands.clone();
-    let open_recent_app = app.as_weak();
+    let documents = recent.clone();
+    let player = context.commands.clone();
+    let weak = app.as_weak();
     app.global::<PlayerMenuActions>()
         .on_open_recent_path(move |path| {
-            let Some(app) = open_recent_app.upgrade() else {
+            let (Some(app), Some(media)) = (weak.upgrade(), documents.document(&path)) else {
                 return;
             };
-            let Some(media) = open_recent_documents
-                .borrow()
-                .iter()
-                .find(|item| item.path == path.as_str())
-                .cloned()
-            else {
-                return;
-            };
-            remember_recent_open_document(
-                &app,
-                &open_recent_documents,
-                &open_recent_preferences_path,
-                media.path.clone(),
-                media.title.clone(),
-            );
-            media_open::open_recent(
-                &app,
-                media,
-                app.global::<riina_ui::PlayerPreferences>()
-                    .get_resume_last_position(),
-                recent_player.clone(),
-            );
+            documents.remember_document(&app, media.path.clone(), media.title.clone());
+            media_open::open_recent(&app, media, false, player.clone());
         });
-    let clear_recent_documents = recent_open_documents.clone();
-    let clear_recent_flag = recent_open_cleared.clone();
-    let clear_preferences_path = prefs_path.clone();
-    let clear_recent_app = app.as_weak();
+    let clear = recent.clone();
+    let weak = app.as_weak();
     app.global::<PlayerMenuActions>()
         .on_clear_open_recent(move || {
-            if let Some(app) = clear_recent_app.upgrade() {
-                clear_recent_flag.set(true);
-                clear_recent_documents.borrow_mut().clear();
-                app.global::<riina_ui::PlayerCatalogState>()
-                    .set_recent_open_menu_rows(slint::ModelRc::new(slint::VecModel::from(Vec::<
-                        MenuCatalogRow,
-                    >::new(
-                    ))));
-                app.global::<riina_ui::PlayerMenuActions>()
-                    .invoke_video_menu_changed();
-                if let Err(error) = persist_recent_open_documents(
-                    &clear_preferences_path,
-                    &clear_recent_documents.borrow(),
-                ) {
-                    crate::diagnostics::report(
-                        &app,
-                        format!("Could not clear Open Recent: {error}"),
-                    );
-                }
-                if let Err(error) = platform::clear_recent_documents() {
-                    crate::diagnostics::report(
-                        &app,
-                        format!("Could not clear system recent documents: {error}"),
-                    );
-                }
+            if let Some(app) = weak.upgrade()
+                && let Err(error) = clear.clear_documents()
+            {
+                crate::diagnostics::report(&app, format!("Could not clear Open Recent: {error}"));
             }
         });
 }
@@ -523,19 +475,19 @@ fn install_welcome_recent(
 ) {
     let commands = context.commands;
     let open_host = &context.open_host;
-    let recent_media = context.recent_media;
     let recent_player = commands.clone();
     let recent_host = open_host.clone();
-    let recent_media_for_open = recent_media.clone();
+    let recent_media_for_open = context.recent.activity.clone();
     let weak = app.as_weak();
     let recent_welcome = welcome_window.clone();
     let recent_pending = pending_welcome_open.clone();
     app.on_open_recent(move |index| {
-        let Ok(index) = usize::try_from(index) else {
+        let Some(app) = weak.upgrade() else {
             return;
         };
-        let media = recent_media_for_open.borrow().get(index).cloned();
-        if let (Some(app), Some(media)) = (weak.upgrade(), media) {
+        if let Some(media) = recent_media_for_open.welcome_selection(&app, index) {
+            let resume = index == -1;
+            recent_media_for_open.remember_document(&app, media.path.clone(), media.title.clone());
             let from_welcome = recent_welcome
                 .as_ref()
                 .and_then(slint::Weak::upgrade)
@@ -551,45 +503,28 @@ fn install_welcome_recent(
                     // Continue releasing session resources if the window is closing.
                     let _ = welcome.hide();
                 }
-                let request = PendingWelcomeOpen::Recent(
-                    media,
-                    app.global::<riina_ui::PlayerPreferences>()
-                        .get_resume_last_position(),
-                );
+                let request = PendingWelcomeOpen::Recent(media, resume);
                 submit_welcome_open(&app, &recent_player, &recent_pending, request);
             } else {
-                media_open::open_recent(
-                    &app,
-                    media,
-                    app.global::<riina_ui::PlayerPreferences>()
-                        .get_resume_last_position(),
-                    recent_player.clone(),
-                );
+                media_open::open_recent(&app, media, resume, recent_player.clone());
             }
         }
     });
 }
 
 fn install_media_opened(app: &PlayerWindow, context: &Context<'_>, welcome_window: &WelcomeHandle) {
-    let recent_open_documents = context.recent_open_documents;
-    let prefs_path = context.prefs_path;
-    let opened_documents = recent_open_documents.clone();
-    let opened_preferences_path = prefs_path.clone();
+    let recent = context.recent.activity.clone();
+    let resume_revision = context.recent.resume_revision.clone();
     let opened_app = app.as_weak();
     let opened_welcome = welcome_window.clone();
     app.on_media_opened(move |path, title| {
+        resume_revision.set(recent.revision());
         if let Some(app) = opened_app.upgrade()
             && app
                 .global::<riina_ui::PlayerPreferences>()
                 .get_track_all_files_in_recent_open_menu()
         {
-            remember_recent_open_document(
-                &app,
-                &opened_documents,
-                &opened_preferences_path,
-                path.to_string(),
-                title.to_string(),
-            );
+            recent.remember_document(&app, path.to_string(), title.to_string());
         }
         if let Some(welcome) = opened_welcome.as_ref().and_then(slint::Weak::upgrade) {
             // Continue releasing session resources if the window is closing.

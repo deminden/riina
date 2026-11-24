@@ -23,6 +23,7 @@ mod playlist_drop;
 mod playlist_hover;
 mod playlist_menu;
 mod playlist_subtitles;
+mod recent_activity;
 mod rendering;
 mod startup;
 mod thumbnail_actions;
@@ -265,6 +266,7 @@ pub(crate) use startup::InitialMedia;
 pub(crate) struct ApplicationServices {
     pub(crate) plugins: Rc<ApplicationPlugins>,
     pub(crate) history: Rc<crate::playback_history_window::ApplicationHistory>,
+    recents: Rc<recent_activity::ApplicationRecents>,
     updates: Rc<crate::updates::ApplicationUpdates>,
     power: Rc<crate::playback_power::ApplicationPower>,
 }
@@ -274,14 +276,20 @@ impl ApplicationServices {
         &self,
         app: &PlayerWindow,
         context: &PlayerContext,
-        history: &history_session::Tracking,
+        session: &startup::PreparedSession,
         presentation: Option<&platform::NativePresentation>,
     ) {
         self.updates
             .connect(app, presentation, context.preferences_path());
         self.power
             .initialize(context.preferences().snapshot().playback_power);
-        session_preferences::connect(app, context, history, self);
+        session_preferences::connect(
+            app,
+            context,
+            &session.history,
+            &session.recent.activity,
+            self,
+        );
     }
 
     fn bind_playback(
@@ -342,7 +350,7 @@ fn configure_with_engine(
         &engine_start,
         loaded,
         media_geometry.clone(),
-        media.startup_context(&application.plugins),
+        media.startup_context(&application),
     )?;
     let prefs = &session.prefs;
     let prefs_path = &session.prefs_path;
@@ -408,9 +416,7 @@ fn configure_with_engine(
         session.plugin_host_handle.clone(),
         prefs_path.clone(),
     );
-    media_actions::install_resume_preference(app, &command_sender, welcome, &session.recent.media);
     session.history.install_recording_action(app);
-    media_actions::install_pause_on_open(app, &command_sender);
     control_actions::install(
         app,
         control_actions::Inputs {
@@ -431,9 +437,7 @@ fn configure_with_engine(
             commands: &command_sender,
             open_host: native.as_ref().map(platform::NativePresentation::host),
             welcome,
-            recent_media: &session.recent.media,
-            recent_open_documents: &session.recent.documents,
-            recent_open_cleared: &session.recent.documents_cleared,
+            recent: &session.recent,
             prefs_path,
             latest_playback,
         },
@@ -453,7 +457,7 @@ fn configure_with_engine(
         },
         &session.picture_in_picture,
     )?;
-    application.connect_preferences(app, &context, &session.history, native.as_ref());
+    application.connect_preferences(app, &context, &session, native.as_ref());
     let (platform_extras, plugin_runtime) = session.plugin_ui.finish(
         session.plugin_host,
         session.projection.system_media,
@@ -473,7 +477,6 @@ fn configure_with_engine(
         _features: guards,
         preference_model,
         preference_state: session_preferences::SessionState {
-            prefs_path: session.prefs_path,
             audio_equalizer: session.audio_equalizer,
             saved_video_filters: session.saved_video_filters,
             saved_audio_filters: session.saved_audio_filters,
@@ -487,39 +490,39 @@ fn configure_with_engine(
 #[cfg(test)]
 mod welcome_tests {
     use super::{
-        media_actions::recent::{recent_document_rows, recent_media_rows, resume_media_rows},
+        media_actions::recent::{resumable, visible_documents},
         startup::resume_engine_options,
     };
     use riina_core::RecentMedia;
 
     #[test]
     fn resume_item_is_not_repeated_in_recent_documents() {
-        let history = [
+        let directory = riina_test_support::TempDir::new("resume-selection").unwrap();
+        let file = directory.path().join("resume.mkv");
+        std::fs::write(&file, b"fixture").unwrap();
+        let history = [RecentMedia {
+            path: file.to_string_lossy().into_owned(),
+            title: "Resume item".into(),
+            position: 12.0,
+        }];
+        let documents = [
             RecentMedia {
-                path: "resume.mkv".into(),
-                title: "Resume item".into(),
-                position: 12.0,
+                path: "different.mkv".into(),
+                title: "Newest document".into(),
+                position: 0.0,
             },
-            RecentMedia {
-                path: "older.mkv".into(),
-                title: "Older item".into(),
-                position: 3.0,
-            },
+            history[0].clone(),
         ];
-
-        let resume = recent_media_rows(&history);
-        let resume_action = resume_media_rows(&history, true);
-        let documents = recent_document_rows(&history, true);
-
-        assert_eq!(resume[0].title.as_str(), "Resume item");
-        assert_eq!(resume_action[0].title.as_str(), "Resume item");
-        assert_eq!(documents.len(), 1);
-        assert_eq!(documents[0].title.as_str(), "Older item");
-
-        assert!(resume_media_rows(&history, false).is_empty());
-        let all_documents = recent_document_rows(&history, false);
-        assert_eq!(all_documents.len(), 2);
-        assert_eq!(all_documents[0].title.as_str(), "Resume item");
+        let resume = resumable(&history, true);
+        assert_eq!(resume, Some(&history[0]));
+        assert_eq!(
+            visible_documents(&documents, resume).collect::<Vec<_>>(),
+            [&documents[0]]
+        );
+        assert!(resumable(&history, false).is_none());
+        std::fs::remove_file(file).unwrap();
+        assert!(resumable(&history, true).is_none());
+        assert_eq!(visible_documents(&documents, None).count(), 2);
     }
 
     #[test]

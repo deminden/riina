@@ -5,6 +5,7 @@ use super::{
     hdr_output,
     history_session::{LoadedHistory, Tracking},
     initial_projection, live_text, observation_dispatch, plugins,
+    recent_activity::RecentActivity,
 };
 use crate::{
     PlayerWindow, WelcomeWindow, platform,
@@ -16,7 +17,7 @@ use riina_core::{Command, Preferences, audio_equalizer, sync::lock, video_filter
 use riina_mpv::{CommandSender, Player};
 use slint::ComponentHandle;
 use std::{
-    cell::{Cell, RefCell},
+    cell::Cell,
     path::{Path, PathBuf},
     rc::Rc,
     sync::{Arc, Mutex},
@@ -255,7 +256,7 @@ pub(crate) struct InitialMedia {
 impl InitialMedia {
     pub(super) fn startup_context<'a>(
         &'a self,
-        application: &'a plugins::ApplicationPlugins,
+        application: &'a super::ApplicationServices,
     ) -> StartupContext<'a> {
         StartupContext {
             application,
@@ -372,19 +373,8 @@ pub(super) fn activate_output(
 }
 
 pub(super) struct SessionRecents {
-    pub(super) media: Rc<RefCell<Vec<riina_core::RecentMedia>>>,
-    pub(super) documents: Rc<RefCell<Vec<riina_core::RecentMedia>>>,
-    pub(super) documents_cleared: Rc<Cell<bool>>,
-}
-
-impl SessionRecents {
-    fn new(prefs: &Preferences) -> Self {
-        Self {
-            media: Rc::new(RefCell::new(prefs.recent_media.clone())),
-            documents: Rc::new(RefCell::new(prefs.recent_open_documents.clone())),
-            documents_cleared: Rc::new(Cell::new(false)),
-        }
-    }
+    pub(super) activity: Rc<RecentActivity>,
+    pub(super) resume_revision: Rc<Cell<u64>>,
 }
 
 pub(super) struct PreparedStartup {
@@ -410,7 +400,7 @@ pub(super) struct PreparedSession {
 }
 
 pub(super) struct StartupContext<'a> {
-    pub(super) application: &'a plugins::ApplicationPlugins,
+    pub(super) application: &'a super::ApplicationServices,
     pub(super) managed: Option<&'a Arc<crate::plugins::plugin_players::Ticket>>,
     pub(super) launch_options: &'a [(String, String)],
 }
@@ -439,15 +429,26 @@ pub(super) fn prepare(
         app.global::<riina_ui::PlayerControlsState>()
             .set_plugin_ui_disabled(ticket.options.disable_ui);
     }
-    let plugin_host = match startup.application.host(&prefs_path).and_then(|global| {
-        PluginHost::prepare_for_application(
-            &prefs_path,
-            &prefs.recent_media,
-            history.entries(),
-            global,
-            startup.managed.cloned(),
-        )
-    }) {
+    let activity =
+        startup
+            .application
+            .recents
+            .for_profile(&prefs_path, &prefs, use_system_services);
+    let resume_revision = activity.revision();
+    let recent_documents = lock(activity.documents()).clone();
+    let plugin_host = match startup
+        .application
+        .plugins
+        .host(&prefs_path)
+        .and_then(|global| {
+            PluginHost::prepare_for_application(
+                &prefs_path,
+                &recent_documents,
+                history.entries(),
+                global,
+                startup.managed.cloned(),
+            )
+        }) {
         Ok(host) => Some(host),
         Err(error) => {
             app.set_status(error.into());
@@ -455,21 +456,29 @@ pub(super) fn prepare(
         }
     };
     let plugin_host_handle = plugin_host.as_ref().map(PluginHost::handle);
-    let plugin_ui = plugins::install(app, native, plugin_host_handle.clone(), startup.application);
+    let plugin_ui = plugins::install(
+        app,
+        native,
+        plugin_host_handle.clone(),
+        &startup.application.plugins,
+    );
     live_text::initialize(app, prefs.live_text_enabled, use_system_services);
     hdr_output::initialize_display(app, &prefs, native);
-    let recent = SessionRecents::new(&prefs);
-    let history = history.start_tracking(&prefs_path, &prefs);
+    let recent = SessionRecents {
+        resume_revision: Rc::new(Cell::new(resume_revision)),
+        activity,
+    };
+    let history = history.start_tracking(&prefs_path, &prefs, recent.activity.documents().clone());
+    recent
+        .activity
+        .bind_history(&startup.application.history, &history.state);
     let engine_options =
         options_for_session(app, &prefs, &prefs_path, startup.launch_options.to_vec())?;
-    let projection = initial_projection::install_session(
-        app,
-        &prefs,
-        &prefs_path,
-        native,
-        welcome,
-        &recent.documents,
-    );
+    let projection = initial_projection::install_session(app, &prefs, &prefs_path, native);
+    if let Some(welcome) = welcome {
+        welcome.set_app_version(env!("CARGO_PKG_VERSION").into());
+    }
+    recent.activity.attach(app, welcome);
     let observation = observation_dispatch::prepare_observation(
         app,
         observation_dispatch::Inputs {

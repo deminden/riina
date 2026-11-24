@@ -20,6 +20,7 @@ thread_local! {
 pub(super) struct UiObserverState {
     pub(super) media_geometry: crate::window_aspect::MediaGeometry,
     pub(super) displayed: Option<Arc<Playback>>,
+    pub(super) opened_media: Option<(u64, i64)>,
     pub(super) seek: SeekOsd,
     pub(super) video: Rc<RefCell<VideoOsd>>,
     pub(super) screenshot: ScreenshotOsd,
@@ -36,6 +37,7 @@ impl UiObserverState {
         Self {
             media_geometry,
             displayed: None,
+            opened_media: None,
             seek: SeekOsd::default(),
             video: Rc::new(RefCell::new(video)),
             screenshot: ScreenshotOsd::default(),

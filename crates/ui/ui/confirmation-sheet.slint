@@ -1,0 +1,77 @@
+import { Theme } from "theme.slint";
+import { Button } from "std-widgets.slint";
+
+export component ConfirmationSheet inherits FocusScope {
+    in property <string> title;
+    in property <string> description;
+    in property <string> action;
+    callback answered(bool);
+    forward-focus: cancel;
+
+    TouchArea {
+        width: parent.width;
+        height: parent.height;
+        scroll-event(_) => { return accept; }
+    }
+    Rectangle {
+        width: parent.width;
+        height: parent.height;
+        background: #0005;
+    }
+    Rectangle {
+        width: min(460px, parent.width - 32px);
+        x: (parent.width - self.width) / 2;
+        y: 0px;
+        height: content.preferred-height + 36px;
+        border-radius: 9px;
+        background: Theme.auxiliary-light-window-surface;
+        border-color: Theme.history-column-header;
+        border-width: 1px;
+
+        content := VerticalLayout {
+            x: 18px;
+            y: 16px;
+            width: parent.width - 36px;
+            height: self.preferred-height;
+            spacing: 12px;
+            Text {
+                text: root.title;
+                color: Theme.history-media-title(true);
+                font-size: 16px;
+                font-weight: 600;
+            }
+            Text {
+                text: root.description;
+                color: Theme.history-secondary-text;
+                font-size: 13px;
+                wrap: word-wrap;
+                max-height: 70px;
+                overflow: elide;
+            }
+            HorizontalLayout {
+                spacing: 8px;
+                Rectangle { horizontal-stretch: 1; }
+                cancel := Button {
+                    text: "Cancel";
+                    clicked => { root.answered(false); }
+                }
+                proceed := Button {
+                    text: root.action;
+                    clicked => { root.answered(true); }
+                }
+            }
+        }
+    }
+
+    key-pressed(event) => {
+        if event.text == Key.Escape {
+            root.answered(false);
+            return accept;
+        }
+        if event.text == Key.Tab || event.text == Key.Backtab {
+            if cancel.has-focus { proceed.focus(); } else { cancel.focus(); }
+            return accept;
+        }
+        return reject;
+    }
+}

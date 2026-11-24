@@ -14,6 +14,10 @@ fn default_true() -> bool {
     true
 }
 
+fn is_zero_revision(revision: &u64) -> bool {
+    *revision == 0
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 // Root-level preferences grow additively between releases. Older binaries must
 // ignore fields they do not understand so a settings save cannot prevent media
@@ -116,6 +120,8 @@ pub struct Preferences {
     pub network_online_videos: network_preferences::OnlineVideos,
     pub thumbnail_preview: thumbnail_preferences::Settings,
     pub recent_media: Vec<RecentMedia>,
+    #[serde(skip_serializing_if = "is_zero_revision")]
+    pub recent_resume_revision: u64,
     #[serde(default = "default_true")]
     pub record_recent_files: bool,
     #[serde(default = "default_true")]
@@ -337,6 +343,7 @@ impl Default for Preferences {
             network_online_videos: network_preferences::OnlineVideos::default(),
             thumbnail_preview: thumbnail_preferences::Settings::default(),
             recent_media: Vec::new(),
+            recent_resume_revision: 0,
             record_recent_files: true,
             track_all_files_in_recent_open_menu: true,
             recent_open_documents: Vec::new(),

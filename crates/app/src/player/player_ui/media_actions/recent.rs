@@ -1,8 +1,7 @@
 //! Separate resume history from the Open Recent document list.
-use crate::{MenuCatalogRow, PlayerWindow, RecentMediaRow, WelcomeWindow, platform};
-use riina_core::{Preferences, time_label};
-use slint::ComponentHandle;
-use std::{cell::RefCell, path::PathBuf, rc::Rc};
+use crate::{MenuCatalogRow, RecentMediaRow, WelcomeWindow};
+use riina_core::{RecentMedia, time_label};
+use std::path::{Path, PathBuf};
 
 pub(crate) fn recent_media_rows(media: &[riina_core::RecentMedia]) -> Vec<RecentMediaRow> {
     media
@@ -45,100 +44,48 @@ pub(crate) fn recent_open_menu_rows(media: &[riina_core::RecentMedia]) -> Vec<Me
         .collect()
 }
 
-pub(super) fn remember_recent_open_document(
-    app: &PlayerWindow,
-    documents: &Rc<RefCell<Vec<riina_core::RecentMedia>>>,
-    preferences_path: &std::path::Path,
-    path: String,
-    title: String,
-) {
-    if !app
-        .global::<riina_ui::PlayerPreferences>()
-        .get_record_recent_files()
-        || path.is_empty()
+pub(crate) fn resumable(media: &[RecentMedia], enabled: bool) -> Option<&RecentMedia> {
+    let last = enabled.then(|| media.first()).flatten()?;
+    if let Some(file) = url::Url::parse(&last.path)
+        .ok()
+        .and_then(|url| url.to_file_path().ok())
     {
-        return;
+        return file.is_file().then_some(last);
     }
-    let native_path = path.clone();
-    let mut documents = documents.borrow_mut();
-    documents.retain(|document| document.path != path);
-    documents.insert(
-        0,
-        riina_core::RecentMedia {
-            path,
-            title,
-            position: 0.0,
-        },
-    );
-    documents.truncate(10);
-    let recent = documents.clone();
-    drop(documents);
-    app.global::<riina_ui::PlayerCatalogState>()
-        .set_recent_open_menu_rows(slint::ModelRc::new(slint::VecModel::from(
-            recent_open_menu_rows(&recent),
-        )));
-    app.global::<riina_ui::PlayerMenuActions>()
-        .invoke_video_menu_changed();
-    if let Err(error) = persist_recent_open_documents(preferences_path, &recent) {
-        crate::diagnostics::report(app, format!("Could not save Open Recent: {error}"));
-    }
-    if let Err(error) = platform::remember_recent_document(&native_path) {
-        crate::diagnostics::report(
-            app,
-            format!("Could not update the system recent documents: {error}"),
-        );
-    }
+    Path::new(&last.path).is_file().then_some(last)
 }
 
-pub(super) fn persist_recent_open_documents(
-    preferences_path: &std::path::Path,
-    documents: &[riina_core::RecentMedia],
-) -> std::io::Result<()> {
-    crate::preference_store::update_automatically(
-        preferences_path,
-        &Preferences::default(),
-        |preferences| {
-            preferences.recent_open_documents = documents.to_vec();
-            Ok(())
-        },
-    )
-    .map_err(std::io::Error::other)
-}
-
-pub(crate) fn resume_media_rows(
-    media: &[riina_core::RecentMedia],
-    resume_last_position: bool,
-) -> Vec<RecentMediaRow> {
-    if resume_last_position {
-        recent_media_rows(media.get(..1).unwrap_or_default())
-    } else {
-        Vec::new()
-    }
-}
-
-pub(crate) fn recent_document_rows(
-    media: &[riina_core::RecentMedia],
-    resume_last_position: bool,
-) -> Vec<RecentMediaRow> {
-    // IINA removes the last-played item from the document table only while its
-    // separate Resume action is enabled.
-    let offset = if resume_last_position { 1 } else { 0 };
-    recent_media_rows(media.get(offset..).unwrap_or_default())
+pub(crate) fn visible_documents<'a>(
+    documents: &'a [RecentMedia],
+    resume: Option<&RecentMedia>,
+) -> impl Iterator<Item = &'a RecentMedia> {
+    let resume_path = resume.map(|entry| entry.path.as_str());
+    documents
+        .iter()
+        .filter(move |item| Some(item.path.as_str()) != resume_path)
 }
 
 pub(crate) fn refresh_welcome_history(
     welcome: &WelcomeWindow,
-    media: &[riina_core::RecentMedia],
+    media: &[RecentMedia],
+    documents: &[RecentMedia],
+    record_recent_files: bool,
     resume_last_position: bool,
 ) {
+    let resume = resumable(media, record_recent_files && resume_last_position);
+    let documents = if record_recent_files { documents } else { &[] };
+    let document_rows = visible_documents(documents, resume)
+        .cloned()
+        .collect::<Vec<_>>();
     welcome.set_recent_media(slint::ModelRc::new(slint::VecModel::from(
-        resume_media_rows(media, resume_last_position),
+        resume
+            .map(|item| recent_media_rows(std::slice::from_ref(item)))
+            .unwrap_or_default(),
     )));
     welcome.set_recent_documents(slint::ModelRc::new(slint::VecModel::from(
-        recent_document_rows(media, resume_last_position),
+        recent_media_rows(&document_rows),
     )));
-    welcome.set_recent_document_offset(if resume_last_position { 1 } else { 0 });
-    welcome.set_selection_index(if resume_last_position || media.is_empty() {
+    welcome.set_selection_index(if resume.is_some() || document_rows.is_empty() {
         -1
     } else {
         0

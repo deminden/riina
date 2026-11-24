@@ -123,7 +123,6 @@ export component WelcomeWindow inherits Window {
     in property <string> drop-error;
     in property <[RecentMediaRow]> recent-media;
     in property <[RecentMediaRow]> recent-documents;
-    in property <int> recent-document-offset: 1;
     in-out property <int> selection-index: -1;
     callback open-file();
     callback open-url(string);
@@ -198,7 +197,7 @@ export component WelcomeWindow inherits Window {
                     media-title: root.recent-media[0].title;
                     position-label: root.recent-media[0].position-label;
                     selected: root.selection-index < 0;
-                    activated => { root.selection-index = -1; root.open-recent(0); }
+                    activated => { root.selection-index = -1; root.open-recent(-1); }
                 }
                 if root.recent-documents.length > 0 : ScrollView {
                     horizontal-stretch: 1; vertical-stretch: 1;
@@ -206,7 +205,7 @@ export component WelcomeWindow inherits Window {
                         for row[index] in root.recent-documents : RecentMediaEntry {
                             label: row.title; detail: row.position-label;
                             selected: root.selection-index == index;
-                            activated => { root.selection-index = index; root.open-recent(index + root.recent-document-offset); }
+                            activated => { root.selection-index = index; root.open-recent(index); }
                         }
                     }
                 }
@@ -235,8 +234,7 @@ export component WelcomeWindow inherits Window {
             }
             if event.text == Key.Return {
                 if root.recent-media.length > 0 || root.recent-documents.length > 0 {
-                    root.open-recent(root.selection-index < 0 && root.recent-media.length > 0
-                        ? 0 : root.selection-index + root.recent-document-offset);
+                    root.open-recent(root.selection-index);
                 }
                 return accept;
             }

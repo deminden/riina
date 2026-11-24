@@ -1,12 +1,9 @@
 //! Project saved preferences before installing playback handlers.
-use super::{
-    media_actions::recent::{recent_open_menu_rows, refresh_welcome_history},
-    video_controls::refresh_video_menu,
-};
-use crate::{PlayerWindow, WelcomeWindow};
-use riina_core::{Preferences, RecentMedia};
+use super::video_controls::refresh_video_menu;
+use crate::PlayerWindow;
+use riina_core::Preferences;
 use slint::ComponentHandle;
-use std::{cell::RefCell, path::Path, rc::Rc};
+use std::{path::Path, rc::Rc};
 
 pub(super) struct SessionProjection {
     pub(super) latest_playback: crate::PlaybackStore,
@@ -19,8 +16,6 @@ pub(super) fn install_session(
     prefs: &Preferences,
     prefs_path: &std::path::Path,
     native: Option<&crate::platform::NativePresentation>,
-    welcome: Option<&WelcomeWindow>,
-    recent_open_documents: &Rc<RefCell<Vec<riina_core::RecentMedia>>>,
 ) -> SessionProjection {
     install_platform(app, prefs);
     let latest_playback = crate::PlaybackStore::default();
@@ -37,7 +32,7 @@ pub(super) fn install_session(
         latest_playback.clone(),
     );
     let system_media = crate::platform::SystemMediaSession::new(app, latest_playback.clone());
-    install_media(app, prefs, welcome, recent_open_documents);
+    install_media(app, prefs);
     let appearance_timer = install_layout(app, prefs, prefs_path);
     SessionProjection {
         latest_playback,
@@ -61,12 +56,7 @@ fn install_platform(app: &PlayerWindow, prefs: &Preferences) {
         .set_music_mode_show_album_art(prefs.music_mode_show_album_art);
 }
 
-fn install_media(
-    app: &PlayerWindow,
-    prefs: &Preferences,
-    welcome: Option<&WelcomeWindow>,
-    recent_open_documents: &RefCell<Vec<RecentMedia>>,
-) {
+fn install_media(app: &PlayerWindow, prefs: &Preferences) {
     let player_preferences = app.global::<riina_ui::PlayerPreferences>();
     player_preferences
         .set_hardware_decoder_index(crate::codec_preferences::index(prefs.hardware_decoder));
@@ -80,10 +70,6 @@ fn install_media(
         .set_subtitle_font(prefs.subtitle_font.clone().into());
     player_preferences.set_subtitle_font_size_preference(prefs.subtitle_font_size as f32);
     crate::subtitle_preferences::install_style(app, prefs.subtitle_text_style);
-    if let Some(welcome) = welcome {
-        welcome.set_app_version(env!("CARGO_PKG_VERSION").into());
-        refresh_welcome_history(welcome, &prefs.recent_media, prefs.resume_last_position);
-    }
     app.global::<riina_ui::PlaybackVideoState>()
         .set_video_aspect_presets(slint::ModelRc::new(slint::VecModel::from(
             riina_core::video_controls::ASPECT_PRESETS
@@ -113,10 +99,6 @@ fn install_media(
     player_preferences.set_record_recent_files(prefs.record_recent_files);
     player_preferences
         .set_track_all_files_in_recent_open_menu(prefs.track_all_files_in_recent_open_menu);
-    app.global::<riina_ui::PlayerCatalogState>()
-        .set_recent_open_menu_rows(slint::ModelRc::new(slint::VecModel::from(
-            recent_open_menu_rows(&recent_open_documents.borrow()),
-        )));
     player_preferences.set_launch_action_index(prefs.action_after_launch.index());
 }
 

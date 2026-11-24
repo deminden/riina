@@ -6,7 +6,7 @@ use riina_core::{Command, Preferences, TrackKind};
 use riina_mpv::{CommandSender, RecordingEngine};
 use riina_test_support::TempDir;
 use riina_ui::PlayerMenuActions;
-use slint::ComponentHandle;
+use slint::{ComponentHandle, Model};
 use std::{
     cell::RefCell,
     io,
@@ -38,6 +38,22 @@ impl Harness {
         capture_before_navigation: bool,
         media: InitialMedia,
     ) -> Result<Self, Box<dyn std::error::Error>> {
+        Self::start_in_application(
+            path,
+            capture_before_navigation,
+            media,
+            ApplicationServices::default(),
+            None,
+        )
+    }
+
+    fn start_in_application(
+        path: PathBuf,
+        capture_before_navigation: bool,
+        media: InitialMedia,
+        application: ApplicationServices,
+        welcome: Option<&WelcomeWindow>,
+    ) -> Result<Self, Box<dyn std::error::Error>> {
         let loaded = crate::preference_load::load(&path)?;
         let app = PlayerWindow::new()?;
         app.set_native_video(capture_before_navigation);
@@ -48,11 +64,11 @@ impl Harness {
             &app,
             None,
             media,
-            None,
+            welcome,
             loaded,
             SessionStartup {
                 media_geometry: Default::default(),
-                application: ApplicationServices::default(),
+                application,
                 engine: EngineStart::Recording {
                     engine: engine.clone(),
                     commands: commands.clone(),
@@ -213,6 +229,7 @@ fn player_glue_worker() -> Result<(), Box<dyn std::error::Error>> {
     exercise_startup(&profile)?;
     exercise_teardown(&profile)?;
     exercise_idle_managed_player(&profile)?;
+    exercise_shared_recents(&profile)?;
     let harness = Harness::start(profile.join("shared/preferences.json"), false)?;
     exercise_transport_and_tracks(&harness);
     exercise_transport_settings(&harness);
@@ -243,6 +260,113 @@ fn player_glue_worker() -> Result<(), Box<dyn std::error::Error>> {
         .global::<PlayerMenuActions>()
         .invoke_close_player();
     capture.expect(Command::Stop);
+    Ok(())
+}
+
+fn exercise_shared_recents(profile: &std::path::Path) -> Result<(), Box<dyn std::error::Error>> {
+    let directory = profile.join("shared-recents");
+    std::fs::create_dir_all(&directory)?;
+    let path = directory.join("preferences.json");
+    let old_media = directory.join("first.mkv");
+    let new_media = directory.join("second.mkv");
+    std::fs::write(&old_media, b"first")?;
+    std::fs::write(&new_media, b"second")?;
+    let old_media = old_media.to_string_lossy().into_owned();
+    let new_media = new_media.to_string_lossy().into_owned();
+    let original = riina_core::RecentMedia {
+        path: old_media.clone(),
+        title: "first.mkv".into(),
+        position: 18.0,
+    };
+    let prefs = Preferences {
+        resume_last_position: true,
+        recent_media: vec![original.clone()],
+        recent_open_documents: vec![original],
+        ..Preferences::default()
+    };
+    std::fs::write(&path, serde_json::to_vec(&prefs)?)?;
+    let application = ApplicationServices::default();
+    let welcome = WelcomeWindow::new()?;
+    let first = Harness::start_in_application(
+        path.clone(),
+        false,
+        InitialMedia::default(),
+        application.clone(),
+        Some(&welcome),
+    )?;
+    let second = Harness::start_in_application(
+        path.clone(),
+        false,
+        InitialMedia::default(),
+        application.clone(),
+        None,
+    )?;
+    let menu_rows = |app: &PlayerWindow| {
+        app.global::<riina_ui::PlayerCatalogState>()
+            .get_recent_open_menu_rows()
+    };
+    assert_eq!(welcome.get_recent_media().row_count(), 1);
+    assert_eq!(welcome.get_recent_documents().row_count(), 0);
+    second
+        .app
+        .invoke_remember_recent_path(new_media.clone().into());
+    assert_eq!(menu_rows(&first.app).row_count(), 2);
+    assert_eq!(
+        welcome.get_recent_documents().row_data(0).unwrap().title,
+        "second.mkv"
+    );
+    first
+        .app
+        .global::<PlayerMenuActions>()
+        .invoke_clear_open_recent();
+    assert_eq!(menu_rows(&second.app).row_count(), 0);
+    assert_eq!(welcome.get_recent_media().row_count(), 1);
+
+    let paused = |id, generation, filename, position| Playback {
+        generation,
+        phase: riina_core::Phase::Paused,
+        position: Some(position),
+        playlist: vec![riina_core::PlaylistEntry {
+            id,
+            filename,
+            current: true,
+            playing: true,
+            title: None,
+        }]
+        .into(),
+        ..Default::default()
+    };
+    second.publish(paused(1, 1, old_media, 12.0))?;
+    let state = &first.session.preference_state;
+    let clear = state.history.clear_hook(
+        path.clone(),
+        state.recent.activity.clone(),
+        application.history.clone(),
+    );
+    assert_eq!(clear()?, 1);
+    assert_eq!(welcome.get_recent_media().row_count(), 0);
+    assert_eq!(menu_rows(&second.app).row_count(), 0);
+    second.session.save(&second.app)?;
+    let saved = Preferences::parse(&std::fs::read_to_string(&path)?)?;
+    assert_eq!(saved.recent_resume_revision, 1);
+    assert!(saved.recent_media.is_empty());
+    assert!(saved.recent_open_documents.is_empty());
+
+    second.publish(Playback {
+        generation: 2,
+        phase: riina_core::Phase::Paused,
+        ..Default::default()
+    })?;
+    second.publish(paused(2, 2, new_media.clone(), 4.0))?;
+    assert_eq!(menu_rows(&first.app).row_count(), 1);
+    second.session.save(&second.app)?;
+    let saved = Preferences::parse(&std::fs::read_to_string(&path)?)?;
+    assert_eq!(
+        saved.recent_media.first().map(|media| media.path.as_str()),
+        Some(new_media.as_str())
+    );
+    assert_eq!(welcome.get_recent_media().row_count(), 1);
+    assert_eq!(welcome.get_recent_documents().row_count(), 0);
     Ok(())
 }
 

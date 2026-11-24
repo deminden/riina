@@ -9,7 +9,7 @@ use std::{
 
 pub(crate) fn observe_playback(
     playback: &Playback,
-    recent_media: &Mutex<Vec<riina_core::RecentMedia>>,
+    recent_documents: &Mutex<Vec<riina_core::RecentMedia>>,
     history: &Mutex<crate::playback_history::PlaybackHistoryState>,
     record_history: bool,
     session_id: u64,
@@ -25,7 +25,7 @@ pub(crate) fn observe_playback(
     };
     let context = player_file_context(
         playback,
-        &mut recent_media
+        &recent_documents
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner),
         &entries,
@@ -261,48 +261,9 @@ fn finite_json(value: Option<f64>) -> serde_json::Value {
 
 pub(crate) fn player_file_context(
     playback: &Playback,
-    recent_media: &mut Vec<riina_core::RecentMedia>,
+    recent_documents: &[riina_core::RecentMedia],
     history: &[riina_core::playback_history::Entry],
 ) -> PluginPlayerFileContext {
-    if !matches!(playback.phase, Phase::Loading | Phase::Failed)
-        && let Some(entry) = playback.playlist.iter().find(|entry| entry.current)
-    {
-        let position = playback
-            .position
-            .filter(|position| position.is_finite() && *position >= 0.0)
-            .or_else(|| {
-                recent_media
-                    .iter()
-                    .find(|media| media.path == entry.filename)
-                    .map(|media| media.position)
-            })
-            .unwrap_or(0.0);
-        let title = entry
-            .title
-            .as_ref()
-            .filter(|title| !title.trim().is_empty())
-            .cloned()
-            .unwrap_or_else(|| {
-                if playback.title.trim().is_empty() {
-                    Path::new(&entry.filename).file_name().map_or_else(
-                        || entry.filename.clone(),
-                        |name| name.to_string_lossy().into(),
-                    )
-                } else {
-                    playback.title.clone()
-                }
-            });
-        recent_media.retain(|media| media.path != entry.filename);
-        recent_media.insert(
-            0,
-            riina_core::RecentMedia {
-                path: entry.filename.clone(),
-                title,
-                position,
-            },
-        );
-        recent_media.truncate(10);
-    }
     PluginPlayerFileContext::from_playback(playback)
         .with_playlist(playback)
         .with_media_generation(playback.generation)
@@ -313,7 +274,7 @@ pub(crate) fn player_file_context(
         .with_observed_mpv_properties(playback.observed_mpv_properties.clone())
         .with_mpv_events(playback.mpv_events.clone())
         .with_core_version(version_snapshot(playback.mpv_version.as_deref()))
-        .with_recent_documents(recent_document_values(recent_media))
+        .with_recent_documents(recent_document_values(recent_documents))
         .with_playback_history(playback_history_values(history))
 }
 

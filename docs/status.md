@@ -24,6 +24,9 @@ Implementation does not imply every state or platform is verified.
 
 - **Playback:** files, folders and URLs; play/pause, seeking, volume/mute, speed,
   frame stepping, loops, chapters, playlist editing, history and resume.
+- **Recent activity:** player windows share Open Recent with Welcome and
+  plugins. Settings Utilities clears history, recent documents and the saved
+  Welcome resume item together after confirmation.
 - **Video/audio/subtitles:** track selection and external tracks, geometry and
   crop controls, filters/equalizers, subtitle styling/timing, screenshots,
   thumbnails, Music Mode and Picture in Picture.

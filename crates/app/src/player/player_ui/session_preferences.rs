@@ -1,6 +1,9 @@
 //! Save changes that belong to an individual player session.
 
-use super::{ApplicationServices, PlayerContext, UiSession, history_session, startup};
+use super::{
+    ApplicationServices, PlayerContext, UiSession, history_session,
+    recent_activity::RecentActivity, startup,
+};
 use crate::{PlaybackStore, PlayerWindow};
 use riina_core::{Phase, Preferences, audio_equalizer, video_filters};
 use riina_ui::{
@@ -11,6 +14,7 @@ use slint::ComponentHandle;
 use std::{
     io,
     path::PathBuf,
+    rc::Rc,
     sync::{Arc, Mutex, atomic::Ordering},
 };
 
@@ -18,6 +22,7 @@ pub(super) fn connect(
     app: &PlayerWindow,
     context: &PlayerContext,
     history: &history_session::Tracking,
+    recent: &Rc<RecentActivity>,
     services: &ApplicationServices,
 ) {
     crate::preferences_window::connect(
@@ -33,8 +38,8 @@ pub(super) fn connect(
         },
         history.clear_hook(
             context.preferences_path().to_path_buf(),
-            context.plugin_host().cloned(),
-            context.playback().clone(),
+            recent.clone(),
+            services.history.clone(),
         ),
     );
 }
@@ -47,12 +52,14 @@ impl UiSession {
         self.preference_model
             .save_session(candidate)
             .map_err(io::Error::other)?;
+        self.preference_state
+            .save_current_media()
+            .map_err(io::Error::other)?;
         Ok(())
     }
 }
 
 pub(super) struct SessionState {
-    pub(super) prefs_path: PathBuf,
     pub(super) audio_equalizer: Arc<Mutex<audio_equalizer::Settings>>,
     pub(super) saved_video_filters: Arc<Mutex<video_filters::Settings>>,
     pub(super) saved_audio_filters: Arc<Mutex<video_filters::Settings>>,
@@ -79,8 +86,6 @@ impl SessionState {
             .lock()
             .map_err(|_| std::io::Error::other("saved audio filter settings lock poisoned"))?
             .clone();
-        prefs.recent_media = self.recent.media.borrow().clone();
-        prefs.recent_open_documents = self.recent.documents.borrow().clone();
         prefs.playback_history = self
             .history
             .state
@@ -90,51 +95,10 @@ impl SessionState {
             .to_vec();
         prefs.record_playback_history = self.history.recording.load(Ordering::Acquire);
 
-        self.merge_saved_recents(&mut prefs);
-        self.remember_current_media(&mut prefs);
         Ok(prefs)
     }
 
-    fn merge_saved_recents(&self, prefs: &mut Preferences) {
-        let Ok(Some(saved)) = crate::preference_load::read_valid(&self.prefs_path) else {
-            return;
-        };
-        for recent in saved.recent_media {
-            if !prefs
-                .recent_media
-                .iter()
-                .any(|current| current.path == recent.path)
-            {
-                prefs.recent_media.push(recent);
-            }
-        }
-        prefs.recent_media.truncate(10);
-        if !self.recent.documents_cleared.get() {
-            for recent in saved.recent_open_documents {
-                if !prefs
-                    .recent_open_documents
-                    .iter()
-                    .any(|current| current.path == recent.path)
-                {
-                    prefs.recent_open_documents.push(recent);
-                }
-            }
-            prefs.recent_open_documents.truncate(10);
-        }
-        if !self.history.cleared.load(Ordering::Acquire) {
-            for entry in saved.playback_history {
-                if !prefs
-                    .playback_history
-                    .iter()
-                    .any(|current| current.path == entry.path)
-                {
-                    prefs.playback_history.push(entry);
-                }
-            }
-        }
-    }
-
-    fn remember_current_media(&self, prefs: &mut Preferences) {
+    fn save_current_media(&self) -> Result<(), String> {
         let state = riina_core::sync::lock(&self.latest_playback);
         if let Some(position) = state
             .position
@@ -157,21 +121,17 @@ impl SessionState {
                         state.title.clone()
                     }
                 });
-            let position = if prefs.resume_last_position {
-                position
-            } else {
-                prefs
-                    .recent_media
-                    .iter()
-                    .find(|item| item.path == entry.filename)
-                    .map_or(0.0, |item| item.position)
-            };
-            prefs.remember_media(riina_core::RecentMedia {
+            let media = riina_core::RecentMedia {
                 path: entry.filename.clone(),
                 title,
                 position,
-            });
+            };
+            drop(state);
+            self.recent
+                .activity
+                .save_resume(media, self.recent.resume_revision.get())?;
         }
+        Ok(())
     }
 }
 

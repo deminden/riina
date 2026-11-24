@@ -149,7 +149,7 @@ impl PlaybackNotification {
 }
 
 pub(super) struct HistoryObservation {
-    pub(super) recent_media: Arc<Mutex<Vec<RecentMedia>>>,
+    pub(super) recent_documents: Arc<Mutex<Vec<RecentMedia>>>,
     pub(super) history: Arc<Mutex<PlaybackHistoryState>>,
     pub(super) record_history: Arc<AtomicBool>,
     pub(super) session_id: u64,
@@ -161,7 +161,7 @@ impl HistoryObservation {
     fn publish(&self, app: &slint::Weak<PlayerWindow>, state: &Playback) {
         let (plugin_context, history_error) = crate::plugin_snapshot::observe_playback(
             state,
-            &self.recent_media,
+            &self.recent_documents,
             &self.history,
             self.record_history.load(Ordering::Acquire),
             self.session_id,

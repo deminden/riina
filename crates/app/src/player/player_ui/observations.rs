@@ -36,6 +36,7 @@ pub(super) fn update_ui(
     let UiObserverState {
         media_geometry,
         displayed,
+        opened_media,
         seek: last_seek,
         video: last_video,
         screenshot: last_screenshot,
@@ -103,6 +104,7 @@ pub(super) fn update_ui(
     if first_loaded {
         notify_media_loaded(app, state);
     }
+    notify_current_media(app, state, opened_media);
     update_transport(app, state);
     update_video_and_artwork(app, state);
     update_delays_and_subtitle_style(app, state);
@@ -414,23 +416,45 @@ fn update_playback_phase(
     resize_for_media
 }
 
+fn notify_current_media(
+    app: &PlayerWindow,
+    state: &Playback,
+    opened_media: &mut Option<(u64, i64)>,
+) {
+    // A ready phase can arrive before the playlist reports its current item.
+    if state.generation == 0
+        || !matches!(
+            state.phase,
+            Phase::Playing | Phase::Paused | Phase::Buffering | Phase::Seeking | Phase::Ended
+        )
+    {
+        return;
+    }
+    let Some(entry) = state.playlist.iter().find(|entry| entry.current) else {
+        return;
+    };
+    let identity = (state.generation, entry.id);
+    if entry.filename.is_empty() || *opened_media == Some(identity) {
+        return;
+    }
+    *opened_media = Some(identity);
+    let title = entry
+        .title
+        .as_deref()
+        .filter(|title| !title.trim().is_empty())
+        .map(str::to_owned)
+        .unwrap_or_else(|| {
+            PathBuf::from(&entry.filename).file_name().map_or_else(
+                || entry.filename.clone(),
+                |name| name.to_string_lossy().into_owned(),
+            )
+        });
+    app.invoke_media_opened(entry.filename.clone().into(), title.into());
+}
+
 fn notify_media_loaded(app: &PlayerWindow, state: &Playback) {
     app.global::<riina_ui::PlayerControlActions>()
         .invoke_activity();
-    if let Some(entry) = state.playlist.iter().find(|entry| entry.current) {
-        let title = entry
-            .title
-            .as_deref()
-            .filter(|title| !title.trim().is_empty())
-            .map(str::to_owned)
-            .unwrap_or_else(|| {
-                PathBuf::from(&entry.filename).file_name().map_or_else(
-                    || entry.filename.clone(),
-                    |name| name.to_string_lossy().into_owned(),
-                )
-            });
-        app.invoke_media_opened(entry.filename.clone().into(), title.into());
-    }
     if let Some(message) = crate::video_osd::file_start_message(
         &state.title,
         app.global::<riina_ui::PlayerPreferences>()

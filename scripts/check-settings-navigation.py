@@ -430,9 +430,21 @@ def main():
         "utilities-open-default-apps", "utilities-clear-thumbnail-cache",
     ):
         assert f"root.{action}();" in UTILITIES_SOURCE, f"Utilities row must activate {action}"
+        if action == "utilities-clear-history":
+            continue
         assert f"{action} => {{ root.{action}(); }}" in utilities_route.group(1), (
             f"Utilities page must forward {action} to its window"
         )
+    assert re.search(
+        r"utilities-clear-history => \{\s*UtilitySettingsState.utilities-history-confirmation-open = true;"
+        r"\s*history-confirmation.focus\(\);\s*\}",
+        utilities_route.group(1),
+    ), "Clear Playback History must focus its confirmation sheet"
+    assert re.search(
+        r"answered\(accepted\) => \{\s*UtilitySettingsState.utilities-history-confirmation-open = false;"
+        r"\s*if accepted \{ root.utilities-clear-history\(\); \}",
+        SOURCE,
+    ), "Only an accepted confirmation may clear playback history"
     history_row = re.search(
         r'UtilitiesActionRow\s*\{\s*y:\s*87px;(.*?)(?=\n\s*UtilitiesActionRow|\Z)',
         UTILITIES_SOURCE,

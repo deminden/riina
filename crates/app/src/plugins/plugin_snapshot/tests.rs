@@ -151,7 +151,12 @@ fn playback_snapshots_supply_core_status_and_chapters() {
         title: Some("Opening".into()),
     });
     let files = PluginFiles::temporary("org.example.snapshot-source");
-    files.set_player_context(player_file_context(&playback, &mut Vec::new(), &[]));
+    let documents = [riina_core::RecentMedia {
+        path: "https://media.example/recorded.mp4".into(),
+        title: "Recorded document".into(),
+        position: 0.0,
+    }];
+    files.set_player_context(player_file_context(&playback, &documents, &[]));
     let version = files.core_version().unwrap();
     assert_eq!(version["iina"], env!("CARGO_PKG_VERSION"));
     assert!(
@@ -163,8 +168,8 @@ fn playback_snapshots_supply_core_status_and_chapters() {
     assert_eq!(
         files.core_recent_documents().unwrap(),
         [serde_json::json!({
-            "name": "sample.mp4",
-            "url": "https://media.example/sample.mp4"
+            "name": "recorded.mp4",
+            "url": "https://media.example/recorded.mp4"
         })]
     );
 

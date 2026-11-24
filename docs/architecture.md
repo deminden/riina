@@ -524,10 +524,18 @@ copy of invalid input and loads recoverable fields. `PreferenceModel` holds the
 committed settings on the UI thread and delegates persistence to
 `preference_store::Writer`. Section bindings read and validate their controls and
 project the saved settings into the Settings form and `PlayerPreferences`.
-At shutdown, `session_preferences::SessionState` captures runtime settings,
-recent files, and history over the model's committed settings. The model saves
-that candidate through the same preference writer. See
-[Add a preference](recipes/add-a-preference.md).
+At shutdown, `session_preferences::SessionState` saves runtime settings over
+the model's committed settings. Its resume write checks the profile's current
+resume revision under the preference lock. Clearing history advances the
+revision so a player that was already open cannot restore the cleared entry
+at shutdown.
+
+`RecentActivity` owns each profile's Open Recent list and Welcome resume
+projection at application scope. Player menus, Welcome and plugin snapshots
+use the same document list. Open Recent can clear its list independently.
+Settings Utilities also clears the shared Playback History archive and the
+resume entries. The separate History window's Clear action edits the archive.
+See [Add a preference](recipes/add-a-preference.md) for settings changes.
 
 ## Platform boundary
 

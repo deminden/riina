@@ -89,6 +89,7 @@ pub(super) fn project(
             player_preferences.get_record_playback_history(),
         );
     }
+    app.invoke_recent_files_visibility_changed();
 }
 
 fn project_subtitle_providers(

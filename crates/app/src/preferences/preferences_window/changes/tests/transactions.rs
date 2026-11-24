@@ -46,7 +46,6 @@ impl Transaction {
             &player.app,
             &window,
             player.sender.clone(),
-            profile.file.clone(),
             player.session.preference_model.clone(),
             crate::PlaybackStore::default(),
             credentials,

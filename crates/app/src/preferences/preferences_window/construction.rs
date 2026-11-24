@@ -95,7 +95,6 @@ pub(super) fn create(
         app,
         &window,
         decoder_player.clone(),
-        path.to_path_buf(),
         model.clone(),
         latest_playback.clone(),
     );

@@ -200,14 +200,6 @@ fn install_cache_and_history_actions(
         let Some(window) = weak.upgrade() else {
             return;
         };
-        let response = MessageDialog::new()
-            .set_title("Clear Playback History")
-            .set_description("Delete all recent playback history?")
-            .set_buttons(MessageButtons::YesNo)
-            .show();
-        if response != MessageDialogResult::Yes {
-            return;
-        }
         match clear_history() {
             Ok(removed) => window
                 .global::<riina_ui::UtilitySettingsState>()
@@ -216,7 +208,7 @@ fn install_cache_and_history_actions(
                 ),
             Err(error) => window
                 .global::<riina_ui::UtilitySettingsState>()
-                .set_utilities_status(format!("Could not clear playback history: {error}").into()),
+                .set_utilities_status(error.into()),
         }
     });
 
@@ -291,13 +283,6 @@ pub(crate) fn clear_playback_history(preferences_path: &Path) -> Result<usize, S
         },
     )?;
     Ok(removed)
-}
-
-pub(crate) fn preserve_saved_history(preferences: &mut riina_core::Preferences, path: &Path) {
-    if let Ok(Some(saved)) = crate::preference_load::read_valid(path) {
-        preferences.recent_media = saved.recent_media;
-        preferences.playback_history = saved.playback_history;
-    }
 }
 
 fn clear_watch_later(directory: &Path) -> io::Result<u64> {
@@ -532,34 +517,5 @@ mod tests {
 
         assert!(clear_playback_history(&path).is_err());
         assert_eq!(fs::read(&path).unwrap(), original);
-    }
-
-    #[test]
-    fn stale_preferences_keep_the_latest_saved_history_state() {
-        let directory = TempDir::new("utilities").unwrap();
-        let root = directory.path();
-        let path = root.join("preferences.json");
-        let mut saved = riina_core::Preferences::default();
-        saved.recent_media.clear();
-        fs::write(&path, serde_json::to_vec(&saved).unwrap()).unwrap();
-        let mut stale = riina_core::Preferences::default();
-        stale.recent_media.push(riina_core::RecentMedia {
-            path: "old.mkv".into(),
-            title: "old".into(),
-            position: 0.0,
-        });
-        stale
-            .playback_history
-            .push(riina_core::playback_history::Entry {
-                path: "stale.mkv".into(),
-                title: None,
-                date_ms: 1,
-                progress: None,
-                duration: 0.0,
-            });
-
-        preserve_saved_history(&mut stale, &path);
-        assert!(stale.recent_media.is_empty());
-        assert!(stale.playback_history.is_empty());
     }
 }

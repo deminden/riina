@@ -1,5 +1,5 @@
 //! History migration, recording and synchronization for one player session.
-use super::observation_dispatch::HistoryObservation;
+use super::{observation_dispatch::HistoryObservation, recent_activity::RecentActivity};
 use crate::{
     PlaybackStore, PlayerWindow,
     playback_history::{self, PlaybackHistoryState},
@@ -9,6 +9,7 @@ use crate::{
 use riina_core::{Preferences, RecentMedia, playback_history::Entry};
 use std::{
     path::{Path, PathBuf},
+    rc::Rc,
     sync::{
         Arc, Mutex,
         atomic::{AtomicBool, Ordering},
@@ -59,8 +60,12 @@ impl LoadedHistory {
         &self.entries
     }
 
-    pub(super) fn start_tracking(self, prefs_path: &Path, prefs: &Preferences) -> Tracking {
-        let plugin_recent_media = Arc::new(Mutex::new(prefs.recent_media.clone()));
+    pub(super) fn start_tracking(
+        self,
+        prefs_path: &Path,
+        prefs: &Preferences,
+        recent_documents: RecentDocuments,
+    ) -> Tracking {
         let session_id = playback_history::next_history_session_id();
         let state = playback_history::shared_playback_history_state(
             self.path,
@@ -72,26 +77,26 @@ impl LoadedHistory {
             state,
             recording: Arc::new(AtomicBool::new(prefs.record_playback_history)),
             cleared: playback_history::shared_history_merge_flag(prefs_path),
-            plugin_recent_media,
+            recent_documents,
             session_id,
         }
     }
 }
 
-type PluginRecentMedia = Arc<Mutex<Vec<RecentMedia>>>;
+type RecentDocuments = Arc<Mutex<Vec<RecentMedia>>>;
 
 pub(super) struct Tracking {
     pub(super) state: Arc<Mutex<PlaybackHistoryState>>,
     pub(super) recording: Arc<AtomicBool>,
     pub(super) cleared: Arc<AtomicBool>,
-    plugin_recent_media: PluginRecentMedia,
+    recent_documents: RecentDocuments,
     session_id: u64,
 }
 
 impl Tracking {
     pub(super) fn observe(&self, plugin: Option<PluginHostHandle>) -> HistoryObservation {
         HistoryObservation {
-            recent_media: self.plugin_recent_media.clone(),
+            recent_documents: self.recent_documents.clone(),
             history: self.state.clone(),
             record_history: self.recording.clone(),
             session_id: self.session_id,
@@ -116,9 +121,14 @@ impl Tracking {
         playback_history_window::Archive,
         playback_history_window::HistorySync,
     ) {
-        let recent_media = self.plugin_recent_media.clone();
+        let recent_documents = self.recent_documents.clone();
         let sync = Arc::new(move |history: &[Entry]| {
-            sync_plugin(plugin.as_ref(), &latest_playback, &recent_media, history)
+            sync_plugin(
+                plugin.as_ref(),
+                &latest_playback,
+                &recent_documents,
+                history,
+            )
         });
         (
             playback_history_window::Archive {
@@ -133,22 +143,26 @@ impl Tracking {
     pub(super) fn clear_hook(
         &self,
         path: PathBuf,
-        plugin: Option<PluginHostHandle>,
-        latest_playback: PlaybackStore,
+        recent: Rc<RecentActivity>,
+        history_window: Rc<playback_history_window::ApplicationHistory>,
     ) -> impl Fn() -> Result<usize, String> + Clone + 'static {
         let playback_history = self.state.clone();
         let history_cleared = self.cleared.clone();
-        let recent_media = self.plugin_recent_media.clone();
         move || {
-            let mut history = playback_history
-                .lock()
-                .map_err(|_| "playback history lock poisoned".to_owned())?;
-            let removed = crate::utilities_preferences::clear_playback_history(&path)?;
+            let mut history = playback_history.lock().map_err(|_| {
+                "Could not clear playback history: history is unavailable".to_owned()
+            })?;
+            let removed = crate::utilities_preferences::clear_playback_history(&path)
+                .map_err(|error| format!("Could not clear playback history: {error}"))?;
             history.clear();
             history_cleared.store(true, Ordering::Release);
             let entries = history.entries().to_vec();
             drop(history);
-            sync_plugin(plugin.as_ref(), &latest_playback, &recent_media, &entries)?;
+            let cleared = recent.clear_for_history();
+            let synced = history_window.sync_plugins(&entries);
+            cleared
+                .and(synced)
+                .map_err(|error| format!("Playback history cleared. {error}"))?;
             Ok(removed)
         }
     }
@@ -157,7 +171,7 @@ impl Tracking {
 fn sync_plugin(
     plugin: Option<&PluginHostHandle>,
     latest_playback: &PlaybackStore,
-    recent_media: &PluginRecentMedia,
+    recent_documents: &RecentDocuments,
     history: &[Entry],
 ) -> Result<(), String> {
     let Some(plugin) = plugin else {
@@ -169,7 +183,7 @@ fn sync_plugin(
         .clone();
     let context = crate::plugin_snapshot::player_file_context(
         &playback,
-        &mut recent_media
+        &recent_documents
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner),
         history,
