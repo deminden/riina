@@ -403,6 +403,13 @@ impl WorkerState {
                     self.mark_changed();
                 }
             }
+            if matches!(command, Command::OpenShuffledPlaylist(_))
+                && args.first().is_some_and(|name| name == "playlist-shuffle")
+            {
+                self.playback.explicit_playlist = true;
+                self.playback.playlist_shuffled = true;
+                self.mark_changed();
+            }
             if rewriting_seek {
                 self.auto_seek.submitted(self.next_id);
             }

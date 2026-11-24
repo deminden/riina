@@ -243,6 +243,7 @@ impl WindowDelivery {
                     state.phase,
                     Phase::Playing | Phase::Paused | Phase::Buffering | Phase::Ended
                 );
+            let startup_presentation = observer.borrow_mut().startup_presentation(&app, &state);
             let clipboard_error = crate::screenshot_output::copy(&app, &captures);
             self.crop_editor.observe(&app, &state);
             let audio_device_sender = lock(&self.audio_device_sender).clone();
@@ -280,12 +281,44 @@ impl WindowDelivery {
                 app.invoke_initial_media_loaded();
             }
             crate::screenshot_output::cleanup(&app, &captures);
-            if enter_fullscreen {
+            if let Some(presentation) = startup_presentation {
+                apply_startup_presentation(&app, presentation);
+            } else if enter_fullscreen {
                 app.global::<PlayerMenuActions>()
                     .invoke_request_fullscreen(true);
             }
             if let Some(error) = clipboard_error {
                 crate::diagnostics::report(&app, format!("Could not copy screenshot: {error}"));
+            }
+        }
+    }
+}
+
+fn apply_startup_presentation(
+    app: &PlayerWindow,
+    presentation: crate::startup_arguments::Presentation,
+) {
+    use crate::startup_arguments::Presentation;
+    #[cfg(debug_assertions)]
+    crate::diagnostics::log_args(
+        crate::diagnostics::Level::Debug,
+        "launch",
+        format_args!("Routing {presentation:?} for initial playback"),
+    );
+    let menu = app.global::<PlayerMenuActions>();
+    match presentation {
+        Presentation::Fullscreen => menu.invoke_request_fullscreen(true),
+        Presentation::Music => {
+            if !app
+                .global::<riina_ui::PlayerMusicModeState>()
+                .get_music_mode()
+            {
+                menu.invoke_toggle_music_mode();
+            }
+        }
+        Presentation::PictureInPicture => {
+            if !app.get_picture_in_picture_active() {
+                menu.invoke_toggle_picture_in_picture();
             }
         }
     }

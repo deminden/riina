@@ -69,7 +69,9 @@ impl Backend {
     }
 }
 
-pub(super) fn run(initial: NativeLaunch) -> Result<(), Box<dyn std::error::Error>> {
+pub(super) fn run(
+    launches: impl Iterator<Item = NativeLaunch>,
+) -> Result<(), Box<dyn std::error::Error>> {
     let application = Rc::new(Application {
         backend: Backend::install()?,
         players: RefCell::default(),
@@ -127,7 +129,13 @@ pub(super) fn run(initial: NativeLaunch) -> Result<(), Box<dyn std::error::Error
             }
         },
     );
-    application.launch(initial, None)?;
+    for (index, launch) in launches.enumerate() {
+        let origin = (index > 0).then_some(Origin::CommandLine);
+        if let Err(error) = application.launch(launch, origin) {
+            application.finish();
+            return Err(error);
+        }
+    }
     let result = slint::run_event_loop_until_quit();
     application.finish();
     if let Some(error) = application.initial_error.borrow_mut().take() {
@@ -265,6 +273,7 @@ impl NativePlayer {
 enum Origin {
     Player(slint::Weak<PlayerWindow>),
     History(slint::Weak<crate::PlaybackHistoryWindow>),
+    CommandLine,
 }
 
 #[derive(Clone)]
@@ -378,7 +387,11 @@ impl WindowActions {
                     );
                 }
             }
-            None => *application.initial_error.borrow_mut() = Some(error),
+            None | Some(Origin::CommandLine) => {
+                *application.initial_error.borrow_mut() = Some(error);
+                application.quit();
+                return;
+            }
         }
         application.close(&player);
     }

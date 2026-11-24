@@ -226,6 +226,15 @@ pub(super) fn open_files(
         .iter()
         .map(|path| vec!["loadfile".into(), path.clone(), "append".into()])
         .collect();
+    if matches!(command, Command::OpenShuffledPlaylist(_)) {
+        let mut start = hdr_preferences::output_commands(false, None)?;
+        // Populate the idle playlist before choosing its first file. No decoder
+        // can briefly start the original first entry while the shuffle runs.
+        start.extend([cmd(["stop"]), set("pause", flag(state.pause_when_open))]);
+        start.append(&mut commands);
+        start.extend([cmd(["playlist-shuffle"]), cmd(["playlist-play-index", "0"])]);
+        return Ok(start);
+    }
     if matches!(
         command,
         Command::OpenFiles(_) | Command::OpenPlaylist(_) | Command::OpenFilesWithSubtitles { .. }

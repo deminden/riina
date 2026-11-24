@@ -341,19 +341,19 @@ fn dropped_lut(paths: &[OsString]) -> Option<Result<String, String>> {
     )
 }
 
-pub fn startup_at(
+pub(crate) fn startup_at(
     app: &PlayerWindow,
-    paths: Vec<OsString>,
-    resume_position: Option<f64>,
-    explicit_playlist: bool,
+    media: crate::player_ui::InitialMedia,
     sender: CommandSender,
 ) {
     startup_selection(
         app,
-        paths,
-        resume_position,
+        media.files,
+        media.resume_position,
         sender,
-        if explicit_playlist {
+        if media.launch.shuffle {
+            SelectionSource::StartupShuffled
+        } else if media.explicit_playlist {
             SelectionSource::ExplicitPlaylist
         } else {
             SelectionSource::Startup
@@ -361,9 +361,18 @@ pub fn startup_at(
     );
 }
 
+pub(crate) fn startup_stdin(app: &PlayerWindow, sender: &CommandSender) {
+    invalidate(app);
+    app.set_status("Opening…".into());
+    if let Err(error) = sender.send(Command::Load("-".into())) {
+        crate::diagnostics::report(app, error);
+    }
+}
+
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum SelectionSource {
     Startup,
+    StartupShuffled,
     Interactive,
     DesktopDrop,
     ExplicitPlaylist,
@@ -566,6 +575,8 @@ fn prepare_selection(
     }
     let command = if append {
         Command::AppendFiles(paths)
+    } else if source == SelectionSource::StartupShuffled {
+        Command::OpenShuffledPlaylist(paths)
     } else if source == SelectionSource::ExplicitPlaylist {
         Command::OpenPlaylist(paths)
     } else if let Some(position) =

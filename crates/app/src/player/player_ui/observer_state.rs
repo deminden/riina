@@ -24,6 +24,7 @@ pub(super) struct UiObserverState {
     pub(super) video: Rc<RefCell<VideoOsd>>,
     pub(super) screenshot: ScreenshotOsd,
     pub(super) timers: Option<PlaybackTimers>,
+    pub(super) startup_presentation: Option<(i32, crate::startup_arguments::Presentation)>,
     power: Option<crate::playback_power::Registration>,
 }
 
@@ -39,8 +40,41 @@ impl UiObserverState {
             video: Rc::new(RefCell::new(video)),
             screenshot: ScreenshotOsd::default(),
             timers: None,
+            startup_presentation: None,
             power: None,
         }
+    }
+
+    pub(super) fn startup_presentation(
+        &mut self,
+        app: &crate::PlayerWindow,
+        state: &Playback,
+    ) -> Option<crate::startup_arguments::Presentation> {
+        use riina_core::Phase;
+        let (request, presentation) = self.startup_presentation?;
+        if request != app.get_media_request_generation() || state.phase == Phase::Failed {
+            #[cfg(debug_assertions)]
+            crate::diagnostics::log_args(
+                crate::diagnostics::Level::Debug,
+                "launch",
+                format_args!(
+                    "Discarded {presentation:?} from request {request} in {:?}",
+                    state.phase
+                ),
+            );
+            self.startup_presentation = None;
+            return None;
+        }
+        if state.generation != 0
+            && matches!(
+                state.phase,
+                Phase::Playing | Phase::Paused | Phase::Buffering | Phase::Seeking | Phase::Ended
+            )
+        {
+            self.startup_presentation = None;
+            return Some(presentation);
+        }
+        None
     }
 }
 
@@ -100,6 +134,8 @@ impl Drop for ObserverRegistration {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::startup_arguments::Presentation;
+    use riina_core::Phase;
 
     #[test]
     fn each_session_owns_its_observations_and_late_delivery_is_ignored() {
@@ -112,5 +148,27 @@ mod tests {
         drop(first);
         assert!(first_id.lookup().is_none());
         assert!(second.id().lookup().is_some());
+    }
+
+    #[test]
+    fn startup_presentation_waits_for_playback_and_is_retired_by_a_new_request() {
+        i_slint_backend_testing::init_no_event_loop();
+        let app = crate::PlayerWindow::new().unwrap();
+        let mut observer = UiObserverState::new(VideoOsd::new(false, false), Default::default());
+        let mut playback = Playback::default();
+        app.set_media_request_generation(1);
+        observer.startup_presentation = Some((1, Presentation::Music));
+        playback.begin_load();
+        assert_eq!(observer.startup_presentation(&app, &playback), None);
+        playback.phase = Phase::Paused;
+        assert_eq!(
+            observer.startup_presentation(&app, &playback),
+            Some(Presentation::Music)
+        );
+        assert_eq!(observer.startup_presentation(&app, &playback), None);
+        observer.startup_presentation = Some((1, Presentation::PictureInPicture));
+        app.set_media_request_generation(2);
+        assert_eq!(observer.startup_presentation(&app, &playback), None);
+        assert_eq!(observer.startup_presentation, None);
     }
 }

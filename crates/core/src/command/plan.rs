@@ -115,6 +115,7 @@ impl Command {
             | Self::MovePlaylistIdsBefore { .. } => playlist::edit_selection(state, self)?,
             Self::OpenFiles(paths)
             | Self::OpenPlaylist(paths)
+            | Self::OpenShuffledPlaylist(paths)
             | Self::AppendFiles(paths)
             | Self::OpenFilesWithSubtitles { paths, .. } => {
                 playlist::open_files(state, self, paths)?

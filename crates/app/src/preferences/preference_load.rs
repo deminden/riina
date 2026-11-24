@@ -9,12 +9,14 @@ use std::{
     time::Duration,
 };
 
+#[derive(Clone)]
 pub(crate) struct LoadedPreferences {
     pub preferences: Preferences,
     pub source_text: Option<String>,
     pub recovery: Option<Recovery>,
 }
 
+#[derive(Clone)]
 pub(crate) struct Recovery {
     pub quarantined_as: Option<PathBuf>,
     pub reasons: Vec<String>,

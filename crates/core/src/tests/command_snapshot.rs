@@ -25,6 +25,7 @@ command_samples! {
     LoadAtPosition { path: "first.mkv".into(), position: 21.5 };
     OpenFiles[vec!["first.mkv".into(), "second.mkv".into()]];
     OpenPlaylist[vec!["first.mkv".into(), "second.mkv".into()]];
+    OpenShuffledPlaylist[vec!["first.mkv".into(), "second.mkv".into()]];
     OpenFilesWithSubtitles { paths: vec!["first.mkv".into()], subtitles: vec!["dialogue.srt".into()] };
     SetPauseWhenOpen[true];
     SetPlaybackEndPolicy { keep_open_on_file_end: true, playlist_auto_play_next: false };
@@ -298,6 +299,7 @@ fn worker_routes_every_command_to_the_expected_lifecycle() {
         "LoadAtPosition",
         "OpenFiles",
         "OpenPlaylist",
+        "OpenShuffledPlaylist",
         "OpenFilesWithSubtitles",
         "Stop",
     ];

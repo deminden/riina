@@ -1,6 +1,9 @@
 //! Arrange native presentation and menu ownership before the shared player runs.
 
-use crate::{RendererRequest, StartupArguments, preference_load::LoadedPreferences};
+use crate::{
+    preference_load::LoadedPreferences,
+    startup_arguments::{RendererRequest, StartupArguments},
+};
 use riina_core::Preferences;
 use slint::{BackendSelector, PlatformError};
 
@@ -8,26 +11,22 @@ pub(crate) fn run_player(
     arguments: StartupArguments,
     loaded: LoadedPreferences,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let StartupArguments {
-        renderer,
-        media,
-        resume_position,
-        owner_center,
-    } = arguments;
+    let renderer = arguments.renderer;
     #[cfg(target_os = "windows")]
     // Native D3D11 preserves the Windows HDR presentation path. Its control
     // overlay restores compositor alpha after Slint realizes the window.
     if renderer != RendererRequest::SharedGl {
-        return super::windows::native_window::run(media, resume_position, owner_center, loaded);
+        let owner_center = arguments.owner_center;
+        return super::windows::native_window::run(arguments.players(), owner_center, loaded);
     }
     #[cfg(not(target_os = "windows"))]
     {
-        let _ = owner_center;
+        let _ = arguments.owner_center;
         if renderer == RendererRequest::NativeWindow {
             return Err("Native video presentation is currently available on Windows; use --shared-gl on this platform".into());
         }
     }
-    crate::run_shared_player(media, resume_position, loaded)
+    crate::run_shared_player(arguments.players(), loaded)
 }
 
 pub(crate) fn select_shared_backend(preferences: &Preferences) -> Result<(), PlatformError> {

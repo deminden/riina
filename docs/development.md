@@ -117,6 +117,29 @@ the plugin API view. History and recent-media locks are never held together;
 history actions release their lock before publishing a snapshot. Selection removal
 persists one batch before changing the in-memory rows and revision.
 
+## Command-line playback
+
+Pass files or supported stream URLs to the Riina executable. Multiple
+arguments open in one playlist. Add `--separate-windows` or `-w` to give
+each argument its own player in the same application.
+
+```text
+riina --separate-windows "Episode 1.mkv" "Episode 2.mkv"
+riina --mpv-pause --mpv-volume=40 "Concert.mkv" -- --speed=1.25
+riina --mpv-shuffle "Track 1.flac" "Track 2.flac"
+```
+
+`--music-mode` and `--pip` select the presentation of the last launched
+player. `--mpv-fullscreen` requests fullscreen. For media on standard input,
+use `--stdin` or a lone `-`. Standard input takes precedence over media
+arguments. `--no-stdin` disables that input.
+
+Use `--mpv-name=value`, or place raw mpv switches after `--`. These
+switches apply to the players created by that invocation. Riina owns the
+video output, window handle and display-sleep policy. Invoking the player
+directly keeps the process alive for its application session. Prefix a local
+filename that looks like a switch with `./`.
+
 ## Checks
 
 Group related edits before running `cargo xtask check --fast`. It checks

@@ -81,13 +81,18 @@ pub(super) fn options_for_session(
     app: &PlayerWindow,
     prefs: &Preferences,
     prefs_path: &Path,
+    launch_options: EngineOptions,
 ) -> std::io::Result<EngineOptions> {
     let watch_later_directory = prefs_path.with_file_name("watch-later");
     std::fs::create_dir_all(&watch_later_directory)?;
     let ytdl_plugin_active = crate::plugin_host::is_enabled_plugin(prefs_path, "io.iina.ytdl");
     app.global::<riina_ui::PlayerPreferences>()
         .set_network_ytdl_plugin_active(ytdl_plugin_active);
-    let advanced_options = crate::advanced_preferences::engine_options(&prefs.advanced, prefs_path);
+    let advanced_options = crate::advanced_preferences::engine_options(&prefs.advanced, prefs_path)
+        .map(|mut options| {
+            options.extend(launch_options);
+            options
+        });
     engine_options(
         prefs,
         &watch_later_directory,
@@ -169,6 +174,7 @@ pub(super) fn resume_engine_options(
 pub(super) fn apply_player_preferences(
     command_sender: &CommandSender,
     prefs: &Preferences,
+    launch_pause: Option<bool>,
 ) -> std::io::Result<()> {
     if prefs
         .audio_equalizer
@@ -184,7 +190,9 @@ pub(super) fn apply_player_preferences(
         .send(Command::SetVolumeBoost(prefs.volume_boost))
         .map_err(std::io::Error::other)?;
     command_sender
-        .send(Command::SetPauseWhenOpen(prefs.pause_when_open))
+        .send(Command::SetPauseWhenOpen(
+            launch_pause.unwrap_or(prefs.pause_when_open),
+        ))
         .map_err(std::io::Error::other)?;
     command_sender
         .send(Command::HardwareDecoding(prefs.hardware_decoder))
@@ -241,16 +249,18 @@ pub(crate) struct InitialMedia {
     pub(crate) resume_position: Option<f64>,
     pub(crate) explicit_playlist: bool,
     pub(crate) managed: Option<Arc<crate::plugins::plugin_players::Ticket>>,
+    pub(crate) launch: crate::startup_arguments::LaunchOptions,
 }
 
 impl InitialMedia {
-    pub(super) fn plugin_startup<'a>(
+    pub(super) fn startup_context<'a>(
         &'a self,
         application: &'a plugins::ApplicationPlugins,
-    ) -> PluginStartup<'a> {
-        PluginStartup {
+    ) -> StartupContext<'a> {
+        StartupContext {
             application,
             managed: self.managed.as_ref(),
+            launch_options: &self.launch.engine,
         }
     }
 
@@ -272,21 +282,22 @@ impl InitialMedia {
 pub(super) struct InitialOpen {
     pub(super) media: InitialMedia,
     pub(super) plugins: Option<PluginHostHandle>,
+    pub(super) observer: super::observer_state::ObserverId,
 }
 
 impl InitialOpen {
     pub(super) fn open(self, app: &PlayerWindow, sender: CommandSender) {
-        let InitialMedia {
-            files,
-            resume_position,
-            explicit_playlist,
-            ..
-        } = self.media;
-        if files.is_empty() {
+        if self.media.files.is_empty() {
             return;
         }
-        let Some(plugins) = self.plugins else {
-            crate::media_open::startup_at(app, files, resume_position, explicit_playlist, sender);
+        let Self {
+            media,
+            plugins,
+            observer,
+        } = self;
+        let open = move |app: &PlayerWindow| open_initial_media(app, media, sender, observer);
+        let Some(plugins) = plugins else {
+            open(app);
             return;
         };
 
@@ -296,16 +307,38 @@ impl InitialOpen {
             let _ = player.upgrade_in_event_loop(move |app| {
                 // A newer open request owns this player while plugins initialize.
                 if app.get_media_request_generation() == generation {
-                    crate::media_open::startup_at(
-                        &app,
-                        files,
-                        resume_position,
-                        explicit_playlist,
-                        sender,
-                    );
+                    open(&app);
                 }
             });
         });
+    }
+}
+
+fn open_initial_media(
+    app: &PlayerWindow,
+    media: InitialMedia,
+    sender: CommandSender,
+    observer: super::observer_state::ObserverId,
+) {
+    let previous_request = app.get_media_request_generation();
+    let presentation = media.launch.presentation;
+    if media.launch.stdin {
+        crate::media_open::startup_stdin(app, &sender);
+    } else {
+        crate::media_open::startup_at(app, media, sender);
+    }
+    let request = app.get_media_request_generation();
+    if let Some(presentation) = presentation
+        && request != previous_request
+        && let Some(observer) = observer.lookup()
+    {
+        #[cfg(debug_assertions)]
+        crate::diagnostics::log_args(
+            crate::diagnostics::Level::Debug,
+            "launch",
+            format_args!("Queued {presentation:?} for initial playback request {request}"),
+        );
+        observer.borrow_mut().startup_presentation = Some((request, presentation));
     }
 }
 
@@ -319,10 +352,11 @@ pub(super) fn activate_output(
     picture_in_picture: &crate::platform::PictureInPictureSession,
 ) -> Result<(), Box<dyn std::error::Error>> {
     crate::fullscreen_info::connect(app);
+    let volume = opening.media.launch.volume.unwrap_or(prefs.volume);
     if native_presentation {
         app.set_engine_ready(true);
         command_sender
-            .send(Command::Volume(prefs.volume))
+            .send(Command::Volume(volume))
             .map_err(std::io::Error::other)?;
         opening.open(app, command_sender.clone());
     } else if let Some(player) = player {
@@ -330,7 +364,7 @@ pub(super) fn activate_output(
             app,
             player,
             opening,
-            prefs.volume,
+            volume,
             picture_in_picture.render_extras(),
         )?;
     }
@@ -375,9 +409,10 @@ pub(super) struct PreparedSession {
     pub(super) picture_in_picture: platform::PictureInPictureSession,
 }
 
-pub(super) struct PluginStartup<'a> {
+pub(super) struct StartupContext<'a> {
     pub(super) application: &'a plugins::ApplicationPlugins,
     pub(super) managed: Option<&'a Arc<crate::plugins::plugin_players::Ticket>>,
+    pub(super) launch_options: &'a [(String, String)],
 }
 
 pub(super) fn prepare(
@@ -387,7 +422,7 @@ pub(super) fn prepare(
     engine_start: &EngineStart,
     loaded: LoadedPreferences,
     media_geometry: MediaGeometry,
-    plugin_startup: PluginStartup<'_>,
+    startup: StartupContext<'_>,
 ) -> Result<PreparedStartup, Box<dyn std::error::Error>> {
     let picture_in_picture = platform::PictureInPictureSession::new(app);
     let prefs_path = engine_start.preferences_path()?;
@@ -400,22 +435,19 @@ pub(super) fn prepare(
         saved_audio_filters,
         history,
     } = prepare_settings(app, &prefs_path, loaded, use_system_services);
-    if let Some(ticket) = plugin_startup.managed {
+    if let Some(ticket) = startup.managed {
         app.global::<riina_ui::PlayerControlsState>()
             .set_plugin_ui_disabled(ticket.options.disable_ui);
     }
-    let plugin_host = match plugin_startup
-        .application
-        .host(&prefs_path)
-        .and_then(|global| {
-            PluginHost::prepare_for_application(
-                &prefs_path,
-                &prefs.recent_media,
-                history.entries(),
-                global,
-                plugin_startup.managed.cloned(),
-            )
-        }) {
+    let plugin_host = match startup.application.host(&prefs_path).and_then(|global| {
+        PluginHost::prepare_for_application(
+            &prefs_path,
+            &prefs.recent_media,
+            history.entries(),
+            global,
+            startup.managed.cloned(),
+        )
+    }) {
         Ok(host) => Some(host),
         Err(error) => {
             app.set_status(error.into());
@@ -423,17 +455,13 @@ pub(super) fn prepare(
         }
     };
     let plugin_host_handle = plugin_host.as_ref().map(PluginHost::handle);
-    let plugin_ui = plugins::install(
-        app,
-        native,
-        plugin_host_handle.clone(),
-        plugin_startup.application,
-    );
+    let plugin_ui = plugins::install(app, native, plugin_host_handle.clone(), startup.application);
     live_text::initialize(app, prefs.live_text_enabled, use_system_services);
     hdr_output::initialize_display(app, &prefs, native);
     let recent = SessionRecents::new(&prefs);
     let history = history.start_tracking(&prefs_path, &prefs);
-    let engine_options = options_for_session(app, &prefs, &prefs_path)?;
+    let engine_options =
+        options_for_session(app, &prefs, &prefs_path, startup.launch_options.to_vec())?;
     let projection = initial_projection::install_session(
         app,
         &prefs,
@@ -454,7 +482,7 @@ pub(super) fn prepare(
             saved_audio_filters: saved_audio_filters.clone(),
             audio_device_sender: plugin_ui.plugin_command_sender.clone(),
             picture_in_picture_state_dirty: picture_in_picture.notification_flag(),
-            managed_visibility: plugin_startup
+            managed_visibility: startup
                 .managed
                 .filter(|ticket| ticket.is_waiting_for_media())
                 .map(|ticket| observation_dispatch::ManagedVisibility {

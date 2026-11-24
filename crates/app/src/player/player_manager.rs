@@ -123,6 +123,18 @@ impl PlayerManager {
         self.state.borrow().services.clone()
     }
 
+    pub(crate) fn open_startup_players(
+        &self,
+        first: &PlayerWindow,
+        players: impl Iterator<Item = InitialMedia>,
+        loaded: &LoadedPreferences,
+    ) -> Result<(), String> {
+        for media in players {
+            open_new_player(&self.state, first, media, loaded.clone())?;
+        }
+        Ok(())
+    }
+
     pub(crate) fn attach(
         &self,
         app: &PlayerWindow,

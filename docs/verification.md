@@ -3182,3 +3182,35 @@ service and native macOS runtime remain unverified.
 - Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
 - Linux application SHA-256 `e8b67e5e88534dcb08f7713921eed81588763d2a56af5e1b100c2e429fc4a0d0`
 - Wayland libmpv SHA-256 `cdce854e1811942602587310026306d92d30c0f593f2be676f07659ae43061d8`
+
+### Command-line playback 2026-11-24
+
+The executable accepts separate-window, stdin, Music Mode, PiP and fullscreen
+requests, and launch-scoped mpv options. Separate windows share one application
+and each owns its engine. Music Mode and PiP target the last player. The
+initial playlist shuffle fills the native list before starting its first item.
+The presentation request follows the first ready observation, including an
+initial seeking observation, and a newer media selection supersedes it.
+
+An isolated Windows 11 run opened two paused videos in one process and entered
+Music Mode in the second window. Closing the first left the second available.
+Separate launches verified two grouped entries, decoded video, pause, initial
+volume and the raw mpv speed override, then decoded PCM from redirected
+standard input. The profile preserved its stored pause policy and advanced
+options. All three exact test processes exited normally.
+
+A locked Linux build ran five native Wayland scenarios. The first verified
+both windows and the final window's Music Mode geometry. The second verified
+a shuffled two-file playlist, pause, decoded video, volume and speed. The
+compositor confirmed fullscreen and a separate PiP surface in the next two
+runs. The last decoded redirected PCM and reported the standard input path.
+Each scenario closed the exact process through its window.
+
+The full Windows workspace gate, all 60 pinned engine tests and strict
+Apple Silicon cross-Clippy passed. Native macOS runtime, automatic discovery
+of piped input, and browser URL activation remain separate work.
+
+- Windows application SHA-256 `475225620481a75154da1abe9467aa0e3e2199df24dd878c7967d6f23461d358`
+- Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
+- Linux application SHA-256 `f0c4418cef0c497ecec35d3ea219e3babe02a8eb8b16089cd49f3b9c3f2545ad`
+- Wayland libmpv SHA-256 `cdce854e1811942602587310026306d92d30c0f593f2be676f07659ae43061d8`

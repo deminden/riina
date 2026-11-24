@@ -311,7 +311,7 @@ fn configure_with_engine(
         &engine_start,
         loaded,
         media_geometry.clone(),
-        media.plugin_startup(&application.plugins),
+        media.startup_context(&application.plugins),
     )?;
     let prefs = &session.prefs;
     let prefs_path = &session.prefs_path;
@@ -331,7 +331,7 @@ fn configure_with_engine(
         .start(native.as_ref(), engine_options, notify)
         .inspect_err(|error| app.set_status(error.clone().into()))
         .map_err(std::io::Error::other)?;
-    startup::apply_player_preferences(&command_sender, prefs)?;
+    startup::apply_player_preferences(&command_sender, prefs, media.launch.pause)?;
     if let Some(host) = &mut session.plugin_host {
         host.attach_player(command_sender.clone());
     }
@@ -418,6 +418,7 @@ fn configure_with_engine(
         startup::InitialOpen {
             media,
             plugins: session.plugin_host_handle.clone(),
+            observer: observer_state.id(),
         },
         &session.picture_in_picture,
     )?;

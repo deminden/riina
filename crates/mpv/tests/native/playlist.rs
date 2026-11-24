@@ -280,6 +280,42 @@ fn multi_file_open_replaces_old_playlist_and_resumes() {
 }
 
 #[test]
+#[ignore = "requires provisioned libmpv; checks startup playlist order"]
+fn shuffled_open_starts_at_the_first_shuffled_entry_and_keeps_pause() {
+    let root = fixture_root();
+    let harness = Harness::start(&root).unwrap();
+    let fixture = |name| {
+        root.join("tests/fixtures")
+            .join(name)
+            .to_str()
+            .unwrap()
+            .trim_start_matches(r"\\?\")
+            .to_owned()
+    };
+    let mut paths = ["moving-square.avi", "catalog.mkv", "external-tone.wav"].map(fixture);
+    harness.send(Command::SetPauseWhenOpen(true)).unwrap();
+    harness
+        .send(Command::OpenShuffledPlaylist(paths.to_vec()))
+        .unwrap();
+    let opened = harness.wait(|state| {
+        state.phase == Phase::Paused
+            && state.playlist_shuffled
+            && state.playlist.len() == paths.len()
+            && state.playlist[0].current
+    });
+    assert!(opened.explicit_playlist);
+    assert_eq!(opened.error(), None);
+    let mut observed = opened
+        .playlist
+        .iter()
+        .map(|entry| entry.filename.clone())
+        .collect::<Vec<_>>();
+    observed.sort_unstable();
+    paths.sort_unstable();
+    assert_eq!(observed, paths);
+}
+
+#[test]
 #[ignore = "requires provisioned libmpv; exercises real catalog workflows"]
 #[expect(
     clippy::too_many_lines,

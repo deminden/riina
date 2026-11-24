@@ -18,6 +18,7 @@ mod plugins;
 mod preferences;
 mod series_names;
 mod settings_search;
+mod startup_arguments;
 mod subtitles;
 mod ui_dialogs;
 mod ui_models;
@@ -49,7 +50,7 @@ use preferences::{
 };
 use riina_ui::*;
 use slint::ComponentHandle;
-use std::ffi::{OsStr, OsString};
+use startup_arguments::StartupArguments;
 use subtitles::{
     assrt_subtitles, online_subtitles_credentials, open_subtitles, shooter_subtitles,
     subtitle_discovery, subtitle_priority, subtitle_series,
@@ -60,20 +61,6 @@ use windows::{
 };
 
 type PlaybackStore = std::sync::Arc<std::sync::Mutex<std::sync::Arc<riina_core::Playback>>>;
-
-struct StartupArguments {
-    renderer: RendererRequest,
-    media: Vec<OsString>,
-    resume_position: Option<f64>,
-    owner_center: Option<(i32, i32)>,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum RendererRequest {
-    Default,
-    SharedGl,
-    NativeWindow,
-}
 
 /// Start the application using the process command line.
 ///
@@ -109,17 +96,17 @@ unsafe fn run() -> Result<(), Box<dyn std::error::Error>> {
     let loaded = preference_load::load(&preferences_path)?;
     // SAFETY: the application is still in single-threaded process startup.
     unsafe { prepare_online_video_path(&loaded.preferences) }?;
-    let arguments = take_startup_arguments(std::env::args_os().skip(1))?;
+    let arguments = StartupArguments::parse(std::env::args_os().skip(1))?;
     platform::startup::run_player(arguments, loaded)
 }
 
 fn run_shared_player(
-    media: Vec<OsString>,
-    resume_position: Option<f64>,
+    mut players: impl Iterator<Item = InitialMedia>,
     loaded: preference_load::LoadedPreferences,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let action_after_launch = loaded.preferences.action_after_launch;
-    let supplied_media_argument = !media.is_empty();
+    let media = players.next().ok_or("Missing initial player")?;
+    let supplied_media_argument = !media.files.is_empty();
     platform::startup::select_shared_backend(&loaded.preferences)?;
     let app = PlayerWindow::new()?;
     let player_manager = player_manager::PlayerManager::new();
@@ -138,13 +125,9 @@ fn run_shared_player(
     let session = configure_player(
         &app,
         None,
-        InitialMedia {
-            files: media,
-            resume_position,
-            ..InitialMedia::default()
-        },
+        media,
         welcome.as_ref(),
-        loaded,
+        loaded.clone(),
         media_geometry,
         player_manager.services(),
     )?;
@@ -170,69 +153,9 @@ fn run_shared_player(
                 .get_initial_window_position_enabled(),
         );
     }
+    player_manager.open_startup_players(&app, players, &loaded)?;
     slint::run_event_loop()?;
     player_manager.save_all()
-}
-
-fn take_startup_arguments(
-    args: impl Iterator<Item = OsString>,
-) -> Result<StartupArguments, Box<dyn std::error::Error>> {
-    // Keep internal launch hints separate from media references passed to a player.
-    let mut args = args.peekable();
-    let mut media = Vec::new();
-    let mut resume_position = None;
-    let mut owner_center = None;
-    while let Some(argument) = args.next() {
-        if argument == "--riina-resume-at" {
-            let value = args.next().ok_or("Missing resume position")?;
-            let value = value
-                .to_str()
-                .ok_or("Resume position is not valid Unicode")?
-                .parse::<f64>()?;
-            if !value.is_finite() || value < 0.0 {
-                return Err("Resume position must be a finite non-negative number".into());
-            }
-            resume_position = Some(value);
-        } else if argument == "--riina-owner-center" {
-            let x = args.next().ok_or("Missing owner-center x coordinate")?;
-            let y = args.next().ok_or("Missing owner-center y coordinate")?;
-            owner_center = Some((
-                x.to_str()
-                    .ok_or("Owner-center x coordinate is not Unicode")?
-                    .parse()?,
-                y.to_str()
-                    .ok_or("Owner-center y coordinate is not Unicode")?
-                    .parse()?,
-            ));
-        } else {
-            media.push(argument);
-        }
-    }
-    let (renderer, media) = select_renderer_argument(media.into_iter());
-    Ok(StartupArguments {
-        renderer,
-        media,
-        resume_position,
-        owner_center,
-    })
-}
-
-fn select_renderer_argument(
-    mut args: impl Iterator<Item = OsString>,
-) -> (RendererRequest, Vec<OsString>) {
-    let first = args.next();
-    match first.as_deref() {
-        Some(flag) if flag == OsStr::new("--shared-gl") => {
-            (RendererRequest::SharedGl, args.collect())
-        }
-        Some(flag) if flag == OsStr::new("--native-video") => {
-            (RendererRequest::NativeWindow, args.collect())
-        }
-        _ => (
-            RendererRequest::Default,
-            first.into_iter().chain(args).collect(),
-        ),
-    }
 }
 
 unsafe fn prepare_online_video_path(
@@ -247,63 +170,4 @@ unsafe fn prepare_online_video_path(
     // starting workers that might read the shared process environment.
     unsafe { std::env::set_var("PATH", path) };
     Ok(())
-}
-
-#[cfg(test)]
-mod tests {
-    use super::{RendererRequest, take_startup_arguments};
-    use std::ffi::OsString;
-
-    #[test]
-    fn startup_keeps_every_media_argument_after_an_internal_renderer_switch() {
-        for (flag, renderer) in [
-            ("--shared-gl", RendererRequest::SharedGl),
-            ("--native-video", RendererRequest::NativeWindow),
-        ] {
-            let arguments = take_startup_arguments(
-                [flag, "first file.mkv", "second.mkv"]
-                    .into_iter()
-                    .map(OsString::from),
-            )
-            .unwrap();
-            assert_eq!(arguments.renderer, renderer);
-            assert_eq!(
-                arguments.media,
-                ["first file.mkv", "second.mkv"].map(OsString::from)
-            );
-        }
-    }
-
-    #[test]
-    fn startup_treats_all_arguments_as_media_without_a_renderer_switch() {
-        let arguments =
-            take_startup_arguments(["first.mkv", "second.mkv"].into_iter().map(OsString::from))
-                .unwrap();
-        assert_eq!(arguments.renderer, RendererRequest::Default);
-        assert_eq!(
-            arguments.media,
-            ["first.mkv", "second.mkv"].map(OsString::from)
-        );
-    }
-
-    #[test]
-    fn child_player_keeps_owner_monitor_hint_out_of_media_arguments() {
-        let arguments = take_startup_arguments(
-            [
-                "--riina-owner-center",
-                "1440",
-                "520",
-                "--riina-resume-at",
-                "3.5",
-                "movie.mkv",
-            ]
-            .into_iter()
-            .map(OsString::from),
-        )
-        .unwrap();
-
-        assert_eq!(arguments.media, ["movie.mkv"].map(OsString::from));
-        assert_eq!(arguments.resume_position, Some(3.5));
-        assert_eq!(arguments.owner_center, Some((1440, 520)));
-    }
 }

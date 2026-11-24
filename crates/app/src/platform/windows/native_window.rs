@@ -21,26 +21,20 @@ use slint::{
 };
 use std::{
     cell::{Cell, RefCell},
-    ffi::OsString,
     rc::Rc,
     sync::Arc,
 };
 use surfaces::{align, enable_video_transparency};
-pub fn run(
-    media: Vec<OsString>,
-    resume_position: Option<f64>,
+pub(crate) fn run(
+    players: impl Iterator<Item = InitialMedia>,
     owner_center: Option<(i32, i32)>,
     loaded: LoadedPreferences,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    application::run(NativeLaunch {
-        media: InitialMedia {
-            files: media,
-            resume_position,
-            ..InitialMedia::default()
-        },
+    application::run(players.map(|media| NativeLaunch {
+        media,
         owner_center,
-        loaded,
-    })
+        loaded: loaded.clone(),
+    }))
 }
 
 struct NativeLaunch {
