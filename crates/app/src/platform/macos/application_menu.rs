@@ -1,7 +1,7 @@
 //! Merge Slint's app menu with the native macOS application menu.
 
 use block2::RcBlock;
-use objc2::{MainThreadMarker, rc::Retained, runtime::ProtocolObject};
+use objc2::{MainThreadMarker, rc::Retained, runtime::ProtocolObject, sel};
 use objc2_app_kit::{
     NSApplication, NSImage, NSImageNamePreferencesGeneral, NSMenu,
     NSMenuDidBeginTrackingNotification, NSMenuItem,
@@ -60,6 +60,8 @@ fn normalize_application_menu(main_thread: MainThreadMarker) {
     let Some(main_menu) = application.mainMenu() else {
         return;
     };
+
+    install_system_menus(&application, &main_menu);
 
     let riina_title = NSString::from_str("riina");
     let riina_index = (0..main_menu.numberOfItems()).find(|index| {
@@ -136,6 +138,52 @@ fn normalize_application_menu(main_thread: MainThreadMarker) {
     }
     system_app_item.setTitle(&NSString::from_str("Riina"));
     main_menu.removeItemAtIndex(riina_index);
+}
+
+fn install_system_menus(application: &NSApplication, main_menu: &NSMenu) {
+    // AppKit supplies the window roster, the standard window actions and
+    // Help search. Slint retains the application's Inspector and Log Viewer.
+    if let Some(menu) = named_submenu(main_menu, "Window") {
+        install_window_actions(&menu);
+        if !application
+            .windowsMenu()
+            .as_deref()
+            .is_some_and(|active| std::ptr::eq(active, &*menu))
+        {
+            application.setWindowsMenu(Some(&menu));
+        }
+    }
+    if let Some(menu) = named_submenu(main_menu, "Help")
+        && !application
+            .helpMenu()
+            .as_deref()
+            .is_some_and(|active| std::ptr::eq(active, &*menu))
+    {
+        application.setHelpMenu(Some(&menu));
+    }
+}
+
+fn install_window_actions(menu: &NSMenu) {
+    for (title, action) in [
+        ("Minimize", sel!(performMiniaturize:)),
+        ("Zoom", sel!(performZoom:)),
+        ("Bring All to Front", sel!(arrangeInFront:)),
+    ] {
+        if let Some(item) = menu.itemWithTitle(&NSString::from_str(title))
+            && item.action() != Some(action)
+        {
+            // SAFETY: these AppKit actions take the menu item as their sender.
+            // A nil target asks AppKit to resolve the current responder.
+            unsafe {
+                item.setTarget(None);
+                item.setAction(Some(action));
+            }
+        }
+    }
+}
+
+fn named_submenu(menu: &NSMenu, title: &str) -> Option<Retained<NSMenu>> {
+    menu.itemWithTitle(&NSString::from_str(title))?.submenu()
 }
 
 fn menu_items(menu: &NSMenu) -> Option<Vec<Retained<NSMenuItem>>> {

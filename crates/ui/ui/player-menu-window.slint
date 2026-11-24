@@ -551,6 +551,11 @@ export component PlayerMenuWindow inherits Window {
                 enabled: root.menu-value-in-process-player-manager;
                 activated => { PlayerMenuActions.bring-all-to-front(); }
             }
+            if PlayerCatalogState.window-menu-rows.length > 0 : MenuSeparator {}
+            for row in PlayerCatalogState.window-menu-rows : MenuItem {
+                title: row.label; checkable: true; checked: row.selected;
+                activated => { PlayerMenuActions.select-player-window(row.token); }
+            }
         }
         Menu { title: "Help";
             MenuItem { title: "Riina Help";

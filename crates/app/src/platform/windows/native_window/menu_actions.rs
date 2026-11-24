@@ -110,6 +110,10 @@ fn install_application_actions(host: &NativeVideoHost, app: &PlayerWindow) {
             crate::diagnostics::warn!("Could not bring all Riina windows forward: {error}");
         }
     });
+    forward!(host, app, on_select_player_window, |token| {
+        app.global::<PlayerMenuActions>()
+            .invoke_select_player_window(token);
+    });
     forward!(host, app, on_close_player, || {
         app.global::<PlayerMenuActions>().invoke_close_player();
     });

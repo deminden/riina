@@ -1,8 +1,8 @@
 //! Own the History window and resolve live playback destinations at activation.
 use super::{CollapsedGroups, HistoryState, report, revision};
 use crate::{
-    NativeVideoHost, PlaybackHistoryWindow, PlayerWindow, WelcomeWindow,
-    media_open::HistoryDestination, player_ui::InitialMedia,
+    PlaybackHistoryWindow, PlayerWindow, media_open::HistoryDestination,
+    player::surface::PlayerDisplay, player_ui::InitialMedia,
 };
 use riina_core::{RecentMedia, playback_history::Entry};
 use riina_ui::{PlayerMenuActions, PlayerPreferences};
@@ -43,35 +43,6 @@ struct PlayerRoute {
     player: riina_mpv::CommandSender,
     sync: HistorySync,
     display: PlayerDisplay,
-}
-
-#[derive(Clone, Default)]
-pub(crate) struct PlayerDisplay {
-    pub(crate) welcome: Option<slint::Weak<WelcomeWindow>>,
-    pub(crate) host: Option<slint::Weak<NativeVideoHost>>,
-}
-
-impl PlayerDisplay {
-    pub(crate) fn reveal(&self, app: &PlayerWindow) -> Result<(), slint::PlatformError> {
-        if let Some(welcome) = self.welcome.as_ref().and_then(slint::Weak::upgrade)
-            && welcome.window().is_visible()
-        {
-            crate::platform::set_native_video_host_visible(self.host.as_ref(), true);
-            crate::platform::show_window(app)?;
-            welcome.hide()?;
-        }
-        Ok(())
-    }
-
-    pub(crate) fn focus(&self, app: &PlayerWindow) {
-        let host = self.host.as_ref().and_then(slint::Weak::upgrade);
-        host.as_ref()
-            .map_or_else(|| app.window(), ComponentHandle::window)
-            .with_winit_window(|window| {
-                window.set_minimized(false);
-                window.focus_window();
-            });
-    }
 }
 
 pub(crate) struct Registration {

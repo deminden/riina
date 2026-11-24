@@ -71,7 +71,7 @@ pub(super) struct Installed {
 
 pub(super) struct Inputs<'a> {
     pub(super) native: Option<&'a platform::NativePresentation>,
-    pub(super) welcome: Option<&'a crate::WelcomeWindow>,
+    pub(super) display: crate::player::surface::PlayerDisplay,
     pub(super) commands: &'a CommandSender,
     pub(super) playback: &'a PlaybackStore,
     pub(super) prefs_path: &'a Path,
@@ -92,7 +92,7 @@ pub(super) struct Inputs<'a> {
 pub(super) fn install(app: &PlayerWindow, inputs: Inputs<'_>) -> Installed {
     let Inputs {
         native,
-        welcome,
+        display,
         commands,
         playback,
         prefs_path,
@@ -116,10 +116,7 @@ pub(super) fn install(app: &PlayerWindow, inputs: Inputs<'_>) -> Installed {
         commands.clone(),
         history_archive,
         history_sync,
-        crate::playback_history_window::PlayerDisplay {
-            welcome: welcome.map(slint::ComponentHandle::as_weak),
-            host: native.map(platform::NativePresentation::host),
-        },
+        display,
     );
     let filter_windows = crate::video_filter_window::install(
         app,

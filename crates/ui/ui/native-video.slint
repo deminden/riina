@@ -60,6 +60,8 @@ export component NativeVideoHost inherits Window {
     callback minimize-window();
     callback zoom-window();
     callback bring-all-to-front();
+    callback select-player-window(string);
+    in property <[MenuCatalogRow]> window-menu-rows: [];
     in property <bool> bring-all-to-front-available: false;
     in property <[MenuShortcutRow]> menu-shortcuts: [];
     in-out property <bool> mica-backdrop-enabled: false;
@@ -665,6 +667,11 @@ export component NativeVideoHost inherits Window {
             MenuItem { title: "Bring All to Front";
                 enabled: root.bring-all-to-front-available;
                 activated => { root.bring-all-to-front(); } }
+            if root.window-menu-rows.length > 0 : MenuSeparator {}
+            for row in root.window-menu-rows : MenuItem {
+                title: row.label; checkable: true; checked: row.selected;
+                activated => { root.select-player-window(row.token); }
+            }
         }
         Menu { title: "Help";
             MenuItem { title: "Riina Help";

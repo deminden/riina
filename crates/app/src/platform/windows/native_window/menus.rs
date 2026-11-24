@@ -93,6 +93,7 @@ fn sync(host: &NativeVideoHost, app: &PlayerWindow) {
     host.set_live_text_enabled(app.get_live_text_enabled());
     host.set_record_recent_files(player_preferences.get_record_recent_files());
     host.set_recent_open_menu_rows(catalog.get_recent_open_menu_rows());
+    host.set_window_menu_rows(catalog.get_window_menu_rows());
     host.set_plugin_menu_rows(app.get_plugin_menu_rows());
     host.set_plugin_menu_conflicts(app.get_plugin_menu_conflicts());
     host.set_plugin_developer_rows(app.get_plugin_developer_rows());

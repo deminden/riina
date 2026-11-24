@@ -266,22 +266,26 @@ fn open_browser_link(
 }
 
 fn bring_all_to_front(state: &Rc<RefCell<ManagerState>>, owner: &PlayerWindow) {
-    let windows = state
+    let mut windows = state
         .borrow()
         .players
         .iter()
-        .map(|player| {
-            (
-                player.app.clone_strong(),
-                player.welcome.as_ref().map(WelcomeWindow::clone_strong),
-            )
+        .filter_map(|player| {
+            let is_owner = std::ptr::eq(player.app.window(), owner.window());
+            let display = super::surface::PlayerDisplay {
+                welcome: player.welcome.as_ref().map(ComponentHandle::as_weak),
+                host: None,
+            };
+            display
+                .switchable(&player.app)
+                .map(|window| (is_owner, window))
         })
         .collect::<Vec<_>>();
-    for (app, welcome) in windows {
-        show_and_focus(&app, owner);
-        if let Some(welcome) = welcome {
-            show_and_focus(&welcome, owner);
-        }
+    // Bringing other players forward should leave the initiating player on top
+    // without showing the hidden playback frame behind a Welcome window.
+    windows.sort_by_key(|(is_owner, _)| *is_owner);
+    for (_, window) in windows {
+        window.focus();
     }
 }
 

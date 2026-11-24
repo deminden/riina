@@ -171,6 +171,8 @@ pub(crate) struct UiSession {
     _plugins: plugins::RuntimeSession,
     application: ApplicationServices,
     debug_information: crate::debug_dump::Registration,
+    #[cfg(not(target_os = "macos"))]
+    window_menu: crate::windows::window_menu::Registration,
     _presentation: Option<SessionResource<platform::NativePresentation>>,
     _live_text_timer: Option<Rc<slint::Timer>>,
     _preference_recovery_notice: Option<Rc<slint::Timer>>,
@@ -185,6 +187,8 @@ pub(crate) struct UiSession {
 impl UiSession {
     pub(super) fn prepare_to_close(&self) {
         self.debug_information.retire();
+        #[cfg(not(target_os = "macos"))]
+        self.window_menu.retire();
         self.observer_state.release_power();
         self.platform_extras.prepare_to_close();
     }
@@ -280,6 +284,8 @@ pub(crate) struct ApplicationServices {
     inspector: Rc<crate::windows::media_inspector::ApplicationInspector>,
     logs: Rc<crate::log_viewer::ApplicationLogViewer>,
     debug_information: Rc<crate::debug_dump::ApplicationDebugInformation>,
+    #[cfg(not(target_os = "macos"))]
+    window_menu: Rc<crate::windows::window_menu::ApplicationWindowMenu>,
     highlights: Rc<crate::windows::release_highlights::ReleaseHighlights>,
     pub(crate) open_url: Rc<crate::windows::open_url::ApplicationOpenUrl>,
     about: Rc<crate::about_window::ApplicationAbout>,
@@ -415,6 +421,12 @@ fn configure_with_engine(
     let resize_filter = native
         .is_none()
         .then(|| crate::window_aspect::connect_with_target(app, None, &media_geometry));
+    let display = crate::player::surface::PlayerDisplay {
+        welcome: welcome.map(slint::ComponentHandle::as_weak),
+        host: native.as_ref().map(platform::NativePresentation::host),
+    };
+    #[cfg(not(target_os = "macos"))]
+    let window_menu = application.window_menu.register(app, display.clone());
     let features::Installed {
         guards,
         timers,
@@ -426,7 +438,7 @@ fn configure_with_engine(
         app,
         features::Inputs {
             native: native.as_ref(),
-            welcome,
+            display,
             commands: &command_sender,
             playback: latest_playback,
             prefs_path,
@@ -469,20 +481,7 @@ fn configure_with_engine(
             subtitle_assignments,
         },
     );
-    media_actions::install(
-        app,
-        media_actions::Context {
-            open_url: &application.open_url,
-            commands: &command_sender,
-            open_host: native.as_ref().map(platform::NativePresentation::host),
-            welcome,
-            recent: &session.recent,
-            prefs_path,
-            latest_playback,
-        },
-    );
-    window_actions::install_lifecycle(app, welcome);
-
+    application.connect_media_actions(app, native.as_ref(), welcome, &session, &command_sender);
     observer_state.bind_open_url(&application.open_url);
     startup::activate_output(
         app,
@@ -511,6 +510,8 @@ fn configure_with_engine(
         _plugins: plugin_runtime,
         application,
         debug_information,
+        #[cfg(not(target_os = "macos"))]
+        window_menu,
         _presentation: native.map(SessionResource::Live),
         _live_text_timer: live_text_timer,
         _preference_recovery_notice: session.recovery.and_then(|recovery| recovery.announce(app)),
@@ -527,6 +528,31 @@ fn configure_with_engine(
             latest_playback: session.projection.latest_playback,
         },
     })
+}
+
+impl ApplicationServices {
+    fn connect_media_actions(
+        &self,
+        app: &PlayerWindow,
+        native: Option<&platform::NativePresentation>,
+        welcome: Option<&WelcomeWindow>,
+        session: &startup::PreparedSession,
+        commands: &riina_mpv::CommandSender,
+    ) {
+        media_actions::install(
+            app,
+            media_actions::Context {
+                open_url: &self.open_url,
+                commands,
+                open_host: native.map(platform::NativePresentation::host),
+                welcome,
+                recent: &session.recent,
+                prefs_path: &session.prefs_path,
+                latest_playback: &session.projection.latest_playback,
+            },
+        );
+        window_actions::install_lifecycle(app, welcome);
+    }
 }
 
 #[cfg(test)]

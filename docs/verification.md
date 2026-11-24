@@ -3538,3 +3538,31 @@ for mixed or grouped command-line inputs remain open.
 - Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
 - Linux application SHA-256 `ec1bfaff4873606cca03de4428e100a13841eb894b40cfcf321a60c27096da3d`
 - X11 libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`
+
+### Window switching 2026-11-24
+
+The application-owned Window menu follows each player's visible surface, title
+and lifetime. The headless regression covers a hidden registration, its
+Welcome-to-player transition, stable selection on rename and retirement while
+the underlying component is still alive.
+
+A private Windows desktop opened two players in one process. Both native Window
+menus listed the players and checked their own entry. A filename containing an
+ampersand retained the literal character. Selecting a minimized player restored
+its frame and preserved the initiating menu's checkmark. Closing the second
+player removed its entry, and closing the first exited normally.
+
+An isolated Linux X11 desktop exercised the actual menu with pointer input.
+Selecting the second player restored it and gave it focus. Bring All to Front
+also restored it and left the initiating player focused. The desktop captures
+showed the second player's checkmark after switching and only the first player's
+entry after closing the second. Quit exited normally.
+
+The full Windows workspace gate, all 61 pinned libmpv tests and strict Apple
+Silicon cross-Clippy passed. macOS Window and Help menu interaction, Wayland
+window activation and comparison with matched IINA pixels still need verification.
+
+- Windows application SHA-256 `b0eab5d5f5629c23730d45536c2cc0f1e1935ea96bdd5e45247adfaeea98984b`
+- Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
+- Linux application SHA-256 `0ad79bb9d2a8ea18be74ea136832f678b491f3c5452809e204061764e98a37dc`
+- X11 libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`

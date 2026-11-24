@@ -12,6 +12,7 @@ pub(crate) mod presentation;
 pub(crate) mod screenshot_osd;
 pub(crate) mod screenshot_output;
 pub(crate) mod seek_osd;
+pub(crate) mod surface;
 pub(crate) mod thumbnail_cache;
 pub(crate) mod thumbnail_preview;
 pub(crate) mod transition_frame;

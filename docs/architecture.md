@@ -547,6 +547,15 @@ open. Each file keeps its original order and records from the two clocks are
 combined in read order. Unchanged polls keep the current list and selection.
 Export captures the chosen records before opening the viewer's save dialog.
 
+The Windows and Linux Window menus share an application-owned catalog. Each
+session supplies the display it owns and retires its registration before native
+teardown. The catalog keeps minimized players and omits hidden playback frames
+that have no visible Welcome surface. It samples window-manager state while
+players exist and publishes menu rows only when titles or membership change.
+Bring All to Front on the shared renderer uses the visible surfaces and retains
+the initiating player in front. macOS registers Window and Help with AppKit.
+Minimize, Zoom and Bring All to Front use the native responder chain.
+
 Release Highlights and About each have one application-owned window. Highlights
 reads notes bundled for the package version and opens the browser only through
 its release link. A profile lock coordinates automatic launch across processes.

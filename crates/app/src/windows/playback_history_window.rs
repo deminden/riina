@@ -3,7 +3,7 @@ mod owner;
 mod search;
 mod selection;
 
-pub(crate) use owner::{ApplicationHistory, Archive, HistorySync, PlayerDisplay, Registration};
+pub(crate) use owner::{ApplicationHistory, Archive, HistorySync, Registration};
 
 use crate::{PlaybackHistoryRow, PlaybackHistoryWindow, media_open::HistoryDestination};
 use chrono::{Local, TimeZone};
