@@ -32,6 +32,11 @@ Wayland desktop evidence. Wayland also accepts plain-text media URLs.
 [X11 playlist drop checks](verification.md#files-dropped-into-the-playlist-2026-11-23),
 [Wayland drop checks](verification.md#wayland-file-and-url-drops-2026-11-23)
 
+Playlist clipboard editing has [X11 and Wayland desktop evidence](verification.md#native-playlist-clipboard-formats-2026-11-24).
+On Wayland with data-control support, local file selections offer
+`text/uri-list` and plain text. X11 uses plain text for Copy and accepts native
+file lists on Paste.
+
 X11 uses the GTK theme for plugin-contributed playlist popups on the owning
 player window. Wayland shows the contributed menu inside the player surface.
 It keeps submenu bounds within the client and scrolls lists that exceed its

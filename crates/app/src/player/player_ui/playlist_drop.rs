@@ -109,14 +109,14 @@ pub(super) fn paste(
     app: &PlayerWindow,
     sender: &CommandSender,
     before_id: Option<i64>,
-    paths: Vec<String>,
+    paths: platform::clipboard::PlaylistPaste,
 ) {
     insert_prepared(
         app,
         sender,
         before_id,
         app.get_media_request_generation(),
-        move || prepare(platform::clipboard::resolve_playlist_paste_paths(paths)),
+        move || prepare(paths.into_paths()),
     );
 }
 

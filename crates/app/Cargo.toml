@@ -65,6 +65,7 @@ winresource = "=0.1.31"
 libc = "=0.2.190"
 
 [target.'cfg(target_os = "windows")'.dependencies]
+clipboard-win = "=5.4.1"
 tempfile = "=3.27.0"
 windows = { workspace = true, features = ["Win32_UI_HiDpi", "Win32_UI_Accessibility", "Win32_UI_Controls", "Win32_System_Com_StructuredStorage", "Win32_System_Console", "Win32_System_DataExchange", "Win32_System_Memory", "Win32_System_Ole", "Win32_Networking_WinSock", "Win32_Security", "Win32_Security_Authorization", "Win32_System_JobObjects", "Win32_System_Pipes"] }
 windows-core = "=0.62.2"
@@ -81,6 +82,7 @@ wry = { workspace = true, features = ["os-webview", "x11"] }
 percent-encoding = "=2.3.2"
 wayland-client = { version = "=0.31.15", features = ["system", "dlopen"] }
 wayland-protocols = { version = "=0.32.13", features = ["client", "staging"] }
+wl-clipboard-rs = "=0.9.4"
 x11rb = "=0.13.2"
 
 [target.'cfg(target_os = "macos")'.dependencies]

@@ -138,17 +138,18 @@ fn handle_playlist_external_action(
             if paths.is_empty() {
                 Err("Select a playlist item first".into())
             } else {
-                crate::platform::clipboard::copy_playlist_references(&paths).and_then(|()| {
-                    if action == 7 {
-                        selected_playlist_ids(window, token).and_then(|ids| {
-                            playlist_player
-                                .send(Command::RemovePlaylistIds(ids))
-                                .map_err(String::from)
-                        })
-                    } else {
-                        Ok(())
-                    }
-                })
+                crate::platform::clipboard::copy_playlist_references(window.window(), &paths)
+                    .and_then(|()| {
+                        if action == 7 {
+                            selected_playlist_ids(window, token).and_then(|ids| {
+                                playlist_player
+                                    .send(Command::RemovePlaylistIds(ids))
+                                    .map_err(String::from)
+                            })
+                        } else {
+                            Ok(())
+                        }
+                    })
             }
         }
         8 => crate::platform::clipboard::read_playlist_references()
@@ -204,7 +205,7 @@ fn handle_playlist_external_action(
 fn paste_playlist(
     app: &PlayerWindow,
     sender: &CommandSender,
-    paths: Vec<String>,
+    paths: crate::platform::clipboard::PlaylistPaste,
 ) -> Result<(), String> {
     if paths.is_empty() {
         return Err("Clipboard contains no playlist references".into());

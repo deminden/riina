@@ -4545,7 +4545,38 @@ inserted a native file-list folder in natural order, cut and restored a row,
 and removed the two occurrences of a sibling before advancing. Keyboard focus
 stayed usable between edits. Playback stayed paused at the original volume.
 The removed sibling stayed out of the playlist and the process exited normally.
-Live Wayland clipboard editing remains open.
+The same binary passed an isolated Sway Wayland session with XWayland
+disabled. A native GTK window offered a file-list folder. Riina inserted its
+clips in natural order before the chosen row. The test also exercised Copy,
+Cut, Paste, Delete and Return in the sidebar, kept the original volume and
+paused state, and observed normal exit of the exact player process.
 
 - Linux application SHA-256 `4acfc31f3f6ffde736fa4f8f7e502d16653574a128fcd4bf3a5d0077a377fc89`
+- Linux libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`
+
+### Native playlist clipboard formats 2026-11-24
+
+Local file selections now publish both a file list and plain text on Wayland
+with data-control support. The file list uses CRLF framing and percent-encoded
+file URLs. Paste decodes native Wayland data before handing paths to the
+playlist worker. Windows publishes `CF_HDROP` alongside `CF_UNICODETEXT` in
+one clipboard open. Both send plain text for selections containing network
+references. X11 retains plain-text Copy and accepts file-list Paste.
+
+The Windows workspace gate passed, including strict Clippy, 70 widget tests
+and the headless pixel comparison. The Apple Silicon application passed a
+source cross-check. The host denied creation of a separate Windows window
+station for the clipboard test. Live Windows and AppKit clipboard verification
+remain open.
+
+In isolated Sway with XWayland disabled, a native GTK consumer read the exact
+URI list and plain-text representations of a filename containing spaces,
+`%` and `#`. Riina pasted the copied row before the selected row, expanded
+a GTK native folder offer in natural order, and completed Cut, Paste, Delete
+and Return without changing pause or volume. The same binary passed the X11
+playlist workflow. Each test player exited normally. Three focused Linux
+tests passed, covering CRLF framing, filenames with encoded line breaks and
+special characters, unsupported file authorities, and the X11 fallback.
+
+- Linux application SHA-256 `41a9c8dfd26a3834d9eb3e29401bc024835fe04a142c5b0912c26b4e571dd202`
 - Linux libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`

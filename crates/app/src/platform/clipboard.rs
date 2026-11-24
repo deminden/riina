@@ -1,5 +1,11 @@
 //! Keep the clipboard provider alive, including desktops with selection ownership.
 use std::{borrow::Cow, cell::RefCell};
+
+#[cfg(target_os = "linux")]
+mod wayland;
+#[cfg(target_os = "windows")]
+mod windows;
+
 thread_local! {
     static CLIPBOARD: RefCell<Option<arboard::Clipboard>> = const { RefCell::new(None) };
 }
@@ -54,7 +60,10 @@ fn read_text() -> Result<String, String> {
 }
 
 #[cfg_attr(target_os = "macos", allow(deprecated))]
-pub(crate) fn copy_playlist_references(paths: &[String]) -> Result<(), String> {
+pub(crate) fn copy_playlist_references(
+    _window: &slint::Window,
+    paths: &[String],
+) -> Result<(), String> {
     #[cfg(target_os = "macos")]
     {
         use objc2::runtime::ProtocolObject;
@@ -118,14 +127,59 @@ pub(crate) fn copy_playlist_references(paths: &[String]) -> Result<(), String> {
         }
         Ok(())
     }
-    #[cfg(not(target_os = "macos"))]
+    #[cfg(any(target_os = "linux", target_os = "windows"))]
+    {
+        let text = paths.join("\n");
+        if !paths.is_empty()
+            && paths
+                .iter()
+                .all(|path| std::path::Path::new(path).is_absolute() && !path.contains('\0'))
+        {
+            #[cfg(target_os = "windows")]
+            return windows::copy_file_list(_window, paths, &text);
+            #[cfg(target_os = "linux")]
+            if wayland::copy_file_list(paths, &text).is_ok() {
+                return Ok(());
+            }
+        }
+        copy_text(&text)
+    }
+    #[cfg(not(any(target_os = "macos", target_os = "linux", target_os = "windows")))]
     {
         copy_text(&paths.join("\n"))
     }
 }
 
+pub(crate) struct PlaylistPaste {
+    paths: Vec<String>,
+    #[cfg(target_os = "linux")]
+    arboard_file_list: bool,
+}
+
+impl PlaylistPaste {
+    fn new(paths: Vec<String>) -> Self {
+        Self {
+            paths,
+            #[cfg(target_os = "linux")]
+            arboard_file_list: false,
+        }
+    }
+
+    pub(crate) fn is_empty(&self) -> bool {
+        self.paths.is_empty()
+    }
+
+    pub(crate) fn into_paths(self) -> Vec<String> {
+        #[cfg(target_os = "linux")]
+        if self.arboard_file_list {
+            return repair_arboard_file_list(self.paths);
+        }
+        self.paths
+    }
+}
+
 #[cfg_attr(target_os = "macos", allow(deprecated))]
-pub(crate) fn read_playlist_references() -> Result<Vec<String>, String> {
+pub(crate) fn read_playlist_references() -> Result<PlaylistPaste, String> {
     #[cfg(target_os = "macos")]
     {
         use objc2::runtime::AnyObject;
@@ -152,7 +206,7 @@ pub(crate) fn read_playlist_references() -> Result<Vec<String>, String> {
                 .map(|path| path.to_string())
                 .collect::<Vec<_>>();
             if !paths.is_empty() {
-                return Ok(paths);
+                return Ok(PlaylistPaste::new(paths));
             }
         }
         let file_urls = pasteboard
@@ -172,26 +226,37 @@ pub(crate) fn read_playlist_references() -> Result<Vec<String>, String> {
         let text = file_urls.or_else(|| read_text().ok());
         text.map(|text| riina_core::playlist::clipboard_references(&text))
             .filter(|paths| !paths.is_empty())
+            .map(PlaylistPaste::new)
             .ok_or_else(|| "Clipboard contains no playlist references".into())
     }
     #[cfg(not(target_os = "macos"))]
     {
+        #[cfg(target_os = "linux")]
+        if let Some(paths) = wayland::read_references() {
+            return paths.map(PlaylistPaste::new);
+        }
+
         let mut clipboard = arboard::Clipboard::new().map_err(|error| error.to_string())?;
         if let Ok(files) = clipboard.get().file_list()
             && !files.is_empty()
         {
-            return files
+            let paths = files
                 .into_iter()
                 .map(|path| {
                     path.into_os_string()
                         .into_string()
-                        .map_err(|_| "A clipboard path contains invalid Unicode".into())
+                        .map_err(|_| "A clipboard path contains invalid Unicode".to_owned())
                 })
-                .collect();
+                .collect::<Result<_, _>>()?;
+            return Ok(PlaylistPaste {
+                paths,
+                #[cfg(target_os = "linux")]
+                arboard_file_list: true,
+            });
         }
         clipboard
             .get_text()
-            .map(|text| riina_core::playlist::clipboard_references(&text))
+            .map(|text| PlaylistPaste::new(riina_core::playlist::clipboard_references(&text)))
             .map_err(|error| error.to_string())
     }
 }
@@ -225,24 +290,19 @@ pub(crate) fn playlist_paste_available() -> bool {
     }
 }
 
-pub(crate) fn resolve_playlist_paste_paths(paths: Vec<String>) -> Vec<String> {
-    #[cfg(target_os = "linux")]
-    {
-        use std::path::Path;
-        paths
-            .into_iter()
-            .map(|path| {
-                // arboard 3.6.1 decodes URI-list lines without removing the CR
-                // from a CRLF separator. Preserve an exact filename when it exists.
-                let repaired = path.strip_suffix('\r').filter(|candidate| {
-                    !Path::new(&path).exists() && Path::new(candidate).exists()
-                });
-                repaired.map(str::to_owned).unwrap_or(path)
-            })
-            .collect()
-    }
-    #[cfg(not(target_os = "linux"))]
+#[cfg(target_os = "linux")]
+fn repair_arboard_file_list(paths: Vec<String>) -> Vec<String> {
+    use std::path::Path;
     paths
+        .into_iter()
+        .map(|path| {
+            // arboard 3.6.1 includes the CR of a CRLF separator in file-list paths.
+            let repaired = path
+                .strip_suffix('\r')
+                .filter(|candidate| !Path::new(&path).exists() && Path::new(candidate).exists());
+            repaired.map(str::to_owned).unwrap_or(path)
+        })
+        .collect()
 }
 
 #[cfg(test)]
@@ -263,7 +323,7 @@ mod tests {
             literal.into(),
         ];
         assert_eq!(
-            super::resolve_playlist_paste_paths(paths),
+            super::repair_arboard_file_list(paths),
             [ordinary, literal, literal]
         );
     }

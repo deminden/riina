@@ -40,7 +40,9 @@ Implementation does not imply every state or platform is verified.
 - **Playlist editing:** a single-file open can discover siblings around the
   current item. Navigating the resulting playlist keeps rows the user removed
   out of the queue. The sidebar and Music Mode accept focused edit shortcuts.
-  Paste expands folders and inserts before the first selected row.
+  Paste expands folders and inserts before the first selected row. Windows
+  publishes native file lists and Unicode text for local selections. On Wayland,
+  a separate GTK app read both the file URL list and text from Riina.
 - **Open URL:** one dialog serves the File menu, Welcome and the windowless
   macOS application menu. It previews the default HTTP scheme, offers HTTP
   authentication, and can stop a pending load.
