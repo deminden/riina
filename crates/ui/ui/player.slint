@@ -253,6 +253,8 @@ export component PlayerWindow inherits PlayerMenuWindow {
     changed menu-alternates-visible => { PlayerMenuActions.video-menu-changed(); }
     in property <bool> playing: false;
     in-out property <bool> fullscreen: false;
+    in property <bool> entering-fullscreen: false;
+    callback native-fullscreen-observed(bool, bool);
     in-out property <bool> picture-in-picture-active: false;
     out property <bool> monitor-picture-in-picture: picture-in-picture-active || (PlayerPreferences.pip-toggle-by-minimizing && (!PlayerPreferences.pip-minimize-toggle-video-only || video-width > 0px));
     callback picture-in-picture-monitor-changed(bool);
@@ -369,7 +371,7 @@ export component PlayerWindow inherits PlayerMenuWindow {
         native-video: root.native-video;
         primary-shortcut-is-meta: root.primary-shortcut-is-meta;
         loaded: root.loaded;
-        fullscreen: root.fullscreen;
+        fullscreen: root.fullscreen || root.entering-fullscreen;
         width: root.width;
         height: root.menu-content-height;
         VideoSurface {

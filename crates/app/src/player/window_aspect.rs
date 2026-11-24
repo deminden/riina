@@ -114,7 +114,7 @@ fn register_media_resize(
                 }
                 let weak_target = resize_target.clone();
                 with_target_window(&weak_target, &app, |window| {
-                    let Some((maximum, true)) = window_limits(window) else {
+                    let Some((maximum, true)) = window_limits(&app, window) else {
                         return;
                     };
                     let scale = window.scale_factor();
@@ -289,7 +289,7 @@ fn register_aspect_resize(
                     if !aspect_lock_enabled(&app) || !aspect_resize_allowed.get() {
                         return;
                     }
-                    let Some((maximum, can_resize)) = window_limits(window) else {
+                    let Some((maximum, can_resize)) = window_limits(&app, window) else {
                         return;
                     };
                     if !can_resize {
@@ -330,7 +330,7 @@ fn register_fit_to_video(
             let Some(app) = weak.upgrade() else { return };
             with_target_window(&fit_target, &app, |window| {
                 let current = pixel_size(window.size());
-                let Some((maximum, can_resize)) = window_limits(window) else {
+                let Some((maximum, can_resize)) = window_limits(&app, window) else {
                     return;
                 };
                 if !can_resize {
@@ -372,7 +372,7 @@ fn register_resize_command(
             };
             with_target_window(&menu_size_target, &app, |window| {
                 let current = pixel_size(window.size());
-                let Some((maximum, can_resize)) = window_limits(window) else {
+                let Some((maximum, can_resize)) = window_limits(&app, window) else {
                     return;
                 };
                 if !can_resize {
@@ -525,7 +525,7 @@ fn resize_filter(
             && let Some(app) = weak.upgrade()
             && requested != previous_size.get()
             && aspect_lock_enabled(&app)
-            && let Some((maximum, true)) = window_limits(window)
+            && let Some((maximum, true)) = window_limits(&app, window)
             && let Some(target) = policy::constrain_resize(
                 previous_size.get(),
                 requested,
@@ -568,7 +568,15 @@ fn aspect_lock_enabled(app: &PlayerWindow) -> bool {
         && app.get_video_display_aspect_ratio() > 0.0
 }
 
-fn window_limits(window: &slint::Window) -> Option<(Option<PixelSize>, bool)> {
+fn window_limits(app: &PlayerWindow, window: &slint::Window) -> Option<(Option<PixelSize>, bool)> {
+    if app.get_fullscreen() || app.get_entering_fullscreen() {
+        return None;
+    }
+    #[cfg(target_os = "linux")]
+    if crate::platform::observed_fullscreen(window) == Some(true) {
+        // The resize can reach the player before its deferred fullscreen observation.
+        return None;
+    }
     let can_resize = window
         .with_winit_window(|native| !native.is_maximized() && native.fullscreen().is_none())?;
     let maximum = window_sizing::content_limit(window)?;

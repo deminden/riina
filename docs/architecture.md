@@ -489,6 +489,14 @@ blur pass use the same framebuffer binding operations. Window focus, dialog
 modality, clipboard access, window document identity, file associations, and OS
 media integration belong to platform services. `SessionExtras` keeps each
 platform's input and auxiliary presentation alive through decoder shutdown.
+
+The player keeps pending fullscreen intent separate from the observed
+presentation. Windows confirms through its native owner. macOS uses AppKit
+window notifications, Wayland uses compositor configure state, and X11 uses
+the window manager's EWMH state. The shared controller applies playback
+preferences and exits Picture in Picture on confirmed transitions. Music Mode
+waits for the fullscreen exit before resizing the window.
+
 Test playback can use null native output or a recording engine to exercise UI
 callbacks without a native window. Windows software-rendered pixel
 baselines cover the Slint surfaces. The platform service recipe shows how to

@@ -251,7 +251,7 @@ impl WindowDelivery {
                 &state,
                 app.global::<riina_ui::PlayerPreferences>()
                     .get_fullscreen_when_open(),
-                app.get_fullscreen(),
+                app.get_fullscreen() || app.get_entering_fullscreen(),
                 app.global::<riina_ui::PlayerMusicModeState>()
                     .get_music_mode(),
             );
@@ -281,7 +281,8 @@ impl WindowDelivery {
             }
             crate::screenshot_output::cleanup(&app, &captures);
             if enter_fullscreen {
-                app.global::<PlayerMenuActions>().invoke_toggle_fullscreen();
+                app.global::<PlayerMenuActions>()
+                    .invoke_request_fullscreen(true);
             }
             if let Some(error) = clipboard_error {
                 crate::diagnostics::report(&app, format!("Could not copy screenshot: {error}"));

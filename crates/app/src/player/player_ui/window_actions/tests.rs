@@ -1,6 +1,16 @@
 use super::*;
+use crate::{NativeVideoHost, player_ui::fullscreen};
+use riina_core::music_mode::State;
 use slint::ComponentHandle;
-use std::{cell::RefCell, rc::Rc};
+use std::{
+    cell::RefCell,
+    rc::Rc,
+    sync::{Arc, Mutex},
+};
+
+fn install_fullscreen(app: &PlayerWindow, host: Option<slint::Weak<NativeVideoHost>>) {
+    fullscreen::install(app, host, &Arc::new(Mutex::new(State::new(true))));
+}
 
 fn player(fullscreen: bool) -> PlayerWindow {
     let app = PlayerWindow::new().unwrap();
@@ -88,4 +98,67 @@ fn fullscreen_preferences_do_not_change_playback_when_disabled_or_unloaded() {
         app.global::<PlayerMenuActions>().invoke_toggle_fullscreen();
         assert!(app.get_fullscreen());
     }
+}
+
+#[test]
+fn native_fullscreen_notification_commits_playback_and_closes_pip_only_once() {
+    i_slint_backend_testing::init_no_event_loop();
+    let app = player(false);
+    install_fullscreen(&app, None);
+    let effects = Rc::new(RefCell::new(Vec::new()));
+    let paused = effects.clone();
+    app.global::<riina_ui::PlayerControlActions>()
+        .on_set_paused(move |paused_value| {
+            paused
+                .borrow_mut()
+                .push(if paused_value { "pause" } else { "play" })
+        });
+    app.set_picture_in_picture_active(true);
+    let pip = effects.clone();
+    app.global::<PlayerMenuActions>()
+        .on_toggle_picture_in_picture(move || pip.borrow_mut().push("close pip"));
+
+    app.invoke_native_fullscreen_observed(true, false);
+    assert!(app.get_entering_fullscreen());
+    assert!(!app.get_fullscreen());
+    assert!(effects.borrow().is_empty());
+    app.invoke_native_fullscreen_observed(true, true);
+    app.invoke_native_fullscreen_observed(true, true);
+    assert!(app.get_fullscreen());
+    assert!(!app.get_entering_fullscreen());
+    assert_eq!(effects.borrow().as_slice(), ["play", "close pip"]);
+}
+
+#[test]
+fn queued_music_mode_clears_after_cancellation_and_waits_for_a_real_exit() {
+    use riina_ui::PlayerMusicModeState;
+    i_slint_backend_testing::init_no_event_loop();
+    let app = player(true);
+    let host = NativeVideoHost::new().unwrap();
+    host.on_set_fullscreen_window(|_| false);
+    let state = Arc::new(Mutex::new(State::new(true)));
+    fullscreen::install(&app, Some(host.as_weak()), &state);
+    let menu = app.global::<PlayerMenuActions>();
+    menu.invoke_toggle_music_mode();
+    assert!(app.get_fullscreen());
+    assert!(!riina_core::sync::lock(&state).active());
+
+    app.invoke_native_fullscreen_observed(false, false);
+    menu.invoke_toggle_music_mode();
+    menu.invoke_toggle_music_mode();
+    assert!(!app.global::<PlayerMusicModeState>().get_music_mode());
+    app.invoke_native_fullscreen_observed(false, true);
+    assert!(!app.global::<PlayerMusicModeState>().get_music_mode());
+
+    app.invoke_native_fullscreen_observed(true, true);
+    app.invoke_native_fullscreen_observed(false, false);
+    menu.invoke_toggle_music_mode();
+    assert!(app.get_fullscreen());
+    assert!(!app.global::<PlayerMusicModeState>().get_music_mode());
+    app.invoke_native_fullscreen_observed(false, true);
+    assert!(app.global::<PlayerMusicModeState>().get_music_mode());
+    menu.invoke_request_fullscreen(false);
+    menu.invoke_request_fullscreen(true);
+    assert!(riina_core::sync::lock(&state).active());
+    assert!(!app.get_fullscreen());
 }

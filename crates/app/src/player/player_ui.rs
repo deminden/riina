@@ -8,6 +8,7 @@ mod discovery;
 mod engine_start;
 mod features;
 mod feedback;
+mod fullscreen;
 #[cfg(test)]
 pub(crate) mod glue_tests;
 mod hdr_output;

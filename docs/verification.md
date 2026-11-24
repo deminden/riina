@@ -2729,3 +2729,25 @@ The Windows workspace gate passed 954 tests and all 78 Python tests. The pinned
 native engine suite passed 59 tests. An isolated Linux X11 session returned from
 Music Mode to the same player, media and window size, then exited cleanly.
 Apple Silicon workspace cross-Clippy passed. Native macOS testing is still open.
+
+### Confirmed fullscreen transitions 2026-11-24
+
+The Windows workspace gate passed 955 tests and all 78 Python tests. All 59
+pinned native engine tests passed. On the Windows private desktop, a paused
+video switched from an 880 × 500 frame to 1280 × 720 fullscreen, entered Music
+Mode and returned to its original bounds with playback paused. The tested
+process closed normally. Apple Silicon workspace cross-Clippy passed.
+
+The locked Linux x64 application built and ran on Ubuntu 26.04.1 LTS under
+WSL2 kernel 6.18.58.1. In separate Openbox/X11 and Sway/Wayland sessions,
+desktop-initiated fullscreen resumed a paused fixture, Escape left fullscreen
+and paused playback, and the player returned from Music Mode with the same
+paused media. The Wayland test also checked full-output video samples during
+the transitions and confirmed that closing its window exited the process.
+The Wayland Music Mode test used a remapped key. The default modifier chord
+and toolbar activation still need verification on a native Wayland desktop.
+Native macOS fullscreen and the full application remain unverified.
+
+- Linux application SHA-256 `225b58817a071391654aa0555cd277ccd612775c0ce7ffb911fe4b7190ee9254`
+- X11 libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`
+- Wayland libmpv SHA-256 `cdce854e1811942602587310026306d92d30c0f593f2be676f07659ae43061d8`

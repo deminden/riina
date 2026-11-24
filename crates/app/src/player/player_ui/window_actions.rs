@@ -1,5 +1,5 @@
-//! Shared fullscreen policy follows an accepted platform transition.
-use crate::{NativeVideoHost, PlayerWindow, WelcomeWindow, platform};
+//! Bind the player and Welcome window lifecycle.
+use crate::{PlayerWindow, WelcomeWindow, platform};
 use riina_ui::PlayerMenuActions;
 use slint::ComponentHandle;
 
@@ -88,54 +88,4 @@ pub(super) fn install_lifecycle(app: &PlayerWindow, welcome: Option<&WelcomeWind
             }
         });
     }
-}
-
-pub(super) fn install_fullscreen(
-    app: &PlayerWindow,
-    fullscreen_host: Option<slint::Weak<NativeVideoHost>>,
-) {
-    let weak = app.as_weak();
-    app.global::<PlayerMenuActions>()
-        .on_toggle_fullscreen(move || {
-            if let Some(app) = weak.upgrade() {
-                request_fullscreen(&app, fullscreen_host.as_ref(), !app.get_fullscreen());
-            }
-        });
-}
-
-pub(super) fn request_fullscreen(
-    app: &PlayerWindow,
-    host: Option<&slint::Weak<NativeVideoHost>>,
-    fullscreen: bool,
-) -> bool {
-    if fullscreen
-        && app
-            .global::<riina_ui::PlayerMusicModeState>()
-            .get_music_mode()
-    {
-        return false;
-    }
-    let controls = app.global::<riina_ui::PlayerControlActions>();
-    controls.invoke_activity();
-    if let Some(host) = host {
-        if !host
-            .upgrade()
-            .is_some_and(|host| host.invoke_set_fullscreen_window(fullscreen))
-        {
-            return false;
-        }
-    } else {
-        app.window().set_fullscreen(fullscreen);
-    }
-    app.set_fullscreen(fullscreen);
-    let preferences = app.global::<riina_ui::PlayerPreferences>();
-    let playback_policy = if fullscreen {
-        preferences.get_play_when_entering_fullscreen()
-    } else {
-        preferences.get_pause_when_leaving_fullscreen()
-    };
-    if app.get_loaded() && app.get_paused() == fullscreen && playback_policy {
-        controls.invoke_set_paused(!fullscreen);
-    }
-    true
 }

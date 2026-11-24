@@ -719,9 +719,8 @@ fn apply_plugin_window_action(
             }
         }
         WindowAction::SetFullscreen(fullscreen) => {
-            if app.get_fullscreen() != fullscreen {
-                app.global::<PlayerMenuActions>().invoke_toggle_fullscreen();
-            }
+            app.global::<PlayerMenuActions>()
+                .invoke_request_fullscreen(fullscreen);
         }
         WindowAction::SetPictureInPicture(pip) => {
             if app.get_picture_in_picture_active() != pip {

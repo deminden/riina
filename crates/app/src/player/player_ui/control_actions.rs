@@ -2,8 +2,8 @@
 use super::{
     PendingNavigation, audio_controls, catalog,
     context::{PlayerContext, bind},
-    delays, dialogs, feedback, hdr_output, input, music_mode, playlist_actions, playlist_subtitles,
-    subtitle_controls, transport, video_controls, window_actions,
+    delays, dialogs, feedback, fullscreen, hdr_output, input, playlist_actions, playlist_subtitles,
+    subtitle_controls, transport, video_controls,
 };
 use crate::{
     PlayerWindow, crop_editor::Editor, platform, screenshot_output::Scratch, video_osd::VideoOsd,
@@ -118,10 +118,9 @@ pub(super) fn install(app: &PlayerWindow, inputs: Inputs<'_>) {
     audio_controls::install_volume(app, command_sender);
     transport::install_relative_speed(app, command_sender);
     audio_controls::install_volume_adjustment(app, command_sender);
-    window_actions::install_fullscreen(app, native.map(platform::NativePresentation::host));
-    music_mode::install_actions(
+    fullscreen::install(
         app,
-        music_mode_state,
         native.map(platform::NativePresentation::host),
+        music_mode_state,
     );
 }

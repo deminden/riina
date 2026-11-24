@@ -1121,6 +1121,8 @@ pub(crate) use macos::{
 
 #[cfg(target_os = "macos")]
 pub(crate) use macos::system_font_family_name;
+#[cfg(target_os = "macos")]
+pub(crate) use macos::{FullscreenNotifications, request_fullscreen};
 
 #[cfg(not(target_os = "macos"))]
 pub(crate) fn system_font_family_name() -> String {
@@ -1131,3 +1133,5 @@ pub(crate) fn system_font_family_name() -> String {
 mod unix;
 #[cfg(any(target_os = "macos", target_os = "linux"))]
 pub(crate) use unix::{NativePresentation, open_dialog, save_playlist_dialog, services::*};
+#[cfg(target_os = "linux")]
+pub(crate) use unix::{observed_fullscreen, request_fullscreen};

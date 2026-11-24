@@ -7,6 +7,10 @@ pub(crate) use session::SessionExtras;
 pub(crate) mod accessibility;
 mod dialogs;
 #[cfg(target_os = "linux")]
+mod fullscreen;
+#[cfg(target_os = "linux")]
+pub(crate) use fullscreen::{observed_fullscreen, request_fullscreen};
+#[cfg(target_os = "linux")]
 pub(super) mod offscreen_webview;
 #[cfg(target_os = "linux")]
 pub(crate) mod plugin_shortcuts;

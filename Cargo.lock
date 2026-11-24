@@ -5213,6 +5213,7 @@ dependencies = [
  "windows-core",
  "winresource",
  "wry",
+ "x11rb",
  "zbus",
  "zip",
 ]
