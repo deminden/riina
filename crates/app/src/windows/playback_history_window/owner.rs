@@ -252,6 +252,7 @@ impl ApplicationHistory {
                     archive: archive.clone(),
                     collapsed_groups: self.groups.clone(),
                     owner: Rc::downgrade(self),
+                    confirmation: Rc::default(),
                 },
             );
             crate::platform::center_auxiliary_window(&window, app);
@@ -286,7 +287,11 @@ impl ApplicationHistory {
 
     fn connect_close(self: &Rc<Self>, window: &PlaybackHistoryWindow) {
         let weak = Rc::downgrade(self);
+        let history = window.as_weak();
         window.window().on_close_requested(move || {
+            if let Some(history) = history.upgrade() {
+                history.invoke_answer_confirmation(false);
+            }
             let weak = weak.clone();
             // The application can create or release windows during this action.
             if slint::spawn_local(async move {
@@ -316,6 +321,7 @@ impl ApplicationHistory {
     pub(crate) fn hide(&self) {
         self.timer.stop();
         if let Some(window) = self.window.borrow().as_ref() {
+            window.invoke_answer_confirmation(false);
             let _ = window.hide();
         }
     }

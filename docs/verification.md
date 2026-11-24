@@ -2948,3 +2948,33 @@ Silicon cross-Clippy passed. Native macOS playback remains unverified.
 - Linux application SHA-256 `19b0a509b917d152f582f2eb53c2a28eeab8a237ee80dd59be5ca5144b11fee1`
 - X11 libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`
 - Wayland libmpv SHA-256 `cdce854e1811942602587310026306d92d30c0f593f2be676f07659ae43061d8`
+
+### Playback History confirmations 2026-11-24
+
+IINA presents clear, remove and trash confirmation from its History window.
+Riina's confirmation appears inside the same window. It keeps one pending
+action, starts with Cancel focused and discards the action on Escape or
+window close. A headless regression exercises Return on Cancel, Tab to the
+confirmation button, and delivery of a second answer after the action completes.
+
+On a private Windows desktop, UI Automation found the confirmation inside
+Playback History. Cancel and closing the window both preserved the isolated
+history. Reopening reused the window. Confirming Clear updated the saved
+archive while playback stayed paused. The exact test process exited normally.
+The grouped Windows application and UI suite, including the pixel baselines,
+passed.
+
+Private X11 and native Wayland sessions exercised all three actions with
+temporary data. Cancellation and closing the window preserved the saved
+entries and the file. A confirmed trash operation moved the temporary file
+while preserving its entry. Remove affected only the selected entry, and
+Clear emptied the saved archive. The Linux application harness passed 541
+tests and the widget harness passed 63. Apple Silicon cross-Clippy passed
+before the confirmation panel spacing adjustment. The final native Wayland
+run repeated all three actions. Its full-output capture confirmed both
+buttons stayed inside the panel.
+
+- Windows application SHA-256 `9cc4e7c1a58d953873bab17563d2c1e01943756cfbc09bc725fdfdd4e5fe7ad7`
+- Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
+- Linux application SHA-256 for the X11 run `d9c56747d7a063f23cbeaef07406c7ec354fa7454a7ee78a4f2e5717edeeaec3`
+- Linux application SHA-256 for the final Wayland run `3023b1b96fea6b3a1eadd5ffea39d8048c47c3f1a850894a7186763d19d3cf86`

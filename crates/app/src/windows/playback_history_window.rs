@@ -1,3 +1,4 @@
+mod confirmation;
 mod owner;
 mod search;
 mod selection;
@@ -6,13 +7,12 @@ pub(crate) use owner::{ApplicationHistory, Archive, HistorySync, PlayerDisplay, 
 
 use crate::{PlaybackHistoryRow, PlaybackHistoryWindow, media_open::HistoryDestination};
 use chrono::{Local, TimeZone};
-use rfd::{MessageButtons, MessageDialog, MessageDialogResult};
 use riina_core::playback_history::Entry;
 use slint::{ComponentHandle, Model, ModelRc, SharedString, VecModel};
 use std::{
-    collections::{BTreeMap, BTreeSet, HashSet},
+    collections::{BTreeMap, HashSet},
     path::PathBuf,
-    rc::Weak,
+    rc::{Rc, Weak},
     sync::{Arc, Mutex},
 };
 
@@ -24,6 +24,7 @@ struct WindowConnection {
     archive: Archive,
     collapsed_groups: CollapsedGroups,
     owner: Weak<ApplicationHistory>,
+    confirmation: Rc<confirmation::Session>,
 }
 
 pub(crate) fn report(window: &PlaybackHistoryWindow, message: String) {
@@ -39,10 +40,10 @@ fn connect_window(window: &PlaybackHistoryWindow, connection: WindowConnection) 
     search::install_recents(window, &connection.archive.preferences_path);
     selection::connect(window, &selection_anchor);
     connect_group_expansion(window, history, collapsed_groups);
-    connect_context_actions(window, selection_anchor.clone(), &connection);
+    connect_context_actions(window, &connection);
     connect_group_collapse(window, history, collapsed_groups);
     connect_open_entry(window, &connection);
-    connect_clear_history(window, &connection, selection_anchor);
+    confirmation::connect(window, &connection, selection_anchor);
 }
 
 fn connect_search(
@@ -157,71 +158,6 @@ fn connect_open_entry(window: &PlaybackHistoryWindow, connection: &WindowConnect
     });
 }
 
-fn connect_clear_history(
-    window: &PlaybackHistoryWindow,
-    connection: &WindowConnection,
-    selection_anchor: selection::Anchor,
-) {
-    let weak_window = window.as_weak();
-    let context = connection.clone();
-    window.on_clear_history(move || {
-        let Some(window) = weak_window.upgrade() else {
-            return;
-        };
-        let response = MessageDialog::new()
-            .set_title("Clear Playback History")
-            .set_description("Delete all recent playback history?")
-            .set_buttons(MessageButtons::YesNo)
-            .show();
-        if response != MessageDialogResult::Yes {
-            return;
-        }
-        let cleared = context
-            .archive
-            .history
-            .lock()
-            .map_err(|_| "playback history lock poisoned".to_owned())
-            .and_then(|mut history| {
-                let removed = crate::utilities_preferences::clear_playback_history(
-                    &context.archive.preferences_path,
-                )?;
-                history.clear();
-                context
-                    .archive
-                    .cleared
-                    .store(true, std::sync::atomic::Ordering::Release);
-                Ok((removed, history.entries().to_vec()))
-            });
-        match cleared {
-            Ok((removed, entries)) => {
-                let sync_error = context.sync_plugins(&entries).err();
-                clear_history_selection(&window, &selection_anchor);
-                context
-                    .collapsed_groups
-                    .lock()
-                    .unwrap_or_else(std::sync::PoisonError::into_inner)
-                    .clear();
-                refresh(&window, &context.archive.history, &context.collapsed_groups);
-                window.set_status_text(
-                    match sync_error {
-                        Some(error) => {
-                            format!("History cleared, but plugins could not be updated: {error}")
-                        }
-                        None => format!("Playback history cleared ({removed} entries removed)"),
-                    }
-                    .into(),
-                );
-            }
-            Err(error) => {
-                report(
-                    &window,
-                    format!("Could not clear playback history: {error}"),
-                );
-            }
-        }
-    });
-}
-
 impl WindowConnection {
     fn sync_plugins(&self, entries: &[Entry]) -> Result<(), String> {
         self.owner
@@ -292,17 +228,16 @@ fn context_selection_in_row_order(
         .collect()
 }
 
-fn connect_context_actions(
-    window: &PlaybackHistoryWindow,
-    selection_anchor: selection::Anchor,
-    connection: &WindowConnection,
-) {
+fn connect_context_actions(window: &PlaybackHistoryWindow, connection: &WindowConnection) {
     let weak_window = window.as_weak();
     let context = connection.clone();
     window.on_context_action(move |action, clicked_path| {
         let Some(window) = weak_window.upgrade() else {
             return;
         };
+        if window.get_confirmation_visible() {
+            return;
+        }
         let paths = context_selected_paths(&window, clicked_path.as_str());
         match action {
             0 | 1 => {
@@ -320,8 +255,8 @@ fn connect_context_actions(
                 }
             }
             2 => reveal_history_files(&window, paths),
-            3 => remove_history_entries(&window, paths, &selection_anchor, &context),
-            4 => move_history_files_to_trash(&window, paths, &context),
+            3 => context.confirmation.remove(&window, paths),
+            4 => context.confirmation.trash(&window, paths),
             _ => {}
         }
     });
@@ -345,130 +280,6 @@ fn reveal_history_files(window: &PlaybackHistoryWindow, paths: Vec<String>) {
         }
     }) {
         report(window, format!("Could not show history files: {error}"));
-    }
-}
-
-fn remove_history_entries(
-    window: &PlaybackHistoryWindow,
-    paths: Vec<String>,
-    selection_anchor: &selection::Anchor,
-    connection: &WindowConnection,
-) {
-    if paths.is_empty() {
-        return;
-    }
-    let response = MessageDialog::new()
-        .set_title("Remove from Playback History")
-        .set_description(if paths.len() == 1 {
-            "Remove this item from the playback history?".to_owned()
-        } else {
-            format!("Remove {} items from the playback history?", paths.len())
-        })
-        .set_buttons(MessageButtons::YesNo)
-        .show();
-    if response != MessageDialogResult::Yes {
-        return;
-    }
-    let result = connection
-        .archive
-        .history
-        .lock()
-        .map_err(|_| "playback history lock poisoned".to_owned())
-        .and_then(|mut history| {
-            let removed = history.remove_paths(paths.iter().map(String::as_str))?;
-            let sync_error = if removed > 0 {
-                connection
-                    .archive
-                    .cleared
-                    .store(true, std::sync::atomic::Ordering::Release);
-                let entries = history.entries().to_vec();
-                drop(history);
-                connection.sync_plugins(&entries).err()
-            } else {
-                None
-            };
-            Ok::<_, String>((removed, sync_error))
-        });
-    match result {
-        Ok((removed, sync_error)) if removed > 0 => {
-            clear_history_selection(window, selection_anchor);
-            refresh(
-                window,
-                &connection.archive.history,
-                &connection.collapsed_groups,
-            );
-            if let Some(error) = sync_error {
-                report(
-                    window,
-                    format!("History was removed, but plugins could not be updated: {error}"),
-                );
-            }
-        }
-        Ok((_, _)) => window.set_status_text("The history items were already removed".into()),
-        Err(error) => report(window, format!("Could not remove history items: {error}")),
-    }
-}
-
-fn move_history_files_to_trash(
-    window: &PlaybackHistoryWindow,
-    paths: Vec<String>,
-    connection: &WindowConnection,
-) {
-    let files = paths
-        .iter()
-        .filter_map(|reference| path_from_reference(reference))
-        .filter(|path| path.is_file())
-        .collect::<BTreeSet<_>>();
-    if files.is_empty() {
-        window.set_status_text("Only available local files can be moved to the system bin".into());
-        return;
-    }
-    let trash_name = crate::platform::system_trash_name();
-    let description = match files.first().filter(|_| files.len() == 1) {
-        Some(file) => format!("Move {} to the {trash_name}?", file.display()),
-        None => format!("Move {} files to the {trash_name}?", files.len()),
-    };
-    if MessageDialog::new()
-        .set_title("Move Files to Trash")
-        .set_description(description)
-        .set_buttons(MessageButtons::YesNo)
-        .show()
-        != MessageDialogResult::Yes
-    {
-        return;
-    }
-    let weak_window = window.as_weak();
-    let trash_history = connection.archive.history.clone();
-    let trash_groups = connection.collapsed_groups.clone();
-    let task = crate::background::spawn_named("riina-history-trash-selection", move || {
-        let count = files.len();
-        let moved = files
-            .into_iter()
-            .filter(|path| path.is_file() && trash::delete(path).is_ok())
-            .count();
-        if moved > 0 {
-            riina_core::sync::lock(&trash_history).files_changed();
-        }
-        let _ = crate::background::to_ui(weak_window, move |window| {
-            refresh(&window, &trash_history, &trash_groups);
-            if moved == count {
-                window.set_status_text(format!("Moved {moved} files to the {trash_name}").into());
-            } else {
-                report(
-                    &window,
-                    format!(
-                        "Moved {moved} files to the {trash_name}. Could not move {} files.",
-                        count - moved,
-                    ),
-                );
-            }
-        });
-    });
-    if let Err(error) = task {
-        report(
-            window,
-            format!("Could not start the playback history trash worker: {error}"),
-        );
     }
 }
 
