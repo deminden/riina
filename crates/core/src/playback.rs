@@ -323,6 +323,7 @@ impl Playback {
         self.phase = Phase::Loading;
         self.position = None;
         self.duration = None;
+        self.title.clear();
         self.seekable = false;
         self.ab_loop_a = None;
         self.ab_loop_b = None;

@@ -2418,6 +2418,25 @@ executable SHA-256 was
 The queued-scan guard was verified separately in the Windows native suite.
 Live Windows, Wayland and macOS History input remains unverified.
 
+### Playback History outline and file actions 2026-11-24
+
+The Windows workspace gate and all 59 pinned libmpv null-output tests passed.
+The grouped regressions cover older history archives, metadata that arrives after
+the first playback snapshot, path search on decoded file URLs, and keyboard
+range selection across reordered groups. The locked Apple Silicon workspace
+passed strict Clippy from Windows.
+
+In isolated Linux X11, two clips with the same Unicode metadata title each
+saved a titled entry. End and Shift+Up selected an available file and a
+missing file on the same date. Ctrl+Backspace moved the available file to
+the isolated desktop Trash, retained both records and refreshed the row's
+availability. Searching for a literal space in the decoded path reopened
+the matching group. Delete then removed only the retained record. The test
+used a scripted confirmation response and verified normal shutdown. The
+Linux executable SHA-256 was
+`44865439c19b35a9af2de5147691b92cbe1346df3e2d265e77188995e448aefc`.
+Live Windows, Wayland and macOS History interaction remains open.
+
 ### Playlist selection actions 2026-11-23
 
 The full Windows workspace gate and all 58 pinned libmpv null-output tests

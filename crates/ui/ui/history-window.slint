@@ -4,6 +4,7 @@ import { NativeTypography, AuxiliaryPalette } from "shared-controls.slint";
 
 export struct PlaybackHistoryRow {
     is-group: bool,
+    collapsed: bool,
     label: string,
     detail: string,
     progress: string,
@@ -14,6 +15,8 @@ export struct PlaybackHistoryRow {
     local-file: bool,
     selected: bool,
 }
+
+export enum PlaybackHistoryNavigation { previous, next, first, last, page-up, page-down }
 
 export component PlaybackHistoryWindow inherits Window {
     default-font-family: NativeTypography.system-font-family;
@@ -32,8 +35,13 @@ export component PlaybackHistoryWindow inherits Window {
     in-out property <int> search-mode: 1;
     in-out property <string> selected-path: "";
     in property <[string]> selected-paths: [];
+    in property <bool> has-playable-selection;
+    in property <bool> has-local-selection;
+    in property <bool> has-collapsed-groups;
+    in property <bool> has-expanded-groups;
     callback search-changed(string, int);
     callback history-key(int);
+    callback navigate(PlaybackHistoryNavigation, bool, int);
     callback select-entry(string, int, bool, bool);
     callback context-action(int, string);
     callback open-entry(string);
@@ -43,6 +51,17 @@ export component PlaybackHistoryWindow inherits Window {
     callback collapse-all-groups();
     changed search-text => { root.search-changed(root.search-text, root.group-mode); }
     init => { keys.focus(); }
+
+    public function reveal-row(index: int) {
+        let top = index * 46px;
+        if top + outline.content-y < 0px {
+            outline.content-y = -top;
+        } else if top + 46px + outline.content-y > outline.visible-height {
+            outline.content-y = outline.visible-height - top - 46px;
+        }
+        outline.content-y = clamp(outline.content-y,
+            min(0px, outline.visible-height - outline.content-height), 0px);
+    }
 
     keys := FocusScope {
     width: root.width; height: root.height;
@@ -80,8 +99,8 @@ export component PlaybackHistoryWindow inherits Window {
         }
         HorizontalLayout {
             x: 16px; y: 45px; width: parent.width - 32px; height: 30px; spacing: 6px;
-            Button { text: "Expand All"; clicked => { root.expand-all-groups(); } }
-            Button { text: "Collapse All"; clicked => { root.collapse-all-groups(); } }
+            Button { text: "Expand All"; enabled: root.has-collapsed-groups; clicked => { root.expand-all-groups(); } }
+            Button { text: "Collapse All"; enabled: root.has-expanded-groups; clicked => { root.collapse-all-groups(); } }
         }
     }
 
@@ -96,7 +115,7 @@ export component PlaybackHistoryWindow inherits Window {
             text: "Played At"; font-size: 11px; font-weight: 600; color: Theme.auxiliary-light-column-label; vertical-alignment: center; }
     }
 
-    ScrollView {
+    outline := ScrollView {
         x: 16px; y: 120px; width: parent.width - 32px; height: parent.height - 132px;
         content-height: max(1px, root.rows.length * 46px);
         content-width: self.visible-width;
@@ -111,7 +130,12 @@ export component PlaybackHistoryWindow inherits Window {
                     : root.acrylic-backdrop-enabled ? AuxiliaryPalette.light-acrylic-fill
                     : (Math.mod(index, 2) == 0 ? Theme.auxiliary-light-list-surface : Theme.auxiliary-light-list-alternate);
                 if row.is-group : Text {
-                    x: 12px; y: 0; width: parent.width - 24px; height: parent.height;
+                    x: 10px; y: 0; width: 12px; height: parent.height;
+                    text: row.collapsed ? "▸" : "▾";
+                    color: Theme.history-group-text; font-size: 11px; vertical-alignment: center;
+                }
+                if row.is-group : Text {
+                    x: 24px; y: 0; width: parent.width - 36px; height: parent.height;
                     text: row.label; color: Theme.history-group-text; font-size: 11px; font-weight: 600;
                     vertical-alignment: center; overflow: elide;
                 }
@@ -130,7 +154,7 @@ export component PlaybackHistoryWindow inherits Window {
                     x: 40px; y: 5px; width: parent.width - 400px; height: 36px; spacing: 1px;
                     Text { text: row.label; color: Theme.history-media-title(row.available);
                         font-size: 12px; vertical-alignment: center; overflow: elide; }
-                    Text { text: row.detail; color: Theme.history-secondary-text; font-size: 10px;
+                    if row.detail != "" : Text { text: row.detail; color: Theme.history-secondary-text; font-size: 10px;
                         vertical-alignment: center; overflow: elide; }
                 }
                 if !row.is-group : Text {
@@ -138,7 +162,7 @@ export component PlaybackHistoryWindow inherits Window {
                     text: row.progress; color: Theme.history-progress-text(row.available);
                     font-size: 11px; vertical-alignment: center; overflow: elide;
                 }
-                if !row.is-group : Rectangle {
+                if !row.is-group && row.progress != "" : Rectangle {
                     x: parent.width - 350px; y: parent.height - 8px; width: 112px; height: 3px;
                     border-radius: 2px; background: Theme.history-progress-track;
                     Rectangle {
@@ -169,16 +193,16 @@ export component PlaybackHistoryWindow inherits Window {
                     x: 0; y: 0; width: parent.width; height: parent.height;
                     Menu {
                         MenuItem {
-                            title: "Play"; enabled: row.available;
+                            title: "Play"; enabled: row.available || root.has-playable-selection;
                             activated => { root.context-action(0, row.path); }
                         }
                         MenuItem {
-                            title: "Play in New Window"; enabled: row.available;
+                            title: "Play in New Window"; enabled: row.available || root.has-playable-selection;
                             activated => { root.context-action(1, row.path); }
                         }
                         MenuSeparator {}
                         MenuItem {
-                            title: "Show in File Manager"; enabled: row.local-file && row.available;
+                            title: "Show in File Manager"; enabled: row.local-file || root.has-local-selection;
                             activated => { root.context-action(2, row.path); }
                         }
                         MenuSeparator {}
@@ -187,7 +211,7 @@ export component PlaybackHistoryWindow inherits Window {
                             activated => { root.context-action(3, row.path); }
                         }
                         MenuItem {
-                            title: "Move to Trash"; enabled: row.local-file && row.available;
+                            title: "Move to Trash…"; enabled: row.local-file || root.has-local-selection;
                             activated => { root.context-action(4, row.path); }
                         }
                     }
@@ -208,12 +232,27 @@ export component PlaybackHistoryWindow inherits Window {
         if (event.modifiers.control || event.modifiers.meta) && (event.text == "f" || event.text == "F") {
             search-input.focus(); return accept;
         }
+        if !search-input.has-focus && !event.modifiers.alt && !event.modifiers.control && !event.modifiers.meta && (
+            event.text == Key.UpArrow || event.text == Key.DownArrow || event.text == Key.Home
+            || event.text == Key.End || event.text == Key.PageUp || event.text == Key.PageDown) {
+            let direction = event.text == Key.UpArrow ? PlaybackHistoryNavigation.previous
+                : event.text == Key.DownArrow ? PlaybackHistoryNavigation.next
+                : event.text == Key.Home ? PlaybackHistoryNavigation.first
+                : event.text == Key.End ? PlaybackHistoryNavigation.last
+                : event.text == Key.PageUp ? PlaybackHistoryNavigation.page-up : PlaybackHistoryNavigation.page-down;
+            root.navigate(direction, event.modifiers.shift, max(1, floor(outline.visible-height / 46px)));
+            return accept;
+        }
         if event.modifiers.alt || event.modifiers.shift { return reject; }
         if (event.modifiers.control || event.modifiers.meta) && event.text == Key.Return {
             root.history-key(2); return accept;
         }
         if (event.modifiers.control || event.modifiers.meta) && (event.text == "l" || event.text == "L") {
             root.history-key(3); return accept;
+        }
+        if !search-input.has-focus && (event.modifiers.control || event.modifiers.meta)
+            && (event.text == Key.Backspace || event.text == Key.Delete) {
+            root.history-key(5); return accept;
         }
         if event.modifiers.control || event.modifiers.meta { return reject; }
         if event.text == Key.Return { root.history-key(1); return accept; }

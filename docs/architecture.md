@@ -133,6 +133,12 @@ skips vanished or changed entries and removes the current entry last so playback
 can advance to a remaining item. Reveal groups items for Explorer, Finder or
 the freedesktop file-manager service.
 
+Playback History stores an optional decoder title beside the media reference.
+Late title and duration observations update the same visit. The outline uses
+media references as selection anchors across group changes and refreshes.
+Moving a file to Trash refreshes availability across History windows and keeps
+its record available for separate removal.
+
 Playlist subtitle associations belong to the player session and use media
 filenames. The subtitle picker verifies the playlist entry before saving its
 selection. Manual matches load the next time the entry starts. Wrong Subtitle

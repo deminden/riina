@@ -8,6 +8,7 @@ fn entries() -> Vec<riina_core::playback_history::Entry> {
         .into_iter()
         .map(|name| riina_core::playback_history::Entry {
             path: format!("https://media.example/{name}.mkv"),
+            title: None,
             date_ms: 1,
             progress: None,
             duration: 60.0,
@@ -138,13 +139,14 @@ fn playback_history_is_saved_when_a_media_generation_is_first_observed() {
 }
 
 #[test]
-fn playback_history_fills_late_duration_without_resetting_visit_or_progress() {
+fn playback_history_fills_late_metadata_without_resetting_visit_or_progress() {
     let temp = TempDir::new("riina-history-late").unwrap();
     let path = temp.path().join("history.json");
     let mut history = PlaybackHistoryState::with_persistence(Vec::new(), Some(path.clone()), None);
     let mut playback = Playback {
         generation: 1,
         phase: Phase::Paused,
+        title: "late.wav".into(),
         playlist: vec![PlaylistEntry {
             id: 1,
             filename: "C:/media/late.wav".into(),
@@ -157,13 +159,16 @@ fn playback_history_fills_late_duration_without_resetting_visit_or_progress() {
     };
     history.observe(1, &playback, true);
     assert_eq!(history.entries()[0].duration, 0.0);
+    assert_eq!(history.entries()[0].title, None);
     history.entries[0].progress = Some(30.0);
     let date = history.entries()[0].date_ms;
     let revision = history.revision();
     playback.duration = Some(60.0);
+    playback.title = "L'été à Paris".into();
     history.observe(1, &playback, true);
     assert_eq!(history.entries().len(), 1);
     assert_eq!(history.entries()[0].duration, 60.0);
+    assert_eq!(history.entries()[0].title.as_deref(), Some("L'été à Paris"));
     assert_eq!(history.entries()[0].progress, Some(30.0));
     assert_eq!(history.entries()[0].date_ms, date);
     assert_eq!(history.revision(), revision + 1);
@@ -192,6 +197,7 @@ fn restored_playback_history_reads_progress_from_mpv_watch_later() {
     let media = "https://media.example/movie.mkv";
     let entry = riina_core::playback_history::Entry {
         path: media.into(),
+        title: None,
         date_ms: 1,
         progress: None,
         duration: 90.0,

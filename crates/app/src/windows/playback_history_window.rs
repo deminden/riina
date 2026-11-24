@@ -1,3 +1,5 @@
+mod selection;
+
 use crate::{
     PlaybackHistoryRow, PlaybackHistoryWindow, PlayerWindow, media_open::HistoryDestination,
 };
@@ -8,13 +10,10 @@ use riina_ui::PlayerMenuActions;
 use slint::{ComponentHandle, Model, ModelRc, SharedString, VecModel};
 use std::{
     cell::{Cell, RefCell},
-    collections::{BTreeMap, HashSet},
+    collections::{BTreeMap, BTreeSet, HashSet},
     path::PathBuf,
     rc::Rc,
-    sync::{
-        Arc, Mutex,
-        atomic::{AtomicI32, Ordering},
-    },
+    sync::{Arc, Mutex},
     time::Duration,
 };
 
@@ -136,14 +135,14 @@ fn connect_window(
 ) {
     let history = &connection.history;
     let collapsed_groups = &connection.collapsed_groups;
-    let selection_anchor = Arc::new(AtomicI32::new(-1_i32));
+    let selection_anchor = selection::Anchor::default();
     connect_search(window, history, collapsed_groups);
-    connect_selection(window, history, collapsed_groups, &selection_anchor);
+    selection::connect(window, &selection_anchor);
     connect_group_expansion(window, history, collapsed_groups);
-    connect_context_actions(app, window, selection_anchor, &connection);
+    connect_context_actions(app, window, selection_anchor.clone(), &connection);
     connect_group_collapse(window, history, collapsed_groups);
     connect_open_entry(app, window, history, &connection.player);
-    connect_clear_history(app, window, &connection);
+    connect_clear_history(app, window, &connection, selection_anchor);
 }
 
 fn connect_search(
@@ -158,95 +157,8 @@ fn connect_search(
         let Some(window) = weak_window.upgrade() else {
             return;
         };
+        riina_core::sync::lock(&search_collapsed_groups).clear();
         refresh(&window, &observed_history, &search_collapsed_groups);
-    });
-}
-
-fn connect_selection(
-    window: &PlaybackHistoryWindow,
-    history: &HistoryState,
-    collapsed_groups: &CollapsedGroups,
-    selection_anchor: &Arc<AtomicI32>,
-) {
-    let weak_window = window.as_weak();
-    let anchor_for_selection = selection_anchor.clone();
-    let history_for_selection = history.clone();
-    let groups_for_selection = collapsed_groups.clone();
-    window.on_select_entry(move |path, index, extend, range| {
-        let Some(window) = weak_window.upgrade() else {
-            return;
-        };
-        let path = path.to_string();
-        let mut selected = read_selected_paths(&window);
-        if range {
-            let anchor = anchor_for_selection.load(Ordering::Acquire);
-            if !extend {
-                selected.clear();
-            }
-            if anchor >= 0 {
-                let rows = window.get_rows();
-                let first = anchor.min(index).max(0) as usize;
-                let last = anchor.max(index).min(rows.row_count() as i32 - 1).max(0) as usize;
-                for row_index in first..=last {
-                    if let Some(row) = rows.row_data(row_index)
-                        && !row.is_group
-                    {
-                        selected.insert(row.path.to_string());
-                    }
-                }
-            } else {
-                selected.insert(path.clone());
-                anchor_for_selection.store(index, Ordering::Release);
-            }
-        } else if extend {
-            if !selected.remove(&path) {
-                selected.insert(path.clone());
-            }
-            anchor_for_selection.store(index, Ordering::Release);
-        } else {
-            selected.clear();
-            selected.insert(path.clone());
-            anchor_for_selection.store(index, Ordering::Release);
-        }
-        window.set_selected_path(path.into());
-        write_selected_paths(&window, &selected);
-        refresh(&window, &history_for_selection, &groups_for_selection);
-    });
-
-    let weak_window = window.as_weak();
-    let history_for_keys = history.clone();
-    let groups_for_keys = collapsed_groups.clone();
-    let anchor_for_keys = selection_anchor.clone();
-    window.on_history_key(move |action| {
-        let Some(window) = weak_window.upgrade() else {
-            return;
-        };
-        if action == 0 {
-            let rows = window.get_rows();
-            let selected = (0..rows.row_count())
-                .filter_map(|index| rows.row_data(index).map(|row| (index, row)))
-                .filter(|(_, row)| !row.is_group)
-                .map(|(_, row)| row.path.to_string())
-                .collect::<Vec<_>>();
-            let first_index = (0..rows.row_count())
-                .find(|index| rows.row_data(*index).is_some_and(|row| !row.is_group));
-            window.set_selected_path(selected.first().cloned().unwrap_or_default().into());
-            write_selected_paths(&window, &selected.iter().cloned().collect());
-            anchor_for_keys.store(
-                first_index.map_or(-1, |index| index as i32),
-                Ordering::Release,
-            );
-            refresh(&window, &history_for_keys, &groups_for_keys);
-            return;
-        }
-        let context_action = match action {
-            1 => 0,
-            2 => 1,
-            3 => 2,
-            4 => 3,
-            _ => return,
-        };
-        window.invoke_context_action(context_action, SharedString::default());
     });
 }
 
@@ -337,13 +249,17 @@ fn connect_open_entry(
             return;
         };
         let path = path.to_string();
-        let position = riina_core::sync::lock(&history_for_open)
+        let Some(position) = riina_core::sync::lock(&history_for_open)
             .entries()
             .iter()
             .find(|entry| entry.path == path)
-            .and_then(|entry| entry.progress)
-            .unwrap_or(0.0);
-        media_open_history_entry(&app, path, position, player_for_open.clone());
+            .map(|entry| entry.progress.unwrap_or(0.0))
+        else {
+            return;
+        };
+        if describe(&path).available() {
+            media_open_history_entry(&app, path, position, player_for_open.clone());
+        }
     });
 }
 
@@ -351,6 +267,7 @@ fn connect_clear_history(
     app: &PlayerWindow,
     window: &PlaybackHistoryWindow,
     connection: &WindowConnection,
+    selection_anchor: selection::Anchor,
 ) {
     let history = &connection.history;
     let collapsed_groups = &connection.collapsed_groups;
@@ -386,7 +303,7 @@ fn connect_clear_history(
         match cleared {
             Ok((removed, entries)) => {
                 let sync_error = history_sync_for_clear(entries).err();
-                window.set_selected_path("".into());
+                clear_history_selection(&window, &selection_anchor);
                 groups_for_clear
                     .lock()
                     .unwrap_or_else(std::sync::PoisonError::into_inner)
@@ -421,6 +338,20 @@ fn read_selected_paths(window: &PlaybackHistoryWindow) -> HashSet<String> {
 }
 
 fn write_selected_paths(window: &PlaybackHistoryWindow, paths: &HashSet<String>) {
+    let rows = window.get_rows();
+    let mut playable = false;
+    let mut local = false;
+    for (index, mut row) in rows.iter().enumerate() {
+        let selected = !row.is_group && paths.contains(row.path.as_str());
+        playable |= selected && row.available;
+        local |= selected && row.local_file;
+        if row.selected != selected {
+            row.selected = selected;
+            rows.set_row_data(index, row);
+        }
+    }
+    window.set_has_playable_selection(playable);
+    window.set_has_local_selection(local);
     let mut paths = paths.iter().cloned().collect::<Vec<_>>();
     paths.sort();
     window.set_selected_paths(ModelRc::new(VecModel::from(
@@ -448,24 +379,22 @@ fn context_selection_in_row_order(
 ) -> Vec<String> {
     let mut selected_paths = selected_paths.clone();
     if !clicked_path.is_empty() {
+        if !visible_paths.iter().any(|path| path == clicked_path) {
+            return Vec::new();
+        }
         selected_paths.insert(clicked_path.to_owned());
     }
-    let paths = visible_paths
+    visible_paths
         .iter()
         .filter(|path| selected_paths.contains(*path))
         .cloned()
-        .collect::<Vec<_>>();
-    if paths.is_empty() && !clicked_path.is_empty() {
-        vec![clicked_path.to_owned()]
-    } else {
-        paths
-    }
+        .collect()
 }
 
 fn connect_context_actions(
     app: &PlayerWindow,
     window: &PlaybackHistoryWindow,
-    selection_anchor: Arc<AtomicI32>,
+    selection_anchor: selection::Anchor,
     connection: &WindowConnection,
 ) {
     let weak_app = app.as_weak();
@@ -480,7 +409,7 @@ fn connect_context_actions(
             0 | 1 => {
                 let playable = paths
                     .into_iter()
-                    .filter(|path| describe(path).4)
+                    .filter(|path| describe(path).available())
                     .collect::<Vec<_>>();
                 let destination = if action == 0 {
                     HistoryDestination::CurrentPlayer
@@ -500,18 +429,17 @@ fn connect_context_actions(
                     .filter_map(|reference| path_from_reference(reference))
                     .filter(|path| path.is_file())
                     .collect::<Vec<_>>();
-                for path in files {
-                    if let Err(error) = crate::platform::reveal_file(&path) {
-                        crate::diagnostics::report(
-                            &app,
-                            format!("Could not reveal a history file: {error}"),
-                        );
-                        return;
-                    }
+                if !files.is_empty()
+                    && let Err(error) = crate::platform::reveal_files(&files)
+                {
+                    crate::diagnostics::report(
+                        &app,
+                        format!("Could not reveal history files: {error}"),
+                    );
                 }
             }
             3 => remove_history_entries(&app, &window, paths, &selection_anchor, &context),
-            4 => move_history_files_to_trash(&app, &window, paths, &selection_anchor, &context),
+            4 => move_history_files_to_trash(&app, &window, paths, &context),
             _ => {}
         }
     });
@@ -521,9 +449,12 @@ fn remove_history_entries(
     app: &PlayerWindow,
     window: &PlaybackHistoryWindow,
     paths: Vec<String>,
-    selection_anchor: &AtomicI32,
+    selection_anchor: &selection::Anchor,
     connection: &WindowConnection,
 ) {
+    if paths.is_empty() {
+        return;
+    }
     let response = MessageDialog::new()
         .set_title("Remove from Playback History")
         .set_description(if paths.len() == 1 {
@@ -576,26 +507,21 @@ fn move_history_files_to_trash(
     app: &PlayerWindow,
     window: &PlaybackHistoryWindow,
     paths: Vec<String>,
-    selection_anchor: &Arc<AtomicI32>,
     connection: &WindowConnection,
 ) {
     let files = paths
         .iter()
-        .filter_map(|reference| {
-            path_from_reference(reference)
-                .filter(|path| path.is_file())
-                .map(|path| (reference.clone(), path))
-        })
-        .collect::<Vec<_>>();
+        .filter_map(|reference| path_from_reference(reference))
+        .filter(|path| path.is_file())
+        .collect::<BTreeSet<_>>();
     if files.is_empty() {
         app.set_status("Only available local files can be moved to the system bin".into());
         return;
     }
     let trash_name = crate::platform::system_trash_name();
-    let description = if files.len() == 1 {
-        format!("Move {} to the system bin?", files[0].1.display())
-    } else {
-        format!("Move {} files to the {trash_name}?", files.len())
+    let description = match files.first().filter(|_| files.len() == 1) {
+        Some(file) => format!("Move {} to the {trash_name}?", file.display()),
+        None => format!("Move {} files to the {trash_name}?", files.len()),
     };
     if MessageDialog::new()
         .set_title("Move Files to Trash")
@@ -609,67 +535,35 @@ fn move_history_files_to_trash(
     let weak_app = app.as_weak();
     let weak_window = window.as_weak();
     let trash_history = connection.history.clone();
-    let trash_cleared = connection.history_cleared.clone();
-    let trash_sync = connection.history_sync.clone();
     let trash_groups = connection.collapsed_groups.clone();
-    let trash_anchor = selection_anchor.clone();
     let task = crate::background::spawn_named("riina-history-trash-selection", move || {
-        let mut removed_references = Vec::new();
-        let mut failures = Vec::new();
-        for (reference, path) in files {
-            match trash::delete(&path) {
-                Ok(()) => removed_references.push(reference),
-                Err(error) => failures.push(error.to_string()),
-            }
+        let count = files.len();
+        let moved = files
+            .into_iter()
+            .filter(|path| path.is_file() && trash::delete(path).is_ok())
+            .count();
+        if moved > 0 {
+            riina_core::sync::lock(&trash_history).files_changed();
         }
-        let history_result = trash_history
-            .lock()
-            .map_err(|_| "playback history lock poisoned".to_owned())
-            .and_then(|mut history| {
-                let removed =
-                    history.remove_paths(removed_references.iter().map(String::as_str))?;
-                if removed > 0 {
-                    trash_cleared.store(true, std::sync::atomic::Ordering::Release);
-                    let entries = history.entries().to_vec();
-                    drop(history);
-                    trash_sync(entries)?;
-                }
-                Ok(removed)
-            });
-        // The result has no recipient once its window or event loop closes.
         let _ = crate::background::to_ui(weak_app, move |app| {
-            let Some(window) = weak_window.upgrade() else {
-                return;
-            };
-            match history_result {
-                Ok(removed) => {
-                    if removed > 0 {
-                        clear_history_selection(&window, &trash_anchor);
-                        refresh(&window, &trash_history, &trash_groups);
-                    }
-                    if failures.is_empty() {
-                        crate::diagnostics::report(
-                            &app,
-                            crate::diagnostics::UserMessage::info(format!(
-                                "Moved {removed} files to the {trash_name}"
-                            )),
-                        );
-                    } else {
-                        crate::diagnostics::report(
-                            &app,
-                            format!(
-                                "Moved {removed} files to the {trash_name}; {} could not be moved",
-                                failures.len()
-                            ),
-                        );
-                    }
-                }
-                Err(error) => crate::diagnostics::report(
+            if let Some(window) = weak_window.upgrade() {
+                refresh(&window, &trash_history, &trash_groups);
+            }
+            if moved == count {
+                crate::diagnostics::report(
+                    &app,
+                    crate::diagnostics::UserMessage::info(format!(
+                        "Moved {moved} files to the {trash_name}"
+                    )),
+                );
+            } else {
+                crate::diagnostics::report(
                     &app,
                     format!(
-                        "Files were moved to the {trash_name}, but history could not be updated: {error}"
+                        "Moved {moved} files to the {trash_name}. Could not move {} files.",
+                        count - moved,
                     ),
-                ),
+                );
             }
         });
     });
@@ -678,10 +572,10 @@ fn move_history_files_to_trash(
     }
 }
 
-fn clear_history_selection(window: &PlaybackHistoryWindow, anchor: &AtomicI32) {
+fn clear_history_selection(window: &PlaybackHistoryWindow, anchor: &selection::Anchor) {
     window.set_selected_path("".into());
     write_selected_paths(window, &HashSet::new());
-    anchor.store(-1, Ordering::Release);
+    anchor.borrow_mut().take();
 }
 
 fn media_open_history_entry(
@@ -709,10 +603,10 @@ fn refresh(
     history: &HistoryState,
     collapsed_groups: &CollapsedGroups,
 ) {
-    let history = riina_core::sync::lock(history);
+    let entries = riina_core::sync::lock(history).entries().to_vec();
     let selected = read_selected_paths(window);
-    let mut rows = build_rows(
-        history.entries(),
+    let rows = build_rows(
+        &entries,
         window.get_search_text().as_str(),
         window.get_search_mode(),
         window.get_group_mode(),
@@ -730,10 +624,6 @@ fn refresh(
         .into_iter()
         .filter(|path| visible_paths.contains(path))
         .collect::<HashSet<_>>();
-    for row in &mut rows {
-        row.selected = !row.is_group && selected.contains(row.path.as_str());
-    }
-    write_selected_paths(window, &selected);
     let selected_path = window.get_selected_path();
     if !rows
         .iter()
@@ -741,7 +631,10 @@ fn refresh(
     {
         window.set_selected_path("".into());
     }
+    window.set_has_collapsed_groups(rows.iter().any(|row| row.is_group && row.collapsed));
+    window.set_has_expanded_groups(rows.iter().any(|row| row.is_group && !row.collapsed));
     window.set_rows(ModelRc::new(VecModel::from(rows)));
+    write_selected_paths(window, &selected);
 }
 
 fn revision(history: &HistoryState) -> u64 {
@@ -757,41 +650,53 @@ fn build_rows(
     selected_paths: &HashSet<String>,
 ) -> Vec<PlaybackHistoryRow> {
     let query = query.trim().to_lowercase();
-    let mut groups = BTreeMap::<String, Vec<&Entry>>::new();
+    let mut groups = BTreeMap::<String, Vec<(&Entry, MediaDescription)>>::new();
     for entry in entries {
-        let (name, location, path, is_local, available) = describe(&entry.path);
-        let searchable = if search_mode == 0 { &name } else { &entry.path };
-        if !query.is_empty() && !searchable.to_lowercase().contains(&query) {
+        let description = describe(&entry.path);
+        let matches = if query.is_empty() {
+            true
+        } else if search_mode == 0 {
+            description.name.to_lowercase().contains(&query)
+        } else {
+            entry.path.to_lowercase().contains(&query)
+                || description
+                    .local
+                    .as_ref()
+                    .is_some_and(|path| path.to_string_lossy().to_lowercase().contains(&query))
+        };
+        if !matches {
             continue;
         }
         let key = if group_mode == 1 {
-            location
+            description.location.clone()
         } else {
             date_string(entry.date_ms)
         };
-        let _ = (path, is_local, available);
-        groups.entry(key).or_default().push(entry);
+        groups.entry(key).or_default().push((entry, description));
     }
     let mut buckets = groups.into_iter().collect::<Vec<_>>();
     if group_mode == 0 {
         buckets.sort_by(|(left_key, left), (right_key, right)| {
             right
                 .iter()
-                .map(|entry| entry.date_ms)
+                .map(|(entry, _)| entry.date_ms)
                 .max()
-                .cmp(&left.iter().map(|entry| entry.date_ms).max())
+                .cmp(&left.iter().map(|(entry, _)| entry.date_ms).max())
                 .then_with(|| left_key.cmp(right_key))
         });
     } else {
-        buckets.sort_by_key(|(group, _)| group.to_lowercase());
+        buckets.sort_by(|(left, _), (right, _)| {
+            crate::platform::natural_compare(left, right).then_with(|| left.cmp(right))
+        });
     }
 
     let mut rows = Vec::new();
     for (group, mut entries) in buckets {
-        entries.sort_by_key(|entry| std::cmp::Reverse(entry.date_ms));
+        entries.sort_by_key(|(entry, _)| std::cmp::Reverse(entry.date_ms));
         let collapsed = collapsed_groups.contains(&group);
         rows.push(PlaybackHistoryRow {
             is_group: true,
+            collapsed,
             label: group.clone().into(),
             detail: "".into(),
             progress: "".into(),
@@ -805,18 +710,29 @@ fn build_rows(
         if collapsed {
             continue;
         }
-        for entry in entries {
-            let (name, location, path, local_file, available) = describe(&entry.path);
+        for (entry, description) in entries {
+            let available = description.available();
+            let fallback = if description.local.is_some() {
+                &description.name
+            } else {
+                &entry.path
+            };
+            let progress = entry.progress.filter(|_| available);
             rows.push(PlaybackHistoryRow {
                 is_group: false,
-                label: name.into(),
-                detail: location.into(),
-                progress: progress_label(entry.progress, entry.duration).into(),
+                collapsed: false,
+                label: entry.title.as_ref().unwrap_or(fallback).as_str().into(),
+                detail: entry
+                    .title
+                    .as_ref()
+                    .map_or("", |_| fallback.as_str())
+                    .into(),
+                progress: progress_label(progress, entry.duration).into(),
                 played_at: played_at(entry.date_ms, group_mode == 1).into(),
                 path: entry.path.clone().into(),
-                progress_ratio: progress_ratio(entry.progress, entry.duration),
+                progress_ratio: progress_ratio(progress, entry.duration),
                 available,
-                local_file: local_file && path.is_file(),
+                local_file: description.local.is_some() && available,
                 selected: selected_paths.contains(entry.path.as_str()),
             });
         }
@@ -824,7 +740,19 @@ fn build_rows(
     rows
 }
 
-fn describe(reference: &str) -> (String, String, PathBuf, bool, bool) {
+struct MediaDescription {
+    name: String,
+    location: String,
+    local: Option<PathBuf>,
+}
+
+impl MediaDescription {
+    fn available(&self) -> bool {
+        self.local.as_ref().is_none_or(|path| path.is_file())
+    }
+}
+
+fn describe(reference: &str) -> MediaDescription {
     if let Some(path) = path_from_reference(reference) {
         let name = path.file_name().map_or_else(
             || reference.to_owned(),
@@ -834,25 +762,37 @@ fn describe(reference: &str) -> (String, String, PathBuf, bool, bool) {
             || "".to_owned(),
             |parent| parent.to_string_lossy().into_owned(),
         );
-        let available = path.is_file();
-        return (name, location, path, true, available);
+        return MediaDescription {
+            name,
+            location,
+            local: Some(path),
+        };
     }
     if let Ok(url) = url::Url::parse(reference) {
-        let location = url.host_str().unwrap_or(reference).to_owned();
+        let location = url.host_str().unwrap_or("-").to_owned();
         let name = url
             .path_segments()
             .and_then(|mut segments| segments.next_back())
             .filter(|name| !name.is_empty())
-            .map_or_else(|| reference.to_owned(), str::to_owned);
-        return (name, location, PathBuf::new(), false, true);
+            .map_or_else(
+                || reference.to_owned(),
+                |name| {
+                    percent_encoding::percent_decode_str(name)
+                        .decode_utf8_lossy()
+                        .into_owned()
+                },
+            );
+        return MediaDescription {
+            name,
+            location,
+            local: None,
+        };
     }
-    (
-        reference.to_owned(),
-        String::new(),
-        PathBuf::from(reference),
-        true,
-        false,
-    )
+    MediaDescription {
+        name: reference.to_owned(),
+        location: String::new(),
+        local: Some(PathBuf::from(reference)),
+    }
 }
 
 fn path_from_reference(reference: &str) -> Option<PathBuf> {
@@ -926,7 +866,8 @@ fn format_time(seconds: f64) -> String {
 mod tests {
     use std::collections::HashSet;
 
-    use super::context_selection_in_row_order;
+    use super::{build_rows, context_selection_in_row_order};
+    use riina_core::playback_history::Entry;
 
     #[test]
     fn context_actions_keep_selected_rows_in_outline_order_and_add_the_clicked_row() {
@@ -956,5 +897,34 @@ mod tests {
             context_selection_in_row_order(&visible, &selected, ""),
             [] as [String; 0]
         );
+        assert!(context_selection_in_row_order(&visible, &selected, "removed.mkv").is_empty());
+    }
+
+    #[test]
+    fn history_shows_titles_and_decoded_paths_and_hides_missing_file_progress() {
+        let tree = riina_test_support::TempDir::new("history-projection").unwrap();
+        let available_path = tree.path().join("Épisode 1.mkv");
+        std::fs::write(&available_path, []).unwrap();
+        let make_entry = |path: &std::path::Path| Entry {
+            path: url::Url::from_file_path(path).unwrap().into(),
+            title: Some("Chroniques de Montréal".into()),
+            progress: Some(12.0),
+            duration: 60.0,
+            date_ms: 0,
+        };
+        let entries = [
+            make_entry(&available_path),
+            make_entry(&tree.path().join("Épisode 2.mkv")),
+        ];
+        let rows = build_rows(&entries, "ÉPISODE ", 1, 1, &HashSet::new(), &HashSet::new());
+        assert_eq!(rows.len(), 3);
+        assert_eq!(rows[1].label, "Chroniques de Montréal");
+        assert_eq!(rows[1].detail, "Épisode 1.mkv");
+        assert_eq!(rows[1].progress, "0:12 / 1:00");
+        assert!(rows[1].available);
+        assert_eq!(rows[2].detail, "Épisode 2.mkv");
+        assert!(rows[2].progress.is_empty());
+        assert!(!rows[2].local_file);
+        assert!(!rows[2].available);
     }
 }

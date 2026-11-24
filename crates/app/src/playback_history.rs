@@ -92,6 +92,10 @@ impl PlaybackHistoryState {
         self.revision
     }
 
+    pub(crate) fn files_changed(&mut self) {
+        self.revision = self.revision.wrapping_add(1);
+    }
+
     pub(crate) fn clear(&mut self) {
         self.entries.clear();
         self.pending_progress_paths.clear();
@@ -138,17 +142,26 @@ impl PlaybackHistoryState {
         let path = playback_media_url(&media.filename).unwrap_or_else(|| media.filename.clone());
         let observed = (playback.generation, path.clone());
         if self.observed_sessions.get(&session_id) == Some(&observed) {
-            // A playable snapshot can precede duration discovery. Refresh that
-            // metadata without recording another visit or losing saved progress.
+            // Decoder metadata can arrive after the playable snapshot.
             if record_history
-                && let Some(duration) = playback
+                && let Some(entry) = self.entries.iter_mut().find(|entry| entry.path == path)
+            {
+                let duration = playback
                     .duration
                     .filter(|value| value.is_finite() && *value > 0.0)
-                && let Some(entry) = self.entries.iter_mut().find(|entry| entry.path == path)
-                && entry.duration != duration
-            {
-                entry.duration = duration;
-                self.save_change();
+                    .unwrap_or(entry.duration);
+                let title = entry
+                    .title
+                    .is_none()
+                    .then(|| playback_history_title(playback, &media.filename))
+                    .flatten();
+                if entry.duration != duration || title.is_some() {
+                    entry.duration = duration;
+                    if let Some(title) = title {
+                        entry.title = Some(title.to_owned());
+                    }
+                    self.save_change();
+                }
             }
             return;
         }
@@ -169,6 +182,7 @@ impl PlaybackHistoryState {
             0,
             riina_core::playback_history::Entry {
                 path,
+                title: playback_history_title(playback, &media.filename).map(str::to_owned),
                 date_ms,
                 // IINA reads this from mpv's watch-later file when history is
                 // restored. A new history row has no saved progress yet.
@@ -218,6 +232,28 @@ impl PlaybackHistoryState {
             self.save_change();
         }
     }
+}
+
+fn playback_history_title<'a>(playback: &'a Playback, reference: &str) -> Option<&'a str> {
+    let title = playback.title.as_str();
+    if title.trim().is_empty() || title == reference {
+        return None;
+    }
+    let is_filename = if let Some(path) = crate::file_actions::local_media_path(reference) {
+        path.file_name().is_some_and(|name| name == title)
+    } else {
+        url::Url::parse(reference).ok().is_some_and(|url| {
+            url.path_segments()
+                .and_then(Iterator::last)
+                .is_some_and(|encoded| {
+                    encoded == title
+                        || percent_encoding::percent_decode_str(encoded)
+                            .decode_utf8()
+                            .is_ok_and(|name| name == title)
+                })
+        })
+    };
+    (!is_filename).then_some(title)
 }
 
 pub(crate) fn playback_media_url(value: &str) -> Option<String> {

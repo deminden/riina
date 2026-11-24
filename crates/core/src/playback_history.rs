@@ -6,6 +6,8 @@ use serde::{Deserialize, Serialize};
 #[serde(deny_unknown_fields)]
 pub struct Entry {
     pub path: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub title: Option<String>,
     /// Unix epoch milliseconds, matching the JavaScript `Date` value exposed to plugins.
     pub date_ms: u64,
     pub progress: Option<f64>,
@@ -38,12 +40,14 @@ mod tests {
     fn history_is_persistent_and_keeps_one_recent_entry_per_media_path() {
         let first = Entry {
             path: "clip.mkv".into(),
+            title: Some("A Clip".into()),
             date_ms: 10,
             progress: Some(3.5),
             duration: 12.0,
         };
         let second = Entry {
             path: "other.mkv".into(),
+            title: None,
             date_ms: 11,
             progress: None,
             duration: 0.0,
@@ -75,6 +79,7 @@ mod tests {
         ] {
             let entry = Entry {
                 path: path.into(),
+                title: None,
                 date_ms: 1,
                 progress,
                 duration,

@@ -151,6 +151,7 @@ mod tests {
     fn entry(path: &str, date_ms: u64) -> Entry {
         Entry {
             path: path.into(),
+            title: None,
             date_ms,
             progress: None,
             duration: 0.0,
