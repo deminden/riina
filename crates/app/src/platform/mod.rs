@@ -21,14 +21,14 @@ pub(crate) mod plugin_dialogs;
 pub(crate) use pip_session::PictureInPictureSession;
 pub(crate) mod playback_power;
 mod player_input;
-#[cfg(target_os = "macos")]
-pub(crate) use player_input::controller_alignment_feedback;
+pub(crate) mod player_touch_bar;
 pub(crate) mod playlist_menu;
 #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
 mod plugin_overlay;
 mod plugin_page;
 pub(crate) use player_input::{
-    PlayerFocus, PlayerScrollMonitor, WinitWheelInput, batched_file_drops, file_drop_position,
+    PlayerFocus, PlayerScrollMonitor, WinitWheelInput, batched_file_drops,
+    bind_controller_alignment_feedback, bind_controller_arrow_pressure, file_drop_position,
     player_gesture_handler, winit_wheel_input,
 };
 mod plugin_presentation;
@@ -1131,8 +1131,6 @@ pub(crate) use windows::{
 mod macos;
 #[cfg(target_os = "macos")]
 pub(crate) use macos::file_panel::choose_media as choose_application_media;
-#[cfg(target_os = "macos")]
-pub(crate) use macos::touch_bar;
 #[cfg(target_os = "macos")]
 pub(crate) use macos::{
     ControlGesture, GesturePhase, MacPictureInPicture, MacPluginMenuObserver,

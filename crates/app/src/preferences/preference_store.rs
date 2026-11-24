@@ -29,16 +29,8 @@ impl Writer {
         self.save_with_policy(candidate, false)
     }
 
-    pub(crate) fn adopt_controller_options(
-        &self,
-        options: riina_core::osc_preferences::ControllerOptions,
-    ) {
-        self.observed.borrow_mut().control_bar.controller = options;
-    }
-
-    #[cfg(target_os = "macos")]
-    pub(crate) fn adopt_touch_bar_mode(&self, mode: riina_core::touch_bar::Settings) {
-        self.observed.borrow_mut().touch_bar = mode;
+    pub(crate) fn adopt_committed(&self, edit: impl FnOnce(&mut Preferences)) {
+        edit(&mut self.observed.borrow_mut());
     }
 
     fn save_with_policy(&self, candidate: &Preferences, user_edit: bool) -> Result<(), String> {

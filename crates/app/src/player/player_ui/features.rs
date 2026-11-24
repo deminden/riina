@@ -67,8 +67,7 @@ pub(super) struct Installed {
     pub(super) pending_navigation: PendingNavigation,
     pub(super) scroll_monitor: platform::PlayerScrollMonitor,
     pub(super) subtitle_assignments: Assignments,
-    #[cfg(target_os = "macos")]
-    pub(super) native_thumbnails: thumbnail_actions::NativeThumbnails,
+    pub(super) touch_bar_samples: platform::player_touch_bar::Samples,
 }
 
 pub(super) struct Inputs<'a> {
@@ -218,8 +217,7 @@ pub(super) fn install(app: &PlayerWindow, inputs: Inputs<'_>) -> Installed {
         pending_navigation,
         scroll_monitor,
         subtitle_assignments,
-        #[cfg(target_os = "macos")]
-        native_thumbnails: thumbnail_preview.native,
+        touch_bar_samples: thumbnail_preview.touch_bar_samples,
     }
 }
 

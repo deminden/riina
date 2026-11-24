@@ -15,7 +15,7 @@ use std::{
 };
 
 #[derive(Clone)]
-pub(super) struct PlayerContext(Rc<Handles>);
+pub(crate) struct PlayerContext(Rc<Handles>);
 
 struct Handles {
     app: slint::Weak<PlayerWindow>,
@@ -45,19 +45,19 @@ impl PlayerContext {
         }))
     }
 
-    pub(super) fn app(&self) -> Option<PlayerWindow> {
+    pub(crate) fn app(&self) -> Option<PlayerWindow> {
         self.0.app.upgrade()
     }
 
-    pub(super) fn commands(&self) -> &CommandSender {
+    pub(crate) fn commands(&self) -> &CommandSender {
         &self.0.commands
     }
 
-    pub(super) fn playback(&self) -> &crate::PlaybackStore {
+    pub(crate) fn playback(&self) -> &crate::PlaybackStore {
         &self.0.playback
     }
 
-    pub(super) fn preferences(&self) -> &PreferenceModel {
+    pub(crate) fn preferences(&self) -> &PreferenceModel {
         &self.0.preferences
     }
 
@@ -65,18 +65,18 @@ impl PlayerContext {
         self.0.plugin_host.as_ref()
     }
 
-    pub(super) fn preferences_path(&self) -> &Path {
+    pub(crate) fn preferences_path(&self) -> &Path {
         &self.0.preferences_path
     }
 
-    pub(super) fn activity(&self) {
+    pub(crate) fn activity(&self) {
         if let Some(app) = self.app() {
             app.global::<riina_ui::PlayerControlActions>()
                 .invoke_activity();
         }
     }
 
-    pub(super) fn report(&self, error: impl Into<crate::diagnostics::UserMessage>) {
+    pub(crate) fn report(&self, error: impl Into<crate::diagnostics::UserMessage>) {
         if let Some(app) = self.app() {
             crate::diagnostics::report(&app, error);
         }

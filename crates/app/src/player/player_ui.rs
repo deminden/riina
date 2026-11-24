@@ -29,8 +29,6 @@ mod recent_activity;
 mod rendering;
 mod startup;
 mod thumbnail_actions;
-#[cfg(target_os = "macos")]
-mod touch_bar;
 mod transitions;
 mod transport;
 mod window_actions;
@@ -45,7 +43,8 @@ mod plugin_menus;
 mod plugins;
 mod subtitle_controls;
 mod video_controls;
-use context::{PlayerContext, bind};
+pub(crate) use context::PlayerContext;
+use context::bind;
 use engine_start::EngineStart;
 use transitions::PendingNavigation;
 mod session_preferences;
@@ -205,7 +204,6 @@ impl UiSession {
         #[cfg(not(target_os = "macos"))]
         self.window_menu.retire();
         self.observer_state.release_power();
-        #[cfg(target_os = "macos")]
         self.observer_state.release_touch_bar();
         self.platform_extras.prepare_to_close();
     }
@@ -311,8 +309,7 @@ pub(crate) struct ApplicationServices {
     updates: Rc<crate::updates::ApplicationUpdates>,
     power: Rc<crate::playback_power::ApplicationPower>,
     clocks: Rc<controller_clock::ApplicationClocks>,
-    #[cfg(target_os = "macos")]
-    touch_bars: Rc<touch_bar::ApplicationTouchBars>,
+    touch_bars: platform::player_touch_bar::Application,
     #[cfg(target_os = "macos")]
     settings: Rc<crate::preferences_window::ApplicationSettings>,
 }
@@ -399,7 +396,7 @@ impl ApplicationServices {
         let controller_committed = move |options| clocks.publish_players(&controller_path, options);
         self.settings
             .show(path, saved, clear, controller_committed, |window| {
-                self.clocks.register_form(path, window);
+                self.clocks.form.register(path, window);
                 if let Some(pane) = pane {
                     window.set_selected_pane(pane);
                 }
@@ -664,8 +661,7 @@ fn configure_with_engine(
         pending_navigation,
         scroll_monitor,
         subtitle_assignments,
-        #[cfg(target_os = "macos")]
-        native_thumbnails,
+        touch_bar_samples,
     } = features::install(
         app,
         features::Inputs {
@@ -728,12 +724,11 @@ fn configure_with_engine(
         &session.picture_in_picture,
     )?;
     application.connect_preferences(app, &context, &session, native.as_ref());
-    #[cfg(target_os = "macos")]
-    observer_state.bind_touch_bar(
-        application
-            .touch_bars
-            .install(app, context, native_thumbnails),
-    );
+    observer_state.bind_touch_bar(application.touch_bars.install(
+        app,
+        &context,
+        &touch_bar_samples,
+    ));
     let debug_information = application.debug_information.connect(app, latest_playback);
     let (platform_extras, plugin_runtime) = session.plugin_ui.finish(
         session.plugin_host,

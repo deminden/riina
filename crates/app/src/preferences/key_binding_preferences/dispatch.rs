@@ -25,11 +25,12 @@ pub(crate) fn install_player(
         }
     };
     let mappings = Rc::new(Bindings::new(mappings));
-    #[cfg(target_os = "macos")]
-    app.set_escape_exits_fullscreen(matches!(
-        mappings.get("ESC").and_then(runtime_action),
-        Some(RuntimeAction::Fullscreen(Some(false)))
-    ));
+    crate::platform::player_touch_bar::bind_escape(app, || {
+        matches!(
+            mappings.get("ESC").and_then(runtime_action),
+            Some(RuntimeAction::Fullscreen(Some(false)))
+        )
+    });
     let input_bindings = slint::SharedString::from(plugin_input_bindings(&mappings));
     app.set_plugin_input_bindings(input_bindings.clone());
     // Player entries can start before Slint delivers property change callbacks.

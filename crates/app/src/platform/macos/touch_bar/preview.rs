@@ -41,9 +41,9 @@ impl Preview {
         let playback = riina_core::sync::lock(&self.playback).clone();
         let duration = riina_core::touch_bar::seekable_duration(&playback)?;
         let thumbnails = self.thumbnails.try_borrow().ok()?;
-        let (index, bytes) = thumbnails.touch_bar_sample(&playback, duration * fraction)?;
+        let (index, bytes) = thumbnails.sample_near(Some(&playback), duration * fraction)?;
         let mut cache = self.images.borrow_mut();
-        let revision = thumbnails.preview_revision();
+        let revision = thumbnails.sample_revision();
         if (revision, playback.generation) != (cache.revision, cache.generation) {
             cache.images.clear();
             cache.revision = revision;

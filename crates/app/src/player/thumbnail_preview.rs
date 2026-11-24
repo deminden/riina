@@ -103,8 +103,7 @@ pub(crate) struct Controller {
     frames: Vec<Option<(f64, Vec<u8>)>>,
     hover_time: Option<f64>,
     displayed_index: Option<usize>,
-    #[cfg(target_os = "macos")]
-    preview_revision: u64,
+    sample_revision: u64,
 }
 
 impl Controller {
@@ -126,10 +125,7 @@ impl Controller {
             self.cancel_current();
             self.identity = next.clone();
             self.frames.clear();
-            #[cfg(target_os = "macos")]
-            {
-                self.preview_revision = self.preview_revision.wrapping_add(1);
-            }
+            self.sample_revision = self.sample_revision.wrapping_add(1);
             self.displayed_index = None;
             app.global::<riina_ui::PlaybackTimelineState>()
                 .set_timeline_thumbnail_image(Image::default());
@@ -190,10 +186,7 @@ impl Controller {
                 } => {
                     if let Some(slot) = self.frames.get_mut(index) {
                         *slot = Some((timestamp, jpeg));
-                        #[cfg(target_os = "macos")]
-                        {
-                            self.preview_revision = self.preview_revision.wrapping_add(1);
-                        }
+                        self.sample_revision = self.sample_revision.wrapping_add(1);
                     }
                 }
                 PreviewEvent::Finished(result) => {
@@ -214,19 +207,21 @@ impl Controller {
         thumbnails_ready
     }
 
-    #[cfg(target_os = "macos")]
-    pub(crate) fn preview_revision(&self) -> u64 {
-        self.preview_revision
+    pub(crate) fn sample_revision(&self) -> u64 {
+        self.sample_revision
     }
 
-    #[cfg(target_os = "macos")]
-    pub(crate) fn touch_bar_sample(
+    /// Use the latest sample at or before the requested time. Callers projecting
+    /// a playback snapshot can reject cached frames from an earlier media source.
+    pub(crate) fn sample_near(
         &self,
-        playback: &Playback,
+        playback: Option<&Playback>,
         seconds: f64,
     ) -> Option<(usize, &[u8])> {
-        let identity = self.identity.as_ref()?;
-        if identity.generation != playback.generation || !sampling_media_ready(playback) {
+        if let Some(playback) = playback
+            && (self.identity.as_ref()?.generation != playback.generation
+                || !sampling_media_ready(playback))
+        {
             return None;
         }
         let index = nearest_sample_index(&self.frames, seconds)?;
@@ -253,11 +248,12 @@ impl Controller {
         let Some(seconds) = self.hover_time else {
             return;
         };
-        let index = nearest_sample_index(&self.frames, seconds);
+        let sample = self.sample_near(None, seconds);
+        let index = sample.map(|(index, _)| index);
         if index == self.displayed_index {
             return;
         }
-        let Some((_, jpeg)) = index.and_then(|index| self.frames[index].as_ref()) else {
+        let Some((_, jpeg)) = sample else {
             self.displayed_index = None;
             app.global::<riina_ui::PlaybackTimelineState>()
                 .set_timeline_thumbnail_image(Image::default());
@@ -602,6 +598,38 @@ mod tests {
         ]));
         assert!(!complete_frame_set(&[Some((0.0, vec![])), None]));
         assert!(!complete_frame_set(&[]));
+    }
+
+    #[test]
+    fn snapshot_bound_lookup_rejects_old_or_unready_media() {
+        let cache = super::Controller {
+            identity: Some(super::Identity {
+                generation: 4,
+                media_path: "fixture.avi".into(),
+                settings: Settings::default(),
+            }),
+            task: None,
+            frames: vec![Some((0.0, vec![10])), None, Some((2.0, vec![20]))],
+            hover_time: None,
+            displayed_index: None,
+            sample_revision: 0,
+        };
+        let mut playback = Playback {
+            generation: 4,
+            duration: Some(3.0),
+            phase: Phase::Paused,
+            ..Default::default()
+        };
+        assert_eq!(
+            cache.sample_near(Some(&playback), 2.5),
+            Some((2, &[20][..]))
+        );
+        playback.generation += 1;
+        assert_eq!(cache.sample_near(Some(&playback), 2.5), None);
+        playback.generation -= 1;
+        playback.phase = Phase::Loading;
+        assert_eq!(cache.sample_near(Some(&playback), 2.5), None);
+        assert_eq!(cache.sample_near(None, 1.5), Some((0, &[10][..])));
     }
 
     #[test]

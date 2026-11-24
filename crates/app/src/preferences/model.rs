@@ -69,15 +69,10 @@ impl PreferenceModel {
         self.0.current.borrow().clone()
     }
 
-    pub(crate) fn adopt_controller_options(&self, options: osc_preferences::ControllerOptions) {
-        self.0.writer.adopt_controller_options(options);
-        self.0.current.borrow_mut().control_bar.controller = options;
-    }
-
-    #[cfg(target_os = "macos")]
-    pub(crate) fn adopt_touch_bar_mode(&self, mode: riina_core::touch_bar::Settings) {
-        self.0.writer.adopt_touch_bar_mode(mode);
-        self.0.current.borrow_mut().touch_bar = mode;
+    /// Reflect a field already committed by another window in both snapshots.
+    pub(crate) fn adopt_committed(&self, edit: impl Fn(&mut Preferences)) {
+        self.0.writer.adopt_committed(&edit);
+        edit(&mut self.0.current.borrow_mut());
     }
 
     pub(crate) fn retain_subtitle_credentials(&self, app: &PlayerWindow) {

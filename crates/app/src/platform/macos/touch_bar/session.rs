@@ -1,6 +1,9 @@
 //! Route native Touch Bar actions through the owning player's playback and profile.
-use super::{PlayerContext, thumbnail_actions::NativeThumbnails};
-use crate::{PlayerWindow, osc_preferences, platform::touch_bar as native, preference_store};
+use super as native;
+use crate::{
+    PlayerWindow, osc_preferences, platform::player_touch_bar::Samples, player_ui::PlayerContext,
+    preference_store,
+};
 use riina_core::{
     Command, Phase, Playback,
     sync::lock,
@@ -14,22 +17,22 @@ use std::{
 };
 
 #[derive(Default)]
-pub(super) struct ApplicationTouchBars {
+pub(in crate::platform) struct ApplicationTouchBars {
     players: RefCell<Vec<Weak<Session>>>,
 }
 
 impl ApplicationTouchBars {
-    pub(super) fn install(
+    pub(in crate::platform) fn install(
         self: &Rc<Self>,
         app: &PlayerWindow,
         context: PlayerContext,
-        thumbnails: NativeThumbnails,
+        thumbnails: &Samples,
     ) -> Rc<Session> {
         let session = Rc::new(Session {
             mode: Cell::new(context.preferences().snapshot().touch_bar),
             previews: Rc::new(native::Preview::new(
                 context.playback().clone(),
-                thumbnails.controller,
+                thumbnails.controller.clone(),
             )),
             application: self.clone(),
             context,
@@ -53,13 +56,13 @@ impl ApplicationTouchBars {
             }
         });
         let target = Rc::downgrade(&session);
-        thumbnails.redraw.replace(Some(Box::new(move || {
+        thumbnails.on_redraw(move || {
             if let Some(session) = target.upgrade()
                 && let Some(bar) = session.bar.borrow().as_ref()
             {
                 bar.redraw_previews();
             }
-        })));
+        });
         session.refresh_current();
         session
     }
@@ -87,7 +90,7 @@ impl ApplicationTouchBars {
     }
 }
 
-pub(super) struct Session {
+pub(in crate::platform) struct Session {
     context: PlayerContext,
     application: Rc<ApplicationTouchBars>,
     previews: Rc<native::Preview>,
@@ -98,11 +101,13 @@ pub(super) struct Session {
 
 impl Session {
     fn adopt_mode(&self, mode: Settings) {
-        self.context.preferences().adopt_touch_bar_mode(mode);
+        self.context
+            .preferences()
+            .adopt_committed(|saved| saved.touch_bar = mode);
         self.mode.set(mode);
     }
 
-    pub(super) fn observe(self: &Rc<Self>, app: &PlayerWindow, playback: &Playback) {
+    pub(in crate::platform) fn observe(self: &Rc<Self>, app: &PlayerWindow, playback: &Playback) {
         if self.bar.borrow().is_none() {
             self.attach(app);
         }

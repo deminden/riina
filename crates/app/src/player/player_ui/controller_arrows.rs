@@ -42,12 +42,10 @@ pub(super) fn install(app: &PlayerWindow, context: PlayerContext) {
     let reset = session.clone();
     app.global::<PlayerPreferences>()
         .on_controller_arrow_action_changed(move || reset.reset());
-    #[cfg(target_os = "macos")]
-    {
-        let native = session.clone();
-        app.global::<PlayerControlActions>()
-            .on_controller_arrow_pressure(move |stage| native.pressure(i64::from(stage)));
-    }
+    let native = session.clone();
+    crate::platform::bind_controller_arrow_pressure(app, move |stage| {
+        native.pressure(i64::from(stage))
+    });
     app.global::<PlayerControlActions>()
         .on_controller_arrow(move |left, phase| {
             session.handle(
@@ -170,7 +168,6 @@ impl Session {
         }
     }
 
-    #[cfg(target_os = "macos")]
     fn pressure(&self, stage: i64) -> bool {
         let Some(app) = self.context.app() else {
             return false;

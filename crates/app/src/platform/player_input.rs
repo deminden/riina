@@ -15,7 +15,7 @@ mod mac_gestures;
 pub(crate) use drop_position::file_drop_position;
 
 #[cfg(target_os = "macos")]
-pub(crate) fn controller_alignment_feedback() {
+fn controller_alignment_feedback() {
     use objc2_app_kit::{
         NSHapticFeedbackManager, NSHapticFeedbackPattern, NSHapticFeedbackPerformanceTime,
         NSHapticFeedbackPerformer,
@@ -24,6 +24,31 @@ pub(crate) fn controller_alignment_feedback() {
         NSHapticFeedbackPattern::Alignment,
         NSHapticFeedbackPerformanceTime::Default,
     );
+}
+
+pub(crate) fn bind_controller_alignment_feedback(app: &PlayerWindow) {
+    #[cfg(target_os = "macos")]
+    {
+        use slint::ComponentHandle;
+        app.global::<riina_ui::PlayerControlActions>()
+            .on_controller_snap_aligned(controller_alignment_feedback);
+    }
+    #[cfg(not(target_os = "macos"))]
+    let _ = app;
+}
+
+pub(crate) fn bind_controller_arrow_pressure(
+    app: &PlayerWindow,
+    pressure: impl Fn(i32) -> bool + 'static,
+) {
+    #[cfg(target_os = "macos")]
+    {
+        use slint::ComponentHandle;
+        app.global::<riina_ui::PlayerControlActions>()
+            .on_controller_arrow_pressure(pressure);
+    }
+    #[cfg(not(target_os = "macos"))]
+    let _ = (app, pressure);
 }
 
 #[cfg(target_os = "macos")]

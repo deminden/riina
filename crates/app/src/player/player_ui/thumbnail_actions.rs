@@ -7,18 +7,7 @@ use std::{cell::RefCell, rc::Rc, time::Duration};
 
 pub(super) struct Installed {
     pub(super) timer: Rc<slint::Timer>,
-    #[cfg(target_os = "macos")]
-    pub(super) native: NativeThumbnails,
-}
-
-#[cfg(target_os = "macos")]
-type PreviewRedraw = Box<dyn Fn()>;
-
-#[cfg(target_os = "macos")]
-#[derive(Clone)]
-pub(super) struct NativeThumbnails {
-    pub(super) controller: Rc<RefCell<crate::thumbnail_preview::Controller>>,
-    pub(super) redraw: Rc<RefCell<Option<PreviewRedraw>>>,
+    pub(super) touch_bar_samples: platform::player_touch_bar::Samples,
 }
 
 pub(super) fn install(
@@ -29,13 +18,8 @@ pub(super) fn install(
     let thumbnail_preview_timer = Rc::new(slint::Timer::default());
     let thumbnail_controller =
         Rc::new(RefCell::new(crate::thumbnail_preview::Controller::default()));
-    #[cfg(target_os = "macos")]
-    let native = NativeThumbnails {
-        controller: thumbnail_controller.clone(),
-        redraw: Rc::default(),
-    };
-    #[cfg(target_os = "macos")]
-    let redraw = native.redraw.clone();
+    let touch_bar_samples = platform::player_touch_bar::Samples::new(&thumbnail_controller);
+    let sample_observer = touch_bar_samples.clone();
     let thumbnail_hover = thumbnail_controller.clone();
     let thumbnail_weak = app.as_weak();
     app.global::<riina_ui::PlayerControlActions>()
@@ -65,8 +49,7 @@ pub(super) fn install(
                 return;
             };
             let mut controller = thumbnail_tick.borrow_mut();
-            #[cfg(target_os = "macos")]
-            let previous = controller.preview_revision();
+            let previous = controller.sample_revision();
             let ready = crate::thumbnail_preferences::current_player(&app).is_ok_and(|settings| {
                 let state = lock(&thumbnail_playback).clone();
                 controller.observe(&app, &state, &settings, &thumbnail_library)
@@ -76,12 +59,10 @@ pub(super) fn install(
             {
                 timer.stop();
             }
-            #[cfg(target_os = "macos")]
-            let changed = previous != controller.preview_revision();
+            let changed = previous != controller.sample_revision();
             drop(controller);
-            #[cfg(target_os = "macos")]
-            if changed && let Some(redraw) = redraw.borrow().as_ref() {
-                redraw();
+            if changed {
+                sample_observer.changed();
             }
             if ready
                 && let Some(host) = &thumbnail_plugin_host
@@ -95,8 +76,7 @@ pub(super) fn install(
     );
     Installed {
         timer: thumbnail_preview_timer,
-        #[cfg(target_os = "macos")]
-        native,
+        touch_bar_samples,
     }
 }
 

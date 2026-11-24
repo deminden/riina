@@ -15,6 +15,11 @@ its `fn` token to the closing brace, including comments and blank lines. The
 longest function went from 2,047 to 150 lines. The count at 200 lines or
 more went from 30 to zero. Clippy continues to enforce its 150-line limit.
 
+The Touch Bar and controller boundary follow-up removed 32 target annotations
+from the shared player and preferences sources by routing registration, native
+input and the macOS Settings form through platform adapters. The [verification record](verification.md#touch-bar-and-controller-platform-boundary-2026-11-24)
+identifies the Windows and Linux desktop checks and both Apple source targets.
+
 | Finding | Change | Local commits |
 |---|---|---|
 | H1 Preference recovery | Recover valid sections at startup, preserve the original bytes in quarantine, and report the reset sections. | `e63fce8`, `f90fffd` |

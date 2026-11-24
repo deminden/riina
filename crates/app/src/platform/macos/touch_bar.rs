@@ -1,6 +1,9 @@
 //! Own the AppKit controls for one player window.
 mod preview;
+mod session;
 mod slider;
+
+pub(in crate::platform) use session::{ApplicationTouchBars, Session};
 
 use super::pip_window::player_window;
 use crate::PlayerWindow;

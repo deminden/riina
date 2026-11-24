@@ -67,9 +67,11 @@ The callback's published media generation must still match when it runs.
 Disabling system media controls or closing the player withdraws the session
 and removes its callbacks before the native window goes away.
 
-On macOS, each player window owns its AppKit Touch Bar and projects the shared
-playback snapshot into the native controls. The scrubber samples the player's
-existing thumbnail cache. A touch gesture records both the current file and
+On macOS, the platform adapter registers each player's AppKit Touch Bar with
+the playback observer and retires it before native window cleanup. The scrubber
+samples the player's existing thumbnail cache. The timeline timer publishes
+sample changes after releasing the cache borrow so AppKit can redraw safely.
+A touch gesture records both the current file and
 open request before pausing. Its seek and resume commands also carry the media
 generation through the mpv queue. The Touch Bar's end-clock mode belongs to the
 saved profile and is shared by its windows independently of the controller clock.

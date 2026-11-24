@@ -4452,3 +4452,20 @@ seconds. The test window closed and the application exited normally.
 
 - Linux application SHA-256 `3211a854a947d88f051faaeaa57916b334cbef7e6ae0a4af5b984d08f40e32d1`
 - Linux libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`
+
+### Touch Bar and controller platform boundary 2026-11-24
+
+The adapter owns Touch Bar registration, AppKit pressure and alignment
+callbacks, and the macOS Settings form connection. The shared timeline cache
+supplies both consumers. The cache regression verifies that a snapshot-bound
+lookup rejects a replacement file or a file still loading, and that the
+timeline still finds the preceding sample.
+
+The full Windows workspace gate and the locked Windows and Linux builds
+passed. In a private Windows desktop, Settings saved both arrow modes, the
+player sought forward 10 seconds and back, and the playlist returned to the
+first video. The isolated process exited normally. In an isolated Wayland
+desktop, the cache stored all 101 JPEGs through 34.999 seconds and the player
+exited normally. The Apple Silicon and Intel Mac targets passed strict Clippy.
+Native macOS playback, Touch Bar delivery, and physical pressure feedback
+remain open.

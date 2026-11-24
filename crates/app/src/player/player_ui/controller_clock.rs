@@ -17,8 +17,7 @@ use std::{
 #[derive(Default)]
 pub(super) struct ApplicationClocks {
     players: RefCell<Vec<Weak<PlayerContext>>>,
-    #[cfg(target_os = "macos")]
-    form: RefCell<Option<(std::path::PathBuf, slint::Weak<crate::PreferencesWindow>)>>,
+    pub(super) form: crate::platform::preferences::ControllerOptionsForm,
 }
 
 impl ApplicationClocks {
@@ -30,8 +29,7 @@ impl ApplicationClocks {
         drop(players);
 
         let actions = app.global::<PlayerControlActions>();
-        #[cfg(target_os = "macos")]
-        actions.on_controller_snap_aligned(crate::platform::controller_alignment_feedback);
+        crate::platform::bind_controller_alignment_feedback(app);
         let clocks = Rc::clone(self);
         actions.on_publish_controller_options(move || {
             if let Some(app) = player.app() {
@@ -55,21 +53,9 @@ impl ApplicationClocks {
         });
     }
 
-    #[cfg(target_os = "macos")]
-    pub(super) fn register_form(&self, path: &Path, window: &crate::PreferencesWindow) {
-        self.form.replace(Some((path.to_owned(), window.as_weak())));
-    }
-
     pub(super) fn publish(&self, path: &Path, options: ControllerOptions) {
         self.publish_players(path, options);
-        #[cfg(target_os = "macos")]
-        if let Some((owner, form)) = self.form.borrow().as_ref()
-            && owner == path
-            && let Some(form) = form.upgrade()
-        {
-            osc_preferences::install_form_controller_options(&form, options);
-            form.invoke_controller_options_adopted();
-        }
+        self.form.publish(path, options);
     }
 
     pub(super) fn publish_players(&self, path: &Path, options: ControllerOptions) {
@@ -81,7 +67,9 @@ impl ApplicationClocks {
                 return false;
             };
             if target.preferences_path() == path {
-                target.preferences().adopt_controller_options(options);
+                target
+                    .preferences()
+                    .adopt_committed(|saved| saved.control_bar.controller = options);
                 osc_preferences::install_player_controller_options(&app, options);
                 let state = riina_core::sync::lock(target.playback()).clone();
                 update_labels(&app, &state);
