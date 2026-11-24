@@ -63,11 +63,73 @@ fn live_text_capture_returns_a_tightly_packed_frame_only_while_paused() {
     assert!(failed.captured_frame.frame.is_none());
 }
 
+#[expect(
+    clippy::expect_used,
+    reason = "Invalid fixtures must fail this native test"
+)]
+fn longer_thumbnail_fixture(source: &std::path::Path, destination: &std::path::Path) {
+    // Extend the original MJPEG/PCM packets without introducing another fixture
+    // or encoder. The shorter file does not trigger the decoder's paused EOF case.
+    const REPEATS: u32 = 7;
+    let source = std::fs::read(source).expect("read the original AVI fixture");
+    let offset = |tag: &[u8]| {
+        source
+            .windows(tag.len())
+            .position(|bytes| bytes == tag)
+            .expect("locate the original AVI header field")
+    };
+    let dword = |bytes: &[u8], start: usize| {
+        u32::from_le_bytes(
+            bytes[start..start + 4]
+                .try_into()
+                .expect("read a 32-bit AVI field"),
+        )
+    };
+    let movi = offset(b"movi");
+    let movi_size = dword(&source, movi - 4);
+    let packets_size = movi_size - 4;
+    let index_start = movi + movi_size as usize;
+    assert_eq!(&source[index_start..index_start + 4], b"idx1");
+    let packets = &source[movi + 4..index_start];
+    let mut output = source[..movi + 4].to_vec();
+    for count in [
+        offset(b"avih") + 24,
+        offset(b"vids") + 32,
+        offset(b"auds") + 32,
+    ] {
+        let length = dword(&source, count) * REPEATS;
+        output[count..count + 4].copy_from_slice(&length.to_le_bytes());
+    }
+    output[movi - 4..movi].copy_from_slice(&(4 + packets_size * REPEATS).to_le_bytes());
+    for _ in 0..REPEATS {
+        output.extend_from_slice(packets);
+    }
+    output.extend_from_slice(b"idx1");
+    let index_size = dword(&source, index_start + 4);
+    output.extend_from_slice(&(index_size * REPEATS).to_le_bytes());
+    let entries = &source[index_start + 8..index_start + 8 + index_size as usize];
+    let (entries, trailing) = entries.as_chunks::<16>();
+    assert!(trailing.is_empty());
+    for repeat in 0..REPEATS {
+        for entry in entries {
+            let packet_offset = dword(entry, 8) + packets_size * repeat;
+            output.extend_from_slice(&entry[..8]);
+            output.extend_from_slice(&packet_offset.to_le_bytes());
+            output.extend_from_slice(&entry[12..]);
+        }
+    }
+    let riff_size = u32::try_from(output.len() - 8).expect("the extended fixture fits AVI limits");
+    output[4..8].copy_from_slice(&riff_size.to_le_bytes());
+    std::fs::write(destination, output).expect("write the extended AVI fixture");
+}
+
 #[test]
-#[ignore = "requires provisioned libmpv; decodes IINA-count thumbnail samples in an isolated player"]
+#[ignore = "requires provisioned libmpv; decodes all thumbnail samples through paused EOF"]
 fn thumbnail_generator_extracts_one_hundred_and_one_isolated_frames() {
     let root = fixture_root();
-    let media = root.join("tests/fixtures/moving-square.avi");
+    let directory = riina_test_support::TempDir::new("thumbnail-eof").unwrap();
+    let media = directory.path().join("thumbnail-eof.avi");
+    longer_thumbnail_fixture(&root.join("tests/fixtures/moving-square.avi"), &media);
     let generator = riina_mpv::thumbnail_generator::Generator::start(
         &test_library(&root),
         media.to_str().unwrap(),
@@ -98,6 +160,7 @@ fn thumbnail_generator_extracts_one_hundred_and_one_isolated_frames() {
     assert_eq!(samples.len(), 101);
     assert_eq!(samples.first().unwrap().index, 0);
     assert_eq!(samples.last().unwrap().index, 100);
+    assert!((samples.last().unwrap().timestamp - 34.999).abs() < 0.001);
     assert!(
         samples
             .windows(2)

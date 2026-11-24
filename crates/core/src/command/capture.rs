@@ -5,10 +5,11 @@ use crate::{Phase, Playback};
 impl Command {
     pub(super) fn capture_args(&self) -> Result<Vec<String>, CommandError> {
         let args = match self {
-            Self::CaptureFrame => cmd(["screenshot-raw", "video", "rgba"]),
-            Self::CaptureTransitionFrame => cmd(["screenshot-raw", "video", "rgba"]),
-            Self::CaptureIncomingTransitionFrame => cmd(["screenshot-raw", "video", "rgba"]),
-            Self::CaptureMaterialFrame => cmd(["screenshot-raw", "video", "rgba"]),
+            Self::CaptureFrame
+            | Self::CaptureThumbnailFrame
+            | Self::CaptureTransitionFrame
+            | Self::CaptureIncomingTransitionFrame
+            | Self::CaptureMaterialFrame => cmd(["screenshot-raw", "video", "rgba"]),
             Self::ScreenshotToFile { path, content } if valid_path(path) => vec![
                 "screenshot-to-file".into(),
                 path.clone(),
@@ -29,6 +30,16 @@ impl Command {
         if matches!(self, Self::CaptureFrame) && state.phase != Phase::Paused {
             return Err(CommandError::InvalidState {
                 reason: "Text recognition is available only while video is paused",
+            });
+        }
+        // A paused thumbnail decoder can reach EOF while retaining its final frame.
+        // Live Text still requires the interactive player to be fully paused.
+        if matches!(self, Self::CaptureThumbnailFrame)
+            && (!state.paused
+                || matches!(state.phase, Phase::Stopped | Phase::Loading | Phase::Failed))
+        {
+            return Err(CommandError::InvalidState {
+                reason: "Thumbnail extraction requires an active, paused decoder",
             });
         }
         if matches!(

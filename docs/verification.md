@@ -4432,3 +4432,23 @@ identity stayed the same. The tested process exited normally.
 - Linux libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`
 - Windows application SHA-256 `31fbfa27eec0f47c869847f31d61bd39a4e2b7a951d04e52265886ca82ef51a3`
 - Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
+
+### Retained final thumbnail 2026-11-24
+
+The pinned Windows engine reproduced a thumbnail extraction failure on a
+35-second synthetic clip. The decoder had delivered 100 samples through
+34.650 seconds when the final capture hit the Live Text pause check. The same
+clip completed all 101 samples through 34.999 seconds using the dedicated
+thumbnail capture request.
+
+The native thumbnail test now extends the existing fixture into that 35-second
+clip and checks the final timestamp. All 63 native tests passed against the
+pinned Windows engine. The scoped Windows source gate, both locked application
+builds and the strict Apple Silicon source check passed.
+
+An isolated Wayland application run wrote 101 JPEGs and a manifest for the
+same clip in its own cache. The manifest covered the final sample at 34.999
+seconds. The test window closed and the application exited normally.
+
+- Linux application SHA-256 `3211a854a947d88f051faaeaa57916b334cbef7e6ae0a4af5b984d08f40e32d1`
+- Linux libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`

@@ -74,15 +74,16 @@ pub(super) fn handler(
         let Some(app) = weak.upgrade() else { return };
         match gesture {
             platform::ControlGesture::Pressure { stage } => {
+                if stage < 2 {
+                    force_touch_active.set(false);
+                }
                 if app
                     .global::<PlayerControlActions>()
                     .invoke_controller_arrow_pressure(i32::try_from(stage).unwrap_or(i32::MAX))
                 {
                     return;
                 }
-                if stage < 2 {
-                    force_touch_active.set(false);
-                } else if stage == 2 && !force_touch_active.replace(true) {
+                if stage == 2 && !force_touch_active.replace(true) {
                     dispatch(
                         &app,
                         &player,

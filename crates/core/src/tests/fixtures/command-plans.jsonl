@@ -26,6 +26,7 @@
 {"command":"FrameStep","mpv":[["frame-step"]],"resume_on_load":false}
 {"command":"FrameBackStep","mpv":[["frame-back-step"]],"resume_on_load":false}
 {"command":"CaptureFrame","mpv":[["screenshot-raw","video","rgba"]],"resume_on_load":false}
+{"command":"CaptureThumbnailFrame","mpv":[["screenshot-raw","video","rgba"]],"resume_on_load":false}
 {"command":"CaptureTransitionFrame","mpv":[["screenshot-raw","video","rgba"]],"resume_on_load":false}
 {"command":"CaptureIncomingTransitionFrame","mpv":[["screenshot-raw","video","rgba"]],"resume_on_load":false}
 {"command":"CaptureMaterialFrame","mpv":[["screenshot-raw","video","rgba"]],"resume_on_load":false}

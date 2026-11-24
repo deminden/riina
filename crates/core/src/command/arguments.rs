@@ -32,6 +32,7 @@ impl Command {
                 self.audio_args()?
             }
             Self::CaptureFrame
+            | Self::CaptureThumbnailFrame
             | Self::CaptureTransitionFrame
             | Self::CaptureIncomingTransitionFrame
             | Self::CaptureMaterialFrame

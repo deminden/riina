@@ -358,7 +358,10 @@ impl WorkerState {
         let plan = match command.plan(&self.playback) {
             Ok(plan) => plan,
             Err(error) => {
-                if matches!(command, Command::CaptureFrame) {
+                if matches!(
+                    command,
+                    Command::CaptureFrame | Command::CaptureThumbnailFrame
+                ) {
                     self.finish_frame_request();
                 }
                 record_notice(&mut self.playback, NoticeSeverity::Error, error.to_string());
@@ -399,7 +402,10 @@ impl WorkerState {
                 record_notice(&mut self.playback, NoticeSeverity::Error, error);
                 self.mark_changed();
             }
-            if matches!(command, Command::CaptureFrame) {
+            if matches!(
+                command,
+                Command::CaptureFrame | Command::CaptureThumbnailFrame
+            ) {
                 self.finish_frame_request();
             }
         } else if let Command::OpenFilesWithSubtitles { subtitles, .. } = command {

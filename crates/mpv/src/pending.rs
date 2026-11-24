@@ -27,7 +27,7 @@ impl ReplyKind {
             Command::Screenshot { .. } if native_command == Some("screenshot") => {
                 Self::Screenshot { path: None }
             }
-            Command::CaptureFrame => Self::FrameCapture,
+            Command::CaptureFrame | Command::CaptureThumbnailFrame => Self::FrameCapture,
             Command::CaptureTransitionFrame => Self::TransitionCapture,
             Command::CaptureIncomingTransitionFrame => Self::IncomingTransitionCapture,
             Command::CaptureMaterialFrame => Self::MaterialCapture,

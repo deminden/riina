@@ -90,6 +90,8 @@ pub enum Command {
     FrameStep,
     FrameBackStep,
     CaptureFrame,
+    /// Capture a frame retained by the isolated, paused thumbnail decoder.
+    CaptureThumbnailFrame,
     CaptureTransitionFrame,
     CaptureIncomingTransitionFrame,
     /// Sample the live video without presenting a second render surface.

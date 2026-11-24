@@ -57,7 +57,6 @@ fn live_text_frame_capture_requires_a_paused_source_and_packs_rgba_rows() {
         [["screenshot-raw", "video", "rgba"]]
     );
     assert!(Command::CaptureFrame.plan(&Playback::default()).is_err());
-
     let frame = CapturedFrame::new(
         2,
         2,
@@ -82,6 +81,28 @@ fn live_text_frame_capture_requires_a_paused_source_and_packs_rgba_rows() {
     assert_eq!(
         CapturedFrame::new(2, 2, 8, &[0; 15]).unwrap_err(),
         FrameError::IncompleteBuffer
+    );
+}
+
+#[test]
+fn thumbnail_capture_can_read_the_frame_retained_at_paused_eof() {
+    let final_thumbnail = Playback {
+        phase: Phase::Ended,
+        paused: true,
+        ..Playback::default()
+    };
+    assert!(Command::CaptureFrame.plan(&final_thumbnail).is_err());
+    assert_eq!(
+        Command::CaptureThumbnailFrame
+            .plan(&final_thumbnail)
+            .unwrap()
+            .commands,
+        [["screenshot-raw", "video", "rgba"]]
+    );
+    assert!(
+        Command::CaptureThumbnailFrame
+            .plan(&Playback::default())
+            .is_err()
     );
 }
 

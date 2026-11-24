@@ -52,6 +52,7 @@ command_samples! {
     FrameStep;
     FrameBackStep;
     CaptureFrame;
+    CaptureThumbnailFrame;
     CaptureTransitionFrame;
     CaptureIncomingTransitionFrame;
     CaptureMaterialFrame;

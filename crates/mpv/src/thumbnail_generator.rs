@@ -239,7 +239,7 @@ fn extract(
             previous_seek = state.completed_seeks;
         }
         let captures = state.captured_frame.revision;
-        commands.send(Command::CaptureFrame)?;
+        commands.send(Command::CaptureThumbnailFrame)?;
         state = wait_for(&state_receiver, cancel, |state| {
             state.captured_frame.revision > captures
         })?;
