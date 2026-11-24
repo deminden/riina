@@ -4,7 +4,9 @@ mod handle;
 mod hooks;
 mod playlist_resume;
 mod stream;
+mod version_probe;
 pub use duration_probe::read_local_duration;
+pub use version_probe::{EngineVersions, read_engine_versions};
 
 use self::handle::{EventRef, Handle};
 use self::playlist_resume::PlaylistResume;

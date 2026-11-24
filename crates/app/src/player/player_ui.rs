@@ -306,6 +306,36 @@ pub(crate) struct ApplicationServices {
 }
 
 impl ApplicationServices {
+    #[cfg(target_os = "macos")]
+    pub(crate) fn bind_auxiliary_close(&self, callback: Rc<dyn Fn()>) {
+        self.about.closed.bind(callback.clone());
+        self.logs.closed.bind(callback.clone());
+        self.open_url.closed.bind(callback);
+    }
+
+    #[cfg(target_os = "macos")]
+    pub(crate) fn auxiliary_is_visible(&self) -> bool {
+        self.history.is_visible()
+            || self.about.is_visible()
+            || self.logs.is_visible()
+            || self.open_url.is_visible()
+    }
+
+    #[cfg(target_os = "macos")]
+    pub(crate) fn hide_auxiliary_tools(&self) {
+        self.about.hide();
+        self.logs.hide();
+        self.open_url.hide_for_quit();
+    }
+
+    #[cfg(target_os = "macos")]
+    pub(crate) fn show_application_about(
+        &self,
+        preferences: &riina_core::Preferences,
+    ) -> Result<(), slint::PlatformError> {
+        self.about.show_from_application(preferences)
+    }
+
     pub(crate) fn present_release_highlights(
         &self,
         app: &PlayerWindow,
@@ -347,6 +377,15 @@ impl ApplicationServices {
         self.recents
             .for_profile(profile, preferences, true)
             .clear_documents()
+    }
+
+    #[cfg(target_os = "macos")]
+    pub(crate) fn show_application_logs(
+        &self,
+        path: &std::path::Path,
+        level: riina_core::advanced_preferences::LogLevel,
+    ) -> Result<(), slint::PlatformError> {
+        self.logs.show(None, path, level)
     }
 
     fn connect_preferences(

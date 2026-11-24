@@ -4,6 +4,7 @@ mod request;
 
 pub(crate) use request::PendingStream;
 
+use super::close_observer::CloseObserver;
 use crate::{PlayerWindow, WelcomeWindow, platform};
 use credentials::{Account, Origin};
 use request::{RunningStream, StreamMode};
@@ -47,6 +48,7 @@ pub(crate) struct ApplicationOpenUrl {
     credential_origin: RefCell<Option<Origin>>,
     credential_timer: Timer,
     progress: Timer,
+    pub(crate) closed: CloseObserver,
 }
 
 impl ApplicationOpenUrl {
@@ -193,6 +195,7 @@ impl ApplicationOpenUrl {
                 owner.stop(&window);
                 owner.reset_draft(&window);
                 owner.destination.take();
+                owner.closed.notify();
             }
             CloseRequestResponse::HideWindow
         });
@@ -225,6 +228,22 @@ impl ApplicationOpenUrl {
         self.reset_draft(window);
         self.destination.take();
         let _ = window.hide();
+        self.closed.notify();
+    }
+
+    #[cfg(target_os = "macos")]
+    pub(crate) fn is_visible(&self) -> bool {
+        self.window
+            .borrow()
+            .as_ref()
+            .is_some_and(|window| window.window().is_visible())
+    }
+
+    #[cfg(target_os = "macos")]
+    pub(crate) fn hide_for_quit(&self) {
+        if let Some(window) = self.window.borrow().as_ref() {
+            self.hide(window);
+        }
     }
 
     fn address_changed(self: &Rc<Self>, window: &OpenUrlWindow) {

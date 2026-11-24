@@ -26,6 +26,14 @@ pub(super) fn prepare(
     let menu = NSMenu::new(main);
     let app = NSMenu::initWithTitle(NSMenu::alloc(main), &NSString::from_str("Riina"));
     let file = NSMenu::initWithTitle(NSMenu::alloc(main), &NSString::from_str("File"));
+    app.addItem(&item(
+        main,
+        "About Riina",
+        Some(sel!(riinaIdleAbout:)),
+        "",
+        Some(target),
+    ));
+    app.addItem(&NSMenuItem::separatorItem(main));
     app.addItem(&item(main, "Hide Riina", Some(sel!(hide:)), "h", None));
     app.addItem(&item(
         main,
@@ -82,7 +90,36 @@ pub(super) fn prepare(
         .setKeyEquivalentModifierMask(NSEventModifierFlags::Command | NSEventModifierFlags::Shift);
     file.addItem(&NSMenuItem::separatorItem(main));
     file.addItem(&history);
-    for (title, submenu) in [("Riina", app), ("File", file)] {
+    let window = NSMenu::initWithTitle(NSMenu::alloc(main), &NSString::from_str("Window"));
+    window.addItem(&item(
+        main,
+        "Minimize",
+        Some(sel!(performMiniaturize:)),
+        "m",
+        None,
+    ));
+    window.addItem(&item(main, "Zoom", Some(sel!(performZoom:)), "", None));
+    window.addItem(&NSMenuItem::separatorItem(main));
+    window.addItem(&item(
+        main,
+        "Bring All to Front",
+        Some(sel!(arrangeInFront:)),
+        "",
+        None,
+    ));
+    window.addItem(&NSMenuItem::separatorItem(main));
+    let logs = item(
+        main,
+        "Log Viewer",
+        Some(sel!(riinaIdleLogs:)),
+        "l",
+        Some(target),
+    );
+    logs.setKeyEquivalentModifierMask(
+        NSEventModifierFlags::Control | NSEventModifierFlags::Command,
+    );
+    window.addItem(&logs);
+    for (title, submenu) in [("Riina", app), ("File", file), ("Window", window)] {
         let parent = item(main, title, None, "", None);
         parent.setSubmenu(Some(&submenu));
         menu.addItem(&parent);
@@ -104,6 +141,12 @@ pub(crate) fn show_idle_menu() {
         {
             refresh_file_menu(main, menu);
             app.setMainMenu(Some(menu));
+            if let Some(window) = menu
+                .itemWithTitle(&NSString::from_str("Window"))
+                .and_then(|item| item.submenu())
+            {
+                app.setWindowsMenu(Some(&window));
+            }
         }
     });
 }
@@ -186,6 +229,16 @@ pub(super) fn clear() {
     let Some(menu) = IDLE_MENU.take() else { return };
     if let Some(main) = MainThreadMarker::new() {
         let app = NSApplication::sharedApplication(main);
+        if let Some(window) = menu
+            .itemWithTitle(&NSString::from_str("Window"))
+            .and_then(|item| item.submenu())
+            && app
+                .windowsMenu()
+                .as_deref()
+                .is_some_and(|active| std::ptr::eq(active, &*window))
+        {
+            app.setWindowsMenu(None);
+        }
         if app
             .mainMenu()
             .as_deref()

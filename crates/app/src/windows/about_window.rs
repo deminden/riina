@@ -1,13 +1,20 @@
+#[cfg(target_os = "macos")]
+mod version_probe;
+
+use super::close_observer::CloseObserver;
 use crate::{AboutWindow, PlayerWindow};
 use riina_core::{Phase, Playback};
 use riina_ui::PlayerMenuActions;
-use slint::{ComponentHandle, winit_030::WinitWindowAccessor};
+use slint::{CloseRequestResponse, ComponentHandle, winit_030::WinitWindowAccessor};
 use std::{cell::RefCell, rc::Rc, time::Duration};
 
 #[derive(Default)]
 pub(crate) struct ApplicationAbout {
     window: RefCell<Option<AboutWindow>>,
     timer: Rc<slint::Timer>,
+    pub(crate) closed: CloseObserver,
+    #[cfg(target_os = "macos")]
+    probe: version_probe::Probe,
 }
 
 impl ApplicationAbout {
@@ -24,39 +31,20 @@ impl ApplicationAbout {
     }
 
     fn show(
-        &self,
+        self: &Rc<Self>,
         app: &PlayerWindow,
         playback: &crate::PlaybackStore,
     ) -> Result<(), slint::PlatformError> {
-        let existing = self
-            .window
-            .borrow()
-            .as_ref()
-            .map(ComponentHandle::clone_strong);
-        let window = if let Some(window) = existing {
-            window
-        } else {
-            let window = AboutWindow::new()?;
-            crate::appearance_preferences::install_system_typography(&window);
-            window.set_version_label(format!("Version {}", env!("CARGO_PKG_VERSION")).into());
-            connect_links(&window);
-            crate::platform::center_auxiliary_window(&window, app);
-            self.window.borrow_mut().replace(window.clone_strong());
-            window
-        };
+        #[cfg(target_os = "macos")]
+        self.probe.application_view.set(false);
+        let window = self.window_for(Some(app))?;
         window.set_dark_theme(app.global::<riina_ui::PlayerAppearance>().get_dark_theme());
         let mut versions_ready =
             refresh_engine_versions(&window, &riina_core::sync::lock(playback));
-        crate::platform::show_window(&window)?;
-        crate::platform::enable_about_acrylic(&window);
-        window.window().with_winit_window(|window| {
-            window.set_minimized(false);
-            window.focus_window();
-        });
-        self.timer.stop();
+        reveal(&window)?;
         let source = app.as_weak();
         let playback = playback.clone();
-        super::visible_refresh::start(
+        super::visible_refresh::run(
             &window,
             &self.timer,
             Duration::from_millis(250),
@@ -75,6 +63,58 @@ impl ApplicationAbout {
         );
         Ok(())
     }
+
+    fn window_for(
+        self: &Rc<Self>,
+        app: Option<&PlayerWindow>,
+    ) -> Result<AboutWindow, slint::PlatformError> {
+        if let Some(window) = self.window.borrow().as_ref() {
+            return Ok(window.clone_strong());
+        }
+        let window = AboutWindow::new()?;
+        crate::appearance_preferences::install_system_typography(&window);
+        window.set_version_label(format!("Version {}", env!("CARGO_PKG_VERSION")).into());
+        connect_links(&window);
+        if let Some(app) = app {
+            crate::platform::center_auxiliary_window(&window, app);
+        }
+        let owner = Rc::downgrade(self);
+        window.window().on_close_requested(move || {
+            if let Some(owner) = owner.upgrade() {
+                owner.timer.stop();
+                owner.closed.notify();
+            }
+            CloseRequestResponse::HideWindow
+        });
+        self.window.replace(Some(window.clone_strong()));
+        Ok(window)
+    }
+
+    #[cfg(target_os = "macos")]
+    pub(crate) fn is_visible(&self) -> bool {
+        self.window
+            .borrow()
+            .as_ref()
+            .is_some_and(|window| window.window().is_visible())
+    }
+
+    #[cfg(target_os = "macos")]
+    pub(crate) fn hide(&self) {
+        self.timer.stop();
+        if let Some(window) = self.window.borrow().as_ref() {
+            let _ = window.hide();
+        }
+    }
+}
+
+fn reveal(window: &AboutWindow) -> Result<(), slint::PlatformError> {
+    crate::platform::show_window(window)?;
+    crate::platform::enable_about_acrylic(window);
+    window.window().with_winit_window(|window| {
+        window.set_minimized(false);
+        window.focus_window();
+    });
+    Ok(())
 }
 
 fn refresh_engine_versions(window: &AboutWindow, playback: &Playback) -> bool {
@@ -139,8 +179,53 @@ fn open_link(window: &slint::Weak<AboutWindow>, url: &str) {
 
 #[cfg(test)]
 mod tests {
-    use super::engine_version_labels;
-    use riina_core::{Phase, Playback};
+    use super::*;
+    use slint::platform::WindowEvent;
+    use std::{
+        cell::Cell,
+        sync::{Arc, Mutex},
+    };
+
+    #[test]
+    fn application_and_player_reuse_about_and_observe_native_close()
+    -> Result<(), slint::PlatformError> {
+        i_slint_backend_testing::init_no_event_loop();
+        let about = Rc::new(ApplicationAbout::default());
+        let opened_without_player = about.window_for(None)?;
+        reveal(&opened_without_player)?;
+        let was_hidden = Rc::new(Cell::new(false));
+        let observed = was_hidden.clone();
+        let window = opened_without_player.as_weak();
+        about.closed.bind(Rc::new(move || {
+            observed.set(
+                window
+                    .upgrade()
+                    .is_some_and(|window| !window.window().is_visible()),
+            );
+        }));
+
+        let player = PlayerWindow::new()?;
+        let playback = Arc::new(Mutex::new(Arc::new(Playback {
+            mpv_version: Some("test-mpv".into()),
+            ffmpeg_version: Some("test-ffmpeg".into()),
+            ..Playback::default()
+        })));
+        about.connect(&player, playback);
+        player.global::<PlayerMenuActions>().invoke_show_about();
+        assert_eq!(opened_without_player.get_engine_label(), "libmpv test-mpv");
+        assert_eq!(
+            opened_without_player.get_ffmpeg_label(),
+            "FFmpeg test-ffmpeg"
+        );
+        assert!(about.timer.running());
+        opened_without_player
+            .window()
+            .dispatch_event(WindowEvent::CloseRequested);
+        assert!(!about.timer.running());
+        i_slint_backend_testing::mock_elapsed_time(Duration::from_millis(1));
+        assert!(was_hidden.get());
+        Ok(())
+    }
 
     #[test]
     fn about_explains_engine_version_is_still_pending() {

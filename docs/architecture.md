@@ -543,11 +543,17 @@ stay on the owning window. Cache sizes refresh on entry, reopening and clearing.
 See [Add a preference](recipes/add-a-preference.md) for settings changes.
 
 The Log Viewer is application-owned. The Window menu and Advanced Settings
-open the same window and share its filters and selection. The viewer reads the
+open the same window and share its filters and selection. On macOS the idle
+Window menu can also open it. The viewer reads the
 profile's diagnostic and optional mpv log in bounded batches only while it is
 open. Each file keeps its original order and records from the two clocks are
 combined in read order. Unchanged polls keep the current list and selection.
 Export captures the chosen records before opening the viewer's save dialog.
+
+About shares one window across player menus and the idle macOS menu. When
+opened before playback, it reads the installed libmpv and FFmpeg version
+properties on a background thread. The query uses a short-lived client with
+null outputs and loads no media or user configuration.
 
 The Windows and Linux Window menus share an application-owned catalog. Each
 session supplies the display it owns and retires its registration before native
@@ -624,11 +630,13 @@ action. The shared manager prepares windowless Finder selections off the UI
 thread using the saved grouping and window preferences. An AppKit Open panel
 can choose files and folders in one selection, as a sheet for an existing
 player or as an application panel while idle. Playback History shares its
-archive and window with the idle application menu. When History outlives the
-last player, the idle menu is restored and the quit decision is deferred.
-Closing History before any player opened leaves the application available.
+archive and window with the idle application menu. About, Log Viewer, History
+and Open URL can outlive the last player. The idle Window menu is registered
+with AppKit, and the quit decision is deferred until the final tool closes.
+Closing a tool before any player opened leaves the application available.
 [AppKit application event handling](https://developer.apple.com/documentation/appkit/nsapplication)
 [AppKit recent documents](https://developer.apple.com/documentation/appkit/nsdocumentcontroller)
+[AppKit Window menu](https://developer.apple.com/documentation/appkit/nsapplication/windowsmenu)
 
 The player keeps pending fullscreen intent separate from the observed
 presentation. Windows confirms through its native owner. macOS uses AppKit

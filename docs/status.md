@@ -42,7 +42,8 @@ Implementation does not imply every state or platform is verified.
   history and thumbnails. Cache sizes refresh when the page opens or data is cleared.
 - **Log Viewer:** Window and Advanced Settings open the shared viewer for
   application and mpv logs. Filter by multiple subsystems, severity and message,
-  copy selected rows or export the full or filtered view.
+  copy selected rows or export the full or filtered view. The macOS Window menu
+  can open it before playback starts.
 - **Window switching:** the Window menu lists and switches between players on
   Windows and X11, including minimized players. On Wayland it requests
   activation from the compositor. The macOS port registers Window and Help
@@ -55,8 +56,9 @@ Implementation does not imply every state or platform is verified.
   general media details, tracks, file metadata and playback status. Watched
   mpv properties are saved in the profile and update while the window is visible.
 - **Release Highlights:** Help opens the current release notes. Released builds
-  show the bundled guide on the first launch of each version. The application
-  also shares one About window across all players.
+  show the bundled guide on the first launch of each version.
+- **About:** player menus and the idle macOS menu share one window. About can
+  check the installed libmpv and FFmpeg versions before the first player opens.
 - **Command line:** `riina-cli` starts playback from files, URLs or standard
   input. It can return immediately or wait for the player it started.
 - **macOS launch routing:** the port accepts Finder document groups, uses an

@@ -87,6 +87,38 @@ impl PlayerManager {
         }
     }
 
+    pub(crate) fn show_application_logs(&self) {
+        if self.is_quitting() {
+            return;
+        }
+        let result = (|| -> Result<(), Box<dyn std::error::Error>> {
+            let path = crate::platform::preferences_path()?;
+            let loaded = preference_load::load(&path)?;
+            self.services()
+                .show_application_logs(&path, loaded.preferences.advanced.log_level)?;
+            Ok(())
+        })();
+        if let Err(error) = result {
+            crate::diagnostics::warn!("Could not show Log Viewer: {error}");
+        }
+    }
+
+    pub(crate) fn show_application_about(&self) {
+        if self.is_quitting() {
+            return;
+        }
+        let result = (|| -> Result<(), Box<dyn std::error::Error>> {
+            let path = crate::platform::preferences_path()?;
+            let loaded = preference_load::load(&path)?;
+            self.services()
+                .show_application_about(&loaded.preferences)?;
+            Ok(())
+        })();
+        if let Err(error) = result {
+            crate::diagnostics::warn!("Could not show About Riina: {error}");
+        }
+    }
+
     pub(crate) fn show_application_history(&self) {
         if self.is_quitting() {
             return;

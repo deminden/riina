@@ -3724,3 +3724,33 @@ quit behavior still need a native macOS desktop run.
 - Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
 - Linux application SHA-256 `efdcb0888956ec6b6d4dd84989f4184d1e20ff9d0ef90077a55e0022eefe6639`
 - Linux libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`
+
+### About and Log Viewer without a player 2026-11-24
+
+The idle macOS menus open the application-owned About and Log Viewer windows.
+About reads the installed libmpv and FFmpeg versions from a short-lived client
+with null output. The AppKit Window menu remains registered while About,
+Log Viewer, Playback History or Open URL outlives the final player. Closing
+the last visible tool then applies the saved quit policy when appropriate.
+
+Headless tests opened About and Log Viewer before attaching player menus and
+verified window reuse. The About test also verified that its close notification
+runs after the window hides. The pinned native suite compared the versions
+returned by the short-lived client with the values reported by a normal
+player before media opened.
+
+The private Windows desktop and isolated Linux X11 session opened both tools
+from two players. Both tools remained visible after the opening player closed,
+reopened from the remaining player, and closed normally. Both processes exited
+after their final player closed. The Linux desktop showed the engine version
+labels and log rows while the second clip remained paused.
+
+The Windows workspace gate, all 61 pinned Windows libmpv tests, locked Windows
+and Linux application builds, 579 Linux application unit tests and strict Apple
+Silicon cross-Clippy passed. The idle menu actions, Window menu registration,
+and deferred quit with several tools still need a native macOS desktop run.
+
+- Windows application SHA-256 `7f723d64f8ca9dfaeb2729a37495158aa35a894be3cda1bce0e919bc1f248b0f`
+- Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
+- Linux application SHA-256 `a33f23f6a59799359eca8082a64945512a9b47577e997deb9cff478698e4c7f1`
+- Linux libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`

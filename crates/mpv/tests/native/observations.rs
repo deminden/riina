@@ -5,6 +5,7 @@ use riina_mpv::{CommandSender, EngineError, MpvPropertyFormat};
 #[ignore = "requires provisioned libmpv; exercises generic property observation"]
 fn dynamic_mpv_property_observation_publishes_generic_node_values() -> Result<(), EngineError> {
     let root = fixture_root();
+    let quiet_client_versions = riina_mpv::read_engine_versions(&test_library(&root))?;
     let harness = Harness::start(&root).unwrap();
     let commands = harness.player.command_sender();
     assert!(read(&commands, "mpv-version", MpvPropertyFormat::Text)?.is_string());
@@ -24,6 +25,14 @@ fn dynamic_mpv_property_observation_publishes_generic_node_values() -> Result<()
         None,
         "unexpected native error while observing engine versions before media: {:?}",
         startup_versions.error()
+    );
+    assert_eq!(
+        startup_versions.mpv_version.as_deref(),
+        Some(quiet_client_versions.mpv.as_str())
+    );
+    assert_eq!(
+        startup_versions.ffmpeg_version.as_deref(),
+        Some(quiet_client_versions.ffmpeg.as_str())
     );
     harness
         .send(Command::Load(

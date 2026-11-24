@@ -81,7 +81,7 @@ fn player_commands_share_a_viewer_that_only_polls_while_visible() -> Result<(), 
     owner.connect(&first, &preferences, LogLevel::Debug);
     owner.connect(&second, &preferences, LogLevel::Debug);
     assert!(owner.session.borrow().is_none());
-    first.global::<PlayerMenuActions>().invoke_show_log_viewer();
+    owner.show(None, &preferences, LogLevel::Debug)?;
     let window = owner
         .session
         .borrow()

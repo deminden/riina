@@ -183,6 +183,20 @@ define_class!(
             idle_menu::refresh();
         }
 
+        #[unsafe(method(riinaIdleLogs:))]
+        fn idle_logs(&self, _sender: Option<&AnyObject>) {
+            let launch = self.ivars();
+            launch.default_action.take();
+            launch.manager.show_application_logs();
+        }
+
+        #[unsafe(method(riinaIdleAbout:))]
+        fn idle_about(&self, _sender: Option<&AnyObject>) {
+            let launch = self.ivars();
+            launch.default_action.take();
+            launch.manager.show_application_about();
+        }
+
         #[unsafe(method(riinaIdleHistory:))]
         fn idle_history(&self, _sender: Option<&AnyObject>) {
             let launch = self.ivars();

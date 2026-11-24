@@ -56,7 +56,7 @@ struct ManagerState {
     #[cfg(target_os = "macos")]
     open_panel_visible: bool,
     #[cfg(target_os = "macos")]
-    last_player_closed_with_history: bool,
+    last_player_closed_with_tools: bool,
 }
 
 pub(crate) const fn should_quit_after_last_window_closed(
@@ -128,6 +128,15 @@ impl PlayerManager {
                 }
             },
         );
+        #[cfg(target_os = "macos")]
+        {
+            let state = Rc::downgrade(&manager.state);
+            manager.services().bind_auxiliary_close(Rc::new(move || {
+                if let Some(state) = state.upgrade() {
+                    finish_after_auxiliary_close(&state);
+                }
+            }));
+        }
         manager
     }
 
@@ -431,8 +440,10 @@ fn schedule_quit(state: Weak<RefCell<ManagerState>>) {
     }
     let scheduled = slint::spawn_local(async move {
         let Some(state) = state.upgrade() else { return };
-        let history = state.borrow().services.history.clone();
-        history.hide();
+        let services = state.borrow().services.clone();
+        services.history.hide();
+        #[cfg(target_os = "macos")]
+        services.hide_auxiliary_tools();
         let players = std::mem::take(&mut state.borrow_mut().players);
         for player in players {
             if let Err(error) = player.session.save(&player.app) {
@@ -481,35 +492,58 @@ fn close_player(state: &Rc<RefCell<ManagerState>>, id: u64, from_welcome: bool) 
     if !empty {
         return;
     }
+    #[cfg(target_os = "macos")]
+    if state.borrow().services.auxiliary_is_visible() {
+        state.borrow_mut().last_player_closed_with_tools |= player_was_visible;
+        crate::platform::browser_activation::show_idle_menu();
+        return;
+    }
+    #[cfg(not(target_os = "macos"))]
     if state.borrow().services.history.is_visible() {
-        #[cfg(target_os = "macos")]
-        {
-            state.borrow_mut().last_player_closed_with_history |= player_was_visible;
-            crate::platform::browser_activation::show_idle_menu();
-        }
         return;
     }
     finish_empty_application(state, quit_when_empty, from_welcome);
 }
 
+#[cfg(target_os = "macos")]
 fn finish_after_history_close(state: &Rc<RefCell<ManagerState>>) {
-    #[cfg(target_os = "macos")]
+    finish_after_auxiliary_close(state);
+}
+
+#[cfg(target_os = "macos")]
+fn finish_after_auxiliary_close(state: &Rc<RefCell<ManagerState>>) {
     let should_check_quit = {
         let mut state = state.borrow_mut();
-        std::mem::take(&mut state.last_player_closed_with_history)
+        if state.quitting {
+            return;
+        }
+        if !state.players.is_empty() {
+            state.last_player_closed_with_tools = false;
+            return;
+        }
+        if state.services.auxiliary_is_visible() {
+            return;
+        }
+        std::mem::take(&mut state.last_player_closed_with_tools)
             && state.opening_documents == 0
             && !state.open_panel_visible
     };
-    if !state.borrow().players.is_empty() {
-        return;
-    }
-    // A History window opened before any player is an application tool. Only a
-    // preceding player closure defers the macOS quit-on-last-player decision.
-    #[cfg(target_os = "macos")]
+    // An application tool opened before playback does not imply a player was closed.
     if !should_check_quit {
         crate::platform::browser_activation::show_idle_menu();
         return;
     }
+    finish_after_last_player(state);
+}
+
+#[cfg(not(target_os = "macos"))]
+fn finish_after_history_close(state: &Rc<RefCell<ManagerState>>) {
+    if state.borrow().players.is_empty() {
+        finish_after_last_player(state);
+    }
+}
+
+fn finish_after_last_player(state: &Rc<RefCell<ManagerState>>) {
     let quit = crate::platform::preferences_path()
         .ok()
         .and_then(|path| crate::preference_load::load(&path).ok())

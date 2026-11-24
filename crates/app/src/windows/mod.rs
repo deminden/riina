@@ -1,4 +1,5 @@
 pub(crate) mod about_window;
+mod close_observer;
 pub(crate) mod crop_editor;
 pub(crate) mod font_picker;
 pub(crate) mod log_viewer;

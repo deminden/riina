@@ -4,6 +4,7 @@ mod reader;
 mod selection;
 mod view;
 
+use super::close_observer::CloseObserver;
 use crate::{LogViewerWindow, PlayerWindow};
 use riina_core::advanced_preferences::LogLevel;
 use riina_ui::PlayerMenuActions;
@@ -17,6 +18,7 @@ const REFRESH_INTERVAL: Duration = Duration::from_millis(500);
 pub(crate) struct ApplicationLogViewer {
     session: RefCell<Option<Session>>,
     timer: Rc<Timer>,
+    pub(crate) closed: CloseObserver,
 }
 
 #[derive(Clone)]
@@ -38,16 +40,16 @@ impl ApplicationLogViewer {
         app.global::<PlayerMenuActions>()
             .on_show_log_viewer(move || {
                 if let Some(app) = source.upgrade()
-                    && let Err(error) = owner.show(&app, &preferences, level)
+                    && let Err(error) = owner.show(Some(&app), &preferences, level)
                 {
                     crate::diagnostics::report(&app, format!("Could not show Log Viewer: {error}"));
                 }
             });
     }
 
-    fn show(
-        &self,
-        app: &PlayerWindow,
+    pub(crate) fn show(
+        self: &Rc<Self>,
+        app: Option<&PlayerWindow>,
         preferences: &Path,
         level: LogLevel,
     ) -> Result<(), slint::PlatformError> {
@@ -65,9 +67,11 @@ impl ApplicationLogViewer {
             });
             let view = Rc::new(RefCell::new(View::new(&window, preferences)));
             bind(&window, &view, preferences);
-            crate::platform::center_auxiliary_window(window.as_ref(), app);
+            if let Some(app) = app {
+                crate::platform::center_auxiliary_window(window.as_ref(), app);
+            }
             let window_ref = window.as_weak();
-            let timer = Rc::downgrade(&self.timer);
+            let owner = Rc::downgrade(self);
             window.window().on_close_requested(move || {
                 if window_ref
                     .upgrade()
@@ -75,8 +79,9 @@ impl ApplicationLogViewer {
                 {
                     return CloseRequestResponse::KeepWindowShown;
                 }
-                if let Some(timer) = timer.upgrade() {
-                    timer.stop();
+                if let Some(owner) = owner.upgrade() {
+                    owner.timer.stop();
+                    owner.closed.notify();
                 }
                 CloseRequestResponse::HideWindow
             });
@@ -100,6 +105,22 @@ impl ApplicationLogViewer {
             });
         }
         Ok(())
+    }
+
+    #[cfg(target_os = "macos")]
+    pub(crate) fn is_visible(&self) -> bool {
+        self.session
+            .borrow()
+            .as_ref()
+            .is_some_and(|session| session.window.window().is_visible())
+    }
+
+    #[cfg(target_os = "macos")]
+    pub(crate) fn hide(&self) {
+        self.timer.stop();
+        if let Some(session) = self.session.borrow().as_ref() {
+            let _ = session.window.hide();
+        }
     }
 }
 
