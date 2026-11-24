@@ -196,6 +196,21 @@ Run the focused extension regressions with Node.js 22 or newer.
 The packaging workflow runs the suite once on Linux. The full local gate
 requires Node.js, and the fast gate runs these checks for browser changes.
 
+## Interface translations
+
+Slint bundles the `riina-ui.po` catalogs from
+`crates/ui/translations/<locale>/LC_MESSAGES/`. At startup the interface selects
+a matching system language and falls back to the English message when a translation is
+unavailable. Use `@tr` for complete messages and keep placeholders in the
+translation so that words and arguments can be reordered. Slint uses the
+catalog's plural rules for translated counts.
+
+Russian and Arabic cover interface labels in Welcome, Open URL, Playback
+History, Log Viewer, About and the audio and video filter windows. Main menus,
+Settings, player controls, technical filter labels and some runtime messages
+still need translations. The widget suite checks localized actions, plural
+forms, mixed-direction text and a long label in a narrow dialog.
+
 ## Checks
 
 Group related edits before running `cargo xtask check --fast`. It checks
@@ -203,10 +218,10 @@ formatting and source line lengths, then lints and tests the crates with staged,
 unstaged or untracked changes. Source changes in the core or playback engine
 also check the workspace crates that use them. Test-only edits stay scoped to
 their crate. Slint and Settings search changes check navigation. Edits to
-UI source, headless widget tests, or both run the interaction and visual tests
-together. Linting includes the libraries and both test targets. Batches that
-also change application source run the app unit tests. Edits limited to visual
-tests or their baselines stay scoped to the UI crate. Browser source and test
+UI source, translation catalogs or headless widget tests run the interaction and
+visual tests together. Linting includes the libraries and both test targets.
+Batches that also change application source run the app unit tests. Edits limited
+to visual tests or their baselines stay scoped to the UI crate. Browser source and test
 changes select the JavaScript suite. Packaging scripts and workflow changes
 select the Python suite. Shared build inputs, test helpers and media fixtures
 select workspace-wide linting and tests. Asset provenance edits run asset

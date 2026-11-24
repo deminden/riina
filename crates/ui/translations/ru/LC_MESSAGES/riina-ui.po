@@ -1,0 +1,357 @@
+# Riina interface translations.
+msgid ""
+msgstr ""
+"Language: ru\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Plural-Forms: nplurals=3; plural=(n%10==1 && n%100!=11 ? 0 : n%10>=2 && n%10<=4 && (n%100<12 || n%100>14) ? 1 : 2);\n"
+
+msgid "About Riina"
+msgstr "О Riina"
+
+msgid "Add Audio Filter"
+msgstr "Добавить аудиофильтр"
+
+msgid "Add Video Filter"
+msgstr "Добавить видеофильтр"
+
+msgid "All Levels"
+msgstr "Все уровни"
+
+msgid "All Subsystems"
+msgstr "Все подсистемы"
+
+msgid "Apply"
+msgstr "Применить"
+
+msgid "Audio Filters"
+msgstr "Аудиофильтры"
+
+msgid "Browse…"
+msgstr "Обзор…"
+
+msgid "Cancel"
+msgstr "Отмена"
+
+msgid "Cannot open this file or stream."
+msgstr "Не удалось открыть файл или поток."
+
+msgid "Checking FFmpeg version…"
+msgstr "Проверяется версия FFmpeg…"
+
+msgid "Checking libmpv version…"
+msgstr "Проверяется версия libmpv…"
+
+msgid "Choose a preset to configure its parameters"
+msgstr "Выберите предустановку для настройки параметров"
+
+msgid "Choose Preset…"
+msgstr "Выбрать предустановку…"
+
+msgid "Clear"
+msgstr "Сбросить"
+
+msgid "Clear History"
+msgstr "Очистить историю"
+
+msgid "Clear Selections"
+msgstr "Сбросить выбор"
+
+msgid "Collapse All"
+msgstr "Свернуть всё"
+
+msgid "Contributors"
+msgstr "Участники"
+
+msgid "Copy"
+msgstr "Копировать"
+
+msgid "Credits"
+msgstr "Благодарности"
+
+msgid "Current Audio Filters"
+msgstr "Текущие аудиофильтры"
+
+msgid "Current Video Filters"
+msgstr "Текущие видеофильтры"
+
+msgid "Date"
+msgstr "Дата"
+
+msgid "Debug"
+msgstr "Отладка"
+
+msgid "Edit"
+msgstr "Изменить"
+
+msgid "Enter a valid stream URL"
+msgstr "Введите действительный URL потока"
+
+msgid "Error"
+msgstr "Ошибка"
+
+msgid "Expand All"
+msgstr "Развернуть всё"
+
+msgid "Fatal"
+msgstr "Критический"
+
+msgid "FFmpeg version unavailable"
+msgstr "Версия FFmpeg недоступна"
+
+msgid "Filename"
+msgstr "Имя файла"
+
+msgid "Filter name"
+msgstr "Имя фильтра"
+
+msgid "Folder & Website"
+msgstr "Папка и сайт"
+
+msgid "Follow Latest"
+msgstr "Следить за журналом"
+
+msgid "Full Path"
+msgstr "Полный путь"
+
+msgid "HTTP Authentication"
+msgstr "Аутентификация HTTP"
+
+msgid "Info"
+msgstr "Сведения"
+
+msgid "Level"
+msgstr "Уровень"
+
+msgid "libmpv version unavailable"
+msgstr "Версия libmpv недоступна"
+
+msgid "License"
+msgstr "Лицензия"
+
+msgid "Loading Media…"
+msgstr "Загрузка медиа…"
+
+msgid "Log Viewer"
+msgstr "Журнал"
+
+msgid "Media"
+msgstr "Медиа"
+
+msgid "Media URL"
+msgstr "URL медиа"
+
+msgid "Message"
+msgstr "Сообщение"
+
+msgid "Move to Trash…"
+msgstr "Переместить в корзину…"
+
+msgid "mpv filter string"
+msgstr "Строка фильтра mpv"
+
+msgid "No active audio filters"
+msgstr "Нет активных аудиофильтров"
+
+msgid "No active video filters"
+msgstr "Нет активных видеофильтров"
+
+msgid "No matching history"
+msgstr "В истории ничего не найдено"
+
+msgid "No matching log entries"
+msgstr "Подходящих записей в журнале нет"
+
+msgid "No playback history"
+msgstr "История воспроизведения пуста"
+
+msgid "No saved filters"
+msgstr "Нет сохранённых фильтров"
+
+msgid "No Shortcut"
+msgstr "Без сочетания"
+
+msgid "OK"
+msgstr "ОК"
+
+msgid "Open"
+msgstr "Открыть"
+
+msgid "Open a media file"
+msgstr "Открыть медиафайл"
+
+msgid "Open File…"
+msgstr "Открыть файл…"
+
+msgid "Open Folder"
+msgstr "Открыть папку"
+
+msgid "Open media from a URL"
+msgstr "Открыть медиа по ссылке"
+
+msgid "Open media to use active filters"
+msgstr "Откройте медиа для применения фильтров"
+
+msgid "Open URL"
+msgstr "Открытие URL"
+
+msgid "Open URL…"
+msgstr "Открыть URL…"
+
+msgid "Original Riina source is MIT-licensed. The combined application package is distributed under GPLv3."
+msgstr "Исходный код Riina распространяется по лицензии MIT. Собранный пакет приложения распространяется по лицензии GPLv3."
+
+msgid "Password"
+msgstr "Пароль"
+
+msgid "Play"
+msgstr "Воспроизвести"
+
+msgid "Play in New Window"
+msgstr "Воспроизвести в новом окне"
+
+msgid "Playback History"
+msgstr "История воспроизведения"
+
+msgid "Played At"
+msgstr "Дата и время просмотра"
+
+msgid "Please enter the URL here…"
+msgstr "Введите URL…"
+
+msgid "Press a shortcut…"
+msgstr "Нажмите сочетание клавиш…"
+
+msgid "Progress"
+msgstr "Ход просмотра"
+
+msgid "Project Website"
+msgstr "Сайт проекта"
+
+msgid "Reading FFmpeg version…"
+msgstr "Чтение версии FFmpeg…"
+
+msgid "Reading libmpv version…"
+msgstr "Чтение версии libmpv…"
+
+msgid "Recent History searches"
+msgstr "Недавние запросы в истории"
+
+msgid "Recent Searches"
+msgstr "Недавние поиски"
+
+msgid "Refresh"
+msgstr "Обновить"
+
+msgid "Remember username and password for this host"
+msgstr "Запомнить имя пользователя и пароль для этого сервера"
+
+msgid "Remove"
+msgstr "Удалить"
+
+msgid "Remove from History"
+msgstr "Удалить из истории"
+
+msgid "Resume"
+msgstr "Продолжить"
+
+msgid "Resume {0}, {1}"
+msgstr "Продолжить {0}, {1}"
+
+msgid "Riina is an independent Rust media player built around libmpv, Slint, and other open-source dependencies."
+msgstr "Riina — независимый медиапроигрыватель на Rust, использующий libmpv, Slint и другие библиотеки с открытым исходным кодом."
+
+msgid "Save"
+msgstr "Сохранить"
+
+msgid "Save All"
+msgstr "Сохранить всё"
+
+msgid "Save Changes"
+msgstr "Сохранить изменения"
+
+msgid "Save Filter"
+msgstr "Сохранить фильтр"
+
+msgid "Save Filtered"
+msgstr "Сохранить отбор"
+
+msgid "Saved Audio Filters"
+msgstr "Сохранённые аудиофильтры"
+
+msgid "Saved name"
+msgstr "Имя для сохранения"
+
+msgid "Saved Video Filters"
+msgstr "Сохранённые видеофильтры"
+
+msgid "Search History"
+msgstr "Поиск в истории"
+
+msgid "Search in"
+msgstr "Область поиска"
+
+msgid "Search logs"
+msgstr "Поиск в журнале"
+
+msgid "Search playback history"
+msgstr "Поиск в истории воспроизведения"
+
+msgid "See the project contributor graph for the people and accounts that have contributed to Riina."
+msgstr "Имена и учётные записи участников Riina указаны в списке участников проекта."
+
+msgid "Show in File Manager"
+msgstr "Показать в файловом менеджере"
+
+msgid "Stop Loading"
+msgstr "Остановить загрузку"
+
+msgid "Subsystem"
+msgstr "Подсистема"
+
+msgid "The player window closed. Open this dialog from another player."
+msgstr "Окно проигрывателя закрыто. Откройте диалог в другом окне проигрывателя."
+
+msgid "Time"
+msgstr "Время"
+
+msgid "Toggle"
+msgstr "Вкл. / выкл."
+
+msgid "Trace"
+msgstr "Трассировка"
+
+msgid "Username"
+msgstr "Имя пользователя"
+
+msgid "Verbose"
+msgstr "Подробный"
+
+msgid "Version {}"
+msgstr "Версия {}"
+
+msgid "Video Filters"
+msgstr "Видеофильтры"
+
+msgid "View Contributors"
+msgstr "Посмотреть участников"
+
+msgid "View License"
+msgstr "Посмотреть лицензию"
+
+msgid "Warning"
+msgstr "Предупреждение"
+
+msgid "{n} Subsystem"
+msgid_plural "{n} Subsystems"
+msgstr[0] "{n} подсистема"
+msgstr[1] "{n} подсистемы"
+msgstr[2] "{n} подсистем"
+
+msgid "Clear Recents"
+msgstr "Очистить список"
+
+msgid "No log files are available"
+msgstr "Файлы журнала недоступны"
+
+msgid "{0} of {1} log entries"
+msgstr "{0} из {1} записей журнала"

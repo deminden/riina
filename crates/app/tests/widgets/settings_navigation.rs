@@ -138,6 +138,7 @@ fn settings_switch_and_disclosure_activate_on_first_click() -> Result<(), Box<dy
 fn welcome_actions_accept_first_pointer_clicks() -> Result<(), Box<dyn Error>> {
     i_slint_backend_testing::init_no_event_loop();
     let welcome = WelcomeWindow::new()?;
+    slint::select_bundled_translation("en")?;
     let file_requests = Rc::new(Cell::new(0));
     let recorded = file_requests.clone();
     welcome.on_open_file(move || recorded.set(recorded.get() + 1));

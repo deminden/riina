@@ -3,7 +3,7 @@ import { NativeTypography } from "shared-controls.slint";
 import { Theme } from "theme.slint";
 
 export component OpenUrlWindow inherits Window {
-    title: "Open URL";
+    title: @tr("Open URL");
     icon: @image-url("../../../assets/branding/svg/riina-app-icon-dark.svg");
     preferred-width: 576px;
     preferred-height: 270px;
@@ -18,6 +18,9 @@ export component OpenUrlWindow inherits Window {
     in property <bool> loading;
     in property <bool> authentication-available;
     in property <string> message;
+    out property <string> invalid-address-message: @tr("Enter a valid stream URL");
+    out property <string> closed-player-message: @tr("The player window closed. Open this dialog from another player.");
+    out property <string> failed-stream-message: @tr("Cannot open this file or stream.");
     in-out property <string> address;
     in-out property <string> username;
     in-out property <string> password;
@@ -43,11 +46,11 @@ export component OpenUrlWindow inherits Window {
         }
 
         VerticalLayout {
-            padding: 20px;
-            spacing: 10px;
+            padding: 14px;
+            spacing: 7px;
             visible: !root.loading;
             Text {
-                text: "Open URL";
+                text: @tr("Open URL");
                 font-size: 17px;
                 font-weight: 600;
                 color: Theme.about-title(root.dark-theme);
@@ -62,8 +65,8 @@ export component OpenUrlWindow inherits Window {
                 }
                 stream := LineEdit {
                     text <=> root.address;
-                    placeholder-text: "Please enter the URL here…";
-                    accessible-label: "Media URL";
+                    placeholder-text: @tr("Please enter the URL here…");
+                    accessible-label: @tr("Media URL");
                     accepted => { if root.valid-address { root.submit(); } }
                 }
             }
@@ -76,7 +79,7 @@ export component OpenUrlWindow inherits Window {
             VerticalLayout {
                 spacing: 6px;
                 Text {
-                    text: "HTTP Authentication";
+                    text: @tr("HTTP Authentication");
                     font-weight: 600;
                     color: Theme.about-summary-detail(root.dark-theme);
                 }
@@ -84,32 +87,55 @@ export component OpenUrlWindow inherits Window {
                     spacing: 8px;
                     LineEdit {
                         enabled: root.authentication-available;
-                        placeholder-text: "Username";
-                        accessible-label: "Username";
+                        placeholder-text: @tr("Username");
+                        accessible-label: @tr("Username");
                         text <=> root.username;
                         accepted => { if root.valid-address { root.submit(); } }
                     }
                     LineEdit {
                         enabled: root.authentication-available;
-                        placeholder-text: "Password";
-                        accessible-label: "Password";
+                        placeholder-text: @tr("Password");
+                        accessible-label: @tr("Password");
                         input-type: InputType.password;
                         text <=> root.password;
                         accepted => { if root.valid-address { root.submit(); } }
                     }
                 }
-                CheckBox {
-                    enabled: root.authentication-available;
-                    text: "Remember username and password for this host";
-                    checked <=> root.remember;
+                HorizontalLayout {
+                    spacing: 12px;
+                    remember-choice := CheckBox {
+                        enabled: root.authentication-available;
+                        accessible-label: remember-caption.text;
+                        checked <=> root.remember;
+                        horizontal-stretch: 0;
+                    }
+                    Rectangle {
+                        horizontal-stretch: 1;
+                        min-height: remember-caption.preferred-height;
+                        remember-caption := Text {
+                            width: parent.width; height: parent.height;
+                            text: @tr("Remember username and password for this host");
+                            color: root.authentication-available ? Palette.foreground : Palette.foreground.with-alpha(0.56);
+                            vertical-alignment: center;
+                            wrap: word-wrap;
+                            accessible-role: none;
+                        }
+                        TouchArea {
+                            enabled: root.authentication-available;
+                            clicked => {
+                                remember-choice.focus();
+                                root.remember = !root.remember;
+                            }
+                        }
+                    }
                 }
             }
             Rectangle { vertical-stretch: 1; }
             HorizontalLayout {
                 spacing: 8px;
                 Rectangle { horizontal-stretch: 1; }
-                Button { text: "Cancel"; clicked => { root.cancel(); } }
-                Button { text: "Open"; enabled: root.valid-address; clicked => { root.submit(); } }
+                Button { text: @tr("Cancel"); clicked => { root.cancel(); } }
+                Button { text: @tr("Open"); enabled: root.valid-address; clicked => { root.submit(); } }
             }
         }
 
@@ -119,7 +145,7 @@ export component OpenUrlWindow inherits Window {
             alignment: center;
             visible: root.loading;
             Text {
-                text: "Loading Media…";
+                text: @tr("Loading Media…");
                 horizontal-alignment: center;
                 font-size: 17px;
                 color: Theme.about-title(root.dark-theme);
@@ -127,7 +153,7 @@ export component OpenUrlWindow inherits Window {
             ProgressIndicator { indeterminate: true; }
             HorizontalLayout {
                 alignment: center;
-                stop-button := Button { text: "Stop Loading"; clicked => { root.stop(); } }
+                stop-button := Button { text: @tr("Stop Loading"); clicked => { root.stop(); } }
             }
         }
     }

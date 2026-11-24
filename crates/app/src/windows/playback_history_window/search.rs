@@ -107,14 +107,14 @@ impl Recents {
     }
 
     fn show_in(&self, window: &PlaybackHistoryWindow) {
-        let mut labels = vec![SharedString::from("Recent Searches")];
+        let mut labels = vec![window.get_recent_searches_title()];
         if !self.queries.is_empty() {
             labels.extend(
                 self.queries
                     .iter()
                     .map(|query| SharedString::from(query.as_str())),
             );
-            labels.push("Clear Recents".into());
+            labels.push(window.get_clear_recents_title());
         }
         window.set_recent_searches(ModelRc::new(VecModel::from(labels)));
     }

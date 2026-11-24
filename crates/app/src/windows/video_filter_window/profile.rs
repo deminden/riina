@@ -22,6 +22,7 @@ pub(crate) enum Kind {
 }
 
 impl Kind {
+    #[cfg(target_os = "macos")]
     pub(crate) fn title(self) -> &'static str {
         match self {
             Self::Video => "Video Filters",

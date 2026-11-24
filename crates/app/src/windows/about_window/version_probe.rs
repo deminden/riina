@@ -2,6 +2,7 @@ use super::{ApplicationAbout, refresh_engine_versions, reveal};
 use crate::{AboutWindow, background};
 use riina_core::{Playback, Preferences};
 use riina_mpv::EngineVersions;
+use riina_ui::EngineVersionStatus;
 use slint::{ComponentHandle, winit_030::WinitWindowAccessor};
 use std::{
     cell::{Cell, RefCell},
@@ -73,8 +74,7 @@ impl ApplicationAbout {
             Err(error) => {
                 crate::diagnostics::warn!("Could not read engine versions: {error}");
                 if let Some(window) = application_view {
-                    window.set_engine_label("libmpv version unavailable".into());
-                    window.set_ffmpeg_label("FFmpeg version unavailable".into());
+                    window.set_engine_version_status(EngineVersionStatus::Unavailable);
                 }
             }
         }
@@ -96,6 +96,6 @@ async fn read_versions() -> Result<EngineVersions, String> {
 }
 
 fn show_versions(window: &AboutWindow, versions: &EngineVersions) {
-    window.set_engine_label(format!("libmpv {}", versions.mpv).into());
-    window.set_ffmpeg_label(format!("FFmpeg {}", versions.ffmpeg).into());
+    window.set_engine_version(versions.mpv.as_str().into());
+    window.set_ffmpeg_version(versions.ffmpeg.as_str().into());
 }

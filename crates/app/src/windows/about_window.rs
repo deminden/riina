@@ -4,7 +4,7 @@ mod version_probe;
 use super::close_observer::CloseObserver;
 use crate::{AboutWindow, PlayerWindow};
 use riina_core::{Phase, Playback};
-use riina_ui::PlayerMenuActions;
+use riina_ui::{EngineVersionStatus, PlayerMenuActions};
 use slint::{CloseRequestResponse, ComponentHandle, winit_030::WinitWindowAccessor};
 use std::{cell::RefCell, rc::Rc, time::Duration};
 
@@ -73,7 +73,7 @@ impl ApplicationAbout {
         }
         let window = AboutWindow::new()?;
         crate::appearance_preferences::install_system_typography(&window);
-        window.set_version_label(format!("Version {}", env!("CARGO_PKG_VERSION")).into());
+        window.set_app_version(env!("CARGO_PKG_VERSION").into());
         connect_links(&window);
         if let Some(app) = app {
             crate::platform::center_auxiliary_window(&window, app);
@@ -118,32 +118,21 @@ fn reveal(window: &AboutWindow) -> Result<(), slint::PlatformError> {
 }
 
 fn refresh_engine_versions(window: &AboutWindow, playback: &Playback) -> bool {
-    let (engine, ffmpeg) = engine_version_labels(playback);
-    window.set_engine_label(engine.into());
-    window.set_ffmpeg_label(ffmpeg.into());
+    let status = if playback.phase == Phase::Stopped {
+        EngineVersionStatus::Checking
+    } else {
+        EngineVersionStatus::Reading
+    };
+    window.set_engine_version_status(status);
+    window.set_engine_version(playback.mpv_version.as_deref().unwrap_or_default().into());
+    window.set_ffmpeg_version(
+        playback
+            .ffmpeg_version
+            .as_deref()
+            .unwrap_or_default()
+            .into(),
+    );
     playback.mpv_version.is_some() && playback.ffmpeg_version.is_some()
-}
-
-fn engine_version_labels(playback: &Playback) -> (String, String) {
-    let engine_pending = if playback.phase == Phase::Stopped {
-        "Checking libmpv version…"
-    } else {
-        "Reading libmpv version…"
-    };
-    let ffmpeg_pending = if playback.phase == Phase::Stopped {
-        "Checking FFmpeg version…"
-    } else {
-        "Reading FFmpeg version…"
-    };
-    let engine = playback.mpv_version.as_ref().map_or_else(
-        || engine_pending.to_owned(),
-        |version| format!("libmpv {version}"),
-    );
-    let ffmpeg = playback.ffmpeg_version.as_ref().map_or_else(
-        || ffmpeg_pending.to_owned(),
-        |version| format!("FFmpeg {version}"),
-    );
-    (engine, ffmpeg)
 }
 
 fn connect_links(window: &AboutWindow) {
@@ -228,42 +217,28 @@ mod tests {
     }
 
     #[test]
-    fn about_explains_engine_version_is_still_pending() {
-        assert_eq!(
-            engine_version_labels(&Playback::default()),
-            (
-                "Checking libmpv version…".to_owned(),
-                "Checking FFmpeg version…".to_owned()
-            )
-        );
-    }
+    fn about_shows_available_versions_and_explains_pending_ones()
+    -> Result<(), Box<dyn std::error::Error>> {
+        i_slint_backend_testing::init_no_event_loop();
+        let window = AboutWindow::new()?;
+        slint::select_bundled_translation("en")?;
+        assert!(!refresh_engine_versions(&window, &Playback::default()));
+        assert_eq!(window.get_engine_label(), "Checking libmpv version…");
+        assert_eq!(window.get_ffmpeg_label(), "Checking FFmpeg version…");
 
-    #[test]
-    fn about_shows_pending_versions_while_media_loads() {
-        let playback = Playback {
+        let mut playback = Playback {
             phase: Phase::Loading,
-            ..Playback::default()
-        };
-        assert_eq!(
-            engine_version_labels(&playback),
-            (
-                "Reading libmpv version…".to_owned(),
-                "Reading FFmpeg version…".to_owned()
-            )
-        );
-    }
-
-    #[test]
-    fn about_formats_reported_engine_versions() {
-        let playback = Playback {
             mpv_version: Some("0.40.0".into()),
-            ffmpeg_version: Some("7.1".into()),
             ..Playback::default()
         };
-        assert_eq!(
-            engine_version_labels(&playback),
-            ("libmpv 0.40.0".to_owned(), "FFmpeg 7.1".to_owned())
-        );
+        assert!(!refresh_engine_versions(&window, &playback));
+        assert_eq!(window.get_engine_label(), "libmpv 0.40.0");
+        assert_eq!(window.get_ffmpeg_label(), "Reading FFmpeg version…");
+
+        playback.ffmpeg_version = Some("7.1".into());
+        assert!(refresh_engine_versions(&window, &playback));
+        assert_eq!(window.get_ffmpeg_label(), "FFmpeg 7.1");
+        Ok(())
     }
 }
 

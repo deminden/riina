@@ -85,14 +85,10 @@ impl View {
             self.project_selection(window);
             window.invoke_logs_changed();
         }
-        let status = if let Some(error) = &self.last_error {
-            error.clone()
-        } else if !self.logs.available() {
-            "No log files are available".into()
-        } else {
-            format!("{} of {total} log entries", self.ids.len())
-        };
-        window.set_status_text(status.into());
+        window.set_read_error(self.last_error.as_deref().unwrap_or_default().into());
+        window.set_logs_available(self.logs.available());
+        window.set_visible_entry_count(i32::try_from(self.ids.len()).unwrap_or(i32::MAX));
+        window.set_total_entry_count(i32::try_from(total).unwrap_or(i32::MAX));
     }
 
     fn update_subsystems(&self, window: &LogViewerWindow, names: BTreeSet<&str>) {

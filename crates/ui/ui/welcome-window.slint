@@ -79,13 +79,13 @@ component ResumeMediaEntry inherits Rectangle {
     border-radius: 4px;
     background: Theme.welcome-resume-surface(selected, touch.has-hover);
     accessible-role: button;
-    accessible-label: "Resume " + root.media-title + ", " + root.position-label;
+    accessible-label: @tr("Resume {0}, {1}", root.media-title, root.position-label);
     accessible-action-default => { root.activated(); }
     HorizontalLayout {
         padding-left: 10px; padding-right: 10px; spacing: 6px;
         Image { source: @image-url("../../../assets/icons/resume-history.svg");
             width: 16px; height: 16px; }
-        Text { text: "Resume"; color: Theme.welcome-history-title; font-size: 12px;
+        Text { text: @tr("Resume"); color: Theme.welcome-history-title; font-size: 12px;
             vertical-alignment: center; }
         Text { text: root.media-title; color: Theme.welcome-history-title; font-size: 12px;
             vertical-alignment: center; overflow: elide; horizontal-stretch: 1; }
@@ -146,14 +146,14 @@ export component WelcomeWindow inherits Window {
                 VerticalLayout {
                     alignment: center; spacing: 3px;
                     Text { text: "Riina"; color: Theme.welcome-title; font-size: 20px; font-weight: 700; }
-                    Text { text: "Version " + root.app-version; color: Theme.welcome-version; font-size: 11px; }
+                    Text { text: @tr("Version {}", root.app-version); color: Theme.welcome-version; font-size: 11px; }
                 }
                 Rectangle { horizontal-stretch: 1; }
                 HorizontalLayout {
                     alignment: center; spacing: 12px;
-                    WelcomeAction { label: "Open File…"; hint: "Open a media file";
+                    WelcomeAction { label: @tr("Open File…"); hint: @tr("Open a media file");
                         activated => { root.open-file(); } }
-                    WelcomeAction { label: "Open URL…"; hint: "Open media from a URL";
+                    WelcomeAction { label: @tr("Open URL…"); hint: @tr("Open media from a URL");
                         activated => { root.open-url(); } }
                 }
             }

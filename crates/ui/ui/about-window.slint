@@ -2,9 +2,11 @@ import { Theme } from "theme.slint";
 import { Button } from "std-widgets.slint";
 import { NativeTypography } from "shared-controls.slint";
 
+export enum EngineVersionStatus { checking, reading, unavailable }
+
 export component AboutWindow inherits Window {
     default-font-family: NativeTypography.system-font-family;
-    title: "About Riina";
+    title: @tr("About Riina");
     width: 640px;
     height: 400px;
     in-out property <bool> acrylic-backdrop-enabled: false;
@@ -12,9 +14,18 @@ export component AboutWindow inherits Window {
     // content rectangle below supplies the opaque fallback until DWM accepts
     // Desktop Acrylic.
     background: transparent;
-    in property <string> version-label: "Version";
-    in property <string> engine-label: "Checking libmpv version…";
-    in property <string> ffmpeg-label: "Checking FFmpeg version…";
+    in property <string> app-version;
+    in property <string> engine-version;
+    in property <string> ffmpeg-version;
+    in property <EngineVersionStatus> engine-version-status: EngineVersionStatus.checking;
+    out property <string> engine-label: !root.engine-version.is-empty ? "libmpv " + root.engine-version
+        : root.engine-version-status == EngineVersionStatus.unavailable ? @tr("libmpv version unavailable")
+        : root.engine-version-status == EngineVersionStatus.reading ? @tr("Reading libmpv version…")
+        : @tr("Checking libmpv version…");
+    out property <string> ffmpeg-label: !root.ffmpeg-version.is-empty ? "FFmpeg " + root.ffmpeg-version
+        : root.engine-version-status == EngineVersionStatus.unavailable ? @tr("FFmpeg version unavailable")
+        : root.engine-version-status == EngineVersionStatus.reading ? @tr("Reading FFmpeg version…")
+        : @tr("Checking FFmpeg version…");
     in property <bool> dark-theme: false;
     in-out property <int> selected-tab: 0;
     in property <string> link-status;
@@ -46,16 +57,16 @@ export component AboutWindow inherits Window {
                     }
                     Text { text: "Riina"; font-size: 30px; font-weight: 300;
                         color: Theme.about-title(root.dark-theme); horizontal-alignment: center; }
-                    Text { text: root.version-label; font-size: 12px;
+                    Text { text: @tr("Version {}", root.app-version); font-size: 12px;
                         color: Theme.about-summary-detail(root.dark-theme); horizontal-alignment: center; }
                     Text { text: root.engine-label; font-size: 11px;
                         color: Theme.about-summary-detail(root.dark-theme); horizontal-alignment: center; }
                     Text { text: root.ffmpeg-label; font-size: 10px;
                         color: Theme.about-summary-detail(root.dark-theme); horizontal-alignment: center; }
                     Rectangle { height: 12px; background: transparent; }
-                    Button { text: "License"; clicked => { root.selected-tab = 0; } }
-                    Button { text: "Contributors"; clicked => { root.selected-tab = 1; } }
-                    Button { text: "Credits"; clicked => { root.selected-tab = 2; } }
+                    Button { text: @tr("License"); clicked => { root.selected-tab = 0; } }
+                    Button { text: @tr("Contributors"); clicked => { root.selected-tab = 1; } }
+                    Button { text: @tr("Credits"); clicked => { root.selected-tab = 2; } }
                 }
             }
             Rectangle {
@@ -67,33 +78,33 @@ export component AboutWindow inherits Window {
                     spacing: 14px;
                     if root.selected-tab == 0 : VerticalLayout {
                         spacing: 14px;
-                        Text { text: "License"; font-size: 20px; font-weight: 600;
+                        Text { text: @tr("License"); font-size: 20px; font-weight: 600;
                             color: Theme.about-title(root.dark-theme); }
                         Text {
-                            text: "Original Riina source is MIT-licensed. The combined application package is distributed under GPLv3.";
+                            text: @tr("Original Riina source is MIT-licensed. The combined application package is distributed under GPLv3.");
                             font-size: 13px; color: Theme.about-body(root.dark-theme); wrap: word-wrap;
                         }
-                        Button { text: "View License"; clicked => { root.open-license(); } }
+                        Button { text: @tr("View License"); clicked => { root.open-license(); } }
                     }
                     if root.selected-tab == 1 : VerticalLayout {
                         spacing: 14px;
-                        Text { text: "Contributors"; font-size: 20px; font-weight: 600;
+                        Text { text: @tr("Contributors"); font-size: 20px; font-weight: 600;
                             color: Theme.about-title(root.dark-theme); }
                         Text {
-                            text: "See the project contributor graph for the people and accounts that have contributed to Riina.";
+                            text: @tr("See the project contributor graph for the people and accounts that have contributed to Riina.");
                             font-size: 13px; color: Theme.about-body(root.dark-theme); wrap: word-wrap;
                         }
-                        Button { text: "View Contributors"; clicked => { root.open-contributors(); } }
+                        Button { text: @tr("View Contributors"); clicked => { root.open-contributors(); } }
                     }
                     if root.selected-tab == 2 : VerticalLayout {
                         spacing: 14px;
-                        Text { text: "Credits"; font-size: 20px; font-weight: 600;
+                        Text { text: @tr("Credits"); font-size: 20px; font-weight: 600;
                             color: Theme.about-title(root.dark-theme); }
                         Text {
-                            text: "Riina is an independent Rust media player built around libmpv, Slint, and other open-source dependencies.";
+                            text: @tr("Riina is an independent Rust media player built around libmpv, Slint, and other open-source dependencies.");
                             font-size: 13px; color: Theme.about-body(root.dark-theme); wrap: word-wrap;
                         }
-                        Button { text: "Project Website"; clicked => { root.open-project(); } }
+                        Button { text: @tr("Project Website"); clicked => { root.open-project(); } }
                     }
                     if !root.link-status.is-empty : Text {
                         text: root.link-status;

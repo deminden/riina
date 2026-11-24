@@ -48,15 +48,13 @@ impl Slot {
                 let window = VideoFiltersWindow::new().map_err(|error| error.to_string())?;
                 crate::appearance_preferences::install_system_typography(&window);
                 window.set_is_audio(matches!(kind, Kind::Audio));
-                window.set_window_title(kind.title().into());
                 let presets = match kind {
                     Kind::Video => &video_filters::PRESET_LABELS[..],
                     Kind::Audio => &video_filters::AUDIO_PRESET_LABELS[..],
                 };
                 window.set_presets(ModelRc::new(VecModel::from(
-                    std::iter::once("Choose Preset…")
-                        .chain(presets.iter().copied())
-                        .map(slint::SharedString::from)
+                    std::iter::once(window.get_preset_prompt())
+                        .chain(presets.iter().copied().map(slint::SharedString::from))
                         .collect::<Vec<_>>(),
                 )));
                 if let Some(anchor) = anchor {

@@ -53,7 +53,7 @@ export component ConfirmationSheet inherits FocusScope {
                 spacing: 8px;
                 Rectangle { horizontal-stretch: 1; }
                 cancel := Button {
-                    text: root.acknowledgement-only ? "OK" : "Cancel";
+                    text: root.acknowledgement-only ? @tr("OK") : @tr("Cancel");
                     clicked => { root.answered(false); }
                 }
                 proceed := Button {

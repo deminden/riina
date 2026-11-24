@@ -250,7 +250,7 @@ impl ApplicationOpenUrl {
         let draft = window.get_address();
         let address = stream_address(draft.as_str());
         window.set_message(if address.is_err() && !draft.trim().is_empty() {
-            "Enter a valid stream URL".into()
+            window.get_invalid_address_message()
         } else {
             "".into()
         });
@@ -285,9 +285,7 @@ impl ApplicationOpenUrl {
         };
         let player = if let Some(target) = &target.player {
             let Some(player) = target.player.upgrade() else {
-                window.set_message(
-                    "The player window closed. Open this dialog from another player.".into(),
-                );
+                window.set_message(window.get_closed_player_message());
                 return;
             };
             Some((target, player))
@@ -356,7 +354,7 @@ impl ApplicationOpenUrl {
             Some(StreamStatus::Opened) => self.hide(window),
             Some(StreamStatus::Failed | StreamStatus::Cancelled) => {
                 self.stop(window);
-                window.set_message("Cannot open this file or stream.".into());
+                window.set_message(window.get_failed_stream_message());
             }
             _ => {}
         }

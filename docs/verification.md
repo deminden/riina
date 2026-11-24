@@ -4035,3 +4035,36 @@ The separate pinned libmpv suite passed all 61 tests.
 
 - Windows application SHA-256 `99d96d622d03f36cf5edff582c9f8d4fa82e5da81ac6efd9906d08655c1de567`
 - Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
+
+### Bundled interface languages 2026-11-24
+
+The Russian and Arabic catalogs cover interface labels in Welcome, Open URL,
+Playback History, Log Viewer, About, and the audio and video filter windows.
+English is the fallback. The catalogs also localize basic URL validation, the
+About version status and log counts. Main menus, Settings, player controls,
+technical filter labels and some runtime messages still need translations.
+
+The Windows workspace gate passed, including the English player and Settings
+software pixel baselines. One headless workflow switched between English,
+Russian and Arabic, activated a Russian Welcome button, checked the long
+authentication caption against the bounds of a narrow dialog, and verified
+plural forms and Arabic text with an existing playback timestamp. The fast
+gate selects the same widget and visual group for catalog-only changes.
+All 65 Linux widget tests and Apple Silicon cross-Clippy passed. Native
+macOS rendering still needs a desktop check.
+
+On a private Windows desktop, the native menus opened Open URL, Playback
+History, Log Viewer, About, and both filter windows under their English
+titles. The fixture stayed paused through all six windows and Riina exited
+normally after closing them and the player.
+
+In isolated Linux Wayland sessions, the Russian and Arabic Welcome windows
+opened their localized Open URL dialogs at 380 × 250. The Russian
+authentication caption wrapped onto two lines with the complete text visible.
+The Arabic caption and footer controls fit on the same client size. Both
+processes exited normally after closing the dialog and Welcome.
+
+- Windows application SHA-256 `6a0e8fc8a7dd994449719ce8afa7e8fefbc53fd7e77683e4777d5b18c694459f`
+- Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
+- Linux application SHA-256 `929f1cbffb02d26aa3b52ebd7de3981e6a2f0bdc9016e84a33b580222c103be2`
+- Linux libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`

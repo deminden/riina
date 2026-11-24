@@ -40,6 +40,10 @@ Implementation does not imply every state or platform is verified.
   window and launch playback from it before any player window has opened.
 - **Utilities:** Settings owns the confirmations for alerts, saved progress,
   history and thumbnails. Cache sizes refresh when the page opens or data is cleared.
+- **Russian and Arabic labels** are bundled for Welcome, Open URL, Playback
+  History, Log Viewer, About, and the audio and video filter windows. The
+  system language selects the catalog, with English as the fallback. Main
+  menus, Settings, player controls and some runtime messages still need translations.
 - **Log Viewer:** Window and Advanced Settings open the shared viewer for
   application and mpv logs. Filter by multiple subsystems, severity and message,
   copy selected rows or export the full or filtered view. The macOS Window menu

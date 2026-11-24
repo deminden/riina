@@ -206,6 +206,7 @@ fn include_ui_consumers(packages: &mut BTreeSet<String>, files: &BTreeSet<PathBu
     let ui_source_changed = files.iter().any(|path| {
         path.starts_with("crates/ui/ui")
             || path.starts_with("crates/ui/src")
+            || path.starts_with("crates/ui/translations")
             || path == Path::new("crates/ui/build.rs")
             || path == Path::new("crates/ui/Cargo.toml")
     });
@@ -503,6 +504,7 @@ mod scope_tests {
         for source in [
             "crates/ui/ui/player.slint",
             "crates/ui/src/lib.rs",
+            "crates/ui/translations/ru/LC_MESSAGES/riina-ui.po",
             "crates/ui/build.rs",
             "crates/ui/Cargo.toml",
         ] {

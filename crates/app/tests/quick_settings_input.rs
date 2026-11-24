@@ -23,6 +23,9 @@ mod workflows;
 #[path = "widgets/settings_navigation.rs"]
 mod settings_navigation;
 
+#[path = "widgets/localization.rs"]
+mod localization;
+
 #[path = "widgets/plugin_menus.rs"]
 mod plugin_menus;
 

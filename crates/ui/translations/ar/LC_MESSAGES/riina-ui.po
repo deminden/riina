@@ -1,0 +1,360 @@
+# Riina interface translations.
+msgid ""
+msgstr ""
+"Language: ar\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Plural-Forms: nplurals=6; plural=(n==0 ? 0 : n==1 ? 1 : n==2 ? 2 : n%100>=3 && n%100<=10 ? 3 : n%100>=11 && n%100<=99 ? 4 : 5);\n"
+
+msgid "About Riina"
+msgstr "حول Riina"
+
+msgid "Add Audio Filter"
+msgstr "إضافة مرشّح صوت"
+
+msgid "Add Video Filter"
+msgstr "إضافة مرشّح فيديو"
+
+msgid "All Levels"
+msgstr "جميع المستويات"
+
+msgid "All Subsystems"
+msgstr "كل الأنظمة الفرعية"
+
+msgid "Apply"
+msgstr "تطبيق"
+
+msgid "Audio Filters"
+msgstr "مرشّحات الصوت"
+
+msgid "Browse…"
+msgstr "استعراض…"
+
+msgid "Cancel"
+msgstr "إلغاء"
+
+msgid "Cannot open this file or stream."
+msgstr "تعذّر فتح هذا الملف أو البث."
+
+msgid "Checking FFmpeg version…"
+msgstr "جارٍ التحقّق من إصدار FFmpeg…"
+
+msgid "Checking libmpv version…"
+msgstr "جارٍ التحقّق من إصدار libmpv…"
+
+msgid "Choose a preset to configure its parameters"
+msgstr "اختر إعدادًا مسبقًا لضبط معلماته"
+
+msgid "Choose Preset…"
+msgstr "اختيار إعداد مسبق…"
+
+msgid "Clear"
+msgstr "مسح"
+
+msgid "Clear History"
+msgstr "مسح السجل"
+
+msgid "Clear Selections"
+msgstr "مسح التحديد"
+
+msgid "Collapse All"
+msgstr "طي الكل"
+
+msgid "Contributors"
+msgstr "المساهمون"
+
+msgid "Copy"
+msgstr "نسخ"
+
+msgid "Credits"
+msgstr "الشكر والتقدير"
+
+msgid "Current Audio Filters"
+msgstr "مرشّحات الصوت الحالية"
+
+msgid "Current Video Filters"
+msgstr "مرشّحات الفيديو الحالية"
+
+msgid "Date"
+msgstr "التاريخ"
+
+msgid "Debug"
+msgstr "تصحيح الأخطاء"
+
+msgid "Edit"
+msgstr "تحرير"
+
+msgid "Enter a valid stream URL"
+msgstr "أدخل رابط بث صالحًا"
+
+msgid "Error"
+msgstr "خطأ"
+
+msgid "Expand All"
+msgstr "توسيع الكل"
+
+msgid "Fatal"
+msgstr "خطأ فادح"
+
+msgid "FFmpeg version unavailable"
+msgstr "إصدار FFmpeg غير متاح"
+
+msgid "Filename"
+msgstr "اسم الملف"
+
+msgid "Filter name"
+msgstr "اسم المرشّح"
+
+msgid "Folder & Website"
+msgstr "المجلد والموقع"
+
+msgid "Follow Latest"
+msgstr "متابعة الأحدث"
+
+msgid "Full Path"
+msgstr "المسار الكامل"
+
+msgid "HTTP Authentication"
+msgstr "مصادقة HTTP"
+
+msgid "Info"
+msgstr "معلومات"
+
+msgid "Level"
+msgstr "المستوى"
+
+msgid "libmpv version unavailable"
+msgstr "إصدار libmpv غير متاح"
+
+msgid "License"
+msgstr "الترخيص"
+
+msgid "Loading Media…"
+msgstr "جارٍ تحميل الوسائط…"
+
+msgid "Log Viewer"
+msgstr "عارض السجل"
+
+msgid "Media"
+msgstr "الوسائط"
+
+msgid "Media URL"
+msgstr "رابط الوسائط"
+
+msgid "Message"
+msgstr "الرسالة"
+
+msgid "Move to Trash…"
+msgstr "نقل إلى سلة المهملات…"
+
+msgid "mpv filter string"
+msgstr "سلسلة مرشّح mpv"
+
+msgid "No active audio filters"
+msgstr "لا توجد مرشّحات صوت نشطة"
+
+msgid "No active video filters"
+msgstr "لا توجد مرشّحات فيديو نشطة"
+
+msgid "No matching history"
+msgstr "لا توجد نتائج مطابقة في السجل"
+
+msgid "No matching log entries"
+msgstr "لا توجد إدخالات مطابقة في السجل"
+
+msgid "No playback history"
+msgstr "سجل التشغيل فارغ"
+
+msgid "No saved filters"
+msgstr "لا توجد مرشّحات محفوظة"
+
+msgid "No Shortcut"
+msgstr "بلا اختصار"
+
+msgid "OK"
+msgstr "موافق"
+
+msgid "Open"
+msgstr "فتح"
+
+msgid "Open a media file"
+msgstr "فتح ملف وسائط"
+
+msgid "Open File…"
+msgstr "فتح ملف…"
+
+msgid "Open Folder"
+msgstr "فتح المجلد"
+
+msgid "Open media from a URL"
+msgstr "فتح وسائط من رابط"
+
+msgid "Open media to use active filters"
+msgstr "افتح وسائط لاستخدام المرشّحات النشطة"
+
+msgid "Open URL"
+msgstr "فتح رابط"
+
+msgid "Open URL…"
+msgstr "فتح رابط…"
+
+msgid "Original Riina source is MIT-licensed. The combined application package is distributed under GPLv3."
+msgstr "تخضع شيفرة Riina الأصلية لترخيص MIT. وتُوزّع حزمة التطبيق المجمّعة بموجب ترخيص GPLv3."
+
+msgid "Password"
+msgstr "كلمة المرور"
+
+msgid "Play"
+msgstr "تشغيل"
+
+msgid "Play in New Window"
+msgstr "تشغيل في نافذة جديدة"
+
+msgid "Playback History"
+msgstr "سجل التشغيل"
+
+msgid "Played At"
+msgstr "وقت التشغيل"
+
+msgid "Please enter the URL here…"
+msgstr "أدخل الرابط هنا…"
+
+msgid "Press a shortcut…"
+msgstr "اضغط على اختصار…"
+
+msgid "Progress"
+msgstr "تقدّم المشاهدة"
+
+msgid "Project Website"
+msgstr "موقع المشروع"
+
+msgid "Reading FFmpeg version…"
+msgstr "جارٍ قراءة إصدار FFmpeg…"
+
+msgid "Reading libmpv version…"
+msgstr "جارٍ قراءة إصدار libmpv…"
+
+msgid "Recent History searches"
+msgstr "عمليات البحث الأخيرة في السجل"
+
+msgid "Recent Searches"
+msgstr "عمليات البحث الأخيرة"
+
+msgid "Refresh"
+msgstr "تحديث"
+
+msgid "Remember username and password for this host"
+msgstr "تذكّر اسم المستخدم وكلمة المرور لهذا الخادم"
+
+msgid "Remove"
+msgstr "إزالة"
+
+msgid "Remove from History"
+msgstr "إزالة من السجل"
+
+msgid "Resume"
+msgstr "استئناف"
+
+msgid "Resume {0}, {1}"
+msgstr "استئناف {0}، {1}"
+
+msgid "Riina is an independent Rust media player built around libmpv, Slint, and other open-source dependencies."
+msgstr "Riina مشغّل وسائط مستقل مكتوب بلغة Rust ويستخدم libmpv وSlint ومكتبات أخرى مفتوحة المصدر."
+
+msgid "Save"
+msgstr "حفظ"
+
+msgid "Save All"
+msgstr "حفظ الكل"
+
+msgid "Save Changes"
+msgstr "حفظ التغييرات"
+
+msgid "Save Filter"
+msgstr "حفظ المرشّح"
+
+msgid "Save Filtered"
+msgstr "حفظ النتائج المصفّاة"
+
+msgid "Saved Audio Filters"
+msgstr "مرشّحات الصوت المحفوظة"
+
+msgid "Saved name"
+msgstr "اسم الحفظ"
+
+msgid "Saved Video Filters"
+msgstr "مرشّحات الفيديو المحفوظة"
+
+msgid "Search History"
+msgstr "البحث في السجل"
+
+msgid "Search in"
+msgstr "نطاق البحث"
+
+msgid "Search logs"
+msgstr "البحث في السجل"
+
+msgid "Search playback history"
+msgstr "البحث في سجل التشغيل"
+
+msgid "See the project contributor graph for the people and accounts that have contributed to Riina."
+msgstr "يعرض مخطّط المساهمين في المشروع الأشخاص والحسابات التي ساهمت في Riina."
+
+msgid "Show in File Manager"
+msgstr "إظهار في مدير الملفات"
+
+msgid "Stop Loading"
+msgstr "إيقاف التحميل"
+
+msgid "Subsystem"
+msgstr "النظام الفرعي"
+
+msgid "The player window closed. Open this dialog from another player."
+msgstr "أُغلقت نافذة المشغّل. افتح مربع الحوار من نافذة مشغّل أخرى."
+
+msgid "Time"
+msgstr "الوقت"
+
+msgid "Toggle"
+msgstr "تبديل"
+
+msgid "Trace"
+msgstr "تتبّع"
+
+msgid "Username"
+msgstr "اسم المستخدم"
+
+msgid "Verbose"
+msgstr "مفصّل"
+
+msgid "Version {}"
+msgstr "الإصدار {}"
+
+msgid "Video Filters"
+msgstr "مرشّحات الفيديو"
+
+msgid "View Contributors"
+msgstr "عرض المساهمين"
+
+msgid "View License"
+msgstr "عرض الترخيص"
+
+msgid "Warning"
+msgstr "تحذير"
+
+msgid "{n} Subsystem"
+msgid_plural "{n} Subsystems"
+msgstr[0] "{n} نظام فرعي"
+msgstr[1] "نظام فرعي واحد"
+msgstr[2] "نظامان فرعيان"
+msgstr[3] "{n} أنظمة فرعية"
+msgstr[4] "{n} نظامًا فرعيًا"
+msgstr[5] "{n} نظام فرعي"
+
+msgid "Clear Recents"
+msgstr "مسح عمليات البحث الأخيرة"
+
+msgid "No log files are available"
+msgstr "لا تتوفّر ملفات سجل"
+
+msgid "{0} of {1} log entries"
+msgstr "إدخالات السجل: {0} من {1}"
