@@ -3,6 +3,7 @@ mod duration_probe;
 mod handle;
 mod hooks;
 mod playlist_resume;
+mod stream;
 pub use duration_probe::read_local_duration;
 
 use self::handle::{EventRef, Handle};
@@ -107,6 +108,9 @@ impl<N: Fn(Arc<Playback>)> Start<N> {
                         state.observe_dynamic(&handle, &command, &notify);
                     }
                     Message::Intent(command) => state.handle_intent(&handle, command),
+                    Message::OpenStream(source, attempt) => {
+                        state.open_stream(&handle, source, attempt);
+                    }
                     Message::Client(request) => {
                         if matches!(request.operation, Operation::RegisterHook(_)) {
                             state.drain_events(&mut handle, &callback_sender);
@@ -116,6 +120,7 @@ impl<N: Fn(Arc<Playback>)> Start<N> {
                     Message::Shutdown => return,
                 }
                 state.drain_events(&mut handle, &callback_sender);
+                state.stop_cancelled_stream(&handle);
                 state.hooks.continue_ready(&handle);
                 state.publish(&notify);
             }));
@@ -123,6 +128,7 @@ impl<N: Fn(Arc<Playback>)> Start<N> {
                 stopped.store(true, Ordering::Release);
                 diag("The native player event worker stopped unexpectedly");
                 state.playback.phase = Phase::Failed;
+                state.stream = None;
                 record_notice(
                     &mut state.playback,
                     NoticeSeverity::Error,
@@ -130,6 +136,7 @@ impl<N: Fn(Arc<Playback>)> Start<N> {
                 );
                 // The shared OpenGL surface can still use the core until its owner releases it.
                 state.hooks.continue_all(&handle);
+                state.continue_stream_auth(&handle);
                 handle.stop_after_panic();
                 let _ = catch_unwind(AssertUnwindSafe(|| {
                     notify(Arc::new(state.playback.clone()))
@@ -143,6 +150,7 @@ impl<N: Fn(Arc<Playback>)> Start<N> {
             }
         }
         state.hooks.continue_all(&handle);
+        state.continue_stream_auth(&handle);
     }
 }
 
@@ -246,6 +254,9 @@ struct WorkerState {
     published_revision: Option<u64>,
     seek_feedback: SeekFeedback,
     auto_seek: AutoSeek,
+    stream: Option<stream::StreamLoad>,
+    active_entry: Option<i64>,
+    stream_auth: stream::AuthenticationHook,
 }
 
 impl WorkerState {
@@ -340,6 +351,9 @@ impl WorkerState {
             self.seek_feedback.playback_transition();
         }
         let resume_after_navigation = plan.resume_on_load;
+        if command.replaces_media() || resume_after_navigation {
+            self.stream = None;
+        }
         if resume_after_navigation
             || command.replaces_media()
             || matches!(command, Command::TogglePause | Command::SetPaused(_))
@@ -475,6 +489,13 @@ impl WorkerState {
 
     fn request_client(&mut self, handle: &Handle, mut request: Request) {
         const MAX_PENDING_REQUESTS: usize = 32;
+        if let Operation::Read { name, .. } = &mut request.operation
+            && name
+                .to_str()
+                .is_ok_and(|name| self.stream_auth.protects(name))
+        {
+            *name = c"path".to_owned();
+        }
         let now = Instant::now();
         self.client_requests
             .retain(|_, pending| pending.deadline > now);
@@ -526,6 +547,10 @@ impl WorkerState {
 
     fn drain_events(&mut self, handle: &mut Handle, wake: &SyncSender<Message>) {
         while let Some(event) = handle.wait() {
+            if let Some((hook, entry, failed)) = self.stream_auth.take_reply(&event) {
+                self.finish_stream_auth(handle, hook, entry, failed);
+                continue;
+            }
             if matches!(
                 event.id(),
                 event_id::GET_PROPERTY_REPLY
@@ -554,11 +579,18 @@ impl WorkerState {
             }
             if let Some(id) = event.hook_id() {
                 let slot = event.userdata();
-                self.hooks.receive(handle, id, slot, wake);
+                if slot == stream::AUTH_HOOK_SLOT {
+                    self.authenticate_stream(handle, id);
+                } else {
+                    self.hooks.receive(handle, id, slot, wake);
+                }
             } else if event.id() == event_id::FILE_LOADED {
                 self.on_file_loaded(handle);
             } else if event.id() == event_id::PLAYBACK_RESTART {
                 self.on_playback_restarted(handle);
+            } else if event.id() == event_id::QUEUE_OVERFLOW {
+                self.on_event(&event);
+                self.continue_stream_auth(handle);
             } else {
                 self.on_event(&event);
             }
@@ -567,8 +599,19 @@ impl WorkerState {
 
     fn on_event(&mut self, event: &EventRef<'_>) {
         match event.id() {
-            event_id::COMMAND_REPLY => self.on_command_reply(event),
+            event_id::COMMAND_REPLY => {
+                self.on_stream_reply(event);
+                self.on_command_reply(event);
+            }
             event_id::START_FILE => {
+                self.active_entry = event.started_entry();
+                self.stream_auth.public_address = None;
+                if let Some(load) = &self.stream
+                    && let Some(entry) = self.active_entry
+                    && load.superseded_by(entry)
+                {
+                    self.stream = None;
+                }
                 self.seek_pending = false;
                 self.seek_feedback.clear();
                 self.auto_seek = AutoSeek::default();
@@ -583,9 +626,18 @@ impl WorkerState {
             }
             event_id::PROPERTY_CHANGE => {
                 let observer = self.observers.get(&event.userdata()).cloned();
-                event.apply_property(&mut self.playback, observer);
+                if let Some(name) = observer.as_ref()
+                    && self.stream_auth.protects(name)
+                    && let Some(address) = &self.stream_auth.public_address
+                {
+                    Arc::make_mut(&mut self.playback.observed_mpv_properties)
+                        .insert(name.clone(), serde_json::Value::String(address.clone()));
+                } else {
+                    event.apply_property(&mut self.playback, observer);
+                }
             }
             event_id::QUEUE_OVERFLOW => {
+                self.stream = None;
                 self.client_requests.clear();
                 self.playlist_resume = PlaylistResume::Idle;
                 record_notice(
@@ -602,6 +654,12 @@ impl WorkerState {
         let Some(end) = event.end_file() else {
             return;
         };
+        if self.stream.as_mut().is_some_and(|load| load.end(end)) {
+            self.stream = None;
+        }
+        if self.active_entry == Some(end.playlist_entry_id) {
+            self.active_entry = None;
+        }
         self.seek_pending = false;
         self.seek_feedback.clear();
         self.auto_seek.interrupt_measurement();
@@ -624,6 +682,7 @@ impl WorkerState {
     }
 
     fn on_file_loaded(&mut self, handle: &Handle) {
+        self.complete_open_stream();
         self.playback.phase = Phase::Playing;
         self.playlist_resume.file_loaded(self.playback.generation);
         for path in std::mem::take(&mut self.pending_drop_subtitles) {

@@ -247,6 +247,7 @@ pub(super) fn install_toolbar_order(app: &PlayerWindow) {
 #[derive(Default)]
 pub(crate) struct InitialMedia {
     pub(crate) files: Vec<std::ffi::OsString>,
+    pub(crate) stream: Option<crate::windows::open_url::PendingStream>,
     pub(crate) resume_position: Option<f64>,
     pub(crate) explicit_playlist: bool,
     pub(crate) managed: Option<Arc<crate::plugins::plugin_players::Ticket>>,
@@ -288,7 +289,7 @@ pub(super) struct InitialOpen {
 
 impl InitialOpen {
     pub(super) fn open(self, app: &PlayerWindow, sender: CommandSender) {
-        if self.media.files.is_empty() {
+        if self.media.files.is_empty() && self.media.stream.is_none() {
             return;
         }
         let Self {
@@ -317,13 +318,15 @@ impl InitialOpen {
 
 fn open_initial_media(
     app: &PlayerWindow,
-    media: InitialMedia,
+    mut media: InitialMedia,
     sender: CommandSender,
     observer: super::observer_state::ObserverId,
 ) {
     let previous_request = app.get_media_request_generation();
     let presentation = media.launch.presentation;
-    if media.launch.stdin {
+    if let Some(stream) = media.stream.take() {
+        stream.start(app, &sender);
+    } else if media.launch.stdin {
         crate::media_open::startup_stdin(app, &sender);
     } else {
         crate::media_open::startup_at(app, media, sender);

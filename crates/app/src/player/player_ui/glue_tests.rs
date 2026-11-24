@@ -551,22 +551,10 @@ fn exercise_dialogs_and_relative_controls(harness: &Harness) {
         ""
     );
 
-    app.global::<riina_ui::PlayerDialogState>()
-        .set_url_dialog_draft("previous".into());
-    app.global::<PlayerMenuActions>().invoke_open_url_dialog();
-    assert!(
-        app.global::<riina_ui::PlayerDialogState>()
-            .get_url_dialog_visible()
-    );
-    assert_eq!(
-        app.global::<riina_ui::PlayerDialogState>()
-            .get_url_dialog_draft(),
-        ""
-    );
     let dialog = app.global::<riina_ui::PlayerDialogState>();
     app.global::<PlayerMenuActions>()
         .invoke_open_playlist_url_dialog();
-    assert!(dialog.get_url_dialog_appends_playlist());
+    assert!(dialog.get_url_dialog_visible());
     assert!(!dialog.invoke_append_playlist_url("bad url".into()));
     assert!(!dialog.get_url_dialog_error().is_empty());
     harness.expect_idle();
@@ -574,8 +562,9 @@ fn exercise_dialogs_and_relative_controls(harness: &Harness) {
     harness.expect(Command::AppendFiles(vec![
         "https://example.com/video.mp4".into(),
     ]));
-    app.global::<PlayerMenuActions>().invoke_open_url_dialog();
-    assert!(!dialog.get_url_dialog_appends_playlist());
+    app.global::<PlayerMenuActions>()
+        .invoke_open_playlist_url_dialog();
+    assert!(dialog.get_url_dialog_draft().is_empty());
     assert!(dialog.get_url_dialog_error().is_empty());
     dialog.set_url_dialog_visible(false);
     app.global::<PlayerMenuActions>().invoke_browse_files(-1);

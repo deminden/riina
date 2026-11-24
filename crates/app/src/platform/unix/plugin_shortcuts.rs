@@ -10,6 +10,7 @@ use wry::{WebView, WebViewExtUnix};
 const CONTROL: ModifierType = ModifierType::CONTROL_MASK;
 const CONTROL_SHIFT: ModifierType = CONTROL.union(ModifierType::SHIFT_MASK);
 const CONTROL_ALT: ModifierType = CONTROL.union(ModifierType::MOD1_MASK);
+const CONTROL_ALT_SHIFT: ModifierType = CONTROL_ALT.union(ModifierType::SHIFT_MASK);
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum MenuShortcut {
@@ -19,6 +20,7 @@ enum MenuShortcut {
     OpenFile,
     OpenInNewWindow,
     OpenUrl,
+    OpenUrlAlternative,
     History,
     Inspector,
     LogViewer,
@@ -41,6 +43,7 @@ impl MenuShortcut {
             ('o', CONTROL) => Some(Self::OpenFile),
             ('o', CONTROL_ALT) => Some(Self::OpenInNewWindow),
             ('o', CONTROL_SHIFT) => Some(Self::OpenUrl),
+            ('o', CONTROL_ALT_SHIFT) => Some(Self::OpenUrlAlternative),
             ('h', CONTROL_SHIFT) => Some(Self::History),
             ('i', CONTROL) => Some(Self::Inspector),
             ('l', CONTROL_ALT) => Some(Self::LogViewer),
@@ -60,7 +63,11 @@ impl MenuShortcut {
         }
         let editing = app.global::<PlayerCropState>().get_crop_editing();
         match self {
-            Self::Preferences | Self::OpenFile | Self::OpenInNewWindow | Self::OpenUrl => !editing,
+            Self::Preferences
+            | Self::OpenFile
+            | Self::OpenInNewWindow
+            | Self::OpenUrl
+            | Self::OpenUrlAlternative => !editing,
             Self::Jump | Self::VideoFilters | Self::AudioFilters => app.get_loaded() && !editing,
             _ => true,
         }
@@ -75,6 +82,7 @@ impl MenuShortcut {
             Self::OpenFile => actions.invoke_open_file(),
             Self::OpenInNewWindow => actions.invoke_open_in_new_window(),
             Self::OpenUrl => actions.invoke_open_url_dialog(),
+            Self::OpenUrlAlternative => actions.invoke_open_url_alternative(),
             Self::History => actions.invoke_show_playback_history(),
             Self::Inspector => actions.invoke_show_inspector(),
             Self::LogViewer => actions.invoke_show_log_viewer(),

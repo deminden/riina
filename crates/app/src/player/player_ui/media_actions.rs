@@ -20,6 +20,7 @@ use std::{
 };
 
 pub(super) struct Context<'a> {
+    pub open_url: &'a Rc<crate::windows::open_url::ApplicationOpenUrl>,
     pub commands: &'a CommandSender,
     pub open_host: Option<slint::Weak<NativeVideoHost>>,
     pub welcome: Option<&'a WelcomeWindow>,
@@ -29,7 +30,7 @@ pub(super) struct Context<'a> {
 }
 
 enum PendingWelcomeOpen {
-    Url(String),
+    Stream(crate::windows::open_url::PendingStream),
     Recent(riina_core::RecentMedia, bool),
     Drop(media_open::WelcomeDrop, i32),
 }
@@ -40,7 +41,7 @@ fn dispatch_welcome_open(
     sender: &riina_mpv::CommandSender,
 ) {
     match request {
-        PendingWelcomeOpen::Url(value) => media_open::url(app, &value, sender.clone()),
+        PendingWelcomeOpen::Stream(stream) => stream.start(app, sender),
         PendingWelcomeOpen::Recent(media, resume) => {
             media_open::open_recent(app, media, resume, sender.clone());
         }
@@ -76,7 +77,7 @@ pub(super) fn install(app: &PlayerWindow, context: Context<'_>) {
     install_file_open(app, context.commands, &context.open_host, &welcome_window);
     install_welcome_drop(app, &context, &pending_welcome_open);
     install_open_recent_menu(app, &context);
-    install_url_open(app, &context, &welcome_window, &pending_welcome_open);
+    install_url_open(app, &context, &pending_welcome_open);
     install_help_and_debug(app, context.latest_playback);
     install_welcome_recent(app, &context, &welcome_window, &pending_welcome_open);
     install_media_opened(app, &context, &welcome_window);
@@ -377,50 +378,21 @@ fn install_open_recent_menu(app: &PlayerWindow, context: &Context<'_>) {
         });
 }
 
-fn install_url_open(
-    app: &PlayerWindow,
-    context: &Context<'_>,
-    welcome_window: &WelcomeHandle,
-    pending_welcome_open: &WelcomeRequests,
-) {
-    let commands = context.commands;
-    let open_host = &context.open_host;
-    let open_url = commands.clone();
-    let weak = app.as_weak();
-    let open_url_host = open_host.clone();
-    let url_welcome = welcome_window.clone();
-    let url_pending = pending_welcome_open.clone();
-    app.global::<riina_ui::PlayerDialogState>()
-        .on_open_url(move |value| {
-            if let Some(app) = weak.upgrade() {
-                let from_welcome = url_welcome
-                    .as_ref()
-                    .and_then(slint::Weak::upgrade)
-                    .is_some_and(|welcome| welcome.window().is_visible());
-                if from_welcome {
-                    if let Err(error) = media_open::validate_url(value.as_str()) {
-                        if let Some(welcome) = url_welcome.as_ref().and_then(slint::Weak::upgrade) {
-                            welcome.set_url_error(error.to_string().into());
-                        }
-                        return;
-                    }
-                    media_open::invalidate(&app);
-                    platform::set_native_video_host_visible(open_url_host.as_ref(), true);
-                    if let Err(error) = platform::show_window(&app) {
-                        app.set_status(error.to_string().into());
-                        return;
-                    }
-                    if let Some(welcome) = url_welcome.as_ref().and_then(slint::Weak::upgrade) {
-                        welcome.set_url_error("".into());
-                        // Continue releasing session resources if the window is closing.
-                        let _ = welcome.hide();
-                    }
-                    let request = PendingWelcomeOpen::Url(value.to_string());
-                    submit_welcome_open(&app, &open_url, &url_pending, request);
-                } else {
-                    media_open::url(&app, value.as_str(), open_url.clone());
+fn install_url_open(app: &PlayerWindow, context: &Context<'_>, pending: &WelcomeRequests) {
+    let sender = context.commands.clone();
+    let open_host = context.open_host.clone();
+    let pending = pending.clone();
+    context
+        .open_url
+        .connect(app, context.welcome, move |app, stream| {
+            if !app.window().is_visible() {
+                platform::set_native_video_host_visible(open_host.as_ref(), true);
+                if let Err(error) = platform::show_window(app) {
+                    app.set_status(error.to_string().into());
+                    return;
                 }
             }
+            submit_welcome_open(app, &sender, &pending, PendingWelcomeOpen::Stream(stream));
         });
 }
 

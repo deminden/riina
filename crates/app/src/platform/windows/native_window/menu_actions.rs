@@ -116,6 +116,10 @@ fn install_application_actions(host: &NativeVideoHost, app: &PlayerWindow) {
     forward!(host, app, on_open_url_dialog, || {
         app.global::<PlayerMenuActions>().invoke_open_url_dialog();
     });
+    forward!(host, app, on_open_url_alternative, || {
+        app.global::<PlayerMenuActions>()
+            .invoke_open_url_alternative();
+    });
     forward!(host, app, on_open_recent_path, |path| {
         app.global::<PlayerMenuActions>()
             .invoke_open_recent_path(path);

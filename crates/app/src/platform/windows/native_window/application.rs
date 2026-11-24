@@ -105,6 +105,25 @@ pub(super) fn run(
             }))
         });
     let owner = Rc::downgrade(&application);
+    let open_url = owner.clone();
+    application.services.open_url.bind(move |owner, stream| {
+        let application = open_url.upgrade().ok_or("Riina is closing")?;
+        let path = crate::platform::preferences_path().map_err(|error| error.to_string())?;
+        let loaded = preference_load::load(&path).map_err(|error| error.to_string())?;
+        let media = InitialMedia {
+            stream: Some(stream),
+            ..InitialMedia::default()
+        };
+        let launch = NativeLaunch {
+            media,
+            loaded,
+            owner_center: crate::platform::player_window_center(owner.window()),
+        };
+        application
+            .launch(launch, Some(Origin::Player(owner.as_weak())))
+            .map(|_| ())
+            .map_err(|error| error.to_string())
+    });
     let closed = owner.clone();
     application.services.history.bind(
         move |window, mut media| {

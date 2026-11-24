@@ -3472,3 +3472,38 @@ and the final Windows release package remain open.
 - Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
 - Linux application SHA-256 `d93393c0747a72ccdab4c379a4e7dd3c3ae2209aff9c2ddd28eb6e591b8da09b`
 - X11 libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`
+
+### Open URL 2026-11-24
+
+The File menu and Welcome share one Open URL window. A typed host and port
+receive the default `http://` scheme. A failed load leaves its address ready for
+editing. Stop Loading cancels the attempt, and the alternate File action inverts
+the preference for using a new player window.
+
+The grouped regressions cover validation, Welcome and menu ownership, and retry
+after a cancelled launch. The native engine test uses localhost for an HTTP 401
+response, authenticated playback, cancellation and a subsequent load. It checks
+that the playlist and both readable transport properties use an address without
+credentials. The full Windows workspace gate and all 61 pinned libmpv tests passed.
+
+On a private Windows desktop, two existing players reused the same Open URL
+window. Setting the address and invoking Open through Windows accessibility
+loaded the localhost clip into the initiating player. The alternate menu action
+opened another stream in a third player and kept both existing players open.
+Each successful load dismissed the dialog. Quit exited normally.
+
+In an isolated Linux X11 session, a local file URL was rejected before
+submission. The keyboard flow showed the implicit scheme, retained the address
+after a 404 response, and stopped a request after the server received it. The
+next attempt passed an HTTP Basic challenge and played the moving-square
+fixture. Reopening from the second player reused the dialog. Escape dismissed
+it, and Quit exited normally. The final grouped Windows checks and strict Apple
+Silicon cross-Clippy passed after the theme and accessible-input adjustment.
+
+Remembered credentials across application restarts, native macOS interaction,
+matched IINA pixels and progress presentation for external launches remain open.
+
+- Windows application SHA-256 `7b22f1ee987287144fee23fcefca0787aa72ce279fb89cd6ff049fa535f92613`
+- Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
+- Linux application SHA-256 `3987fbfac3b0a001324f20d49a1c5ce292cb3c081ec09be7cd0765185afe58a2`
+- X11 libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`

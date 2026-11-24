@@ -553,6 +553,18 @@ its release link. A profile lock coordinates automatic launch across processes.
 The version marker is created after the guide opens. About follows the appearance
 of the player that opened it and stays usable when that player closes.
 
+Open URL is application-owned and receives the initiating player from the File
+menu or Welcome. Its normal and alternate actions use the opening preference
+to select a current or new player. The window keeps the address for retry when a
+load fails. The worker associates each attempt with mpv's playlist entry ID,
+including the successor entry for a playlist redirect. A replacement invalidates
+the pending attempt before cancellation can act on the new file.
+
+For HTTP authentication, the platform credential service stores an opted-in
+account under the scheme, host and port. The worker applies a credentialed
+address at mpv's load hook. The playlist, displayed title and watched transport
+properties use the public address. [Pinned mpv command contract](https://github.com/mpv-player/mpv/blob/36abaa32d00a7229ee206aae12dc0e97e7962dca/DOCS/man/input.rst)
+
 The Inspector uses the player focus events already dispatched by each window's
 platform adapter. Its shared window follows the newest live player and uses
 cached playback and track observations plus read-only libmpv requests. Only a

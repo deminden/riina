@@ -13,6 +13,8 @@ mod properties;
 #[cfg(feature = "test-support")]
 mod recording;
 mod seek_feedback;
+mod stream;
+pub use stream::{StreamAttempt, StreamSource, StreamStatus};
 pub mod thumbnail_generator;
 pub mod video;
 #[cfg(windows)]
@@ -64,6 +66,7 @@ pub use worker::read_local_duration;
 
 enum Message {
     Intent(Command),
+    OpenStream(StreamSource, StreamAttempt),
     Client(client_request::Request),
     Wake,
     Shutdown,

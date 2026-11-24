@@ -1,0 +1,134 @@
+import { Button, CheckBox, LineEdit, Palette, ProgressIndicator } from "std-widgets.slint";
+import { NativeTypography } from "shared-controls.slint";
+import { Theme } from "theme.slint";
+
+export component OpenUrlWindow inherits Window {
+    title: "Open URL";
+    icon: @image-url("../../../assets/branding/svg/riina-app-icon-dark.svg");
+    preferred-width: 576px;
+    preferred-height: 270px;
+    min-width: 380px;
+    min-height: 250px;
+    default-font-family: NativeTypography.system-font-family;
+    background: Theme.about-content-surface(root.dark-theme);
+
+    in property <bool> dark-theme;
+    in property <bool> show-default-scheme;
+    in property <bool> valid-address;
+    in property <bool> loading;
+    in property <bool> authentication-available;
+    in property <string> message;
+    in-out property <string> address;
+    in-out property <string> username;
+    in-out property <string> password;
+    in-out property <bool> remember;
+    callback address-edited();
+    callback submit();
+    callback cancel();
+    callback stop();
+    changed dark-theme => {
+        Palette.color-scheme = root.dark-theme ? ColorScheme.dark : ColorScheme.light;
+    }
+    changed address => { root.address-edited(); }
+    public function focus-address() { stream.focus(); }
+    public function focus-stop() { stop-button.focus(); }
+
+    FocusScope {
+        key-pressed(event) => {
+            if event.text == Key.Escape {
+                root.cancel();
+                return accept;
+            }
+            return reject;
+        }
+
+        VerticalLayout {
+            padding: 20px;
+            spacing: 10px;
+            visible: !root.loading;
+            Text {
+                text: "Open URL";
+                font-size: 17px;
+                font-weight: 600;
+                color: Theme.about-title(root.dark-theme);
+            }
+            HorizontalLayout {
+                spacing: 8px;
+                alignment: stretch;
+                if root.show-default-scheme : Text {
+                    text: "http://";
+                    vertical-alignment: center;
+                    color: Theme.about-summary-detail(root.dark-theme);
+                }
+                stream := LineEdit {
+                    text <=> root.address;
+                    placeholder-text: "Please enter the URL here…";
+                    accessible-label: "Media URL";
+                    accepted => { if root.valid-address { root.submit(); } }
+                }
+            }
+            Text {
+                text: root.message;
+                min-height: 16px;
+                color: Theme.player-dialog-error;
+                wrap: word-wrap;
+            }
+            VerticalLayout {
+                spacing: 6px;
+                Text {
+                    text: "HTTP Authentication";
+                    font-weight: 600;
+                    color: Theme.about-summary-detail(root.dark-theme);
+                }
+                HorizontalLayout {
+                    spacing: 8px;
+                    LineEdit {
+                        enabled: root.authentication-available;
+                        placeholder-text: "Username";
+                        accessible-label: "Username";
+                        text <=> root.username;
+                        accepted => { if root.valid-address { root.submit(); } }
+                    }
+                    LineEdit {
+                        enabled: root.authentication-available;
+                        placeholder-text: "Password";
+                        accessible-label: "Password";
+                        input-type: InputType.password;
+                        text <=> root.password;
+                        accepted => { if root.valid-address { root.submit(); } }
+                    }
+                }
+                CheckBox {
+                    enabled: root.authentication-available;
+                    text: "Remember username and password for this host";
+                    checked <=> root.remember;
+                }
+            }
+            Rectangle { vertical-stretch: 1; }
+            HorizontalLayout {
+                spacing: 8px;
+                Rectangle { horizontal-stretch: 1; }
+                Button { text: "Cancel"; clicked => { root.cancel(); } }
+                Button { text: "Open"; enabled: root.valid-address; clicked => { root.submit(); } }
+            }
+        }
+
+        VerticalLayout {
+            padding: 24px;
+            spacing: 12px;
+            alignment: center;
+            visible: root.loading;
+            Text {
+                text: "Loading Media…";
+                horizontal-alignment: center;
+                font-size: 17px;
+                color: Theme.about-title(root.dark-theme);
+            }
+            ProgressIndicator { indeterminate: true; }
+            HorizontalLayout {
+                alignment: center;
+                stop-button := Button { text: "Stop Loading"; clicked => { root.stop(); } }
+            }
+        }
+    }
+}

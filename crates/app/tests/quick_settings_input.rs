@@ -255,7 +255,10 @@ fn player_entry_dialogs_focus_the_field_and_keep_keyboard_actions() {
     let submitted_url = Rc::new(RefCell::new(None));
     let url = submitted_url.clone();
     app.global::<riina_ui::PlayerDialogState>()
-        .on_open_url(move |value| *url.borrow_mut() = Some(value.to_string()));
+        .on_append_playlist_url(move |value| {
+            *url.borrow_mut() = Some(value.to_string());
+            true
+        });
     app.global::<riina_ui::PlayerDialogState>()
         .set_url_dialog_visible(true);
     flush();

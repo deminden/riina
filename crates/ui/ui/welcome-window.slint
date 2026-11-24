@@ -117,15 +117,12 @@ export component WelcomeWindow inherits Window {
     // Mica.
     background: transparent;
     in property <string> app-version: "0.2.1";
-    in-out property <string> url-draft;
-    in-out property <bool> url-entry-visible: false;
-    in property <string> url-error;
     in property <string> drop-error;
     in property <[RecentMediaRow]> recent-media;
     in property <[RecentMediaRow]> recent-documents;
     in-out property <int> selection-index: -1;
     callback open-file();
-    callback open-url(string);
+    callback open-url();
     callback open-recent(int);
     callback show-playback-history();
     init => { keys.focus(); }
@@ -157,35 +154,10 @@ export component WelcomeWindow inherits Window {
                     WelcomeAction { label: "Open File…"; hint: "Open a media file";
                         activated => { root.open-file(); } }
                     WelcomeAction { label: "Open URL…"; hint: "Open media from a URL";
-                        activated => { root.url-entry-visible = !root.url-entry-visible; } }
+                        activated => { root.open-url(); } }
                 }
             }
             Rectangle { height: 16px; }
-            if root.url-entry-visible : VerticalLayout {
-                spacing: 4px;
-                HorizontalLayout {
-                    spacing: 10px; height: 36px;
-                    Rectangle { horizontal-stretch: 1; height: 36px; border-radius: 5px;
-                        background: Theme.welcome-url-field; border-width: 1px;
-                        border-color: Theme.welcome-url-border(url-input.has-focus);
-                        url-input := TextInput { x: 10px; width: parent.width - 20px; height: parent.height;
-                            text <=> root.url-draft; single-line: true;
-                            font-size: 12px; color: Theme.welcome-url-text;
-                            accessible-label: "Media URL";
-                            accepted => { root.open-url(self.text); } }
-                        if root.url-draft.is-empty && !url-input.has-focus : Text {
-                            x: 10px; y: 0px; width: parent.width - 20px; height: parent.height;
-                            text: "https://"; font-size: 12px; color: Theme.welcome-url-placeholder;
-                            vertical-alignment: center;
-                        }
-                    }
-                    WelcomeAction { label: "Open"; hint: "Open this URL";
-                        activated => { root.open-url(root.url-draft); } }
-                }
-                if root.url-error != "" : Text {
-                    text: root.url-error; color: Theme.welcome-url-error; font-size: 11px;
-                }
-            }
             if root.drop-error != "" : Text {
                 text: root.drop-error; color: Theme.welcome-url-error; font-size: 11px;
                 wrap: word-wrap;

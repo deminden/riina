@@ -89,6 +89,17 @@ impl PlayerManager {
                 }))
             });
         let launcher = Rc::downgrade(&manager.state);
+        let open_url = launcher.clone();
+        manager.services().open_url.bind(move |owner, stream| {
+            let state = open_url.upgrade().ok_or("Riina is closing")?;
+            let path = crate::platform::preferences_path().map_err(|error| error.to_string())?;
+            let loaded = crate::preference_load::load(&path).map_err(|error| error.to_string())?;
+            let media = InitialMedia {
+                stream: Some(stream),
+                ..InitialMedia::default()
+            };
+            open_new_player(&state, owner, media, loaded).map(|_| ())
+        });
         let on_close = launcher.clone();
         manager.services().history.bind(
             move |window, mut media| {

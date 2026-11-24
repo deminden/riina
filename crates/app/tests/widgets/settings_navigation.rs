@@ -141,6 +141,9 @@ fn welcome_actions_accept_first_pointer_clicks() -> Result<(), Box<dyn Error>> {
     let file_requests = Rc::new(Cell::new(0));
     let recorded = file_requests.clone();
     welcome.on_open_file(move || recorded.set(recorded.get() + 1));
+    let url_requests = Rc::new(Cell::new(0));
+    let recorded = url_requests.clone();
+    welcome.on_open_url(move || recorded.set(recorded.get() + 1));
     welcome.show()?;
     super::flush();
 
@@ -153,7 +156,7 @@ fn welcome_actions_accept_first_pointer_clicks() -> Result<(), Box<dyn Error>> {
         .next()
         .ok_or("Missing Welcome URL action")?
         .mock_single_click(PointerEventButton::Left);
-    assert!(welcome.get_url_entry_visible());
+    assert_eq!(url_requests.get(), 1);
     welcome.hide()?;
     Ok(())
 }

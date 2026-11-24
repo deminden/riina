@@ -30,6 +30,7 @@ pub mod plugin_sidebar;
 pub mod plugin_window;
 pub mod screenshot;
 pub mod speed_controls;
+pub mod stream_address;
 pub mod subtitle_color;
 pub mod subtitle_controls;
 pub mod sync;

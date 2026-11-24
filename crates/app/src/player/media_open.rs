@@ -9,7 +9,10 @@ use routing::{PlayerSelection, prepare_new_players};
 use slint::{ComponentHandle, Model, ModelRc, SharedString, VecModel};
 use std::{ffi::OsString, path::Path};
 
-fn apply_manual_open_repeat(app: &PlayerWindow, sender: &CommandSender) -> Result<(), String> {
+pub(crate) fn apply_manual_open_repeat(
+    app: &PlayerWindow,
+    sender: &CommandSender,
+) -> Result<(), String> {
     if let Some(command) = manual_open_repeat_command(
         app.global::<riina_ui::PlayerPreferences>()
             .get_auto_repeat(),
@@ -248,6 +251,10 @@ fn open_single_in_separate_player(
     Ok(true)
 }
 
+pub(crate) fn stream_in_new_player(app: &PlayerWindow, alternative: bool) -> Result<bool, String> {
+    Ok(has_playlist(app) && (preferences_for_open()?.allow_multiple_windows != alternative))
+}
+
 pub fn dropped(app: &PlayerWindow, paths: Vec<OsString>, sender: CommandSender) {
     if let Some(filter) = dropped_lut(&paths) {
         if let Err(error) = filter.and_then(|filter| {
@@ -396,6 +403,7 @@ fn startup_selection(
     }
 }
 
+#[cfg(target_os = "linux")]
 pub fn url(app: &PlayerWindow, value: &str, sender: CommandSender) {
     let value = match validate_url(value) {
         Ok(value) => value,

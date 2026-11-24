@@ -102,6 +102,10 @@ export component PlayerMenuWindow inherits Window {
             MenuItem { title: "Open URL…"; enabled: !root.menu-value-crop-editing;
                 shortcut: root.player-shortcut(root.menu-value-primary-shortcut-is-meta ? @keys(Meta + Shift + O) : @keys(Control + Shift + O));
                 activated => { PlayerMenuActions.open-url-dialog(); } }
+            MenuItem { title: "Open URL in New Window…"; enabled: !root.menu-value-crop-editing;
+                shortcut: root.player-shortcut(root.menu-value-primary-shortcut-is-meta
+                    ? @keys(Meta + Alt + Shift + O) : @keys(Control + Alt + Shift + O));
+                activated => { PlayerMenuActions.open-url-alternative(); } }
             if PlayerPreferences.record-recent-files : Menu {
                 title: "Open Recent";
                 enabled: PlayerCatalogState.recent-open-menu-rows.length > 0;

@@ -8,9 +8,7 @@ export global PlayerDialogState {
     in-out property <bool> url-dialog-visible: false;
     in-out property <string> url-dialog-draft: "";
     in-out property <string> url-dialog-error: "";
-    in-out property <bool> url-dialog-appends-playlist: false;
 
-    callback open-url(string);
     callback append-playlist-url(string) -> bool;
     callback jump-to-time(string);
 }

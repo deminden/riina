@@ -60,12 +60,7 @@ export component PlayerEntryDialogs inherits Rectangle {
     }
     url-dialog := Rectangle {
         function submit() {
-            if PlayerDialogState.url-dialog-appends-playlist {
-                if PlayerDialogState.append-playlist-url(PlayerDialogState.url-dialog-draft) {
-                    PlayerDialogState.url-dialog-visible = false;
-                }
-            } else {
-                PlayerDialogState.open-url(PlayerDialogState.url-dialog-draft);
+            if PlayerDialogState.append-playlist-url(PlayerDialogState.url-dialog-draft) {
                 PlayerDialogState.url-dialog-visible = false;
             }
         }
@@ -80,12 +75,11 @@ export component PlayerEntryDialogs inherits Rectangle {
             background: Theme.player-dialog-surface(PlayerAppearance.dark-theme);
             border-width: 1px; border-color: Theme.player-dialog-border(PlayerAppearance.dark-theme);
             Text { x: 18px; y: 14px; width: parent.width - 36px; height: 22px;
-                text: PlayerDialogState.url-dialog-appends-playlist ? "Add URL to Playlist" : "Open URL";
+                text: "Add URL to Playlist";
                 color: Theme.player-dialog-title(PlayerAppearance.dark-theme);
                 font-size: 14px; font-weight: 600; }
             Text { x: 18px; y: 39px; width: parent.width - 36px; height: 32px;
-                text: PlayerDialogState.url-dialog-appends-playlist
-                    ? "Enter a media URL to add to the playlist." : "Enter a media URL to open in Riina.";
+                text: "Enter a media URL to add to the playlist.";
                 color: Theme.player-dialog-instructions(PlayerAppearance.dark-theme); font-size: 12px; }
             Rectangle {
                 x: 18px; y: 78px; width: parent.width - 36px; height: 30px;
@@ -101,7 +95,6 @@ export component PlayerEntryDialogs inherits Rectangle {
                 }
             }
             Text { x: 18px; y: 110px; width: parent.width - 36px; height: 17px;
-                visible: PlayerDialogState.url-dialog-appends-playlist;
                 text: PlayerDialogState.url-dialog-error; overflow: elide;
                 color: Theme.player-dialog-title(PlayerAppearance.dark-theme); font-size: 11px; }
             HorizontalLayout {
@@ -109,7 +102,7 @@ export component PlayerEntryDialogs inherits Rectangle {
                 JumpDialogButton { dark-theme: PlayerAppearance.dark-theme; label: "Cancel";
                     activated => { PlayerDialogState.url-dialog-visible = false; } }
                 JumpDialogButton { dark-theme: PlayerAppearance.dark-theme;
-                    label: PlayerDialogState.url-dialog-appends-playlist ? "Add" : "Open";
+                    label: "Add";
                     activated => { url-dialog.submit(); } }
             }
         }

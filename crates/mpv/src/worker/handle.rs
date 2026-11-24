@@ -279,6 +279,11 @@ impl EventRef<'_> {
         self.payload(event_id::END_FILE)
     }
 
+    pub(super) fn started_entry(&self) -> Option<i64> {
+        self.payload::<crate::ffi::StartFile>(event_id::START_FILE)
+            .map(|event| event.playlist_entry_id)
+    }
+
     pub(super) fn end_error(&self, end: &EndFile) -> Option<String> {
         self.api
             .check("mpv_end_file", end.error)
@@ -310,12 +315,19 @@ impl EventRef<'_> {
     }
 
     pub(super) fn screenshot_filename(&self) -> Option<String> {
-        let reply = self.payload::<CommandReply>(event_id::COMMAND_REPLY)?;
-        // SAFETY: the event keeps the result node live through this copy.
-        unsafe { reply.result.copy_json() }
-            .ok()?
+        self.command_result()?
             .get("filename")?
             .as_str()
             .map(str::to_owned)
+    }
+
+    pub(super) fn loaded_entry(&self) -> Option<i64> {
+        self.command_result()?.get("playlist_entry_id")?.as_i64()
+    }
+
+    fn command_result(&self) -> Option<serde_json::Value> {
+        let reply = self.payload::<CommandReply>(event_id::COMMAND_REPLY)?;
+        // SAFETY: the event keeps the result node live through this copy.
+        unsafe { reply.result.copy_json() }.ok()
     }
 }

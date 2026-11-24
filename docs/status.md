@@ -24,6 +24,8 @@ Implementation does not imply every state or platform is verified.
 
 - **Playback:** files, folders and URLs; play/pause, seeking, volume/mute, speed,
   frame stepping, loops, chapters, playlist editing, history and resume.
+- **Open URL:** one dialog serves the File menu and Welcome. It previews the
+  default HTTP scheme, offers HTTP authentication, and can stop a pending load.
 - **Recent activity:** player windows share Open Recent with Welcome and
   plugins. Settings Utilities clears history, recent documents and the saved
   Welcome resume item together after confirmation.

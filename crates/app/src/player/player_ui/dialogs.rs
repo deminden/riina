@@ -82,19 +82,16 @@ pub(super) fn install_time_and_url(app: &PlayerWindow, command_sender: &CommandS
 }
 
 fn install_url_dialogs(app: &PlayerWindow, command_sender: &CommandSender) {
-    let open = app.as_weak();
-    let append = app.as_weak();
-    let menu = app.global::<PlayerMenuActions>();
-    menu.on_open_url_dialog(move || {
-        if let Some(app) = open.upgrade() {
-            show_url_dialog(&app, false);
-        }
-    });
-    menu.on_open_playlist_url_dialog(move || {
-        if let Some(app) = append.upgrade() {
-            show_url_dialog(&app, true);
-        }
-    });
+    let weak = app.as_weak();
+    app.global::<PlayerMenuActions>()
+        .on_open_playlist_url_dialog(move || {
+            if let Some(app) = weak.upgrade() {
+                let dialog = app.global::<PlayerDialogState>();
+                dialog.set_url_dialog_draft("".into());
+                dialog.set_url_dialog_error("".into());
+                dialog.set_url_dialog_visible(true);
+            }
+        });
     let weak = app.as_weak();
     let commands = command_sender.clone();
     app.global::<PlayerDialogState>()
@@ -120,12 +117,4 @@ fn install_url_dialogs(app: &PlayerWindow, command_sender: &CommandSender) {
             super::show_osd_message(&app, message.text, false);
             true
         });
-}
-
-fn show_url_dialog(app: &PlayerWindow, append: bool) {
-    let dialog = app.global::<PlayerDialogState>();
-    dialog.set_url_dialog_appends_playlist(append);
-    dialog.set_url_dialog_draft("".into());
-    dialog.set_url_dialog_error("".into());
-    dialog.set_url_dialog_visible(true);
 }

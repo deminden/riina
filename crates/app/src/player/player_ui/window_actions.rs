@@ -75,13 +75,6 @@ pub(super) fn install_lifecycle(app: &PlayerWindow, welcome: Option<&WelcomeWind
             }
         });
         let weak = app.as_weak();
-        welcome.on_open_url(move |value| {
-            if let Some(app) = weak.upgrade() {
-                app.global::<riina_ui::PlayerDialogState>()
-                    .invoke_open_url(value);
-            }
-        });
-        let weak = app.as_weak();
         welcome.on_open_recent(move |index| {
             if let Some(app) = weak.upgrade() {
                 app.invoke_open_recent(index);

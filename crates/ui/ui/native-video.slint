@@ -70,6 +70,7 @@ export component NativeVideoHost inherits Window {
         return root.menu-shortcuts[index].shortcut;
     }
     callback open-url-dialog();
+    callback open-url-alternative();
     in property <bool> primary-shortcut-is-meta: false;
     callback open-recent-path(string);
     callback clear-open-recent();
@@ -234,6 +235,10 @@ export component NativeVideoHost inherits Window {
             MenuItem { title: "Open URL…";
                 shortcut: root.primary-shortcut-is-meta ? @keys(Meta + Shift + O) : @keys(Control + Shift + O);
                 activated => { root.open-url-dialog(); } }
+            MenuItem { title: "Open URL in New Window…";
+                shortcut: root.primary-shortcut-is-meta
+                    ? @keys(Meta + Alt + Shift + O) : @keys(Control + Alt + Shift + O);
+                activated => { root.open-url-alternative(); } }
             if root.record-recent-files : Menu {
                 title: "Open Recent";
                 enabled: root.recent-open-menu-rows.length > 0;

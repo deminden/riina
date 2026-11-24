@@ -97,7 +97,9 @@ fn mixed_intents_and_wakes_match_bounded_fifo_model() {
                     {
                         Message::Intent(command) => Expected::Intent(command),
                         Message::Wake => Expected::Wake,
-                        Message::Client(_) => panic!("Unexpected plugin request"),
+                        Message::Client(_) | Message::OpenStream(..) => {
+                            panic!("Unexpected request")
+                        }
                         Message::Shutdown => panic!("Command senders cannot shut down the owner"),
                     };
                     assert_eq!(
@@ -158,7 +160,7 @@ fn full_queue_rejects_pause_promptly_and_preserves_accepted_order() {
         {
             Message::Intent(actual) => assert_eq!(actual, expected),
             Message::Wake => panic!("Unexpected wake in intent queue"),
-            Message::Client(_) => panic!("Unexpected plugin request"),
+            Message::Client(_) | Message::OpenStream(..) => panic!("Unexpected request"),
             Message::Shutdown => panic!("Command senders cannot shut down the owner"),
         }
     }

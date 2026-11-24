@@ -307,6 +307,11 @@ impl Node {
 }
 
 #[repr(C)]
+pub struct StartFile {
+    pub playlist_entry_id: i64,
+}
+
+#[repr(C)]
 pub struct EndFile {
     pub reason: c_int,
     pub error: c_int,

@@ -264,6 +264,7 @@ pub(crate) struct ApplicationServices {
     inspector: Rc<crate::windows::media_inspector::ApplicationInspector>,
     logs: Rc<crate::log_viewer::ApplicationLogViewer>,
     highlights: Rc<crate::windows::release_highlights::ReleaseHighlights>,
+    pub(crate) open_url: Rc<crate::windows::open_url::ApplicationOpenUrl>,
     about: Rc<crate::about_window::ApplicationAbout>,
     recents: Rc<recent_activity::ApplicationRecents>,
     updates: Rc<crate::updates::ApplicationUpdates>,
@@ -454,6 +455,7 @@ fn configure_with_engine(
     media_actions::install(
         app,
         media_actions::Context {
+            open_url: &application.open_url,
             commands: &command_sender,
             open_host: native.as_ref().map(platform::NativePresentation::host),
             welcome,

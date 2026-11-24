@@ -37,6 +37,64 @@ fn http_url_opens_and_plays_a_local_media_fixture() {
     server.join().unwrap().unwrap();
 }
 
+#[test]
+#[ignore = "requires provisioned libmpv; exercises tracked HTTP loads against a local server"]
+fn stream_open_tracks_authentication_failure_and_cancellation() {
+    use riina_mpv::{MpvPropertyFormat, StreamAttempt, StreamSource, StreamStatus};
+    let root = fixture_root();
+    let fixture = std::fs::read(root.join("tests/fixtures/moving-square.avi")).unwrap();
+    let listener = TcpListener::bind(("127.0.0.1", 0)).unwrap();
+    listener.set_nonblocking(true).unwrap();
+    let address = listener.local_addr().unwrap();
+    let (stop, stopping) = mpsc::channel();
+    let server = std::thread::spawn(move || serve_http_fixture(listener, fixture, stopping));
+    let harness = Harness::start(&root).unwrap();
+    let sender = harness.player.command_sender();
+    let open = |path: &str, authenticate: bool| {
+        let attempt = StreamAttempt::default();
+        let source = StreamSource {
+            address: format!("http://{address}/{path}"),
+            authenticated_address: authenticate
+                .then(|| format!("http://stream:secret@{address}/{path}")),
+        };
+        sender.open_stream(source, attempt.clone()).unwrap();
+        attempt
+    };
+    let rejected = open("auth.avi", false);
+    harness.wait(|state| state.phase == Phase::Failed && rejected.status() == StreamStatus::Failed);
+    let accepted = open("auth.avi", true);
+    let playing = harness.wait(|state| {
+        accepted.status() == StreamStatus::Opened && state.position.is_some_and(|p| p >= 0.1)
+    });
+    assert!(
+        playing
+            .playlist
+            .iter()
+            .all(|entry| !entry.filename.contains('@'))
+    );
+    let public = format!("http://{address}/auth.avi");
+    for property in ["stream-open-filename", "stream-path"] {
+        let visible = sender
+            .read_mpv_property(
+                property,
+                MpvPropertyFormat::Text,
+                Instant::now() + Duration::from_secs(2),
+            )
+            .unwrap();
+        assert_eq!(visible.as_str(), Some(public.as_str()));
+    }
+    let slow = open("stall.avi", false);
+    harness.wait(|state| state.generation > playing.generation && state.phase == Phase::Loading);
+    sender.cancel_stream(&slow);
+    harness.wait(|state| state.phase == Phase::Stopped);
+    assert_eq!(slow.status(), StreamStatus::Cancelled);
+    let next = open("moving-square.avi", false);
+    harness.wait(|state| next.status() == StreamStatus::Opened && state.phase == Phase::Playing);
+    drop(harness);
+    stop.send(()).unwrap();
+    server.join().unwrap().unwrap();
+}
+
 #[expect(
     clippy::expect_used,
     reason = "Failed fixture responses must be visible to the native test"
@@ -101,11 +159,23 @@ fn write_http_fixture(stream: TcpStream, fixture: &[u8]) -> std::io::Result<()> 
     stream.set_write_timeout(Some(Duration::from_secs(5)))?;
     let mut request = BufReader::new(stream);
     let mut line = String::new();
+    request.read_line(&mut line)?;
+    let path = line
+        .split_ascii_whitespace()
+        .nth(1)
+        .unwrap_or_default()
+        .to_owned();
     let mut range = None;
+    let mut authorized = false;
     loop {
         line.clear();
         if request.read_line(&mut line)? == 0 || line == "\r\n" {
             break;
+        }
+        if let Some((name, value)) = line.split_once(':')
+            && name.eq_ignore_ascii_case("authorization")
+        {
+            authorized = value.trim() == "Basic c3RyZWFtOnNlY3JldA==";
         }
         if let Some((name, value)) = line.split_once(':')
             && name.eq_ignore_ascii_case("range")
@@ -116,6 +186,14 @@ fn write_http_fixture(stream: TcpStream, fixture: &[u8]) -> std::io::Result<()> 
             let end = end.parse::<usize>().unwrap_or(fixture.len() - 1);
             range = Some((start, end.min(fixture.len() - 1)));
         }
+    }
+    if path == "/auth.avi" && !authorized {
+        return request.get_mut().write_all(
+            b"HTTP/1.1 401 Unauthorized\r\nWWW-Authenticate: Basic realm=\"Riina test\"\r\nContent-Length: 0\r\nConnection: close\r\n\r\n",
+        );
+    }
+    if path == "/stall.avi" {
+        std::thread::sleep(Duration::from_secs(2));
     }
     let (status, body, content_range) = match range {
         Some((start, end)) if start <= end && start < fixture.len() => (
