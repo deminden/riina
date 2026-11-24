@@ -15,11 +15,16 @@ struct Record {
     tag_name: String,
     draft: bool,
     prerelease: bool,
+    #[cfg(target_os = "windows")]
+    #[serde(default)]
+    assets: Vec<super::package::Asset>,
 }
 
 pub(super) struct Release {
     pub(super) version: Version,
     pub(super) url: String,
+    #[cfg(target_os = "windows")]
+    pub(super) installer: Option<super::package::Package>,
 }
 
 pub(super) enum Outcome {
@@ -29,6 +34,10 @@ pub(super) enum Outcome {
 
 pub(super) fn check(channel: Channel) -> Result<Outcome, String> {
     let installed = Version::parse(env!("CARGO_PKG_VERSION")).map_err(|error| error.to_string())?;
+    check_for_version(channel, &installed)
+}
+
+fn check_for_version(channel: Channel, installed: &Version) -> Result<Outcome, String> {
     let mut response = agent_config(
         Duration::from_secs(12),
         RequestPolicy::HttpsWithoutRedirects,
@@ -57,7 +66,7 @@ pub(super) fn check(channel: Channel) -> Result<Outcome, String> {
         .limit(METADATA_LIMIT)
         .read_to_vec()
         .map_err(|error| format!("Could not read release information: {error}"))?;
-    compare(&data, &installed, channel)
+    compare(&data, installed, channel)
 }
 
 impl Record {
@@ -71,6 +80,8 @@ impl Record {
         }
         // Validated SemVer limits the path segment. Only open the project release page.
         Some(Release {
+            #[cfg(target_os = "windows")]
+            installer: super::package::Package::select(self.assets, &tag, &version),
             version,
             url: format!("{TAG_PAGE}{tag}"),
         })
@@ -102,6 +113,23 @@ fn compare(data: &[u8], installed: &Version, channel: Channel) -> Result<Outcome
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[cfg(target_os = "windows")]
+    #[test]
+    #[ignore = "downloads the current published Windows installer without running it"]
+    fn verifies_the_live_windows_installer() {
+        let Outcome::Available(release) =
+            check_for_version(Channel::Stable, &Version::new(0, 0, 0)).unwrap()
+        else {
+            panic!("A published release is required");
+        };
+        let downloaded = release
+            .installer
+            .expect("Published release has no verified installer offer")
+            .download(&std::sync::atomic::AtomicBool::new(false))
+            .unwrap();
+        downloaded.lock_verified().unwrap();
+    }
 
     fn record(tag: &str, draft: bool, prerelease: bool) -> Vec<u8> {
         serde_json::to_vec(&serde_json::json!({

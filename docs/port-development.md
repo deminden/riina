@@ -23,6 +23,10 @@ native browser child on X11 and the shared compositing path on Wayland. Linux
 file selection needs an available XDG Desktop Portal backend with X11 or Wayland
 parent support.
 
+Slint 1.18.1 selects X11 when it detects WSL. An isolated native Wayland lab
+can hide those detection markers inside the test's private mount namespace.
+Record the actual surface protocol when reporting Wayland results.
+
 Native file drops in the player, Welcome window and playlist have X11 and
 Wayland desktop evidence. Wayland also accepts plain-text media URLs.
 [X11 playlist drop checks](verification.md#files-dropped-into-the-playlist-2026-11-23),

@@ -1077,6 +1077,8 @@ pub(crate) use plugin_sidebar::pump_linux_webview_events;
 #[cfg(target_os = "windows")]
 pub(crate) use windows::materials::native_materials_enabled;
 #[cfg(target_os = "windows")]
+pub(crate) use windows::update_setup;
+#[cfg(target_os = "windows")]
 pub(crate) fn windows_accent_color() -> Option<slint::Color> {
     let [alpha, red, green, blue] = windows::materials::native_accent_color()?;
     Some(slint::Color::from_argb_u8(alpha, red, green, blue))

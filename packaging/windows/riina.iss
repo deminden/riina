@@ -33,6 +33,7 @@ SolidCompression=yes
 WizardStyle=modern
 LicenseFile={#PackageDir}\LICENSE-GPL-3.0.txt
 InfoBeforeFile=installer-info.txt
+SetupMutex=org.riina.player.setup
 CloseApplications=yes
 RestartApplications=no
 SetupLogging=yes

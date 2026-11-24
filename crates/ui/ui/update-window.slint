@@ -13,10 +13,12 @@ export component UpdateWindow inherits Window {
     in property <bool> asking-permission;
     in property <bool> checking;
     in property <bool> release-available;
+    in property <string> installer-action-label;
     in property <string> headline;
     in property <string> detail;
     callback retry();
     callback open-release();
+    callback installer-action();
     callback dismiss();
     callback set-permission(bool);
     public function focus-dismiss() { close-button.focus(); }
@@ -52,6 +54,10 @@ export component UpdateWindow inherits Window {
                 if !root.asking-permission && root.release-available : Button {
                     text: "View Release";
                     clicked => { root.open-release(); }
+                }
+                if !root.asking-permission && !root.installer-action-label.is-empty : Button {
+                    text: root.installer-action-label;
+                    clicked => { root.installer-action(); }
                 }
                 close-button := Button {
                     text: root.asking-permission ? "Don’t Check" : "Close";

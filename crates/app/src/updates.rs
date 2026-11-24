@@ -1,5 +1,9 @@
 //! Own one release checker and window for the application lifetime.
 mod check;
+#[cfg(target_os = "windows")]
+mod install;
+#[cfg(target_os = "windows")]
+mod package;
 mod releases;
 mod schedule;
 mod settings;
@@ -29,6 +33,8 @@ pub(crate) struct ApplicationUpdates {
     timer: Timer,
     consent_due: Cell<bool>,
     running: Cell<Option<check::Running>>,
+    #[cfg(target_os = "windows")]
+    install: install::InstallFlow,
 }
 
 #[derive(Clone)]
@@ -81,7 +87,7 @@ impl ApplicationUpdates {
         let window = self.window()?;
         let start = !window.window().is_visible() || window.get_asking_permission();
         self.consent_due.set(false);
-        if start {
+        if start && !self.install_in_progress() {
             self.request_manual(&window);
         }
         reveal(&window, Some(owner))?;
@@ -106,6 +112,16 @@ impl ApplicationUpdates {
                 updates.request_manual(&window);
             }
         });
+        #[cfg(target_os = "windows")]
+        {
+            let weak = window.as_weak();
+            let updates = Rc::downgrade(self);
+            window.on_installer_action(move || {
+                if let (Some(window), Some(updates)) = (weak.upgrade(), updates.upgrade()) {
+                    updates.install_action(&window);
+                }
+            });
+        }
         let weak = window.as_weak();
         let updates = Rc::downgrade(self);
         window.on_dismiss(move || {
@@ -140,6 +156,8 @@ impl ApplicationUpdates {
     }
 
     fn can_dismiss(self: &Rc<Self>, window: &UpdateWindow) -> bool {
+        #[cfg(target_os = "windows")]
+        self.install.dismiss(window);
         !window.get_asking_permission() || self.answer_consent(window, false)
     }
 
@@ -242,6 +260,13 @@ impl ApplicationUpdates {
             .ok_or_else(|| io::Error::other("Software Update was not initialized"))?
             .change(edit)
     }
+
+    fn install_in_progress(&self) -> bool {
+        #[cfg(target_os = "windows")]
+        return self.install.active();
+        #[cfg(not(target_os = "windows"))]
+        false
+    }
 }
 
 fn reveal(window: &UpdateWindow, owner: Option<&Owner>) -> Result<(), slint::PlatformError> {
@@ -263,12 +288,22 @@ fn reveal(window: &UpdateWindow, owner: Option<&Owner>) -> Result<(), slint::Pla
     Ok(())
 }
 
-fn present(window: &UpdateWindow, result: Result<releases::Outcome, String>) {
+fn present(
+    updates: &ApplicationUpdates,
+    window: &UpdateWindow,
+    result: Result<releases::Outcome, String>,
+) {
+    #[cfg(target_os = "windows")]
+    updates.install.dismiss(window);
+    #[cfg(not(target_os = "windows"))]
+    let _ = updates;
     window.set_asking_permission(false);
     window.set_checking(false);
     window.set_release_available(false);
     match result {
         Ok(releases::Outcome::Available(release)) => {
+            #[cfg(target_os = "windows")]
+            updates.install.offer(window, release.installer);
             window.set_headline(format!("Riina {} is available", release.version).into());
             window.set_detail(format!("Installed version: {}", env!("CARGO_PKG_VERSION")).into());
             let weak = window.as_weak();
@@ -314,16 +349,20 @@ mod tests {
         window.invoke_focus_dismiss();
 
         present(
+            &updates,
             &window,
             Ok(releases::Outcome::Available(releases::Release {
                 version: Version::new(5, 0, 0),
                 url: "https://github.com/deminden/riina/releases/tag/v5.0.0".into(),
+                #[cfg(target_os = "windows")]
+                installer: None,
             })),
         );
         assert!(window.get_release_available());
         assert_eq!(window.get_headline(), "Riina 5.0.0 is available");
 
         present(
+            &updates,
             &window,
             Ok(releases::Outcome::Current(Version::new(4, 2, 1))),
         );
@@ -331,7 +370,7 @@ mod tests {
         assert!(window.get_detail().contains("Latest release: 4.2.1"));
 
         window.set_checking(true);
-        present(&window, Err("Test feed offline".into()));
+        present(&updates, &window, Err("Test feed offline".into()));
         assert!(!window.get_checking());
         assert_eq!(window.get_detail(), "Test feed offline");
         window.window().dispatch_event(WindowEvent::KeyPressed {

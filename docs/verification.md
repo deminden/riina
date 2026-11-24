@@ -3100,3 +3100,35 @@ download and installation remain open.
 - Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
 - Linux application SHA-256 `cef017208017faef1c98ff506e34ed1b703f399fae99f5bc222136feee3e8780`
 - X11 libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`
+
+### Verified Windows installer download 2026-11-24
+
+Software Update can offer the exact x64 Setup asset to a registered Windows
+installation. It streams the bounded download from the project's release,
+checks the published byte count and SHA-256, and marks it as an Internet
+download. Download and Open Setup are separate actions. The setup worker
+rechecks the registered destination and verifies the file while excluding
+writes before handing the installer to the Windows shell. Portable copies
+and releases without a matching asset retain the release page action.
+
+The Windows workspace gate verified malformed and oversized downloads,
+checksum changes, cancellation, and stale completion handling. The live
+test fetched the published 4.2.1 installer, verified it and acquired the
+launch-time read lock. An isolated Windows test opened a stand-in through
+the same shell adapter while its executable was read-locked. It received
+the exact Unicode destination and returned its known exit code. The pinned
+Inno Setup compiler accepted the setup mutex and built an installer from
+the archived 4.2.1 portable payload.
+
+The three-launch Windows check passed against the live release feed. The
+candidate retained update preferences and paused playback, and all three
+test processes closed normally. The separate pinned-engine suite passed
+all 59 tests. Strict Apple Silicon cross-Clippy and the locked Linux
+application source check passed.
+
+An installed version-to-version upgrade and the Windows reputation prompt
+remain unverified. The live download test exercises the current unsigned
+asset against its published digest.
+
+- Windows application SHA-256 `9fad427141e0c08fe565eca7d133244cb69293d5eca43e7ca65720b598f4c46b`
+- Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`

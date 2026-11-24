@@ -91,6 +91,9 @@ impl ApplicationUpdates {
     }
 
     fn show_result(self: &Rc<Self>, result: Result<releases::Outcome, String>, manual: bool) {
+        if self.install_in_progress() {
+            return;
+        }
         let window = match self.window() {
             Ok(window) => window,
             Err(error) => {
@@ -98,7 +101,7 @@ impl ApplicationUpdates {
                 return;
             }
         };
-        present(&window, result);
+        present(self, &window, result);
         if !manual && let Err(error) = reveal(&window, self.owner().as_ref()) {
             crate::diagnostics::warn!("Could not show the available update: {error}");
         }
@@ -140,6 +143,8 @@ mod tests {
         updates.finish(Ok(releases::Outcome::Available(releases::Release {
             version: Version::new(5, 0, 0),
             url: "https://github.com/deminden/riina/releases/tag/v5.0.0".into(),
+            #[cfg(target_os = "windows")]
+            installer: None,
         })));
         let window = updates.window().unwrap();
         assert!(window.window().is_visible());
