@@ -221,6 +221,11 @@ releases one player. Quit releases all remaining players before ending the
 Windows event loop. A separately launched Riina process has its own application
 owner.
 
+Software Update is an application service shared by its players. Either menu
+opens the same window. A worker retrieves public release metadata and compares
+versions. The window shows the result and opens the project's release page
+when requested.
+
 Media discovery chooses destination players from the original selection before
 enumerating folders or filtering files. A folder stays with its assigned player,
 and a standalone playlist goes to mpv as a single reference. The Windows and

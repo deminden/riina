@@ -55,6 +55,9 @@ fn install_application_actions(host: &NativeVideoHost, app: &PlayerWindow) {
     forward!(host, app, on_show_about, || {
         app.global::<PlayerMenuActions>().invoke_show_about();
     });
+    forward!(host, app, on_check_for_updates, || {
+        app.global::<PlayerMenuActions>().invoke_check_for_updates();
+    });
     let menu_app = app.as_weak();
     host.on_open_help_link(move |destination| {
         let Some(app) = menu_app.upgrade() else {

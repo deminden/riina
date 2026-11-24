@@ -233,6 +233,7 @@ pub(crate) use startup::InitialMedia;
 pub(crate) struct ApplicationServices {
     pub(crate) plugins: Rc<ApplicationPlugins>,
     pub(crate) history: Rc<crate::playback_history_window::ApplicationHistory>,
+    updates: Rc<crate::updates::ApplicationUpdates>,
 }
 
 pub(crate) fn configure_player(
@@ -379,6 +380,7 @@ fn configure_with_engine(
         },
     );
     window_actions::install_lifecycle(app, welcome);
+    application.updates.connect(app, native.as_ref());
 
     startup::activate_output(
         app,

@@ -3019,3 +3019,22 @@ verification remains open.
 - Linux application SHA-256 `4cbf64d69a6afd0ea49b5c8710cb2e9e3a31de3bcf2d988d2b14db36f1b600b5`
 - X11 libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`
 - Wayland libmpv SHA-256 `cdce854e1811942602587310026306d92d30c0f593f2be676f07659ae43061d8`
+
+### Manual software update check 2026-11-24
+
+The Windows native and shared application menus open one Software Update
+window. The check reads the project's public stable GitHub release on a
+background thread and compares it with the installed version using SemVer.
+An available release offers the official release page. Automatic checks,
+prerelease selection and installation remain open.
+
+The private Windows desktop used the live release feed. Check for Updates
+and Check Again both reported installed and published version 4.2.1.
+Repeated invocation reused the window. Close dismissed it, and reopening
+reused it. Playback stayed paused, and closing the player exited the exact
+test process with Software Update open. The full Windows workspace gate
+passed, including the pixel baselines and tests for available, current and
+failed results.
+
+- Windows application SHA-256 `a2f86d45336797da3cb886d9d17f0bb9da8d5f834bf48d6eede1a6761b7ba41`
+- Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`

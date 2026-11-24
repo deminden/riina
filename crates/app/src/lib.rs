@@ -20,6 +20,7 @@ mod settings_search;
 mod subtitles;
 mod ui_dialogs;
 mod ui_models;
+mod updates;
 mod windows;
 #[doc(hidden)]
 pub use player::automatic_music_mode;

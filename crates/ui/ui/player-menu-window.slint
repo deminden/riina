@@ -75,7 +75,7 @@ export component PlayerMenuWindow inherits Window {
         Menu { title: "riina";
             MenuItem { title: "About Riina"; activated => { PlayerMenuActions.show-about(); } }
             MenuItem { title: "Check for Updates…";
-                activated => { PlayerMenuActions.open-help-link("release-highlights"); } }
+                activated => { PlayerMenuActions.check-for-updates(); } }
             MenuSeparator {}
             MenuItem { title: root.menu-value-primary-shortcut-is-meta ? "Settings…" : "Preferences…";
                 enabled: !root.menu-value-crop-editing;

@@ -1,0 +1,61 @@
+import { Button } from "std-widgets.slint";
+import { NativeTypography } from "shared-controls.slint";
+import { Theme } from "theme.slint";
+
+export component UpdateWindow inherits Window {
+    title: "Software Update";
+    default-font-family: NativeTypography.system-font-family;
+    preferred-width: 420px;
+    min-width: 360px;
+    background: Theme.about-content-surface(root.dark-theme);
+
+    in property <bool> dark-theme;
+    in property <bool> checking;
+    in property <bool> release-available;
+    in property <string> headline;
+    in property <string> detail;
+    callback retry();
+    callback open-release();
+    callback dismiss();
+    public function focus-dismiss() { close-button.focus(); }
+
+    FocusScope {
+        key-pressed(event) => {
+            if event.text == Key.Escape { root.dismiss(); return accept; }
+            return reject;
+        }
+        VerticalLayout {
+            padding: 24px;
+            spacing: 12px;
+            Text {
+                text: root.headline;
+                font-weight: 600;
+                font-size: 18px;
+                wrap: word-wrap;
+                color: Theme.about-title(root.dark-theme);
+            }
+            Text {
+                text: root.detail;
+                font-size: 13px;
+                wrap: word-wrap;
+                color: Theme.about-summary-detail(root.dark-theme);
+            }
+            HorizontalLayout {
+                spacing: 8px;
+                alignment: end;
+                if !root.checking && !root.release-available : Button {
+                    text: "Check Again";
+                    clicked => { root.retry(); }
+                }
+                if root.release-available : Button {
+                    text: "View Release";
+                    clicked => { root.open-release(); }
+                }
+                close-button := Button {
+                    text: "Close";
+                    clicked => { root.dismiss(); }
+                }
+            }
+        }
+    }
+}

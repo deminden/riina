@@ -47,6 +47,7 @@ export component NativeVideoHost inherits Window {
     callback save-current-playlist();
     callback save-downloaded-subtitle();
     callback show-about();
+    callback check-for-updates();
     callback open-help-link(string);
     callback dump-debug-info();
     callback show-playback-history();
@@ -204,7 +205,7 @@ export component NativeVideoHost inherits Window {
     MenuBar {
         Menu { title: "riina";
             MenuItem { title: "About Riina"; activated => { root.show-about(); } }
-            MenuItem { title: "Check for Updates…"; enabled: false; }
+            MenuItem { title: "Check for Updates…"; activated => { root.check-for-updates(); } }
             MenuSeparator {}
             MenuItem { title: "Preferences…";
                 shortcut: root.primary-shortcut-is-meta ? @keys(Meta + ",") : @keys(Control + ",");
