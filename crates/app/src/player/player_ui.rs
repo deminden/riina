@@ -106,6 +106,13 @@ pub(crate) fn reorder_all_open_plugin_menus(order: &[String]) {
     }
 }
 
+pub(crate) fn refresh_playlist_resume_positions() {
+    crate::playlist_metadata::resume::invalidate();
+    for app in input::open_player_windows() {
+        app.invoke_refresh_playlist_metadata();
+    }
+}
+
 pub(crate) fn show_osd_message(
     app: &PlayerWindow,
     text: impl Into<slint::SharedString>,

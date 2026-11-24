@@ -1,7 +1,7 @@
 //! Install playback-powered windows and retain each feature's session resources.
 use super::{
     PendingNavigation,
-    catalog::install_playlist_metadata_refresh,
+    catalog::playlist,
     discovery,
     history_session::Tracking,
     input, live_text,
@@ -21,7 +21,6 @@ pub(super) struct PlaybackFeatures {
     _online_subtitles_window: crate::open_subtitles::SearchWindowGuard,
     _playback_history_window: crate::playback_history_window::Guard,
     _filter_windows: crate::video_filter_window::Guard,
-    _playlist_metadata: super::catalog::PlaylistMetadataRefresh,
     _automatic_music_mode_timer: Rc<slint::Timer>,
     _file_drop_timer: Rc<slint::Timer>,
     _player_window_focus: input::PlayerWindowFocusRegistration,
@@ -32,6 +31,7 @@ pub(super) struct PlaybackTimers {
     discovery: Rc<slint::Timer>,
     transition: Option<transitions::TransitionTimer>,
     video_materials: platform::video_materials::Monitor,
+    pub(super) playlist: playlist::MetadataRefresh,
     previous: Arc<Playback>,
 }
 
@@ -51,6 +51,11 @@ impl PlaybackTimers {
             wake_timer(&self.discovery);
         }
         self.video_materials.observe(app, state);
+        if self.previous.ignore_path_in_watch_later_config
+            != state.ignore_path_in_watch_later_config
+        {
+            app.invoke_refresh_playlist_metadata();
+        }
         self.previous.clone_from(state);
     }
 }
@@ -115,7 +120,7 @@ pub(super) fn install(app: &PlayerWindow, inputs: Inputs<'_>) -> Installed {
         commands.clone(),
         prefs_path.to_path_buf(),
     );
-    let playlist_metadata = install_playlist_metadata_refresh(app, playback.clone());
+    let playlist_metadata = playlist::install_metadata_refresh(app, playback.clone(), prefs_path);
     let automatic_music_mode_timer =
         crate::automatic_music_mode::install(app, playback.clone(), music_mode.clone());
     *lock(plugin_commands) = Some(commands.clone());
@@ -171,7 +176,6 @@ pub(super) fn install(app: &PlayerWindow, inputs: Inputs<'_>) -> Installed {
             _online_subtitles_window: online_subtitles_window,
             _playback_history_window: playback_history_window,
             _filter_windows: filter_windows,
-            _playlist_metadata: playlist_metadata,
             _automatic_music_mode_timer: automatic_music_mode_timer,
             _file_drop_timer: file_drop_timer,
             _player_window_focus: player_window_focus,
@@ -181,6 +185,7 @@ pub(super) fn install(app: &PlayerWindow, inputs: Inputs<'_>) -> Installed {
             discovery: subtitle_priority_timer,
             transition: transition_frame_timer,
             video_materials,
+            playlist: playlist_metadata,
             previous: Arc::default(),
         },
         live_text_timer,

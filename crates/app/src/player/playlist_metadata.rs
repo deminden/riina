@@ -1,6 +1,7 @@
 //! Small asynchronous tag cache for audio labels in the playlist.
 
 pub(crate) mod durations;
+pub(crate) mod resume;
 
 use lofty::{file::TaggedFileExt, probe::Probe, tag::ItemKey};
 use riina_core::sync::lock;

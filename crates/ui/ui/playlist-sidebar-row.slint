@@ -5,6 +5,7 @@ import { CatalogRow } from "catalog-row.slint";
 
 import { PlaylistInteraction, PlaylistMenuOrigin } from "playlist-interaction.slint";
 import { PlaylistContextMenu } from "playlist-context-menu.slint";
+import { PlaylistResumeMark } from "playlist-resume-mark.slint";
 import { PlaylistInsertionIndicator, PlaylistRowInput } from "playlist-row-input.slint";
 
 export component CatalogSidebarRow inherits Rectangle {
@@ -26,6 +27,12 @@ export component CatalogSidebarRow inherits Rectangle {
     if pane-kind == 2 || pane-kind == 6 : Rectangle {
         x: 0; y: parent.height - 1px; width: parent.width; height: 1px;
         background: Theme.sidebar-material-border(root.dark-theme);
+    }
+    if pane-kind == 4 && entry.resume-fraction > 0 : PlaylistResumeMark {
+        y: parent.height - self.height;
+        row-width: parent.width;
+        fraction: entry.resume-fraction;
+        accent: root.interactive-accent-color;
     }
     if pane-kind == 4 : PlaylistInsertionIndicator {
         width: parent.width;

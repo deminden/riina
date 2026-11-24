@@ -2497,6 +2497,26 @@ executable SHA-256 was
 Desktop file chooser interaction on Windows, Wayland and macOS remains open.
 Automatic matching currently runs as each entry starts.
 
+### Playlist resume positions 2026-11-24
+
+The Windows workspace gate and all 59 pinned libmpv null-output tests passed.
+The row projection and saved-position regressions cover media identity across
+reordering, changed durations, missing duration, and the engine's
+filename-hashing policy.
+The pinned Windows DLL and the Linux test engine both wrote a native
+watch-later file with an uppercase hash for a Unicode media path.
+The locked Apple Silicon workspace passed strict Clippy from Windows.
+
+In isolated Linux X11, libmpv saved a 2.5-second position for a five-second
+clip. Its 3-pixel marker covered 168 pixels of the 336-pixel sidebar row and
+followed the clip when it moved below an unwatched entry. Music Mode showed
+the same fraction across 150 pixels of a 300-pixel row. The first clip
+stayed paused while the playlist changed. Returning to the player and
+selecting the saved clip restored exactly 2.5 seconds, and the process
+exited normally. The Linux executable SHA-256 was
+`a3657921080736d098e4319df65fa5c909c68a546e8a36b65fa319fdc6a6d220`.
+Live Windows, Wayland and macOS presentation remains open.
+
 ### macOS application menu composition 2026-10-14
 
 The AppKit adapter consolidates application actions in one native menu while

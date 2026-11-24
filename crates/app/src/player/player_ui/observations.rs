@@ -39,6 +39,7 @@ pub(super) fn update_ui(
         seek: last_seek,
         video: last_video,
         screenshot: last_screenshot,
+        timers,
         ..
     } = observer;
     update_transition_cover(app, state, &resources);
@@ -80,7 +81,10 @@ pub(super) fn update_ui(
             || old.audio_output != state.audio_output
             || current_chapter(old) != current_chapter(state)
     }) {
-        update_catalog(app, state);
+        let positions = timers
+            .as_ref()
+            .and_then(|timers| timers.playlist.saved_positions(state));
+        update_catalog(app, state, positions.as_deref());
         *displayed = Some(state.clone());
     } else if displayed
         .as_ref()

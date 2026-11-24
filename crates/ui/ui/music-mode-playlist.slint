@@ -6,6 +6,7 @@ import { CatalogRow } from "catalog-row.slint";
 import { PlayerSidebarState } from "player-sidebar-state.slint";
 import { PlaylistDropScrollView } from "playlist-drop-viewport.slint";
 import { PlaylistInsertionIndicator, PlaylistRowInput } from "playlist-row-input.slint";
+import { PlaylistResumeMark } from "playlist-resume-mark.slint";
 
 export component MusicModePlaylist inherits Rectangle {
     in property <bool> dark-theme;
@@ -34,6 +35,12 @@ export component MusicModePlaylist inherits Rectangle {
                 background: row.selected || PlaylistInteraction.selected-playlist-token == row.token
                     ? Theme.music-mode-playlist-selection(root.dark-theme) :
                     music-row-touch.has-hover ? Theme.music-mode-playlist-hover(root.dark-theme) : transparent;
+                if row.resume-fraction > 0 : PlaylistResumeMark {
+                    y: parent.height - self.height;
+                    row-width: parent.width;
+                    fraction: row.resume-fraction;
+                    accent: root.platform-windows ? root.windows-accent-color : Theme.playback-progress-accent;
+                }
                 PlaylistInsertionIndicator {
                     width: parent.width;
                     height: parent.height;

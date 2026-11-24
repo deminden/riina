@@ -3,7 +3,7 @@
 use md5::{Digest, Md5};
 use riina_core::playback_history::Entry;
 use serde::{Deserialize, Serialize};
-use std::io::BufRead;
+use std::io::{BufRead, ErrorKind, Read};
 use std::path::{Path, PathBuf};
 
 const SCHEMA_VERSION: u32 = 1;
@@ -28,9 +28,32 @@ pub(crate) fn progress_from_watch_later(
 ) -> Option<f64> {
     let watch_later_path =
         watch_later_file_path(media_reference, watch_later_directory, ignore_path)?;
-    let file = std::fs::File::open(watch_later_path).ok()?;
-    let first_line = std::io::BufReader::new(file).lines().next()?.ok()?;
-    let value = first_line.strip_prefix("start=")?.parse::<f64>().ok()?;
+    let file = std::fs::File::open(&watch_later_path)
+        .or_else(|error| {
+            if error.kind() != ErrorKind::NotFound {
+                return Err(error);
+            }
+            // Keep reading files from case-insensitive profiles migrated to a case-sensitive host.
+            let lowercase = watch_later_path
+                .file_name()
+                .unwrap_or_default()
+                .to_ascii_lowercase();
+            std::fs::File::open(watch_later_path.with_file_name(lowercase))
+        })
+        .ok()?;
+    const MAX_START_LINE: u64 = 512;
+    let mut first_line = String::new();
+    let bytes = std::io::BufReader::new(file.take(MAX_START_LINE))
+        .read_line(&mut first_line)
+        .ok()?;
+    if bytes as u64 >= MAX_START_LINE {
+        return None;
+    }
+    let value = first_line
+        .trim_end_matches(['\r', '\n'])
+        .strip_prefix("start=")?
+        .parse::<f64>()
+        .ok()?;
     (value.is_finite() && value >= 0.0).then_some(value)
 }
 
@@ -64,7 +87,7 @@ fn watch_later_file_path(
     } else {
         local_path_identifier(media_reference, ignore_path)?
     };
-    Some(watch_later_directory.join(md5_hex(identifier.as_bytes())))
+    Some(watch_later_directory.join(md5_hex(identifier.as_bytes()).to_ascii_uppercase()))
 }
 
 pub(crate) fn md5_hex(input: &[u8]) -> String {
@@ -171,12 +194,12 @@ mod tests {
         let hello = watch_later_file_path("hello", &directory, false).unwrap();
         assert_eq!(
             hello.file_name().unwrap(),
-            "5d41402abc4b2a76b9719d911017c592"
+            "5D41402ABC4B2A76B9719D911017C592"
         );
 
         let remote =
             watch_later_file_path("https://media.example/video.mkv", &directory, true).unwrap();
-        let expected = md5_hex(b"https://media.example/video.mkv");
+        let expected = md5_hex(b"https://media.example/video.mkv").to_ascii_uppercase();
         assert_eq!(remote.file_name().unwrap().to_string_lossy(), expected);
 
         let first = watch_later_file_path("folder-a/video.mkv", &directory, true).unwrap();
@@ -195,11 +218,11 @@ mod tests {
         assert_eq!(from_path, from_url);
         assert_eq!(
             from_path.file_name().unwrap().to_string_lossy(),
-            md5_hex(native.as_bytes())
+            md5_hex(native.as_bytes()).to_ascii_uppercase()
         );
         assert_ne!(
             from_path.file_name().unwrap().to_string_lossy(),
-            md5_hex(b"C:/Media/sample file.wav")
+            md5_hex(b"C:/Media/sample file.wav").to_ascii_uppercase()
         );
     }
 
@@ -220,5 +243,7 @@ mod tests {
             std::fs::write(&file, invalid).unwrap();
             assert_eq!(progress_from_watch_later(media, directory, false), None);
         }
+        std::fs::write(&file, format!("start={}\n", "0".repeat(600))).unwrap();
+        assert_eq!(progress_from_watch_later(media, directory, false), None);
     }
 }

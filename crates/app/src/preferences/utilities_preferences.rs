@@ -110,7 +110,9 @@ fn install_cache_and_history_actions(
         if response != MessageDialogResult::Yes {
             return;
         }
-        match clear_watch_later(&watch_later) {
+        let cleared = clear_watch_later(&watch_later);
+        crate::player_ui::refresh_playlist_resume_positions();
+        match cleared {
             Ok(removed_bytes) => {
                 window
                     .global::<riina_ui::UtilitySettingsState>()

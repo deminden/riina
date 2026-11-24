@@ -1,0 +1,10 @@
+export component PlaylistResumeMark inherits Rectangle {
+    in property <float> fraction;
+    in property <color> accent;
+    in property <length> row-width;
+
+    x: 0px;
+    width: row-width * fraction;
+    height: 3px;
+    background: accent.mix(white, 0.8);
+}

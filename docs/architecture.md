@@ -85,6 +85,12 @@ Visible playlists share one background duration reader. It uses a separate
 paused libmpv client with null output and file references disabled. Closing a
 playlist withdraws its queued requests and cancels probes that other windows
 no longer need. The current player's observed duration takes precedence.
+Each player reads saved resume positions for its visible playlist in one
+background job. The read uses the profile's watch-later directory and the
+decoder's observed filename policy. Row ordering and playback clock ticks
+leave completed lookups available for the same media. Hiding the playlist
+withdraws pending reads. Clearing saved playback progress invalidates the
+displayed positions and supersedes any read still in flight.
 The sidebar, layout, controls and dialogs read state from the owning window.
 Rendered frames and material samples share
 that lifetime. Keyboard input and both menu presentations invoke the actions
