@@ -392,8 +392,7 @@ fn open_new_player<Owner: ComponentHandle + 'static>(
         .managed
         .as_ref()
         .is_some_and(|ticket| ticket.options.disable_window_animation);
-    let app = PlayerWindow::new().map_err(|error| error.to_string())?;
-    app.set_native_video(false);
+    let app = crate::platform::startup::new_shared_player().map_err(|error| error.to_string())?;
     let media_geometry = crate::window_aspect::MediaGeometry::default();
     let services = state.borrow().services.clone();
     let session = crate::player_ui::configure_player(
@@ -614,8 +613,7 @@ fn show_welcome(
     if state.borrow().quitting {
         return Ok(());
     }
-    let app = PlayerWindow::new()?;
-    app.set_native_video(false);
+    let app = crate::platform::startup::new_shared_player()?;
     let welcome = WelcomeWindow::new()?;
     crate::appearance_preferences::install_system_typography(&welcome);
     let loaded = crate::preference_load::load(&crate::platform::preferences_path()?)?;

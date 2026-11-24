@@ -4,15 +4,16 @@ import { Theme } from "theme.slint";
 export enum PlaylistPopupInput { hover, choose, previous, next, back, forward, enter, dismiss }
 export struct PlaylistPopupBounds { x: float, y: float, width: float, height: float }
 export struct PlaylistPopupRow {
-    title: string, height: float, separator: bool, enabled: bool, checked: bool,
+    title: string, shortcut: string, height: float, separator: bool, enabled: bool, checkable: bool, checked: bool,
     submenu: bool, highlighted: bool,
 }
 export struct PlaylistPopupPanel {
-    bounds: PlaylistPopupBounds, content-height: float, reveal: float, rows: [PlaylistPopupRow],
+    bounds: PlaylistPopupBounds, content-height: float, reveal: float, rows: [PlaylistPopupRow], back: bool,
 }
 
 export global PlaylistPluginPopupState {
     in-out property <bool> shown;
+    in-out property <bool> player-menu;
     in-out property <[PlaylistPopupPanel]> panels;
     callback input(PlaylistPopupInput, int, int, float);
     public function handle-key(text: string) {
@@ -35,14 +36,36 @@ component PopupPanel inherits Rectangle {
     border-color: Theme.playlist-sort-border(dark);
     border-width: 1px;
     border-radius: 6px;
+    private property <length> header-height: panel.back ? 28px : 0px;
 
     TouchArea { width: parent.width; height: parent.height; }
+    if root.panel.back : Rectangle {
+        x: 4px; y: 4px; width: parent.width - 8px; height: root.header-height;
+        border-radius: 4px;
+        background: back-button.has-hover ? Theme.playlist-sort-hover(root.dark) : transparent;
+        accessible-role: button;
+        accessible-label: @tr("Back");
+        accessible-action-default => { PlaylistPluginPopupState.input(PlaylistPopupInput.back, root.panel-index, 0, 0); }
+        Text {
+            x: 6px;
+            width: parent.width - 12px;
+            text: "‹  " + @tr("Back");
+            font-size: 12px;
+            vertical-alignment: center;
+            color: Theme.player-dialog-button-text(root.dark);
+        }
+        back-button := TouchArea {
+            width: parent.width; height: parent.height;
+            clicked => { PlaylistPluginPopupState.input(PlaylistPopupInput.back, root.panel-index, 0, 0); }
+        }
+    }
     Flickable {
-        x: 4px; y: 4px; width: parent.width - 8px; height: parent.height - 8px;
+        x: 4px; y: 4px + root.header-height; width: parent.width - 8px;
+        height: max(0px, parent.height - 8px - root.header-height);
         content-width: self.width;
         content-height: max(self.height, root.panel.content-height * 1px);
         accessible-role: list;
-        accessible-label: "Playlist menu";
+        accessible-label: PlaylistPluginPopupState.player-menu ? @tr("Menu") : "Playlist menu";
         private property <float> reveal: root.panel.reveal;
 
         changed reveal => {
@@ -69,7 +92,7 @@ component PopupPanel inherits Rectangle {
                     accessible-role: button;
                     accessible-label: row.title;
                     accessible-enabled: row.enabled;
-                    accessible-checkable: row.checked;
+                    accessible-checkable: row.checkable;
                     accessible-checked: row.checked;
                     accessible-action-default => {
                         if row.enabled {
@@ -83,6 +106,12 @@ component PopupPanel inherits Rectangle {
                         horizontal-stretch: 1;
                         color: row.enabled ? Theme.player-dialog-button-text(root.dark)
                             : Theme.playlist-sort-caption(root.dark); }
+                    if !row.shortcut.is-empty : Text {
+                        text: row.shortcut;
+                        font-size: 11px;
+                        vertical-alignment: center;
+                        color: Theme.playlist-sort-caption(root.dark);
+                    }
                     Text { width: 12px; text: row.submenu ? "›" : ""; vertical-alignment: center;
                         color: Theme.player-dialog-button-text(root.dark); }
                 }

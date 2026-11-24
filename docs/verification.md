@@ -2,7 +2,7 @@
 
 Results apply to the named revision, environment and test type. A unit test,
 a native decode test and a desktop playback check establish different things.
-The latest records below are from Windows 11 x64; dates and exact scope are recorded per batch.
+Dates, platforms and exact scope are recorded per batch.
 
 ## Windows 4.2.1 release 2026-11-09
 
@@ -4097,9 +4097,35 @@ In isolated Wayland sessions at 1070 × 640, the four menus displayed Russian
 and Arabic titles and shortcuts. The Video Filters shortcut opened its
 localized editor in both sessions, and both processes exited normally.
 A 320 × 180 Russian capture showed that the in-window menu bar clips the
-families at the right edge. Narrow menu access remains open.
+families at the right edge. The following batch addresses narrow menu access.
 
 - Windows application SHA-256 `2db0858b5a9f480226413914d1d006b6fb26e019e30c233ab4caca0214b8c414`
 - Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
 - Linux application SHA-256 `e3192bfec9cceb23b4a0528d4c364106c2b29efadb275159d81da00035c3501d`
+- Linux libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`
+
+### Compact Linux player menus 2026-11-24
+
+The compact menu regression clicks the Menu button at the top of a 320 × 180
+client. It checks all ten families in the scrollable root, a bounded Video
+submenu, the Back action, shortcut text and the Video Filters action. Resizing
+to 1080 × 660 closes the popup and restores the regular bar.
+
+The Windows locked build and workspace gate passed, including the headless
+player and Settings pixel baselines. The null-output engine suite passed 61
+tests with the pinned Windows library. Apple Silicon cross-Clippy passed.
+The Linux application suite passed 597 tests and the widget suite passed 65.
+
+Private Sway Wayland sessions with XWayland disabled exercised a paused
+fixture at 320 × 180 in Russian and Arabic. The compact bar stayed above
+the menu. Keyboard traversal revealed Help at the end of the root, and the
+pointer Back row reopened the root from Video. Both sessions opened Video
+Filters from the scrolled submenu and from the direct shortcut, restored the
+wide bar at 1070 × 640 and exited normally.
+
+A private X11 session with Openbox exercised the same Russian compact menu,
+opened Video Filters by keyboard, restored the wide bar and exited normally.
+Both Linux desktop checks used the same application and libmpv build.
+
+- Linux application SHA-256 `dec7aade65b40d91e95c32a55dd6eb6619daccaa99c3c9ed73d93394018a6305`
 - Linux libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`

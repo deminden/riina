@@ -15,7 +15,7 @@ thread_local! {
 
 pub(crate) fn capture_bar<T>(
     create: impl FnOnce() -> Result<T, slint_runtime::PlatformError>,
-) -> Result<(T, SlintMenu), slint_runtime::PlatformError> {
+) -> Result<(T, ItemTreeRc), slint_runtime::PlatformError> {
     CAPTURE.replace(Some(Vec::new()));
     let component = create();
     let trees = CAPTURE.take().unwrap_or_default();
@@ -23,7 +23,7 @@ pub(crate) fn capture_bar<T>(
     let [tree]: [ItemTreeRc; 1] = trees.try_into().map_err(|_| {
         slint_runtime::PlatformError::Other("Expected one generated playback menu bar".into())
     })?;
-    Ok((component, SlintMenu::new(tree)))
+    Ok((component, tree))
 }
 
 pub(crate) struct MenuFromItemTree {

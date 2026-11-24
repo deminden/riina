@@ -676,3 +676,9 @@ msgstr "Нет"
 
 msgid "Auto detect"
 msgstr "Автоопределение"
+
+msgid "Menu"
+msgstr "Меню"
+
+msgid "Back"
+msgstr "Назад"

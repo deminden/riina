@@ -4,6 +4,10 @@ use slint::ComponentHandle;
 use slint::LogicalPosition;
 
 mod client;
+#[cfg(any(target_os = "linux", test))]
+mod compact;
+#[cfg(target_os = "linux")]
+pub(super) use compact::new_player;
 #[cfg(target_os = "linux")]
 mod x11;
 
@@ -12,7 +16,9 @@ pub(crate) enum Entry<A> {
     Separator,
     Item {
         title: String,
+        shortcut: String,
         enabled: bool,
+        checkable: bool,
         checked: bool,
         target: Target<A>,
     },

@@ -162,10 +162,7 @@ fn start_shared_player(
 ) -> Result<(), Box<dyn std::error::Error>> {
     let supplied_media_argument = media.requests_playback();
     let action_after_launch = loaded.preferences.action_after_launch;
-    let app = PlayerWindow::new()?;
-    // This entry point renders video in the Slint window and needs its menu bar.
-    // Native-video mode keeps the transparent surface menu-free at initialization.
-    app.set_native_video(false);
+    let app = platform::startup::new_shared_player()?;
     let welcome = if action_after_launch.show_welcome(supplied_media_argument) {
         Some(WelcomeWindow::new()?)
     } else {

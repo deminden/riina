@@ -344,7 +344,9 @@ fn player(title: &str, action: i32, enabled: bool) -> Entry<Action> {
 fn item(title: &str, action: Action, enabled: bool) -> Entry<Action> {
     Entry::Item {
         title: title.into(),
+        shortcut: String::new(),
         enabled,
+        checkable: false,
         checked: false,
         target: Target::Action(action),
     }
@@ -375,7 +377,9 @@ fn plugin_item(identifier: &str, item: PluginMenuItem) -> Entry<Action> {
     };
     Entry::Item {
         title: item.title,
+        shortcut: String::new(),
         enabled: item.enabled,
+        checkable: item.selected,
         checked: item.selected,
         target,
     }

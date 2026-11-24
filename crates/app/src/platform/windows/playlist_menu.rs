@@ -82,6 +82,7 @@ impl Menu {
             enabled,
             checked,
             target,
+            ..
         } = entry
         else {
             // SAFETY: separator entries require no command identifier or string.

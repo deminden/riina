@@ -699,6 +699,13 @@ The Windows owner formats its informational rows through the same localized
 messages as the shared menu. It refreshes volume, speed and delays in place
 as each native submenu opens, preserving the menu and video client's bounds.
 
+The Linux player's in-window bar measures the localized menu captions. When
+the bar would overflow, the player shows a Menu button and routes the same
+command tree through the bounded popup presenter. Menu levels scroll within
+the client, and a Back row lets pointer users return from an overlapping
+submenu. The generated bar still owns the keyboard shortcuts. Resizing
+dismisses the popup and restores the regular bar when its captions fit.
+
 The application owns one audio and one video filter editor for the profile.
 Both read saved presets before playback and follow the last active player when
 a playback session is available. Changes to the active filter chain are checked

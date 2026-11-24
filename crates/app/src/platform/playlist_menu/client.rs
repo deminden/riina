@@ -9,6 +9,7 @@ use slint::{ComponentHandle, LogicalPosition, Model, ModelRc, VecModel};
 use std::{cell::RefCell, rc::Rc};
 
 const WIDTH: f32 = 224.0;
+const BACK_HEIGHT: f32 = 28.0;
 const PADDING: f32 = 4.0;
 const ITEM_HEIGHT: f32 = 24.0;
 const SEPARATOR_HEIGHT: f32 = 8.0;
@@ -26,14 +27,35 @@ pub(super) fn show<A: 'static>(
     entries: Vec<Entry<A>>,
     selected: impl FnOnce(A) + 'static,
 ) {
+    show_client(app, point, entries, false, selected);
+}
+
+#[cfg(any(target_os = "linux", test))]
+pub(super) fn show_compact<A: 'static>(
+    app: &PlayerWindow,
+    point: LogicalPosition,
+    entries: Vec<Entry<A>>,
+    selected: impl FnOnce(A) + 'static,
+) {
+    show_client(app, point, entries, true, selected);
+}
+
+fn show_client<A: 'static>(
+    app: &PlayerWindow,
+    point: LogicalPosition,
+    entries: Vec<Entry<A>>,
+    compact: bool,
+    selected: impl FnOnce(A) + 'static,
+) {
     dismiss(app);
     let viewport = app.invoke_playlist_popup_bounds();
     if viewport.width <= PADDING * 2.0 || viewport.height <= PADDING * 2.0 {
         return;
     }
     let weak = app.as_weak();
-    let menu = Menu::new(viewport, point, entries);
+    let menu = Menu::new(viewport, point, entries, compact);
     let popup = app.global::<PlaylistPluginPopupState>();
+    popup.set_player_menu(compact);
     popup.set_panels(ModelRc::from(menu.panels.clone()));
     let current = RefCell::new(Some((menu, selected)));
     popup.on_input(move |input, panel, row, anchor| {
@@ -90,7 +112,9 @@ impl<A> Group<A> {
                 ),
                 Entry::Item {
                     title,
+                    shortcut,
                     enabled,
+                    checkable,
                     checked,
                     target,
                 } => {
@@ -100,8 +124,10 @@ impl<A> Group<A> {
                     };
                     let row = PlaylistPopupRow {
                         title: title.into(),
+                        shortcut: shortcut.into(),
                         height: ITEM_HEIGHT,
                         enabled,
+                        checkable,
                         checked,
                         submenu: matches!(node, Node::Branch(_)),
                         ..Default::default()
@@ -128,16 +154,29 @@ struct Layer {
 
 struct Menu<A> {
     viewport: PlaylistPopupBounds,
+    panel_width: f32,
+    compact: bool,
     groups: Vec<Group<A>>,
     layers: Vec<Layer>,
     panels: Rc<VecModel<PlaylistPopupPanel>>,
 }
 
 impl<A> Menu<A> {
-    fn new(viewport: PlaylistPopupBounds, point: LogicalPosition, entries: Vec<Entry<A>>) -> Self {
+    fn new(
+        viewport: PlaylistPopupBounds,
+        point: LogicalPosition,
+        entries: Vec<Entry<A>>,
+        compact: bool,
+    ) -> Self {
         let mut groups = Vec::new();
         let root = Group::store(entries, &mut groups);
         let mut menu = Self {
+            panel_width: if compact {
+                viewport.width.min(360.0)
+            } else {
+                WIDTH.min(viewport.width)
+            },
+            compact,
             viewport,
             groups,
             layers: Vec::new(),
@@ -150,8 +189,13 @@ impl<A> Menu<A> {
 
     fn bounds(&self, group: usize, x: f32, y: f32) -> PlaylistPopupBounds {
         let viewport = &self.viewport;
-        let width = WIDTH.min(viewport.width);
-        let height = (self.groups[group].height + 2.0 * PADDING).min(viewport.height);
+        let width = self.panel_width;
+        let heading = if self.compact && !self.layers.is_empty() {
+            BACK_HEIGHT
+        } else {
+            0.0
+        };
+        let height = (self.groups[group].height + 2.0 * PADDING + heading).min(viewport.height);
         PlaylistPopupBounds {
             x: x.clamp(viewport.x, viewport.x + (viewport.width - width)),
             y: y.clamp(viewport.y, viewport.y + (viewport.height - height)),
@@ -162,7 +206,7 @@ impl<A> Menu<A> {
 
     fn submenu_x(&self, parent: &PlaylistPopupBounds) -> f32 {
         let viewport = &self.viewport;
-        let width = WIDTH.min(viewport.width);
+        let width = self.panel_width;
         let right = parent.x + parent.width;
         if right + width <= viewport.x + viewport.width {
             right
@@ -181,6 +225,7 @@ impl<A> Menu<A> {
             bounds: bounds.clone(),
             content_height: state.height,
             reveal: -1.0,
+            back: self.compact && !self.layers.is_empty(),
             rows: ModelRc::from(state.rows.clone()),
         });
         self.layers.push(Layer {
@@ -350,7 +395,9 @@ mod tests {
         slint::platform::update_timers_and_animations();
         let leaf = |title: &str, enabled, action| Entry::Item {
             title: title.into(),
+            shortcut: String::new(),
             enabled,
+            checkable: enabled,
             checked: enabled,
             target: Target::Action(action),
         };
@@ -359,7 +406,9 @@ mod tests {
             Entry::Separator,
             Entry::Item {
                 title: "Tools".into(),
+                shortcut: String::new(),
                 enabled: true,
+                checkable: false,
                 checked: false,
                 target: Target::Submenu(vec![leaf("Select", true, 1)]),
             },

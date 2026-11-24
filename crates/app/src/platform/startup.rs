@@ -7,6 +7,20 @@ use crate::{
 use riina_core::Preferences;
 use slint::{BackendSelector, PlatformError};
 
+pub(crate) fn new_shared_player() -> Result<crate::PlayerWindow, PlatformError> {
+    #[cfg(target_os = "linux")]
+    {
+        super::playlist_menu::new_player()
+    }
+    #[cfg(not(target_os = "linux"))]
+    {
+        let app = crate::PlayerWindow::new()?;
+        // The shared renderer owns its own menu and playback surface.
+        app.set_native_video(false);
+        Ok(app)
+    }
+}
+
 pub(crate) fn run_player(
     arguments: StartupArguments,
     loaded: LoadedPreferences,

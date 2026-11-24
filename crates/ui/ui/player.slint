@@ -89,6 +89,12 @@ export enum PlayerWindowMode { fullscreen, music-mode, picture-in-picture }
 export enum PlaybackPowerActivity { idle, audio, video }
 
 export component PlayerWindow inherits PlayerMenuWindow {
+    in property <[string]> compact-menu-labels;
+    out property <bool> compact-menu-visible: root.use-compact-menu;
+    callback open-compact-menu(float, float);
+    compact-menu-captions: root.compact-menu-labels;
+    request-compact-menu(x, y) => { root.open-compact-menu(x, y); }
+
     in property <string> plugin-input-bindings: "{}";
     callback plugin-input-bindings-changed(string);
 
@@ -677,7 +683,14 @@ export component PlayerWindow inherits PlayerMenuWindow {
         if PlaylistPluginPopupState.shown { PlaylistPluginPopupState.input(PlaylistPopupInput.dismiss, 0, 0, 0); }
     }
     // Removing the focused OSC on Stop/auto-hide must leave shortcuts available.
-    changed loaded => { PlayerMenuActions.video-menu-changed(); if !root.loaded { keys.focus(); } root.refresh-fullscreen-info(); }
+    changed loaded => {
+        if PlaylistPluginPopupState.shown && PlaylistPluginPopupState.player-menu {
+            PlaylistPluginPopupState.input(PlaylistPopupInput.dismiss, 0, 0, 0);
+        }
+        PlayerMenuActions.video-menu-changed();
+        if !root.loaded { keys.focus(); }
+        root.refresh-fullscreen-info();
+    }
     changed controls-visible => {
         if PlayerControlsState.plugin-ui-disabled && PlayerControlsState.controls-visible {
             PlayerControlsState.controls-visible = false;

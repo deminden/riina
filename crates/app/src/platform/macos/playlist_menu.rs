@@ -83,6 +83,7 @@ fn build<A>(
             enabled,
             checked,
             target,
+            ..
         } = entry
         else {
             menu.addItem(&NSMenuItem::separatorItem(main_thread));

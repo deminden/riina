@@ -679,3 +679,9 @@ msgstr "بلا اقتصاص"
 
 msgid "Auto detect"
 msgstr "كشف تلقائي"
+
+msgid "Menu"
+msgstr "القائمة"
+
+msgid "Back"
+msgstr "رجوع"

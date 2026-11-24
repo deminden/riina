@@ -62,12 +62,15 @@ impl PlaybackMenuCatalog {
     const FAMILIES: [&str; 4] = ["playback", "video", "audio", "subtitles"];
 
     pub fn new() -> Result<Self, PlatformError> {
-        let (component, menu) = capture_bar(PlayerMenuWindow::new)?;
+        let (component, tree) = capture_bar(PlayerMenuWindow::new)?;
         component.set_menu_bar_visible(true);
         component.set_export_playback_menu_keys(true);
         component.set_menu_value_primary_shortcut_is_meta(true);
         component.set_menu_value_live_text_available(true);
-        Ok(Self { component, menu })
+        Ok(Self {
+            component,
+            menu: MenuFromItemTree::new(tree),
+        })
     }
 
     pub fn snapshot(&self, shortcuts: ModelRc<MenuShortcutRow>) -> Vec<PlaybackMenuRow> {

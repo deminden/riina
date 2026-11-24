@@ -7,7 +7,9 @@ pub(crate) use slint_runtime::*;
 #[doc(hidden)]
 pub use slint_runtime::{ComponentHandle, Global, ModelExt};
 
+mod compact_menu;
 mod menu_tree;
+pub use compact_menu::{CompactPlayerMenu, PlayerMenuItem};
 mod playback_menu;
 pub use playback_menu::{
     IdlePlaybackAction, PlaybackMenuCatalog, PlaybackMenuOptions, PlaybackMenuRow,

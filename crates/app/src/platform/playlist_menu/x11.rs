@@ -132,6 +132,7 @@ fn build<A: 'static, F: FnOnce(A) + 'static>(
             enabled,
             checked,
             target,
+            ..
         } = entry
         else {
             menu.append(&gtk::SeparatorMenuItem::new());
