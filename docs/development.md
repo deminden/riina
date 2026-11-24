@@ -177,7 +177,8 @@ packaging and is awaiting native verification.
 
 Run the focused extension regressions with Node.js 22 or newer.
 `node --test scripts/tests/browser-extension.test.mjs`
-The packaging workflow runs the same suite once on Linux.
+The packaging workflow runs the suite once on Linux. The full local gate
+requires Node.js, and the fast gate runs these checks for browser changes.
 
 ## Checks
 
@@ -189,8 +190,9 @@ their crate. Slint and Settings search changes check navigation. Edits to
 UI source, headless widget tests, or both run the interaction and visual tests
 together. Linting includes the libraries and both test targets. Batches that
 also change application source run the app unit tests. Edits limited to visual
-tests or their baselines stay scoped to the UI crate. Script and workflow changes
-run the Python suite. Shared build inputs, test helpers and media fixtures
+tests or their baselines stay scoped to the UI crate. Browser source and test
+changes select the JavaScript suite. Packaging scripts and workflow changes
+select the Python suite. Shared build inputs, test helpers and media fixtures
 select workspace-wide linting and tests. Asset provenance edits run asset
 validation, and edits to the assets themselves also select the workspace.
 A clean checkout runs the portable core tests. Documentation-only batches stop

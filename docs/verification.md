@@ -3277,5 +3277,7 @@ updated Utilities and Default Application dialog pixel baselines. The
 JavaScript suite exercises all five action encodings, four context targets,
 permission scope and rejected URLs. The Windows ZIP assembly and macOS bundle
 checks included all 11 extension files, and the setup guides remain available
-with URL registration disabled. Separate Edge and Safari runtime checks and
-signed extension packages remain open.
+with URL registration disabled. Strict Apple Silicon cross-Clippy passed.
+The grouped fast gate ran the browser and packaging suites with application
+and UI tests. Separate Edge and Safari runtime checks and signed extension
+packages remain open.

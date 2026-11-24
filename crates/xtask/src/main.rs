@@ -18,6 +18,7 @@ const UI_TEST_TARGETS: &[&str] = &[
     "--test",
     "quick_settings_input",
 ];
+const BROWSER_TEST: &str = "scripts/tests/browser-extension.test.mjs";
 
 fn main() -> ExitCode {
     let arguments: Vec<_> = env::args_os().skip(1).collect();
@@ -59,6 +60,7 @@ fn check(root: &Path) -> Result<(), String> {
     cargo(root, &["fmt", "--all", "--", "--check"])?;
     python(root, &["scripts/check-line-length.py"])?;
     python(root, &["scripts/check-settings-navigation.py"])?;
+    browser_tests(root)?;
     cargo(
         root,
         &[
@@ -102,10 +104,10 @@ fn fast_check(workspace: &Workspace, base: &OsStr) -> Result<(), String> {
     }) {
         python(root, &["scripts/check-settings-navigation.py"])?;
     }
-    if files
-        .iter()
-        .any(|path| path.starts_with("scripts") || path.starts_with(".github/workflows"))
-    {
+    if files.iter().any(|path| browser_test_input(path)) {
+        browser_tests(root)?;
+    }
+    if files.iter().any(|path| script_test_input(path)) {
         script_tests(root)?;
     }
     if files.iter().any(|path| path.starts_with("assets")) {
@@ -158,6 +160,21 @@ fn script_tests(root: &Path) -> Result<(), String> {
             "test_*.py",
         ],
     )
+}
+
+fn browser_tests(root: &Path) -> Result<(), String> {
+    run(Command::new("node")
+        .current_dir(root)
+        .args(["--test", BROWSER_TEST]))
+}
+
+fn browser_test_input(path: &Path) -> bool {
+    path.starts_with("browser") || path == Path::new(BROWSER_TEST)
+}
+
+fn script_test_input(path: &Path) -> bool {
+    (path.starts_with("scripts") && path != Path::new(BROWSER_TEST))
+        || path.starts_with(".github/workflows")
 }
 
 fn ui(root: &Path) -> Result<(), String> {
@@ -570,5 +587,18 @@ mod scope_tests {
     fn asset_manifest_edits_only_need_asset_validation() {
         assert!(!shared_build_input(Path::new("assets/provenance.json")));
         assert!(shared_build_input(Path::new("assets/icons/chapters.svg")));
+    }
+
+    #[test]
+    fn browser_only_edits_select_the_browser_suite() {
+        for name in ["browser/open-in-riina/handoff.js", BROWSER_TEST] {
+            let path = Path::new(name);
+            assert!(browser_test_input(path));
+            assert!(!script_test_input(path));
+        }
+        let packaging = Path::new("scripts/package-macos-app.py");
+        assert!(!browser_test_input(packaging));
+        assert!(script_test_input(packaging));
+        assert!(!browser_test_input(Path::new("crates/core/src/lib.rs")));
     }
 }
