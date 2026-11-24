@@ -6,7 +6,7 @@ use crate::{
     subtitle_discovery::{AutoDiscovery, Readiness},
 };
 use riina_core::{
-    Command, Phase, Playback, TrackKind,
+    Command, Phase, Playback, PlaylistEntry, TrackKind,
     subtitle_controls::{AutoLoadMode, AutoLoadPreferences},
     sync::lock,
 };
@@ -116,13 +116,15 @@ struct SubtitleDiscovery {
 
 impl SubtitleDiscovery {
     fn observe(&mut self, app: &PlayerWindow, state: &Playback, preferences: &AutoLoadPreferences) {
+        self.assignments.observe_preferences(preferences);
         if state.phase == Phase::Stopped && state.playlist.is_empty() {
             self.assignments.reset();
             self.last_loaded = None;
         }
-        let Some(filename) = current_media(state) else {
+        let Some(media) = current_media(state) else {
             return;
         };
+        let filename = media.filename.as_str();
         let generation = state.generation;
         if !self
             .last_loaded
@@ -135,7 +137,8 @@ impl SubtitleDiscovery {
             self.load_manual(app, generation, filename);
         }
         let scan = self.automatic.observe(state, preferences);
-        let Some(epoch) = self.assignments.scan_epoch(filename).filter(|_| {
+        let explicit = state.explicit_playlist;
+        let Some(epoch) = self.assignments.scan_epoch(filename, explicit).filter(|_| {
             preferences.mode != riina_core::subtitle_controls::AutoLoadMode::Disabled
                 && crate::file_actions::local_media_path(filename).is_some()
         }) else {
@@ -143,38 +146,42 @@ impl SubtitleDiscovery {
             return;
         };
         let Some((_, media_path)) = scan else { return };
+        if let Some(paths) = self.assignments.automatic_for(state, media) {
+            load_automatic(app, &self.player, generation, paths);
+            self.ready.mark_ready(generation);
+            return;
+        }
         let request = self.ready.begin(generation);
         let ready = self.ready.clone();
         let playback = self.playback.clone();
         let assignments = self.assignments.clone();
         let sender = self.player.clone();
         let preferences = preferences.clone();
-        let filename = filename.to_owned();
+        let media = media.clone();
         let weak = app.as_weak();
         let started = crate::background::spawn_named("riina-subtitle-discovery", move || {
-            let paths = crate::subtitle_discovery::find_matching_files(&media_path, &preferences)
-                .into_iter()
-                .filter_map(|path| path.into_os_string().into_string().ok())
-                .collect();
-            let still_current = {
-                let state = lock(&playback);
-                state.generation == generation && current_media(&state) == Some(filename.as_str())
-            };
-            if still_current && ready.is_current(request) {
-                let paths = assignments.record_automatic(&filename, epoch, generation, paths);
-                if !paths.is_empty()
-                    && let Err(error) = sender.send(Command::AddMatchedSubtitles {
-                        generation,
-                        paths,
-                        select_first: false,
+            let matches = crate::subtitle_discovery::find_matches(
+                &media_path,
+                &preferences,
+                !explicit,
+                || ready.is_current(request) && lock(&playback).generation == generation,
+            );
+            let _ = crate::background::to_ui(weak, move |app| {
+                let state = lock(&playback).clone();
+                if state.generation == generation
+                    && state.explicit_playlist == explicit
+                    && current_media(&state).is_some_and(|current| {
+                        current.id == media.id && current.filename == media.filename
                     })
+                    && ready.is_current(request)
+                    && crate::subtitle_auto_load_preferences::current_player(&app)
+                        .is_ok_and(|current| current == preferences)
                 {
-                    let _ = crate::background::to_ui(weak, move |app| {
-                        crate::diagnostics::report(&app, error);
-                    });
+                    let paths = assignments.record_automatic(epoch, &state, &media, matches);
+                    load_automatic(&app, &sender, generation, paths);
                 }
-            }
-            ready.complete(request);
+                ready.complete(request);
+            });
         });
         if let Err(error) = started {
             self.ready.complete(request);
@@ -197,18 +204,26 @@ impl SubtitleDiscovery {
     }
 }
 
-fn current_media(state: &Playback) -> Option<&str> {
+fn load_automatic(app: &PlayerWindow, player: &CommandSender, generation: u64, paths: Vec<String>) {
+    if !paths.is_empty()
+        && let Err(error) = player.send(Command::AddMatchedSubtitles {
+            generation,
+            paths,
+            select_first: false,
+        })
+    {
+        crate::diagnostics::report(app, error);
+    }
+}
+
+fn current_media(state: &Playback) -> Option<&PlaylistEntry> {
     if !matches!(
         state.phase,
         Phase::Playing | Phase::Paused | Phase::Buffering | Phase::Seeking
     ) {
         return None;
     }
-    state
-        .playlist
-        .iter()
-        .find(|entry| entry.current)
-        .map(|entry| entry.filename.as_str())
+    state.playlist.iter().find(|entry| entry.current)
 }
 
 fn discover_playlist_files(

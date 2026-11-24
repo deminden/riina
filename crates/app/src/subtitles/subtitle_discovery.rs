@@ -7,6 +7,7 @@ use riina_core::{
     subtitle_controls::{AutoLoadMode, AutoLoadPreferences},
 };
 use std::{
+    cell::OnceCell,
     collections::{HashMap, HashSet},
     ffi::OsStr,
     path::{Path, PathBuf},
@@ -31,8 +32,8 @@ const MEDIA_EXTENSIONS: &[&str] = &[
 pub(crate) struct AutoDiscovery {
     generation: Option<u64>,
     media_path: String,
-    mode: Option<AutoLoadMode>,
-    search_paths: String,
+    preferences: Option<AutoLoadPreferences>,
+    explicit_playlist: bool,
 }
 
 impl AutoDiscovery {
@@ -42,7 +43,7 @@ impl AutoDiscovery {
         preferences: &AutoLoadPreferences,
     ) -> Option<(u64, PathBuf)> {
         if preferences.mode == AutoLoadMode::Disabled {
-            self.mode = Some(AutoLoadMode::Disabled);
+            self.preferences = None;
             return None;
         }
         if !matches!(
@@ -59,45 +60,71 @@ impl AutoDiscovery {
         let local_path = crate::file_actions::local_media_path(&media_path)?;
         if self.generation == Some(state.generation)
             && self.media_path == media_path
-            && self.mode == Some(preferences.mode)
-            && self.search_paths == preferences.search_paths
+            && self.preferences.as_ref() == Some(preferences)
+            && self.explicit_playlist == state.explicit_playlist
         {
             return None;
         }
         self.generation = Some(state.generation);
         self.media_path.clone_from(&media_path);
-        self.mode = Some(preferences.mode);
-        self.search_paths.clone_from(&preferences.search_paths);
+        self.preferences = Some(preferences.clone());
+        self.explicit_playlist = state.explicit_playlist;
         Some((state.generation, local_path))
     }
 }
 
-pub(crate) fn find_matching_files(
+pub(crate) type Matches = HashMap<PathBuf, Vec<PathBuf>>;
+
+pub(crate) fn find_matches(
     media_path: &Path,
     preferences: &AutoLoadPreferences,
-) -> Vec<PathBuf> {
-    if preferences.mode == AutoLoadMode::Disabled {
-        return Vec::new();
+    include_siblings: bool,
+    is_current: impl Fn() -> bool,
+) -> Matches {
+    if preferences.mode == AutoLoadMode::Disabled || !is_current() {
+        return Matches::new();
     }
-    let Some(media_stem) = media_path.file_stem().and_then(OsStr::to_str) else {
-        return Vec::new();
+    let Ok(media_path) = std::path::absolute(media_path) else {
+        return Matches::new();
     };
-    let media_stem = media_stem.to_lowercase();
-    if media_stem.is_empty() {
-        return Vec::new();
+    let intelligent = preferences.mode == AutoLoadMode::Intelligent;
+    let mut files = if include_siblings || intelligent {
+        sibling_media_files(&media_path)
+    } else {
+        Vec::new()
+    };
+    if !files.contains(&media_path) {
+        files.push(media_path.clone());
     }
+    let files: Vec<_> = files
+        .into_iter()
+        .filter_map(|file| {
+            let stem = file.file_stem()?.to_str()?.to_lowercase();
+            (!stem.is_empty()).then_some((file, stem))
+        })
+        .collect();
+    let mut stems: Vec<_> = files.iter().map(|(_, stem)| stem.clone()).collect();
+    stems.sort();
+    stems.dedup();
+    let candidates = read_subtitle_candidates(&media_path, &preferences.search_paths, &is_current);
+    let matcher = FolderMatcher::new(&stems, &candidates, preferences);
+    files
+        .into_iter()
+        .filter(|(file, _)| include_siblings || *file == media_path)
+        .take_while(|_| is_current())
+        .map(|(file, stem)| (file, matcher.matching_files(&stem)))
+        .collect()
+}
 
-    let directories = expand_search_paths(media_path, &preferences.search_paths);
-    let priority_keywords = preferences
-        .priority_keywords
-        .split(',')
-        .map(str::trim)
-        .filter(|keyword| !keyword.is_empty())
-        .map(str::to_owned)
-        .collect::<Vec<_>>();
+fn read_subtitle_candidates(
+    media_path: &Path,
+    search_paths: &str,
+    is_current: impl Fn() -> bool,
+) -> Vec<(PathBuf, String)> {
+    let directories = expand_search_paths(media_path, search_paths);
     let mut candidates = Vec::new();
     let mut seen = HashSet::new();
-    for directory in directories {
+    for directory in directories.into_iter().take_while(|_| is_current()) {
         let Ok(entries) = std::fs::read_dir(directory) else {
             continue;
         };
@@ -127,36 +154,78 @@ pub(crate) fn find_matching_files(
             break;
         }
     }
-    let mut found = candidates
-        .iter()
-        .filter(|(_, stem)| matches_stem(&media_stem, stem, preferences.mode))
-        .map(|(path, _)| path.clone())
-        .collect::<Vec<_>>();
+    candidates
+}
 
-    if preferences.mode == AutoLoadMode::Intelligent {
-        let sibling_stems = sibling_media_stems(media_path, &media_stem);
-        found.extend(series_episode_matches(
-            &media_stem,
-            &sibling_stems,
-            &candidates,
-        ));
-        found.extend(crate::subtitle_series::matched_subtitles_for(
-            &media_stem,
-            &sibling_stems,
-            &candidates,
-        ));
-        found.sort();
-        found.dedup();
-        if found.is_empty() {
-            found = fuzzy_matches(&media_stem, &sibling_stems, &candidates);
+struct FolderMatcher<'a> {
+    stems: &'a [String],
+    candidates: &'a [(PathBuf, String)],
+    mode: AutoLoadMode,
+    priority: Vec<String>,
+    series: OnceCell<crate::subtitle_series::SeriesMatches<'a>>,
+    episodes: OnceCell<EpisodeMatches<'a>>,
+    fuzzy: OnceCell<HashMap<&'a str, Vec<PathBuf>>>,
+}
+
+impl<'a> FolderMatcher<'a> {
+    fn new(
+        stems: &'a [String],
+        candidates: &'a [(PathBuf, String)],
+        preferences: &AutoLoadPreferences,
+    ) -> Self {
+        Self {
+            stems,
+            candidates,
+            mode: preferences.mode,
+            priority: preferences
+                .priority_keywords
+                .split(',')
+                .map(str::trim)
+                .filter(|keyword| !keyword.is_empty())
+                .map(str::to_owned)
+                .collect(),
+            series: OnceCell::new(),
+            episodes: OnceCell::new(),
+            fuzzy: OnceCell::new(),
         }
     }
 
+    fn matching_files(&self, media_stem: &str) -> Vec<PathBuf> {
+        let mut found = self
+            .candidates
+            .iter()
+            .filter(|(_, stem)| matches_stem(media_stem, stem, self.mode))
+            .map(|(path, _)| path.clone())
+            .collect::<Vec<_>>();
+        if self.mode == AutoLoadMode::Intelligent && !self.candidates.is_empty() {
+            let episodes = self
+                .episodes
+                .get_or_init(|| EpisodeMatches::new(self.stems, self.candidates));
+            found.extend(episodes.for_media(media_stem));
+            let series = self.series.get_or_init(|| {
+                crate::subtitle_series::SeriesMatches::new(self.stems, self.candidates)
+            });
+            found.extend(series.for_media(media_stem));
+            found.sort();
+            found.dedup();
+            if found.is_empty() {
+                let fuzzy = self
+                    .fuzzy
+                    .get_or_init(|| fuzzy_matches(self.stems, self.candidates));
+                found = fuzzy.get(media_stem).cloned().unwrap_or_default();
+            }
+        }
+        prioritize(&mut found, &self.priority);
+        found
+    }
+}
+
+fn prioritize(found: &mut Vec<PathBuf>, priority_keywords: &[String]) {
     found.sort_by(|left, right| {
-        crate::subtitle_priority::priority_occurrences(right, &priority_keywords)
+        crate::subtitle_priority::priority_occurrences(right, priority_keywords)
             .cmp(&crate::subtitle_priority::priority_occurrences(
                 left,
-                &priority_keywords,
+                priority_keywords,
             ))
             .then_with(|| {
                 left.file_name()
@@ -174,7 +243,6 @@ pub(crate) fn find_matching_files(
             .then_with(|| left.cmp(right))
     });
     found.truncate(MAX_MATCHED_SUBTITLES);
-    found
 }
 
 fn expand_search_paths(media_path: &Path, configured: &str) -> Vec<PathBuf> {
@@ -283,39 +351,18 @@ fn matches_stem(media: &str, subtitle: &str, mode: AutoLoadMode) -> bool {
     }
 }
 
-fn series_episode_matches(
-    media_stem: &str,
-    sibling_stems: &[String],
-    subtitles: &[(PathBuf, String)],
-) -> Vec<PathBuf> {
-    let Some(episode) = sibling_series_episode(media_stem, sibling_stems) else {
-        return Vec::new();
-    };
-    subtitles
-        .iter()
-        .filter_map(|(path, subtitle_stem)| {
-            let tokens = filename_tokens(subtitle_stem);
-            (tokens.len() >= episode.identity.len()
-                && episode
-                    .identity
-                    .iter()
-                    .zip(&tokens)
-                    .all(|(expected, actual)| match expected {
-                        SeriesToken::Number(number) => actual.parse::<u64>().ok() == Some(*number),
-                        SeriesToken::Text(text) => actual == text,
-                    }))
-            .then(|| path.clone())
-        })
-        .collect()
-}
-
-struct SeriesEpisode {
-    identity: Vec<SeriesToken>,
-}
-
+#[derive(PartialEq, Eq)]
 enum SeriesToken {
     Number(u64),
     Text(String),
+}
+
+impl From<String> for SeriesToken {
+    fn from(token: String) -> Self {
+        token
+            .parse::<u64>()
+            .map_or_else(|_| Self::Text(token), Self::Number)
+    }
 }
 
 #[derive(Hash, PartialEq, Eq)]
@@ -324,8 +371,8 @@ enum SeriesPatternToken {
     Text(String),
 }
 
-fn sibling_media_stems(media_path: &Path, media_stem: &str) -> Vec<String> {
-    let mut stems = Vec::new();
+fn sibling_media_files(media_path: &Path) -> Vec<PathBuf> {
+    let mut files = Vec::new();
     if let Some(directory) = media_path.parent()
         && let Ok(entries) = std::fs::read_dir(directory)
     {
@@ -340,78 +387,77 @@ fn sibling_media_stems(media_path: &Path, media_stem: &str) -> Vec<String> {
             if !kind.is_file() || kind.is_symlink() || !is_media_path(&path) {
                 continue;
             }
-            let Some(stem) = path.file_stem().and_then(OsStr::to_str) else {
-                continue;
-            };
-            stems.push(stem.to_lowercase());
+            files.push(path);
         }
     }
-    if !stems.iter().any(|stem| stem == media_stem) {
-        stems.push(media_stem.to_owned());
-    }
-    stems.sort();
-    stems.dedup();
-    stems
+    files
 }
 
-fn sibling_series_episode(media_stem: &str, sibling_stems: &[String]) -> Option<SeriesEpisode> {
-    let current_tokens = filename_tokens(media_stem);
-    if sibling_stems.len() < 3 {
-        return None;
-    }
-    let sibling_tokens = sibling_stems
-        .iter()
-        .map(|stem| filename_tokens(stem))
-        .collect::<Vec<_>>();
+struct EpisodeMatches<'a> {
+    identities: HashMap<&'a str, Vec<SeriesToken>>,
+    subtitles: Vec<(&'a PathBuf, Vec<SeriesToken>)>,
+}
 
-    let compatible = sibling_tokens
-        .iter()
-        .filter(|tokens| {
-            tokens.len() == current_tokens.len()
-                && tokens
+impl<'a> EpisodeMatches<'a> {
+    fn new(stems: &'a [String], subtitles: &'a [(PathBuf, String)]) -> Self {
+        let tokens: Vec<_> = stems
+            .iter()
+            .map(|stem| filename_token_ranges(stem))
+            .collect();
+        let mut identities = HashMap::new();
+        for (pattern, members) in series_patterns(&tokens) {
+            let Some(last) = varying_numbers(&pattern, &members, &tokens).next_back() else {
+                continue;
+            };
+            for member in members {
+                let identity = tokens[member][..=last]
                     .iter()
-                    .zip(&current_tokens)
-                    .all(|(candidate, current)| {
-                        candidate.parse::<u64>().is_ok() == current.parse::<u64>().is_ok()
-                            && (candidate.parse::<u64>().is_ok() || candidate == current)
-                    })
-        })
-        .collect::<Vec<_>>();
-    if compatible.len() < 3 {
-        return None;
-    }
-
-    let varying_numbers = (0..current_tokens.len())
-        .filter(|index| current_tokens[*index].parse::<u64>().is_ok())
-        .filter(|index| {
-            compatible
+                    .map(|(token, _)| token.clone().into())
+                    .collect();
+                identities.insert(stems[member].as_str(), identity);
+            }
+        }
+        let subtitles = if identities.is_empty() {
+            Vec::new()
+        } else {
+            subtitles
                 .iter()
-                .filter_map(|tokens| tokens[*index].parse::<u64>().ok())
-                .collect::<HashSet<_>>()
-                .len()
-                > 1
-        })
-        .collect::<HashSet<_>>();
-    if varying_numbers.is_empty() {
-        return None;
+                .map(|(path, stem)| {
+                    let tokens = filename_tokens(stem)
+                        .into_iter()
+                        .map(SeriesToken::from)
+                        .collect();
+                    (path, tokens)
+                })
+                .collect()
+        };
+        Self {
+            identities,
+            subtitles,
+        }
     }
 
-    let last_varying = varying_numbers.iter().copied().max()?;
-    let identity = current_tokens[..=last_varying]
-        .iter()
-        .map(|token| {
-            token
-                .parse::<u64>()
-                .map_or_else(|_| SeriesToken::Text(token.clone()), SeriesToken::Number)
+    fn for_media(&self, media_stem: &str) -> impl Iterator<Item = PathBuf> {
+        let identity = self.identities.get(media_stem);
+        self.subtitles.iter().filter_map(move |(path, tokens)| {
+            identity
+                .filter(|identity| tokens.starts_with(identity))
+                .map(|_| (*path).clone())
         })
-        .collect();
-    Some(SeriesEpisode { identity })
+    }
 }
 
 fn is_media_path(path: &Path) -> bool {
     path.extension()
         .and_then(OsStr::to_str)
-        .is_some_and(|extension| MEDIA_EXTENSIONS.contains(&extension.to_lowercase().as_str()))
+        .is_some_and(|extension| {
+            let extension = extension.to_ascii_lowercase();
+            MEDIA_EXTENSIONS.contains(&extension.as_str())
+                || riina_core::file_selection::SUPPORTED_VIDEO_EXTENSIONS
+                    .contains(&extension.as_str())
+                || riina_core::file_selection::SUPPORTED_AUDIO_EXTENSIONS
+                    .contains(&extension.as_str())
+        })
 }
 
 fn filename_tokens(filename: &str) -> Vec<String> {
@@ -453,11 +499,9 @@ fn filename_token_ranges(filename: &str) -> Vec<(String, usize)> {
     tokens
 }
 
-fn series_split_offsets(stems: &[String]) -> Vec<usize> {
-    let tokens = stems
-        .iter()
-        .map(|stem| filename_token_ranges(stem))
-        .collect::<Vec<_>>();
+fn series_patterns(
+    tokens: &[Vec<(String, usize)>],
+) -> impl Iterator<Item = (Vec<SeriesPatternToken>, Vec<usize>)> {
     let mut groups = HashMap::<Vec<SeriesPatternToken>, Vec<usize>>::new();
     for (index, filename_tokens) in tokens.iter().enumerate() {
         let pattern = filename_tokens
@@ -471,40 +515,51 @@ fn series_split_offsets(stems: &[String]) -> Vec<usize> {
             .collect();
         groups.entry(pattern).or_default().push(index);
     }
+    groups.into_iter().filter(|(_, members)| members.len() >= 3)
+}
 
+fn varying_numbers<'a>(
+    pattern: &'a [SeriesPatternToken],
+    members: &'a [usize],
+    tokens: &'a [Vec<(String, usize)>],
+) -> impl DoubleEndedIterator<Item = usize> + 'a {
+    (0..pattern.len()).filter(|token_index| {
+        matches!(pattern[*token_index], SeriesPatternToken::Number)
+            && members.iter().any(|member| {
+                tokens[*member][*token_index].0.parse::<u64>()
+                    != tokens[members[0]][*token_index].0.parse::<u64>()
+            })
+    })
+}
+
+fn series_split_offsets(stems: &[String]) -> Vec<usize> {
+    let tokens = stems
+        .iter()
+        .map(|stem| filename_token_ranges(stem))
+        .collect::<Vec<_>>();
     let mut offsets = vec![0; stems.len()];
-    for (pattern, members) in groups.iter().filter(|(_, members)| members.len() >= 3) {
-        let first_varying = (0..pattern.len()).find(|token_index| {
-            matches!(pattern[*token_index], SeriesPatternToken::Number)
-                && members
-                    .iter()
-                    .filter_map(|member| tokens[*member][*token_index].0.parse::<u64>().ok())
-                    .collect::<HashSet<_>>()
-                    .len()
-                    > 1
-        });
-        let Some(first_varying) = first_varying else {
+    for (pattern, members) in series_patterns(&tokens) {
+        let Some(first_varying) = varying_numbers(&pattern, &members, &tokens).next() else {
             continue;
         };
         for member in members {
-            offsets[*member] = tokens[*member][first_varying].1;
+            offsets[member] = tokens[member][first_varying].1;
         }
     }
     offsets
 }
 
-fn fuzzy_matches(
-    media_stem: &str,
-    sibling_stems: &[String],
+fn fuzzy_matches<'a>(
+    sibling_stems: &'a [String],
     subtitles: &[(PathBuf, String)],
-) -> Vec<PathBuf> {
+) -> HashMap<&'a str, Vec<PathBuf>> {
     let unmatched_subtitles = subtitles
         .iter()
         .enumerate()
         .filter(|(_, (_, subtitle))| {
-            !sibling_stems.iter().any(|media| {
-                media != media_stem && matches_stem(media, subtitle, AutoLoadMode::Intelligent)
-            })
+            !sibling_stems
+                .iter()
+                .any(|media| matches_stem(media, subtitle, AutoLoadMode::Intelligent))
         })
         .map(|(index, _)| index)
         .collect::<Vec<_>>();
@@ -518,19 +573,15 @@ fn fuzzy_matches(
         })
         .map(|(index, _)| index)
         .collect::<Vec<_>>();
-    if unmatched_media
-        .len()
-        .saturating_mul(unmatched_subtitles.len())
-        >= MAX_FUZZY_PAIRS
+    if unmatched_media.is_empty()
+        || unmatched_subtitles.is_empty()
+        || unmatched_media
+            .len()
+            .saturating_mul(unmatched_subtitles.len())
+            >= MAX_FUZZY_PAIRS
     {
-        return Vec::new();
+        return HashMap::new();
     }
-    let Some(current_index) = unmatched_media
-        .iter()
-        .position(|media_index| sibling_stems[*media_index] == media_stem)
-    else {
-        return Vec::new();
-    };
     let media_split_offsets = series_split_offsets(sibling_stems);
     let subtitle_stems = subtitles
         .iter()
@@ -571,13 +622,6 @@ fn fuzzy_matches(
         }
     }
 
-    let nearest_subtitle_distance = distances[current_index]
-        .iter()
-        .filter_map(|distance| *distance)
-        .min();
-    let Some(nearest_subtitle_distance) = nearest_subtitle_distance else {
-        return Vec::new();
-    };
     let nearest_video_distance = (0..unmatched_subtitles.len())
         .map(|subtitle_index| {
             distances
@@ -586,14 +630,21 @@ fn fuzzy_matches(
                 .min()
         })
         .collect::<Vec<_>>();
-    distances[current_index]
-        .iter()
-        .enumerate()
-        .filter(|(subtitle_index, distance)| {
-            **distance == Some(nearest_subtitle_distance)
-                && **distance == nearest_video_distance[*subtitle_index]
+    distances
+        .into_iter()
+        .zip(unmatched_media)
+        .filter_map(|(row, media_index)| {
+            let nearest = row.iter().flatten().min().copied()?;
+            let found = row
+                .into_iter()
+                .enumerate()
+                .filter(|(index, distance)| {
+                    *distance == Some(nearest) && *distance == nearest_video_distance[*index]
+                })
+                .map(|(index, _)| subtitles[unmatched_subtitles[index]].0.clone())
+                .collect();
+            Some((sibling_stems[media_index].as_str(), found))
         })
-        .map(|(subtitle_index, _)| subtitles[unmatched_subtitles[subtitle_index]].0.clone())
         .collect()
 }
 
@@ -656,7 +707,7 @@ pub(crate) fn edit_distance_bounded(left: &str, right: &str, limit: usize) -> Op
 
 #[cfg(test)]
 mod tests {
-    use super::find_matching_files;
+    use super::find_matches;
     use riina_core::subtitle_controls::{AutoLoadMode, AutoLoadPreferences};
     use std::path::{Path, PathBuf};
 
@@ -685,6 +736,35 @@ mod tests {
             priority_keywords: String::new(),
             search_paths: search_paths.into(),
         }
+    }
+
+    fn find_matching_files(media: &Path, preferences: &AutoLoadPreferences) -> Vec<PathBuf> {
+        let absolute = std::path::absolute(media).unwrap();
+        find_matches(media, preferences, false, || true)
+            .remove(&absolute)
+            .unwrap_or_default()
+    }
+
+    #[test]
+    fn folder_scan_keeps_matches_for_each_episode_and_limits_explicit_open_to_current_file() {
+        let tree = TestTree::new();
+        let first = tree.file("Café Stories S01 E01.mkv");
+        let second = tree.file("Café Stories S01 E02.mkv");
+        let third = tree.file("Café Stories S01 E03.mxf");
+        let first_sub = tree.file("captions/Café Stories S01 E01.en.srt");
+        let second_sub = tree.file("captions/Café Stories S01 E02.en.srt");
+        let second_preferred = tree.file("captions/Café Stories S01 E02.fr.srt");
+        let mut settings = preferences(AutoLoadMode::Intelligent, "captions");
+        settings.priority_keywords = "fr".into();
+
+        let all = find_matches(&first, &settings, true, || true);
+        assert_eq!(all[&first], std::slice::from_ref(&first_sub));
+        assert_eq!(all[&second], [second_preferred, second_sub]);
+        assert!(all[&third].is_empty());
+        assert_eq!(
+            find_matches(&first, &settings, false, || true),
+            [(first, vec![first_sub])].into()
+        );
     }
 
     #[test]

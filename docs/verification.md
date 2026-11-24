@@ -2495,7 +2495,7 @@ Clear Playlist accessible, and the test player exited normally. The Linux
 executable SHA-256 was
 `f56b8e03f17db30c03fc4b935fd2ea8441cc5b34fc085336aef385d37d88ed1b`.
 Desktop file chooser interaction on Windows, Wayland and macOS remains open.
-Automatic matching currently runs as each entry starts.
+At the time of this check, automatic matching ran as each entry started.
 
 ### Playlist resume positions 2026-11-24
 
@@ -2549,6 +2549,22 @@ main sidebar, kept its expanded title after reordering, and folded again in
 Music Mode. The second episode stayed paused while the playlist changed.
 The test player exited normally. The Linux executable SHA-256 was
 `12dcc777127863bfab11afff755e6c9a105b7db6ac5e9b709b32235c328ed216`.
+Live Windows, Wayland and macOS interaction remains open for this batch.
+
+### Queued subtitle matches 2026-11-24
+
+The Windows workspace gate passed, including Unicode matching across a folder,
+playlist replacement, and clearing manual and automatic matches for selected
+rows. All seven tests in the pinned libmpv subtitle group passed. The locked
+Apple Silicon workspace passed strict Clippy from Windows.
+
+In isolated Linux X11, opening one clip added three neighbors. Two queued
+clips each showed one matched subtitle before playing. The engine held only
+the active clip's external track. Moving to the third clip used its cached
+match and skipped another sidecar written after the first scan. Wrong Subtitle
+cleared the second clip's match before it played and preserved the paused
+playlist. The test player exited normally. The Linux executable SHA-256 was
+`cf1852260188fff1a6ba7ef0612e1a999f02925445d7246a121ffe4648dcfd26`.
 Live Windows, Wayland and macOS interaction remains open for this batch.
 
 ### macOS application menu composition 2026-10-14

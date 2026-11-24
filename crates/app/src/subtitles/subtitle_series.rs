@@ -1,40 +1,62 @@
 //! Match episode subtitles through recursively detected filename-series prefixes.
 
-use crate::series_names::group_series_names;
+use crate::series_names::{SeriesGroup, group_series_names};
 use crate::subtitle_discovery::edit_distance_bounded;
-use std::path::PathBuf;
+use std::{collections::HashMap, path::PathBuf};
 use unicode_segmentation::UnicodeSegmentation;
 
 const MAX_SERIES_GROUP_PAIRS: usize = 10_000;
 const MAX_SERIES_PREFIX_GRAPHEMES: usize = 256;
 
-pub(crate) fn matched_subtitles_for(
-    media_stem: &str,
-    sibling_media_stems: &[String],
-    subtitles: &[(PathBuf, String)],
-) -> Vec<PathBuf> {
-    let mut media_stems = sibling_media_stems.to_vec();
-    if !media_stems.iter().any(|stem| stem == media_stem) {
-        media_stems.push(media_stem.to_owned());
-    }
-    media_stems.sort();
-    media_stems.dedup();
+pub(crate) struct SeriesMatches<'a> {
+    subtitles: &'a [(PathBuf, String)],
+    media: HashMap<&'a str, (usize, EpisodeName)>,
+    episodes: Vec<HashMap<EpisodeName, Vec<usize>>>,
+}
 
-    let Some(current_media_index) = media_stems.iter().position(|stem| stem == media_stem) else {
-        return Vec::new();
-    };
-    let media_groups = group_series_names(&media_stems);
-    let Some(current_group_index) = media_groups
-        .iter()
-        .position(|group| group.members.len() > 2 && group.members.contains(&current_media_index))
-    else {
-        return Vec::new();
-    };
-    let subtitle_stems = subtitles
-        .iter()
-        .map(|(_, stem)| stem.clone())
-        .collect::<Vec<_>>();
-    let subtitle_groups = group_series_names(&subtitle_stems);
+impl<'a> SeriesMatches<'a> {
+    pub(crate) fn new(media_stems: &'a [String], subtitles: &'a [(PathBuf, String)]) -> Self {
+        let media_groups = group_series_names(media_stems);
+        let subtitle_stems: Vec<_> = subtitles.iter().map(|(_, stem)| stem.clone()).collect();
+        let subtitle_groups = group_series_names(&subtitle_stems);
+        let mut media = HashMap::new();
+        let mut episodes = Vec::new();
+        for (media_index, subtitle_index) in pair_groups(&media_groups, &subtitle_groups) {
+            let media_group = &media_groups[media_index];
+            let subtitle_group = &subtitle_groups[subtitle_index];
+            let mut by_episode: HashMap<_, Vec<_>> = HashMap::new();
+            for member in &subtitle_group.members {
+                let episode = series_name_in_group(&subtitles[*member].1, &subtitle_group.prefix);
+                by_episode.entry(episode).or_default().push(*member);
+            }
+            for member in &media_group.members {
+                let stem = media_stems[*member].as_str();
+                let episode = series_name_in_group(stem, &media_group.prefix);
+                media.insert(stem, (episodes.len(), episode));
+            }
+            episodes.push(by_episode);
+        }
+        Self {
+            subtitles,
+            media,
+            episodes,
+        }
+    }
+
+    pub(crate) fn for_media(&self, media_stem: &str) -> impl Iterator<Item = PathBuf> {
+        self.media
+            .get(media_stem)
+            .and_then(|(pair, episode)| self.episodes[*pair].get(episode))
+            .into_iter()
+            .flatten()
+            .map(|index| self.subtitles[*index].0.clone())
+    }
+}
+
+fn pair_groups(
+    media_groups: &[SeriesGroup],
+    subtitle_groups: &[SeriesGroup],
+) -> Vec<(usize, usize)> {
     let media_series = media_groups
         .iter()
         .enumerate()
@@ -84,48 +106,22 @@ pub(crate) fn matched_subtitles_for(
             ))
         })
         .collect::<Vec<_>>();
-    let current_media_series_index = media_series
+    media_series
         .iter()
-        .position(|(group_index, _)| *group_index == current_group_index);
-    let Some(current_media_series_index) = current_media_series_index else {
-        return Vec::new();
-    };
-    let current_media_group = media_series[current_media_series_index].1;
-    let current_media_prefix = current_media_group.prefix.as_str();
-    let closest_subtitle = nearest_group(subtitle_series.iter().enumerate().filter_map(
-        |(subtitle_index, (_, group))| {
-            distances[current_media_series_index][subtitle_index]
-                .map(|distance| (distance, group.prefix.as_str(), subtitle_index))
-        },
-    ));
-    let Some((distance, _, subtitle_series_index)) = closest_subtitle else {
-        return Vec::new();
-    };
-    let subtitle_group_index = subtitle_series[subtitle_series_index].0;
-    let subtitle_group = &subtitle_groups[subtitle_group_index];
-    let threshold = (current_media_prefix.graphemes(true).count()
-        + subtitle_group.prefix.graphemes(true).count())
-        * 3
-        / 5;
-    if distance >= threshold
-        || nearest_media_for_subtitle[subtitle_series_index]
-            .is_none_or(|(_, _, nearest_index)| nearest_index != current_media_series_index)
-    {
-        return Vec::new();
-    }
-
-    let media_name = series_name_in_group(
-        &media_stems[current_media_index],
-        &current_media_group.prefix,
-    );
-    subtitle_group
-        .members
-        .iter()
-        .filter_map(|subtitle_index| {
-            let (_, subtitle_stem) = &subtitles[*subtitle_index];
-            let subtitle_name = series_name_in_group(subtitle_stem, &subtitle_group.prefix);
-            same_series_name(&media_name, &subtitle_name)
-                .then(|| subtitles[*subtitle_index].0.clone())
+        .enumerate()
+        .filter_map(|(media_index, (media_group, media))| {
+            let (distance, prefix, subtitle_index) =
+                nearest_group(subtitle_series.iter().enumerate().filter_map(
+                    |(index, (_, group))| {
+                        distances[media_index][index]
+                            .map(|distance| (distance, group.prefix.as_str(), index))
+                    },
+                ))?;
+            let threshold =
+                (media.prefix.graphemes(true).count() + prefix.graphemes(true).count()) * 3 / 5;
+            let (_, _, nearest_media) = nearest_media_for_subtitle[subtitle_index]?;
+            (distance < threshold && nearest_media == media_index)
+                .then_some((*media_group, subtitle_series[subtitle_index].0))
         })
         .collect()
 }
@@ -141,7 +137,13 @@ fn nearest_group<'a>(
     })
 }
 
-fn series_name_in_group(stem: &str, prefix: &str) -> String {
+#[derive(Debug, Hash, PartialEq, Eq)]
+enum EpisodeName {
+    Number(i64),
+    Text(String),
+}
+
+fn series_name_in_group(stem: &str, prefix: &str) -> EpisodeName {
     let stem = stem.graphemes(true).collect::<Vec<_>>();
     let prefix_len = prefix.graphemes(true).count();
     let suffix = if prefix_len < stem.len() {
@@ -160,21 +162,13 @@ fn series_name_in_group(stem: &str, prefix: &str) -> String {
         }
         name.push_str(grapheme);
     }
-    name
-}
-
-fn same_series_name(left: &str, right: &str) -> bool {
-    left == right
-        || left
-            .parse::<i64>()
-            .ok()
-            .zip(right.parse::<i64>().ok())
-            .is_some_and(|(left, right)| left == right)
+    name.parse::<i64>()
+        .map_or_else(|_| EpisodeName::Text(name), EpisodeName::Number)
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{group_series_names, matched_subtitles_for, series_name_in_group};
+    use super::{EpisodeName, SeriesMatches, group_series_names, series_name_in_group};
     use std::path::PathBuf;
 
     #[test]
@@ -194,7 +188,10 @@ mod tests {
         assert_eq!(groups.len(), 2);
         assert_eq!(groups[0].prefix, "Show.Video.A.0");
         assert_eq!(groups[0].members, [0, 1, 2]);
-        assert_eq!(series_name_in_group(&stems[1], &groups[0].prefix), "2");
+        assert_eq!(
+            series_name_in_group(&stems[1], &groups[0].prefix),
+            EpisodeName::Number(2)
+        );
         assert_eq!(groups[1].prefix, "Show.Video.B.0");
         assert_eq!(groups[1].members, [3, 4, 5]);
     }
@@ -218,8 +215,9 @@ mod tests {
         .map(|(path, stem)| (PathBuf::from(path), stem.to_lowercase()))
         .collect::<Vec<_>>();
 
+        let matches = SeriesMatches::new(&media, &subtitles);
         assert_eq!(
-            matched_subtitles_for(&media[1], &media, &subtitles),
+            matches.for_media(&media[1]).collect::<Vec<_>>(),
             [PathBuf::from("episode-2.srt")]
         );
     }
@@ -234,6 +232,11 @@ mod tests {
             PathBuf::from("Show English 001.srt"),
             "show english 001".to_owned(),
         )];
-        assert!(matched_subtitles_for(&media[0], &media, &subtitles).is_empty());
+        assert!(
+            SeriesMatches::new(&media, &subtitles)
+                .for_media(&media[0])
+                .next()
+                .is_none()
+        );
     }
 }

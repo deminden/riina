@@ -137,9 +137,12 @@ Playlist subtitle associations belong to the player session and use media
 filenames. The subtitle picker verifies the playlist entry before saving its
 selection. Manual matches load the next time the entry starts. Wrong Subtitle
 clears the associations for the selected rows and inhibits automatic rematching
-until Stop. The player owns automatic matching in the media directory and
-configured search locations. The decoder accepts matched files only for the
-generation that requested them.
+until Stop. A single-file open matches siblings in one background scan of the
+media directory and configured subtitle locations. Rows can use those results
+before playback. The results stay with the playlist as playback advances and
+expire on replacement or a discovery settings change. An explicit playlist
+scans each entry when it starts. The decoder accepts matched files only for
+the generation that requested them.
 The in-window context menu scrolls when its actions exceed the available
 height in either player view.
 
