@@ -1,5 +1,6 @@
 //! Receive Finder, Dock and URL events while Winit retains the application delegate.
 mod idle_menu;
+mod playback_menus;
 mod plugin_menu;
 mod plugin_shortcuts;
 
@@ -301,6 +302,23 @@ define_class!(
             let launch = self.ivars();
             launch.default_action.take();
             launch.manager.show_application_history();
+        }
+
+        #[unsafe(method(riinaIdleScreenshotFolder:))]
+        fn idle_screenshot_folder(&self, _sender: Option<&AnyObject>) {
+            let launch = self.ivars();
+            if launch.manager.is_quitting() {
+                return;
+            }
+            launch.default_action.take();
+            let action = || {
+                let path = crate::platform::preferences_path()?;
+                let saved = crate::preference_load::load(&path)?;
+                crate::platform::open_screenshot_directory(saved.preferences.screenshot.directory.as_deref())
+            };
+            if let Err(error) = action() {
+                crate::diagnostics::warn!("Could not open the screenshot folder: {error}");
+            }
         }
 
         #[unsafe(method(riinaIdleNewWindow:))]

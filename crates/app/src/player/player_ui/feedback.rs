@@ -270,8 +270,7 @@ fn install_screenshot_actions(
                 return;
             }
             if let Err(error) = crate::screenshot_preferences::current(&app).and_then(|settings| {
-                platform::screenshot_directory(settings.directory.as_deref())
-                    .and_then(|directory| platform::open_directory(&directory))
+                platform::open_screenshot_directory(settings.directory.as_deref())
                     .map_err(|error| error.to_string())
             }) {
                 app.set_status(error.to_string().into());

@@ -3987,3 +3987,25 @@ The Windows workspace gate and locked build passed, as did 594 Linux application
 tests and Apple Silicon cross-Clippy. Native macOS checks still need to cover
 shortcut and click delivery to Slint and WebKit, Services across menu changes,
 the selected window for Close, and menu enablement when no edit is available.
+
+### macOS playback menus without an open player 2026-11-24
+
+The macOS application bar retains Playback, Video, Audio and Subtitles before
+playback and after the last player closes. It reads the same catalog as the
+player. Media-dependent commands are unavailable, and shortcuts and submenu
+labels follow the saved profile. Playback offers Go to Screenshot Folder,
+which uses the same directory opener as the player. The File menu shows
+its current-media commands disabled until a player can handle them.
+
+The headless catalog test covers section order, nested choices, saved filter
+names and updating shortcut hints. The Windows workspace gate and locked
+build passed, along with 595 Linux application tests and 61 pinned Windows
+libmpv tests. On a private Windows desktop, the active player retained all
+four native menu sections, kept the fixture paused through a plugin workflow,
+and exited normally. Apple Silicon cross-Clippy passed. A native Mac run
+still needs to check menu navigation, inactive shortcuts and Finder opening.
+Video and Audio Filters still need application-owned editors for use before
+playback.
+
+- Windows application SHA-256 `c4b6dc4983d14f669ccddbfe1fb461575a7bca89acb7d60bf2d7f01a6f319a93`
+- Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`

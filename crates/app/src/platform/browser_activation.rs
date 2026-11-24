@@ -5,6 +5,10 @@ mod macos;
 pub(crate) use macos::{
     ApplicationEvents, refresh_idle_menu, refresh_idle_plugins, show_idle_menu,
 };
+#[cfg(any(target_os = "macos", test))]
+mod playback_menu_options;
+#[cfg(test)]
+mod playback_menu_tests;
 #[cfg(unix)]
 #[path = "browser_activation/unix.rs"]
 mod transport;

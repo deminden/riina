@@ -25,6 +25,12 @@ pub(crate) use editor::{
 };
 pub(crate) use keys::{plugin_event_key, plugin_key_binding, recorded_key, shortcut_keys};
 
+#[cfg(any(target_os = "macos", test))]
+pub(crate) fn profile_menu_shortcuts(name: &str) -> Result<Vec<crate::MenuShortcutRow>, String> {
+    let mappings = bindings::Bindings::new(mappings_for(name)?);
+    Ok(menus::menu_shortcut_rows(&mappings))
+}
+
 impl PreferenceSection for Settings {
     fn get(all: &Preferences) -> Self {
         all.key_bindings.clone()

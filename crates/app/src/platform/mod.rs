@@ -1018,6 +1018,10 @@ pub fn screenshot_directory(configured: Option<&str>) -> std::io::Result<std::pa
     Ok(directory)
 }
 
+pub(crate) fn open_screenshot_directory(configured: Option<&str>) -> std::io::Result<()> {
+    open_directory(&screenshot_directory(configured)?)
+}
+
 pub fn open_directory(path: &std::path::Path) -> std::io::Result<()> {
     open_associated_path(path)
 }

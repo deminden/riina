@@ -9,6 +9,23 @@ const PLUGIN_ROOT: &str = "\u{1f}riina-plugin-menu";
 const ROW_PREFIX: &str = "\u{1f}riina-plugin-row:";
 const TOP_LEVEL_LIMIT: usize = 5;
 
+thread_local! {
+    static CAPTURE: RefCell<Option<Vec<ItemTreeRc>>> = const { RefCell::new(None) };
+}
+
+pub(crate) fn capture_bar<T>(
+    create: impl FnOnce() -> Result<T, slint_runtime::PlatformError>,
+) -> Result<(T, SlintMenu), slint_runtime::PlatformError> {
+    CAPTURE.replace(Some(Vec::new()));
+    let component = create();
+    let trees = CAPTURE.take().unwrap_or_default();
+    let component = component?;
+    let [tree]: [ItemTreeRc; 1] = trees.try_into().map_err(|_| {
+        slint_runtime::PlatformError::Other("Expected one generated playback menu bar".into())
+    })?;
+    Ok((component, SlintMenu::new(tree)))
+}
+
 pub(crate) struct MenuFromItemTree {
     source: SlintMenu,
     plugin: RefCell<PluginMenu>,
@@ -25,6 +42,11 @@ impl MenuFromItemTree {
         condition: impl Fn() -> bool + 'static,
         visible: impl Fn() -> bool + 'static,
     ) -> Self {
+        CAPTURE.with_borrow_mut(|capture| {
+            if let Some(trees) = capture {
+                trees.push(item_tree.clone());
+            }
+        });
         Self::wrap(SlintMenu::new_with_condition_and_visible(
             item_tree, condition, visible,
         ))

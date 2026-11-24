@@ -686,6 +686,12 @@ Open URL, Software Update and Release Highlights can outlive the last player.
 The idle Window menu is registered
 with AppKit, and the quit decision is deferred until the final tool closes.
 Closing a tool before any player opened leaves the application available.
+The idle Playback, Video, Audio and Subtitles sections read the generated
+player menu catalog without showing a player or starting a decoder. Their
+profile shortcuts, static choices and saved filter names use the same models
+as playback. Unavailable commands have no action target while idle. The
+screenshot-folder command uses the saved profile and the same directory opener
+as the player menu.
 [AppKit application event handling](https://developer.apple.com/documentation/appkit/nsapplication)
 [AppKit recent documents](https://developer.apple.com/documentation/appkit/nsdocumentcontroller)
 [AppKit Window menu](https://developer.apple.com/documentation/appkit/nsapplication/windowsmenu)

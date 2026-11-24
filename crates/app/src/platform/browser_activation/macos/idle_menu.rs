@@ -1,21 +1,54 @@
 //! Keep application commands available when there is no Slint player menu.
-use super::{LaunchTarget, plugin_menu};
+use super::{LaunchTarget, playback_menus, plugin_menu};
 use crate::platform::macos::{
     application_menu::{register_services_menu, services_menu},
     edit_menu,
 };
 use objc2::{
-    MainThreadMarker, MainThreadOnly,
+    DefinedClass, MainThreadMarker, MainThreadOnly,
     rc::Retained,
     runtime::{AnyObject, Sel},
     sel,
 };
 use objc2_app_kit::{NSApplication, NSEventModifierFlags, NSMenu, NSMenuItem};
 use objc2_foundation::NSString;
-use std::cell::RefCell;
+use std::{cell::RefCell, rc::Rc};
 
 thread_local! {
-    static IDLE_MENU: RefCell<Option<Retained<NSMenu>>> = const { RefCell::new(None) };
+    static IDLE_MENU: RefCell<Option<Rc<IdleMenu>>> = const { RefCell::new(None) };
+}
+
+struct IdleMenu {
+    native: Retained<NSMenu>,
+    target: Retained<LaunchTarget>,
+    playback: Option<playback_menus::Menus>,
+}
+
+impl IdleMenu {
+    fn refresh(&self, main: MainThreadMarker, force: bool) {
+        let preferences = crate::platform::preferences_path()
+            .ok()
+            .and_then(|path| crate::preference_load::read_valid(&path).ok().flatten())
+            .unwrap_or_default();
+        refresh_file_menu(main, &self.native, &preferences);
+        if let Some(playback) = &self.playback {
+            playback.refresh(&self.target, &preferences);
+        }
+        self.refresh_plugins(force);
+    }
+
+    fn refresh_plugins(&self, force: bool) {
+        if let Some(plugins) = self
+            .native
+            .itemWithTitle(&NSString::from_str("Plugin"))
+            .and_then(|item| item.submenu())
+        {
+            self.target
+                .ivars()
+                .plugins
+                .refresh(&self.native, &plugins, &self.target, force);
+        }
+    }
 }
 
 const FILE_TITLES: [&str; 2] = ["Open…", "Open in New Window…"];
@@ -25,7 +58,7 @@ const NEW_WINDOW_SEPARATOR_TAG: isize = 114083;
 
 pub(super) fn prepare(
     main: MainThreadMarker,
-    target: &LaunchTarget,
+    target: &Retained<LaunchTarget>,
     enable_new_window_shortcut: bool,
 ) {
     let menu = NSMenu::new(main);
@@ -36,6 +69,16 @@ pub(super) fn prepare(
         &file_menu(main, target, enable_new_window_shortcut),
     );
     menu.addItem(&edit_menu::parent(main));
+    let playback = playback_menus::Menus::new(main)
+        .inspect_err(|error| {
+            crate::diagnostics::warn!("Could not initialize the idle playback menus: {error}")
+        })
+        .ok();
+    if let Some(playback) = &playback {
+        for submenu in playback.sections() {
+            add_submenu(main, &menu, submenu);
+        }
+    }
     for submenu in [
         plugin_menu::new(main, target),
         window_menu(main, target),
@@ -43,7 +86,11 @@ pub(super) fn prepare(
     ] {
         add_submenu(main, &menu, &submenu);
     }
-    IDLE_MENU.replace(Some(menu));
+    IDLE_MENU.replace(Some(Rc::new(IdleMenu {
+        native: menu,
+        target: target.clone(),
+        playback,
+    })));
 }
 
 fn add_submenu(main: MainThreadMarker, menu: &NSMenu, submenu: &NSMenu) {
@@ -174,6 +221,16 @@ fn file_menu(
     file.addItem(&NSMenuItem::separatorItem(main));
     file.addItem(&history);
     file.addItem(&NSMenuItem::separatorItem(main));
+    for title in [
+        "Show Current File in Finder",
+        "Delete Current File",
+        "Save Current Playlist…",
+    ] {
+        let unavailable = item(main, title, None, "", None);
+        unavailable.setEnabled(false);
+        file.addItem(&unavailable);
+    }
+    file.addItem(&NSMenuItem::separatorItem(main));
     file.addItem(&item(main, "Close", Some(sel!(performClose:)), "w", None));
     file
 }
@@ -261,76 +318,52 @@ pub(crate) fn show_idle_menu() {
         return;
     };
     let app = NSApplication::sharedApplication(main);
-    IDLE_MENU.with_borrow(|menu| {
-        if let Some(menu) = menu
-            && !app
-                .mainMenu()
-                .as_deref()
-                .is_some_and(|active| std::ptr::eq(active, &**menu))
+    if let Some(menu) = IDLE_MENU.with_borrow(Clone::clone)
+        && !app
+            .mainMenu()
+            .as_deref()
+            .is_some_and(|active| std::ptr::eq(active, &*menu.native))
+    {
+        menu.refresh(main, false);
+        app.setMainMenu(Some(&menu.native));
+        register_services_menu(&app, &menu.native);
+        if let Some(window) = menu
+            .native
+            .itemWithTitle(&NSString::from_str("Window"))
+            .and_then(|item| item.submenu())
         {
-            refresh_file_menu(main, menu);
-            refresh_plugins_in(menu, false);
-            app.setMainMenu(Some(menu));
-            register_services_menu(&app, menu);
-            if let Some(window) = menu
-                .itemWithTitle(&NSString::from_str("Window"))
-                .and_then(|item| item.submenu())
-            {
-                app.setWindowsMenu(Some(&window));
-            }
-            if let Some(help) = menu
-                .itemWithTitle(&NSString::from_str("Help"))
-                .and_then(|item| item.submenu())
-            {
-                app.setHelpMenu(Some(&help));
-            }
+            app.setWindowsMenu(Some(&window));
         }
-    });
+        if let Some(help) = menu
+            .native
+            .itemWithTitle(&NSString::from_str("Help"))
+            .and_then(|item| item.submenu())
+        {
+            app.setHelpMenu(Some(&help));
+        }
+    }
 }
 
 pub(super) fn refresh() {
-    if let Some(main) = MainThreadMarker::new() {
-        IDLE_MENU.with_borrow(|menu| {
-            if let Some(menu) = menu {
-                refresh_file_menu(main, menu);
-                refresh_plugins_in(menu, true);
-            }
-        });
+    if let Some(main) = MainThreadMarker::new()
+        && let Some(menu) = IDLE_MENU.with_borrow(Clone::clone)
+    {
+        menu.refresh(main, true);
     }
 }
 
 pub(super) fn refresh_plugins(force: bool) {
-    let menu = IDLE_MENU.with_borrow(Clone::clone);
-    if let Some(menu) = menu {
-        refresh_plugins_in(&menu, force);
+    if let Some(menu) = IDLE_MENU.with_borrow(Clone::clone) {
+        menu.refresh_plugins(force);
     }
 }
 
-fn refresh_plugins_in(bar: &NSMenu, force: bool) {
-    if let Some(plugins) = bar
-        .itemWithTitle(&NSString::from_str("Plugin"))
-        .and_then(|item| item.submenu())
-        && let Some(target) = plugins.itemAtIndex(0).and_then(|item| item.target())
-        && let Ok(target) = target.downcast::<LaunchTarget>()
-    {
-        use objc2::DefinedClass;
-        target
-            .ivars()
-            .plugins
-            .refresh(bar, &plugins, &target, force);
-    }
-}
-
-fn refresh_file_menu(main: MainThreadMarker, menu: &NSMenu) {
+fn refresh_file_menu(main: MainThreadMarker, menu: &NSMenu, preferences: &riina_core::Preferences) {
     let Some(file) = menu.itemAtIndex(1).and_then(|item| item.submenu()) else {
         return;
     };
-    let preferences = crate::platform::preferences_path()
-        .ok()
-        .and_then(|path| crate::preference_load::read_valid(&path).ok().flatten())
-        .unwrap_or_default();
     let opens_new = preferences.allow_multiple_windows;
-    rebuild_recent_documents(main, &file, &preferences);
+    rebuild_recent_documents(main, &file, preferences);
     let hide_new_window = !preferences.enable_new_window_shortcut;
     if let Some(new_window) = file.itemWithTitle(&NSString::from_str("New Window")) {
         new_window.setHidden(hide_new_window);
@@ -394,9 +427,10 @@ fn rebuild_recent_documents(
 
 pub(super) fn clear() {
     let Some(menu) = IDLE_MENU.take() else { return };
+    let menu = &menu.native;
     if let Some(main) = MainThreadMarker::new() {
         let app = NSApplication::sharedApplication(main);
-        if let Some(services) = services_menu(&menu)
+        if let Some(services) = services_menu(menu)
             && app
                 .servicesMenu()
                 .as_deref()
@@ -427,7 +461,7 @@ pub(super) fn clear() {
         if app
             .mainMenu()
             .as_deref()
-            .is_some_and(|active| std::ptr::eq(active, &*menu))
+            .is_some_and(|active| std::ptr::eq(active, menu.as_ref()))
         {
             app.setMainMenu(None);
         }

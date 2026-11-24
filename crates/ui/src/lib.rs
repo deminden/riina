@@ -8,6 +8,8 @@ pub(crate) use slint_runtime::*;
 pub use slint_runtime::{ComponentHandle, Global, ModelExt};
 
 mod menu_tree;
+mod playback_menu;
+pub use playback_menu::{PlaybackMenuCatalog, PlaybackMenuOptions, PlaybackMenuRow};
 
 // Slint's generated code uses this namespace for its item-tree menu provider.
 // Keep all other imports on the pinned runtime.
