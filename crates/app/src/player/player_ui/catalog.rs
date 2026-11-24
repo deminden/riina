@@ -6,6 +6,7 @@ use crate::{
 use riina_core::{Command, Phase, Playback, TrackKind, sync::lock, time_label};
 use riina_ui::PlayerMenuActions;
 use slint::{ComponentHandle, Model};
+use std::collections::HashSet;
 pub(super) mod playlist;
 
 pub(super) fn install_catalog_selection(app: &PlayerWindow, context: &PlayerContext) {
@@ -65,13 +66,12 @@ fn parse_track_id(token: &str) -> Result<Option<i64>, std::num::ParseIntError> {
 
 pub(super) fn install_playlist_selection(app: &PlayerWindow, selected: &[String]) {
     let current = app.global::<riina_ui::PlayerCatalogState>().get_playlist();
+    let selected: HashSet<&str> = selected.iter().map(String::as_str).collect();
     for (index, mut row) in current.iter().enumerate() {
-        let selected = selected
-            .iter()
-            .any(|token| token.as_str() == row.token.as_str());
-        if row.selected != selected {
+        let is_selected = selected.contains(row.token.as_str());
+        if row.selected != is_selected {
             // Replacing the model also replaces the row that grabbed the pointer.
-            row.selected = selected;
+            row.selected = is_selected;
             current.set_row_data(index, row);
         }
     }
@@ -149,13 +149,12 @@ pub(super) fn playlist_paste_index(app: &PlayerWindow, clicked_token: &str) -> u
         .global::<riina_ui::PlaylistInteraction>()
         .get_selected_playlist_tokens()
         .iter()
-        .map(|token| token.to_string())
-        .collect::<Vec<_>>();
+        .collect::<HashSet<_>>();
     let rows = app.global::<riina_ui::PlayerCatalogState>().get_playlist();
     (0..rows.row_count())
         .find(|index| {
             rows.row_data(*index)
-                .is_some_and(|row| selected.iter().any(|token| token == row.token.as_str()))
+                .is_some_and(|row| selected.contains(&row.token))
         })
         .or_else(|| {
             (0..rows.row_count()).find(|index| {

@@ -10,6 +10,7 @@ export component QuickSettingsInput inherits Rectangle {
     in property <string> hint;
     callback committed(string) -> bool;
     callback editing-finished();
+    callback focus-entered(length, length);
     private property <bool> dirty: false;
     width: 50px; height: 24px;
     forward-focus: input;
@@ -56,6 +57,7 @@ export component QuickSettingsInput inherits Rectangle {
             edited => { root.dirty = true; }
             changed has-focus => {
                 if self.has-focus {
+                    root.focus-entered(root.absolute-position.y, root.height);
                     if !root.dirty { self.text = root.observed-value; }
                 } else if root.dirty {
                     if !root.submit() { self.text = root.observed-value; root.dirty = false; }

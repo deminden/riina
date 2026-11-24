@@ -1,0 +1,55 @@
+import { PlayerCatalogState } from "player-catalog-state.slint";
+import { PlaylistInteraction } from "playlist-interaction.slint";
+
+export component PlaylistRowKeys inherits FocusScope {
+    in property <bool> playlist: true;
+    in property <int> index;
+    in property <int> requested-index;
+    in property <int> page-size: 1;
+    callback cancel-drag() -> bool;
+    callback open-context-menu();
+    callback play-row();
+    callback focus-entered();
+    callback move-focus(int);
+
+    width: 0px;
+    focus-on-click: false;
+    focus-on-tab-navigation: !root.playlist || root.index == clamp(root.requested-index, 0,
+        max(0, PlayerCatalogState.playlist.length - 1));
+
+    changed requested-index => {
+        if root.playlist && root.requested-index == root.index && !root.has-focus { root.focus(); }
+    }
+    focus-changed-event => {
+        if root.has-focus { root.focus-entered(); }
+    }
+    key-pressed(event) => {
+        if event.text == Key.Escape && root.cancel-drag() { return accept; }
+        if event.modifiers.alt || event.modifiers.control || event.modifiers.meta { return reject; }
+        if root.playlist && event.modifiers.shift && event.text == Key.F10 {
+            root.open-context-menu();
+            return accept;
+        }
+        if !event.modifiers.shift && event.text == Key.Return {
+            root.play-row();
+            return accept;
+        }
+        if !root.playlist { return reject; }
+        let count = PlayerCatalogState.playlist.length;
+        if count == 0 { return reject; }
+        let destination = event.text == Key.UpArrow ? max(0, root.index - 1)
+            : event.text == Key.DownArrow ? min(count - 1, root.index + 1)
+            : event.text == Key.Home ? 0
+            : event.text == Key.End ? count - 1
+            : event.text == Key.PageUp ? max(0, root.index - root.page-size)
+            : event.text == Key.PageDown ? min(count - 1, root.index + root.page-size) : -1;
+        if destination < 0 { return reject; }
+        if event.modifiers.shift && PlaylistInteraction.selected-playlist-tokens.length == 0 {
+            PlaylistInteraction.select-row(root.index, PlayerCatalogState.playlist[root.index].token, false, false);
+        }
+        PlaylistInteraction.select-row(destination, PlayerCatalogState.playlist[destination].token,
+            false, event.modifiers.shift);
+        if destination != root.index { root.move-focus(destination); }
+        return accept;
+    }
+}

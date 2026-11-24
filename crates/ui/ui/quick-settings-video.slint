@@ -29,6 +29,7 @@ export component VideoQuickSettingsPage inherits VerticalLayout {
     in property <float> speed-slider-position;
     in property <float> speed-value;
     callback track-selected(int, string);
+    callback focus-entered(length, length);
     in property <color> windows-accent-color;
     in property <color> windows-accent-foreground;
     in property <bool> windows-sidebar-material-active;
@@ -36,6 +37,7 @@ export component VideoQuickSettingsPage inherits VerticalLayout {
     width: root.sidebar-width - (root.compact-ui ? 28px : 32px);
     spacing: root.compact-ui ? 16px : 18px;
     QuickSettingsTrackList {
+        focus-entered(top, height) => { root.focus-entered(top, height); }
         width: parent.width;
         tracks: PlaybackVideoState.video-tracks; observed-index: PlaybackVideoState.video-track-selected-index;
         track-kind: 6; hint: "Video tracks"; enabled: root.loaded;
@@ -47,6 +49,7 @@ export component VideoQuickSettingsPage inherits VerticalLayout {
         selected(kind, token) => { root.track-selected(kind, token); }
     }
     VideoControls {
+        focus-entered(top, height) => { root.focus-entered(top, height); }
         width: parent.width;
         compact-ui: root.compact-ui;
         animations-disabled: root.animations-disabled;
@@ -91,6 +94,7 @@ export component VideoQuickSettingsPage inherits VerticalLayout {
                     vertical-alignment: center; }
                 Rectangle { horizontal-stretch: 1; background: transparent; }
                 if root.speed-value != 1 : Tool {
+                    focus-entered(top, height) => { root.focus-entered(top, height); }
                     accent-color: root.interactive-accent-color;
                     dark-theme: root.dark-theme; width: 16px; height: 16px;
                     icon-size: 14px;
@@ -102,6 +106,7 @@ export component VideoQuickSettingsPage inherits VerticalLayout {
             Rectangle { height: 18px; background: transparent; }
             HorizontalLayout { spacing: 8px; height: 20px;
                 PlayerSlider { dark-theme: root.dark-theme; height: 20px;
+                    focus-entered(top, height) => { root.focus-entered(top, height); }
                     minimum: 0; maximum: 24; step: 1;
                     value: root.speed-slider-position; hint: "Playback speed";
                     show-value-label: true;
@@ -112,6 +117,7 @@ export component VideoQuickSettingsPage inherits VerticalLayout {
                     changed(value) => { root.set-speed-slider(value); }
                 }
                 QuickSettingsInput { width: 50px; height: 18px;
+                    focus-entered(top, height) => { root.focus-entered(top, height); }
                     accent-color: root.interactive-accent-color;
                     dark-theme: root.dark-theme;
                     windows-acrylic-surface: root.windows-sidebar-material-active;
@@ -161,6 +167,7 @@ export component VideoQuickSettingsPage inherits VerticalLayout {
             padding: root.compact-ui ? 10px : 12px;
             spacing: root.compact-ui ? 8px : 12px;
             HardwareDecodingControls {
+                focus-entered(top, height) => { root.focus-entered(top, height); }
                 dark-theme: root.dark-theme;
                 windows-acrylic-surface: root.windows-sidebar-material-active;
                 accent-color: root.platform-windows ? root.windows-accent-color : Theme.sidebar-catalog-accent;
@@ -170,6 +177,7 @@ export component VideoQuickSettingsPage inherits VerticalLayout {
                 hardware-changed(value) => { root.set-hardware-decoding(value); }
             }
             if PlaybackVideoState.hdr-source-detected && PlaybackVideoState.hdr-display-active : HdrControls {
+                focus-entered(top, height) => { root.focus-entered(top, height); }
                 dark-theme: root.dark-theme;
                 windows-acrylic-surface: root.windows-sidebar-material-active;
                 accent-color: root.platform-windows ? root.windows-accent-color : Theme.sidebar-catalog-accent;
@@ -202,12 +210,14 @@ export component VideoQuickSettingsPage inherits VerticalLayout {
                     color: Theme.sidebar-heading-text(root.dark-theme);
                     vertical-alignment: center; }
                 PlayerSlider { dark-theme: root.dark-theme; height: 14px; minimum: -100; maximum: 100; step: 1;
+                    focus-entered(top, height) => { root.focus-entered(top, height); }
                     neutral-mark: true;
                     value: PlaybackVideoState.video-equalizer-values[index]; hint: label;
                     enabled: PlaybackVideoState.video-equalizer-known[index];
                     changed(value) => { root.set-video-equalizer(index, value); }
                 }
                 Tool { accent-color: root.interactive-accent-color; dark-theme: root.dark-theme; width: 16px; height: 14px; icon-size: 14px;
+                    focus-entered(top, height) => { root.focus-entered(top, height); }
                     windows-acrylic-surface: root.windows-sidebar-material-active;
                     icon: @image-url("../../../assets/icons/reset.svg");
                     hint: "Reset " + label; enabled: PlaybackVideoState.video-equalizer-known[index];

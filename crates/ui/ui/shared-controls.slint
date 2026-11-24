@@ -45,6 +45,7 @@ export component PlayerSlider inherits Rectangle {
     out property <bool> is-dragging: false;
     out property <bool> previewing: drag-value-active;
     callback changed(float);
+    callback focus-entered(length, length);
     callback draft-changed(float);
     callback committed(float);
     callback loop-a-moved(float);
@@ -154,6 +155,7 @@ export component PlayerSlider inherits Rectangle {
     }
     if focus.has-focus : Rectangle { border-width: 1px; border-color: Theme.player-focus-accent; border-radius: 3px; background: transparent; }
     focus := FocusScope {
+        focus-changed-event => { if self.has-focus { root.focus-entered(root.absolute-position.y, root.height); } }
         enabled: root.enabled;
         key-pressed(event) => {
             if event.modifiers.alt || event.modifiers.control || event.modifiers.meta || event.modifiers.shift { return reject; }
@@ -279,6 +281,7 @@ export component VerticalEqualizerSlider inherits Rectangle {
     in property <bool> dark-theme: true;
     in property <string> hint;
     callback changed(float);
+    callback focus-entered(length, length);
     width: 22px;
     height: 104px;
     accessible-role: slider;
@@ -312,6 +315,7 @@ export component VerticalEqualizerSlider inherits Rectangle {
     if focus.has-focus : Rectangle { border-width: 1px; border-color: Theme.player-focus-accent;
         border-radius: 3px; background: transparent; }
     focus := FocusScope {
+        focus-changed-event => { if self.has-focus { root.focus-entered(root.absolute-position.y, root.height); } }
         x: 0; y: 0; width: root.width; height: root.height;
         enabled: root.enabled;
         key-pressed(event) => {
@@ -346,6 +350,7 @@ export component VerticalEqualizerSlider inherits Rectangle {
 }
 
 export component SubtitleColorWell inherits Rectangle {
+    callback focus-entered(length, length);
     in property <color> observed-color;
     in property <bool> enabled: true;
     in property <string> hint;
@@ -384,6 +389,7 @@ export component SubtitleColorWell inherits Rectangle {
     Rectangle { x: 4px; y: 4px; width: 24px; height: 16px;
         background: root.observed-color; opacity: root.enabled ? 1 : 0.4; }
     focus := FocusScope {
+        focus-changed-event => { if self.has-focus { root.focus-entered(root.absolute-position.y, root.height); } }
         enabled: root.enabled;
         key-pressed(event) => {
             if event.modifiers.alt || event.modifiers.control || event.modifiers.meta || event.modifiers.shift { return reject; }

@@ -1,4 +1,5 @@
 mod owner;
+mod search;
 mod selection;
 
 pub(crate) use owner::{ApplicationHistory, Archive, HistorySync, PlayerDisplay, Registration};
@@ -35,6 +36,7 @@ fn connect_window(window: &PlaybackHistoryWindow, connection: WindowConnection) 
     let collapsed_groups = &connection.collapsed_groups;
     let selection_anchor = selection::Anchor::default();
     connect_search(window, history, collapsed_groups);
+    search::install_recents(window, &connection.archive.preferences_path);
     selection::connect(window, &selection_anchor);
     connect_group_expansion(window, history, collapsed_groups);
     connect_context_actions(window, selection_anchor.clone(), &connection);
@@ -51,7 +53,7 @@ fn connect_search(
     let weak_window = window.as_weak();
     let observed_history = history.clone();
     let search_collapsed_groups = collapsed_groups.clone();
-    window.on_search_changed(move |_query, _group_mode| {
+    window.on_search_changed(move || {
         let Some(window) = weak_window.upgrade() else {
             return;
         };
@@ -527,20 +529,13 @@ fn build_rows(
     collapsed_groups: &HashSet<String>,
     selected_paths: &HashSet<String>,
 ) -> Vec<PlaybackHistoryRow> {
-    let query = query.trim().to_lowercase();
+    let query = search::Query::new(query);
     let mut groups = BTreeMap::<String, Vec<(&Entry, MediaDescription)>>::new();
     for entry in entries {
         let description = describe(&entry.path);
-        let matches = if query.is_empty() {
-            true
-        } else if search_mode == 0 {
-            description.name.to_lowercase().contains(&query)
-        } else {
-            entry.path.to_lowercase().contains(&query)
-                || description
-                    .local
-                    .as_ref()
-                    .is_some_and(|path| path.to_string_lossy().to_lowercase().contains(&query))
+        let matches = match search_mode {
+            0 => query.matches(&description.name),
+            _ => query.matches_path(&entry.path, description.local.as_deref()),
         };
         if !matches {
             continue;

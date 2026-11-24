@@ -1,5 +1,6 @@
 import { Theme } from "theme.slint";
 import { ScrollView } from "std-widgets.slint";
+import { ScrollReveal } from "scroll-reveal.slint";
 
 // NSSegmentedControl uses one joined rail, not individually spaced buttons.
 // This keeps the WinUI-like equivalent compact over the video-backed material.
@@ -16,6 +17,7 @@ component VideoSegment inherits Rectangle {
     in property <bool> separator-visible: false;
     in property <bool> wheel-scroll-enabled: false;
     callback chosen();
+    callback focus-entered();
     callback navigate(int);
     callback scroll-request(float) -> bool;
     height: 24px;
@@ -69,6 +71,7 @@ component VideoSegment inherits Rectangle {
     focus := FocusScope {
         focus-on-click: false;
         enabled: root.enabled;
+        focus-changed-event => { if self.has-focus { root.focus-entered(); } }
         key-pressed(event) => {
             if event.modifiers.alt || event.modifiers.control || event.modifiers.meta || event.modifiers.shift { return reject; }
             if event.text == Key.Return || event.text == " " { root.chosen(); return accept; }
@@ -113,6 +116,11 @@ component PresetRailScrollView inherits ScrollView {
     private property <bool> programmatic-scroll: false;
     callback scroll-to(length);
     callback scroll-by(float) -> bool;
+    public function reveal-horizontal(left: length, width: length) {
+        root.programmatic-scroll = false;
+        root.content-x = ScrollReveal.offset(root.content-x, left - root.absolute-position.x,
+            width, root.visible-width, root.content-width);
+    }
     animate content-x {
         duration: root.programmatic-scroll && !root.animations-disabled ? 300ms : 0ms;
     }
@@ -136,6 +144,7 @@ component PresetRailScrollView inherits ScrollView {
 }
 
 export component VideoControls inherits Rectangle {
+    callback focus-entered(length, length);
     in property <bool> compact-ui: false;
     in property <bool> animations-disabled: false;
     in property <[string]> aspect-presets;
@@ -211,6 +220,10 @@ export component VideoControls inherits Rectangle {
                                     separator-visible: index > 0 && root.aspect-index != index &&
                                         root.aspect-index != index - 1;
                                     chosen => { root.aspect-changed(label); }
+                                    focus-entered => {
+                                        aspect-scroll.reveal-horizontal(self.absolute-position.x, self.width);
+                                        root.focus-entered(self.absolute-position.y, self.height);
+                                    }
                                     navigate(direction) => {
                                         root.aspect-changed(root.aspect-presets[clamp(
                                             (root.aspect-index >= 0 ? root.aspect-index : index) + direction,
@@ -231,6 +244,7 @@ export component VideoControls inherits Rectangle {
                             FocusScope {
                                 width: parent.width; height: parent.height;
                                 forward-focus: custom;
+                                focus-on-tab-navigation: false;
                                 // Unmodified editing keys must not seek, pause or
                                 // change volume when the text editor rejects them.
                                 key-pressed(event) => {
@@ -246,6 +260,12 @@ export component VideoControls inherits Rectangle {
                                         : (Theme.sidebar-action-text(root.dark-theme, false));
                                     font-size: 12px;
                                     vertical-alignment: center; accessible-label: "Custom aspect ratio";
+                                    changed has-focus => {
+                                        if self.has-focus {
+                                            aspect-scroll.reveal-horizontal(self.absolute-position.x, self.width);
+                                            root.focus-entered(self.absolute-position.y, self.height);
+                                        }
+                                    }
                                     accessible-action-set-value(value) => { self.text = value; }
                                     accepted => { if self.text != "" { root.aspect-changed(self.text); } }
                                 }
@@ -310,6 +330,10 @@ export component VideoControls inherits Rectangle {
                                 separator-visible: index > 0 && root.crop-index != index &&
                                     root.crop-index != index - 1;
                                 chosen => { root.crop-changed(index); }
+                                focus-entered => {
+                                    crop-scroll.reveal-horizontal(self.absolute-position.x, self.width);
+                                    root.focus-entered(self.absolute-position.y, self.height);
+                                }
                                 navigate(direction) => { root.crop-changed(clamp(
                                     (root.crop-index >= 0 ? root.crop-index : index) + direction, 0, 6)); }
                             }
@@ -358,6 +382,7 @@ export component VideoControls inherits Rectangle {
                     separator-visible: index > 0 && root.rotation-index != index &&
                         root.rotation-index != index - 1;
                     chosen => { root.rotation-changed(index * 90); }
+                    focus-entered => { root.focus-entered(self.absolute-position.y, self.height); }
                     navigate(direction) => { root.rotation-changed(clamp(
                         (root.rotation-index >= 0 ? root.rotation-index : index) + direction, 0, 3) * 90); }
                 }
@@ -367,6 +392,7 @@ export component VideoControls inherits Rectangle {
 }
 
 export component HardwareDecodingControls inherits Rectangle {
+    callback focus-entered(length, length);
     in property <bool> hardware-enabled: false;
     in property <bool> hardware-known: false;
     in property <bool> dark-theme: true;
@@ -406,6 +432,9 @@ export component HardwareDecodingControls inherits Rectangle {
                 TouchArea { enabled: root.hardware-known;
                     clicked => { hardware-focus.focus(); root.hardware-changed(!root.hardware-enabled); } }
                 hardware-focus := FocusScope {
+                    focus-changed-event => {
+                        if self.has-focus { root.focus-entered(root.absolute-position.y, root.height); }
+                    }
                     focus-on-click: false;
                     enabled: root.hardware-known;
                     key-pressed(event) => {
@@ -422,6 +451,7 @@ export component HardwareDecodingControls inherits Rectangle {
 }
 
 export component HdrControls inherits Rectangle {
+    callback focus-entered(length, length);
     in property <bool> hdr-enabled: true;
     in property <bool> hdr-available: false;
     in property <bool> dark-theme: true;
@@ -460,6 +490,9 @@ export component HdrControls inherits Rectangle {
                 border-radius: 8px; border-width: 1px;
                 border-color: root.focus-accent-color; }
             toggle-focus := FocusScope { enabled: root.hdr-available;
+                focus-changed-event => {
+                    if self.has-focus { root.focus-entered(root.absolute-position.y, root.height); }
+                }
                 key-pressed(event) => {
                     if event.modifiers.alt || event.modifiers.control || event.modifiers.meta || event.modifiers.shift { return reject; }
                     if event.text == " " || event.text == Key.Return {

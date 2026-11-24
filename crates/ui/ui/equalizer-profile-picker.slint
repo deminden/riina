@@ -4,6 +4,8 @@ import { Button } from "std-widgets.slint";
 // The standard menu owns traversal, scrolling and dismissal. Profile naming
 // remains a typed callback so the player owns validation and persistence.
 export component AudioEqualizerProfilePicker inherits FocusScope {
+    callback focus-entered(length, length);
+    focus-changed-event => { if self.has-focus { root.focus-entered(root.absolute-position.y, root.height); } }
     in property <[string]> profile-names;
     in property <int> selected-index: 0;
     in property <int> user-profile-start-index: 23;

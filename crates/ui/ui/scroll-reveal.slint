@@ -1,0 +1,9 @@
+export global ScrollReveal {
+    // The target starts in viewport coordinates, including the current scroll offset.
+    public pure function offset(current: length, start: length, extent: length,
+        visible: length, content: length) -> length {
+        let end = start + min(extent, visible);
+        let shift = start < 0px ? -start : end > visible ? visible - end : 0px;
+        return clamp(current + shift, min(visible - content, 0px), 0px);
+    }
+}

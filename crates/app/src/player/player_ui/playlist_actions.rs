@@ -15,7 +15,7 @@ use riina_core::Command;
 use riina_mpv::CommandSender;
 use riina_ui::{PlayerMenuActions, PlaylistInteraction};
 use slint::{ComponentHandle, Model};
-use std::{cell::RefCell, rc::Rc, time::Instant};
+use std::{cell::RefCell, collections::HashSet, rc::Rc, time::Instant};
 
 pub(super) fn install(
     app: &PlayerWindow,
@@ -304,13 +304,16 @@ fn install_selection(app: &PlayerWindow, command_sender: &CommandSender) {
                     })
                     .unwrap_or(index);
                 let mut selected = if extend { previous } else { Vec::new() };
+                let previous_tokens = selected.iter().map(String::as_str).collect::<HashSet<_>>();
+                let mut added = Vec::new();
                 for row in anchor.min(index)..=anchor.max(index) {
                     if let Some(entry) = rows.row_data(row)
-                        && !selected.iter().any(|token| token == entry.token.as_str())
+                        && !previous_tokens.contains(entry.token.as_str())
                     {
-                        selected.push(entry.token.to_string());
+                        added.push(entry.token.to_string());
                     }
                 }
+                selected.extend(added);
                 selected
             } else if extend {
                 let mut selected = previous;

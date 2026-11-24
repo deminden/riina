@@ -32,6 +32,15 @@ export component QuickSettingsScrollPage inherits PlaylistDropScrollView {
     // Save user scrolling, never the old page's automatic geometry clamp
     // while the new page is still being laid out.
     callback position-changed(int, length);
+
+    public function reveal-control(top: length, height: length) {
+        if root.restoring || root.visible-height <= 0px { return; }
+        let previous = root.content-y;
+        root.reveal-vertical(top, height);
+        if previous != root.content-y && !root.user-scrolling {
+            root.position-changed(root.page-kind, root.content-y);
+        }
+    }
     // Winit wheel input starts a physics animation before scrolled fires.
     // Observe the subsequent positions, including its final settled frame.
     scrolled => { if !root.restoring { root.user-scrolling = true; } }

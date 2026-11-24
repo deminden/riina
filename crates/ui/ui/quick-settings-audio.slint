@@ -1,4 +1,5 @@
 import { ScrollView } from "std-widgets.slint";
+import { ScrollReveal } from "scroll-reveal.slint";
 import { PlaybackAudioState } from "playback-audio-state.slint";
 import { Theme } from "theme.slint";
 import { PlayerSlider, VerticalEqualizerSlider } from "shared-controls.slint";
@@ -12,6 +13,7 @@ export component AudioQuickSettingsPage inherits VerticalLayout {
     in property <bool> compact-ui;
     in property <bool> dark-theme;
     callback delete-audio-equalizer-profile();
+    callback focus-entered(length, length);
     in property <color> interactive-accent-color;
     callback load-external-audio();
     in property <bool> loaded;
@@ -38,6 +40,7 @@ export component AudioQuickSettingsPage inherits VerticalLayout {
     spacing: 1px;
     cross-axis-alignment: center;
     QuickSettingsTrackList {
+        focus-entered(top, height) => { root.focus-entered(top, height); }
         width: root.card-width;
         tracks: PlaybackAudioState.audio-tracks; observed-index: PlaybackAudioState.audio-track-selected-index;
         track-kind: 1; hint: "Audio tracks"; enabled: root.loaded;
@@ -72,6 +75,9 @@ export component AudioQuickSettingsPage inherits VerticalLayout {
             if load-focus.has-focus : Rectangle { border-width: 1px; border-color: root.interactive-accent-color; border-radius: 4px; background: transparent; }
             TouchArea { enabled: root.loaded; clicked => { load-focus.focus(); root.load-external-audio(); } }
             load-focus := FocusScope {
+                focus-changed-event => {
+                    if self.has-focus { root.focus-entered(parent.absolute-position.y, parent.height); }
+                }
                 focus-on-click: false;
                 enabled: root.loaded;
                 key-pressed(event) => {
@@ -101,12 +107,14 @@ export component AudioQuickSettingsPage inherits VerticalLayout {
                 font-size: 12px; font-weight: 700; vertical-alignment: center; }
             Rectangle { horizontal-stretch: 1; background: transparent; }
             Tool { accent-color: root.interactive-accent-color; dark-theme: root.dark-theme; label: "↺"; hint: "Reset audio delay";
+                focus-entered(top, height) => { root.focus-entered(top, height); }
                 visible: PlaybackAudioState.audio-delay != 0;
                 enabled: root.loaded && PlaybackAudioState.audio-delay != 0;
                 activated => { root.reset-audio-delay(); } }
         }
         HorizontalLayout { height: 24px; spacing: 8px;
             audio-delay-slider := PlayerSlider { height: 24px; dark-theme: root.dark-theme; minimum: -5; maximum: 5; step: 0.05; value: PlaybackAudioState.audio-delay;
+                focus-entered(top, height) => { root.focus-entered(top, height); }
                 commit-on-release: true;
                 enabled: root.loaded; neutral-mark: true; tick-count: 21;
                 show-value-label: true;
@@ -117,6 +125,7 @@ export component AudioQuickSettingsPage inherits VerticalLayout {
                 changed(value) => { root.set-delay(round(value * 20) / 20); }
                 committed(value) => { root.set-delay(round(value * 20) / 20); } }
             QuickSettingsInput { accent-color: root.interactive-accent-color; dark-theme: root.dark-theme;
+                focus-entered(top, height) => { root.focus-entered(top, height); }
                 windows-acrylic-surface: root.windows-sidebar-material-active;
                 observed-value: audio-delay-slider.previewing
                     ? PlaybackAudioState.audio-delay-preview-text : PlaybackAudioState.audio-delay-text;
@@ -166,6 +175,9 @@ export component AudioQuickSettingsPage inherits VerticalLayout {
             border-color: root.interactive-accent-color; border-radius: 4px; background: transparent; }
         TouchArea { clicked => { boost-focus.focus(); root.set-volume-boost(!root.volume-boost); } }
         boost-focus := FocusScope {
+            focus-changed-event => {
+                if self.has-focus { root.focus-entered(parent.absolute-position.y, parent.height); }
+            }
             focus-on-click: false;
             key-pressed(event) => {
                 if event.text == " " || event.text == Key.Return {
@@ -192,6 +204,7 @@ export component AudioQuickSettingsPage inherits VerticalLayout {
                 font-weight: 700; vertical-alignment: center; }
         }
         AudioEqualizerProfilePicker {
+            focus-entered(top, height) => { root.focus-entered(top, height); }
                 width: parent.width - (root.compact-ui ? 20px : 24px);
                 dark-theme: root.dark-theme;
                 windows-acrylic-surface: root.windows-sidebar-material-active;
@@ -222,6 +235,12 @@ export component AudioQuickSettingsPage inherits VerticalLayout {
             for label[index] in ["32", "64", "125", "250", "500", "1k", "2k", "4k", "8k", "16k"] : VerticalLayout {
                 width: 24px;
                 VerticalEqualizerSlider { horizontal-stretch: 1; vertical-stretch: 1;
+                    focus-entered(top, height) => {
+                        let start = self.absolute-position.x - equalizer-scroll.absolute-position.x;
+                        equalizer-scroll.content-x = ScrollReveal.offset(equalizer-scroll.content-x, start,
+                            self.width, equalizer-scroll.visible-width, equalizer-scroll.content-width);
+                        root.focus-entered(top, height);
+                    }
                     dark-theme: root.dark-theme; minimum: -12; maximum: 12;
                     step: 0.1; value: PlaybackAudioState.audio-equalizer-values[index];
                     hint: label + " Hz equalizer gain";

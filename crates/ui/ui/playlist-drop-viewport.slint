@@ -1,5 +1,6 @@
 import { ScrollView } from "std-widgets.slint";
 import { PlaylistInteraction } from "playlist-interaction.slint";
+import { ScrollReveal } from "scroll-reveal.slint";
 
 export struct PlaylistDropViewport {
     x: length,
@@ -20,6 +21,11 @@ export component PlaylistDropScrollView inherits ScrollView {
         content-y: root.content-y,
     };
     callback playlist-auto-scrolled();
+
+    public function reveal-vertical(top: length, height: length) {
+        root.content-y = ScrollReveal.offset(root.content-y, top - root.absolute-position.y,
+            height, root.visible-height, root.content-height);
+    }
 
     private property <bool> row-drag: PlaylistInteraction.playlist-drag-active;
     private property <length> drag-x: (root.row-drag ? PlaylistInteraction.playlist-drag-x

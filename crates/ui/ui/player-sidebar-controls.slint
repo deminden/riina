@@ -173,6 +173,8 @@ export component SidebarSideChoice inherits FocusScope {
 }
 
 export component SubtitleVisibilityRow inherits FocusScope {
+    callback focus-entered(length, length);
+    focus-changed-event => { if self.has-focus { root.focus-entered(root.absolute-position.y, root.height); } }
     in property <string> label;
     in property <string> number;
     in property <bool> checked;
@@ -256,6 +258,7 @@ export component SidebarAction inherits FocusScope {
 }
 
 export component SubtitleLaneSegment inherits Rectangle {
+    callback focus-entered(length, length);
     in property <string> label;
     in property <string> hint;
     in property <bool> selected;
@@ -286,6 +289,7 @@ export component SubtitleLaneSegment inherits Rectangle {
         border-radius: 4px; background: transparent; }
     touch := TouchArea { clicked => { focus.focus(); root.activated(); } }
     focus := FocusScope {
+        focus-changed-event => { if self.has-focus { root.focus-entered(root.absolute-position.y, root.height); } }
         focus-on-click: false;
         key-pressed(event) => {
             // Lane choice is idempotent; modified player shortcuts still bubble.

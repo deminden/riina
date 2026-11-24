@@ -27,8 +27,12 @@ fn audio_and_subtitle_actions_activate_on_first_click() {
 }
 
 fn model() -> slint::ModelRc<CatalogRow> {
+    playlist_model(3)
+}
+
+fn playlist_model(count: usize) -> slint::ModelRc<CatalogRow> {
     slint::ModelRc::new(slint::VecModel::from(
-        (0..3)
+        (0..count)
             .map(|index| CatalogRow {
                 token: (index + 1).to_string().into(),
                 label: format!("Clip {index}").into(),
@@ -46,7 +50,7 @@ fn switch(app: &PlayerWindow, pane: i32) {
     flush();
     // Headless components are instantiated lazily. Materialize a recreated
     // scrolling body before advancing its deferred-restore timer.
-    if pane != 5 {
+    if pane != 0 && pane != 5 {
         let _ = page_y(app);
     }
     flush();
@@ -278,17 +282,7 @@ fn playlist_keyboard_selection_moves_focus_and_opens_the_selected_token() {
     flush();
 
     focus(&app, &button(&app, "Clip 0"));
-    assert_eq!(
-        app.global::<riina_ui::PlaylistInteraction>()
-            .get_playlist_focus_index(),
-        0
-    );
     key(&app, Key::DownArrow);
-    assert_eq!(
-        app.global::<riina_ui::PlaylistInteraction>()
-            .get_playlist_focus_index(),
-        1
-    );
     assert_eq!(
         app.global::<riina_ui::PlaylistInteraction>()
             .get_selected_playlist_token(),
@@ -304,6 +298,79 @@ fn playlist_keyboard_selection_moves_focus_and_opens_the_selected_token() {
             .get_selected_playlist_token()
             .is_empty()
     );
+}
+
+#[test]
+fn playlist_keyboard_reveals_rows_and_extends_selection_in_both_surfaces() {
+    let app = player(4);
+    app.window().set_size(LogicalSize::new(1000.0, 460.0));
+    app.global::<PlayerCatalogState>()
+        .set_playlist(playlist_model(30));
+    let selection = Rc::new(RefCell::new(Vec::new()));
+    let observed = selection.clone();
+    app.global::<PlayerSidebarActions>()
+        .on_select_playlist_row(move |index, _, range| {
+            observed.borrow_mut().push((index, range));
+            slint::ModelRc::new(slint::VecModel::from(vec![(index + 1).to_string().into()]))
+        });
+    let opened = Rc::new(RefCell::new(Vec::new()));
+    let observed = opened.clone();
+    app.global::<PlayerMenuActions>()
+        .on_select_item(move |_, token| observed.borrow_mut().push(token.to_string()));
+    switch(&app, 4);
+    for music_mode in [false, true] {
+        if music_mode {
+            switch(&app, 0);
+            let music = app.global::<PlayerMusicModeState>();
+            music.set_music_mode(true);
+            music.set_music_mode_show_playlist(true);
+            flush();
+        }
+        let first = button(&app, "Clip 0");
+        let initial_y = first.absolute_position().y;
+        focus(&app, &first);
+        app.window().dispatch_event(WindowEvent::KeyPressed {
+            text: Key::Shift.into(),
+        });
+        key(&app, Key::End);
+        app.window().dispatch_event(WindowEvent::KeyReleased {
+            text: Key::Shift.into(),
+        });
+        assert_eq!(selection.borrow().last(), Some(&(29, true)));
+        assert!(first.absolute_position().y < initial_y - 250.0);
+        let last = button(&app, "Clip 29");
+        assert!(last.absolute_position().y + last.size().height <= 460.0);
+        key(&app, Key::PageUp);
+        assert!(
+            selection
+                .borrow()
+                .last()
+                .is_some_and(|(index, range)| *index < 29 && !range)
+        );
+        key(&app, Key::End);
+        key(&app, Key::Return);
+    }
+    assert_eq!(opened.borrow().as_slice(), ["30", "30"]);
+}
+
+#[test]
+fn quick_settings_tab_reveals_equalizer_and_restores_its_scroll_position() {
+    let app = player(1);
+    app.window().set_size(LogicalSize::new(1000.0, 290.0));
+    app.global::<PlaybackAudioState>().set_audio_tracks(model());
+    switch(&app, 1);
+    let initial_y = page_y(&app);
+    focus(&app, &field(&app, "Audio tracks"));
+    for _ in 0..5 {
+        key(&app, Key::Tab);
+    }
+    let revealed_y = page_y(&app);
+    assert!(revealed_y < initial_y - 60.0);
+    let first_band = field(&app, "32 Hz equalizer gain");
+    assert!(first_band.absolute_position().y + first_band.size().height <= 290.0);
+    switch(&app, 6);
+    switch(&app, 1);
+    assert!((page_y(&app) - revealed_y).abs() < 1.0);
 }
 
 #[test]

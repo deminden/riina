@@ -17,6 +17,7 @@ export component QuickSettingsTrackList inherits Rectangle {
     in property <color> card-fill: Theme.sidebar-card-default-fill;
     in property <color> card-edge: Theme.sidebar-card-default-border;
     callback selected(int, string);
+    callback focus-entered(length, length);
     private property <int> cursor: 0;
     private property <int> accessible-cursor: -1;
     private property <bool> focus-pending: false;
@@ -126,7 +127,10 @@ export component QuickSettingsTrackList inherits Rectangle {
             root.accessible-cursor = -1;
             root.focus-pending = false;
             rows.has-focus = self.has-focus;
-            if self.has-focus { root.move(root.observed-index, false); }
+            if self.has-focus {
+                root.move(root.observed-index, false);
+                root.focus-entered(root.absolute-position.y, root.height);
+            }
         }
         key-pressed(event) => {
             if event.modifiers.alt || event.modifiers.control || event.modifiers.meta || event.modifiers.shift { return reject; }

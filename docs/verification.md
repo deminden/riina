@@ -2681,3 +2681,25 @@ and the same Zig toolchain. For Intel, the C compiler target was
 `x86_64-macos.10.12` and the C compiler and archive-tool settings used the
 `x86_64_apple_darwin` suffix. Both source checks include the platform startup
 adapter and application menu observer. Both still require execution on macOS.
+
+### Playback keyboard workflows and History search 2026-11-24
+
+History search folds case and accents and searches decoded local or network paths
+in Full Path mode. It stores a bounded list of submitted searches per profile.
+Both playlist views share keyboard navigation, range selection and row reveal.
+Audio, Video and Subtitles reveal focused controls in their own scroll areas.
+Playlist export publishes the completed UTF-8 file using atomic replacement.
+
+The Windows workspace gate passed 951 tests, including 63 headless interaction
+tests and the software-rendered pixel comparison. The headless checks cover
+playlist range selection and paging in both surfaces and focus-driven Audio
+scrolling across a pane round trip. All 78 Python tests and 59 native engine
+tests passed.
+The Windows private-desktop export probe stopped at the Save As confirmation.
+End-to-end export through the Windows dialog remains open.
+
+The full Linux application built against the locked dependencies. An isolated
+X11 session submitted and saved searches, recalled a recent search, opened an
+accented filename, cleared recents and closed the exact application process.
+The complete workspace passed strict Apple Silicon cross-Clippy. Native macOS
+execution and matched reference pixels for the updated History toolbar remain open.

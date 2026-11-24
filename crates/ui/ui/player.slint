@@ -460,7 +460,7 @@ export component PlayerWindow inherits PlayerMenuWindow {
                 }
                 fit-window-to-video => { root.fit-window-to-video(); }
                 layout-settings-changed => { root.layout-settings-changed(); }
-                if pane-kind != 5 && (pane-kind != 7 || !PlayerPluginSidebarState.composited) : QuickSettingsScrollPage {
+                if pane-kind != 5 && (pane-kind != 7 || !PlayerPluginSidebarState.composited) : scroll-page := QuickSettingsScrollPage {
                     page-kind: pane-kind;
                     playlist-drop-enabled: pane-kind == 4 && sidebar-frame.sidebar-open && !root.music-mode;
                     changed drop-viewport => {
@@ -494,6 +494,8 @@ export component PlayerWindow inherits PlayerMenuWindow {
                         quick-settings-pane: quick-settings-pane;
                         sidebar-width: min((side == 0 ? PlayerSidebarState.leading-sidebar-width : PlayerSidebarState.trailing-sidebar-width) * 1px, root.width * 0.8);
                         loaded: root.loaded;
+                        viewport-height: scroll-page.visible-height;
+                        focus-entered(top, height) => { scroll-page.reveal-control(top, height); }
                         restore-player-focus => { keys.focus(); }
                     }
                     if pane-kind == 4 : PlaylistBlankMenuArea {
@@ -613,10 +615,6 @@ export component PlayerWindow inherits PlayerMenuWindow {
                 dark-theme: PlayerAppearance.dark-theme;
                 platform-windows: PlayerAppearance.platform-windows;
                 windows-accent-color: PlayerAppearance.windows-accent-color;
-                select-row(token) => {
-                    PlaylistInteraction.selected-playlist-token = token;
-                    PlaylistInteraction.selected-playlist-tokens = [token];
-                }
                 play-row(token) => {
                     PlaylistInteraction.clear-selection();
                     PlayerMenuActions.select-item(CatalogSelection.playlist, token);

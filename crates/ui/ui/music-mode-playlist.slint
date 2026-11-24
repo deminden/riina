@@ -2,23 +2,25 @@ import { Theme } from "theme.slint";
 import { PlaylistInteraction, PlaylistMenuOrigin } from "playlist-interaction.slint";
 import { PlaylistBlankMenuArea, PlaylistContextMenu } from "playlist-context-menu.slint";
 import { PlayerCatalogState } from "player-catalog-state.slint";
-import { CatalogRow } from "catalog-row.slint";
 import { PlayerSidebarState } from "player-sidebar-state.slint";
 import { PlaylistDropScrollView } from "playlist-drop-viewport.slint";
 import { PlaylistInsertionIndicator, PlaylistRowInput } from "playlist-row-input.slint";
 import { PlaylistResumeMark } from "playlist-resume-mark.slint";
 import { PlaylistSeriesTitle } from "playlist-series-title.slint";
+import { PlaylistRowKeys } from "playlist-row-keys.slint";
 
 export component MusicModePlaylist inherits Rectangle {
     in property <bool> dark-theme;
     in property <bool> platform-windows;
     in property <color> windows-accent-color;
-    callback select-row(string);
     callback play-row(string);
+    private property <int> focus-index: -1;
     private property <length> summary-height: PlayerCatalogState.playlist-duration-summary == "" ? 0px : 20px;
+    private property <color> focus-accent: root.platform-windows
+        ? root.windows-accent-color : Theme.playback-progress-accent;
 
     background: Theme.music-mode-playlist-surface(root.dark-theme);
-    PlaylistDropScrollView {
+    playlist-scroll := PlaylistDropScrollView {
         width: parent.width; height: parent.height - summary-height;
         playlist-drop-enabled: true;
         content-width: self.visible-width;
@@ -27,12 +29,15 @@ export component MusicModePlaylist inherits Rectangle {
         changed drop-viewport => { PlayerSidebarState.music-list-drop-viewport = self.drop-viewport; }
         music-rows := VerticalLayout {
             spacing: 1px;
-            for row[index] in PlayerCatalogState.playlist : Rectangle {
+            for row[index] in PlayerCatalogState.playlist : row-item := Rectangle {
                 private property <length> duration-width: row.duration-label == "" ? 0px : 60px;
                 height: PlayerCatalogState.playlist-metadata-visible ? 38px : 30px; horizontal-stretch: 1;
                 accessible-role: button;
                 accessible-label: row.label;
-                accessible-action-default => { root.select-row(row.token); }
+                accessible-action-default => {
+                    music-row-focus.focus();
+                    PlaylistInteraction.select-row(index, row.token, false, false);
+                }
                 background: row.selected || PlaylistInteraction.selected-playlist-token == row.token
                     ? Theme.music-mode-playlist-selection(root.dark-theme) :
                     music-row-touch.has-hover ? Theme.music-mode-playlist-hover(root.dark-theme) : transparent;
@@ -89,21 +94,26 @@ export component MusicModePlaylist inherits Rectangle {
                     focus-color: root.platform-windows ? root.windows-accent-color : Theme.playback-progress-accent;
                     open-menu(x, y) => { music-row-menu.open-at(self.x + x, self.y + y); }
                 }
+                if music-row-focus.has-focus : Rectangle {
+                    background: transparent; border-radius: 3px;
+                    border-width: 1px; border-color: root.focus-accent;
+                }
                 music-row-menu := PlaylistContextMenu {
                     origin: PlaylistMenuOrigin.music-mode;
                     token: row.token;
                 }
-                music-row-focus := FocusScope {
-                    width: 0px;
-                    key-pressed(event) => {
-                        if event.text == Key.Escape && music-row-touch.cancel-drag() { return accept; }
-                        if event.text == Key.F10 && event.modifiers.shift && !event.modifiers.alt
-                            && !event.modifiers.control && !event.modifiers.meta {
-                            music-row-menu.open-at(12px, parent.height);
-                            return accept;
-                        }
-                        return reject;
+                music-row-focus := PlaylistRowKeys {
+                    index: index;
+                    requested-index: root.focus-index;
+                    page-size: max(1, floor(playlist-scroll.visible-height / (row-item.height + 1px)));
+                    cancel-drag => { return music-row-touch.cancel-drag(); }
+                    open-context-menu => { music-row-menu.open-at(12px, row-item.height); }
+                    play-row => { root.play-row(row.token); }
+                    focus-entered => {
+                        root.focus-index = index;
+                        playlist-scroll.reveal-vertical(row-item.absolute-position.y, row-item.height);
                     }
+                    move-focus(target) => { root.focus-index = target; }
                 }
             }
         }

@@ -29,11 +29,14 @@ export global PlaylistInteraction {
     in-out property <length> playlist-drag-x;
     in-out property <length> playlist-drag-y;
     in-out property <PlaylistDropHover> external-drop-hover;
-    in-out property <int> playlist-focus-index: -1;
-
     public function cancel-playlist-drag() {
         root.playlist-drag-token = "";
         root.playlist-drag-active = false;
+    }
+
+    public function select-row(index: int, token: string, extend: bool, range: bool) {
+        root.selected-playlist-tokens = PlayerSidebarActions.select-playlist-row(index, extend, range);
+        root.selected-playlist-token = token;
     }
 
     public function clear-selection() {

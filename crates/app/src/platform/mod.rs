@@ -1105,9 +1105,7 @@ pub(crate) fn save_playlist_file(
                 .save_file()
                 .await;
             if let Some(file) = file {
-                file.write(content.as_bytes())
-                    .await
-                    .map_err(|error| error.to_string())?;
+                settings_file::save(file.path(), &content).map_err(|error| error.to_string())?;
                 Ok::<bool, String>(true)
             } else {
                 Ok(false)

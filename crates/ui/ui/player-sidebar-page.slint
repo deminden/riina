@@ -18,6 +18,9 @@ export component PlayerSidebarPage inherits VerticalLayout {
     in property <bool> quick-settings-pane;
     in property <length> sidebar-width;
     in property <bool> loaded;
+    in property <length> viewport-height;
+    private property <int> playlist-focus-index: -1;
+    callback focus-entered(length, length);
     callback restore-player-focus();
 
     pure function selection-for-pane(kind: int) -> CatalogSelection {
@@ -35,6 +38,7 @@ export component PlayerSidebarPage inherits VerticalLayout {
         card-width: root.sidebar-width - (PlayerAppearance.compact-ui ? 28px : 32px);
         compact-ui: PlayerAppearance.compact-ui;
         dark-theme: PlayerAppearance.dark-theme;
+        focus-entered(top, height) => { root.focus-entered(top, height); }
         delete-audio-equalizer-profile => { PlayerSidebarActions.delete-audio-equalizer-profile(); }
         interactive-accent-color: PlayerAppearance.interactive-accent-color;
         load-external-audio => { PlayerMenuActions.browse-files(1); }
@@ -73,7 +77,11 @@ export component PlayerSidebarPage inherits VerticalLayout {
         entry: row;
         index: index;
         pane-kind: root.pane-kind;
+        requested-index: root.playlist-focus-index;
+        viewport-height: root.viewport-height;
         dark-theme: PlayerAppearance.dark-theme;
+        focus-entered(top, height) => { root.focus-entered(top, height); }
+        move-playlist-focus(index) => { root.playlist-focus-index = index; }
         interactive-accent-color: PlayerAppearance.interactive-accent-color;
         select-row(token) => { PlayerMenuActions.select-item(root.selection-for-pane(pane-kind), token); }
     }
@@ -82,6 +90,7 @@ export component PlayerSidebarPage inherits VerticalLayout {
         animations-disabled: PlayerAppearance.animations-disabled;
         compact-ui: PlayerAppearance.compact-ui;
         dark-theme: PlayerAppearance.dark-theme;
+        focus-entered(top, height) => { root.focus-entered(top, height); }
         interactive-accent-color: PlayerAppearance.interactive-accent-color;
         loaded: root.loaded;
         platform-windows: PlayerAppearance.platform-windows;
@@ -109,6 +118,7 @@ export component PlayerSidebarPage inherits VerticalLayout {
         choose-subtitle-font => { PlayerMenuActions.choose-subtitle-font(); }
         compact-ui: PlayerAppearance.compact-ui;
         dark-theme: PlayerAppearance.dark-theme;
+        focus-entered(top, height) => { root.focus-entered(top, height); }
         find-online-subtitles => { PlayerMenuActions.find-online-subtitles(); }
         interactive-accent-color: PlayerAppearance.interactive-accent-color;
         load-subtitle => { PlayerMenuActions.browse-files(2); }

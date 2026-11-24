@@ -45,9 +45,7 @@ export component PlaylistRowInput inherits TouchArea {
     }
 
     function select-row() {
-        PlaylistInteraction.selected-playlist-tokens = PlayerSidebarActions.select-playlist-row(root.index,
-            root.extend-selection, root.range-selection);
-        PlaylistInteraction.selected-playlist-token = root.token;
+        PlaylistInteraction.select-row(root.index, root.token, root.extend-selection, root.range-selection);
     }
 
     pointer-event(event) => {
@@ -58,7 +56,6 @@ export component PlaylistRowInput inherits TouchArea {
         } else if event.button == PointerEventButton.left && event.kind == PointerEventKind.down {
             PlaylistInteraction.cancel-playlist-drag();
             PlaylistInteraction.playlist-drag-token = root.token;
-            PlaylistInteraction.playlist-focus-index = root.index;
             root.focus-row();
             root.extend-selection = event.modifiers.control || event.modifiers.meta;
             root.range-selection = event.modifiers.shift;

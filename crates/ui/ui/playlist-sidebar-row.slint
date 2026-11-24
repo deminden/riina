@@ -1,6 +1,5 @@
 import { Theme } from "theme.slint";
 import { PlayerCatalogState } from "player-catalog-state.slint";
-import { PlayerSidebarActions } from "player-sidebar-actions.slint";
 import { CatalogRow } from "catalog-row.slint";
 
 import { PlaylistInteraction, PlaylistMenuOrigin } from "playlist-interaction.slint";
@@ -8,6 +7,7 @@ import { PlaylistContextMenu } from "playlist-context-menu.slint";
 import { PlaylistResumeMark } from "playlist-resume-mark.slint";
 import { PlaylistSeriesTitle } from "playlist-series-title.slint";
 import { PlaylistInsertionIndicator, PlaylistRowInput } from "playlist-row-input.slint";
+import { PlaylistRowKeys } from "playlist-row-keys.slint";
 
 export component CatalogSidebarRow inherits Rectangle {
     in property <CatalogRow> entry;
@@ -15,9 +15,12 @@ export component CatalogSidebarRow inherits Rectangle {
     in property <int> pane-kind;
     in property <bool> dark-theme;
     in property <color> interactive-accent-color;
+    in property <int> requested-index: -1;
+    in property <length> viewport-height;
+    callback focus-entered(length, length);
+    callback move-playlist-focus(int);
     callback select-row(string);
 
-    property <int> current-playlist-focus-index: PlaylistInteraction.playlist-focus-index;
     private property <length> duration-width: pane-kind == 4 && entry.duration-label != "" ? 60px : 0px;
     height: pane-kind < 3 || pane-kind == 6 ? 26px : pane-kind == 3 ? 40px
         : (PlayerCatalogState.playlist-metadata-visible ? 38px : 30px);
@@ -99,37 +102,21 @@ export component CatalogSidebarRow inherits Rectangle {
         origin: PlaylistMenuOrigin.sidebar;
         token: root.entry.token;
     }
-    row-focus := FocusScope {
-        width: 0px;
-        key-pressed(event) => {
-            if event.text == Key.Escape && row-input.cancel-drag() { return accept; }
-            if pane-kind == 4 && event.text == Key.F10 && event.modifiers.shift
-                && !event.modifiers.alt && !event.modifiers.control && !event.modifiers.meta {
-                row-menu.open-at(12px, root.height);
-                return accept;
-            }
-            // Preserve global playback shortcuts while a catalog row has focus.
-            if event.modifiers.alt || event.modifiers.control || event.modifiers.meta || event.modifiers.shift { return reject; }
-            if event.text == Key.Return {
-                root.select-row(entry.token);
-                if pane-kind == 4 { PlaylistInteraction.clear-selection(); }
-                return accept;
-            }
-            if pane-kind == 4 && (event.text == Key.UpArrow || event.text == Key.DownArrow)
-                && PlayerCatalogState.playlist.length > 0 {
-                let next-index = event.text == Key.UpArrow
-                    ? max(0, index - 1)
-                    : min(PlayerCatalogState.playlist.length - 1, index + 1);
-                PlaylistInteraction.playlist-focus-index = next-index;
-                PlaylistInteraction.selected-playlist-tokens = PlayerSidebarActions.select-playlist-row(next-index,
-                    event.modifiers.control || event.modifiers.meta, event.modifiers.shift);
-                PlaylistInteraction.selected-playlist-token = PlayerCatalogState.playlist[next-index].token;
-                return accept;
-            }
-            return reject;
+    row-focus := PlaylistRowKeys {
+        playlist: root.pane-kind == 4;
+        index: root.index;
+        requested-index: root.requested-index;
+        page-size: max(1, floor(root.viewport-height / (root.height + 1px)));
+        cancel-drag => { return row-input.cancel-drag(); }
+        open-context-menu => { row-menu.open-at(12px, root.height); }
+        play-row => {
+            root.select-row(entry.token);
+            if root.pane-kind == 4 { PlaylistInteraction.clear-selection(); }
         }
-    }
-    changed current-playlist-focus-index => {
-        if pane-kind == 4 && current-playlist-focus-index == index { row-focus.focus(); }
+        focus-entered => {
+            if root.pane-kind == 4 { root.move-playlist-focus(root.index); }
+            root.focus-entered(root.absolute-position.y, root.height);
+        }
+        move-focus(index) => { root.move-playlist-focus(index); }
     }
 }

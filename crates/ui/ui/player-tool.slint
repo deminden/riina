@@ -13,6 +13,7 @@ export component Tool inherits Rectangle {
     in property <bool> windows-acrylic-surface: false;
     in property <color> accent-color: Theme.player-focus-accent;
     callback activated();
+    callback focus-entered(length, length);
     width: circular ? circular-size : 30px; height: circular ? circular-size : 28px;
     border-radius: circular ? circular-size / 2 : 5px;
     border-width: circular && windows-acrylic-surface ? 1px : 0px;
@@ -39,6 +40,7 @@ export component Tool inherits Rectangle {
         border-radius: circular ? circular-size / 2 : 5px; background: transparent;
     }
     focus := FocusScope {
+        focus-changed-event => { if self.has-focus { root.focus-entered(root.absolute-position.y, root.height); } }
         enabled: root.enabled;
         key-pressed(event) => {
             if event.modifiers.alt || event.modifiers.control || event.modifiers.meta || event.modifiers.shift { return reject; }

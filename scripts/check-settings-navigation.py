@@ -164,7 +164,7 @@ def main():
         "Selected tab text must collapse with its width at narrow sidebar sizes"
     )
     scroll_page = re.search(
-        r"if pane-kind != 5\b[^\n]* : QuickSettingsScrollPage \{(.*?)(?=\n                }(?:\n|$))",
+        r"if pane-kind != 5\b[^\n]* : scroll-page := QuickSettingsScrollPage \{(.*?)(?=\n                }(?:\n|$))",
         PLAYER_SOURCE,
         re.DOTALL,
     )
