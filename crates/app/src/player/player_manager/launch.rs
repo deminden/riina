@@ -1,9 +1,28 @@
 //! Route AppKit document opens and idle launch actions into the player manager.
 use super::{PlayerManager, open_new_player, schedule_quit, schedule_welcome, show_welcome};
-use crate::{PlayerWindow, media_open, preference_load, ui_dialogs};
+use crate::{PlayerWindow, media_open, preference_load};
 use riina_core::ActionAfterLaunch;
 use slint::ComponentHandle;
 use std::rc::Rc;
+
+#[derive(Clone, Copy)]
+enum ApplicationOpen {
+    Finder,
+    Panel { alternative: bool },
+    Recent,
+}
+
+impl ApplicationOpen {
+    fn alternative(self) -> bool {
+        matches!(self, Self::Panel { alternative: true })
+    }
+
+    fn records_selection(self) -> bool {
+        // Finder files follow the record-on-playback preference, while explicit
+        // choices in the File menu count as Open Recent selections themselves.
+        !matches!(self, Self::Finder)
+    }
+}
 
 impl PlayerManager {
     pub(crate) fn is_quitting(&self) -> bool {
@@ -68,6 +87,33 @@ impl PlayerManager {
         }
     }
 
+    pub(crate) fn show_application_history(&self) {
+        if self.is_quitting() {
+            return;
+        }
+        let result = crate::platform::preferences_path()
+            .map_err(|error| error.to_string())
+            .and_then(|path| self.services().history.show_from_application(path));
+        if let Err(error) = result {
+            crate::diagnostics::warn!("Could not open Playback History: {error}");
+        }
+    }
+
+    pub(crate) fn clear_application_recents(&self) {
+        if self.is_quitting() {
+            return;
+        }
+        let result = (|| -> Result<(), String> {
+            let path = crate::platform::preferences_path().map_err(|error| error.to_string())?;
+            let loaded = preference_load::load(&path).map_err(|error| error.to_string())?;
+            self.services()
+                .clear_application_documents(&path, &loaded.preferences)
+        })();
+        if let Err(error) = result {
+            crate::diagnostics::warn!("{error}");
+        }
+    }
+
     pub(crate) fn open_application_panel(&self, alternative: bool) {
         {
             let mut state = self.state.borrow_mut();
@@ -84,7 +130,10 @@ impl PlayerManager {
             let files = crate::platform::choose_application_media("Open File", None).await;
             manager.state.borrow_mut().open_panel_visible = false;
             match files {
-                Ok(Some(paths)) => manager.open_application_selection(paths, alternative),
+                Ok(Some(paths)) => {
+                    manager
+                        .open_application_selection(paths, ApplicationOpen::Panel { alternative });
+                }
                 Ok(None) => {}
                 Err(error) => crate::diagnostics::warn!("Could not open the file picker: {error}"),
             }
@@ -96,31 +145,33 @@ impl PlayerManager {
     }
 
     pub(crate) fn open_application_documents(&self, paths: Vec<String>) {
-        self.open_application_selection(paths, false);
+        self.open_application_selection(paths, ApplicationOpen::Finder);
     }
 
-    fn open_application_selection(&self, paths: Vec<String>, alternative: bool) {
-        if paths.is_empty()
-            || self.is_quitting()
-            || self.open_with_existing_player(&paths, alternative)
+    pub(crate) fn open_application_recent(&self, path: String) {
+        self.open_application_selection(vec![path], ApplicationOpen::Recent);
+    }
+
+    fn open_application_selection(&self, paths: Vec<String>, origin: ApplicationOpen) {
+        if paths.is_empty() || self.is_quitting() || self.open_with_existing_player(&paths, origin)
         {
             return;
         }
         let manager = self.clone();
         self.state.borrow_mut().opening_documents += 1;
         if let Err(error) = slint::spawn_local(async move {
-            let result = manager.open_without_player(paths, alternative).await;
+            let result = manager.open_without_player(paths, origin).await;
             manager.state.borrow_mut().opening_documents -= 1;
             if let Err(error) = result {
-                crate::diagnostics::warn!("Could not open Finder documents: {error}");
+                crate::diagnostics::warn!("Could not open the selected media: {error}");
             }
         }) {
             self.state.borrow_mut().opening_documents -= 1;
-            crate::diagnostics::warn!("Could not schedule Finder documents: {error}");
+            crate::diagnostics::warn!("Could not schedule the selected media: {error}");
         }
     }
 
-    fn open_with_existing_player(&self, paths: &[String], alternative: bool) -> bool {
+    fn open_with_existing_player(&self, paths: &[String], origin: ApplicationOpen) -> bool {
         let destination = self.services().history.browser_destination();
         let Some((app, display)) = destination else {
             return false;
@@ -134,24 +185,17 @@ impl PlayerManager {
             .and_then(|player| player.session.player())
             .map(riina_mpv::Player::command_sender);
         let Some(sender) = sender else { return false };
-        let result = display
-            .reveal(&app)
-            .map_err(|error| error.to_string())
-            .and_then(|()| {
-                display.focus(&app);
-                ui_dialogs::dispatch_selection(
-                    &app,
-                    if alternative {
-                        ui_dialogs::Purpose::MediaAlternative
-                    } else {
-                        ui_dialogs::Purpose::Media
-                    },
-                    paths.to_vec(),
-                    sender,
-                )
-            });
+        let result = display.reveal(&app).map(|()| {
+            display.focus(&app);
+            if origin.records_selection() {
+                for path in paths {
+                    app.invoke_remember_recent_path(path.clone().into());
+                }
+            }
+            media_open::file_dialog_selection(&app, paths.to_vec(), origin.alternative(), sender);
+        });
         if let Err(error) = result {
-            crate::diagnostics::report(&app, error);
+            crate::diagnostics::report(&app, error.to_string());
         }
         true
     }
@@ -159,20 +203,24 @@ impl PlayerManager {
     async fn open_without_player(
         &self,
         paths: Vec<String>,
-        alternative: bool,
+        origin: ApplicationOpen,
     ) -> Result<(), String> {
-        if self.is_quitting() || self.open_with_existing_player(&paths, alternative) {
+        if self.is_quitting() || self.open_with_existing_player(&paths, origin) {
             return Ok(());
         }
         let path = crate::platform::preferences_path().map_err(|error| error.to_string())?;
         let loaded = preference_load::load(&path).map_err(|error| error.to_string())?;
+        if origin.records_selection() {
+            self.services()
+                .record_application_documents(&path, &loaded.preferences, &paths);
+        }
         let preferences = loaded.preferences.clone();
         let (ready, selection) = tokio::sync::oneshot::channel();
-        crate::background::spawn_named("finder-media-selection", move || {
+        crate::background::spawn_named("application-media-selection", move || {
             let _ = ready.send(media_open::prepare_application_documents(
                 paths,
                 &preferences,
-                alternative,
+                origin.alternative(),
             ));
         })
         .map_err(|error| error.to_string())?;

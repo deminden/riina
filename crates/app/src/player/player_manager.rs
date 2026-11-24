@@ -55,6 +55,8 @@ struct ManagerState {
     opening_documents: usize,
     #[cfg(target_os = "macos")]
     open_panel_visible: bool,
+    #[cfg(target_os = "macos")]
+    last_player_closed_with_history: bool,
 }
 
 pub(crate) const fn should_quit_after_last_window_closed(
@@ -121,16 +123,8 @@ impl PlayerManager {
                 open_new_player(&state, Some(window), media, loaded).map(|_| ())
             },
             move || {
-                let Some(state) = on_close.upgrade() else {
-                    return;
-                };
-                let empty = state.borrow().players.is_empty();
-                if empty {
-                    let quit = crate::platform::preferences_path()
-                        .ok()
-                        .and_then(|path| crate::preference_load::load(&path).ok())
-                        .is_none_or(|loaded| loaded.preferences.quit_when_no_opened_window);
-                    finish_empty_application(&state, quit, false);
+                if let Some(state) = on_close.upgrade() {
+                    finish_after_history_close(&state);
                 }
             },
         );
@@ -465,6 +459,12 @@ fn close_player(state: &Rc<RefCell<ManagerState>>, id: u64, from_welcome: bool) 
             .map(|index| state.players.remove(index))
     };
     let Some(player) = removed else { return };
+    #[cfg(target_os = "macos")]
+    let player_was_visible = player.app.window().is_visible()
+        || player
+            .welcome
+            .as_ref()
+            .is_some_and(|welcome| welcome.window().is_visible());
     if let Err(error) = player.session.save(&player.app) {
         crate::diagnostics::report(&player.app, error.to_string());
     }
@@ -478,9 +478,43 @@ fn close_player(state: &Rc<RefCell<ManagerState>>, id: u64, from_welcome: bool) 
         state.borrow().players.len(),
     );
     drop(player);
-    if empty && !state.borrow().services.history.is_visible() {
-        finish_empty_application(state, quit_when_empty, from_welcome);
+    if !empty {
+        return;
     }
+    if state.borrow().services.history.is_visible() {
+        #[cfg(target_os = "macos")]
+        {
+            state.borrow_mut().last_player_closed_with_history |= player_was_visible;
+            crate::platform::browser_activation::show_idle_menu();
+        }
+        return;
+    }
+    finish_empty_application(state, quit_when_empty, from_welcome);
+}
+
+fn finish_after_history_close(state: &Rc<RefCell<ManagerState>>) {
+    #[cfg(target_os = "macos")]
+    let should_check_quit = {
+        let mut state = state.borrow_mut();
+        std::mem::take(&mut state.last_player_closed_with_history)
+            && state.opening_documents == 0
+            && !state.open_panel_visible
+    };
+    if !state.borrow().players.is_empty() {
+        return;
+    }
+    // A History window opened before any player is an application tool. Only a
+    // preceding player closure defers the macOS quit-on-last-player decision.
+    #[cfg(target_os = "macos")]
+    if !should_check_quit {
+        crate::platform::browser_activation::show_idle_menu();
+        return;
+    }
+    let quit = crate::platform::preferences_path()
+        .ok()
+        .and_then(|path| crate::preference_load::load(&path).ok())
+        .is_none_or(|loaded| loaded.preferences.quit_when_no_opened_window);
+    finish_empty_application(state, quit, false);
 }
 
 fn finish_empty_application(state: &Rc<RefCell<ManagerState>>, quit: bool, from_welcome: bool) {

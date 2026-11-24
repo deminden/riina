@@ -314,6 +314,41 @@ impl ApplicationServices {
         self.highlights.show_first_launch(app, welcome);
     }
 
+    #[cfg(target_os = "macos")]
+    pub(crate) fn record_application_documents(
+        &self,
+        profile: &std::path::Path,
+        preferences: &riina_core::Preferences,
+        paths: &[String],
+    ) {
+        if !preferences.record_recent_files {
+            return;
+        }
+        let recents = self.recents.for_profile(profile, preferences, true);
+        let documents = paths.iter().map(|path| {
+            let title = std::path::Path::new(path)
+                .file_name()
+                .and_then(std::ffi::OsStr::to_str)
+                .unwrap_or(path)
+                .to_owned();
+            (path.clone(), title)
+        });
+        if let Err(error) = recents.record_documents(documents) {
+            crate::diagnostics::warn!("{error}");
+        }
+    }
+
+    #[cfg(target_os = "macos")]
+    pub(crate) fn clear_application_documents(
+        &self,
+        profile: &std::path::Path,
+        preferences: &riina_core::Preferences,
+    ) -> Result<(), String> {
+        self.recents
+            .for_profile(profile, preferences, true)
+            .clear_documents()
+    }
+
     fn connect_preferences(
         &self,
         app: &PlayerWindow,

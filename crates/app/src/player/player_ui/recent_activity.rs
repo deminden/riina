@@ -127,56 +127,66 @@ impl RecentActivity {
     }
 
     pub(super) fn remember_document(&self, app: &PlayerWindow, path: String, title: String) {
-        if !app.global::<PlayerPreferences>().get_record_recent_files() || path.is_empty() {
-            return;
+        if app.global::<PlayerPreferences>().get_record_recent_files()
+            && let Err(error) = self.record_documents([(path, title)])
+        {
+            crate::diagnostics::report(app, error);
+        }
+    }
+
+    pub(super) fn record_documents(
+        &self,
+        documents: impl IntoIterator<Item = (String, String)>,
+    ) -> Result<(), String> {
+        let documents = documents
+            .into_iter()
+            .filter(|(path, _)| !path.is_empty())
+            .map(|(path, title)| RecentMedia {
+                path,
+                title,
+                position: 0.0,
+            })
+            .collect::<Vec<_>>();
+        if documents.is_empty() {
+            return Ok(());
         }
         let mut updated = None;
-        let result = crate::preference_store::update_automatically(
+        crate::preference_store::update_automatically(
             &self.path,
             &Preferences::default(),
             |prefs| {
                 if prefs.record_recent_files {
-                    let documents = &mut prefs.recent_open_documents;
-                    documents.retain(|item| item.path != path);
-                    documents.insert(
-                        0,
-                        RecentMedia {
-                            path: path.clone(),
-                            title,
-                            position: 0.0,
-                        },
-                    );
-                    documents.truncate(10);
-                    updated = Some(documents.clone());
+                    let recent = &mut prefs.recent_open_documents;
+                    for document in &documents {
+                        recent.retain(|item| item.path != document.path);
+                        recent.insert(0, document.clone());
+                        recent.truncate(10);
+                    }
+                    updated = Some(recent.clone());
                 }
                 Ok(())
             },
-        );
-        match result {
-            Ok(()) => {
-                if let Some(updated) = updated {
-                    *lock(&self.documents) = updated;
-                    self.refresh();
-                    if let Err(error) = self.sync_plugins() {
-                        crate::diagnostics::report(
-                            app,
-                            format!("Could not update plugin recent files: {error}"),
-                        );
-                    }
-                    if self.use_system_services
-                        && let Err(error) = platform::remember_recent_document(&path)
-                    {
-                        crate::diagnostics::report(
-                            app,
-                            format!("Could not update system recent documents: {error}"),
-                        );
-                    }
+        )
+        .map_err(|error| format!("Could not save Open Recent: {error}"))?;
+        let Some(updated) = updated else {
+            return Ok(());
+        };
+        *lock(&self.documents) = updated;
+        self.refresh();
+        let mut failure = self
+            .sync_plugins()
+            .err()
+            .map(|error| format!("Could not update plugin recent files: {error}"));
+        if self.use_system_services {
+            for document in &documents {
+                if let Err(error) = platform::remember_recent_document(&document.path) {
+                    failure.get_or_insert_with(|| {
+                        format!("Could not update system recent documents: {error}")
+                    });
                 }
             }
-            Err(error) => {
-                crate::diagnostics::report(app, format!("Could not save Open Recent: {error}"))
-            }
         }
+        failure.map_or(Ok(()), Err)
     }
 
     pub(super) fn clear_documents(&self) -> Result<(), String> {
@@ -293,6 +303,47 @@ impl RecentActivity {
 mod tests {
     use super::*;
     use riina_test_support::TempDir;
+
+    #[test]
+    fn windowless_document_updates_share_order_and_clear_separately_from_resume() {
+        let directory = TempDir::new("windowless-recent-documents").unwrap();
+        let path = directory.path().join("preferences.json");
+        let resume = RecentMedia {
+            path: "resume.mkv".into(),
+            title: "Resume".into(),
+            position: 34.0,
+        };
+        let prefs = Preferences {
+            recent_media: vec![resume.clone()],
+            ..Preferences::default()
+        };
+        std::fs::write(&path, serde_json::to_vec(&prefs).unwrap()).unwrap();
+        let owner = ApplicationRecents::default();
+        let recent = owner.for_profile(&path, &prefs, false);
+        recent
+            .record_documents([
+                ("café.mkv".into(), "First title".into()),
+                ("second.mkv".into(), "Second".into()),
+                ("café.mkv".into(), "Updated title".into()),
+            ])
+            .unwrap();
+        let player_recents = owner.for_profile(&path, &prefs, false);
+        assert!(Rc::ptr_eq(&recent, &player_recents));
+        let saved = crate::preference_load::read_valid(&path).unwrap().unwrap();
+        assert_eq!(
+            *lock(player_recents.documents()),
+            saved.recent_open_documents
+        );
+        assert_eq!(saved.recent_open_documents.len(), 2);
+        assert_eq!(saved.recent_open_documents[0].title, "Updated title");
+        assert_eq!(saved.recent_open_documents[1].path, "second.mkv");
+
+        recent.clear_documents().unwrap();
+        let cleared = crate::preference_load::read_valid(&path).unwrap().unwrap();
+        assert!(cleared.recent_open_documents.is_empty());
+        assert!(lock(player_recents.documents()).is_empty());
+        assert_eq!(cleared.recent_media, [resume]);
+    }
 
     #[test]
     fn a_resume_write_requires_the_persisted_clear_revision() {

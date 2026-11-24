@@ -165,6 +165,31 @@ define_class!(
             launch.manager.show_application_open_url();
         }
 
+        #[unsafe(method(riinaIdleRecent:))]
+        fn idle_recent(&self, sender: Option<&objc2_app_kit::NSMenuItem>) {
+            if let Some(path) = sender
+                .and_then(objc2_app_kit::NSMenuItem::representedObject)
+                .and_then(|value| value.downcast::<objc2_foundation::NSString>().ok())
+            {
+                let launch = self.ivars();
+                launch.default_action.take();
+                launch.manager.open_application_recent(path.to_string());
+            }
+        }
+
+        #[unsafe(method(riinaIdleClearRecent:))]
+        fn idle_clear_recent(&self, _sender: Option<&AnyObject>) {
+            self.ivars().manager.clear_application_recents();
+            idle_menu::refresh();
+        }
+
+        #[unsafe(method(riinaIdleHistory:))]
+        fn idle_history(&self, _sender: Option<&AnyObject>) {
+            let launch = self.ivars();
+            launch.default_action.take();
+            launch.manager.show_application_history();
+        }
+
         #[unsafe(method(riinaIdleNewWindow:))]
         fn idle_new_window(&self, _sender: Option<&AnyObject>) {
             self.ivars().manager.request_welcome();

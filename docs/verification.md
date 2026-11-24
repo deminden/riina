@@ -3693,3 +3693,34 @@ the Linux native file picker still need desktop verification.
 - Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
 - Linux application SHA-256 `3e8c1d227f2d38e615f1136a908dcc9e3c1f7fad671e1e08f20cda139c80095f`
 - Linux libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`
+
+### History and recent documents without a player 2026-11-24
+
+The macOS File menu can show the shared Playback History archive and open or
+clear recent documents when no player is active. Opening through the idle
+picker records the selection in one profile update. Finder opens follow the
+track-all-played-files preference. Restoring the idle menu keeps commands
+available when History outlives the final player.
+
+The regressions open History before attaching players and confirm the same
+window retains its search. They also check the persistent archive shared with
+later players, Unicode document identity, most-recent ordering and preservation
+of resume entries when the document list is cleared.
+
+A private Windows desktop opened History from two players and reused one
+window. Clearing Open Recent refreshed both File menus and preserved the
+playable History row. History survived closing both players, opened a fresh
+player in the same process, and exited normally after the final window closed.
+Isolated Linux X11 exercised History from Welcome, focus-based playback
+routing, keeping History across player closure and reopening a player from
+History. The test process exited normally.
+
+The full Windows workspace gate, locked Windows and Linux builds, 578 Linux
+application unit tests, all 61 pinned Windows libmpv tests and strict Apple
+Silicon cross-Clippy passed. Finder tracking and the idle AppKit actions and
+quit behavior still need a native macOS desktop run.
+
+- Windows application SHA-256 `d506a569e6dd23c6f52b485e97e63eee5072153112f8c42569d6b658f5a5c5c6`
+- Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
+- Linux application SHA-256 `efdcb0888956ec6b6d4dd84989f4184d1e20ff9d0ef90077a55e0022eefe6639`
+- Linux libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`

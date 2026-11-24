@@ -25,6 +25,30 @@ pub(crate) struct Archive {
     pub(crate) cleared: Arc<AtomicBool>,
 }
 
+#[cfg(any(test, target_os = "macos"))]
+impl Archive {
+    fn load(preferences_path: PathBuf) -> Result<Self, String> {
+        let legacy = crate::preference_load::read_valid(&preferences_path)
+            .ok()
+            .flatten()
+            .map_or_else(Vec::new, |prefs| prefs.playback_history);
+        let path = crate::playback_history_store::path_for_preferences(&preferences_path);
+        let entries = crate::playback_history_store::load(&path, &legacy)?;
+        let history = crate::playback_history::shared_playback_history_state(
+            path.clone(),
+            entries,
+            Some(path),
+            Some(preferences_path.with_file_name("watch-later")),
+        );
+        let cleared = crate::playback_history::shared_history_merge_flag(&preferences_path);
+        Ok(Self {
+            history,
+            preferences_path,
+            cleared,
+        })
+    }
+}
+
 #[derive(Default)]
 pub(crate) struct ApplicationHistory {
     window: RefCell<Option<PlaybackHistoryWindow>>,
@@ -105,7 +129,7 @@ impl ApplicationHistory {
                     return;
                 };
                 owner.activate(id);
-                if let Err(error) = owner.show(&app, &archive) {
+                if let Err(error) = owner.show(Some(&app), &archive) {
                     crate::diagnostics::report(
                         &app,
                         format!("Could not open Playback History: {error}"),
@@ -217,9 +241,18 @@ impl ApplicationHistory {
         }
     }
 
+    #[cfg(target_os = "macos")]
+    pub(crate) fn show_from_application(
+        self: &Rc<Self>,
+        preferences_path: PathBuf,
+    ) -> Result<(), String> {
+        let archive = Archive::load(preferences_path)?;
+        self.show(None, &archive).map_err(|error| error.to_string())
+    }
+
     fn show(
         self: &Rc<Self>,
-        app: &PlayerWindow,
+        app: Option<&PlayerWindow>,
         archive: &Archive,
     ) -> Result<(), slint::PlatformError> {
         let existing = self
@@ -241,7 +274,9 @@ impl ApplicationHistory {
                     confirmation: Rc::default(),
                 },
             );
-            crate::platform::center_auxiliary_window(&window, app);
+            if let Some(app) = app {
+                crate::platform::center_auxiliary_window(&window, app);
+            }
             self.connect_close(&window);
             *self.window.borrow_mut() = Some(window.clone_strong());
             window
@@ -319,6 +354,35 @@ mod tests {
     use std::sync::atomic::{AtomicUsize, Ordering};
 
     #[test]
+    fn windowless_history_uses_the_players_shared_persistent_archive()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let profile = riina_test_support::TempDir::new("windowless-history-archive")?;
+        let preferences = profile.path().join("preferences.json");
+        let history_path = crate::playback_history_store::path_for_preferences(&preferences);
+        let entry = Entry {
+            path: "saved-film.mkv".into(),
+            title: Some("Saved Film".into()),
+            date_ms: 42,
+            progress: Some(3.0),
+            duration: 8.0,
+        };
+        crate::playback_history_store::save(&history_path, std::slice::from_ref(&entry))?;
+
+        let archive = Archive::load(preferences.clone())?;
+        let player_state = crate::playback_history::shared_playback_history_state(
+            history_path.clone(),
+            Vec::new(),
+            Some(history_path.clone()),
+            Some(preferences.with_file_name("watch-later")),
+        );
+        assert!(Arc::ptr_eq(&archive.history, &player_state));
+        let mut history = riina_core::sync::lock(&player_state);
+        assert_eq!(history.entries(), std::slice::from_ref(&entry));
+        assert_eq!(history.remove_paths([entry.path.as_str()])?, 1);
+        assert!(crate::playback_history_store::load(&history_path, &[])?.is_empty());
+        Ok(())
+    }
+    #[test]
     fn history_retains_one_window_and_releases_closed_player_routes()
     -> Result<(), slint::PlatformError> {
         i_slint_backend_testing::init_no_event_loop();
@@ -337,6 +401,11 @@ mod tests {
             preferences_path: PathBuf::new(),
             cleared: Arc::default(),
         };
+        owner.show(None, &archive)?;
+        let history = owner.window.borrow().as_ref().unwrap().clone_strong();
+        assert!(history.window().is_visible());
+        assert!(owner.active_player().is_none());
+        history.set_search_text("saved search".into());
         let updates = Arc::new(AtomicUsize::default());
         let register = |name: &str| -> Result<_, slint::PlatformError> {
             let window = PlayerWindow::new()?;
@@ -360,8 +429,6 @@ mod tests {
         first
             .global::<PlayerMenuActions>()
             .invoke_show_playback_history();
-        let history = owner.window.borrow().as_ref().unwrap().clone_strong();
-        history.set_search_text("saved search".into());
         second
             .global::<PlayerMenuActions>()
             .invoke_show_playback_history();

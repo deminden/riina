@@ -33,8 +33,11 @@ Implementation does not imply every state or platform is verified.
   its loading and retry controls. Retrying the first stream preserves the
   remaining playlist.
 - **Recent activity:** player windows share Open Recent with Welcome and
-  plugins. Settings Utilities clears history, recent documents and the saved
-  Welcome resume item together after confirmation.
+  plugins. The macOS application menu also opens and clears recent documents
+  while no player is open. Settings Utilities clears history, recent documents
+  and the saved Welcome resume item together after confirmation.
+- **Playback History:** the macOS application menu can open the shared history
+  window and launch playback from it before any player window has opened.
 - **Utilities:** Settings owns the confirmations for alerts, saved progress,
   history and thumbnails. Cache sizes refresh when the page opens or data is cleared.
 - **Log Viewer:** Window and Advanced Settings open the shared viewer for

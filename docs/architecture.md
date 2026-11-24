@@ -532,7 +532,9 @@ at shutdown.
 
 `RecentActivity` owns each profile's Open Recent list and Welcome resume
 projection at application scope. Player menus, Welcome and plugin snapshots
-use the same document list. Open Recent can clear its list independently.
+use the same document list. The idle macOS File menu reads that profile list
+and sends opens and clears through the shared services. AppKit also records
+local files in the system recent list. Open Recent can clear independently.
 Settings Utilities also clears the shared Playback History archive and the
 resume entries. The separate History window's Clear action edits the archive.
 The Settings window owns Utilities confirmations and discards them when it
@@ -621,9 +623,12 @@ opening them. Explicit playback requests bypass the deferred default launch
 action. The shared manager prepares windowless Finder selections off the UI
 thread using the saved grouping and window preferences. An AppKit Open panel
 can choose files and folders in one selection, as a sheet for an existing
-player or as an application panel while idle. Closing the last player can
-leave the application available for another Finder or Dock request.
+player or as an application panel while idle. Playback History shares its
+archive and window with the idle application menu. When History outlives the
+last player, the idle menu is restored and the quit decision is deferred.
+Closing History before any player opened leaves the application available.
 [AppKit application event handling](https://developer.apple.com/documentation/appkit/nsapplication)
+[AppKit recent documents](https://developer.apple.com/documentation/appkit/nsdocumentcontroller)
 
 The player keeps pending fullscreen intent separate from the observed
 presentation. Windows confirms through its native owner. macOS uses AppKit
