@@ -30,7 +30,8 @@ Implementation does not imply every state or platform is verified.
   Physical Touch Bar interaction and appearance still need a native macOS session.
 - **macOS Now Playing artwork:** cover art and Quick Look take precedence over
   the current video's completed timeline thumbnails. The fallback uses the
-  frame just before the midpoint, capped at 60 seconds.
+  frame just before the midpoint, capped at 60 seconds. One application-wide
+  Now Playing session follows the most recently focused player.
 - **Controller arrows:** Interface Settings selects playback speed, playlist
   navigation, or a 10-second seek. The main controller and Touch Bar use the
   selected action. The Music Mode arrows navigate the playlist.

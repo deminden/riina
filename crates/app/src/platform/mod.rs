@@ -1138,6 +1138,8 @@ pub(crate) use macos::{
     MacSubtitleColorPanel, RemoteMediaAction, SystemMediaControls, control_gesture,
     display_identity, icc_profile_for_window,
 };
+#[cfg(target_os = "macos")]
+use macos::{MediaEvent, SystemActivity};
 
 #[cfg(target_os = "macos")]
 pub(crate) use macos::system_font_family_name;

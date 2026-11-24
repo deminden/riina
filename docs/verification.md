@@ -4487,3 +4487,20 @@ replacement during Quick Look, and window shutdown while extraction is pending.
 
 - Linux application SHA-256 `54abb5f4af62b4cd7e06bf352024417277e988837b4d19516620b7df7123d08d`
 - Linux libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`
+
+### macOS Now Playing window ownership 2026-11-24
+
+The application registers one MediaPlayer endpoint. Switching players changes
+the playback state and artwork source together. The focus-selection regression
+covers two players, focus moving outside the player windows, and falling back
+to the previously focused player after the owner closes. The remote-command
+identity regression covers both a window change and a new file in the same
+window. Sleep notifications come from the workspace notification center.
+
+Both regressions passed in the full Windows workspace gate, alongside the
+headless player and Settings pixel comparisons. Strict application Clippy
+passed for Apple Silicon and Intel Mac from Windows.
+
+Native macOS verification still needs two players playing different files,
+media keys and Control Center controls during a focus switch and file change,
+owner shutdown, app deactivation and reactivation, and a sleep/wake cycle.

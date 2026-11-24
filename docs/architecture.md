@@ -67,6 +67,11 @@ The callback's published media generation must still match when it runs.
 Disabling system media controls or closing the player withdraws the session
 and removes its callbacks before the native window goes away.
 
+The macOS application owns one MediaPlayer registration for all player windows.
+It follows the most recently focused player when Settings or another application
+takes focus. Before dispatch, it checks the window and media generation carried
+by each queued remote action against the current Now Playing item.
+
 On macOS, the platform adapter registers each player's AppKit Touch Bar with
 the playback observer and retires it before native window cleanup. The scrubber
 samples the player's existing thumbnail cache. The timeline timer publishes

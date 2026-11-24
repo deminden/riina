@@ -1,3 +1,4 @@
+use crate::platform::system_media_session::ownership::PlaybackTarget;
 use crate::thumbnail_preview::Controller as ThumbnailCache;
 use block2::RcBlock;
 use objc2::{
@@ -7,7 +8,7 @@ use objc2::{
 };
 use objc2_app_kit::{
     NSApplicationDidBecomeActiveNotification, NSApplicationDidResignActiveNotification, NSImage,
-    NSWorkspaceWillSleepNotification,
+    NSWorkspace, NSWorkspaceWillSleepNotification,
 };
 use objc2_core_foundation::{
     CFBoolean, CFData, CFDictionary, CFMutableData, CFNumber, CFRetained, CFString, CFType, CFURL,
@@ -36,14 +37,14 @@ use objc2_quick_look_thumbnailing::{
     QLThumbnailGenerationRequest, QLThumbnailGenerationRequestRepresentationTypes,
     QLThumbnailGenerator, QLThumbnailRepresentation,
 };
-use riina_core::{LoopMode, Phase, Playback};
+use riina_core::{LoopMode, Phase, Playback, sync::lock};
 use std::{
     cell::RefCell,
     path::PathBuf,
     ptr::NonNull,
     rc::{Rc, Weak},
     sync::{
-        Arc,
+        Arc, Mutex,
         atomic::{AtomicBool, Ordering},
         mpsc::{self, Receiver, SyncSender, TrySendError},
     },
@@ -64,9 +65,38 @@ pub(crate) enum RemoteMediaAction {
     Position(f64),
     Rate(f32),
     Repeat,
+}
+
+#[derive(Clone, Copy)]
+pub(in crate::platform) enum SystemActivity {
     Sleep,
     Inactive,
     Active,
+}
+
+pub(in crate::platform) enum MediaEvent {
+    Remote(PlaybackTarget, RemoteMediaAction),
+    Activity(SystemActivity),
+}
+
+#[derive(Clone)]
+struct RemoteQueue {
+    sender: SyncSender<MediaEvent>,
+    target: Arc<Mutex<Option<PlaybackTarget>>>,
+}
+
+impl RemoteQueue {
+    fn enqueue(&self, action: RemoteMediaAction) -> MPRemoteCommandHandlerStatus {
+        let Some(target) = *lock(&self.target) else {
+            return MPRemoteCommandHandlerStatus::NoActionableNowPlayingItem;
+        };
+        match self.sender.try_send(MediaEvent::Remote(target, action)) {
+            Ok(()) => MPRemoteCommandHandlerStatus::Success,
+            Err(TrySendError::Full(_) | TrySendError::Disconnected(_)) => {
+                MPRemoteCommandHandlerStatus::CommandFailed
+            }
+        }
+    }
 }
 
 type HandlerBlock = dyn Fn(NonNull<MPRemoteCommandEvent>) -> MPRemoteCommandHandlerStatus;
@@ -127,12 +157,11 @@ struct TimelineArtwork {
 pub(crate) struct SystemMediaControls {
     library: PathBuf,
     center: Retained<MPRemoteCommandCenter>,
-    sender: SyncSender<RemoteMediaAction>,
-    receiver: Receiver<RemoteMediaAction>,
+    queue: RemoteQueue,
+    receiver: Receiver<MediaEvent>,
     targets: Vec<RegisteredTarget>,
     now_playing: Retained<MPNowPlayingInfoCenter>,
-    lifecycle_notification_center: Retained<NSNotificationCenter>,
-    lifecycle_observers: Vec<Retained<ProtocolObject<dyn NSObjectProtocol>>>,
+    _lifecycle_observers: [LifecycleObserver; 3],
     last_published: Option<NowPlayingSnapshot>,
     artwork_task: Option<GeneratedArtworkTask>,
     cover_artwork: Option<Retained<MPMediaItemArtwork>>,
@@ -141,6 +170,59 @@ pub(crate) struct SystemMediaControls {
     timeline_artwork: Option<TimelineArtwork>,
     configuration: Option<(String, Option<f64>, Option<f64>)>,
     pending_install_at: Option<Instant>,
+}
+
+struct LifecycleObserver {
+    center: Retained<NSNotificationCenter>,
+    token: Retained<ProtocolObject<dyn NSObjectProtocol>>,
+}
+
+impl Drop for LifecycleObserver {
+    fn drop(&mut self) {
+        // SAFETY: this observer is removed from its own center on the UI thread.
+        unsafe { self.center.removeObserver(self.token.as_ref()) };
+    }
+}
+
+fn subscribe_to_activity(sender: &SyncSender<MediaEvent>) -> [LifecycleObserver; 3] {
+    let application = NSNotificationCenter::defaultCenter();
+    let workspace = NSWorkspace::sharedWorkspace().notificationCenter();
+    // SAFETY: the notification names are immutable AppKit constants.
+    let registrations = unsafe {
+        [
+            (
+                workspace,
+                NSWorkspaceWillSleepNotification,
+                SystemActivity::Sleep,
+            ),
+            (
+                application.clone(),
+                NSApplicationDidResignActiveNotification,
+                SystemActivity::Inactive,
+            ),
+            (
+                application,
+                NSApplicationDidBecomeActiveNotification,
+                SystemActivity::Active,
+            ),
+        ]
+    };
+    registrations.map(|(center, name, activity)| {
+        let sender = sender.clone();
+        let handler = RcBlock::new(move |_| {
+            let _ = sender.try_send(MediaEvent::Activity(activity));
+        });
+        // SAFETY: the center copies the block, which only queues owned events.
+        let token = unsafe {
+            center.addObserverForName_object_queue_usingBlock(
+                Some(name),
+                None,
+                Some(&NSOperationQueue::mainQueue()),
+                &handler,
+            )
+        };
+        LifecycleObserver { center, token }
+    })
 }
 
 #[derive(PartialEq)]
@@ -254,54 +336,18 @@ impl SystemMediaControls {
         // SAFETY: the default MediaPlayer info center is process-global and is
         // accessed on the same UI thread as its remote command center.
         let now_playing = unsafe { MPNowPlayingInfoCenter::defaultCenter() };
-        let lifecycle_notification_center = NSNotificationCenter::defaultCenter();
-        // Notification callbacks run on the UI thread. A full queue must not
-        // block the thread that drains it, and teardown can close the receiver.
-        let sleep_sender = sender.clone();
-        let sleep_block = RcBlock::new(move |_| {
-            let _ = sleep_sender.try_send(RemoteMediaAction::Sleep);
-        });
-        let inactive_sender = sender.clone();
-        let inactive_block = RcBlock::new(move |_| {
-            let _ = inactive_sender.try_send(RemoteMediaAction::Inactive);
-        });
-        let active_sender = sender.clone();
-        let active_block = RcBlock::new(move |_| {
-            let _ = active_sender.try_send(RemoteMediaAction::Active);
-        });
-        // SAFETY: AppKit owns this notification and dispatches its observer on
-        // the main operation queue; these blocks only send owned actions.
-        let lifecycle_observers = unsafe {
-            vec![
-                lifecycle_notification_center.addObserverForName_object_queue_usingBlock(
-                    Some(NSWorkspaceWillSleepNotification),
-                    None,
-                    Some(&NSOperationQueue::mainQueue()),
-                    &sleep_block,
-                ),
-                lifecycle_notification_center.addObserverForName_object_queue_usingBlock(
-                    Some(NSApplicationDidResignActiveNotification),
-                    None,
-                    Some(&NSOperationQueue::mainQueue()),
-                    &inactive_block,
-                ),
-                lifecycle_notification_center.addObserverForName_object_queue_usingBlock(
-                    Some(NSApplicationDidBecomeActiveNotification),
-                    None,
-                    Some(&NSOperationQueue::mainQueue()),
-                    &active_block,
-                ),
-            ]
-        };
+        let lifecycle_observers = subscribe_to_activity(&sender);
         Self {
             library,
             center,
-            sender,
+            queue: RemoteQueue {
+                sender,
+                target: Arc::default(),
+            },
             receiver,
             targets: Vec::new(),
             now_playing,
-            lifecycle_notification_center,
-            lifecycle_observers,
+            _lifecycle_observers: lifecycle_observers,
             last_published: None,
             artwork_task: None,
             cover_artwork: None,
@@ -313,8 +359,16 @@ impl SystemMediaControls {
         }
     }
 
-    pub(crate) fn bind_timeline_samples(&mut self, samples: &Rc<RefCell<ThumbnailCache>>) {
-        self.timeline_samples = Rc::downgrade(samples);
+    pub(crate) fn switch_player(&mut self, samples: Option<&Rc<RefCell<ThumbnailCache>>>) {
+        self.set_remote_target(None);
+        if self.last_published.take().is_some() {
+            self.clear_now_playing();
+        }
+        self.timeline_samples = samples.map_or_else(Weak::new, Rc::downgrade);
+    }
+
+    pub(in crate::platform) fn set_remote_target(&self, target: Option<PlaybackTarget>) {
+        *lock(&self.queue.target) = target;
     }
 
     pub(crate) fn synchronize(
@@ -618,7 +672,7 @@ impl SystemMediaControls {
         }
     }
 
-    pub(crate) fn drain_actions(&self) -> impl Iterator<Item = RemoteMediaAction> + '_ {
+    pub(in crate::platform) fn drain_events(&self) -> impl Iterator<Item = MediaEvent> + '_ {
         self.receiver.try_iter()
     }
 
@@ -640,21 +694,21 @@ impl SystemMediaControls {
                 RemoteMediaAction::Previous,
             );
             let repeat = self.center.changeRepeatModeCommand();
-            let sender = self.sender.clone();
+            let sender = self.queue.clone();
             self.add_handler(repeat.into_super(), repeat_handler(sender));
 
             let forward = self.center.skipForwardCommand();
             self.set_interval(&forward, forward_interval);
-            let sender = self.sender.clone();
+            let sender = self.queue.clone();
             self.add_handler(forward.into_super(), skip_handler(sender, true));
 
             let backward = self.center.skipBackwardCommand();
             self.set_interval(&backward, backward_interval);
-            let sender = self.sender.clone();
+            let sender = self.queue.clone();
             self.add_handler(backward.into_super(), skip_handler(sender, false));
 
             let position = self.center.changePlaybackPositionCommand();
-            let sender = self.sender.clone();
+            let sender = self.queue.clone();
             self.add_handler(position.into_super(), position_handler(sender));
 
             let rate = self.center.changePlaybackRateCommand();
@@ -666,15 +720,15 @@ impl SystemMediaControls {
             ];
             let rates = NSArray::from_retained_slice(&supported);
             rate.setSupportedPlaybackRates(&rates);
-            let sender = self.sender.clone();
+            let sender = self.queue.clone();
             self.add_handler(rate.into_super(), rate_handler(sender));
         }
     }
 
     unsafe fn add_simple(&mut self, command: Retained<MPRemoteCommand>, action: RemoteMediaAction) {
-        let sender = self.sender.clone();
+        let sender = self.queue.clone();
         // SAFETY: the caller owns the command on the UI thread and the handler only queues actions.
-        unsafe { self.add_handler(command, move |_| enqueue(&sender, action.clone())) };
+        unsafe { self.add_handler(command, move |_| sender.enqueue(action.clone())) };
     }
 
     unsafe fn add_handler(
@@ -989,18 +1043,11 @@ impl Drop for SystemMediaControls {
     fn drop(&mut self) {
         self.remove_targets();
         self.clear_now_playing();
-        // SAFETY: these are the retained observer tokens returned by this center.
-        unsafe {
-            for observer in &self.lifecycle_observers {
-                self.lifecycle_notification_center
-                    .removeObserver(observer.as_ref());
-            }
-        }
     }
 }
 
 fn repeat_handler(
-    sender: SyncSender<RemoteMediaAction>,
+    sender: RemoteQueue,
 ) -> impl Fn(NonNull<MPRemoteCommandEvent>) -> MPRemoteCommandHandlerStatus + 'static {
     move |event| {
         // SAFETY: MediaPlayer passes a live command-event object for this callback.
@@ -1011,12 +1058,12 @@ fn repeat_handler(
         {
             return MPRemoteCommandHandlerStatus::CommandFailed;
         }
-        enqueue(&sender, RemoteMediaAction::Repeat)
+        sender.enqueue(RemoteMediaAction::Repeat)
     }
 }
 
 fn skip_handler(
-    sender: SyncSender<RemoteMediaAction>,
+    sender: RemoteQueue,
     forward: bool,
 ) -> impl Fn(NonNull<MPRemoteCommandEvent>) -> MPRemoteCommandHandlerStatus + 'static {
     move |event| {
@@ -1027,19 +1074,16 @@ fn skip_handler(
         };
         // SAFETY: the typed event was checked immediately above.
         let interval = unsafe { event.interval() };
-        enqueue(
-            &sender,
-            if forward {
-                RemoteMediaAction::Forward(interval)
-            } else {
-                RemoteMediaAction::Backward(interval)
-            },
-        )
+        sender.enqueue(if forward {
+            RemoteMediaAction::Forward(interval)
+        } else {
+            RemoteMediaAction::Backward(interval)
+        })
     }
 }
 
 fn position_handler(
-    sender: SyncSender<RemoteMediaAction>,
+    sender: RemoteQueue,
 ) -> impl Fn(NonNull<MPRemoteCommandEvent>) -> MPRemoteCommandHandlerStatus + 'static {
     move |event| {
         // SAFETY: MediaPlayer passes a live command-event object for this callback.
@@ -1049,12 +1093,12 @@ fn position_handler(
         };
         // SAFETY: the typed event was checked immediately above.
         let position = unsafe { event.positionTime() };
-        enqueue(&sender, RemoteMediaAction::Position(position))
+        sender.enqueue(RemoteMediaAction::Position(position))
     }
 }
 
 fn rate_handler(
-    sender: SyncSender<RemoteMediaAction>,
+    sender: RemoteQueue,
 ) -> impl Fn(NonNull<MPRemoteCommandEvent>) -> MPRemoteCommandHandlerStatus + 'static {
     move |event| {
         // SAFETY: MediaPlayer passes a live command-event object for this callback.
@@ -1064,18 +1108,6 @@ fn rate_handler(
         };
         // SAFETY: the typed event was checked immediately above.
         let rate = unsafe { event.playbackRate() };
-        enqueue(&sender, RemoteMediaAction::Rate(rate))
-    }
-}
-
-fn enqueue(
-    sender: &SyncSender<RemoteMediaAction>,
-    action: RemoteMediaAction,
-) -> MPRemoteCommandHandlerStatus {
-    match sender.try_send(action) {
-        Ok(()) => MPRemoteCommandHandlerStatus::Success,
-        Err(TrySendError::Full(_) | TrySendError::Disconnected(_)) => {
-            MPRemoteCommandHandlerStatus::CommandFailed
-        }
+        sender.enqueue(RemoteMediaAction::Rate(rate))
     }
 }
