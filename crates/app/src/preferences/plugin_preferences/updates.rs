@@ -1,7 +1,9 @@
 //! Downloaded plugin replacement retains rollback and permission recovery.
 use super::{InstalledPlugin, permissions::*};
+use crate::PreferencesWindow;
 use rfd::{MessageButtons, MessageDialog, MessageDialogResult};
-use riina_core::plugin::{Manifest, Permission};
+use riina_core::plugin::Manifest;
+use slint::ComponentHandle;
 use std::{
     collections::{BTreeMap, BTreeSet},
     path::Path,
@@ -53,7 +55,11 @@ pub(super) fn check_update_status(
     (status, available)
 }
 
-pub(super) fn confirm_update_permissions(updated: &Manifest, previous: &Manifest) -> bool {
+pub(super) fn confirm_update_permissions(
+    window: &PreferencesWindow,
+    updated: &Manifest,
+    previous: &Manifest,
+) -> bool {
     let previous_permissions = previous
         .known_permissions()
         .map(|permission| permission_name(permission).to_owned())
@@ -62,20 +68,21 @@ pub(super) fn confirm_update_permissions(updated: &Manifest, previous: &Manifest
         .permissions
         .iter()
         .filter(|permission| !previous_permissions.contains(*permission))
-        .map(|permission| match Permission::parse(permission) {
-            Some(permission) => format!("• {}", permission_description(permission)),
-            None => format!("• Unknown permission: {permission} (not granted)"),
-        })
+        .map(|permission| format!("• {}", permission_caption(window, permission)))
         .collect::<Vec<_>>();
     if requested.is_empty() {
         return true;
     }
+    let text = window.global::<riina_ui::PluginReviewText>();
     MessageDialog::new()
-        .set_title(format!("Additional permissions requested by {}", updated.name))
-        .set_description(format!(
-            "Review these new permissions before updating:\n\n{}\n\nPreviously granted permissions remain unchanged.",
-            requested.join("\n")
-        ))
+        .set_title(
+            text.invoke_update_title(updated.name.as_str().into())
+                .as_str(),
+        )
+        .set_description(
+            text.invoke_update_details(requested.join("\n").into())
+                .as_str(),
+        )
         .set_buttons(MessageButtons::YesNo)
         .show()
         == MessageDialogResult::Yes

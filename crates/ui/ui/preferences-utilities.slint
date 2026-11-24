@@ -7,6 +7,20 @@ export enum BrowserExtension { chromium, firefox, safari }
 export enum UtilityAction { none, restore-alerts, clear-progress, clear-history, clear-thumbnails }
 
 export global UtilitySettingsState {
+    out property <length> content-height: 700px;
+    out property <length> alerts-y: 144px;
+    out property <length> cache-y: 268px;
+    out property <length> extensions-y: 514px;
+    out property <string> alerts-restored: @tr("Restored.");
+    public pure function progress-cleared(size: string) -> string {
+        return @tr("Saved playback progress cleared ({0} removed).", "⁦" + size + "⁩");
+    }
+    public pure function history-cleared(entries: string) -> string {
+        return @tr("Playback history cleared ({0} removed).", entries);
+    }
+    public pure function thumbnails-cleared(size: string) -> string {
+        return @tr("Thumbnail cache cleared ({0} removed).", "⁦" + size + "⁩");
+    }
     in-out property <string> utilities-progress-size: "0 B";
     in-out property <string> utilities-thumbnail-size: "0 B";
     in-out property <string> utilities-status: "";
@@ -18,74 +32,76 @@ export global UtilitySettingsState {
 }
 
 export component UtilitiesPreferencesPage inherits ScrollView {
+    in-out property <length> scroll-position;
     in property <bool> mica-backdrop-enabled;
     callback utilities-open-default-apps();
     callback utility-requested(UtilityAction);
     callback utilities-browser-extension(BrowserExtension);
 
-    content-height: 700px; content-width: self.visible-width;
+    content-height: UtilitySettingsState.content-height; content-width: self.visible-width;
+    content-y <=> root.scroll-position;
     horizontal-scrollbar-policy: always-off;
-    Rectangle { width: parent.width; height: 700px;
+    Rectangle { width: parent.width; height: root.content-height;
         background: Theme.settings-content-surface(root.mica-backdrop-enabled);
         Text { x: 28px; y: 16px; text: @tr("Utilities"); font-size: 15px; font-weight: 600; color: Theme.settings-page-heading; }
-        Text { x: 20px; y: 52px; text: "Default Application"; font-size: 12px; font-weight: 600; color: Theme.settings-section-heading; }
+        Text { x: 20px; y: 52px; text: @tr("Default Application"); font-size: 12px; font-weight: 600; color: Theme.settings-section-heading; }
         Rectangle { x: 20px; y: 81px; width: parent.width - 40px; height: 42px;
             border-width: 1px; border-color: Theme.settings-card-border; border-radius: 12px; background: Theme.settings-card-surface(root.mica-backdrop-enabled);
             UtilitiesActionRow { width: parent.width; height: parent.height;
-                icon: @image-url("../../../assets/icons/interface.svg"); title: "Set Riina as the Default Application";
+                icon: @image-url("../../../assets/icons/interface.svg"); title: @tr("Set Riina as the Default Application");
                 activated => { root.utilities-open-default-apps(); }
             }
         }
-        Text { x: 20px; y: 144px; text: "Restore Alerts"; font-size: 12px; font-weight: 600; color: Theme.settings-section-heading; }
-        Rectangle { x: 20px; y: 168px; width: parent.width - 40px; height: 76px;
+        Text { x: 20px; y: UtilitySettingsState.alerts-y; text: @tr("Restore Alerts"); font-size: 12px; font-weight: 600; color: Theme.settings-section-heading; }
+        Rectangle { x: 20px; y: UtilitySettingsState.alerts-y + 24px; width: parent.width - 40px; height: 76px;
             border-width: 1px; border-color: Theme.settings-card-border; border-radius: 12px; background: Theme.settings-card-surface(root.mica-backdrop-enabled);
             UtilitiesActionRow { width: parent.width; height: parent.height;
-                icon: @image-url("../../../assets/icons/resume-history.svg"); title: "Restore Suppressed Alerts";
-                description: "Restore alerts hidden with ‘Do not show this message again’.";
+                icon: @image-url("../../../assets/icons/resume-history.svg"); title: @tr("Restore Suppressed Alerts");
+                description: @tr("Restore alerts hidden with ‘Do not show this message again’.");
                 activated => { root.utility-requested(UtilityAction.restore-alerts); }
             }
         }
-        Text { x: 20px; y: 268px; text: "Clear Cache"; font-size: 12px; font-weight: 600; color: Theme.settings-section-heading; }
-        Rectangle { x: 20px; y: 290px; width: parent.width - 40px; height: 202px;
+        Text { x: 20px; y: UtilitySettingsState.cache-y; text: @tr("Clear Cache"); font-size: 12px; font-weight: 600; color: Theme.settings-section-heading; }
+        Rectangle { x: 20px; y: UtilitySettingsState.cache-y + 22px; width: parent.width - 40px; height: 202px;
             border-width: 1px; border-color: Theme.settings-card-border; border-radius: 12px; background: Theme.settings-card-surface(root.mica-backdrop-enabled);
             UtilitiesActionRow { y: 0px; width: parent.width; height: 87px;
-                icon: @image-url("../../../assets/icons/resume-history.svg"); title: "Clear Saved Playback Progress";
-                description: "Delete all files in the \"watch later\" folder. These files contain all saved playback progress and settings applied during playback.";
+                icon: @image-url("../../../assets/icons/resume-history.svg"); title: @tr("Clear Saved Playback Progress");
+                description: @tr("Delete all files in the \"watch later\" folder. These files contain all saved playback progress and settings applied during playback.");
                 trash: true; activated => { root.utility-requested(UtilityAction.clear-progress); }
             }
             UtilitiesActionRow { y: 87px; width: parent.width; height: 74px;
-                icon: @image-url("../../../assets/icons/playlist.svg"); title: "Clear Playback History";
-                description: "Delete all playback histories and entries in \"Open Recent\".";
+                icon: @image-url("../../../assets/icons/playlist.svg"); title: @tr("Clear Playback History");
+                description: @tr("Delete all playback histories and entries in \"Open Recent\".");
                 trash: true;
                 activated => { root.utility-requested(UtilityAction.clear-history); }
             }
             UtilitiesActionRow { y: 161px; width: parent.width; height: 41px;
-                icon: @image-url("../../../assets/icons/photo.svg"); title: "Clear Thumbnail Cache";
+                icon: @image-url("../../../assets/icons/photo.svg"); title: @tr("Clear Thumbnail Cache");
                 metric: UtilitySettingsState.utilities-thumbnail-size; trash: true;
                 activated => { root.utility-requested(UtilityAction.clear-thumbnails); }
             }
         }
-        Text { x: 20px; y: 514px; text: "Browser Extensions"; font-size: 12px; font-weight: 600; color: Theme.settings-section-heading; }
-        Rectangle { x: 20px; y: 536px; width: parent.width - 40px; height: 116px;
+        Text { x: 20px; y: UtilitySettingsState.extensions-y; text: @tr("Browser Extensions"); font-size: 12px; font-weight: 600; color: Theme.settings-section-heading; }
+        Rectangle { x: 20px; y: UtilitySettingsState.extensions-y + 22px; width: parent.width - 40px; height: 116px;
             border-width: 1px; border-color: Theme.settings-card-border; border-radius: 12px; background: Theme.settings-card-surface(root.mica-backdrop-enabled);
             Image { x: 15px; y: 16px; width: 20px; height: 20px;
                 source: @image-url("../../../assets/icons/network.svg");
                 colorize: Theme.settings-card-title; }
             Text { x: 47px; y: 12px; width: parent.width - 63px; height: 20px;
-                text: "Get Browser Extensions for Riina"; font-size: 12px; color: Theme.settings-card-title; }
+                text: @tr("Get Browser Extensions for Riina"); font-size: 12px; color: Theme.settings-card-title; }
             Text { x: 47px; y: 34px; width: parent.width - 63px; height: 34px;
-                text: "Send a link or the current webpage to the player."; font-size: 10px; color: Theme.settings-card-description; wrap: word-wrap; }
+                text: @tr("Send a link or the current webpage to the player."); font-size: 10px; color: Theme.settings-card-description; wrap: word-wrap; }
             HorizontalLayout { x: 47px; y: 76px; spacing: 8px; alignment: start;
                 if UtilitySettingsState.utilities-safari-available : PreferenceActionButton {
-                    label: "Safari";
+                    label: @tr("Safari");
                     activated => { root.utilities-browser-extension(BrowserExtension.safari); }
                 }
                 PreferenceActionButton {
-                    width: 96px; label: "Chrome / Edge";
+                    width: 96px; label: @tr("Chrome / Edge");
                     activated => { root.utilities-browser-extension(BrowserExtension.chromium); }
                 }
                 PreferenceActionButton {
-                    label: "Firefox";
+                    label: @tr("Firefox");
                     activated => { root.utilities-browser-extension(BrowserExtension.firefox); }
                 }
             }
@@ -115,21 +131,19 @@ export component UtilityActionDialog inherits ConfirmationSheet {
 
     visible: root.pending != UtilityAction.none;
     acknowledgement-only: !root.result.is-empty;
-    title: root.pending == UtilityAction.restore-alerts ? "Restore Suppressed Alerts"
-        : root.pending == UtilityAction.clear-progress ? "Clear Saved Playback Progress"
-        : root.pending == UtilityAction.clear-history ? "Clear Playback History"
-        : "Clear Thumbnail Cache";
+    title: root.pending == UtilityAction.restore-alerts ? @tr("Restore Suppressed Alerts")
+        : root.pending == UtilityAction.clear-progress ? @tr("Clear Saved Playback Progress")
+        : root.pending == UtilityAction.clear-history ? @tr("Clear Playback History")
+        : @tr("Clear Thumbnail Cache");
     description: root.acknowledgement-only ? root.result
-        : root.pending == UtilityAction.restore-alerts ? "Restore suppressed alerts?"
+        : root.pending == UtilityAction.restore-alerts ? @tr("Restore suppressed alerts?")
         : root.pending == UtilityAction.clear-progress ?
-            "Delete saved playback positions and settings for all media? Current size: "
-                + UtilitySettingsState.utilities-progress-size + "."
+            @tr("Delete saved playback positions and settings for all media? Current size: {0}.", "⁦" + UtilitySettingsState.utilities-progress-size + "⁩")
         : root.pending == UtilityAction.clear-history ?
-            "Clear Playback History, Open Recent, and the Welcome window’s Resume item?"
-        : "Delete all cached thumbnails? Current size: "
-            + UtilitySettingsState.utilities-thumbnail-size + ".";
-    action: root.pending == UtilityAction.restore-alerts ? "Restore"
-        : root.pending == UtilityAction.clear-history ? "Clear History" : "Clear";
+            @tr("Clear Playback History, Open Recent, and the Welcome window’s Resume item?")
+        : @tr("Delete all cached thumbnails? Current size: {0}.", "⁦" + UtilitySettingsState.utilities-thumbnail-size + "⁩");
+    action: root.pending == UtilityAction.restore-alerts ? @tr("Restore")
+        : root.pending == UtilityAction.clear-history ? @tr("Clear History") : @tr("Clear");
     answered(accepted) => {
         if accepted && !root.acknowledgement-only {
             root.result = root.confirmed(root.pending);
@@ -154,23 +168,23 @@ export component DefaultAppDialog inherits Rectangle {
         border-radius: 10px; border-width: 1px; border-color: Theme.settings-modal-border;
         background: Theme.settings-modal-surface;
         Text { x: 20px; y: 16px; width: parent.width - 40px; height: 22px;
-            text: "Set Riina as the Default Application";
+            text: @tr("Set Riina as the Default Application");
             font-size: 14px; font-weight: 600; color: Theme.settings-modal-title; }
         Text { x: 20px; y: 47px; width: parent.width - 40px; height: 38px;
-            text: "Choose the media types you want Riina to open. Your system controls the final default selection.";
+            text: @tr("Choose the media types you want Riina to open. Your system controls the final default selection.");
             font-size: 11px; color: Theme.settings-modal-message; wrap: word-wrap; }
         CheckBox { x: 24px; y: 96px; width: parent.width - 48px; height: 22px;
             text: @tr("Video"); checked <=> root.video; }
         CheckBox { x: 24px; y: 122px; width: parent.width - 48px; height: 22px;
             text: @tr("Audio"); checked <=> root.audio; }
         CheckBox { x: 24px; y: 148px; width: parent.width - 48px; height: 22px;
-            text: "Playlists"; checked <=> root.playlist; }
+            text: @tr("Playlists"); checked <=> root.playlist; }
         PreferenceActionButton {
-            x: parent.width - 178px; y: 204px; label: "Cancel";
+            x: parent.width - 178px; y: 204px; label: @tr("Cancel");
             activated => { root.cancelled(); }
         }
         PreferenceActionButton {
-            x: parent.width - 92px; y: 204px; label: "OK";
+            x: parent.width - 92px; y: 204px; label: @tr("OK");
             activated => { root.confirmed(root.video, root.audio, root.playlist); }
         }
     }

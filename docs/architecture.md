@@ -569,6 +569,10 @@ because text recognition can become available after the window opens.
 Subtitles search opens the relevant disclosure, and Network and Control
 search scroll the matching groups into view. The localizable subtitle
 encoding menu uses the portable ordered encoding table for the mpv values.
+Key Bindings, Advanced and Utilities search share the scroll positions of
+their visible controls. The Plugins page scrolls the entire installed list
+while its modal dialogs remain attached to the Settings window. Plugin
+information and permission reviews use translations from that window.
 Audio device models keep the recorded name and description separate from the
 display caption, including when the last selected device is disconnected.
 The controller clock reads libmpv's elapsed, duration, remaining and scaled

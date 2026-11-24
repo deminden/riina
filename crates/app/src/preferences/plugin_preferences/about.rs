@@ -1,13 +1,13 @@
 //! Present plugin metadata and user-driven documentation or contact actions.
 use super::{
-    InstalledPlugin, PluginSettings, permissions::permission_description, update_actions::Requests,
+    InstalledPlugin, PluginSettings, permissions::permission_caption, update_actions::Requests,
 };
 use crate::{
     PreferencesWindow,
     platform::{self, plugin_settings::Presenter},
 };
-use riina_core::plugin::{Permission, plugin_web_link};
-use riina_ui::{PluginInformation, PluginInformationAction};
+use riina_core::plugin::plugin_web_link;
+use riina_ui::{PluginInformation, PluginInformationAction, PluginReviewText};
 use slint::ComponentHandle;
 
 pub(super) fn register(
@@ -29,6 +29,7 @@ pub(super) fn register(
         };
         let versions = riina_core::sync::lock(&versions);
         window.set_plugin_information(information(
+            &window,
             plugin,
             versions
                 .get(&plugin.manifest.identifier)
@@ -57,20 +58,24 @@ pub(super) fn register(
     });
 }
 
-fn information(plugin: &InstalledPlugin, available: Option<&str>) -> PluginInformation {
+fn information(
+    window: &PreferencesWindow,
+    plugin: &InstalledPlugin,
+    available: Option<&str>,
+) -> PluginInformation {
     let manifest = &plugin.manifest;
+    let text = window.global::<PluginReviewText>();
     let permissions = if manifest.permissions.is_empty() {
-        "No permissions requested".to_owned()
+        text.get_no_permissions()
     } else {
         manifest
             .permissions
             .iter()
-            .map(|name| match Permission::parse(name) {
-                Some(permission) => permission_description(permission).to_owned(),
-                None => format!("Unknown permission: {name}"),
-            })
+            .map(|name| permission_caption(window, name))
+            .map(|caption| caption.to_string())
             .collect::<Vec<_>>()
             .join("\n")
+            .into()
     };
     let can_update =
         plugin.can_update() && manifest.github_version.is_some() && manifest.github_repo.is_some();
@@ -82,18 +87,18 @@ fn information(plugin: &InstalledPlugin, available: Option<&str>) -> PluginInfor
         description: manifest
             .description
             .as_deref()
-            .unwrap_or("No description")
-            .into(),
-        permissions: permissions.into(),
-        source: manifest
-            .github_repo
-            .as_deref()
-            .unwrap_or(if plugin.is_development() {
-                "Development package"
-            } else {
-                "Local package"
-            })
-            .into(),
+            .map_or_else(|| text.get_no_description(), Into::into),
+        permissions,
+        source: manifest.github_repo.as_deref().map_or_else(
+            || {
+                if plugin.is_development() {
+                    text.get_development_package()
+                } else {
+                    text.get_local_package()
+                }
+            },
+            Into::into,
+        ),
         has_website: manifest
             .author
             .url

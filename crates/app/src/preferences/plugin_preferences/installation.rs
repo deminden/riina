@@ -274,29 +274,26 @@ impl Request {
             .winit_window()
             .await
             .map_err(|error| error.to_string())?;
-        drop(window);
         let manifest = review.manifest();
-        let action = if review.replaces() {
-            "Replace"
-        } else {
-            "Install"
-        };
+        let text = window.global::<riina_ui::PluginReviewText>();
+        let title = text.invoke_install_title(manifest.name.as_str().into(), review.replaces());
         let can_enable =
             self.installer.settings.runtime_available && current_runtime_supports(manifest);
         let effect = if can_enable {
-            "Riina will enable this plugin after installation."
+            text.get_will_enable()
         } else {
-            "This plugin will remain disabled because its runtime is unavailable."
+            text.get_runtime_unavailable()
         };
-        let permissions = describe_permissions(manifest);
+        let permissions = describe_permissions(&window, manifest);
         let permissions = if permissions.is_empty() {
-            "This plugin requests no additional permissions.".into()
+            text.get_no_additional_permissions().to_string()
         } else {
             permissions
         };
+        drop(window);
         let result = AsyncMessageDialog::new()
             .set_parent(owner.as_ref())
-            .set_title(format!("{action} {}?", manifest.name))
+            .set_title(title.as_str())
             .set_description(format!("{effect}\n\n{permissions}"))
             .set_buttons(MessageButtons::YesNo)
             .show()

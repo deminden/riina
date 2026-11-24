@@ -15,7 +15,7 @@ export struct PluginPreferencesRow {
 component PluginEnabledSwitch inherits FocusScope {
     in-out property <bool> checked: false;
     in property <bool> switch-enabled: true;
-    in property <string> label: "Plugin enabled";
+    in property <string> label: @tr("Plugin enabled");
     callback toggled(bool);
     width: 36px;
     height: 18px;
@@ -136,6 +136,7 @@ export component PluginPreferencesRowView inherits Rectangle {
     pure callback plugin-id-transfer(string) -> data-transfer;
     pure callback plugin-id-from-transfer(data-transfer) -> string;
     callback reorder-requested(string, string);
+    private property <length> row-actions-x: max(196px, self.width - 154px);
     height: 60px;
     background: transparent;
     drag-area := DragArea {
@@ -164,48 +165,49 @@ export component PluginPreferencesRowView inherits Rectangle {
     PluginEnabledSwitch {
         x: 16px; y: 12px; checked: root.entry.enabled;
         switch-enabled: root.entry.runtime-ready;
-        label: root.entry.name + " enabled";
+        label: @tr("{0} enabled", root.entry.name);
         toggled(checked) => { root.enabled-toggled(root.row-index, checked); }
     }
     Text {
-        x: 61px; y: 10px; width: 94px; height: 20px;
+        x: 61px; y: 10px; width: root.row-actions-x - 102px; height: 20px;
         text: root.entry.name; font-size: 13px; font-weight: 600; color: Theme.settings-plugin-name;
         vertical-alignment: center; overflow: elide;
     }
     Text {
         x: 61px; y: 32px; width: parent.width - 102px - (root.entry.has-settings ? 72px : 0px); height: 18px;
-        text: root.entry.description; font-size: 11px; color: Theme.settings-plugin-description;
+        text: root.entry.description.is-empty ? @tr("No Description") : root.entry.description;
+        font-size: 11px; color: Theme.settings-plugin-description;
         vertical-alignment: center; overflow: elide;
     }
     Text {
-        x: 162px; y: 10px; width: 34px; height: 20px;
+        x: root.row-actions-x - 34px; y: 10px; width: 34px; height: 20px;
         text: root.entry.version; font-size: 10px; color: Theme.settings-plugin-version;
         horizontal-alignment: right; vertical-alignment: center;
     }
     PluginPageIconButton {
-        x: 196px; y: 8px; icon-kind: 0; label: "Plugin actions for " + root.entry.name;
+        x: root.row-actions-x; y: 8px; icon-kind: 0; label: @tr("Plugin actions for {0}", root.entry.name);
         activated => { actions-menu.show({x: self.x, y: self.y + self.height}); }
     }
     actions-menu := ContextMenuArea {
         width: 0px; height: 0px;
         Menu {
             MenuItem {
-                title: "Show in Folder";
+                title: @tr("Show in Folder");
                 activated => { root.actions-requested(root.row-index); }
             }
             MenuItem {
-                title: "Uninstall…"; enabled: !root.entry.development;
+                title: @tr("Uninstall…"); enabled: !root.entry.development;
                 activated => { root.uninstall-requested(root.row-index); }
             }
         }
     }
     PluginPageIconButton {
-        x: parent.width - 34px; y: 28px; icon-kind: 1; label: "Plugin information";
+        x: parent.width - 34px; y: 28px; icon-kind: 1; label: @tr("Plugin information");
         activated => { root.about-requested(root.row-index); }
     }
     if root.entry.has-settings : PluginPageActionButton {
-        x: parent.width - 105px; y: 28px; width: 65px; height: 24px; label: "Settings";
-        accessible-label: "Settings for " + root.entry.name;
+        x: parent.width - 105px; y: 28px; width: 65px; height: 24px; label: @tr("Settings");
+        accessible-label: @tr("Settings for {0}", root.entry.name);
         activated => { root.settings-requested(root.row-index); }
     }
 }

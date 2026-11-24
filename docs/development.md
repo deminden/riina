@@ -331,8 +331,8 @@ playing, paused and stopped states, both player themes, all sidebar panes,
 compact and docked controls, Music Mode, on-screen displays, crop geometry,
 Live Text, all 11 light Settings pages, and their search and modal overlays.
 The test runs on Windows to keep system-font rasterization consistent.
-For a pixel mismatch, set `RIINA_HEADLESS_MISMATCH_DIR` to an output directory
-and rerun the test. It saves the actual PNG there and still fails the comparison.
+The test reports all mismatched baselines in one run. Set
+`RIINA_HEADLESS_MISMATCH_DIR` to save the actual PNGs for review.
 Set `RIINA_UPDATE_HEADLESS_BASELINES=1` only when intentionally regenerating
 the corpus, then rerun without it and inspect the affected frames. These
 are Riina rendering regressions. Native composition and matched IINA

@@ -65,12 +65,12 @@ export component PluginInformationDialog inherits FocusScope {
                         text: root.information.description;
                         color: Theme.settings-modal-message; font-size: 12px; wrap: word-wrap;
                     }
-                    Text { text: "Source"; font-size: 12px; font-weight: 600; color: Theme.settings-section-heading; }
+                    Text { text: @tr("Source"); font-size: 12px; font-weight: 600; color: Theme.settings-section-heading; }
                     Text {
                         text: root.information.source;
                         color: Theme.settings-modal-message; font-size: 11px; wrap: char-wrap;
                     }
-                    Text { text: "Permissions"; font-size: 12px; font-weight: 600; color: Theme.settings-section-heading; }
+                    Text { text: @tr("Permissions"); font-size: 12px; font-weight: 600; color: Theme.settings-section-heading; }
                     Text {
                         text: root.information.permissions;
                         color: Theme.settings-modal-message; font-size: 11px; wrap: word-wrap;
@@ -78,19 +78,19 @@ export component PluginInformationDialog inherits FocusScope {
                     if root.information.has-help || root.information.has-source : HorizontalLayout {
                         spacing: 6px;
                         if root.information.has-help : PluginPageActionButton {
-                            label: "Help"; activated => { root.action(PluginInformationAction.help); }
+                            label: @tr("Help"); activated => { root.action(PluginInformationAction.help); }
                         }
                         if root.information.has-source : PluginPageActionButton {
-                            label: "Open Repository"; activated => { root.action(PluginInformationAction.source); }
+                            label: @tr("Open Repository"); activated => { root.action(PluginInformationAction.source); }
                         }
                     }
                     if root.information.has-website || root.information.has-email : HorizontalLayout {
                         spacing: 6px;
                         if root.information.has-website : PluginPageActionButton {
-                            label: "Author Website"; activated => { root.action(PluginInformationAction.website); }
+                            label: @tr("Author Website"); activated => { root.action(PluginInformationAction.website); }
                         }
                         if root.information.has-email : PluginPageActionButton {
-                            label: "Email Author"; activated => { root.action(PluginInformationAction.email); }
+                            label: @tr("Email Author"); activated => { root.action(PluginInformationAction.email); }
                         }
                     }
                 }
@@ -103,11 +103,11 @@ export component PluginInformationDialog inherits FocusScope {
                 alignment: end; spacing: 8px;
                 if root.information.can-update : PluginPageActionButton {
                     enabled: !root.checking-update;
-                    label: root.information.update-available.is-empty ? "Check for Updates" : "Update…";
+                    label: root.information.update-available.is-empty ? @tr("Check for Updates") : @tr("Update…");
                     activated => { root.update(); }
                 }
                 done-button := PluginPageActionButton {
-                    label: "Done"; activated => { root.closed(); }
+                    label: @tr("Done"); activated => { root.closed(); }
                 }
             }
         }

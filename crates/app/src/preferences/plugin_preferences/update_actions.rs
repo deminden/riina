@@ -123,7 +123,7 @@ pub(super) fn register_staged(
             );
             return;
         }
-        if !confirm_update_permissions(&staged.manifest, &previous.manifest) {
+        if !confirm_update_permissions(&window, &staged.manifest, &previous.manifest) {
             window.set_plugin_update_status("Plugin update cancelled.".into());
             return;
         }

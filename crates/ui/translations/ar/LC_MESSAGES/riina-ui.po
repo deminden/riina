@@ -1594,7 +1594,7 @@ msgid "Middle click to"
 msgstr "النقر بالزر الأوسط"
 
 msgid "Enter/Exit picture-in-picture"
-msgstr "دخول أو مغادرة صورة داخل صورة"
+msgstr "صورة داخل صورة"
 
 msgid "A-B loop"
 msgstr "تكرار المقطع A–B"
@@ -2033,3 +2033,396 @@ msgstr "فرض"
 
 msgid "strip"
 msgstr "إزالة الأنماط"
+
+msgid "Action"
+msgstr "الإجراء"
+
+msgid "Add key binding"
+msgstr "إضافة اختصار لوحة مفاتيح"
+
+msgid "Add key binding set"
+msgstr "إضافة مجموعة اختصارات"
+
+msgid "Additional mpv options"
+msgstr "خيارات mpv الإضافية"
+
+msgid "Author Website"
+msgstr "موقع المؤلف"
+
+msgid "Browser Extensions"
+msgstr "إضافات المتصفح"
+
+msgid "Check for Updates"
+msgstr "التحقق من التحديثات"
+
+msgid "Check for plugin updates"
+msgstr "التحقق من تحديثات الإضافة"
+
+msgid "Choose the media types you want Riina to open. Your system controls the final default selection."
+msgstr "اختر أنواع الوسائط التي تريد فتحها في Riina. يحدد النظام التطبيق الافتراضي النهائي."
+
+msgid "Choose…"
+msgstr "تصفّح…"
+
+msgid "Chrome / Edge"
+msgstr "Chrome / Edge"
+
+msgid "Clear Cache"
+msgstr "مسح الذاكرة المؤقتة"
+
+msgid "Clear Playback History"
+msgstr "مسح سجل التشغيل"
+
+msgid "Clear Playback History, Open Recent, and the Welcome window’s Resume item?"
+msgstr "هل تريد مسح سجل التشغيل وقائمة الملفات الأخيرة وعنصر «استئناف» في نافذة الترحيب؟"
+
+msgid "Clear Saved Playback Progress"
+msgstr "مسح تقدّم التشغيل المحفوظ"
+
+msgid "Clear Thumbnail Cache"
+msgstr "مسح ذاكرة الصور المصغّرة المؤقتة"
+
+msgid "Create"
+msgstr "إنشاء"
+
+msgid "Create empty set"
+msgstr "إنشاء مجموعة فارغة"
+
+msgid "Create key binding set"
+msgstr "إنشاء مجموعة اختصارات"
+
+msgid "Default Application"
+msgstr "التطبيق الافتراضي"
+
+msgid "Delete all cached thumbnails? Current size: {0}."
+msgstr "هل تريد حذف كل الصور المصغّرة المخزّنة مؤقتًا؟ الحجم الحالي: {0}."
+
+msgid "Delete all files in the \"watch later\" folder. These files contain all saved playback progress and settings applied during playback."
+msgstr "يحذف كل ملفات مجلد «watch later» التي تحتوي على تقدّم التشغيل المحفوظ والإعدادات المطبّقة أثناء التشغيل."
+
+msgid "Delete all playback histories and entries in \"Open Recent\"."
+msgstr "يحذف سجلات التشغيل والعناصر من قائمة «فتح الأخيرة»."
+
+msgid "Delete key binding set?"
+msgstr "هل تريد حذف مجموعة الاختصارات؟"
+
+msgid "Delete profile"
+msgstr "حذف ملف التعريف"
+
+msgid "Delete saved playback positions and settings for all media? Current size: {0}."
+msgstr "هل تريد حذف مواضع التشغيل والإعدادات المحفوظة لكل الوسائط؟ الحجم الحالي: {0}."
+
+msgid "Display raw values"
+msgstr "عرض القيم الأصلية"
+
+msgid "Done"
+msgstr "تمّ"
+
+msgid "Downloading and validating plugin…"
+msgstr "تنزيل الإضافة والتحقق منها…"
+
+msgid "Duplicate"
+msgstr "تكرار"
+
+msgid "Duplicate current set"
+msgstr "تكرار المجموعة الحالية"
+
+msgid "Duplicate key binding set"
+msgstr "تكرار مجموعة الاختصارات"
+
+msgid "Email Author"
+msgstr "مراسلة المؤلف"
+
+msgid "Enable advanced settings"
+msgstr "تفعيل الإعدادات المتقدمة"
+
+msgid "Enable logging to file"
+msgstr "التسجيل في ملف"
+
+msgid "Enter a name for the new set."
+msgstr "أدخل اسمًا للمجموعة الجديدة."
+
+msgid "Enter a new name for this set."
+msgstr "أدخل اسمًا جديدًا لهذه المجموعة."
+
+msgid "Firefox"
+msgstr "Firefox"
+
+msgid "Get Browser Extensions for Riina"
+msgstr "الحصول على إضافات Riina للمتصفح"
+
+msgid "Get Plugins"
+msgstr "الحصول على إضافات"
+
+msgid "Get Plugins…"
+msgstr "جلب الإضافات…"
+
+msgid "GitHub URL"
+msgstr "عنوان GitHub"
+
+msgid "GitHub repository URL"
+msgstr "عنوان مستودع GitHub"
+
+msgid "Import configuration…"
+msgstr "استيراد التكوين…"
+
+msgid "Install"
+msgstr "تثبيت"
+
+msgid "Install Local Package…"
+msgstr "تثبيت حزمة محلية…"
+
+msgid "Install a plugin from GitHub by entering its repository. Official plugins are listed below."
+msgstr "أدخل عنوان مستودع الإضافة لتثبيتها من GitHub. تظهر الإضافات الرسمية أدناه."
+
+msgid "Key"
+msgstr "المفتاح"
+
+msgid "Key Mapping"
+msgstr "تعيين المفتاح"
+
+msgid "Key binding set"
+msgstr "مجموعة اختصارات"
+
+msgid "Key binding set name"
+msgstr "اسم مجموعة الاختصارات"
+
+msgid "Log level"
+msgstr "مستوى التسجيل"
+
+msgid "Logging"
+msgstr "التسجيل"
+
+msgid "Mapping action"
+msgstr "إجراء الاختصار"
+
+msgid "Mapping comment"
+msgstr "تعليق الاختصار"
+
+msgid "No mappings in this configuration"
+msgstr "لا توجد اختصارات في هذا التكوين"
+
+msgid "Note"
+msgstr "ملاحظة"
+
+msgid "Official Plugins"
+msgstr "الإضافات الرسمية"
+
+msgid "Open Log Directory"
+msgstr "مجلد السجلات"
+
+msgid "Open Repository"
+msgstr "فتح المستودع"
+
+msgid "Open the log viewer"
+msgstr "فتح عارض السجلات"
+
+msgid "Paste an option in key=value format to fill both fields automatically. Changes take effect after restarting Riina."
+msgstr "ألصق خيارًا بصيغة key=value لملء الحقلين تلقائيًا. تسري التغييرات بعد إعادة تشغيل Riina."
+
+msgid "Permissions"
+msgstr "الأذونات"
+
+msgid "Playlists"
+msgstr "قوائم التشغيل"
+
+msgid "Plugin actions for {0}"
+msgstr "إجراءات الإضافة {0}"
+
+msgid "Plugin enabled"
+msgstr "الإضافة مفعّلة"
+
+msgid "Plugin information"
+msgstr "معلومات الإضافة"
+
+msgid "Plugins remain disabled until you enable them."
+msgstr "تظل الإضافات معطّلة إلى أن تفعّلها."
+
+msgid "Press a key to record its shortcut"
+msgstr "اضغط على مفتاح لتسجيل الاختصار"
+
+msgid "Press a key, then choose what it should do."
+msgstr "اضغط على مفتاح ثم اختر الإجراء."
+
+msgid "Press a key…"
+msgstr "اضغط على مفتاح…"
+
+msgid "Rename"
+msgstr "إعادة تسمية"
+
+msgid "Rename current set…"
+msgstr "إعادة تسمية المجموعة الحالية…"
+
+msgid "Rename key binding set"
+msgstr "إعادة تسمية مجموعة الاختصارات"
+
+msgid "Restore Alerts"
+msgstr "استعادة التنبيهات"
+
+msgid "Restore Suppressed Alerts"
+msgstr "استعادة التنبيهات المخفية"
+
+msgid "Restore alerts hidden with ‘Do not show this message again’."
+msgstr "استعادة التنبيهات المخفية بخيار «عدم إظهار هذه الرسالة مجددًا»."
+
+msgid "Restore suppressed alerts?"
+msgstr "هل تريد استعادة التنبيهات المخفية؟"
+
+msgid "Riina action"
+msgstr "إجراء Riina"
+
+msgid "Safari"
+msgstr "Safari"
+
+msgid "Search key bindings"
+msgstr "البحث في اختصارات لوحة المفاتيح"
+
+msgid "Send a link or the current webpage to the player."
+msgstr "إرسال رابط أو صفحة الويب الحالية إلى المشغّل."
+
+msgid "Set Riina as the Default Application"
+msgstr "تعيين Riina كتطبيق افتراضي"
+
+msgid "Settings for {0}"
+msgstr "إعدادات الإضافة {0}"
+
+msgid "Show in Folder"
+msgstr "إظهار في المجلد"
+
+msgid "Show profile file"
+msgstr "إظهار ملف التعريف"
+
+msgid "Source"
+msgstr "المصدر"
+
+msgid "The following settings require restarting Riina to take effect."
+msgstr "تتطلب الإعدادات التالية إعادة تشغيل Riina لكي تسري."
+
+msgid "The selected set will be removed from this computer."
+msgstr "ستُحذف المجموعة المحددة من هذا الكمبيوتر."
+
+msgid "Uninstall…"
+msgstr "إزالة التثبيت…"
+
+msgid "Update…"
+msgstr "تحديث…"
+
+msgid "Use an mpv command unless this is a player action."
+msgstr "استخدم أمر mpv ما لم يكن الإجراء خاصًا بالمشغّل."
+
+msgid "Use config directory"
+msgstr "استخدام مجلد التكوين"
+
+msgid "Use mpv's OSD"
+msgstr "رسائل mpv على الشاشة"
+
+msgid "Use system media control"
+msgstr "مفاتيح الوسائط في النظام"
+
+msgid "Value"
+msgstr "القيمة"
+
+msgid "You can install a new plugin from GitHub or a local .iinaplgz package. Plugins installed from GitHub can be updated automatically."
+msgstr "يمكنك تثبيت إضافة من GitHub أو من حزمة .iinaplgz محلية. يمكن تحديث إضافات GitHub تلقائيًا."
+
+msgid "mpv Settings"
+msgstr "إعدادات mpv"
+
+msgid "Restore"
+msgstr "استعادة"
+
+msgid "Restored."
+msgstr "تمت الاستعادة."
+
+msgid "mpv config directory"
+msgstr "مجلد تكوين mpv"
+
+msgid "Add mpv option"
+msgstr "إضافة خيار mpv"
+
+msgid "Remove selected mpv option"
+msgstr "إزالة خيار mpv المحدد"
+
+msgid "Saved playback progress cleared ({0} removed)."
+msgstr "مُسح تقدّم التشغيل المحفوظ. حُذف {0}."
+
+msgid "Playback history cleared ({0} removed)."
+msgstr "مُسح سجل التشغيل. عدد المدخلات المحذوفة: {0}."
+
+msgid "Thumbnail cache cleared ({0} removed)."
+msgstr "مُسحت ذاكرة الصور المصغّرة المؤقتة. حُذف {0}."
+
+msgid "{0} enabled"
+msgstr "الإضافة {0} مفعّلة"
+
+msgid "Network requests to allowed domains (sensitive)"
+msgstr "طلبات شبكة إلى النطاقات المسموح بها (إذن حساس)"
+
+msgid "Accept WebSocket connections from this device and network (sensitive)"
+msgstr "قبول اتصالات WebSocket من هذا الجهاز ومن الشبكة (إذن حساس)"
+
+msgid "Show on-screen messages"
+msgstr "عرض رسائل على الشاشة"
+
+msgid "Show alerts"
+msgstr "عرض التنبيهات"
+
+msgid "Display content over video"
+msgstr "عرض محتوى فوق الفيديو"
+
+msgid "Read and modify files on this device (sensitive)"
+msgstr "قراءة الملفات وتعديلها على هذا الجهاز (إذن حساس)"
+
+msgid "Run native programs with your account's access (sensitive)"
+msgstr "تشغيل البرامج بصلاحيات حسابك (إذن حساس)"
+
+msgid "Open links and folders in other applications (sensitive)"
+msgstr "فتح الروابط والمجلدات في تطبيقات أخرى (إذن حساس)"
+
+msgid "No permissions requested"
+msgstr "لا تطلب الإضافة أي أذونات"
+
+msgid "No description"
+msgstr "لا يوجد وصف"
+
+msgid "Development package"
+msgstr "حزمة تطوير"
+
+msgid "Local package"
+msgstr "حزمة محلية"
+
+msgid "Riina will enable this plugin after installation."
+msgstr "سيفعّل Riina هذه الإضافة بعد تثبيتها."
+
+msgid "This plugin will remain disabled because its runtime is unavailable."
+msgstr "ستظل هذه الإضافة معطّلة لأن بيئة تشغيلها غير متاحة."
+
+msgid "This plugin requests no additional permissions."
+msgstr "لا تطلب هذه الإضافة أي أذونات إضافية."
+
+msgid "Unknown permission: {0} (not granted)"
+msgstr "إذن غير معروف: {0} (غير ممنوح)"
+
+msgid "Replace {0}?"
+msgstr "هل تريد استبدال {0}؟"
+
+msgid "Install {0}?"
+msgstr "هل تريد تثبيت {0}؟"
+
+msgid "Permissions requested by {0}"
+msgstr "الأذونات التي تطلبها {0}"
+
+msgid "Review these permissions before enabling:\n\n{0}\n\nNetwork requests are limited to the domains declared by the plugin. The file-system permission can read or change paths outside the plugin's private storage."
+msgstr "راجع هذه الأذونات قبل التفعيل:\n\n{0}\n\nتقتصر طلبات الشبكة على النطاقات التي تحددها الإضافة. يسمح إذن نظام الملفات بقراءة الملفات أو تعديلها خارج مساحة التخزين الخاصة بالإضافة."
+
+msgid "Additional permissions requested by {0}"
+msgstr "الأذونات الإضافية التي تطلبها {0}"
+
+msgid "Review these new permissions before updating:\n\n{0}\n\nPreviously granted permissions remain unchanged."
+msgstr "راجع الأذونات الجديدة قبل التحديث:\n\n{0}\n\nتظل الأذونات الممنوحة سابقًا سارية."
+
+msgid "Plugin updates have not been checked."
+msgstr "لم يتم التحقق من تحديثات الإضافات بعد."
+
+msgid "No Description"
+msgstr "لا يوجد وصف"

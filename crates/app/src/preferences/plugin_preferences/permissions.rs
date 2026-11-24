@@ -1,38 +1,37 @@
 //! Permission review and per-plugin grant persistence.
+use crate::PreferencesWindow;
 use rfd::{MessageButtons, MessageDialog, MessageDialogResult};
 use riina_core::plugin::{Manifest, Permission};
+use riina_ui::PluginReviewText;
+use slint::{ComponentHandle, SharedString};
 use std::{
     collections::{BTreeMap, BTreeSet},
     fs,
     path::Path,
 };
 
-pub(super) fn confirm_permissions(manifest: &Manifest) -> bool {
+pub(super) fn confirm_permissions(window: &PreferencesWindow, manifest: &Manifest) -> bool {
     if manifest.permissions.is_empty() {
         return true;
     }
-    let permissions = describe_permissions(manifest);
+    let text = window.global::<PluginReviewText>();
+    let permissions = describe_permissions(window, manifest);
     MessageDialog::new()
-        .set_title(format!("Permissions requested by {}", manifest.name))
-        .set_description(format!(
-            "Review these permissions before installing:\n\n{permissions}\n\nNetwork requests are limited to the domains declared by the plugin. The file-system permission can read or change paths outside the plugin's private storage."
-        ))
+        .set_title(
+            text.invoke_enable_title(manifest.name.as_str().into())
+                .as_str(),
+        )
+        .set_description(text.invoke_enable_details(permissions.into()).as_str())
         .set_buttons(MessageButtons::YesNo)
         .show()
         == MessageDialogResult::Yes
 }
 
-pub(super) fn describe_permissions(manifest: &Manifest) -> String {
+pub(super) fn describe_permissions(window: &PreferencesWindow, manifest: &Manifest) -> String {
     manifest
         .permissions
         .iter()
-        .map(|permission| {
-            let description = match Permission::parse(permission.as_str()) {
-                Some(permission) => permission_description(permission).to_owned(),
-                None => format!("Unknown permission: {permission} (not granted)"),
-            };
-            format!("• {description}")
-        })
+        .map(|permission| format!("• {}", permission_caption(window, permission)))
         .collect::<Vec<_>>()
         .join("\n")
 }
@@ -50,21 +49,41 @@ pub(super) fn permission_name(permission: Permission) -> &'static str {
     }
 }
 
-pub(super) fn permission_description(permission: Permission) -> &'static str {
-    match permission {
-        Permission::NetworkRequest => "Network requests to allowed domains (sensitive)",
-        Permission::NetworkListener => {
-            "Accept WebSocket connections from this device and network (sensitive)"
-        }
-        Permission::ShowOsd => "Show on-screen messages",
-        Permission::ShowAlert => "Show alerts",
-        Permission::VideoOverlay => "Display content over video",
-        Permission::FileSystem => "Read and modify files on this device (sensitive)",
-        Permission::ProcessExecution => {
-            "Run native programs with your account's access (sensitive)"
-        }
-        Permission::OpenExternal => "Open links and folders in other applications (sensitive)",
+pub(super) fn permission_caption(window: &PreferencesWindow, raw: &str) -> SharedString {
+    let text = window.global::<PluginReviewText>();
+    match Permission::parse(raw) {
+        Some(Permission::NetworkRequest) => text.get_network_request(),
+        Some(Permission::NetworkListener) => text.get_network_listener(),
+        Some(Permission::ShowOsd) => text.get_show_osd(),
+        Some(Permission::ShowAlert) => text.get_show_alert(),
+        Some(Permission::VideoOverlay) => text.get_video_overlay(),
+        Some(Permission::FileSystem) => text.get_file_system(),
+        Some(Permission::ProcessExecution) => text.get_process_execution(),
+        Some(Permission::OpenExternal) => text.get_open_external(),
+        None => text.invoke_unknown_permission(raw.into()),
     }
+}
+
+#[cfg(test)]
+#[test]
+fn review_translates_permissions_and_preserves_plugin_identifiers()
+-> Result<(), Box<dyn std::error::Error>> {
+    i_slint_backend_testing::init_no_event_loop();
+    let window = PreferencesWindow::new()?;
+    let text = window.global::<PluginReviewText>();
+    for (locale, readable, unavailable) in [
+        ("ru", "Показывать предупреждения", "не предоставлено"),
+        ("ar", "عرض التنبيهات", "غير ممنوح"),
+    ] {
+        slint::select_bundled_translation(locale)?;
+        assert_eq!(permission_caption(&window, "show-alert").as_str(), readable);
+        let unknown = permission_caption(&window, "extension-permission");
+        assert!(unknown.contains("extension-permission") && unknown.contains(unavailable));
+        let title = text.invoke_install_title("Example plugin".into(), false);
+        assert!(title.contains("Example plugin") && title != "Install Example plugin?");
+    }
+    slint::select_bundled_translation("en")?;
+    Ok(())
 }
 
 pub(super) fn save_granted_permissions(

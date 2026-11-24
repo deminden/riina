@@ -1,0 +1,37 @@
+export global PluginReviewText {
+    out property <string> network-request: @tr("Network requests to allowed domains (sensitive)");
+    out property <string> network-listener: @tr("Accept WebSocket connections from this device and network (sensitive)");
+    out property <string> show-osd: @tr("Show on-screen messages");
+    out property <string> show-alert: @tr("Show alerts");
+    out property <string> video-overlay: @tr("Display content over video");
+    out property <string> file-system: @tr("Read and modify files on this device (sensitive)");
+    out property <string> process-execution: @tr("Run native programs with your account's access (sensitive)");
+    out property <string> open-external: @tr("Open links and folders in other applications (sensitive)");
+    out property <string> no-permissions: @tr("No permissions requested");
+    out property <string> no-description: @tr("No description");
+    out property <string> development-package: @tr("Development package");
+    out property <string> local-package: @tr("Local package");
+    out property <string> will-enable: @tr("Riina will enable this plugin after installation.");
+    out property <string> runtime-unavailable: @tr("This plugin will remain disabled because its runtime is unavailable.");
+    out property <string> no-additional-permissions: @tr("This plugin requests no additional permissions.");
+    out property <string> updates-unchecked: @tr("Plugin updates have not been checked.");
+
+    public pure function unknown-permission(name: string) -> string {
+        return @tr("Unknown permission: {0} (not granted)", name);
+    }
+    public pure function install-title(name: string, replace: bool) -> string {
+        return replace ? @tr("Replace {0}?", name) : @tr("Install {0}?", name);
+    }
+    public pure function enable-title(name: string) -> string {
+        return @tr("Permissions requested by {0}", name);
+    }
+    public pure function enable-details(permissions: string) -> string {
+        return @tr("Review these permissions before enabling:\n\n{0}\n\nNetwork requests are limited to the domains declared by the plugin. The file-system permission can read or change paths outside the plugin's private storage.", permissions);
+    }
+    public pure function update-title(name: string) -> string {
+        return @tr("Additional permissions requested by {0}", name);
+    }
+    public pure function update-details(permissions: string) -> string {
+        return @tr("Review these new permissions before updating:\n\n{0}\n\nPreviously granted permissions remain unchanged.", permissions);
+    }
+}

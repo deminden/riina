@@ -4341,3 +4341,39 @@ Picture-in-Picture mouse choice still truncates in both narrow menus.
 - Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
 - Linux application SHA-256 `6ad6d14242db08d34868ab168cab5b9911cdee845f4bb9e2991da6d959739d13`
 - Linux libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`
+
+### Key Bindings, Advanced, Plugins and Utilities localization 2026-11-24
+
+The four pages expose localized search results. Activation reveals the
+settings group and leaves the choice or command to the user. The Plugins
+page scrolls the installed list, and plugin information and permission
+reviews translate the application text while preserving package metadata.
+The Utilities confirmations keep the current cache size in the message.
+
+The software-rendered comparison reports differing baselines together.
+An isolated validation withheld the Advanced and Utilities baselines.
+A single run failed with both filenames and saved both actual images.
+
+The final Windows workspace gate passed strict Clippy, 643 application
+tests, 79 Python checks and all 51 software-rendered comparisons.
+Strict Clippy passed for the Apple Silicon application target. Native macOS
+interaction remains to be verified.
+
+The locked Windows workspace built successfully. A private desktop test
+used accessibility to find controls on all four pages and saved Display
+raw values. A local fixture requested the Show alerts permission. Declining
+the native review left the profile without a grant. Both private test players
+kept their paused frames and exited normally.
+
+At 600 × 480 on an isolated Wayland desktop, both language runs created and
+saved an assigned keyboard profile, changed and saved a log level, scrolled
+to the eighth local plugin, and read its translated permission. Both opened
+and cancelled the thumbnail confirmation and exited normally. The shorter
+Picture-in-Picture labels fit in both menus, and the Arabic confirmation
+showed the size as `343.0 KiB`. Some built-in key-binding action descriptions
+and runtime messages still appear in English.
+
+- Windows application SHA-256 `70e40aaa8af78aac91466357384941d885b8fcdd73071539ffad2c4040642897`
+- Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
+- Linux application SHA-256 `6275bca273aa11d0c9cde6345f61f4dafa4c6665e98a5d2a69ad171e07ba5924`
+- Linux libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`

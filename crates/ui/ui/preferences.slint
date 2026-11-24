@@ -11,7 +11,7 @@ export { SubtitleSettingsState } from "preferences-subtitles.slint";
 import { InterfacePreferencesPage } from "preferences-interface.slint";
 import { GeneralSettingsState, GeneralPreferencesPage } from "preferences-general.slint";
 export { GeneralSettingsState } from "preferences-general.slint";
-import { AdvancedPreferencesPage } from "preferences-advanced.slint";
+import { AdvancedSettingsState, AdvancedPreferencesPage } from "preferences-advanced.slint";
 export { AdvancedSettingsState } from "preferences-advanced.slint";
 import { ControlPreferencesPage } from "preferences-control.slint";
 export { ControlSettingsState } from "preferences-control.slint";
@@ -24,6 +24,7 @@ export { BrowserExtension, UtilityAction, UtilitySettingsState } from "preferenc
 import { PreferencesNavigation } from "preferences-navigation.slint";
 import { PreferencesSearchResult, PreferenceSearchPopup } from "preferences-search.slint";
 export { PreferencesSearchResult } from "preferences-search.slint";
+import { KeyBindingSettingsState } from "preferences-key-bindings.slint";
 export { KeyBindingRow, KeyBindingSettingsState } from "preferences-key-bindings.slint";
 import { PluginPreferencesRow } from "preferences-plugins.slint";
 export { PluginPreferencesRow } from "preferences-plugins.slint";
@@ -188,6 +189,29 @@ export component PreferencesWindow inherits Window {
     public function reveal-control-section(section: int) {
         let heading = section == 1 ? control-mouse-y : section == 2 ? control-scroll-y : section == 3 ? control-sensitivity-y : 16px;
         root.control-scroll-position = max(min(0px, root.height - control-content-height), 16px - heading);
+    }
+
+    in-out property <length> key-binding-scroll-position: 0px;
+    in-out property <length> advanced-scroll-position: 0px;
+    in-out property <length> plugin-scroll-position: 0px;
+    in-out property <length> utilities-scroll-position: 0px;
+
+    pure function page-scroll-target(content-height: length, heading: length) -> length {
+        return max(min(0px, root.height - content-height), min(0px, 16px - heading));
+    }
+    public function reveal-key-binding-settings(raw-values: bool) {
+        root.key-binding-scroll-position = raw-values
+            ? min(0px, root.height - KeyBindingSettingsState.key-binding-content-height) : 0px;
+    }
+    public function reveal-advanced-setting(section: int) {
+        let heading = section == 1 ? AdvancedSettingsState.logging-y : section == 2
+            ? AdvancedSettingsState.mpv-y : section == 3 ? AdvancedSettingsState.options-y : 0px;
+        root.advanced-scroll-position = root.page-scroll-target(AdvancedSettingsState.content-height, heading);
+    }
+    public function reveal-utility-setting(section: int) {
+        let heading = section == 1 ? UtilitySettingsState.alerts-y : section == 2
+            ? UtilitySettingsState.cache-y : section == 3 ? UtilitySettingsState.extensions-y : 0px;
+        root.utilities-scroll-position = root.page-scroll-target(UtilitySettingsState.content-height, heading);
     }
 
     in-out property <int> selected-audio-section: 0;
@@ -586,6 +610,7 @@ export component PreferencesWindow inherits Window {
     if root.selected-pane == 7 : KeyBindingsPreferencesPage {
         x: 200px; y: 0; width: parent.width - 200px; height: parent.height;
         window-height: root.height;
+        scroll-position <=> root.key-binding-scroll-position;
         mica-backdrop-enabled: root.mica-backdrop-enabled;
         key-binding-settings-changed => { root.key-binding-settings-changed(); }
         settings-changed => { root.settings-changed(); }
@@ -602,6 +627,7 @@ export component PreferencesWindow inherits Window {
     if root.selected-pane == 8 : AdvancedPreferencesPage {
         x: 200px; y: 0; width: parent.width - 200px; height: parent.height;
         mica-backdrop-enabled: root.mica-backdrop-enabled;
+        scroll-position <=> root.advanced-scroll-position;
         advanced-settings-changed => { root.advanced-settings-changed(); }
         advanced-open-log-folder => { root.advanced-open-log-folder(); }
         advanced-open-log-viewer => { root.advanced-open-log-viewer(); }
@@ -615,6 +641,7 @@ export component PreferencesWindow inherits Window {
     if root.selected-pane == 9 : PluginsPreferencesPage {
         x: 200px; y: 0; width: parent.width - 200px; height: parent.height;
         mica-backdrop-enabled: root.mica-backdrop-enabled;
+        scroll-position <=> root.plugin-scroll-position;
         plugin-request-github-install => { root.plugin-request-github-install(); }
         plugin-request-local-install => { root.plugin-request-local-install(); }
         plugin-update-status: root.plugin-update-status;
@@ -633,6 +660,7 @@ export component PreferencesWindow inherits Window {
     if root.selected-pane == 10 : UtilitiesPreferencesPage {
         x: 200px; y: 0; width: parent.width - 200px; height: parent.height;
         mica-backdrop-enabled: root.mica-backdrop-enabled;
+        scroll-position <=> root.utilities-scroll-position;
         utilities-open-default-apps => { root.utilities-open-default-apps(); }
         utility-requested(action) => { utility-dialog.open(action); }
         utilities-browser-extension(browser) => { root.utilities-browser-extension(browser); }

@@ -146,7 +146,7 @@ pub(super) fn register_enabled(
                     .iter()
                     .any(|name| !grants.contains(name))
                 {
-                    if !confirm_permissions(manifest) {
+                    if !confirm_permissions(&window, manifest) {
                         return Ok(false);
                     }
                     save_granted_permissions(&preferences, manifest)?;

@@ -26,6 +26,8 @@ impl Platform for OffscreenPlatform {
 struct Baselines {
     directory: PathBuf,
     update: bool,
+    mismatch_directory: Option<PathBuf>,
+    differences: Vec<String>,
 }
 
 impl Baselines {
@@ -36,11 +38,17 @@ impl Baselines {
         if update {
             std::fs::create_dir_all(&directory)?;
         }
-        Ok(Self { directory, update })
+        let mismatch_directory = std::env::var_os("RIINA_HEADLESS_MISMATCH_DIR").map(PathBuf::from);
+        Ok(Self {
+            directory,
+            update,
+            mismatch_directory,
+            differences: Vec::new(),
+        })
     }
 
     fn verify(
-        &self,
+        &mut self,
         name: &str,
         window: &Window,
         size: PhysicalSize,
@@ -70,31 +78,52 @@ impl Baselines {
                 image::ColorType::Rgba8,
             )?;
         } else {
-            let expected = image::open(&path)?.into_rgba8();
-            assert_eq!(expected.dimensions(), (size.width, size.height), "{name}");
-            let (expected_pixels, remainder) = expected.as_raw().as_chunks::<4>();
-            assert!(remainder.is_empty());
-            let changed = expected_pixels
-                .iter()
-                .zip(pixels)
-                .filter(|(expected, actual)| expected != actual)
-                .count();
-            if changed != 0
-                && let Some(directory) = std::env::var_os("RIINA_HEADLESS_MISMATCH_DIR")
-            {
-                let directory = PathBuf::from(directory);
-                std::fs::create_dir_all(&directory)?;
-                image::save_buffer(
-                    directory.join(format!("{name}.png")),
-                    actual,
-                    size.width,
-                    size.height,
-                    image::ColorType::Rgba8,
-                )?;
+            let comparison = match image::open(&path) {
+                Ok(expected) => {
+                    let expected = expected.into_rgba8();
+                    if expected.dimensions() == (size.width, size.height) {
+                        let (expected_pixels, _) = expected.as_raw().as_chunks::<4>();
+                        let changed = expected_pixels
+                            .iter()
+                            .zip(pixels)
+                            .filter(|(expected, actual)| expected != actual)
+                            .count();
+                        (changed != 0).then(|| format!("{changed} changed pixels"))
+                    } else {
+                        Some(format!(
+                            "baseline is {} × {}, rendered {} × {}",
+                            expected.width(),
+                            expected.height(),
+                            size.width,
+                            size.height
+                        ))
+                    }
+                }
+                Err(error) => Some(format!("could not open baseline: {error}")),
+            };
+            if let Some(detail) = comparison {
+                self.differences
+                    .push(format!("{name}: {detail} ({})", path.display()));
+                if let Some(directory) = &self.mismatch_directory {
+                    std::fs::create_dir_all(directory)?;
+                    image::save_buffer(
+                        directory.join(format!("{name}.png")),
+                        actual,
+                        size.width,
+                        size.height,
+                        image::ColorType::Rgba8,
+                    )?;
+                }
             }
-            assert_eq!(changed, 0, "{name} differs from {}", path.display());
         }
         Ok(())
+    }
+    fn finish(self) {
+        assert!(
+            self.differences.is_empty(),
+            "Visual baseline differences:\n{}",
+            self.differences.join("\n")
+        );
     }
 }
 
@@ -239,15 +268,16 @@ fn test_picture() -> Image {
 #[test]
 fn player_and_settings_match_their_pixels() -> Result<(), Box<dyn Error>> {
     slint::platform::set_platform(Box::new(OffscreenPlatform))?;
-    let baselines = Baselines::windows()?;
-    player_frames(&baselines)?;
-    player_overlay_frames(&baselines)?;
-    settings_frames(&baselines)?;
-    settings_overlay_frames(&baselines)?;
+    let mut baselines = Baselines::windows()?;
+    player_frames(&mut baselines)?;
+    player_overlay_frames(&mut baselines)?;
+    settings_frames(&mut baselines)?;
+    settings_overlay_frames(&mut baselines)?;
+    baselines.finish();
     Ok(())
 }
 
-fn player_frames(baselines: &Baselines) -> Result<(), Box<dyn Error>> {
+fn player_frames(baselines: &mut Baselines) -> Result<(), Box<dyn Error>> {
     use Layout::{Compact, Docked, Music, Standard};
     use PlaybackState::{Paused, Playing, Stopped};
     let cases = [
@@ -281,7 +311,7 @@ fn player_frames(baselines: &Baselines) -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-fn player_overlay_frames(baselines: &Baselines) -> Result<(), Box<dyn Error>> {
+fn player_overlay_frames(baselines: &mut Baselines) -> Result<(), Box<dyn Error>> {
     type OverlaySetup = fn(&PlayerWindow);
     let cases: [(&str, OverlaySetup); 6] = [
         ("player-seek-osd", |window| {
@@ -371,7 +401,7 @@ fn player_overlay_frames(baselines: &Baselines) -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-fn settings_frames(baselines: &Baselines) -> Result<(), Box<dyn Error>> {
+fn settings_frames(baselines: &mut Baselines) -> Result<(), Box<dyn Error>> {
     // Settings intentionally keep a light palette when the player uses a dark theme.
     let pages = [
         "general",
@@ -401,7 +431,7 @@ fn settings_frames(baselines: &Baselines) -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-fn settings_overlay_frames(baselines: &Baselines) -> Result<(), Box<dyn Error>> {
+fn settings_overlay_frames(baselines: &mut Baselines) -> Result<(), Box<dyn Error>> {
     type OverlaySetup = fn(&PreferencesWindow);
     let cases: [(&str, i32, OverlaySetup); 6] = [
         ("settings-search-popup", 0, |window| {

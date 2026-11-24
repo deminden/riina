@@ -11,6 +11,8 @@ export global KeyBindingSettingsState {
     in-out property <int> key-binding-profile-index: 0;
     in-out property <[string]> key-binding-profiles: ["IINA Default", "mpv Default", "VLC Default", "Movist Default", "Movist v2 Default"];
     in-out property <[KeyBindingRow]> key-binding-rows: [];
+    out property <length> key-binding-content-height: key-binding-rows.length == 0
+        ? 310px : 290px + key-binding-rows.length * 32px;
     in-out property <string> key-binding-search-query: "";
     in-out property <bool> key-binding-use-system-media-controls: true;
     in-out property <bool> key-binding-display-raw-values: false;

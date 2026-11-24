@@ -1591,7 +1591,7 @@ msgid "Middle click to"
 msgstr "Средняя кнопка мыши"
 
 msgid "Enter/Exit picture-in-picture"
-msgstr "Картинка в картинке"
+msgstr "Режим PiP"
 
 msgid "A-B loop"
 msgstr "Повтор A–B"
@@ -2030,3 +2030,396 @@ msgstr "Принудительно"
 
 msgid "strip"
 msgstr "Без стилей"
+
+msgid "Action"
+msgstr "Действие"
+
+msgid "Add key binding"
+msgstr "Добавить сочетание клавиш"
+
+msgid "Add key binding set"
+msgstr "Добавить набор сочетаний"
+
+msgid "Additional mpv options"
+msgstr "Дополнительные параметры mpv"
+
+msgid "Author Website"
+msgstr "Сайт автора"
+
+msgid "Browser Extensions"
+msgstr "Расширения браузера"
+
+msgid "Check for Updates"
+msgstr "Проверить обновления"
+
+msgid "Check for plugin updates"
+msgstr "Проверить обновления дополнения"
+
+msgid "Choose the media types you want Riina to open. Your system controls the final default selection."
+msgstr "Выберите типы файлов, которые должен открывать Riina. Окончательный выбор приложения выполняется в настройках системы."
+
+msgid "Choose…"
+msgstr "Обзор…"
+
+msgid "Chrome / Edge"
+msgstr "Chrome / Edge"
+
+msgid "Clear Cache"
+msgstr "Очистка кэша"
+
+msgid "Clear Playback History"
+msgstr "Очистить историю воспроизведения"
+
+msgid "Clear Playback History, Open Recent, and the Welcome window’s Resume item?"
+msgstr "Очистить историю просмотра, недавние файлы и пункт «Продолжить» в окне приветствия?"
+
+msgid "Clear Saved Playback Progress"
+msgstr "Очистить сохранённые позиции"
+
+msgid "Clear Thumbnail Cache"
+msgstr "Очистить кэш эскизов"
+
+msgid "Create"
+msgstr "Создать"
+
+msgid "Create empty set"
+msgstr "Создать пустой набор"
+
+msgid "Create key binding set"
+msgstr "Создать набор сочетаний"
+
+msgid "Default Application"
+msgstr "Приложение по умолчанию"
+
+msgid "Delete all cached thumbnails? Current size: {0}."
+msgstr "Удалить все сохранённые эскизы? Текущий размер: {0}."
+
+msgid "Delete all files in the \"watch later\" folder. These files contain all saved playback progress and settings applied during playback."
+msgstr "Удаляет все файлы из папки «watch later» с сохранёнными позициями и настройками воспроизведения."
+
+msgid "Delete all playback histories and entries in \"Open Recent\"."
+msgstr "Удаляет историю просмотра и список недавних файлов."
+
+msgid "Delete key binding set?"
+msgstr "Удалить набор сочетаний?"
+
+msgid "Delete profile"
+msgstr "Удалить профиль"
+
+msgid "Delete saved playback positions and settings for all media? Current size: {0}."
+msgstr "Удалить сохранённые позиции и настройки всех файлов? Текущий размер: {0}."
+
+msgid "Display raw values"
+msgstr "Показывать исходные значения"
+
+msgid "Done"
+msgstr "Готово"
+
+msgid "Downloading and validating plugin…"
+msgstr "Загрузка и проверка дополнения…"
+
+msgid "Duplicate"
+msgstr "Дублировать"
+
+msgid "Duplicate current set"
+msgstr "Дублировать текущий набор"
+
+msgid "Duplicate key binding set"
+msgstr "Дублировать набор сочетаний"
+
+msgid "Email Author"
+msgstr "Написать автору"
+
+msgid "Enable advanced settings"
+msgstr "Включить расширенные настройки"
+
+msgid "Enable logging to file"
+msgstr "Журнал в файл"
+
+msgid "Enter a name for the new set."
+msgstr "Введите имя нового набора."
+
+msgid "Enter a new name for this set."
+msgstr "Введите новое имя набора."
+
+msgid "Firefox"
+msgstr "Firefox"
+
+msgid "Get Browser Extensions for Riina"
+msgstr "Расширения Riina для браузеров"
+
+msgid "Get Plugins"
+msgstr "Скачать дополнения"
+
+msgid "Get Plugins…"
+msgstr "Дополнения…"
+
+msgid "GitHub URL"
+msgstr "URL на GitHub"
+
+msgid "GitHub repository URL"
+msgstr "URL репозитория на GitHub"
+
+msgid "Import configuration…"
+msgstr "Импортировать конфигурацию…"
+
+msgid "Install"
+msgstr "Установить"
+
+msgid "Install Local Package…"
+msgstr "Локальный пакет…"
+
+msgid "Install a plugin from GitHub by entering its repository. Official plugins are listed below."
+msgstr "Чтобы установить дополнение с GitHub, укажите его репозиторий. Ниже перечислены официальные дополнения."
+
+msgid "Key"
+msgstr "Клавиша"
+
+msgid "Key Mapping"
+msgstr "Назначение клавиши"
+
+msgid "Key binding set"
+msgstr "Набор сочетаний"
+
+msgid "Key binding set name"
+msgstr "Имя набора сочетаний"
+
+msgid "Log level"
+msgstr "Уровень журнала"
+
+msgid "Logging"
+msgstr "Журналирование"
+
+msgid "Mapping action"
+msgstr "Действие сочетания"
+
+msgid "Mapping comment"
+msgstr "Комментарий к сочетанию"
+
+msgid "No mappings in this configuration"
+msgstr "В этой конфигурации нет сочетаний"
+
+msgid "Note"
+msgstr "Заметка"
+
+msgid "Official Plugins"
+msgstr "Официальные дополнения"
+
+msgid "Open Log Directory"
+msgstr "Папка журналов"
+
+msgid "Open Repository"
+msgstr "Открыть репозиторий"
+
+msgid "Open the log viewer"
+msgstr "Открыть просмотр журнала"
+
+msgid "Paste an option in key=value format to fill both fields automatically. Changes take effect after restarting Riina."
+msgstr "Вставьте параметр в виде key=value, чтобы заполнить оба поля. Изменения вступят в силу после перезапуска Riina."
+
+msgid "Permissions"
+msgstr "Разрешения"
+
+msgid "Playlists"
+msgstr "Плейлисты"
+
+msgid "Plugin actions for {0}"
+msgstr "Действия дополнения {0}"
+
+msgid "Plugin enabled"
+msgstr "Дополнение включено"
+
+msgid "Plugin information"
+msgstr "Сведения о дополнении"
+
+msgid "Plugins remain disabled until you enable them."
+msgstr "Дополнения отключены, пока вы их не включите."
+
+msgid "Press a key to record its shortcut"
+msgstr "Нажмите клавишу для записи сочетания"
+
+msgid "Press a key, then choose what it should do."
+msgstr "Нажмите клавишу и выберите её действие."
+
+msgid "Press a key…"
+msgstr "Нажмите клавишу…"
+
+msgid "Rename"
+msgstr "Переименовать"
+
+msgid "Rename current set…"
+msgstr "Переименовать текущий набор…"
+
+msgid "Rename key binding set"
+msgstr "Переименовать набор сочетаний"
+
+msgid "Restore Alerts"
+msgstr "Восстановить предупреждения"
+
+msgid "Restore Suppressed Alerts"
+msgstr "Восстановить скрытые предупреждения"
+
+msgid "Restore alerts hidden with ‘Do not show this message again’."
+msgstr "Возвращает предупреждения, скрытые через «Больше не показывать»."
+
+msgid "Restore suppressed alerts?"
+msgstr "Восстановить скрытые предупреждения?"
+
+msgid "Riina action"
+msgstr "Действие Riina"
+
+msgid "Safari"
+msgstr "Safari"
+
+msgid "Search key bindings"
+msgstr "Поиск сочетаний клавиш"
+
+msgid "Send a link or the current webpage to the player."
+msgstr "Отправляет ссылку или текущую страницу в проигрыватель."
+
+msgid "Set Riina as the Default Application"
+msgstr "Сделать Riina приложением по умолчанию"
+
+msgid "Settings for {0}"
+msgstr "Настройки дополнения {0}"
+
+msgid "Show in Folder"
+msgstr "Показать в папке"
+
+msgid "Show profile file"
+msgstr "Показать файл профиля"
+
+msgid "Source"
+msgstr "Источник"
+
+msgid "The following settings require restarting Riina to take effect."
+msgstr "Для применения следующих настроек перезапустите Riina."
+
+msgid "The selected set will be removed from this computer."
+msgstr "Выбранный набор будет удалён с компьютера."
+
+msgid "Uninstall…"
+msgstr "Удалить…"
+
+msgid "Update…"
+msgstr "Обновить…"
+
+msgid "Use an mpv command unless this is a player action."
+msgstr "Для действий вне проигрывателя используйте команду mpv."
+
+msgid "Use config directory"
+msgstr "Использовать папку конфигурации"
+
+msgid "Use mpv's OSD"
+msgstr "Сообщения mpv"
+
+msgid "Use system media control"
+msgstr "Системные медиаклавиши"
+
+msgid "Value"
+msgstr "Значение"
+
+msgid "You can install a new plugin from GitHub or a local .iinaplgz package. Plugins installed from GitHub can be updated automatically."
+msgstr "Дополнения можно устанавливать с GitHub или из файла .iinaplgz. Установленные с GitHub дополнения могут обновляться автоматически."
+
+msgid "mpv Settings"
+msgstr "Настройки mpv"
+
+msgid "Restore"
+msgstr "Восстановить"
+
+msgid "Restored."
+msgstr "Восстановлено."
+
+msgid "mpv config directory"
+msgstr "Папка конфигурации mpv"
+
+msgid "Add mpv option"
+msgstr "Добавить параметр mpv"
+
+msgid "Remove selected mpv option"
+msgstr "Удалить выбранный параметр mpv"
+
+msgid "Saved playback progress cleared ({0} removed)."
+msgstr "Сохранённые позиции очищены. Удалено {0}."
+
+msgid "Playback history cleared ({0} removed)."
+msgstr "История воспроизведения очищена. Удалено записей: {0}."
+
+msgid "Thumbnail cache cleared ({0} removed)."
+msgstr "Кэш эскизов очищен. Удалено {0}."
+
+msgid "{0} enabled"
+msgstr "Дополнение {0} включено"
+
+msgid "Network requests to allowed domains (sensitive)"
+msgstr "Сетевые запросы к разрешённым доменам (конфиденциальный доступ)"
+
+msgid "Accept WebSocket connections from this device and network (sensitive)"
+msgstr "Приём соединений WebSocket с этого устройства и из сети (конфиденциальный доступ)"
+
+msgid "Show on-screen messages"
+msgstr "Показывать сообщения на экране"
+
+msgid "Show alerts"
+msgstr "Показывать предупреждения"
+
+msgid "Display content over video"
+msgstr "Отображать содержимое поверх видео"
+
+msgid "Read and modify files on this device (sensitive)"
+msgstr "Читать и изменять файлы на этом устройстве (конфиденциальный доступ)"
+
+msgid "Run native programs with your account's access (sensitive)"
+msgstr "Запускать программы с правами вашей учётной записи (конфиденциальный доступ)"
+
+msgid "Open links and folders in other applications (sensitive)"
+msgstr "Открывать ссылки и папки в других приложениях (конфиденциальный доступ)"
+
+msgid "No permissions requested"
+msgstr "Дополнение не запрашивает разрешений"
+
+msgid "No description"
+msgstr "Описание отсутствует"
+
+msgid "Development package"
+msgstr "Пакет для разработки"
+
+msgid "Local package"
+msgstr "Локальный пакет"
+
+msgid "Riina will enable this plugin after installation."
+msgstr "Riina включит дополнение после установки."
+
+msgid "This plugin will remain disabled because its runtime is unavailable."
+msgstr "Дополнение отключено, так как среда выполнения недоступна."
+
+msgid "This plugin requests no additional permissions."
+msgstr "Дополнение не запрашивает дополнительных разрешений."
+
+msgid "Unknown permission: {0} (not granted)"
+msgstr "Неизвестное разрешение: {0} (не предоставлено)"
+
+msgid "Replace {0}?"
+msgstr "Заменить {0}?"
+
+msgid "Install {0}?"
+msgstr "Установить {0}?"
+
+msgid "Permissions requested by {0}"
+msgstr "Разрешения для {0}"
+
+msgid "Review these permissions before enabling:\n\n{0}\n\nNetwork requests are limited to the domains declared by the plugin. The file-system permission can read or change paths outside the plugin's private storage."
+msgstr "Проверьте разрешения перед включением дополнения:\n\n{0}\n\nСетевые запросы ограничены доменами, указанными дополнением. Доступ к файловой системе позволяет читать и изменять файлы за пределами хранилища дополнения."
+
+msgid "Additional permissions requested by {0}"
+msgstr "Дополнительные разрешения для {0}"
+
+msgid "Review these new permissions before updating:\n\n{0}\n\nPreviously granted permissions remain unchanged."
+msgstr "Проверьте новые разрешения перед обновлением:\n\n{0}\n\nРанее выданные разрешения сохраняются."
+
+msgid "Plugin updates have not been checked."
+msgstr "Проверка обновлений ещё не запускалась."
+
+msgid "No Description"
+msgstr "Описание отсутствует"

@@ -1,8 +1,10 @@
 import { PreferenceActionButton } from "preferences-controls.slint";
 import { Theme } from "theme.slint";
+import { ScrollView } from "std-widgets.slint";
 import { PluginPreferencesRow, PluginPageIconButton, PluginPreferencesRowView, PluginPageActionButton } from "preferences-plugins.slint";
 
-export component PluginsPreferencesPage inherits Rectangle {
+export component PluginsPreferencesPage inherits ScrollView {
+    in-out property <length> scroll-position;
     in property <bool> mica-backdrop-enabled;
     callback plugin-request-github-install();
     callback plugin-request-local-install();
@@ -18,51 +20,59 @@ export component PluginsPreferencesPage inherits Rectangle {
     callback plugin-row-settings(int);
     callback plugin-reordered(string, string);
 
-    background: Theme.settings-content-surface(root.mica-backdrop-enabled);
-    Text { x: 20px; y: 16px; text: @tr("Plugins"); font-size: Theme.settings-page-title-size; font-weight: 600; color: Theme.settings-page-heading; }
+    content-width: self.visible-width;
+    content-height: max(self.visible-height, 208px + root.plugin-rows.length * 60px);
+    content-y <=> root.scroll-position;
+    horizontal-scrollbar-policy: always-off;
+
     Rectangle {
-        x: 12px; y: 52px; width: parent.width - 24px; height: 104px;
-        border-width: 1px; border-color: Theme.settings-card-border; border-radius: 13px; background: Theme.settings-network-card-surface(root.mica-backdrop-enabled);
+        width: parent.width; height: root.content-height;
+        background: Theme.settings-content-surface(root.mica-backdrop-enabled);
+        Text { x: 20px; y: 16px; text: @tr("Plugins"); font-size: Theme.settings-page-title-size; font-weight: 600; color: Theme.settings-page-heading; }
+        Rectangle {
+            x: 12px; y: 52px; width: parent.width - 24px; height: 104px;
+            border-width: 1px; border-color: Theme.settings-card-border; border-radius: 13px; background: Theme.settings-network-card-surface(root.mica-backdrop-enabled);
+            Text {
+                x: 12px; y: 10px; width: parent.width - 24px; height: 42px;
+                text: @tr("You can install a new plugin from GitHub or a local .iinaplgz package. Plugins installed from GitHub can be updated automatically.");
+                font-size: 11px; color: Theme.settings-section-heading; wrap: word-wrap;
+                vertical-alignment: center;
+            }
+            PluginPageActionButton {
+                x: 12px; y: 67px; width: 104px; label: @tr("Get Plugins…");
+                activated => { root.plugin-request-github-install(); }
+            }
+            PluginPageActionButton {
+                x: 124px; y: 67px; width: 160px; label: @tr("Install Local Package…");
+                activated => { root.plugin-request-local-install(); }
+            }
+        }
         Text {
-            x: 12px; y: 10px; width: parent.width - 24px; height: 42px;
-            text: "You can install a new plugin from GitHub or a local .iinaplgz package. Plugins installed from GitHub can be updated automatically.";
-            font-size: 11px; color: Theme.settings-section-heading; wrap: word-wrap;
-            vertical-alignment: center;
+            x: 12px; y: 163px; width: parent.width - 56px; height: 28px;
+            text: root.plugin-update-status; font-size: 11px; font-weight: 600;
+            color: Theme.settings-plugin-status; vertical-alignment: center; overflow: elide;
         }
-        PluginPageActionButton {
-            x: 12px; y: 67px; width: 104px; label: "Get Plugins…";
-            activated => { root.plugin-request-github-install(); }
+        PluginPageIconButton {
+            x: parent.width - 47px; y: 165px; width: 28px; height: 24px;
+            icon-kind: 2; label: @tr("Check for plugin updates");
+            activated => { root.plugin-refresh(); }
         }
-        PluginPageActionButton {
-            x: 124px; y: 67px; width: 160px; label: "Install Local Package…";
-            activated => { root.plugin-request-local-install(); }
-        }
-    }
-    Text {
-        x: 12px; y: 163px; width: parent.width - 56px; height: 28px;
-        text: root.plugin-update-status; font-size: 11px; font-weight: 600;
-        color: Theme.settings-plugin-status; vertical-alignment: center; overflow: elide;
-    }
-    PluginPageIconButton {
-        x: parent.width - 47px; y: 165px; width: 28px; height: 24px;
-        icon-kind: 2; label: "Check for plugin updates";
-        activated => { root.plugin-refresh(); }
-    }
-    if root.plugin-rows.length > 0 : Rectangle {
-        x: 12px; y: 196px; width: parent.width - 24px;
-        height: root.plugin-rows.length * 60px;
-        border-width: 1px; border-color: Theme.settings-card-border; border-radius: 13px; background: Theme.settings-network-card-surface(root.mica-backdrop-enabled);
-        for row[index] in root.plugin-rows : PluginPreferencesRowView {
-            x: 0px; y: index * 60px; width: parent.width;
-            entry: row; row-index: index; last-row: index == root.plugin-rows.length - 1;
-            plugin-id-transfer(identifier) => { root.plugin-id-transfer(identifier); }
-            plugin-id-from-transfer(transfer) => { root.plugin-id-from-transfer(transfer); }
-            enabled-toggled(index, enabled) => { root.plugin-enabled-changed(index, enabled); }
-            about-requested(index) => { root.plugin-row-about(index); }
-            actions-requested(index) => { root.plugin-row-actions(index); }
-            uninstall-requested(index) => { root.plugin-row-uninstall(index); }
-            settings-requested(index) => { root.plugin-row-settings(index); }
-            reorder-requested(dragged, target) => { root.plugin-reordered(dragged, target); }
+        if root.plugin-rows.length > 0 : Rectangle {
+            x: 12px; y: 196px; width: parent.width - 24px;
+            height: root.plugin-rows.length * 60px;
+            border-width: 1px; border-color: Theme.settings-card-border; border-radius: 13px; background: Theme.settings-network-card-surface(root.mica-backdrop-enabled);
+            for row[index] in root.plugin-rows : PluginPreferencesRowView {
+                x: 0px; y: index * 60px; width: parent.width;
+                entry: row; row-index: index; last-row: index == root.plugin-rows.length - 1;
+                plugin-id-transfer(identifier) => { root.plugin-id-transfer(identifier); }
+                plugin-id-from-transfer(transfer) => { root.plugin-id-from-transfer(transfer); }
+                enabled-toggled(index, enabled) => { root.plugin-enabled-changed(index, enabled); }
+                about-requested(index) => { root.plugin-row-about(index); }
+                actions-requested(index) => { root.plugin-row-actions(index); }
+                uninstall-requested(index) => { root.plugin-row-uninstall(index); }
+                settings-requested(index) => { root.plugin-row-settings(index); }
+                reorder-requested(dragged, target) => { root.plugin-reordered(dragged, target); }
+            }
         }
     }
 }
@@ -80,23 +90,23 @@ export component PluginInstallDialog inherits Rectangle {
         border-radius: Theme.settings-modal-corner; border-width: 1px; border-color: Theme.settings-modal-border;
         background: Theme.settings-modal-surface;
         Text { x: 20px; y: 14px; width: parent.width - 40px; height: 22px;
-            text: "Get Plugins"; font-size: Theme.settings-modal-title-size; font-weight: 600; color: Theme.settings-modal-title; }
+            text: @tr("Get Plugins"); font-size: Theme.settings-modal-title-size; font-weight: 600; color: Theme.settings-modal-title; }
         Text { x: 20px; y: 42px; width: parent.width - 40px; height: 34px;
-            text: "Install a plugin from GitHub by entering its repository. Official plugins are listed below.";
+            text: @tr("Install a plugin from GitHub by entering its repository. Official plugins are listed below.");
             font-size: 11px; color: Theme.settings-modal-message; wrap: word-wrap; }
-        Text { x: 20px; y: 82px; width: 80px; height: 26px; text: "GitHub URL";
+        Text { x: 20px; y: 82px; width: 80px; height: 26px; text: @tr("GitHub URL");
             font-size: 11px; color: Theme.settings-card-title; vertical-alignment: center; }
         Rectangle { x: 102px; y: 82px; width: parent.width - 122px; height: 26px;
             border-radius: 4px; border-width: 1px; border-color: Theme.settings-field-border; background: Theme.settings-field-surface;
             TextInput { x: 5px; y: 1px; width: parent.width - 10px; height: parent.height - 2px;
                 text <=> root.repository; single-line: true;
                 font-size: 11px; color: Theme.settings-modal-title; enabled: !root.installing;
-                accessible-label: "GitHub repository URL";
+                accessible-label: @tr("GitHub repository URL");
                 accepted => { root.install-requested(root.repository); }
             }
         }
         Text { x: 20px; y: 122px; width: parent.width - 40px; height: 18px;
-            text: "Official Plugins"; font-size: 11px; font-weight: 600; color: Theme.settings-section-heading; }
+            text: @tr("Official Plugins"); font-size: 11px; font-weight: 600; color: Theme.settings-section-heading; }
         for official[index] in ["Online Media", "Userscript", "OpenSubtitles"] : Rectangle {
             x: 20px; y: 145px + index * 38px; width: parent.width - 40px; height: 34px;
             border-radius: 5px; border-width: 1px; border-color: Theme.settings-card-border; background: Theme.settings-field-surface;
@@ -104,7 +114,7 @@ export component PluginInstallDialog inherits Rectangle {
                 text: official; font-size: 11px; color: Theme.settings-card-title;
                 vertical-alignment: center; }
             PluginPageActionButton {
-                x: parent.width - 90px; y: 4px; width: 78px; label: "Install";
+                x: parent.width - 90px; y: 4px; width: 78px; label: @tr("Install");
                 enabled: !root.installing;
                 activated => {
                     root.repository = index == 0 ? "iina/plugin-online-media" :
@@ -114,15 +124,15 @@ export component PluginInstallDialog inherits Rectangle {
             }
         }
         Text { x: 20px; y: 265px; width: parent.width - 40px; height: 22px;
-            text: root.installing ? "Downloading and validating plugin…" : "Plugins remain disabled until you enable them.";
+            text: root.installing ? @tr("Downloading and validating plugin…") : @tr("Plugins remain disabled until you enable them.");
             font-size: 10px; color: Theme.settings-section-heading; vertical-alignment: center; }
         PreferenceActionButton {
-            x: parent.width - 178px; y: 328px; label: "Cancel";
+            x: parent.width - 178px; y: 328px; label: @tr("Cancel");
             enabled: !root.installing;
             activated => { root.cancelled(); }
         }
         PreferenceActionButton {
-            x: parent.width - 92px; y: 328px; label: "Install";
+            x: parent.width - 92px; y: 328px; label: @tr("Install");
             enabled: !root.installing && !root.repository.is-empty;
             activated => { root.install-requested(root.repository); }
         }

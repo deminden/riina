@@ -126,24 +126,23 @@ fn install_cache_and_history_actions(
         let settings = window.global::<UtilitySettingsState>();
         settings.set_utilities_status("".into());
         match action {
-            UtilityAction::None => String::new(),
+            UtilityAction::None => slint::SharedString::default(),
             // The pinned release retains this action without any suppressible alerts.
-            UtilityAction::RestoreAlerts => "Restored.".into(),
+            UtilityAction::RestoreAlerts => settings.get_alerts_restored(),
             UtilityAction::ClearProgress => {
                 let cleared = clear_watch_later(&watch_later);
                 crate::player_ui::refresh_playlist_resume_positions();
                 settings.set_utilities_progress_size(display_size(&watch_later).into());
                 match cleared {
-                    Ok(bytes) => format!(
-                        "Saved playback progress cleared ({} removed).",
-                        format_size(bytes)
-                    ),
-                    Err(error) => format!("Could not clear saved playback progress: {error}"),
+                    Ok(bytes) => settings.invoke_progress_cleared(format_size(bytes).into()),
+                    Err(error) => {
+                        format!("Could not clear saved playback progress: {error}").into()
+                    }
                 }
             }
             UtilityAction::ClearHistory => match clear_history() {
-                Ok(removed) => format!("Playback history cleared ({removed} entries removed)."),
-                Err(error) => error,
+                Ok(removed) => settings.invoke_history_cleared(removed.to_string().into()),
+                Err(error) => error.into(),
             },
             UtilityAction::ClearThumbnails => {
                 let directory = match thumbnail_cache_directory() {
@@ -155,16 +154,14 @@ fn install_cache_and_history_actions(
                 match cleared {
                     Ok(bytes) => {
                         settings.set_utilities_status(
-                            format!("Thumbnail cache cleared ({} removed).", format_size(bytes))
-                                .into(),
+                            settings.invoke_thumbnails_cleared(format_size(bytes).into()),
                         );
-                        String::new()
+                        slint::SharedString::default()
                     }
-                    Err(error) => format!("Could not clear thumbnail cache: {error}"),
+                    Err(error) => format!("Could not clear thumbnail cache: {error}").into(),
                 }
             }
         }
-        .into()
     });
 }
 

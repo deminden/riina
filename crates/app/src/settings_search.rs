@@ -829,6 +829,27 @@ const ENTRIES: &[Entry] = &[
         terms: "keyboard shortcuts hotkeys",
     },
     Entry {
+        page_index: 7,
+        page: "Key Bindings",
+        section: "",
+        title: "Use system media control",
+        terms: "multimedia keys now playing remote",
+    },
+    Entry {
+        page_index: 7,
+        page: "Key Bindings",
+        section: "",
+        title: "Key binding set",
+        terms: "profile keyboard preset configuration",
+    },
+    Entry {
+        page_index: 7,
+        page: "Key Bindings",
+        section: "",
+        title: "Display raw values",
+        terms: "show literal mpv input command",
+    },
+    Entry {
         page_index: 8,
         page: "Advanced",
         section: "",
@@ -859,6 +880,13 @@ const ENTRIES: &[Entry] = &[
     Entry {
         page_index: 8,
         page: "Advanced",
+        section: "Logging",
+        title: "Open the log viewer",
+        terms: "view diagnostics player logs",
+    },
+    Entry {
+        page_index: 8,
+        page: "Advanced",
         section: "mpv Settings",
         title: "Use mpv's OSD",
         terms: "on screen display",
@@ -883,6 +911,27 @@ const ENTRIES: &[Entry] = &[
         section: "",
         title: "Plugins",
         terms: "extensions",
+    },
+    Entry {
+        page_index: 9,
+        page: "Plugins",
+        section: "",
+        title: "Get Plugins…",
+        terms: "add install github repository",
+    },
+    Entry {
+        page_index: 9,
+        page: "Plugins",
+        section: "",
+        title: "Install Local Package…",
+        terms: "import iinaplgz archive file",
+    },
+    Entry {
+        page_index: 9,
+        page: "Plugins",
+        section: "",
+        title: "Check for plugin updates",
+        terms: "refresh installed addons versions",
     },
     Entry {
         page_index: 10,
@@ -1267,6 +1316,26 @@ fn reveal_network_result(window: &PreferencesWindow, section: &str, title: &str)
     window.invoke_reveal_network_setting(section, inset);
 }
 
+fn reveal_additional_settings(window: &PreferencesWindow, page: i32, section: &str, title: &str) {
+    match page {
+        7 => window.invoke_reveal_key_binding_settings(title == "Display raw values"),
+        8 => window.invoke_reveal_advanced_setting(match (section, title) {
+            ("Logging", _) => 1,
+            ("mpv Settings", "Additional mpv options") => 3,
+            ("mpv Settings", _) => 2,
+            _ => 0,
+        }),
+        9 => window.set_plugin_scroll_position(0.0),
+        10 => window.invoke_reveal_utility_setting(match section {
+            "Restore Alerts" => 1,
+            "Clear Cache" => 2,
+            "Browser Extensions" => 3,
+            _ => 0,
+        }),
+        _ => {}
+    }
+}
+
 fn activate_result(window: &PreferencesWindow, page: i32, section: &str, title: &str) {
     if page == 0 {
         let target = general_target(window, section, title);
@@ -1360,6 +1429,7 @@ fn activate_result(window: &PreferencesWindow, page: i32, section: &str, title: 
             _ => 0,
         });
     }
+    reveal_additional_settings(window, page, section, title);
     window.set_selected_pane(page);
     window.set_search_query("".into());
     window.set_selected_search_index(-1);
@@ -1668,6 +1738,68 @@ mod tests {
                 .ok_or("Missing Control result for English alias")?;
             window.invoke_search_result_activated(row.target);
             assert!((window.get_control_scroll_position() + 280.0).abs() < 0.5);
+        }
+        slint::select_bundled_translation("en")?;
+        window.hide()?;
+        Ok(())
+    }
+
+    #[test]
+    fn localized_key_binding_advanced_plugin_and_utility_search_reveals_controls()
+    -> Result<(), Box<dyn std::error::Error>> {
+        i_slint_backend_testing::init_no_event_loop();
+        let window = PreferencesWindow::new()?;
+        window
+            .window()
+            .set_size(slint::LogicalSize::new(600.0, 480.0));
+        window
+            .global::<riina_ui::KeyBindingSettingsState>()
+            .set_key_binding_rows(ModelRc::new(VecModel::from(
+                vec![riina_ui::KeyBindingRow::default(); 20],
+            )));
+        window.show()?;
+        for (locale, raw_values, options, install, thumbnails) in [
+            (
+                "ru",
+                "показывать исходные значения",
+                "дополнительные параметры mpv",
+                "локальный пакет",
+                "очистить кэш эскизов",
+            ),
+            (
+                "ar",
+                "عرض القيم الأصلية",
+                "خيارات mpv الإضافية",
+                "تثبيت حزمة محلية",
+                "مسح ذاكرة الصور المصغّرة",
+            ),
+        ] {
+            slint::select_bundled_translation(locale)?;
+            connect(&window);
+            let targets = [
+                (raw_values, 7, -450.0),
+                (options, 8, -280.0),
+                (install, 9, 0.0),
+                (thumbnails, 10, -220.0),
+            ];
+            for (query, page, expected) in targets {
+                window.invoke_search_query_changed(query.into());
+                let row = window
+                    .get_search_results()
+                    .iter()
+                    .find(|row| !row.is_header && row.page_index == page)
+                    .ok_or("Missing localized Settings result")?;
+                window.invoke_search_result_activated(row.target);
+                slint::platform::update_timers_and_animations();
+                assert_eq!(window.get_selected_pane(), page);
+                let scroll = match page {
+                    7 => window.get_key_binding_scroll_position(),
+                    8 => window.get_advanced_scroll_position(),
+                    9 => window.get_plugin_scroll_position(),
+                    _ => window.get_utilities_scroll_position(),
+                };
+                assert!((scroll - expected).abs() < 0.5);
+            }
         }
         slint::select_bundled_translation("en")?;
         window.hide()?;

@@ -455,15 +455,17 @@ def main():
         token in UTILITIES_SOURCE
         for token in (
             "content-height: 700px",
+            "cache-y: 268px",
+            "content-height: UtilitySettingsState.content-height",
             "y: 81px; width: parent.width - 40px; height: 42px",
-            "y: 290px; width: parent.width - 40px; height: 202px",
+            "y: UtilitySettingsState.cache-y + 22px; width: parent.width - 40px; height: 202px",
             "height: 87px",
             "y: 87px; width: parent.width; height: 74px",
             "y: 161px; width: parent.width; height: 41px",
         )
     ), "Utilities content should retain the measured reference card and cache-row geometry"
     assert (
-        "Rectangle { width: parent.width; height: 700px;" in UTILITIES_SOURCE
+        "Rectangle { width: parent.width; height: root.content-height;" in UTILITIES_SOURCE
         and "background: Theme.settings-content-surface(root.mica-backdrop-enabled);" in UTILITIES_SOURCE
         and re.search(
             r"function settings-content-surface\(material: bool\) -> color \{\s*"

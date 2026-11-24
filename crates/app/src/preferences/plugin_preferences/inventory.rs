@@ -53,7 +53,10 @@ pub(super) fn refresh(
     );
     window.set_plugin_rows(plugin_rows(&inventory.borrow(), enabled, runtime_available));
     let status = match (invalid, unavailable) {
-        (0, 0) => "Plugin updates have not been checked.".to_owned(),
+        (0, 0) => window
+            .global::<riina_ui::PluginReviewText>()
+            .get_updates_unchecked()
+            .to_string(),
         (0, count) => format!("{count} installed plugin(s) request unavailable capabilities."),
         (count, 0) => format!("{count} installed package(s) could not be loaded."),
         (invalid, unavailable) => format!(
@@ -80,7 +83,7 @@ pub(super) fn plugin_rows(
                     .manifest
                     .description
                     .as_deref()
-                    .unwrap_or("No Description")
+                    .unwrap_or_default()
                     .into(),
                 enabled: enabled.contains(&plugin.manifest.identifier),
                 runtime_ready: runtime_available && current_runtime_supports(&plugin.manifest),
