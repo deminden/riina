@@ -94,6 +94,11 @@ impl ApplicationMenu {
         }
     }
 
+    #[cfg(target_os = "macos")]
+    pub(crate) fn labels(&self) -> std::rc::Rc<super::macos::menu_labels::MenuLabels> {
+        self.observer.labels()
+    }
+
     pub(crate) fn normalize(&self) {
         #[cfg(target_os = "macos")]
         self.observer.normalize();

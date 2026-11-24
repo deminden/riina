@@ -32,7 +32,10 @@ impl MacPluginMenuObserver {
             .ok_or_else(|| "Could not identify the player window for its Plugin menu".to_owned())?;
 
         let notification_center = NSNotificationCenter::defaultCenter();
-        let menu_title = NSString::from_str("Plugin");
+        let menu_title = window
+            .global::<riina_ui::ApplicationMenuText>()
+            .get_plugin_title();
+        let menu_title = NSString::from_str(&menu_title);
         let block = RcBlock::new(move |notification: NonNull<NSNotification>| {
             let Some(main_thread) = MainThreadMarker::new() else {
                 return;

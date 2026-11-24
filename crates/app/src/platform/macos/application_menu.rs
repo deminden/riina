@@ -1,5 +1,6 @@
 //! Merge Slint's app menu with the native macOS application menu.
 
+use super::menu_labels::MenuLabels;
 use block2::RcBlock;
 use objc2::{MainThreadMarker, rc::Retained, runtime::ProtocolObject, sel};
 use objc2_app_kit::{
@@ -7,9 +8,10 @@ use objc2_app_kit::{
     NSMenuDidBeginTrackingNotification, NSMenuItem, NSWindowDidBecomeKeyNotification,
 };
 use objc2_foundation::{NSNotificationCenter, NSObjectProtocol, NSOperationQueue, NSString};
-use std::time::Duration;
+use std::{rc::Rc, time::Duration};
 
 pub(crate) struct MacApplicationMenuObserver {
+    labels: Rc<MenuLabels>,
     notification_center: Retained<NSNotificationCenter>,
     observers: [Retained<ProtocolObject<dyn NSObjectProtocol>>; 2],
 }
@@ -17,17 +19,21 @@ pub(crate) struct MacApplicationMenuObserver {
 impl MacApplicationMenuObserver {
     pub(crate) fn new() -> Self {
         let notification_center = NSNotificationCenter::defaultCenter();
+        let labels = Rc::new(MenuLabels::new());
+        let tracking_labels = labels.clone();
         let tracking = RcBlock::new(move |_| {
             let Some(main_thread) = MainThreadMarker::new() else {
                 return;
             };
-            normalize_application_menu(main_thread);
+            normalize_application_menu(main_thread, &tracking_labels);
         });
+        let key_window_labels = labels.clone();
         let key_window = RcBlock::new(move |_| {
             // Let the window backend finish installing the key window's menu.
-            slint::Timer::single_shot(Duration::ZERO, || {
+            let labels = key_window_labels.clone();
+            slint::Timer::single_shot(Duration::ZERO, move || {
                 if let Some(main) = MainThreadMarker::new() {
-                    normalize_application_menu(main);
+                    normalize_application_menu(main, &labels);
                 }
             });
         });
@@ -50,14 +56,19 @@ impl MacApplicationMenuObserver {
             ]
         };
         Self {
+            labels,
             notification_center,
             observers,
         }
     }
 
+    pub(crate) fn labels(&self) -> Rc<MenuLabels> {
+        self.labels.clone()
+    }
+
     pub(crate) fn normalize(&self) {
         if let Some(main_thread) = MainThreadMarker::new() {
-            normalize_application_menu(main_thread);
+            normalize_application_menu(main_thread, &self.labels);
         }
     }
 }
@@ -71,17 +82,17 @@ impl Drop for MacApplicationMenuObserver {
     }
 }
 
-fn normalize_application_menu(main_thread: MainThreadMarker) {
+fn normalize_application_menu(main_thread: MainThreadMarker, labels: &MenuLabels) {
     let application = NSApplication::sharedApplication(main_thread);
     let Some(main_menu) = application.mainMenu() else {
         return;
     };
 
-    install_system_menus(&application, &main_menu);
-    if let Some(edit) = main_menu.itemWithTitle(&NSString::from_str("Edit")) {
-        super::edit_menu::install(main_thread, &edit);
+    install_system_menus(&application, &main_menu, labels);
+    if let Some(edit) = main_menu.itemWithTitle(&NSString::from_str(&labels.edit_title)) {
+        super::edit_menu::install(main_thread, &edit, labels);
     }
-    register_services_menu(&application, &main_menu);
+    register_services_menu(&application, &main_menu, labels);
 
     let riina_title = NSString::from_str("riina");
     let riina_index = (0..main_menu.numberOfItems()).find(|index| {
@@ -121,9 +132,9 @@ fn normalize_application_menu(main_thread: MainThreadMarker) {
     let Some(riina_items) = menu_items(&riina_menu) else {
         return;
     };
-    let expected_about = NSString::from_str("About Riina");
-    let expected_settings = NSString::from_str("Settings…");
-    let legacy_preferences = NSString::from_str("Preferences…");
+    let expected_about = NSString::from_str(&labels.about);
+    let expected_settings = NSString::from_str(&labels.settings);
+    let legacy_preferences = NSString::from_str(&labels.preferences);
     if !riina_items[0].title().isEqualToString(&expected_about)
         || (!riina_items[3].title().isEqualToString(&expected_settings)
             && !riina_items[3].title().isEqualToString(&legacy_preferences))
@@ -152,25 +163,34 @@ fn normalize_application_menu(main_thread: MainThreadMarker) {
         riina_items[8].clone(),
     ];
 
+    for (item, caption) in [
+        (&system_items[2], &labels.services_title),
+        (&system_items[4], &labels.hide),
+        (&system_items[5], &labels.hide_others),
+        (&system_items[6], &labels.show_all),
+    ] {
+        item.setTitle(&NSString::from_str(caption));
+    }
     system_app_menu.removeAllItems();
     for item in merged {
         system_app_menu.addItem(&item);
     }
     system_app_item.setTitle(&NSString::from_str("Riina"));
     main_menu.removeItemAtIndex(riina_index);
+    register_services_menu(&application, &main_menu, labels);
 }
 
-fn install_system_menus(application: &NSApplication, main_menu: &NSMenu) {
+fn install_system_menus(application: &NSApplication, main_menu: &NSMenu, labels: &MenuLabels) {
     // AppKit supplies the window roster, the standard window actions and
     // Help search. Slint retains the application's Inspector and Log Viewer.
-    if let Some(menu) = named_submenu(main_menu, "File") {
+    if let Some(menu) = named_submenu(main_menu, &labels.file_title) {
         install_file_open_alternates(&menu);
-        if let Some(close) = menu.itemWithTitle(&NSString::from_str("Close")) {
+        if let Some(close) = menu.itemWithTitle(&NSString::from_str(&labels.close)) {
             use_first_responder(&close, sel!(performClose:));
         }
     }
-    if let Some(menu) = named_submenu(main_menu, "Window") {
-        install_window_actions(&menu);
+    if let Some(menu) = named_submenu(main_menu, &labels.window_title) {
+        install_window_actions(&menu, labels);
         if !application
             .windowsMenu()
             .as_deref()
@@ -179,7 +199,7 @@ fn install_system_menus(application: &NSApplication, main_menu: &NSMenu) {
             application.setWindowsMenu(Some(&menu));
         }
     }
-    if let Some(menu) = named_submenu(main_menu, "Help")
+    if let Some(menu) = named_submenu(main_menu, &labels.help_title)
         && !application
             .helpMenu()
             .as_deref()
@@ -189,13 +209,13 @@ fn install_system_menus(application: &NSApplication, main_menu: &NSMenu) {
     }
 }
 
-pub(in crate::platform) fn services_menu(bar: &NSMenu) -> Option<Retained<NSMenu>> {
+fn services_menu(bar: &NSMenu, labels: &MenuLabels) -> Option<Retained<NSMenu>> {
     let application = bar.itemAtIndex(0)?.submenu()?;
-    named_submenu(&application, "Services")
+    named_submenu(&application, &labels.services_title)
 }
 
-pub(in crate::platform) fn register_services_menu(application: &NSApplication, bar: &NSMenu) {
-    if let Some(menu) = services_menu(bar)
+fn register_services_menu(application: &NSApplication, bar: &NSMenu, labels: &MenuLabels) {
+    if let Some(menu) = services_menu(bar, labels)
         && !application
             .servicesMenu()
             .as_deref()
@@ -226,11 +246,11 @@ fn install_file_open_alternates(menu: &NSMenu) {
     }
 }
 
-fn install_window_actions(menu: &NSMenu) {
+fn install_window_actions(menu: &NSMenu, labels: &MenuLabels) {
     for (title, action) in [
-        ("Minimize", sel!(performMiniaturize:)),
-        ("Zoom", sel!(performZoom:)),
-        ("Bring All to Front", sel!(arrangeInFront:)),
+        (&labels.minimize, sel!(performMiniaturize:)),
+        (&labels.zoom, sel!(performZoom:)),
+        (&labels.bring_to_front, sel!(arrangeInFront:)),
     ] {
         if let Some(item) = menu.itemWithTitle(&NSString::from_str(title)) {
             use_first_responder(&item, action);

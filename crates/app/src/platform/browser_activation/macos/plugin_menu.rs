@@ -25,7 +25,7 @@ struct Snapshot {
 }
 
 pub(super) fn new(main: MainThreadMarker, target: &LaunchTarget) -> Retained<NSMenu> {
-    let menu = submenu(main, "Plugin");
+    let menu = submenu(main, &target.ivars().menu_labels.plugin_title);
     build(None, &menu, target, &Snapshot::default());
     menu.setDelegate(Some(ProtocolObject::from_ref(target)));
     menu
@@ -110,15 +110,16 @@ fn host(target: &LaunchTarget) -> Option<GlobalHandle> {
 
 fn build(bar: Option<&NSMenu>, menu: &NSMenu, target: &LaunchTarget, snapshot: &Snapshot) {
     let main = target.mtm();
+    let labels = &target.ivars().menu_labels;
     menu.removeAllItems();
     menu.addItem(&item(
         main,
-        "Manage Plugins…",
+        &labels.manage_plugins,
         Some(sel!(riinaIdleManagePlugins:)),
         "",
         Some(target),
     ));
-    let sidebar = item(main, "Show Plugins Panel", None, "", None);
+    let sidebar = item(main, &labels.show_plugin_panel, None, "", None);
     sidebar.setEnabled(false);
     menu.addItem(&sidebar);
     menu.addItem(&NSMenuItem::separatorItem(main));
@@ -131,14 +132,14 @@ fn build(bar: Option<&NSMenu>, menu: &NSMenu, target: &LaunchTarget, snapshot: &
         let (visible, overflow) = group.items.split_at(group.items.len().min(VISIBLE_ITEMS));
         append(menu, target, group, visible, true, &mut shortcuts);
         if !overflow.is_empty() {
-            let more = submenu(main, "More…");
+            let more = submenu(main, &labels.more);
             append(&more, target, group, overflow, true, &mut shortcuts);
             add_submenu(menu, main, &more, true);
         }
         menu.addItem(&NSMenuItem::separatorItem(main));
     }
 
-    let developer = submenu(main, "Developer Tool");
+    let developer = submenu(main, &labels.developer_tool);
     for (id, title) in &snapshot.consoles {
         let row = item(
             main,
@@ -153,7 +154,7 @@ fn build(bar: Option<&NSMenu>, menu: &NSMenu, target: &LaunchTarget, snapshot: &
     add_submenu(menu, main, &developer, !snapshot.consoles.is_empty());
     menu.addItem(&item(
         main,
-        "Reload All Plugins",
+        &labels.reload_plugins,
         Some(sel!(riinaIdleReloadPlugins:)),
         "",
         Some(target),

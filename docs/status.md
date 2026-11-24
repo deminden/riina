@@ -42,9 +42,10 @@ Implementation does not imply every state or platform is verified.
   history and thumbnails. Cache sizes refresh when the page opens or data is cleared.
 - **Russian and Arabic labels** are bundled for Welcome, Open URL, Playback
   History, Log Viewer, About, the audio and video filter windows, and the
-  Playback, Video, Audio and Subtitles menus. The system language selects the
-  catalog, with English as the fallback. Other menu families, Settings,
-  player controls and some runtime messages still need translations.
+  top-level player menu families. The application and idle macOS menus use
+  the same captions where they share commands. The system language selects the
+  catalog, with English as the fallback. Settings, player controls and some
+  runtime messages still need translations.
 - **Small Linux players** switch to a scrollable Menu button when the
   regular menu bar would overflow. All menu families stay available, with
   keyboard navigation and a Back control for nested menus.

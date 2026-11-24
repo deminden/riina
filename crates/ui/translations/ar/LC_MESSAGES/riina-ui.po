@@ -685,3 +685,160 @@ msgstr "القائمة"
 
 msgid "Back"
 msgstr "رجوع"
+
+msgid "Check for Updates…"
+msgstr "البحث عن تحديثات…"
+
+msgid "Settings…"
+msgstr "الإعدادات…"
+
+msgid "Preferences…"
+msgstr "التفضيلات…"
+
+msgid "Services"
+msgstr "الخدمات"
+
+msgid "Hide Riina"
+msgstr "إخفاء Riina"
+
+msgid "Hide Others"
+msgstr "إخفاء التطبيقات الأخرى"
+
+msgid "Show All"
+msgstr "إظهار الكل"
+
+msgid "Quit Riina"
+msgstr "إنهاء Riina"
+
+msgid "File"
+msgstr "ملف"
+
+msgid "Open…"
+msgstr "فتح…"
+
+msgid "Open in New Window…"
+msgstr "فتح في نافذة جديدة…"
+
+msgid "Open URL in New Window…"
+msgstr "فتح رابط في نافذة جديدة…"
+
+msgid "Open Recent"
+msgstr "فتح عنصر حديث"
+
+msgid "Clear Menu"
+msgstr "مسح القائمة"
+
+msgid "New Window"
+msgstr "نافذة جديدة"
+
+msgid "Show Current File in {}"
+msgstr "إظهار الملف الحالي في {}"
+
+msgid "Delete Current File"
+msgstr "حذف الملف الحالي"
+
+msgid "Save Current Playlist…"
+msgstr "حفظ قائمة التشغيل الحالية…"
+
+msgid "Close"
+msgstr "إغلاق"
+
+msgctxt "application menu"
+msgid "Edit"
+msgstr "تحرير"
+
+msgid "Undo"
+msgstr "تراجع"
+
+msgid "Redo"
+msgstr "إعادة"
+
+msgid "Cut"
+msgstr "قص"
+
+msgid "Paste"
+msgstr "لصق"
+
+msgid "Select All"
+msgstr "تحديد الكل"
+
+msgid "Plugin"
+msgstr "الإضافات"
+
+msgid "Manage Plugins…"
+msgstr "إدارة الإضافات…"
+
+msgid "Hide Plugins Panel"
+msgstr "إخفاء لوحة الإضافات"
+
+msgid "Show Plugins Panel"
+msgstr "إظهار لوحة الإضافات"
+
+msgid "Developer Tool"
+msgstr "أداة المطوّر"
+
+msgid "Reload All Plugins"
+msgstr "إعادة تحميل كل الإضافات"
+
+msgid "Window"
+msgstr "نافذة"
+
+msgid "Minimize"
+msgstr "تصغير"
+
+msgid "Zoom"
+msgstr "تكبير النافذة"
+
+msgid "Inspector"
+msgstr "الفاحص"
+
+msgid "Bring All to Front"
+msgstr "نقل كل النوافذ إلى المقدّمة"
+
+msgid "Help"
+msgstr "مساعدة"
+
+msgid "Riina Help"
+msgstr "مساعدة Riina"
+
+msgid "Dump Debug Info"
+msgstr "حفظ معلومات تصحيح الأخطاء"
+
+msgid "Use New Settings Window"
+msgstr "استخدام نافذة الإعدادات الجديدة"
+
+msgid "Release Highlights"
+msgstr "أبرز تغييرات الإصدار"
+
+msgid "Website"
+msgstr "الموقع الإلكتروني"
+
+msgid "Transformations"
+msgstr "تحويلات"
+
+msgid "Make Upper Case"
+msgstr "تحويل إلى أحرف كبيرة"
+
+msgid "Make Lower Case"
+msgstr "تحويل إلى أحرف صغيرة"
+
+msgid "Capitalize"
+msgstr "كتابة الحرف الأول بحرف كبير"
+
+msgid "Speech"
+msgstr "النطق"
+
+msgid "Start Speaking"
+msgstr "بدء القراءة"
+
+msgid "Stop Speaking"
+msgstr "إيقاف القراءة"
+
+msgid "Conflicting key shortcuts… ({})"
+msgstr "اختصارات لوحة مفاتيح متعارضة… ({})"
+
+msgid "More…"
+msgstr "المزيد…"
+
+msgid "Delete"
+msgstr "حذف"

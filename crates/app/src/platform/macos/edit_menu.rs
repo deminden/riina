@@ -1,5 +1,6 @@
 //! AppKit keeps native editing on the first responder. Slint text inputs use
 //! their own clipboard and undo stack through the same menu.
+use super::menu_labels::MenuLabels;
 use super::view::content_view;
 use crate::platform::text_edit::{Edit, Editor};
 use objc2::{
@@ -78,21 +79,28 @@ fn register(native: &slint::winit_030::winit::window::Window, window: &slint::Wi
     }
 }
 
-pub(in crate::platform) fn install(main: MainThreadMarker, parent: &NSMenuItem) {
+pub(in crate::platform) fn install(
+    main: MainThreadMarker,
+    parent: &NSMenuItem,
+    labels: &MenuLabels,
+) {
     if parent.tag() != EDIT_MENU_TAG {
-        parent.setSubmenu(Some(&new(main)));
+        parent.setSubmenu(Some(&new(main, labels)));
         parent.setTag(EDIT_MENU_TAG);
     }
 }
 
-pub(in crate::platform) fn parent(main: MainThreadMarker) -> Retained<NSMenuItem> {
-    let parent = row(main, "Edit", None, "", None);
-    install(main, &parent);
+pub(in crate::platform) fn parent(
+    main: MainThreadMarker,
+    labels: &MenuLabels,
+) -> Retained<NSMenuItem> {
+    let parent = row(main, &labels.edit_title, None, "", None);
+    install(main, &parent, labels);
     parent
 }
 
-fn new(main: MainThreadMarker) -> Retained<NSMenu> {
-    let menu = submenu(main, "Edit");
+fn new(main: MainThreadMarker, labels: &MenuLabels) -> Retained<NSMenu> {
+    let menu = submenu(main, &labels.edit_title);
     let target = TARGET.with(|target| {
         target
             .get_or_init(|| {
@@ -108,7 +116,7 @@ fn new(main: MainThreadMarker) -> Retained<NSMenu> {
         }
         let item = row(
             main,
-            command.title,
+            (command.title)(labels),
             Some(sel!(riinaEdit:)),
             command.shortcut,
             Some(&target),
@@ -120,18 +128,18 @@ fn new(main: MainThreadMarker) -> Retained<NSMenu> {
     menu.addItem(&NSMenuItem::separatorItem(main));
     for (title, items) in [
         (
-            "Transformations",
+            &labels.transformations,
             &[
-                ("Make Upper Case", sel!(uppercaseWord:)),
-                ("Make Lower Case", sel!(lowercaseWord:)),
-                ("Capitalize", sel!(capitalizeWord:)),
+                (&labels.uppercase, sel!(uppercaseWord:)),
+                (&labels.lowercase, sel!(lowercaseWord:)),
+                (&labels.capitalize, sel!(capitalizeWord:)),
             ][..],
         ),
         (
-            "Speech",
+            &labels.speech,
             &[
-                ("Start Speaking", sel!(startSpeaking:)),
-                ("Stop Speaking", sel!(stopSpeaking:)),
+                (&labels.start_speaking, sel!(startSpeaking:)),
+                (&labels.stop_speaking, sel!(stopSpeaking:)),
             ][..],
         ),
     ] {
@@ -173,7 +181,7 @@ fn row(
 
 struct Command {
     edit: Edit,
-    title: &'static str,
+    title: fn(&MenuLabels) -> &str,
     selector: fn() -> Sel,
     shortcut: &'static str,
     modifiers: Modifiers,
@@ -182,49 +190,49 @@ struct Command {
 const COMMANDS: &[Command] = &[
     Command {
         edit: Edit::Undo,
-        title: "Undo",
+        title: |labels| &labels.undo,
         selector: || sel!(undo:),
         shortcut: "z",
         modifiers: Modifiers::Command,
     },
     Command {
         edit: Edit::Redo,
-        title: "Redo",
+        title: |labels| &labels.redo,
         selector: || sel!(redo:),
         shortcut: "z",
         modifiers: Modifiers::Command.union(Modifiers::Shift),
     },
     Command {
         edit: Edit::Cut,
-        title: "Cut",
+        title: |labels| &labels.cut,
         selector: || sel!(cut:),
         shortcut: "x",
         modifiers: Modifiers::Command,
     },
     Command {
         edit: Edit::Copy,
-        title: "Copy",
+        title: |labels| &labels.copy,
         selector: || sel!(copy:),
         shortcut: "c",
         modifiers: Modifiers::Command,
     },
     Command {
         edit: Edit::Paste,
-        title: "Paste",
+        title: |labels| &labels.paste,
         selector: || sel!(paste:),
         shortcut: "v",
         modifiers: Modifiers::Command,
     },
     Command {
         edit: Edit::Delete,
-        title: "Delete",
+        title: |labels| &labels.delete,
         selector: || sel!(delete:),
         shortcut: "\u{8}",
         modifiers: Modifiers::empty(),
     },
     Command {
         edit: Edit::SelectAll,
-        title: "Select All",
+        title: |labels| &labels.select_all,
         selector: || sel!(selectAll:),
         shortcut: "a",
         modifiers: Modifiers::Command,
@@ -262,7 +270,13 @@ fn forward(
     apply: bool,
 ) -> bool {
     let selector = (command.selector)();
-    let proxy = row(main, command.title, Some(selector), command.shortcut, None);
+    let proxy = row(
+        main,
+        &sender.title().to_string(),
+        Some(selector),
+        command.shortcut,
+        None,
+    );
     proxy.setTag(sender.tag());
     proxy.setKeyEquivalentModifierMask(command.modifiers);
     // SAFETY: use the standard one-argument editing selectors. The proxy

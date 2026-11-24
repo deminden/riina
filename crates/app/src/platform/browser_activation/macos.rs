@@ -4,6 +4,7 @@ mod playback_menus;
 mod plugin_menu;
 mod plugin_shortcuts;
 
+use crate::platform::macos::menu_labels::MenuLabels;
 use crate::{
     browser_links::{Inbox, Link},
     player_manager::PlayerManager,
@@ -51,6 +52,7 @@ struct Launch {
     documents: RefCell<Vec<String>>,
     document_timer: slint::Timer,
     plugins: plugin_menu::IdlePlugins,
+    menu_labels: Rc<MenuLabels>,
 }
 
 impl Launch {
@@ -377,6 +379,7 @@ impl ApplicationEvents {
         manager: PlayerManager,
         default_action: Option<ActionAfterLaunch>,
         enable_new_window_shortcut: bool,
+        menu_labels: Rc<MenuLabels>,
     ) -> Option<Self> {
         let main = MainThreadMarker::new()?;
         let launch = Rc::new(Launch {
@@ -386,6 +389,7 @@ impl ApplicationEvents {
             documents: RefCell::default(),
             document_timer: slint::Timer::default(),
             plugins: plugin_menu::IdlePlugins::default(),
+            menu_labels,
         });
         let allocated = LaunchTarget::alloc(main).set_ivars(launch.clone());
         // SAFETY: the target's superclass is NSObject and supplies this initializer.

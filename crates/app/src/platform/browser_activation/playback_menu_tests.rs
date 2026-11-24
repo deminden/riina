@@ -1,7 +1,9 @@
 use riina_ui::{
-    IdlePlaybackAction, PlaybackAudioState, PlaybackMenuCatalog, PlaybackMenuRow, PlaybackMenuText,
+    CompactPlayerMenu, IdlePlaybackAction, PlaybackAudioState, PlaybackMenuCatalog,
+    PlaybackMenuRow, PlaybackMenuText, PlayerMenuActions, PlayerPreferences, PluginMenuRow,
 };
 use slint::{ComponentHandle, Keys, ModelRc, VecModel};
+use std::{cell::Cell, rc::Rc};
 
 #[test]
 fn idle_playback_catalog_follows_the_player_sections_and_profile() {
@@ -116,6 +118,89 @@ fn localized_playback_menus_keep_intents_shortcuts_and_user_names() {
         .invoke_online_subtitles("External Service".into(), 1);
     assert_eq!(provider, "البحث عن ترجمة على External Service");
     slint::select_bundled_translation("en").unwrap();
+}
+
+#[test]
+fn localized_application_menus_keep_file_and_plugin_commands()
+-> Result<(), Box<dyn std::error::Error>> {
+    i_slint_backend_testing::init_no_event_loop();
+    let _translations = crate::PlayerWindow::new()?;
+    for (locale, labels, open, alternate, more) in [
+        (
+            "en",
+            ["File", "Edit", "Plugin", "Window", "Help"],
+            "Open…",
+            "Open in New Window…",
+            "More…",
+        ),
+        (
+            "ru",
+            ["Файл", "Правка", "Плагины", "Окно", "Справка"],
+            "Открыть…",
+            "Открыть в новом окне…",
+            "Ещё…",
+        ),
+        (
+            "ar",
+            ["ملف", "تحرير", "الإضافات", "نافذة", "مساعدة"],
+            "فتح…",
+            "فتح في نافذة جديدة…",
+            "المزيد…",
+        ),
+    ] {
+        slint::select_bundled_translation(locale)?;
+        let (window, menu) = CompactPlayerMenu::new_player()?;
+        let preferences = window.global::<PlayerPreferences>();
+        preferences.set_open_in_new_player(false);
+        let actions = window.global::<PlayerMenuActions>();
+        let opened = Rc::new(Cell::new(false));
+        let observed = opened.clone();
+        actions.on_open_file(move || observed.set(true));
+        let chosen = Rc::new(Cell::new(slint::SharedString::default()));
+        let observed = chosen.clone();
+        actions.on_activate_plugin_menu_item(move |token| observed.set(token));
+        let mut plugin_rows = vec![PluginMenuRow {
+            token: "header".into(),
+            label: "Example Plugin".into(),
+            section_header: true,
+            ..Default::default()
+        }];
+        plugin_rows.extend((1..=6).map(|index| PluginMenuRow {
+            token: format!("action-{index}").into(),
+            label: format!("Action {index}").into(),
+            enabled: true,
+            ..Default::default()
+        }));
+        window.set_plugin_menu_rows(ModelRc::new(VecModel::from(plugin_rows)));
+
+        let families = menu.items();
+        assert_eq!(families.len(), 10);
+        assert_eq!(
+            [1, 2, 7, 8, 9].map(|index| families[index].title.as_str()),
+            labels
+        );
+        let file = &families[1].children;
+        assert_eq!(file[0].title, open);
+        assert_eq!(file[1].title, alternate);
+        assert!(!file[0].shortcut.is_empty() && !file[1].shortcut.is_empty());
+        let overflow = families[7]
+            .children
+            .iter()
+            .find(|row| row.title == more)
+            .ok_or("Missing localized plugin overflow menu")?;
+        assert_eq!(overflow.children[0].title, "Action 6");
+        menu.activate(overflow.children[0].id.clone());
+        assert_eq!(chosen.take(), "action-6");
+        menu.activate(file[0].id.clone());
+        assert!(opened.get());
+
+        preferences.set_open_in_new_player(true);
+        let swapped = menu.items();
+        assert_eq!(swapped[1].children[0].title, alternate);
+        assert_eq!(swapped[1].children[1].title, open);
+    }
+    slint::select_bundled_translation("en")?;
+    Ok(())
 }
 
 fn assert_structure(expected: &[PlaybackMenuRow], actual: &[PlaybackMenuRow]) {

@@ -1,9 +1,6 @@
 //! Keep application commands available when there is no Slint player menu.
 use super::{LaunchTarget, playback_menus, plugin_menu};
-use crate::platform::macos::{
-    application_menu::{register_services_menu, services_menu},
-    edit_menu,
-};
+use crate::platform::macos::{edit_menu, menu_labels::MenuLabels};
 use objc2::{
     DefinedClass, MainThreadMarker, MainThreadOnly,
     rc::Retained,
@@ -20,6 +17,11 @@ thread_local! {
 
 struct IdleMenu {
     native: Retained<NSMenu>,
+    services: Retained<NSMenu>,
+    file: Retained<NSMenu>,
+    plugins: Retained<NSMenu>,
+    window: Retained<NSMenu>,
+    help: Retained<NSMenu>,
     target: Retained<LaunchTarget>,
     playback: Option<playback_menus::Menus>,
 }
@@ -30,7 +32,12 @@ impl IdleMenu {
             .ok()
             .and_then(|path| crate::preference_load::read_valid(&path).ok().flatten())
             .unwrap_or_default();
-        refresh_file_menu(main, &self.native, &preferences);
+        refresh_file_menu(
+            main,
+            &self.file,
+            &preferences,
+            &self.target.ivars().menu_labels,
+        );
         if let Some(playback) = &self.playback {
             playback.refresh(&self.target, &preferences);
         }
@@ -38,23 +45,16 @@ impl IdleMenu {
     }
 
     fn refresh_plugins(&self, force: bool) {
-        if let Some(plugins) = self
-            .native
-            .itemWithTitle(&NSString::from_str("Plugin"))
-            .and_then(|item| item.submenu())
-        {
-            self.target
-                .ivars()
-                .plugins
-                .refresh(&self.native, &plugins, &self.target, force);
-        }
+        self.target
+            .ivars()
+            .plugins
+            .refresh(&self.native, &self.plugins, &self.target, force);
     }
 }
 
-const FILE_TITLES: [&str; 2] = ["Open…", "Open in New Window…"];
-const URL_TITLES: [&str; 2] = ["Open URL…", "Open URL in New Window…"];
-const OPEN_RECENT: &str = "Open Recent";
 const NEW_WINDOW_SEPARATOR_TAG: isize = 114083;
+const NEW_WINDOW_TAG: isize = 114084;
+const RECENT_DOCUMENTS_TAG: isize = 114085;
 
 pub(super) fn prepare(
     main: MainThreadMarker,
@@ -62,13 +62,11 @@ pub(super) fn prepare(
     enable_new_window_shortcut: bool,
 ) {
     let menu = NSMenu::new(main);
-    add_submenu(main, &menu, &application_menu(main, target));
-    add_submenu(
-        main,
-        &menu,
-        &file_menu(main, target, enable_new_window_shortcut),
-    );
-    menu.addItem(&edit_menu::parent(main));
+    let (application, services) = application_menu(main, target);
+    let file = file_menu(main, target, enable_new_window_shortcut);
+    add_submenu(main, &menu, &application);
+    add_submenu(main, &menu, &file);
+    menu.addItem(&edit_menu::parent(main, &target.ivars().menu_labels));
     let playback = playback_menus::Menus::new(main)
         .inspect_err(|error| {
             crate::diagnostics::warn!("Could not initialize the idle playback menus: {error}")
@@ -79,15 +77,19 @@ pub(super) fn prepare(
             add_submenu(main, &menu, submenu);
         }
     }
-    for submenu in [
-        plugin_menu::new(main, target),
-        window_menu(main, target),
-        help_menu(main, target),
-    ] {
-        add_submenu(main, &menu, &submenu);
+    let plugins = plugin_menu::new(main, target);
+    let window = window_menu(main, target);
+    let help = help_menu(main, target);
+    for submenu in [&plugins, &window, &help] {
+        add_submenu(main, &menu, submenu);
     }
     IDLE_MENU.replace(Some(Rc::new(IdleMenu {
         native: menu,
+        services,
+        file,
+        plugins,
+        window,
+        help,
         target: target.clone(),
         playback,
     })));
@@ -99,18 +101,22 @@ fn add_submenu(main: MainThreadMarker, menu: &NSMenu, submenu: &NSMenu) {
     menu.addItem(&parent);
 }
 
-fn application_menu(main: MainThreadMarker, target: &LaunchTarget) -> Retained<NSMenu> {
+fn application_menu(
+    main: MainThreadMarker,
+    target: &LaunchTarget,
+) -> (Retained<NSMenu>, Retained<NSMenu>) {
+    let labels = &target.ivars().menu_labels;
     let app = NSMenu::initWithTitle(NSMenu::alloc(main), &NSString::from_str("Riina"));
     app.addItem(&item(
         main,
-        "About Riina",
+        &labels.about,
         Some(sel!(riinaIdleAbout:)),
         "",
         Some(target),
     ));
     app.addItem(&item(
         main,
-        "Check for Updates…",
+        &labels.check_updates,
         Some(sel!(riinaIdleUpdates:)),
         "",
         Some(target),
@@ -118,7 +124,7 @@ fn application_menu(main: MainThreadMarker, target: &LaunchTarget) -> Retained<N
     app.addItem(&NSMenuItem::separatorItem(main));
     let settings = item(
         main,
-        "Settings…",
+        &labels.settings,
         Some(sel!(riinaIdleSettings:)),
         ",",
         Some(target),
@@ -129,15 +135,18 @@ fn application_menu(main: MainThreadMarker, target: &LaunchTarget) -> Retained<N
     settings.setImage(image.as_deref());
     app.addItem(&settings);
     app.addItem(&NSMenuItem::separatorItem(main));
-    let services = item(main, "Services", None, "", None);
-    let submenu = NSMenu::initWithTitle(NSMenu::alloc(main), &NSString::from_str("Services"));
+    let services = item(main, &labels.services_title, None, "", None);
+    let submenu = NSMenu::initWithTitle(
+        NSMenu::alloc(main),
+        &NSString::from_str(&labels.services_title),
+    );
     services.setSubmenu(Some(&submenu));
     app.addItem(&services);
     app.addItem(&NSMenuItem::separatorItem(main));
-    app.addItem(&item(main, "Hide Riina", Some(sel!(hide:)), "h", None));
+    app.addItem(&item(main, &labels.hide, Some(sel!(hide:)), "h", None));
     let others = item(
         main,
-        "Hide Others",
+        &labels.hide_others,
         Some(sel!(hideOtherApplications:)),
         "h",
         None,
@@ -147,7 +156,7 @@ fn application_menu(main: MainThreadMarker, target: &LaunchTarget) -> Retained<N
     app.addItem(&others);
     app.addItem(&item(
         main,
-        "Show All",
+        &labels.show_all,
         Some(sel!(unhideAllApplications:)),
         "",
         None,
@@ -155,12 +164,12 @@ fn application_menu(main: MainThreadMarker, target: &LaunchTarget) -> Retained<N
     app.addItem(&NSMenuItem::separatorItem(main));
     app.addItem(&item(
         main,
-        "Quit Riina",
+        &labels.quit,
         Some(sel!(riinaIdleQuit:)),
         "q",
         Some(target),
     ));
-    app
+    (app, submenu)
 }
 
 fn file_menu(
@@ -168,16 +177,20 @@ fn file_menu(
     target: &LaunchTarget,
     enable_new_window_shortcut: bool,
 ) -> Retained<NSMenu> {
-    let file = NSMenu::initWithTitle(NSMenu::alloc(main), &NSString::from_str("File"));
+    let labels = &target.ivars().menu_labels;
+    let file = NSMenu::initWithTitle(NSMenu::alloc(main), &NSString::from_str(&labels.file_title));
     for (titles, action, key, modifiers) in [
         (
-            FILE_TITLES,
+            [labels.open.as_str(), labels.open_in_new_window.as_str()],
             sel!(riinaIdleOpen:),
             "o",
             NSEventModifierFlags::Command,
         ),
         (
-            URL_TITLES,
+            [
+                labels.open_url.as_str(),
+                labels.open_url_in_new_window.as_str(),
+            ],
             sel!(riinaIdleOpenURL:),
             "O",
             NSEventModifierFlags::Command | NSEventModifierFlags::Shift,
@@ -191,8 +204,12 @@ fn file_menu(
         alternative.setAlternate(true);
         file.addItem(&alternative);
     }
-    let recent = item(main, OPEN_RECENT, None, "", Some(target));
-    let documents = NSMenu::initWithTitle(NSMenu::alloc(main), &NSString::from_str(OPEN_RECENT));
+    let recent = item(main, &labels.open_recent, None, "", Some(target));
+    recent.setTag(RECENT_DOCUMENTS_TAG);
+    let documents = NSMenu::initWithTitle(
+        NSMenu::alloc(main),
+        &NSString::from_str(&labels.open_recent),
+    );
     documents.setAutoenablesItems(false);
     recent.setSubmenu(Some(&documents));
     file.addItem(&recent);
@@ -202,16 +219,17 @@ fn file_menu(
     file.addItem(&separator);
     let new_window = item(
         main,
-        "New Window",
+        &labels.new_window,
         Some(sel!(riinaIdleNewWindow:)),
         "n",
         Some(target),
     );
+    new_window.setTag(NEW_WINDOW_TAG);
     new_window.setHidden(!enable_new_window_shortcut);
     file.addItem(&new_window);
     let history = item(
         main,
-        "Playback History",
+        &labels.playback_history,
         Some(sel!(riinaIdleHistory:)),
         "H",
         Some(target),
@@ -222,33 +240,49 @@ fn file_menu(
     file.addItem(&history);
     file.addItem(&NSMenuItem::separatorItem(main));
     for title in [
-        "Show Current File in Finder",
-        "Delete Current File",
-        "Save Current Playlist…",
+        &labels.reveal_in_finder,
+        &labels.delete_current,
+        &labels.save_current_playlist,
     ] {
         let unavailable = item(main, title, None, "", None);
         unavailable.setEnabled(false);
         file.addItem(&unavailable);
     }
     file.addItem(&NSMenuItem::separatorItem(main));
-    file.addItem(&item(main, "Close", Some(sel!(performClose:)), "w", None));
+    file.addItem(&item(
+        main,
+        &labels.close,
+        Some(sel!(performClose:)),
+        "w",
+        None,
+    ));
     file
 }
 
 fn window_menu(main: MainThreadMarker, target: &LaunchTarget) -> Retained<NSMenu> {
-    let window = NSMenu::initWithTitle(NSMenu::alloc(main), &NSString::from_str("Window"));
+    let labels = &target.ivars().menu_labels;
+    let window = NSMenu::initWithTitle(
+        NSMenu::alloc(main),
+        &NSString::from_str(&labels.window_title),
+    );
     window.addItem(&item(
         main,
-        "Minimize",
+        &labels.minimize,
         Some(sel!(performMiniaturize:)),
         "m",
         None,
     ));
-    window.addItem(&item(main, "Zoom", Some(sel!(performZoom:)), "", None));
+    window.addItem(&item(
+        main,
+        &labels.zoom,
+        Some(sel!(performZoom:)),
+        "",
+        None,
+    ));
     window.addItem(&NSMenuItem::separatorItem(main));
     window.addItem(&item(
         main,
-        "Bring All to Front",
+        &labels.bring_to_front,
         Some(sel!(arrangeInFront:)),
         "",
         None,
@@ -256,7 +290,7 @@ fn window_menu(main: MainThreadMarker, target: &LaunchTarget) -> Retained<NSMenu
     window.addItem(&NSMenuItem::separatorItem(main));
     let logs = item(
         main,
-        "Log Viewer",
+        &labels.log_viewer,
         Some(sel!(riinaIdleLogs:)),
         "l",
         Some(target),
@@ -269,11 +303,12 @@ fn window_menu(main: MainThreadMarker, target: &LaunchTarget) -> Retained<NSMenu
 }
 
 fn help_menu(main: MainThreadMarker, target: &LaunchTarget) -> Retained<NSMenu> {
-    let help = NSMenu::initWithTitle(NSMenu::alloc(main), &NSString::from_str("Help"));
-    help.addItem(&help_link(main, target, "Riina Help", "help", "?"));
+    let labels = &target.ivars().menu_labels;
+    let help = NSMenu::initWithTitle(NSMenu::alloc(main), &NSString::from_str(&labels.help_title));
+    help.addItem(&help_link(main, target, &labels.help, "help", "?"));
     help.addItem(&item(
         main,
-        "Dump Debug Info",
+        &labels.dump_debug,
         Some(sel!(riinaIdleDebugInfo:)),
         "",
         Some(target),
@@ -281,14 +316,14 @@ fn help_menu(main: MainThreadMarker, target: &LaunchTarget) -> Retained<NSMenu> 
     help.addItem(&NSMenuItem::separatorItem(main));
     help.addItem(&item(
         main,
-        "Release Highlights",
+        &labels.release_highlights,
         Some(sel!(riinaIdleHighlights:)),
         "",
         Some(target),
     ));
     help.addItem(&NSMenuItem::separatorItem(main));
     help.addItem(&help_link(main, target, "GitHub", "github", ""));
-    help.addItem(&help_link(main, target, "Website", "website", ""));
+    help.addItem(&help_link(main, target, &labels.website, "website", ""));
     help
 }
 
@@ -319,28 +354,13 @@ pub(crate) fn show_idle_menu() {
     };
     let app = NSApplication::sharedApplication(main);
     if let Some(menu) = IDLE_MENU.with_borrow(Clone::clone)
-        && !app
-            .mainMenu()
-            .as_deref()
-            .is_some_and(|active| std::ptr::eq(active, &*menu.native))
+        && !owns_menu(app.mainMenu(), &menu.native)
     {
         menu.refresh(main, false);
         app.setMainMenu(Some(&menu.native));
-        register_services_menu(&app, &menu.native);
-        if let Some(window) = menu
-            .native
-            .itemWithTitle(&NSString::from_str("Window"))
-            .and_then(|item| item.submenu())
-        {
-            app.setWindowsMenu(Some(&window));
-        }
-        if let Some(help) = menu
-            .native
-            .itemWithTitle(&NSString::from_str("Help"))
-            .and_then(|item| item.submenu())
-        {
-            app.setHelpMenu(Some(&help));
-        }
+        app.setServicesMenu(Some(&menu.services));
+        app.setWindowsMenu(Some(&menu.window));
+        app.setHelpMenu(Some(&menu.help));
     }
 }
 
@@ -358,20 +378,34 @@ pub(super) fn refresh_plugins(force: bool) {
     }
 }
 
-fn refresh_file_menu(main: MainThreadMarker, menu: &NSMenu, preferences: &riina_core::Preferences) {
-    let Some(file) = menu.itemAtIndex(1).and_then(|item| item.submenu()) else {
-        return;
-    };
+fn refresh_file_menu(
+    main: MainThreadMarker,
+    file: &NSMenu,
+    preferences: &riina_core::Preferences,
+    labels: &MenuLabels,
+) {
     let opens_new = preferences.allow_multiple_windows;
-    rebuild_recent_documents(main, &file, preferences);
+    rebuild_recent_documents(main, file, preferences, labels);
     let hide_new_window = !preferences.enable_new_window_shortcut;
-    if let Some(new_window) = file.itemWithTitle(&NSString::from_str("New Window")) {
+    if let Some(new_window) = file.itemWithTag(NEW_WINDOW_TAG) {
         new_window.setHidden(hide_new_window);
     }
     if let Some(separator) = file.itemWithTag(NEW_WINDOW_SEPARATOR_TAG) {
         separator.setHidden(hide_new_window);
     }
-    for (first, titles) in [(0, FILE_TITLES), (2, URL_TITLES)] {
+    for (first, titles) in [
+        (
+            0,
+            [labels.open.as_str(), labels.open_in_new_window.as_str()],
+        ),
+        (
+            2,
+            [
+                labels.open_url.as_str(),
+                labels.open_url_in_new_window.as_str(),
+            ],
+        ),
+    ] {
         let Some(primary) = file.itemAtIndex(first) else {
             continue;
         };
@@ -387,8 +421,9 @@ fn rebuild_recent_documents(
     main: MainThreadMarker,
     file: &NSMenu,
     preferences: &riina_core::Preferences,
+    labels: &MenuLabels,
 ) {
-    let Some(recent) = file.itemWithTitle(&NSString::from_str(OPEN_RECENT)) else {
+    let Some(recent) = file.itemWithTag(RECENT_DOCUMENTS_TAG) else {
         return;
     };
     recent.setHidden(!preferences.record_recent_files);
@@ -416,7 +451,7 @@ fn rebuild_recent_documents(
     }
     let clear = item(
         main,
-        "Clear Menu",
+        &labels.clear_recent,
         Some(sel!(riinaIdleClearRecent:)),
         "",
         Some(&target),
@@ -427,45 +462,27 @@ fn rebuild_recent_documents(
 
 pub(super) fn clear() {
     let Some(menu) = IDLE_MENU.take() else { return };
-    let menu = &menu.native;
     if let Some(main) = MainThreadMarker::new() {
         let app = NSApplication::sharedApplication(main);
-        if let Some(services) = services_menu(menu)
-            && app
-                .servicesMenu()
-                .as_deref()
-                .is_some_and(|active| std::ptr::eq(active, &*services))
-        {
+        if owns_menu(app.servicesMenu(), &menu.services) {
             app.setServicesMenu(None);
         }
-        if let Some(window) = menu
-            .itemWithTitle(&NSString::from_str("Window"))
-            .and_then(|item| item.submenu())
-            && app
-                .windowsMenu()
-                .as_deref()
-                .is_some_and(|active| std::ptr::eq(active, &*window))
-        {
+        if owns_menu(app.windowsMenu(), &menu.window) {
             app.setWindowsMenu(None);
         }
-        if let Some(help) = menu
-            .itemWithTitle(&NSString::from_str("Help"))
-            .and_then(|item| item.submenu())
-            && app
-                .helpMenu()
-                .as_deref()
-                .is_some_and(|active| std::ptr::eq(active, &*help))
-        {
+        if owns_menu(app.helpMenu(), &menu.help) {
             app.setHelpMenu(None);
         }
-        if app
-            .mainMenu()
-            .as_deref()
-            .is_some_and(|active| std::ptr::eq(active, menu.as_ref()))
-        {
+        if owns_menu(app.mainMenu(), &menu.native) {
             app.setMainMenu(None);
         }
     }
+}
+
+fn owns_menu(active: Option<Retained<NSMenu>>, expected: &NSMenu) -> bool {
+    active
+        .as_deref()
+        .is_some_and(|menu| std::ptr::eq(menu, expected))
 }
 
 pub(super) fn item(

@@ -4129,3 +4129,37 @@ Both Linux desktop checks used the same application and libmpv build.
 
 - Linux application SHA-256 `dec7aade65b40d91e95c32a55dd6eb6619daccaa99c3c9ed73d93394018a6305`
 - Linux libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`
+
+### Localized application menus 2026-11-24
+
+The application, File, Edit, Plugin, Window and Help menus use the same
+English, Russian and Arabic messages on the player surfaces. AppKit uses
+the same catalog for its idle application commands. Recent document titles
+and plugin-contributed labels come from their own models.
+
+The shared regression checked all ten menu families, translated File
+alternates, shortcut hints and command delivery in the three languages.
+It opened a localized plugin overflow menu and routed its sixth action
+with the original token. The Win32 test sent popup notifications through
+each localized Plugin submenu and checked that the adjacent File submenu
+did not trigger a plugin refresh. The full Windows workspace gate and
+locked build passed, including the player and Settings pixel baselines.
+The Linux application suite passed 598 tests and the widget suite passed 65.
+
+On a private Windows desktop, the English native menus opened and closed
+About, Playback History, Plugin Settings, Log Viewer and Release Highlights.
+The fixture stayed paused, the player frame remained stable and the process
+exited normally.
+
+In private Sway Wayland sessions without XWayland, the Russian and Arabic
+menus at 320 × 180 opened and closed About, Playback History, Plugin Settings
+and Log Viewer. Both restored the localized wide bar at 1070 × 640 and exited
+normally.
+
+Apple Silicon cross-Clippy passed. The idle-to-player menu handoff, Services
+registration and Edit responder forwarding still need native macOS tests.
+
+- Windows application SHA-256 `05aa59a23b56cb544f0f018035269162ef2e017ebc5154328adf55cc84ed4176`
+- Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
+- Linux application SHA-256 `167e7aab1add62ac141d2059391d09bb101e87ebe0bdc94025d1fd98cf32a079`
+- Linux libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`

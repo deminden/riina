@@ -1,3 +1,4 @@
+import { ApplicationMenuText } from "application-menu-text.slint";
 import { PlaybackMenuText } from "playback-menu-text.slint";
 export struct MenuCatalogRow { token: string, label: string, selected: bool }
 export struct PluginMenuRow {
@@ -6,6 +7,10 @@ export struct PluginMenuRow {
 }
 
 export global PluginMenuDisplay {
+    public pure function root-title() -> string {
+        return "\u{1f}riina-plugin-menu:" + ApplicationMenuText.plugin-title + "\u{1f}" + ApplicationMenuText.more;
+    }
+
     public pure function conflict-title(count: int) -> string {
         return @tr("Conflicting key shortcuts… ({})", count);
     }
@@ -214,86 +219,86 @@ export component NativeVideoHost inherits Window {
     // Destroying its Slint tree also tears down the host's menu/compositor state.
     MenuBar {
         Menu { title: "riina";
-            MenuItem { title: "About Riina"; activated => { root.show-about(); } }
-            MenuItem { title: "Check for Updates…"; activated => { root.check-for-updates(); } }
+            MenuItem { title: ApplicationMenuText.about; activated => { root.show-about(); } }
+            MenuItem { title: ApplicationMenuText.check-updates; activated => { root.check-for-updates(); } }
             MenuSeparator {}
-            MenuItem { title: "Preferences…";
+            MenuItem { title: ApplicationMenuText.preferences;
                 shortcut: root.primary-shortcut-is-meta ? @keys(Meta + ",") : @keys(Control + ",");
                 activated => { root.open-preferences(); } }
             MenuSeparator {}
-            MenuItem { title: "Services"; enabled: false; }
+            MenuItem { title: ApplicationMenuText.services-title; enabled: false; }
             MenuSeparator {}
-            MenuItem { title: "Hide Riina";
+            MenuItem { title: ApplicationMenuText.hide;
                 shortcut: root.primary-shortcut-is-meta ? @keys(Meta + H) : @keys(Control + H);
                 activated => { root.hide-riina(); } }
-            MenuItem { title: "Quit Riina";
+            MenuItem { title: ApplicationMenuText.quit;
                 shortcut: root.primary-shortcut-is-meta ? @keys(Meta + Q) : @keys(Control + Q);
                 activated => { root.quit-riina(); }
             }
         }
-        Menu { title: "File";
-            MenuItem { title: root.open-in-new-player ? "Open in New Window…" : "Open…";
+        Menu { title: ApplicationMenuText.file-title;
+            MenuItem { title: root.open-in-new-player ? ApplicationMenuText.open-in-new-window : ApplicationMenuText.open;
                 shortcut: root.primary-shortcut-is-meta ? @keys(Meta + O) : @keys(Control + O);
                 activated => { root.open-media-file(); } }
-            MenuItem { title: root.open-in-new-player ? "Open…" : "Open in New Window…";
+            MenuItem { title: root.open-in-new-player ? ApplicationMenuText.open : ApplicationMenuText.open-in-new-window;
                 shortcut: root.primary-shortcut-is-meta ? @keys(Meta + Alt + O) : @keys(Control + Alt + O);
                 activated => { root.open-file-alternative(); } }
-            MenuItem { title: root.open-in-new-player ? "Open URL in New Window…" : "Open URL…";
+            MenuItem { title: root.open-in-new-player ? ApplicationMenuText.open-url-in-new-window : ApplicationMenuText.open-url;
                 shortcut: root.primary-shortcut-is-meta ? @keys(Meta + Shift + O) : @keys(Control + Shift + O);
                 activated => { root.open-url-dialog(); } }
-            MenuItem { title: root.open-in-new-player ? "Open URL…" : "Open URL in New Window…";
+            MenuItem { title: root.open-in-new-player ? ApplicationMenuText.open-url : ApplicationMenuText.open-url-in-new-window;
                 shortcut: root.primary-shortcut-is-meta
                     ? @keys(Meta + Alt + Shift + O) : @keys(Control + Alt + Shift + O);
                 activated => { root.open-url-alternative(); } }
             if root.record-recent-files : Menu {
-                title: "Open Recent";
+                title: ApplicationMenuText.open-recent;
                 enabled: root.recent-open-menu-rows.length > 0;
                 for row in root.recent-open-menu-rows : MenuItem {
                     title: row.label;
                     activated => { root.open-recent-path(row.token); }
                 }
                 MenuSeparator {}
-                MenuItem { title: "Clear Menu"; enabled: root.recent-open-menu-rows.length > 0;
+                MenuItem { title: ApplicationMenuText.clear-recent; enabled: root.recent-open-menu-rows.length > 0;
                     activated => { root.clear-open-recent(); } }
             }
             if root.enable-new-window-shortcut : MenuSeparator {}
             if root.enable-new-window-shortcut : MenuItem {
-                title: "New Window";
+                title: ApplicationMenuText.new-window;
                 shortcut: root.primary-shortcut-is-meta ? @keys(Meta + N) : @keys(Control + N);
                 activated => { root.create-welcome-window(); }
             }
             MenuSeparator {}
-            MenuItem { title: "Playback History";
+            MenuItem { title: ApplicationMenuText.playback-history;
                 shortcut: root.primary-shortcut-is-meta ? @keys(Meta + Shift + H) : @keys(Control + Shift + H);
                 activated => { root.show-playback-history(); } }
             MenuSeparator {}
-            MenuItem { title: "Show Current File in " + root.current-file-manager-name;
+            MenuItem { title: ApplicationMenuText.reveal-current(root.current-file-manager-name);
                 enabled: root.reveal-current-media-available;
                 activated => { root.reveal-current-media(); } }
-            MenuItem { title: "Delete Current File";
+            MenuItem { title: ApplicationMenuText.delete-current;
                 enabled: root.delete-current-media-available;
                 activated => { root.delete-current-media(); } }
-            MenuItem { title: "Save Current Playlist…";
+            MenuItem { title: ApplicationMenuText.save-current-playlist;
                 enabled: root.save-current-playlist-available;
                 activated => { root.save-current-playlist(); } }
             MenuSeparator {}
-            MenuItem { title: "Close";
+            MenuItem { title: ApplicationMenuText.close;
                 shortcut: root.primary-shortcut-is-meta ? @keys(Meta + W) : @keys(Control + W);
                 activated => { root.close-player(); } }
         }
-        Menu { title: "Edit";
-            MenuItem { title: "Undo"; enabled: false;
+        Menu { title: ApplicationMenuText.edit-title;
+            MenuItem { title: ApplicationMenuText.undo; enabled: false;
                 shortcut: root.primary-shortcut-is-meta ? @keys(Meta + Z) : @keys(Control + Z); }
-            MenuItem { title: "Redo"; enabled: false;
+            MenuItem { title: ApplicationMenuText.redo; enabled: false;
                 shortcut: root.primary-shortcut-is-meta ? @keys(Meta + Shift + Z) : @keys(Control + Shift + Z); }
             MenuSeparator {}
-            MenuItem { title: "Cut"; enabled: false;
+            MenuItem { title: ApplicationMenuText.cut; enabled: false;
                 shortcut: root.primary-shortcut-is-meta ? @keys(Meta + X) : @keys(Control + X); }
-            MenuItem { title: "Copy"; enabled: false;
+            MenuItem { title: ApplicationMenuText.copy; enabled: false;
                 shortcut: root.primary-shortcut-is-meta ? @keys(Meta + C) : @keys(Control + C); }
-            MenuItem { title: "Paste"; enabled: false;
+            MenuItem { title: ApplicationMenuText.paste; enabled: false;
                 shortcut: root.primary-shortcut-is-meta ? @keys(Meta + V) : @keys(Control + V); }
-            MenuItem { title: "Select All"; enabled: false;
+            MenuItem { title: ApplicationMenuText.select-all; enabled: false;
                 shortcut: root.primary-shortcut-is-meta ? @keys(Meta + A) : @keys(Control + A); }
         }
         Menu { title: @tr("Playback");
@@ -633,12 +638,12 @@ export component NativeVideoHost inherits Window {
             MenuSeparator {}
             MenuItem { title: @tr("Font…"); activated => { root.choose-subtitle-font(); } }
         }
-        Menu { title: "\u{1f}riina-plugin-menu";
+        Menu { title: PluginMenuDisplay.root-title();
             if root.plugin-menu-conflicts > 0 : MenuItem {
                 title: PluginMenuDisplay.conflict-title(root.plugin-menu-conflicts); enabled: false;
             }
-            MenuItem { title: "Manage Plugins…"; activated => { root.manage-plugins(); } }
-            MenuItem { title: root.plugins-panel-open ? "Hide Plugins Panel" : "Show Plugins Panel"; shortcut: root.menu-shortcut(45);
+            MenuItem { title: ApplicationMenuText.manage-plugins; activated => { root.manage-plugins(); } }
+            MenuItem { title: root.plugins-panel-open ? ApplicationMenuText.hide-plugin-panel : ApplicationMenuText.show-plugin-panel; shortcut: root.menu-shortcut(45);
                 activated => { root.show-plugins-panel(); } }
             MenuSeparator {}
             for row in root.plugin-menu-rows : MenuItem {
@@ -650,32 +655,32 @@ export component NativeVideoHost inherits Window {
                 activated => { root.activate-plugin-menu-item(row.token); }
             }
             if root.plugin-menu-rows.length > 0 : MenuSeparator {}
-            Menu { title: "Developer Tool"; enabled: root.plugin-developer-rows.length > 0;
+            Menu { title: ApplicationMenuText.developer-tool; enabled: root.plugin-developer-rows.length > 0;
                 for row in root.plugin-developer-rows : MenuItem {
                     title: row.label;
                     activated => { root.open-plugin-developer-tool(row.token); }
                 }
             }
-            MenuItem { title: "Reload All Plugins"; activated => { root.reload-plugins(); } }
+            MenuItem { title: ApplicationMenuText.reload-plugins; activated => { root.reload-plugins(); } }
         }
-        Menu { title: "Window";
-            MenuItem { title: "Minimize";
+        Menu { title: ApplicationMenuText.window-title;
+            MenuItem { title: ApplicationMenuText.minimize;
                 shortcut: root.primary-shortcut-is-meta ? @keys(Meta + M) : @keys(Control + M);
                 activated => { root.minimize-window(); }
             }
-            MenuItem { title: "Zoom"; activated => { root.zoom-window(); } }
+            MenuItem { title: ApplicationMenuText.zoom; activated => { root.zoom-window(); } }
             MenuSeparator {}
-            MenuItem { title: "Inspector";
+            MenuItem { title: ApplicationMenuText.inspector;
                 shortcut: root.primary-shortcut-is-meta ? @keys(Meta + I) : @keys(Control + I);
                 activated => { root.show-inspector(); }
             }
-            MenuItem { title: "Log Viewer";
+            MenuItem { title: ApplicationMenuText.log-viewer;
                 shortcut: root.primary-shortcut-is-meta
                     ? @keys(Control + Meta + L) : @keys(Control + Alt + L);
                 activated => { root.show-log-viewer(); }
             }
             MenuSeparator {}
-            MenuItem { title: "Bring All to Front";
+            MenuItem { title: ApplicationMenuText.bring-to-front;
                 enabled: root.bring-all-to-front-available;
                 activated => { root.bring-all-to-front(); } }
             if root.window-menu-rows.length > 0 : MenuSeparator {}
@@ -684,19 +689,19 @@ export component NativeVideoHost inherits Window {
                 activated => { root.select-player-window(row.token); }
             }
         }
-        Menu { title: "Help";
-            MenuItem { title: "Riina Help";
+        Menu { title: ApplicationMenuText.help-title;
+            MenuItem { title: ApplicationMenuText.help;
                 shortcut: root.primary-shortcut-is-meta ? @keys(Meta + Shift + "/") : @keys(Control + Shift + "/");
                 activated => { root.open-help-link("help"); } }
-            MenuItem { title: "Dump Debug Info"; activated => { root.dump-debug-info(); } }
+            MenuItem { title: ApplicationMenuText.dump-debug; activated => { root.dump-debug-info(); } }
             MenuSeparator {}
-            MenuItem { title: "Use New Settings Window"; checkable: true; checked: true;
+            MenuItem { title: ApplicationMenuText.new-settings; checkable: true; checked: true;
                 activated => { root.open-preferences(); } }
             MenuSeparator {}
-            MenuItem { title: "Release Highlights"; activated => { root.show-release-highlights(); } }
+            MenuItem { title: ApplicationMenuText.release-highlights; activated => { root.show-release-highlights(); } }
             MenuSeparator {}
             MenuItem { title: "GitHub"; activated => { root.open-help-link("github"); } }
-            MenuItem { title: "Website"; activated => { root.open-help-link("website"); } }
+            MenuItem { title: ApplicationMenuText.website; activated => { root.open-help-link("website"); } }
         }
     }
     in property <string> display-title: "riina";

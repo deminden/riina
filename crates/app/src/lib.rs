@@ -142,6 +142,7 @@ fn run_shared_player(
         player_manager.clone(),
         (!media.requests_playback()).then_some(loaded.preferences.action_after_launch),
         loaded.preferences.enable_new_window_shortcut,
+        application_menu.labels(),
     );
     if !cfg!(target_os = "macos") || media.requests_playback() {
         start_shared_player(&player_manager, &application_menu, media, players, loaded)?;

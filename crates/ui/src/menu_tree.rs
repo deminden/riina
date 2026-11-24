@@ -5,7 +5,7 @@ use slint_runtime::private_unstable_api::re_exports::{
 };
 use std::{cell::RefCell, iter::Peekable, pin::Pin};
 
-const PLUGIN_ROOT: &str = "\u{1f}riina-plugin-menu";
+const PLUGIN_ROOT: &str = "\u{1f}riina-plugin-menu:";
 const ROW_PREFIX: &str = "\u{1f}riina-plugin-row:";
 const TOP_LEVEL_LIMIT: usize = 5;
 
@@ -60,14 +60,14 @@ impl MenuFromItemTree {
         }
     }
 
-    fn update_plugin(&self, root: &MenuEntry) {
+    fn update_plugin(&self, root: &MenuEntry, overflow_label: &str) {
         let mut plugin = self.plugin.borrow_mut();
         if plugin.root.as_ref() == Some(&root.id) {
             return;
         }
         let mut rows = SharedVector::default();
         self.source.sub_menu(Some(root), &mut rows);
-        *plugin = PluginMenu::new(root.id.clone(), rows);
+        *plugin = PluginMenu::new(root.id.clone(), rows, overflow_label);
     }
 }
 
@@ -76,16 +76,20 @@ impl Menu for MenuFromItemTree {
         self.refresh.as_ref().get();
         let mut roots = SharedVector::default();
         self.source.sub_menu(None, &mut roots);
-        let root_index = roots.iter().position(|entry| entry.title == PLUGIN_ROOT);
-        if let Some(root) = root_index.and_then(|index| roots.get(index)) {
-            self.update_plugin(root);
+        let plugin = roots.iter().enumerate().find_map(|(index, entry)| {
+            let payload = entry.title.strip_prefix(PLUGIN_ROOT)?;
+            let (title, overflow) = payload.split_once('\u{1f}')?;
+            Some((index, SharedString::from(title), overflow))
+        });
+        if let Some((index, _, overflow)) = &plugin {
+            self.update_plugin(&roots[*index], overflow);
         } else {
             self.plugin.replace(PluginMenu::default());
         }
         *result = match parent {
             None => {
-                if let Some(index) = root_index {
-                    roots.make_mut_slice()[index].title = "Plugin".into();
+                if let Some((index, title, _)) = plugin {
+                    roots.make_mut_slice()[index].title = title;
                 }
                 roots
             }
@@ -132,12 +136,15 @@ struct PluginMenu {
 }
 
 impl PluginMenu {
-    fn new(root: SharedString, rows: SharedVector<MenuEntry>) -> Self {
+    fn new(root: SharedString, rows: SharedVector<MenuEntry>, overflow_label: &str) -> Self {
         let mut menu = Self {
             root: Some(root.clone()),
             ..Self::default()
         };
-        let entries = menu.level(&mut with_overflow(rows).into_iter().peekable(), 0);
+        let entries = menu.level(
+            &mut with_overflow(rows, overflow_label).into_iter().peekable(),
+            0,
+        );
         menu.children.insert(root, entries);
         menu
     }
@@ -188,7 +195,7 @@ fn decode_title(title: &str) -> Option<(u8, &str, &str)> {
     Some((depth.parse().ok()?, kind, label))
 }
 
-fn with_overflow(rows: SharedVector<MenuEntry>) -> Vec<MenuEntry> {
+fn with_overflow(rows: SharedVector<MenuEntry>, overflow_label: &str) -> Vec<MenuEntry> {
     let mut result = Vec::with_capacity(rows.len());
     let mut count = 0;
     for mut row in rows {
@@ -200,7 +207,7 @@ fn with_overflow(rows: SharedVector<MenuEntry>) -> Vec<MenuEntry> {
                     if count == TOP_LEVEL_LIMIT + 1 {
                         result.push(MenuEntry {
                             id: format!("more:{}", row.id).into(),
-                            title: format!("{ROW_PREFIX}0:b:More…").into(),
+                            title: format!("{ROW_PREFIX}0:b:{overflow_label}").into(),
                             enabled: true,
                             ..Default::default()
                         });

@@ -1,3 +1,4 @@
+import { ApplicationMenuText } from "application-menu-text.slint";
 import { PlaybackMenuText } from "playback-menu-text.slint";
 import { Button, Palette } from "std-widgets.slint";
 import { PlayerLayoutState } from "player-layout-state.slint";
@@ -107,90 +108,90 @@ export component PlayerMenuWindow inherits Window {
     if root.menu-bar-visible : MenuBar {
         visible: !root.use-compact-menu;
         Menu { title: "riina";
-            MenuItem { title: "About Riina"; activated => { PlayerMenuActions.show-about(); } }
-            MenuItem { title: "Check for Updates…";
+            MenuItem { title: ApplicationMenuText.about; activated => { PlayerMenuActions.show-about(); } }
+            MenuItem { title: ApplicationMenuText.check-updates;
                 activated => { PlayerMenuActions.check-for-updates(); } }
             MenuSeparator {}
-            MenuItem { title: root.menu-value-primary-shortcut-is-meta ? "Settings…" : "Preferences…";
+            MenuItem { title: root.menu-value-primary-shortcut-is-meta ? ApplicationMenuText.settings : ApplicationMenuText.preferences;
                 enabled: !root.menu-value-crop-editing;
                 shortcut: root.player-shortcut(root.menu-value-primary-shortcut-is-meta ? @keys(Meta + ",") : @keys(Control + ","));
                 activated => { PlayerMenuActions.open-preferences(); } }
             MenuSeparator {}
-            MenuItem { title: "Services"; enabled: false; }
+            MenuItem { title: ApplicationMenuText.services-title; enabled: false; }
             MenuSeparator {}
-            MenuItem { title: "Hide Riina";
+            MenuItem { title: ApplicationMenuText.hide;
                 shortcut: root.player-shortcut(root.menu-value-primary-shortcut-is-meta ? @keys(Meta + H) : @keys(Control + H));
                 activated => { PlayerMenuActions.hide-riina(); } }
-            MenuItem { title: "Quit Riina";
+            MenuItem { title: ApplicationMenuText.quit;
                 shortcut: root.player-shortcut(root.menu-value-primary-shortcut-is-meta ? @keys(Meta + Q) : @keys(Control + Q));
                 activated => { PlayerMenuActions.quit-riina(); }
             }
         }
-        Menu { title: "File";
-            MenuItem { title: PlayerPreferences.open-in-new-player ? "Open in New Window…" : "Open…"; enabled: !root.menu-value-crop-editing;
+        Menu { title: ApplicationMenuText.file-title;
+            MenuItem { title: PlayerPreferences.open-in-new-player ? ApplicationMenuText.open-in-new-window : ApplicationMenuText.open; enabled: !root.menu-value-crop-editing;
                 shortcut: root.player-shortcut(root.menu-value-primary-shortcut-is-meta ? @keys(Meta + O) : @keys(Control + O));
                 activated => { PlayerMenuActions.open-file(); } }
-            MenuItem { title: PlayerPreferences.open-in-new-player ? "Open…" : "Open in New Window…"; enabled: !root.menu-value-crop-editing;
+            MenuItem { title: PlayerPreferences.open-in-new-player ? ApplicationMenuText.open : ApplicationMenuText.open-in-new-window; enabled: !root.menu-value-crop-editing;
                 shortcut: root.player-shortcut(root.menu-value-primary-shortcut-is-meta ? @keys(Meta + Alt + O) : @keys(Control + Alt + O));
                 activated => { PlayerMenuActions.open-file-alternative(); } }
-            MenuItem { title: PlayerPreferences.open-in-new-player ? "Open URL in New Window…" : "Open URL…"; enabled: !root.menu-value-crop-editing;
+            MenuItem { title: PlayerPreferences.open-in-new-player ? ApplicationMenuText.open-url-in-new-window : ApplicationMenuText.open-url; enabled: !root.menu-value-crop-editing;
                 shortcut: root.player-shortcut(root.menu-value-primary-shortcut-is-meta ? @keys(Meta + Shift + O) : @keys(Control + Shift + O));
                 activated => { PlayerMenuActions.open-url-dialog(); } }
-            MenuItem { title: PlayerPreferences.open-in-new-player ? "Open URL…" : "Open URL in New Window…"; enabled: !root.menu-value-crop-editing;
+            MenuItem { title: PlayerPreferences.open-in-new-player ? ApplicationMenuText.open-url : ApplicationMenuText.open-url-in-new-window; enabled: !root.menu-value-crop-editing;
                 shortcut: root.player-shortcut(root.menu-value-primary-shortcut-is-meta
                     ? @keys(Meta + Alt + Shift + O) : @keys(Control + Alt + Shift + O));
                 activated => { PlayerMenuActions.open-url-alternative(); } }
             if PlayerPreferences.record-recent-files : Menu {
-                title: "Open Recent";
+                title: ApplicationMenuText.open-recent;
                 enabled: PlayerCatalogState.recent-open-menu-rows.length > 0;
                 for row in PlayerCatalogState.recent-open-menu-rows : MenuItem {
                     title: row.label;
                     activated => { PlayerMenuActions.open-recent-path(row.token); }
                 }
                 MenuSeparator {}
-                MenuItem { title: "Clear Menu"; enabled: PlayerCatalogState.recent-open-menu-rows.length > 0;
+                MenuItem { title: ApplicationMenuText.clear-recent; enabled: PlayerCatalogState.recent-open-menu-rows.length > 0;
                     activated => { PlayerMenuActions.clear-open-recent(); } }
             }
             if PlayerPreferences.enable-new-window-shortcut : MenuSeparator {}
             if PlayerPreferences.enable-new-window-shortcut : MenuItem {
-                title: "New Window"; enabled: !root.menu-value-crop-editing;
+                title: ApplicationMenuText.new-window; enabled: !root.menu-value-crop-editing;
                 shortcut: root.player-shortcut(root.menu-value-primary-shortcut-is-meta
                     ? @keys(Meta + N) : @keys(Control + N));
                 activated => { PlayerMenuActions.create-welcome-window(); }
             }
             MenuSeparator {}
-            MenuItem { title: "Playback History";
+            MenuItem { title: ApplicationMenuText.playback-history;
                 shortcut: root.player-shortcut(root.menu-value-primary-shortcut-is-meta ? @keys(Meta + Shift + H) : @keys(Control + Shift + H));
                 activated => { PlayerMenuActions.show-playback-history(); } }
             MenuSeparator {}
             MenuItem {
-                title: "Show Current File in " + root.menu-value-current-file-manager-name;
+                title: ApplicationMenuText.reveal-current(root.menu-value-current-file-manager-name);
                 enabled: root.menu-value-reveal-current-media-available;
                 activated => { PlayerMenuActions.reveal-current-media(); } }
-            MenuItem { title: "Delete Current File";
+            MenuItem { title: ApplicationMenuText.delete-current;
                 enabled: root.menu-value-delete-current-media-available;
                 activated => { PlayerMenuActions.delete-current-media(); } }
-            MenuItem { title: "Save Current Playlist…";
+            MenuItem { title: ApplicationMenuText.save-current-playlist;
                 enabled: root.menu-value-save-current-playlist-available;
                 activated => { PlayerMenuActions.save-current-playlist(); } }
             MenuSeparator {}
-            MenuItem { title: "Close";
+            MenuItem { title: ApplicationMenuText.close;
                 shortcut: root.player-shortcut(root.menu-value-primary-shortcut-is-meta ? @keys(Meta + W) : @keys(Control + W));
                 activated => { PlayerMenuActions.close-player(); } }
         }
-        Menu { title: "Edit";
-            MenuItem { title: "Undo"; enabled: false;
+        Menu { title: ApplicationMenuText.edit-title;
+            MenuItem { title: ApplicationMenuText.undo; enabled: false;
                 shortcut: root.player-shortcut(root.menu-value-primary-shortcut-is-meta ? @keys(Meta + Z) : @keys(Control + Z)); }
-            MenuItem { title: "Redo"; enabled: false;
+            MenuItem { title: ApplicationMenuText.redo; enabled: false;
                 shortcut: root.player-shortcut(root.menu-value-primary-shortcut-is-meta ? @keys(Meta + Shift + Z) : @keys(Control + Shift + Z)); }
             MenuSeparator {}
-            MenuItem { title: "Cut"; enabled: false;
+            MenuItem { title: ApplicationMenuText.cut; enabled: false;
                 shortcut: root.player-shortcut(root.menu-value-primary-shortcut-is-meta ? @keys(Meta + X) : @keys(Control + X)); }
-            MenuItem { title: "Copy"; enabled: false;
+            MenuItem { title: ApplicationMenuText.copy; enabled: false;
                 shortcut: root.player-shortcut(root.menu-value-primary-shortcut-is-meta ? @keys(Meta + C) : @keys(Control + C)); }
-            MenuItem { title: "Paste"; enabled: false;
+            MenuItem { title: ApplicationMenuText.paste; enabled: false;
                 shortcut: root.player-shortcut(root.menu-value-primary-shortcut-is-meta ? @keys(Meta + V) : @keys(Control + V)); }
-            MenuItem { title: "Select All"; enabled: false;
+            MenuItem { title: ApplicationMenuText.select-all; enabled: false;
                 shortcut: root.player-shortcut(root.menu-value-primary-shortcut-is-meta ? @keys(Meta + A) : @keys(Control + A)); }
         }
         Menu { title: root.playback-entry("playback", @tr("Playback"));
@@ -543,13 +544,13 @@ export component PlayerMenuWindow inherits Window {
             MenuItem { title: @tr("Font…"); enabled: !root.menu-value-crop-editing;
                 activated => { PlayerMenuActions.choose-subtitle-font(); } }
         }
-        Menu { title: "\u{1f}riina-plugin-menu";
+        Menu { title: PluginMenuDisplay.root-title();
             if root.menu-value-plugin-menu-conflicts > 0 : MenuItem {
                 title: PluginMenuDisplay.conflict-title(root.menu-value-plugin-menu-conflicts); enabled: false;
             }
-            MenuItem { title: "Manage Plugins…"; enabled: !root.menu-value-crop-editing;
+            MenuItem { title: ApplicationMenuText.manage-plugins; enabled: !root.menu-value-crop-editing;
                 activated => { root.menu-value-preferences-target-pane = 9; PlayerMenuActions.open-preferences(); } }
-            MenuItem { title: (PlayerSidebarState.sidebar == 7 || PlayerSidebarState.leading-sidebar == 7) ? "Hide Plugins Panel" : "Show Plugins Panel"; enabled: !root.menu-value-crop-editing;
+            MenuItem { title: (PlayerSidebarState.sidebar == 7 || PlayerSidebarState.leading-sidebar == 7) ? ApplicationMenuText.hide-plugin-panel : ApplicationMenuText.show-plugin-panel; enabled: !root.menu-value-crop-editing;
                 shortcut: root.menu-shortcut(45);
                 activated => { PlayerMenuActions.toggle-plugins-pane(); } }
             MenuSeparator {}
@@ -562,34 +563,34 @@ export component PlayerMenuWindow inherits Window {
                 activated => { PlayerMenuActions.activate-plugin-menu-item(row.token); }
             }
             if root.menu-value-plugin-menu-rows.length > 0 : MenuSeparator {}
-            Menu { title: "Developer Tool"; enabled: root.menu-value-plugin-developer-rows.length > 0;
+            Menu { title: ApplicationMenuText.developer-tool; enabled: root.menu-value-plugin-developer-rows.length > 0;
                 for row in root.menu-value-plugin-developer-rows : MenuItem {
                     title: row.label;
                     activated => { PlayerMenuActions.open-plugin-developer-tool(row.token); }
                 }
             }
-            MenuItem { title: "Reload All Plugins"; enabled: !root.menu-value-crop-editing;
+            MenuItem { title: ApplicationMenuText.reload-plugins; enabled: !root.menu-value-crop-editing;
                 activated => { PlayerMenuActions.reload-plugins(); } }
         }
-        Menu { title: "Window";
-            MenuItem { title: "Minimize";
+        Menu { title: ApplicationMenuText.window-title;
+            MenuItem { title: ApplicationMenuText.minimize;
                 shortcut: root.player-shortcut(root.menu-value-primary-shortcut-is-meta ? @keys(Meta + M) : @keys(Control + M));
                 activated => { PlayerMenuActions.minimize-window(); }
             }
-            MenuItem { title: "Zoom"; activated => { PlayerMenuActions.zoom-window(); } }
+            MenuItem { title: ApplicationMenuText.zoom; activated => { PlayerMenuActions.zoom-window(); } }
             MenuSeparator {}
-            MenuItem { title: "Inspector";
+            MenuItem { title: ApplicationMenuText.inspector;
                 shortcut: root.player-shortcut(root.menu-value-primary-shortcut-is-meta
                     ? @keys(Meta + I) : @keys(Control + I));
                 activated => { PlayerMenuActions.show-inspector(); }
             }
-            MenuItem { title: "Log Viewer";
+            MenuItem { title: ApplicationMenuText.log-viewer;
                 shortcut: root.player-shortcut(root.menu-value-primary-shortcut-is-meta
                     ? @keys(Control + Meta + L) : @keys(Control + Alt + L));
                 activated => { PlayerMenuActions.show-log-viewer(); }
             }
             MenuSeparator {}
-            MenuItem { title: "Bring All to Front";
+            MenuItem { title: ApplicationMenuText.bring-to-front;
                 enabled: root.menu-value-in-process-player-manager;
                 activated => { PlayerMenuActions.bring-all-to-front(); }
             }
@@ -599,19 +600,19 @@ export component PlayerMenuWindow inherits Window {
                 activated => { PlayerMenuActions.select-player-window(row.token); }
             }
         }
-        Menu { title: "Help";
-            MenuItem { title: "Riina Help";
+        Menu { title: ApplicationMenuText.help-title;
+            MenuItem { title: ApplicationMenuText.help;
                 shortcut: root.player-shortcut(root.menu-value-primary-shortcut-is-meta ? @keys(Meta + Shift + "/") : @keys(Control + Shift + "/"));
                 activated => { PlayerMenuActions.open-help-link("help"); } }
-            MenuItem { title: "Dump Debug Info"; activated => { PlayerMenuActions.dump-debug-info(); } }
+            MenuItem { title: ApplicationMenuText.dump-debug; activated => { PlayerMenuActions.dump-debug-info(); } }
             MenuSeparator {}
-            MenuItem { title: "Use New Settings Window"; checkable: true; checked: true;
+            MenuItem { title: ApplicationMenuText.new-settings; checkable: true; checked: true;
                 activated => { PlayerMenuActions.open-preferences(); } }
             MenuSeparator {}
-            MenuItem { title: "Release Highlights"; activated => { PlayerMenuActions.show-release-highlights(); } }
+            MenuItem { title: ApplicationMenuText.release-highlights; activated => { PlayerMenuActions.show-release-highlights(); } }
             MenuSeparator {}
             MenuItem { title: "GitHub"; activated => { PlayerMenuActions.open-help-link("github"); } }
-            MenuItem { title: "Website"; activated => { PlayerMenuActions.open-help-link("website"); } }
+            MenuItem { title: ApplicationMenuText.website; activated => { PlayerMenuActions.open-help-link("website"); } }
         }
     }
 }

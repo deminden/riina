@@ -194,7 +194,7 @@ fn update_information_label(
     Ok(())
 }
 
-fn plugin_menu_handle(hwnd: HWND) -> isize {
+fn plugin_menu_handle(hwnd: HWND, plugin_title: &str) -> isize {
     // A Slint rebuild can replace submenu handles. Resolve the current handle
     // at activation instead of comparing against an earlier menu generation.
     // SAFETY: the menu notification supplies the live owner HWND on this thread.
@@ -208,7 +208,7 @@ fn plugin_menu_handle(hwnd: HWND) -> isize {
         let mut title = [0u16; 64];
         // SAFETY: the positional index is from this menu and the title slice is writable.
         let length = unsafe { GetMenuStringW(menu, index as u32, Some(&mut title), MF_BYPOSITION) };
-        if length > 0 && String::from_utf16_lossy(&title[..length as usize]) == "Plugin" {
+        if length > 0 && String::from_utf16_lossy(&title[..length as usize]) == plugin_title {
             // SAFETY: the same live menu still owns the submenu at this index.
             return unsafe { GetSubMenu(menu, index) }.0 as isize;
         }
@@ -319,7 +319,10 @@ fn refresh_popup(app: &PlayerWindow, hwnd: HWND, wparam: WPARAM) {
             crate::diagnostics::report(app, format!("Could not refresh playback menu: {error}"));
         }
     }
-    let plugin_menu = plugin_menu_handle(hwnd);
+    let plugin_title = app
+        .global::<riina_ui::ApplicationMenuText>()
+        .get_plugin_title();
+    let plugin_menu = plugin_menu_handle(hwnd, &plugin_title);
     if plugin_menu != 0 && wparam.0 as isize == plugin_menu {
         app.invoke_plugin_menu_will_open();
     }
@@ -562,6 +565,45 @@ mod tests {
         GetClientRect, IsWindowVisible, MF_POPUP, MF_STRING, SW_HIDE, SendMessageW, ShowWindow,
         WINDOW_EX_STYLE, WS_CHILD, WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW, WS_POPUP, WS_VISIBLE,
     };
+
+    #[test]
+    fn localized_plugin_popup_refreshes_the_player_model() {
+        i_slint_backend_testing::init_no_event_loop();
+        let app = PlayerWindow::new().unwrap();
+        let calls = Rc::new(Cell::new(0));
+        let observed = calls.clone();
+        app.on_plugin_menu_will_open(move || observed.set(observed.get() + 1));
+        let host = test_host();
+        for (index, (locale, title)) in [
+            ("en", w!("Plugin")),
+            ("ru", w!("Плагины")),
+            ("ar", w!("الإضافات")),
+        ]
+        .into_iter()
+        .enumerate()
+        {
+            slint::select_bundled_translation(locale).unwrap();
+            // SAFETY: the test creates and attaches both popups on this window's thread.
+            let (menu, file, plugin) = unsafe {
+                let menu = TestMenu {
+                    hwnd: host.0,
+                    menu: CreateMenu().unwrap(),
+                };
+                let file = CreatePopupMenu().unwrap();
+                let plugin = CreatePopupMenu().unwrap();
+                AppendMenuW(menu.menu, MF_POPUP, file.0 as usize, w!("File")).unwrap();
+                AppendMenuW(menu.menu, MF_POPUP, plugin.0 as usize, title).unwrap();
+                SetMenu(host.0, Some(menu.menu)).unwrap();
+                (menu, file, plugin)
+            };
+            refresh_popup(&app, host.0, WPARAM(file.0 as usize));
+            assert_eq!(calls.get(), index);
+            refresh_popup(&app, host.0, WPARAM(plugin.0 as usize));
+            assert_eq!(calls.get(), index + 1);
+            drop(menu);
+        }
+        slint::select_bundled_translation("en").unwrap();
+    }
 
     struct TestWindow(HWND);
 

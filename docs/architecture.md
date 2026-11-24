@@ -695,6 +695,12 @@ stable keys for menu families and the commands available while idle. The
 AppKit dispatcher uses those keys to open the screenshot folder or the two
 filter editors. A similarly named saved preset retains its own menu entry.
 
+The application, File, Edit, Plugin, Window and Help labels come from a shared
+Slint catalog. AppKit uses a snapshot of those labels to build the idle menus and
+identify the generated player menus. The idle owner retains its submenu handles
+and identifies the mutable File items by tag. The native Plugin observers use
+the localized caption to resolve the current platform menu.
+
 The Windows owner formats its informational rows through the same localized
 messages as the shared menu. It refreshes volume, speed and delays in place
 as each native submenu opens, preserving the menu and video client's bounds.

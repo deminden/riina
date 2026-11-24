@@ -1,0 +1,67 @@
+export global ApplicationMenuText {
+    out property <string> file-title: @tr("File");
+    out property <string> edit-title: @tr("application menu" => "Edit");
+    out property <string> plugin-title: @tr("Plugin");
+    out property <string> window-title: @tr("Window");
+    out property <string> help-title: @tr("Help");
+    out property <string> services-title: @tr("Services");
+
+    out property <string> about: @tr("About Riina");
+    out property <string> check-updates: @tr("Check for Updates…");
+    out property <string> settings: @tr("Settings…");
+    out property <string> preferences: @tr("Preferences…");
+    out property <string> hide: @tr("Hide Riina");
+    out property <string> hide-others: @tr("Hide Others");
+    out property <string> show-all: @tr("Show All");
+    out property <string> quit: @tr("Quit Riina");
+
+    out property <string> open: @tr("Open…");
+    out property <string> open-in-new-window: @tr("Open in New Window…");
+    out property <string> open-url: @tr("Open URL…");
+    out property <string> open-url-in-new-window: @tr("Open URL in New Window…");
+    out property <string> open-recent: @tr("Open Recent");
+    out property <string> clear-recent: @tr("Clear Menu");
+    out property <string> new-window: @tr("New Window");
+    out property <string> playback-history: @tr("Playback History");
+    out property <string> delete-current: @tr("Delete Current File");
+    out property <string> save-current-playlist: @tr("Save Current Playlist…");
+    out property <string> close: @tr("Close");
+
+    public pure function reveal-current(file-manager: string) -> string {
+        return @tr("Show Current File in {}", file-manager);
+    }
+
+    out property <string> undo: @tr("Undo");
+    out property <string> redo: @tr("Redo");
+    out property <string> cut: @tr("Cut");
+    out property <string> copy: @tr("Copy");
+    out property <string> paste: @tr("Paste");
+    out property <string> delete: @tr("Delete");
+    out property <string> select-all: @tr("Select All");
+    out property <string> transformations: @tr("Transformations");
+    out property <string> uppercase: @tr("Make Upper Case");
+    out property <string> lowercase: @tr("Make Lower Case");
+    out property <string> capitalize: @tr("Capitalize");
+    out property <string> speech: @tr("Speech");
+    out property <string> start-speaking: @tr("Start Speaking");
+    out property <string> stop-speaking: @tr("Stop Speaking");
+
+    out property <string> manage-plugins: @tr("Manage Plugins…");
+    out property <string> show-plugin-panel: @tr("Show Plugins Panel");
+    out property <string> hide-plugin-panel: @tr("Hide Plugins Panel");
+    out property <string> more: @tr("More…");
+    out property <string> developer-tool: @tr("Developer Tool");
+    out property <string> reload-plugins: @tr("Reload All Plugins");
+
+    out property <string> minimize: @tr("Minimize");
+    out property <string> zoom: @tr("Zoom");
+    out property <string> inspector: @tr("Inspector");
+    out property <string> log-viewer: @tr("Log Viewer");
+    out property <string> bring-to-front: @tr("Bring All to Front");
+
+    out property <string> help: @tr("Riina Help");
+    out property <string> dump-debug: @tr("Dump Debug Info");
+    out property <string> new-settings: @tr("Use New Settings Window");
+    out property <string> release-highlights: @tr("Release Highlights");
+    out property <string> website: @tr("Website");
+}

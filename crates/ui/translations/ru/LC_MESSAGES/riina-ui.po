@@ -682,3 +682,160 @@ msgstr "Меню"
 
 msgid "Back"
 msgstr "Назад"
+
+msgid "Check for Updates…"
+msgstr "Проверить обновления…"
+
+msgid "Settings…"
+msgstr "Настройки…"
+
+msgid "Preferences…"
+msgstr "Настройки…"
+
+msgid "Services"
+msgstr "Службы"
+
+msgid "Hide Riina"
+msgstr "Скрыть Riina"
+
+msgid "Hide Others"
+msgstr "Скрыть остальные"
+
+msgid "Show All"
+msgstr "Показать все"
+
+msgid "Quit Riina"
+msgstr "Завершить работу Riina"
+
+msgid "File"
+msgstr "Файл"
+
+msgid "Open…"
+msgstr "Открыть…"
+
+msgid "Open in New Window…"
+msgstr "Открыть в новом окне…"
+
+msgid "Open URL in New Window…"
+msgstr "Открыть URL в новом окне…"
+
+msgid "Open Recent"
+msgstr "Открыть недавние"
+
+msgid "Clear Menu"
+msgstr "Очистить меню"
+
+msgid "New Window"
+msgstr "Новое окно"
+
+msgid "Show Current File in {}"
+msgstr "Показать текущий файл в {}"
+
+msgid "Delete Current File"
+msgstr "Удалить текущий файл"
+
+msgid "Save Current Playlist…"
+msgstr "Сохранить текущий плейлист…"
+
+msgid "Close"
+msgstr "Закрыть"
+
+msgctxt "application menu"
+msgid "Edit"
+msgstr "Правка"
+
+msgid "Undo"
+msgstr "Отменить"
+
+msgid "Redo"
+msgstr "Повторить"
+
+msgid "Cut"
+msgstr "Вырезать"
+
+msgid "Paste"
+msgstr "Вставить"
+
+msgid "Select All"
+msgstr "Выделить всё"
+
+msgid "Plugin"
+msgstr "Плагины"
+
+msgid "Manage Plugins…"
+msgstr "Управление плагинами…"
+
+msgid "Hide Plugins Panel"
+msgstr "Скрыть панель плагинов"
+
+msgid "Show Plugins Panel"
+msgstr "Показать панель плагинов"
+
+msgid "Developer Tool"
+msgstr "Инструмент разработчика"
+
+msgid "Reload All Plugins"
+msgstr "Перезагрузить все плагины"
+
+msgid "Window"
+msgstr "Окно"
+
+msgid "Minimize"
+msgstr "Свернуть"
+
+msgid "Zoom"
+msgstr "Изменить размер окна"
+
+msgid "Inspector"
+msgstr "Инспектор"
+
+msgid "Bring All to Front"
+msgstr "Все окна на передний план"
+
+msgid "Help"
+msgstr "Справка"
+
+msgid "Riina Help"
+msgstr "Справка Riina"
+
+msgid "Dump Debug Info"
+msgstr "Сохранить отладочные сведения"
+
+msgid "Use New Settings Window"
+msgstr "Использовать новое окно настроек"
+
+msgid "Release Highlights"
+msgstr "Что нового в выпуске"
+
+msgid "Website"
+msgstr "Веб-сайт"
+
+msgid "Transformations"
+msgstr "Преобразования"
+
+msgid "Make Upper Case"
+msgstr "В верхний регистр"
+
+msgid "Make Lower Case"
+msgstr "В нижний регистр"
+
+msgid "Capitalize"
+msgstr "Начать с прописной"
+
+msgid "Speech"
+msgstr "Речь"
+
+msgid "Start Speaking"
+msgstr "Начать чтение"
+
+msgid "Stop Speaking"
+msgstr "Остановить чтение"
+
+msgid "Conflicting key shortcuts… ({})"
+msgstr "Конфликты сочетаний клавиш… ({})"
+
+msgid "More…"
+msgstr "Ещё…"
+
+msgid "Delete"
+msgstr "Удалить"
