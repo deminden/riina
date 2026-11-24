@@ -119,26 +119,35 @@ persists one batch before changing the in-memory rows and revision.
 
 ## Command-line playback
 
-Pass files or supported stream URLs to the Riina executable. Multiple
+Use `riina-cli` from a terminal. The Windows package includes
+`riina-cli.exe` beside `riina.exe`. On macOS the two executables are in
+`Riina.app/Contents/MacOS`. A Linux build places both binaries in the Cargo
+output directory. Run `riina-cli --help` to see the command-line options.
+
+Pass files or supported stream URLs to either Riina executable. Multiple
 arguments open in one playlist. Add `--separate-windows` or `-w` to give
 each argument its own player in the same application.
 
 ```text
-riina --separate-windows "Episode 1.mkv" "Episode 2.mkv"
-riina --mpv-pause --mpv-volume=40 "Concert.mkv" -- --speed=1.25
-riina --mpv-shuffle "Track 1.flac" "Track 2.flac"
+riina-cli --separate-windows "Episode 1.mkv" "Episode 2.mkv"
+riina-cli --mpv-pause --mpv-volume=40 "Concert.mkv" -- --speed=1.25
+riina-cli --mpv-shuffle "Track 1.flac" "Track 2.flac"
 ```
 
 `--music-mode` and `--pip` select the presentation of the last launched
-player. `--mpv-fullscreen` requests fullscreen. For media on standard input,
-use `--stdin` or a lone `-`. Standard input takes precedence over media
-arguments. `--no-stdin` disables that input.
+player. `--mpv-fullscreen` requests fullscreen. Buffered pipes and redirected
+files are detected without consuming input. Use `--stdin` or a lone `-` if the
+producer may send its first bytes after startup. Standard input takes
+precedence over file arguments. `--no-stdin` disables that input.
+[Windows pipe behavior](https://learn.microsoft.com/en-us/windows/win32/api/namedpipeapi/nf-namedpipeapi-peeknamedpipe)
 
 Use `--mpv-name=value`, or place raw mpv switches after `--`. These
 switches apply to the players created by that invocation. Riina owns the
-video output, window handle and display-sleep policy. Invoking the player
-directly keeps the process alive for its application session. Prefix a local
-filename that looks like a switch with `./`.
+video output, window handle and display-sleep policy. The launcher returns
+after starting the player by default. With `--keep-running` or standard input,
+it waits for the specific player it started. Interrupting that wait stops the
+owned player. Invoking the player directly runs its full application session.
+Prefix a local filename that looks like a switch with `./`.
 
 ## Browser links
 

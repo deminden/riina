@@ -27,6 +27,8 @@ Implementation does not imply every state or platform is verified.
 - **Recent activity:** player windows share Open Recent with Welcome and
   plugins. Settings Utilities clears history, recent documents and the saved
   Welcome resume item together after confirmation.
+- **Command line:** `riina-cli` starts playback from files, URLs or standard
+  input. It can return immediately or wait for the player it started.
 - **Video/audio/subtitles:** track selection and external tracks, geometry and
   crop controls, filters/equalizers, subtitle styling/timing, screenshots,
   thumbnails, Music Mode and Picture in Picture.

@@ -41,6 +41,8 @@ class ApplicationPortsTests(unittest.TestCase):
             root = Path(temporary)
             executable = root / "riina"
             executable.write_bytes(b"application fixture")
+            launcher = root / "riina-cli"
+            launcher.write_bytes(b"terminal fixture")
             extension = ROOT / "browser" / "open-in-riina"
             for opt_in, flags in enumerate(([], ["--browser-links"])):
                 with self.subTest(browser_links=bool(opt_in)):
@@ -54,6 +56,9 @@ class ApplicationPortsTests(unittest.TestCase):
                         capture_output=True,
                     )
                     contents = bundle / "Contents"
+                    self.assertEqual(
+                        (contents / "MacOS" / "riina-cli").read_bytes(), launcher.read_bytes()
+                    )
                     with (contents / "Info.plist").open("rb") as info:
                         metadata = plistlib.load(info)
                     if opt_in:

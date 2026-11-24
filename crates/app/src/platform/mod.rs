@@ -40,6 +40,7 @@ pub(crate) mod preferences;
 pub(crate) mod settings_file;
 mod shared_video;
 pub(crate) mod startup;
+pub(crate) mod startup_input;
 pub(crate) mod text_recognition;
 pub(crate) use shared_video::SharedVideoExtras;
 mod system_media_session;
@@ -50,6 +51,8 @@ pub(crate) mod video_materials;
 #[cfg(target_os = "linux")]
 pub(crate) mod wayland_drop;
 pub(crate) mod window_sizing;
+#[cfg(windows)]
+pub(crate) mod windows_job;
 
 #[cfg(any(target_os = "windows", test))]
 pub(crate) fn update_hdr_display(app: &PlayerWindow, active: bool) {

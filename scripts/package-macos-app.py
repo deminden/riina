@@ -119,6 +119,9 @@ def main() -> int:
         parser.error("app_bundle must end in .app")
     if not executable.is_file():
         parser.error("executable must be a file")
+    cli = executable.with_name("riina-cli")
+    if not cli.is_file():
+        parser.error(f"the matching riina-cli executable is missing beside {executable.name}")
     if destination.exists():
         parser.error(f"refusing to replace existing app bundle: {destination}")
 
@@ -135,6 +138,7 @@ def main() -> int:
         macos = staged_bundle / "Contents" / "MacOS"
         macos.mkdir(parents=True)
         shutil.copy2(executable, macos / "riina")
+        shutil.copy2(cli, macos / "riina-cli")
         shutil.copytree(
             BROWSER_EXTENSION, staged_bundle / "Contents" / "Resources" / "browser-extension"
         )

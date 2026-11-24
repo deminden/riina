@@ -2750,6 +2750,38 @@ Native macOS fullscreen and the full application remain unverified.
 
 - Linux application SHA-256 `225b58817a071391654aa0555cd277ccd612775c0ce7ffb911fe4b7190ee9254`
 - X11 libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`
+
+### Console launcher and input detection 2026-11-24
+
+The companion `riina-cli` executable displays help and argument errors
+in the terminal. It returns after a normal launch and supervises the player
+for `--keep-running` or standard input. The player and launcher recognize
+buffered pipes and unread redirected files. Explicit input switches override
+that probe, and the launcher forwards its decision to the GUI process.
+
+A locked Linux application build ran seven isolated Wayland scenarios.
+The direct player and the launcher each decoded a redirected audio file.
+The launcher decoded an already buffered pipe and an explicitly selected
+pipe fed after startup. `--no-stdin` opened a relative video filename and
+left the redirected file offset unchanged. With an empty input pipe the
+launcher exited while the paused video remained visible. Interrupting
+`--keep-running` returned a failure status and stopped its own player.
+The ordinary close path returned success and every exact test player exited.
+
+The same seven cases passed with the staged Windows binaries on an
+isolated desktop. The interruption case sent a Windows Ctrl+C event to the
+test launcher’s console and verified that its own player exited. PE headers
+confirmed a console launcher and a windowed player. The Windows workspace
+gate, locked build and all 60 native engine tests passed. Strict Apple
+Silicon cross-Clippy and the bundle layout regression passed. Native macOS
+launcher behavior remains unverified.
+
+- Windows application SHA-256 `3b8677b4fa2adda74a76109997b02a45b346409ba5fd619e33e92d0fee47f7b6`
+- Windows launcher SHA-256 `cc6885b86872aec0e91b87eb4a065c9b11109db7d5cff434ea6b74937d253400`
+- Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
+- Wayland application SHA-256 `d9161421dd69adf3f5a99492bdbf78fbe64143713d106c3f2022d0035ab76a1b`
+- Wayland launcher SHA-256 `9459a4bacf333b4b685ffff61dfc81b02bffcdff3c400b6edd1a6285e6c2020a`
+- Wayland libmpv SHA-256 `cdce854e1811942602587310026306d92d30c0f593f2be676f07659ae43061d8`
 - Wayland libmpv SHA-256 `cdce854e1811942602587310026306d92d30c0f593f2be676f07659ae43061d8`
 
 ### Plugin presentation events and Wayland Music Mode 2026-11-24

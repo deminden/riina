@@ -192,6 +192,7 @@ fn spawn_player(
         process.arg("--riina-resume-at").arg(position.to_string());
     }
     process
+        .stdin(std::process::Stdio::null())
         .args(paths)
         .spawn()
         .map(|_| ())

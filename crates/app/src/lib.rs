@@ -2,6 +2,7 @@
 
 mod background;
 mod browser_links;
+mod cli;
 mod debug_dump;
 mod diagnostics;
 mod file_actions;
@@ -20,6 +21,7 @@ mod preferences;
 mod series_names;
 mod settings_search;
 mod startup_arguments;
+pub use cli::run_cli;
 mod subtitles;
 mod ui_dialogs;
 mod ui_models;

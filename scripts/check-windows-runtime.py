@@ -132,6 +132,8 @@ def main():
     roots = [args.package / "libmpv-2.dll"]
     if (args.package / "riina.exe").is_file():
         roots.append(args.package / "riina.exe")
+    if (args.package / "riina-cli.exe").is_file():
+        roots.append(args.package / "riina-cli.exe")
     report = check_runtime(args.package, roots, args.search)
     # Package validation must not overwrite the engine report whose hash belongs
     # to the downloaded native artifact's manifest.

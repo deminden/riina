@@ -34,6 +34,7 @@ pub(crate) struct StartupArguments {
     media: Vec<OsString>,
     resume_position: Option<f64>,
     separate_windows: bool,
+    keep_running: bool,
     launch: LaunchOptions,
 }
 
@@ -68,11 +69,16 @@ impl StartupArguments {
             };
             return Ok((arguments, Some(raw)));
         }
-        Self::parse(args).map(|args| (args, None))
+        Self::parse(args, crate::platform::startup_input::buffered).map(|args| (args, None))
     }
 
-    pub(crate) fn parse(mut args: impl Iterator<Item = OsString>) -> Result<Self, String> {
+    fn parse(
+        mut args: impl Iterator<Item = OsString>,
+        buffered_input: impl FnOnce() -> bool,
+    ) -> Result<Self, String> {
         let mut parsed = Self::default();
+        let mut stdin = None;
+        let mut internal_launch = false;
         let mut mpv_tail = false;
         let mut music = false;
         let mut pip = false;
@@ -88,6 +94,7 @@ impl StartupArguments {
                     fullscreen = parsed.launch.set_mpv(&flag[2..])?.unwrap_or(fullscreen);
                 }
                 "--riina-resume-at" => {
+                    internal_launch = true;
                     let position = read_value::<f64>(&mut args, "resume position")?;
                     if !position.is_finite() || position < 0.0 {
                         return Err("Resume position must be a finite non-negative number".into());
@@ -95,6 +102,7 @@ impl StartupArguments {
                     parsed.resume_position = Some(position);
                 }
                 "--riina-owner-center" => {
+                    internal_launch = true;
                     parsed.owner_center = Some((
                         read_value(&mut args, "owner-center x coordinate")?,
                         read_value(&mut args, "owner-center y coordinate")?,
@@ -107,11 +115,11 @@ impl StartupArguments {
                     parsed.renderer = RendererRequest::NativeWindow;
                 }
                 "--separate-windows" | "-w" => parsed.separate_windows = true,
-                "--stdin" | "-" | "--mpv--" => parsed.launch.stdin = true,
-                "--no-stdin" => parsed.launch.stdin = false,
+                "--stdin" | "-" | "--mpv--" => stdin = Some(true),
+                "--no-stdin" => stdin = Some(false),
                 "--music-mode" => music = true,
                 "--pip" => pip = true,
-                "--keep-running" => {} // This invocation already owns the GUI process.
+                "--keep-running" => parsed.keep_running = true,
                 flag if flag.starts_with("--mpv-") => {
                     fullscreen = parsed.launch.set_mpv(&flag[6..])?.unwrap_or(fullscreen);
                 }
@@ -127,7 +135,17 @@ impl StartupArguments {
             (false, false, true) => Some(Presentation::Fullscreen),
             (false, false, false) => None,
         };
+        // Window relaunches carry an explicit media request from another player.
+        parsed.launch.stdin = stdin.unwrap_or_else(|| !internal_launch && buffered_input());
         Ok(parsed)
+    }
+
+    pub(crate) fn reads_stdin(&self) -> bool {
+        self.launch.stdin
+    }
+
+    pub(crate) fn waits_for_player(&self) -> bool {
+        self.keep_running || self.reads_stdin()
     }
 
     pub(crate) fn players(self) -> impl Iterator<Item = InitialMedia> {
@@ -216,7 +234,36 @@ mod tests {
     use super::*;
 
     fn parse(args: &[&str]) -> Result<StartupArguments, String> {
-        StartupArguments::parse(args.iter().map(OsString::from))
+        StartupArguments::parse(args.iter().map(OsString::from), || false)
+    }
+
+    #[test]
+    fn buffered_input_is_used_only_for_implicit_user_launches() {
+        let args = StartupArguments::parse(["movie.mkv"].into_iter().map(OsString::from), || true)
+            .unwrap();
+        assert!(args.waits_for_player());
+        assert_eq!(args.players().next().unwrap().files, [OsString::from("-")]);
+
+        for flags in [
+            &["--stdin"][..],
+            &["--no-stdin"],
+            &["--riina-resume-at", "4", "movie.mkv"],
+            &["--riina-owner-center", "200", "300", "movie.mkv"],
+        ] {
+            let args = StartupArguments::parse(flags.iter().map(OsString::from), || {
+                panic!("Unexpected stdin probe for {flags:?}")
+            })
+            .unwrap();
+            assert_eq!(args.reads_stdin(), flags == ["--stdin"]);
+        }
+    }
+
+    #[test]
+    fn keep_running_supervises_without_enabling_standard_input() {
+        let args = parse(&["--keep-running", "movie.mkv"]).unwrap();
+        assert!(args.waits_for_player());
+        assert!(!args.reads_stdin());
+        assert!(!parse(&["movie.mkv"]).unwrap().waits_for_player());
     }
 
     #[test]
