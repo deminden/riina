@@ -690,9 +690,14 @@ Closing a tool before any player opened leaves the application available.
 The idle Playback, Video, Audio and Subtitles sections read the generated
 player menu catalog without showing a player or starting a decoder. Their
 profile shortcuts, static choices and saved filter names use the same models
-as playback. Unavailable commands have no action target while idle. The
-screenshot-folder command uses the saved profile and the same directory opener
-as the player menu.
+as playback, including translated menu labels. The hidden catalog supplies
+stable keys for menu families and the commands available while idle. The
+AppKit dispatcher uses those keys to open the screenshot folder or the two
+filter editors. A similarly named saved preset retains its own menu entry.
+
+The Windows owner formats its informational rows through the same localized
+messages as the shared menu. It refreshes volume, speed and delays in place
+as each native submenu opens, preserving the menu and video client's bounds.
 
 The application owns one audio and one video filter editor for the profile.
 Both read saved presets before playback and follow the last active player when

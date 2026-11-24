@@ -355,3 +355,324 @@ msgstr "Файлы журнала недоступны"
 
 msgid "{0} of {1} log entries"
 msgstr "{0} из {1} записей журнала"
+
+msgid "Playback"
+msgstr "Воспроизведение"
+
+msgid "Pause"
+msgstr "Пауза"
+
+msgid "Stop and Clear Playlists"
+msgstr "Остановить и очистить плейлисты"
+
+msgid "Next Frame"
+msgstr "Следующий кадр"
+
+msgid "Step Forward 5s"
+msgstr "На 5 с вперёд"
+
+msgid "Previous Frame"
+msgstr "Предыдущий кадр"
+
+msgid "Step Backward 5s"
+msgstr "На 5 с назад"
+
+msgid "Jump to Beginning"
+msgstr "Перейти к началу"
+
+msgid "Jump to…"
+msgstr "Перейти к позиции…"
+
+msgid "Speed: {}x"
+msgstr "Скорость: {}×"
+
+msgid "Speed Up by 1.1x"
+msgstr "Ускорить в 1,1 раза"
+
+msgid "Speed Up by 2x"
+msgstr "Ускорить в 2 раза"
+
+msgid "Speed Down by 0.9x"
+msgstr "Снизить скорость до 90 %"
+
+msgid "Speed Down by 0.5x"
+msgstr "Снизить скорость вдвое"
+
+msgid "Reset Speed"
+msgstr "Сбросить скорость"
+
+msgid "Take a Screenshot"
+msgstr "Создать снимок экрана"
+
+msgid "Go to Screenshot Folder"
+msgstr "Открыть папку снимков экрана"
+
+msgid "A-B Loop"
+msgstr "Повтор отрезка A–B"
+
+msgid "File Loop"
+msgstr "Повтор файла"
+
+msgid "Show Playlist Panel"
+msgstr "Показать панель плейлиста"
+
+msgid "Playlist Loop"
+msgstr "Повтор плейлиста"
+
+msgid "Playlist"
+msgstr "Плейлист"
+
+msgid "Next Media"
+msgstr "Следующий медиафайл"
+
+msgid "Previous Media"
+msgstr "Предыдущий медиафайл"
+
+msgid "Show Chapters Panel"
+msgstr "Показать панель глав"
+
+msgid "Chapters"
+msgstr "Главы"
+
+msgid "Next Chapter"
+msgstr "Следующая глава"
+
+msgid "Previous Chapter"
+msgstr "Предыдущая глава"
+
+msgid "Video"
+msgstr "Видео"
+
+msgid "Hide Video Panel"
+msgstr "Скрыть панель видео"
+
+msgid "Show Video Panel"
+msgstr "Показать панель видео"
+
+msgid "Cycle Video Tracks"
+msgstr "Переключить видеодорожку"
+
+msgid "Video Track"
+msgstr "Видеодорожка"
+
+msgid "Half Size"
+msgstr "Половинный размер"
+
+msgid "Normal Size"
+msgstr "Обычный размер"
+
+msgid "Double Size"
+msgstr "Двойной размер"
+
+msgid "Fit to Screen"
+msgstr "Вписать в экран"
+
+msgid "Bigger Size"
+msgstr "Увеличить размер"
+
+msgid "Smaller Size"
+msgstr "Уменьшить размер"
+
+msgid "Exit Picture in Picture"
+msgstr "Выйти из режима «Картинка в картинке»"
+
+msgid "Enter Picture in Picture"
+msgstr "Включить режим «Картинка в картинке»"
+
+msgid "Exit Full Screen"
+msgstr "Выйти из полноэкранного режима"
+
+msgid "Enter Full Screen"
+msgstr "Перейти в полноэкранный режим"
+
+msgid "Float on Top"
+msgstr "Поверх других окон"
+
+msgid "Lock Window Aspect Ratio"
+msgstr "Зафиксировать пропорции окна"
+
+msgid "Live Text"
+msgstr "Распознавание текста"
+
+msgid "Exit Music Mode"
+msgstr "Выйти из музыкального режима"
+
+msgid "Enter Music Mode"
+msgstr "Включить музыкальный режим"
+
+msgid "Aspect Ratio"
+msgstr "Соотношение сторон"
+
+msgid "Crop"
+msgstr "Обрезка"
+
+msgid "Custom…"
+msgstr "Задать вручную…"
+
+msgid "Rotation"
+msgstr "Поворот"
+
+msgid "Flip"
+msgstr "Отражение"
+
+msgid "Horizontal (Mirror)"
+msgstr "По горизонтали (зеркально)"
+
+msgid "Vertical (Flip)"
+msgstr "По вертикали (переворот)"
+
+msgid "Deinterlace"
+msgstr "Устранение чересстрочности"
+
+msgid "Delogo"
+msgstr "Удаление логотипа"
+
+msgid "Video Filters…"
+msgstr "Видеофильтры…"
+
+msgid "Audio"
+msgstr "Аудио"
+
+msgid "Hide Audio Panel"
+msgstr "Скрыть панель аудио"
+
+msgid "Show Audio Panel"
+msgstr "Показать панель аудио"
+
+msgid "Cycle Audio Tracks"
+msgstr "Переключить аудиодорожку"
+
+msgid "Audio Track"
+msgstr "Аудиодорожка"
+
+msgid "Load External Audio…"
+msgstr "Загрузить внешнюю аудиодорожку…"
+
+msgid "Volume: {}"
+msgstr "Громкость: {}"
+
+msgid "Volume + 1%"
+msgstr "Громкость + 1 %"
+
+msgid "Volume + 5%"
+msgstr "Громкость + 5 %"
+
+msgid "Volume - 1%"
+msgstr "Громкость − 1 %"
+
+msgid "Volume - 5%"
+msgstr "Громкость − 5 %"
+
+msgid "Mute"
+msgstr "Отключить звук"
+
+msgid "Audio Delay: {}s"
+msgstr "Задержка аудио: {} с"
+
+msgid "Audio Delay + 0.1s"
+msgstr "Задержка аудио + 0,1 с"
+
+msgid "Audio Delay + 0.5s"
+msgstr "Задержка аудио + 0,5 с"
+
+msgid "Audio Delay - 0.1s"
+msgstr "Задержка аудио − 0,1 с"
+
+msgid "Audio Delay - 0.5s"
+msgstr "Задержка аудио − 0,5 с"
+
+msgid "Reset Audio Delay"
+msgstr "Сбросить задержку аудио"
+
+msgid "Audio Device"
+msgstr "Аудиоустройство"
+
+msgid "Audio Filters…"
+msgstr "Аудиофильтры…"
+
+msgid "Subtitles"
+msgstr "Субтитры"
+
+msgid "Hide Subtitles Panel"
+msgstr "Скрыть панель субтитров"
+
+msgid "Show Subtitles Panel"
+msgstr "Показать панель субтитров"
+
+msgid "Cycle Subtitles"
+msgstr "Переключить субтитры"
+
+msgid "Subtitle"
+msgstr "Дорожка субтитров"
+
+msgid "Hide Subtitles"
+msgstr "Скрыть субтитры"
+
+msgid "Show Subtitles"
+msgstr "Показать субтитры"
+
+msgid "Secondary Subtitle"
+msgstr "Вторые субтитры"
+
+msgid "Hide Secondary Subtitles"
+msgstr "Скрыть вторые субтитры"
+
+msgid "Show Secondary Subtitles"
+msgstr "Показать вторые субтитры"
+
+msgid "Load External Subtitle…"
+msgstr "Загрузить внешние субтитры…"
+
+msgid "Find Online Subtitles from"
+msgstr "Найти субтитры в Интернете"
+
+msgid "Find Online Subtitles from {}"
+msgstr "Найти субтитры на {}"
+
+msgid "Save Downloaded Subtitle…"
+msgstr "Сохранить загруженные субтитры…"
+
+msgid "Encoding"
+msgstr "Кодировка"
+
+msgid "Scale Up"
+msgstr "Увеличить размер"
+
+msgid "Scale Down"
+msgstr "Уменьшить размер"
+
+msgid "Reset Subtitle Scale"
+msgstr "Сбросить размер субтитров"
+
+msgid "Subtitle Delay: {}s"
+msgstr "Задержка субтитров: {} с"
+
+msgid "Subtitle Delay + 0.1s"
+msgstr "Задержка субтитров + 0,1 с"
+
+msgid "Subtitle Delay + 0.5s"
+msgstr "Задержка субтитров + 0,5 с"
+
+msgid "Subtitle Delay - 0.1s"
+msgstr "Задержка субтитров − 0,1 с"
+
+msgid "Subtitle Delay - 0.5s"
+msgstr "Задержка субтитров − 0,5 с"
+
+msgid "Reset Subtitle Delay"
+msgstr "Сбросить задержку субтитров"
+
+msgid "Font…"
+msgstr "Шрифт…"
+
+msgid "Volume: {} (Muted)"
+msgstr "Громкость: {} (без звука)"
+
+msgid "Default"
+msgstr "По умолчанию"
+
+msgid "None"
+msgstr "Нет"
+
+msgid "Auto detect"
+msgstr "Автоопределение"

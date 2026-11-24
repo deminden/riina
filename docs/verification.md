@@ -4068,3 +4068,38 @@ processes exited normally after closing the dialog and Welcome.
 - Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
 - Linux application SHA-256 `929f1cbffb02d26aa3b52ebd7de3981e6a2f0bdc9016e84a33b580222c103be2`
 - Linux libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`
+
+### Localized playback menus 2026-11-24
+
+The Playback, Video, Audio and Subtitles menus use the bundled Russian and
+Arabic messages on the shared player and the framed Windows owner. The idle
+macOS catalog supplies the same titles and shortcuts. Its screenshot folder
+and filter editor actions use keys from the catalog. Saved preset names,
+device names, and provider names remain values supplied by the respective models.
+
+The Windows workspace gate passed, including the player and Settings
+software pixel baselines. The catalog test compared menu nesting, shortcut
+bindings, separators and idle action identities in English, Russian and
+Arabic. It also checked that a preset with the same name as an idle command
+remains a preset. The Win32 menu test refreshed English, Russian and Arabic
+readouts in place, including a value before its caption, while the menu
+handles and video client bounds stayed stable.
+The Linux application suite passed 596 tests and the widget suite passed 65.
+Apple Silicon cross-Clippy passed. The live AppKit menu still needs a native
+macOS check across languages.
+
+On a private Windows desktop, native menu actions on a paused fixture
+updated speed to 2×, volume to muted, and both delays to 0.5 seconds.
+The player kept its pause state and frame bounds. Video Filters opened
+and closed through its native menu action, and the test process exited normally.
+
+In isolated Wayland sessions at 1070 × 640, the four menus displayed Russian
+and Arabic titles and shortcuts. The Video Filters shortcut opened its
+localized editor in both sessions, and both processes exited normally.
+A 320 × 180 Russian capture showed that the in-window menu bar clips the
+families at the right edge. Narrow menu access remains open.
+
+- Windows application SHA-256 `2db0858b5a9f480226413914d1d006b6fb26e019e30c233ab4caca0214b8c414`
+- Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
+- Linux application SHA-256 `e3192bfec9cceb23b4a0528d4c364106c2b29efadb275159d81da00035c3501d`
+- Linux libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`

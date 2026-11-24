@@ -486,14 +486,7 @@ fn update_transport(app: &PlayerWindow, state: &Playback) {
         .set_ab_loop_b_known(state.ab_loop_b.is_some());
     let audio = app.global::<riina_ui::PlaybackAudioState>();
     audio.set_volume(state.volume as f32);
-    audio.set_volume_menu_title(
-        format!(
-            "Volume: {}{}",
-            crate::localized_number::format_delay(state.volume),
-            if state.muted { " (Muted)" } else { "" }
-        )
-        .into(),
-    );
+    audio.set_volume_menu_value(crate::localized_number::format_delay(state.volume).into());
     audio.set_muted(state.muted);
     app.global::<riina_ui::PlaybackTimelineState>()
         .set_speed_value(state.speed as f32);

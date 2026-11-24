@@ -3,14 +3,12 @@ use super::{LaunchTarget, idle_menu};
 use objc2::{MainThreadMarker, MainThreadOnly, rc::Retained, runtime::AnyObject, sel};
 use objc2_app_kit::{NSEventModifierFlags as Flags, NSMenu, NSMenuItem};
 use objc2_foundation::NSString;
-use riina_ui::{PlaybackMenuCatalog, PlaybackMenuRow};
+use riina_ui::{IdlePlaybackAction, PlaybackMenuCatalog, PlaybackMenuRow};
 use slint::{Keys, ModelRc, VecModel, platform::Key};
 use std::cell::RefCell;
 
-const SCREENSHOT_FOLDER: &str = "Go to Screenshot Folder";
-
 pub(super) struct Menus {
-    sections: [Retained<NSMenu>; 4],
+    sections: Vec<Retained<NSMenu>>,
     catalog: PlaybackMenuCatalog,
     rows: RefCell<Vec<PlaybackMenuRow>>,
 }
@@ -18,8 +16,13 @@ pub(super) struct Menus {
 impl Menus {
     pub(super) fn new(main: MainThreadMarker) -> Result<Self, slint::PlatformError> {
         let catalog = PlaybackMenuCatalog::new()?;
+        let sections = catalog
+            .snapshot(ModelRc::default())
+            .iter()
+            .map(|section| submenu(main, &section.title))
+            .collect();
         Ok(Self {
-            sections: PlaybackMenuCatalog::FAMILIES.map(|name| submenu(main, name)),
+            sections,
             catalog,
             rows: RefCell::default(),
         })
@@ -42,11 +45,9 @@ impl Menus {
         if *self.rows.borrow() == rows {
             return;
         }
-        for (menu, name) in self.sections.iter().zip(PlaybackMenuCatalog::FAMILIES) {
+        for (menu, root) in self.sections.iter().zip(&rows) {
             menu.removeAllItems();
-            if let Some(root) = rows.iter().find(|root| root.title == name) {
-                append(menu, target, &root.children);
-            }
+            append(menu, target, &root.children);
         }
         self.rows.replace(rows);
     }
@@ -59,12 +60,11 @@ fn append(menu: &NSMenu, target: &LaunchTarget, rows: &[PlaybackMenuRow]) {
             menu.addItem(&NSMenuItem::separatorItem(main));
             continue;
         }
-        let action = match row.title.as_str() {
-            SCREENSHOT_FOLDER => Some(sel!(riinaIdleScreenshotFolder:)),
-            "Video Filters…" => Some(sel!(riinaIdleVideoFilters:)),
-            "Audio Filters…" => Some(sel!(riinaIdleAudioFilters:)),
-            _ => None,
-        };
+        let action = row.idle_action.map(|action| match action {
+            IdlePlaybackAction::ScreenshotFolder => sel!(riinaIdleScreenshotFolder:),
+            IdlePlaybackAction::VideoFilters => sel!(riinaIdleVideoFilters:),
+            IdlePlaybackAction::AudioFilters => sel!(riinaIdleAudioFilters:),
+        });
         let (key, modifiers) = equivalent(&row.shortcut);
         let action_target: Option<&AnyObject> = if action.is_some() { Some(target) } else { None };
         let item = idle_menu::item(main, &row.title, action, &key, action_target);

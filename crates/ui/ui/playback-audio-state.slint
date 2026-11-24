@@ -1,13 +1,15 @@
 import { PlayerMenuActions } from "player-menu-actions.slint";
 import { CatalogRow } from "catalog-row.slint";
 import { MenuCatalogRow } from "native-video.slint";
+import { PlaybackMenuText } from "playback-menu-text.slint";
 
 // Engine observations are local to each PlayerWindow instance.
 export global PlaybackAudioState {
     in-out property <float> volume: 100;
     in-out property <bool> muted: false;
     in-out property <bool> has-active-audio-track: false;
-    in-out property <string> volume-menu-title: "Volume: 100";
+    in-out property <string> volume-menu-value: "100";
+    out property <string> volume-menu-title: PlaybackMenuText.volume(volume-menu-value, muted);
 
     in-out property <[CatalogRow]> audio-tracks;
     in-out property <int> audio-track-selected-index: 0;

@@ -26,12 +26,12 @@ use windows::{
             },
             Shell::{DefSubclassProc, RemoveWindowSubclass, SetWindowSubclass},
             WindowsAndMessaging::{
-                DrawMenuBar, GetForegroundWindow, GetMenu, GetMenuItemCount, GetMenuStringW,
-                GetSubMenu, HMENU, IsIconic, IsWindow, IsWindowVisible, MENUITEMINFOW,
-                MF_BYPOSITION, MIIM_STRING, PostMessageW, RegisterWindowMessageW, SC_KEYMENU,
-                SetMenu, SetMenuItemInfoW, WM_APPCOMMAND, WM_ENTERMENULOOP, WM_EXITMENULOOP,
-                WM_INITMENU, WM_INITMENUPOPUP, WM_KEYDOWN, WM_KEYUP, WM_SETREDRAW, WM_SYSCOMMAND,
-                WM_SYSKEYDOWN, WM_SYSKEYUP,
+                DrawMenuBar, GetForegroundWindow, GetMenu, GetMenuItemCount, GetMenuState,
+                GetMenuStringW, GetSubMenu, HMENU, IsIconic, IsWindow, IsWindowVisible,
+                MENUITEMINFOW, MF_BYPOSITION, MF_DISABLED, MF_GRAYED, MIIM_STRING, PostMessageW,
+                RegisterWindowMessageW, SC_KEYMENU, SetMenu, SetMenuItemInfoW, WM_APPCOMMAND,
+                WM_ENTERMENULOOP, WM_EXITMENULOOP, WM_INITMENU, WM_INITMENUPOPUP, WM_KEYDOWN,
+                WM_KEYUP, WM_SETREDRAW, WM_SYSCOMMAND, WM_SYSKEYDOWN, WM_SYSKEYUP,
             },
         },
     },
@@ -136,17 +136,48 @@ impl MenuFocus {
     }
 }
 
-fn update_information_label(menu: HMENU, prefix: &str, label: &str) -> windows::core::Result<()> {
+const MENU_VALUE_MARKER: &str = "\u{1f}";
+
+fn information_matches(template: &str, title: &str) -> bool {
+    template
+        .split_once(MENU_VALUE_MARKER)
+        .is_some_and(|(prefix, suffix)| {
+            // An empty pattern could also match ordinary disabled playback actions.
+            (!prefix.is_empty() || !suffix.is_empty())
+                && title
+                    .strip_prefix(prefix)
+                    .and_then(|value| value.strip_suffix(suffix))
+                    .is_some_and(|value| !value.is_empty())
+        })
+}
+
+fn update_information_label(
+    menu: HMENU,
+    templates: &[slint::SharedString],
+    label: &str,
+) -> windows::core::Result<()> {
     // Informational rows refresh just before their submenu paints. Feeding
     // each continuous playback/slider update into Slint would rebuild the bar
     // and repeatedly change the native video client's height.
     // SAFETY: the synchronous popup notification supplies the live menu on this thread.
     let count = unsafe { GetMenuItemCount(Some(menu)) };
     for index in 0..count {
+        // SAFETY: the positional index belongs to this live menu.
+        let state = unsafe { GetMenuState(menu, index as u32, MF_BYPOSITION) };
+        if state & (MF_DISABLED.0 | MF_GRAYED.0) == 0 {
+            continue;
+        }
         let mut title = [0_u16; 128];
         // SAFETY: the positional index is from this menu and the output slice is writable.
         let length = unsafe { GetMenuStringW(menu, index as u32, Some(&mut title), MF_BYPOSITION) };
-        if length > 0 && String::from_utf16_lossy(&title[..length as usize]).starts_with(prefix) {
+        if length <= 0 {
+            continue;
+        }
+        let title = String::from_utf16_lossy(&title[..length as usize]);
+        if templates
+            .iter()
+            .any(|template| information_matches(template, &title))
+        {
             let mut label: Vec<u16> = label.encode_utf16().chain(Some(0)).collect();
             let info = MENUITEMINFOW {
                 cbSize: std::mem::size_of::<MENUITEMINFOW>() as u32,
@@ -253,40 +284,38 @@ pub(super) fn activate_without_menu_key(window: &Window) {
 }
 
 fn refresh_popup(app: &PlayerWindow, hwnd: HWND, wparam: WPARAM) {
+    use riina_ui::{
+        PlaybackAudioState, PlaybackMenuText, PlaybackSubtitleState, PlaybackTimelineState,
+    };
+    let text = app.global::<PlaybackMenuText>();
+    let audio = app.global::<PlaybackAudioState>();
+    let marker: slint::SharedString = MENU_VALUE_MARKER.into();
     let information = [
         (
-            "Volume:",
-            app.global::<riina_ui::PlaybackAudioState>()
-                .get_volume_menu_title()
-                .to_string(),
+            &[
+                text.invoke_volume(marker.clone(), false),
+                text.invoke_volume(marker.clone(), true),
+            ][..],
+            audio.get_volume_menu_title(),
         ),
         (
-            "Speed:",
-            format!(
-                "Speed: {}x",
-                app.global::<riina_ui::PlaybackTimelineState>()
-                    .get_speed_edit_value()
-            ),
+            &[text.invoke_speed(marker.clone())][..],
+            text.invoke_speed(app.global::<PlaybackTimelineState>().get_speed_edit_value()),
         ),
         (
-            "Audio Delay:",
-            format!(
-                "Audio Delay: {}s",
-                app.global::<riina_ui::PlaybackAudioState>()
-                    .get_audio_delay_text()
-            ),
+            &[text.invoke_audio_delay(marker.clone())][..],
+            text.invoke_audio_delay(audio.get_audio_delay_text()),
         ),
         (
-            "Subtitle Delay:",
-            format!(
-                "Subtitle Delay: {}s",
-                app.global::<riina_ui::PlaybackSubtitleState>()
-                    .get_subtitle_delay_text()
+            &[text.invoke_subtitle_delay(marker)][..],
+            text.invoke_subtitle_delay(
+                app.global::<PlaybackSubtitleState>()
+                    .get_subtitle_delay_text(),
             ),
         ),
     ];
-    for (prefix, label) in information {
-        if let Err(error) = update_information_label(HMENU(wparam.0 as *mut _), prefix, &label) {
+    for (templates, label) in information {
+        if let Err(error) = update_information_label(HMENU(wparam.0 as *mut _), templates, &label) {
             crate::diagnostics::report(app, format!("Could not refresh playback menu: {error}"));
         }
     }
@@ -530,9 +559,8 @@ mod tests {
     use super::*;
     use windows::Win32::UI::WindowsAndMessaging::{
         AppendMenuW, CreateMenu, CreatePopupMenu, CreateWindowExW, DestroyMenu, DestroyWindow,
-        GetClientRect, IsWindowVisible, MF_DISABLED, MF_POPUP, MF_STRING, SW_HIDE, SendMessageW,
-        ShowWindow, WINDOW_EX_STYLE, WS_CHILD, WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW, WS_POPUP,
-        WS_VISIBLE,
+        GetClientRect, IsWindowVisible, MF_POPUP, MF_STRING, SW_HIDE, SendMessageW, ShowWindow,
+        WINDOW_EX_STYLE, WS_CHILD, WS_EX_NOACTIVATE, WS_EX_TOOLWINDOW, WS_POPUP, WS_VISIBLE,
     };
 
     struct TestWindow(HWND);
@@ -715,7 +743,6 @@ mod tests {
     #[test]
     fn information_labels_preserve_menu_identity_and_video_client_bounds() {
         use windows::Win32::Foundation::RECT;
-        use windows::Win32::UI::WindowsAndMessaging::GetMenuState;
         let host = test_host();
         let menu = TestMenu {
             hwnd: host.0,
@@ -731,6 +758,9 @@ mod tests {
             AppendMenuW(audio, MF_STRING | MF_DISABLED, 3, w!("Speed: 1x")).unwrap();
             AppendMenuW(audio, MF_STRING | MF_DISABLED, 4, w!("Audio Delay: 0s")).unwrap();
             AppendMenuW(audio, MF_STRING | MF_DISABLED, 5, w!("Subtitle Delay: 0s")).unwrap();
+            AppendMenuW(audio, MF_STRING, 6, w!("Скорость: 2×")).unwrap();
+            AppendMenuW(audio, MF_STRING | MF_DISABLED, 7, w!("Скорость: 1×")).unwrap();
+            AppendMenuW(audio, MF_STRING | MF_DISABLED, 8, w!("0 ث — تأخير الصوت")).unwrap();
             AppendMenuW(menu.menu, MF_POPUP, audio.0 as usize, w!("Audio")).unwrap();
             SetMenu(host.0, Some(menu.menu)).unwrap();
         }
@@ -743,15 +773,17 @@ mod tests {
         let mut before = RECT::default();
         // SAFETY: the live host is test-owned and the rectangle is writable.
         unsafe { GetClientRect(host.0, &mut before) }.unwrap();
-        for (prefix, label, position) in [
-            ("Volume:", "Volume: 0", 0),
-            ("Volume:", "Volume: 200", 0),
-            ("Speed:", "Speed: 1.1x", 2),
-            ("Speed:", "Speed: 0.9x", 2),
-            ("Audio Delay:", "Audio Delay: -0.5s", 3),
-            ("Subtitle Delay:", "Subtitle Delay: 120s", 4),
+        for (template, label, position) in [
+            ("Volume: \u{1f}", "Volume: 0", 0),
+            ("Volume: \u{1f}", "Volume: 200", 0),
+            ("Speed: \u{1f}x", "Speed: 1.1x", 2),
+            ("Speed: \u{1f}x", "Speed: 0.9x", 2),
+            ("Audio Delay: \u{1f}s", "Audio Delay: -0.5s", 3),
+            ("Subtitle Delay: \u{1f}s", "Subtitle Delay: 120s", 4),
+            ("Скорость: \u{1f}×", "Скорость: 1,25×", 6),
+            ("\u{1f} ث — تأخير الصوت", "0.5 ث — تأخير الصوت", 7),
         ] {
-            update_information_label(audio, prefix, label).unwrap();
+            update_information_label(audio, &[template.into()], label).unwrap();
             let mut after = RECT::default();
             let mut text = [0_u16; 128];
             // SAFETY: the test retains the host and submenu, and both output buffers are writable.
@@ -759,7 +791,7 @@ mod tests {
                 GetClientRect(host.0, &mut after).unwrap();
                 assert_eq!(GetMenu(host.0), menu.menu);
                 assert_eq!(GetSubMenu(menu.menu, 0), audio);
-                assert_eq!(GetMenuItemCount(Some(audio)), 5);
+                assert_eq!(GetMenuItemCount(Some(audio)), 8);
                 let length = GetMenuStringW(audio, position, Some(&mut text), MF_BYPOSITION);
                 assert_eq!(String::from_utf16_lossy(&text[..length as usize]), label);
                 assert_ne!(

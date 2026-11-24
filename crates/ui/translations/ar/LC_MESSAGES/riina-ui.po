@@ -358,3 +358,324 @@ msgstr "لا تتوفّر ملفات سجل"
 
 msgid "{0} of {1} log entries"
 msgstr "إدخالات السجل: {0} من {1}"
+
+msgid "Playback"
+msgstr "التشغيل"
+
+msgid "Pause"
+msgstr "إيقاف مؤقت"
+
+msgid "Stop and Clear Playlists"
+msgstr "إيقاف ومسح قوائم التشغيل"
+
+msgid "Next Frame"
+msgstr "الإطار التالي"
+
+msgid "Step Forward 5s"
+msgstr "تقديم 5 ثوانٍ"
+
+msgid "Previous Frame"
+msgstr "الإطار السابق"
+
+msgid "Step Backward 5s"
+msgstr "رجوع 5 ثوانٍ"
+
+msgid "Jump to Beginning"
+msgstr "الانتقال إلى البداية"
+
+msgid "Jump to…"
+msgstr "الانتقال إلى…"
+
+msgid "Speed: {}x"
+msgstr "السرعة: {}×"
+
+msgid "Speed Up by 1.1x"
+msgstr "زيادة السرعة بمعامل 1.1"
+
+msgid "Speed Up by 2x"
+msgstr "مضاعفة السرعة"
+
+msgid "Speed Down by 0.9x"
+msgstr "خفض السرعة إلى 90٪"
+
+msgid "Speed Down by 0.5x"
+msgstr "خفض السرعة إلى النصف"
+
+msgid "Reset Speed"
+msgstr "إعادة ضبط السرعة"
+
+msgid "Take a Screenshot"
+msgstr "التقاط صورة للشاشة"
+
+msgid "Go to Screenshot Folder"
+msgstr "فتح مجلد لقطات الشاشة"
+
+msgid "A-B Loop"
+msgstr "تكرار المقطع A–B"
+
+msgid "File Loop"
+msgstr "تكرار الملف"
+
+msgid "Show Playlist Panel"
+msgstr "إظهار لوحة قائمة التشغيل"
+
+msgid "Playlist Loop"
+msgstr "تكرار قائمة التشغيل"
+
+msgid "Playlist"
+msgstr "قائمة التشغيل"
+
+msgid "Next Media"
+msgstr "الوسائط التالية"
+
+msgid "Previous Media"
+msgstr "الوسائط السابقة"
+
+msgid "Show Chapters Panel"
+msgstr "إظهار لوحة الفصول"
+
+msgid "Chapters"
+msgstr "الفصول"
+
+msgid "Next Chapter"
+msgstr "الفصل التالي"
+
+msgid "Previous Chapter"
+msgstr "الفصل السابق"
+
+msgid "Video"
+msgstr "الفيديو"
+
+msgid "Hide Video Panel"
+msgstr "إخفاء لوحة الفيديو"
+
+msgid "Show Video Panel"
+msgstr "إظهار لوحة الفيديو"
+
+msgid "Cycle Video Tracks"
+msgstr "التبديل بين مسارات الفيديو"
+
+msgid "Video Track"
+msgstr "مسار الفيديو"
+
+msgid "Half Size"
+msgstr "نصف الحجم"
+
+msgid "Normal Size"
+msgstr "الحجم العادي"
+
+msgid "Double Size"
+msgstr "ضعف الحجم"
+
+msgid "Fit to Screen"
+msgstr "ملاءمة الشاشة"
+
+msgid "Bigger Size"
+msgstr "زيادة الحجم"
+
+msgid "Smaller Size"
+msgstr "تقليل الحجم"
+
+msgid "Exit Picture in Picture"
+msgstr "إنهاء وضع صورة داخل صورة"
+
+msgid "Enter Picture in Picture"
+msgstr "بدء وضع صورة داخل صورة"
+
+msgid "Exit Full Screen"
+msgstr "الخروج من ملء الشاشة"
+
+msgid "Enter Full Screen"
+msgstr "ملء الشاشة"
+
+msgid "Float on Top"
+msgstr "الإبقاء في المقدّمة"
+
+msgid "Lock Window Aspect Ratio"
+msgstr "تثبيت نسبة أبعاد النافذة"
+
+msgid "Live Text"
+msgstr "التعرّف على النص"
+
+msgid "Exit Music Mode"
+msgstr "الخروج من وضع الموسيقى"
+
+msgid "Enter Music Mode"
+msgstr "بدء وضع الموسيقى"
+
+msgid "Aspect Ratio"
+msgstr "نسبة الأبعاد"
+
+msgid "Crop"
+msgstr "اقتصاص"
+
+msgid "Custom…"
+msgstr "مخصّص…"
+
+msgid "Rotation"
+msgstr "تدوير"
+
+msgid "Flip"
+msgstr "قلب الصورة"
+
+msgid "Horizontal (Mirror)"
+msgstr "أفقيًا (انعكاس)"
+
+msgid "Vertical (Flip)"
+msgstr "عموديًا (قلب)"
+
+msgid "Deinterlace"
+msgstr "إزالة التشابك"
+
+msgid "Delogo"
+msgstr "إزالة الشعار"
+
+msgid "Video Filters…"
+msgstr "مرشّحات الفيديو…"
+
+msgid "Audio"
+msgstr "الصوت"
+
+msgid "Hide Audio Panel"
+msgstr "إخفاء لوحة الصوت"
+
+msgid "Show Audio Panel"
+msgstr "إظهار لوحة الصوت"
+
+msgid "Cycle Audio Tracks"
+msgstr "التبديل بين المسارات الصوتية"
+
+msgid "Audio Track"
+msgstr "مسار الصوت"
+
+msgid "Load External Audio…"
+msgstr "تحميل مسار صوت خارجي…"
+
+msgid "Volume: {}"
+msgstr "مستوى الصوت: {}"
+
+msgid "Volume + 1%"
+msgstr "رفع الصوت 1٪"
+
+msgid "Volume + 5%"
+msgstr "رفع الصوت 5٪"
+
+msgid "Volume - 1%"
+msgstr "خفض الصوت 1٪"
+
+msgid "Volume - 5%"
+msgstr "خفض الصوت 5٪"
+
+msgid "Mute"
+msgstr "كتم الصوت"
+
+msgid "Audio Delay: {}s"
+msgstr "تأخير الصوت: {} ث"
+
+msgid "Audio Delay + 0.1s"
+msgstr "زيادة تأخير الصوت 0.1 ث"
+
+msgid "Audio Delay + 0.5s"
+msgstr "زيادة تأخير الصوت 0.5 ث"
+
+msgid "Audio Delay - 0.1s"
+msgstr "تقليل تأخير الصوت 0.1 ث"
+
+msgid "Audio Delay - 0.5s"
+msgstr "تقليل تأخير الصوت 0.5 ث"
+
+msgid "Reset Audio Delay"
+msgstr "إعادة ضبط تأخير الصوت"
+
+msgid "Audio Device"
+msgstr "جهاز الصوت"
+
+msgid "Audio Filters…"
+msgstr "مرشّحات الصوت…"
+
+msgid "Subtitles"
+msgstr "الترجمة"
+
+msgid "Hide Subtitles Panel"
+msgstr "إخفاء لوحة الترجمة"
+
+msgid "Show Subtitles Panel"
+msgstr "إظهار لوحة الترجمة"
+
+msgid "Cycle Subtitles"
+msgstr "التبديل بين مسارات الترجمة"
+
+msgid "Subtitle"
+msgstr "مسار الترجمة"
+
+msgid "Hide Subtitles"
+msgstr "إخفاء الترجمة"
+
+msgid "Show Subtitles"
+msgstr "إظهار الترجمة"
+
+msgid "Secondary Subtitle"
+msgstr "الترجمة الثانوية"
+
+msgid "Hide Secondary Subtitles"
+msgstr "إخفاء الترجمة الثانوية"
+
+msgid "Show Secondary Subtitles"
+msgstr "إظهار الترجمة الثانوية"
+
+msgid "Load External Subtitle…"
+msgstr "تحميل ترجمة خارجية…"
+
+msgid "Find Online Subtitles from"
+msgstr "البحث عن ترجمة عبر الإنترنت من"
+
+msgid "Find Online Subtitles from {}"
+msgstr "البحث عن ترجمة على {}"
+
+msgid "Save Downloaded Subtitle…"
+msgstr "حفظ الترجمة المنزّلة…"
+
+msgid "Encoding"
+msgstr "الترميز"
+
+msgid "Scale Up"
+msgstr "زيادة الحجم"
+
+msgid "Scale Down"
+msgstr "تقليل الحجم"
+
+msgid "Reset Subtitle Scale"
+msgstr "إعادة ضبط حجم الترجمة"
+
+msgid "Subtitle Delay: {}s"
+msgstr "تأخير الترجمة: {} ث"
+
+msgid "Subtitle Delay + 0.1s"
+msgstr "زيادة تأخير الترجمة 0.1 ث"
+
+msgid "Subtitle Delay + 0.5s"
+msgstr "زيادة تأخير الترجمة 0.5 ث"
+
+msgid "Subtitle Delay - 0.1s"
+msgstr "تقليل تأخير الترجمة 0.1 ث"
+
+msgid "Subtitle Delay - 0.5s"
+msgstr "تقليل تأخير الترجمة 0.5 ث"
+
+msgid "Reset Subtitle Delay"
+msgstr "إعادة ضبط تأخير الترجمة"
+
+msgid "Font…"
+msgstr "الخط…"
+
+msgid "Volume: {} (Muted)"
+msgstr "مستوى الصوت: {} (مكتوم)"
+
+msgid "Default"
+msgstr "افتراضي"
+
+msgid "None"
+msgstr "بلا اقتصاص"
+
+msgid "Auto detect"
+msgstr "كشف تلقائي"

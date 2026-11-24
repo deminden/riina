@@ -1,0 +1,27 @@
+export global PlaybackMenuText {
+    out property <string> audio-title: @tr("Audio");
+    out property <string> audio-track-title: @tr("Audio Track");
+    out property <string> load-external-audio-title: @tr("Load External Audio…");
+
+    public pure function speed(value: string) -> string {
+        return @tr("Speed: {}x", value);
+    }
+
+    public pure function volume(value: string, muted: bool) -> string {
+        return muted ? @tr("Volume: {} (Muted)", value) : @tr("Volume: {}", value);
+    }
+
+    public pure function audio-delay(value: string) -> string {
+        return @tr("Audio Delay: {}s", value);
+    }
+
+    public pure function subtitle-delay(value: string) -> string {
+        return @tr("Subtitle Delay: {}s", value);
+    }
+
+    public pure function online-subtitles(provider: string, default-provider: int) -> string {
+        let name = !provider.is-empty ? provider : default-provider == 1 ? "assrt.net"
+            : default-provider == 2 ? "shooter.cn" : "opensubtitles.com";
+        return @tr("Find Online Subtitles from {}", name);
+    }
+}

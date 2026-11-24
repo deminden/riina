@@ -402,6 +402,10 @@ fn surfaces(app: &PlayerWindow, host: &NativeVideoHost) -> Result<Surfaces, Stri
 }
 fn check_audio_menu(host: &NativeVideoHost) -> Result<(), String> {
     let window = hwnd(host.window())?;
+    let text = host.global::<riina_ui::PlaybackMenuText>();
+    let section = text.get_audio_title();
+    let tracks = text.get_audio_track_title();
+    let external = text.get_load_external_audio_title();
     // SAFETY: menu handles are read from the retained realized host.
     unsafe {
         let menu = GetMenu(window);
@@ -409,7 +413,7 @@ fn check_audio_menu(host: &NativeVideoHost) -> Result<(), String> {
         for index in 0..GetMenuItemCount(Some(menu)) {
             let mut text = [0u16; 128];
             let n = GetMenuStringW(menu, index as u32, Some(&mut text), MF_BYPOSITION);
-            if String::from_utf16_lossy(&text[..n.max(0) as usize]) != "Audio" {
+            if String::from_utf16_lossy(&text[..n.max(0) as usize]) != section.as_str() {
                 continue;
             }
             let audio = GetSubMenu(menu, index);
@@ -417,14 +421,15 @@ fn check_audio_menu(host: &NativeVideoHost) -> Result<(), String> {
             for item in 0..GetMenuItemCount(Some(audio)) {
                 let n = GetMenuStringW(audio, item as u32, Some(&mut text), MF_BYPOSITION);
                 let label = String::from_utf16_lossy(&text[..n.max(0) as usize]);
-                if label == "Audio Track" || label == "Load External Audio…" {
+                if label == tracks.as_str() || label == external.as_str() {
                     if GetMenuState(audio, item as u32, MF_BYPOSITION)
                         & (MF_DISABLED.0 | MF_GRAYED.0)
                         != 0
                     {
                         return Err(format!("Audio action remains disabled: {label}"));
                     }
-                    if label == "Audio Track" && GetMenuItemCount(Some(GetSubMenu(audio, item))) < 1
+                    if label == tracks.as_str()
+                        && GetMenuItemCount(Some(GetSubMenu(audio, item))) < 1
                     {
                         return Err("Audio tracks submenu is empty".into());
                     }

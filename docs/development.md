@@ -206,9 +206,10 @@ translation so that words and arguments can be reordered. Slint uses the
 catalog's plural rules for translated counts.
 
 Russian and Arabic cover interface labels in Welcome, Open URL, Playback
-History, Log Viewer, About and the audio and video filter windows. Main menus,
-Settings, player controls, technical filter labels and some runtime messages
-still need translations. The widget suite checks localized actions, plural
+History, Log Viewer, About, the audio and video filter windows, and the Playback,
+Video, Audio and Subtitles menus. The remaining menu families, Settings, player
+controls, technical labels and some runtime messages still need translations.
+The widget suite checks localized actions, plural
 forms, mixed-direction text and a long label in a narrow dialog.
 
 ## Checks
