@@ -21,6 +21,15 @@ const BACKUP_PREFIX: &str = ".plugin-backup-";
 const REMOVAL_PREFIX: &str = ".plugin-removed-";
 static NEXT_STAGE: AtomicU64 = AtomicU64::new(0);
 
+#[cfg(any(target_os = "macos", test))]
+pub(crate) fn first_archive(paths: &[String]) -> Option<&str> {
+    paths.iter().map(String::as_str).find(|path| {
+        Path::new(path)
+            .extension()
+            .is_some_and(|extension| extension.eq_ignore_ascii_case("iinaplgz"))
+    })
+}
+
 pub(crate) struct StagedPackage {
     stage_directory: PathBuf,
     package_directory: PathBuf,
@@ -59,56 +68,111 @@ impl Drop for StageLease {
 }
 
 impl StagedPackage {
-    /// Move the validated package into place only after the user accepts its permissions.
-    pub fn install(self, plugins_directory: &Path) -> Result<PathBuf, String> {
-        fs::create_dir_all(plugins_directory).map_err(|error| error.to_string())?;
-        let _lock = lock_packages(plugins_directory)?;
-        let destination =
-            plugins_directory.join(format!("{}.iinaplugin", self.manifest.identifier));
-        if destination.exists() {
-            return Err(format!(
-                "A plugin with identifier {} is already installed",
-                self.manifest.identifier
-            ));
-        }
-        fs::rename(&self.package_directory, &destination)
-            .map_err(|error| format!("Could not install plugin package: {error}"))?;
-        Ok(destination)
-    }
-
-    pub fn replace(self, plugins_directory: &Path) -> Result<PackageReplacement, String> {
+    /// Hold the package lock through placement, profile changes and rollback.
+    pub(crate) fn reserve(
+        self,
+        plugins_directory: &Path,
+        expected: Option<&InstalledPlugin>,
+    ) -> Result<PackagePlan, String> {
         fs::create_dir_all(plugins_directory).map_err(|error| error.to_string())?;
         let lock = lock_packages(plugins_directory)?;
         let destination =
             plugins_directory.join(format!("{}.iinaplugin", self.manifest.identifier));
-        let metadata = fs::symlink_metadata(&destination)
-            .map_err(|error| format!("Could not locate the installed plugin: {error}"))?;
-        if metadata.file_type().is_symlink() || !metadata.is_dir() {
-            return Err("The installed plugin path is not a regular directory".into());
-        }
-        let backup = plugins_directory.join(unique_directory_name(BACKUP_PREFIX));
-        fs::rename(&destination, &backup)
-            .map_err(|error| format!("Could not preserve the installed plugin: {error}"))?;
-        if let Err(error) = fs::rename(&self.package_directory, &destination) {
-            return match fs::rename(&backup, &destination) {
-                Ok(()) => Err(format!("Could not install the plugin update: {error}")),
-                Err(restore_error) => Err(format!(
-                    "Could not install the plugin update: {error}. The previous package remains at {}; restore failed: {restore_error}",
+        verify_destination(&destination, expected, &self.manifest.identifier)?;
+        Ok(PackagePlan {
+            staged: self,
+            destination,
+            previous: expected.cloned(),
+            lock,
+        })
+    }
+}
+
+pub(crate) struct PackagePlan {
+    staged: StagedPackage,
+    destination: PathBuf,
+    previous: Option<InstalledPlugin>,
+    lock: File,
+}
+
+impl PackagePlan {
+    pub(crate) fn manifest(&self) -> &Manifest {
+        &self.staged.manifest
+    }
+
+    pub(crate) fn place(self) -> Result<PackageReplacement, String> {
+        let destination = self.destination;
+        verify_destination(
+            &destination,
+            self.previous.as_ref(),
+            &self.staged.manifest.identifier,
+        )?;
+        let backup = if self.previous.is_some() {
+            let root = destination
+                .parent()
+                .ok_or("The plugin installation directory is unavailable")?;
+            let backup = root.join(unique_directory_name(BACKUP_PREFIX));
+            fs::rename(&destination, &backup)
+                .map_err(|error| format!("Could not preserve the installed plugin: {error}"))?;
+            Some(backup)
+        } else {
+            None
+        };
+        if let Err(error) = fs::rename(&self.staged.package_directory, &destination) {
+            if let Some(backup) = &backup
+                && let Err(restore_error) = fs::rename(backup, &destination)
+            {
+                return Err(format!(
+                    "Could not install the plugin: {error}. The previous package remains at {}. Restore failed: {restore_error}",
                     backup.display()
-                )),
-            };
+                ));
+            }
+            return Err(format!("Could not install the plugin package: {error}"));
         }
         Ok(PackageReplacement {
             destination,
-            backup: Some(backup),
-            _lock: lock,
+            backup,
+            pending: true,
+            _lock: self.lock,
         })
     }
+}
+
+fn verify_destination(
+    destination: &Path,
+    previous: Option<&InstalledPlugin>,
+    identifier: &str,
+) -> Result<(), String> {
+    let Some(previous) = previous else {
+        return match fs::symlink_metadata(destination) {
+            Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(()),
+            Err(error) => Err(error.to_string()),
+            Ok(_) => Err(format!(
+                "A plugin with identifier {identifier} is already installed"
+            )),
+        };
+    };
+    if !previous.can_update() || previous.directory != destination {
+        return Err("The installed plugin is managed outside the package installer.".into());
+    }
+    let metadata = fs::symlink_metadata(destination)
+        .map_err(|error| format!("Could not locate the installed plugin: {error}"))?;
+    if metadata.file_type().is_symlink() || !metadata.is_dir() {
+        return Err("The installed plugin path is not a regular directory".into());
+    }
+    let current = Manifest::load_from_directory(destination).map_err(|error| error.to_string())?;
+    if current.identifier != previous.declared_identifier
+        || current.version != previous.manifest.version
+    {
+        return Err("The installed plugin changed during review. Open the package again.".into());
+    }
+    Ok(())
 }
 
 pub(crate) struct PackageReplacement {
     destination: PathBuf,
     backup: Option<PathBuf>,
+    pending: bool,
     _lock: File,
 }
 
@@ -198,7 +262,12 @@ fn lock_packages(root: &Path) -> Result<File, String> {
 }
 
 impl PackageReplacement {
+    pub(crate) fn directory(&self) -> &Path {
+        &self.destination
+    }
+
     pub fn commit(mut self) -> Result<(), String> {
+        self.pending = false;
         let Some(backup) = self.backup.take() else {
             return Ok(());
         };
@@ -207,33 +276,37 @@ impl PackageReplacement {
         Ok(())
     }
 
-    pub fn rollback(mut self) -> Result<(), String> {
-        let Some(backup) = self.backup.as_ref() else {
-            return Ok(());
-        };
-        fs::remove_dir_all(&self.destination).map_err(|error| {
-            format!("Could not remove the updated plugin during rollback: {error}")
-        })?;
-        fs::rename(backup, &self.destination)
-            .map_err(|error| format!("Could not restore the previous plugin version: {error}"))?;
-        self.backup = None;
+    pub fn rollback(&mut self) -> Result<(), String> {
+        self.restore()
+    }
+
+    fn restore(&mut self) -> Result<(), String> {
+        if let Err(error) = fs::remove_dir_all(&self.destination)
+            && error.kind() != io::ErrorKind::NotFound
+        {
+            return Err(format!(
+                "Could not remove the incomplete plugin package: {error}"
+            ));
+        }
+        if let Some(backup) = &self.backup {
+            fs::rename(backup, &self.destination).map_err(|error| {
+                format!(
+                    "Could not restore the previous plugin from {}: {error}",
+                    backup.display()
+                )
+            })?;
+        }
+        self.pending = false;
         Ok(())
     }
 }
 
 impl Drop for PackageReplacement {
     fn drop(&mut self) {
-        if let Some(backup) = self.backup.take() {
-            if let Err(error) = fs::remove_dir_all(&self.destination)
-                && error.kind() != io::ErrorKind::NotFound
-            {
-                crate::diagnostics::warn!("Could not remove an incomplete plugin update: {error}");
-            }
-            if let Err(error) = fs::rename(backup, &self.destination) {
-                crate::diagnostics::warn!(
-                    "Could not restore the previous plugin after an incomplete update: {error}"
-                );
-            }
+        if self.pending
+            && let Err(error) = self.restore()
+        {
+            crate::diagnostics::warn!("{error}");
         }
     }
 }
@@ -520,6 +593,19 @@ mod tests {
     use zip::{ZipWriter, write::SimpleFileOptions};
 
     #[test]
+    fn desktop_document_groups_select_the_first_package() {
+        let paths = [
+            "/tmp/example.iinaplgz/episode.mkv",
+            "/tmp/example.iinaplgz.avi",
+            "/tmp/First Review.IINAPLGZ",
+            "/tmp/Second.iinaplgz",
+        ]
+        .map(str::to_owned);
+        assert_eq!(first_archive(&paths), Some("/tmp/First Review.IINAPLGZ"));
+        assert_eq!(first_archive(&paths[..2]), None);
+    }
+
+    #[test]
     fn the_copy_budget_stops_reading_after_the_first_excess_byte() {
         let payload = [1, 2, 3, 4, 5, 6];
         let mut source = Cursor::new(payload);
@@ -622,8 +708,35 @@ mod tests {
         let staged = stage_archive(&archive_path, &plugins).unwrap();
         assert_eq!(staged.manifest.identifier, "org.test.plugin");
         assert!(staged.package_directory.join("main.js").is_file());
-        let installed = staged.install(&plugins).unwrap();
-        assert!(installed.join("Info.json").is_file());
+        let placed = staged.reserve(&plugins, None).unwrap().place().unwrap();
+        assert!(placed.directory().join("Info.json").is_file());
+        placed.commit().unwrap();
+        assert_eq!(discover(&plugins, None).plugins.len(), 1);
+    }
+
+    #[test]
+    fn package_reservation_excludes_another_writer_until_rollback_finishes() {
+        let directory = TempDir::new("reserved-plugin-package").unwrap();
+        let plugins = directory.path().join("plugins");
+        let package = archive(&[("Info.json", INFO), ("main.js", b"void 0;")]);
+        let stage = || stage_archive_bytes(package.clone(), &plugins).unwrap();
+
+        let plan = stage().reserve(&plugins, None).unwrap();
+        let rejected = stage().reserve(&plugins, None);
+        assert!(
+            rejected
+                .err()
+                .unwrap()
+                .contains("Another plugin package change")
+        );
+
+        let mut replacement = plan.place().unwrap();
+        replacement.rollback().unwrap();
+        assert!(stage().reserve(&plugins, None).is_err());
+        drop(replacement);
+
+        let placed = stage().reserve(&plugins, None).unwrap().place().unwrap();
+        placed.commit().unwrap();
         assert_eq!(discover(&plugins, None).plugins.len(), 1);
     }
 

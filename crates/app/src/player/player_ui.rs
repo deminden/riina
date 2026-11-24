@@ -412,6 +412,11 @@ impl ApplicationServices {
     }
 
     #[cfg(target_os = "macos")]
+    pub(crate) fn open_plugin_archive(&self, path: String) -> Result<(), String> {
+        self.settings.install_plugin_archive(path.into())
+    }
+
+    #[cfg(target_os = "macos")]
     pub(crate) fn configure_application_updates(
         &self,
         path: &std::path::Path,

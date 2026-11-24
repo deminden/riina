@@ -109,6 +109,7 @@ export component PlayerWindow inherits PlayerMenuWindow {
     changed menu-shortcuts => { PlayerMenuActions.video-menu-changed(); }
     callback window-title-changed(string);
     in-out property <int> preferences-target-pane: -1;
+    callback open-plugin-archive(string) -> bool;
     callback plugin-menu-will-open();
     callback plugin-host-wake();
     callback update-plugin-windows();

@@ -185,6 +185,20 @@ impl ApplicationSettings {
     }
 
     #[cfg(target_os = "macos")]
+    pub(crate) fn install_plugin_archive(&self, path: slint::SharedString) -> Result<(), String> {
+        let active = self
+            .window
+            .borrow()
+            .as_ref()
+            .map(ComponentHandle::clone_strong);
+        let window = active.ok_or("The Settings window could not be opened")?;
+        show(&window).map_err(|error| error.to_string())?;
+        window.set_selected_pane(super::PLUGINS_PANE);
+        window.invoke_plugin_install_archive(path);
+        Ok(())
+    }
+
+    #[cfg(target_os = "macos")]
     pub(crate) fn show(
         self: &Rc<Self>,
         path: &Path,
@@ -249,6 +263,7 @@ fn show(window: &PreferencesWindow) -> Result<(), slint::PlatformError> {
 }
 
 fn close(window: &PreferencesWindow) {
+    window.invoke_plugin_cancel_import();
     window.invoke_close_profile_font_picker();
     window.invoke_close_plugin_settings();
     window.invoke_dismiss_utility_dialogs();

@@ -22,6 +22,7 @@ use std::{
     rc::Rc,
 };
 
+#[derive(Clone)]
 struct PluginSettings {
     plugins: PathBuf,
     preferences_path: PathBuf,
@@ -79,13 +80,11 @@ pub(crate) fn connect(
     window.on_plugin_id_from_transfer(|transfer| {
         transfer.plain_text().unwrap_or_default().to_string().into()
     });
-    let app = playback.as_ref().map(|(app, _)| *app);
-    installation::local(window, app, &settings);
-    installation::github(window, app, &settings);
     let playback = playback.map(|(app, commands)| Playback {
         window: app.as_weak(),
         commands,
     });
+    installation::connect(window, &settings, host.as_ref(), playback.clone());
     let requests = update_actions::Requests::new();
     update_actions::register_refresh(window, &settings, &requests);
     row_actions::register_reorder(window, &settings);

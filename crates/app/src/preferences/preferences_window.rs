@@ -23,6 +23,9 @@ use riina_ui::PlayerMenuActions;
 use slint::{ComponentHandle, winit_030::WinitWindowAccessor};
 use std::{cell::RefCell, path::PathBuf, rc::Rc};
 
+#[cfg(target_os = "macos")]
+const PLUGINS_PANE: i32 = 9;
+
 pub(crate) struct Session {
     pub(crate) decoder_player: riina_mpv::CommandSender,
     pub(crate) path: PathBuf,
@@ -52,6 +55,35 @@ pub(crate) fn connect(
 ) {
     let baseline = model.snapshot();
     let current = Rc::new(RefCell::new(None::<crate::PreferencesWindow>));
+    #[cfg(target_os = "macos")]
+    {
+        let settings = current.clone();
+        let application = application_settings.clone();
+        let parent = app.as_weak();
+        app.on_open_plugin_archive(move |archive| {
+            if application.is_visible() {
+                return application.install_plugin_archive(archive).is_ok();
+            }
+            let Some(app) = parent.upgrade() else {
+                return false;
+            };
+            let previous_pane = app.get_preferences_target_pane();
+            app.set_preferences_target_pane(PLUGINS_PANE);
+            app.global::<PlayerMenuActions>().invoke_open_preferences();
+            app.set_preferences_target_pane(previous_pane);
+            let window = settings
+                .borrow()
+                .as_ref()
+                .map(ComponentHandle::clone_strong);
+            if let Some(window) = window.filter(|window| window.window().is_visible()) {
+                window.set_selected_pane(PLUGINS_PANE);
+                window.invoke_plugin_install_archive(archive);
+                true
+            } else {
+                false
+            }
+        });
+    }
     let timers = timers::VisibleSettings::default();
     let preferences_window = current.clone();
     let subtitle_catalog_window = current.clone();

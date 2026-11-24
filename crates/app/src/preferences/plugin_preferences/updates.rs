@@ -98,6 +98,7 @@ pub(super) fn apply_plugin_update(
             "The downloaded package identifier does not match the installed plugin.".into(),
         );
     }
+    let plan = staged.reserve(plugins_directory, Some(&previous))?;
     let old_grants = read_plugin_grants(preferences_path, &identifier)?;
     if should_activate {
         let Some(host) = host else {
@@ -114,13 +115,50 @@ pub(super) fn apply_plugin_update(
             return Err(error);
         }
     }
-    if let Err(error) = save_updated_permissions(
-        preferences_path,
-        &staged.manifest,
-        &previous.manifest,
-        old_grants.as_deref().unwrap_or_default(),
-    ) {
+    let updated_manifest = plan.manifest().clone();
+    let mut replacement = match plan.place() {
+        Ok(replacement) => replacement,
+        Err(error) => {
+            let mut recovery = Vec::new();
+            if should_activate
+                && let Some(host) = host
+                && Manifest::load_from_directory(&previous.directory).is_ok_and(|manifest| {
+                    manifest.identifier == previous.declared_identifier
+                        && manifest.version == previous.manifest.version
+                })
+                && let Err(restart_error) = host
+                    .activate_after_update(previous.manifest.clone(), previous.directory.clone())
+            {
+                recovery.push(format!("previous plugin restart failed: {restart_error}"));
+            }
+            return Err(append_recovery(error, recovery));
+        }
+    };
+    let mut activating = false;
+    let applied = (|| {
+        save_updated_permissions(
+            preferences_path,
+            &updated_manifest,
+            &previous.manifest,
+            old_grants.as_deref().unwrap_or_default(),
+        )?;
+        if should_activate && let Some(host) = host {
+            activating = true;
+            host.activate_after_update(updated_manifest, replacement.directory().to_owned())?;
+        }
+        Ok::<(), String>(())
+    })();
+    if let Err(error) = applied {
         let mut recovery = Vec::new();
+        if activating
+            && let Some(host) = host
+            && let Err(suspend_error) = host.suspend_for_update(identifier.clone())
+        {
+            recovery.push(format!("updated plugin suspension failed: {suspend_error}"));
+        }
+        if let Err(rollback_error) = replacement.rollback() {
+            recovery.push(format!("package rollback failed: {rollback_error}"));
+        }
         if let Err(restore_error) =
             restore_plugin_grants(preferences_path, &identifier, old_grants.as_deref())
         {
@@ -130,59 +168,12 @@ pub(super) fn apply_plugin_update(
             && should_activate
             && let Some(host) = host
             && let Err(restart_error) =
-                host.activate_after_update(previous.manifest.clone(), previous.directory.clone())
-        {
-            recovery.push(format!("previous plugin restart failed: {restart_error}"));
-        }
-        return Err(append_recovery(
-            format!("Could not save updated plugin permissions: {error}"),
-            recovery,
-        ));
-    }
-    let updated_manifest = staged.manifest.clone();
-    let replacement = match staged.replace(plugins_directory) {
-        Ok(replacement) => replacement,
-        Err(error) => {
-            let mut recovery = Vec::new();
-            if let Err(restore_error) =
-                restore_plugin_grants(preferences_path, &identifier, old_grants.as_deref())
-            {
-                recovery.push(format!("permission restore failed: {restore_error}"));
-            }
-            if recovery.is_empty()
-                && should_activate
-                && let Some(host) = host
-                && let Err(restart_error) = host
-                    .activate_after_update(previous.manifest.clone(), previous.directory.clone())
-            {
-                recovery.push(format!("previous plugin restart failed: {restart_error}"));
-            }
-            return Err(append_recovery(error, recovery));
-        }
-    };
-    let updated_directory = plugins_directory.join(format!("{identifier}.iinaplugin"));
-    if should_activate
-        && let Some(host) = host
-        && let Err(error) = host.activate_after_update(updated_manifest.clone(), updated_directory)
-    {
-        let rollback = replacement.rollback();
-        let mut recovery = Vec::new();
-        if let Err(rollback_error) = rollback {
-            recovery.push(format!("package rollback failed: {rollback_error}"));
-        }
-        if let Err(restore_error) =
-            restore_plugin_grants(preferences_path, &identifier, old_grants.as_deref())
-        {
-            recovery.push(format!("permission restore failed: {restore_error}"));
-        }
-        if recovery.is_empty()
-            && let Err(restart_error) =
                 host.activate_after_update(previous.manifest, previous.directory)
         {
             recovery.push(format!("previous plugin restart failed: {restart_error}"));
         }
         return Err(append_recovery(
-            format!("Could not start updated plugin: {error}"),
+            format!("Could not apply the plugin update: {error}"),
             recovery,
         ));
     }

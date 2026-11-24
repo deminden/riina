@@ -1,220 +1,321 @@
-//! Register local package imports and the GitHub download lifecycle.
-use super::{
-    PluginSettings,
-    inventory::refresh,
-    permissions::{confirm_permissions, save_granted_permissions},
-};
-use crate::{PlayerWindow, PreferencesWindow};
-use rfd::FileDialog;
-use slint::ComponentHandle;
-use std::{
-    collections::BTreeMap,
-    fs,
-    sync::{
-        Arc, Mutex,
-        atomic::{AtomicU64, Ordering},
-    },
-};
+//! Review and install packages selected in Settings or handed over by the desktop.
+mod transaction;
 
-pub(super) fn local(
-    window: &PreferencesWindow,
-    app: Option<&PlayerWindow>,
-    settings: &PluginSettings,
-) {
-    let runtime_available = settings.runtime_available;
-    let weak = window.as_weak();
-    let parent = app.map(ComponentHandle::as_weak);
-    let plugins = settings.plugins.clone();
-    let entries = settings.inventory.clone();
-    let enabled_plugins = settings.enabled.clone();
-    let preferences_path = settings.preferences_path.clone();
-    window.on_plugin_request_local_install(move || {
-        let Some(window) = weak.upgrade() else { return };
-        if window.get_plugin_github_installing() {
-            return;
-        }
-        let Some(archive) = FileDialog::new()
-            .add_filter("Riina plugin packages", &["iinaplgz"])
-            .pick_file()
-        else {
-            return;
-        };
-        let staged = match crate::plugin_packages::stage_archive(&archive, &plugins) {
-            Ok(staged) => staged,
-            Err(error) => {
-                window.set_plugin_update_status(format!("Package rejected: {error}").into());
-                return;
-            }
-        };
-        if !confirm_permissions(&staged.manifest) {
-            window.set_plugin_update_status("Plugin installation cancelled.".into());
-            return;
-        }
-        let manifest = staged.manifest.clone();
-        match staged.install(&plugins) {
-            Ok(path) => {
-                if let Err(error) = save_granted_permissions(&preferences_path, &manifest) {
-                    if let Err(cleanup_error) = fs::remove_dir_all(&path) {
-                        crate::diagnostics::warn!(
-                            "Could not remove a plugin without saved grants: {cleanup_error}"
-                        );
-                    }
-                    window.set_plugin_update_status(
-                        format!("Could not save plugin permissions: {error}").into(),
-                    );
-                    return;
-                }
-                refresh(
-                    &window,
-                    &plugins,
-                    &entries,
-                    &enabled_plugins.borrow(),
-                    runtime_available,
-                );
-                window.set_plugin_update_status(
-                    format!(
-                        "Installed {}. It is disabled until you enable it.",
-                        manifest.name
-                    )
-                    .into(),
-                );
-                if let Some(app) = parent.as_ref().and_then(slint::Weak::upgrade) {
-                    crate::diagnostics::report(
-                        &app,
-                        crate::diagnostics::UserMessage::info(format!(
-                            "Installed plugin {}",
-                            manifest.name
-                        )),
-                    );
-                }
-            }
-            Err(error) => window.set_plugin_update_status(error.into()),
-        }
-    });
+use super::{
+    Playback, PluginSettings, current_runtime_supports,
+    inventory::{load_enabled, refresh},
+    permissions::describe_permissions,
+};
+use crate::{PreferencesWindow, plugin_host::GlobalHandle, plugin_packages::StagedPackage};
+use rfd::{AsyncFileDialog, AsyncMessageDialog, MessageButtons, MessageDialogResult};
+use slint::{ComponentHandle, Weak, winit_030::WinitWindowAccessor};
+use std::{
+    cell::{Cell, RefCell},
+    path::PathBuf,
+    rc::Rc,
+};
+use transaction::{Installed, Profile, Review};
+
+enum Source {
+    ChooseArchive,
+    Archive(PathBuf),
+    Repository(String),
 }
 
-pub(super) fn github(
+impl Source {
+    fn stage(self, profile: &Profile) -> Result<StagedPackage, String> {
+        match self {
+            Self::Archive(path) => crate::plugin_packages::stage_archive(&path, profile.plugins())
+                .map_err(|error| format!("Package rejected: {error}")),
+            Self::Repository(source) => {
+                crate::plugin_github::stage_repository(&source, profile.plugins())
+                    .map_err(|error| format!("GitHub plugin could not be installed: {error}"))
+            }
+            Self::ChooseArchive => unreachable!("The file dialog resolves the archive first"),
+        }
+    }
+}
+
+struct Installer {
+    window: Weak<PreferencesWindow>,
+    settings: PluginSettings,
+    profile: Profile,
+    playback: Option<Playback>,
+    active: RefCell<Option<Rc<Cell<Phase>>>>,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Phase {
+    Reviewing,
+    Installing,
+    Closed,
+}
+
+struct Request {
+    installer: Rc<Installer>,
+    phase: Rc<Cell<Phase>>,
+}
+
+impl Drop for Request {
+    fn drop(&mut self) {
+        if self.phase.get() != Phase::Closed {
+            self.installer.finish_request();
+        }
+    }
+}
+
+pub(super) fn connect(
     window: &PreferencesWindow,
-    app: Option<&PlayerWindow>,
     settings: &PluginSettings,
+    host: Option<&GlobalHandle>,
+    playback: Option<Playback>,
 ) {
-    let runtime_available = settings.runtime_available;
+    let installer = Rc::new(Installer {
+        window: window.as_weak(),
+        settings: settings.clone(),
+        profile: Profile::new(
+            settings.plugins.clone(),
+            settings.preferences_path.clone(),
+            settings.enabled_path.clone(),
+            host.cloned(),
+        ),
+        playback,
+        active: RefCell::default(),
+    });
+    let picker = installer.clone();
+    window.on_plugin_request_local_install(move || picker.start(Source::ChooseArchive));
+    let archive = installer.clone();
+    window.on_plugin_install_archive(move |path| {
+        archive.start(Source::Archive(PathBuf::from(path.as_str())));
+    });
     let weak = window.as_weak();
     window.on_plugin_request_github_install(move || {
-        if let Some(window) = weak.upgrade() {
+        if let Some(window) = weak.upgrade()
+            && !window.get_plugin_github_installing()
+        {
             window.set_plugin_github_repository("".into());
             window.set_plugin_github_sheet_open(true);
         }
     });
-
-    let github_results = Arc::new(Mutex::new(BTreeMap::new()));
-    let github_next_id = Arc::new(AtomicU64::new(1));
-    let weak = window.as_weak();
-    let plugins = settings.plugins.clone();
-    let results = github_results.clone();
-    let next_id = github_next_id.clone();
+    let github = installer.clone();
     window.on_plugin_github_install_requested(move |source| {
-        let Some(window) = weak.upgrade() else { return };
-        if window.get_plugin_github_installing() {
-            return;
-        }
-        let id = next_id.fetch_add(1, Ordering::Relaxed);
-        let source = source.to_string();
-        let plugins = plugins.clone();
-        let results = results.clone();
-        let weak_result = weak.clone();
-        window.set_plugin_github_installing(true);
-        window.set_plugin_update_status(format!("Downloading {source}…").into());
-        let started = crate::background::spawn_named("plugin-github-install", move || {
-            let result = crate::plugin_github::stage_repository(&source, &plugins);
-            riina_core::sync::lock(&results).insert(id, result);
-            // The result has no recipient once its window or event loop closes.
-            let _ = crate::background::to_ui(weak_result, move |window| {
-                window.invoke_plugin_github_install_completed(id as i32);
-            });
-        });
-        if let Err(error) = started {
-            window.set_plugin_github_installing(false);
-            window.set_plugin_update_status(
-                format!("Could not start GitHub download: {error}").into(),
-            );
-        }
+        github.start(Source::Repository(source.to_string()));
     });
-
-    let weak = window.as_weak();
-    let plugins = settings.plugins.clone();
-    let entries = settings.inventory.clone();
-    let enabled_plugins = settings.enabled.clone();
-    let preferences_path_for_github = settings.preferences_path.clone();
-    let github_parent = app.map(ComponentHandle::as_weak);
-    let results = github_results;
-    window.on_plugin_github_install_completed(move |id| {
-        let Some(window) = weak.upgrade() else { return };
-        let Ok(id) = u64::try_from(id) else { return };
-        let staged = riina_core::sync::lock(&results).remove(&id);
-        window.set_plugin_github_installing(false);
-        let Some(staged) = staged else {
-            window.set_plugin_update_status(
-                "GitHub download completed without a package result.".into(),
-            );
-            return;
-        };
-        let staged = match staged {
-            Ok(staged) => staged,
-            Err(error) => {
-                window.set_plugin_update_status(
-                    format!("GitHub plugin could not be installed: {error}").into(),
-                );
-                return;
-            }
-        };
-        if !confirm_permissions(&staged.manifest) {
-            window.set_plugin_github_sheet_open(false);
-            window.set_plugin_update_status("Plugin installation cancelled.".into());
-            return;
-        }
-        let manifest = staged.manifest.clone();
-        match staged.install(&plugins) {
-            Ok(path) => {
-                if let Err(error) =
-                    save_granted_permissions(&preferences_path_for_github, &manifest)
-                {
-                    if let Err(cleanup_error) = fs::remove_dir_all(&path) {
-                        crate::diagnostics::warn!(
-                            "Could not remove a plugin without saved grants: {cleanup_error}"
-                        );
-                    }
-                    window.set_plugin_update_status(
-                        format!("Could not save plugin permissions: {error}").into(),
-                    );
-                    return;
-                }
-                refresh(
-                    &window,
-                    &plugins,
-                    &entries,
-                    &enabled_plugins.borrow(),
-                    runtime_available,
-                );
-                window.set_plugin_github_sheet_open(false);
-                window.set_plugin_update_status(
-                    format!(
-                        "Installed {}. It is disabled until you enable it.",
-                        manifest.name
-                    )
-                    .into(),
-                );
-                if let Some(app) = github_parent.as_ref().and_then(slint::Weak::upgrade) {
-                    crate::diagnostics::report(
-                        &app,
-                        crate::diagnostics::UserMessage::info(format!(
-                            "Installed plugin {}",
-                            manifest.name
-                        )),
-                    );
-                }
-            }
-            Err(error) => window.set_plugin_update_status(error.into()),
-        }
-    });
+    window.on_plugin_cancel_import(move || installer.cancel_review());
 }
+
+impl Installer {
+    fn start(self: &Rc<Self>, source: Source) {
+        let Some(window) = self.window.upgrade() else {
+            return;
+        };
+        if self.active.borrow().is_some() || window.get_plugin_github_installing() {
+            window.set_plugin_update_status(
+                "Finish the current plugin operation before opening another package.".into(),
+            );
+            return;
+        }
+        window.set_plugin_github_installing(true);
+        let phase = Rc::new(Cell::new(Phase::Reviewing));
+        self.active.replace(Some(phase.clone()));
+        let request = Request {
+            installer: self.clone(),
+            phase,
+        };
+        if let Err(error) = slint::spawn_local(async move {
+            let result = request.run(source).await;
+            if let Some(window) = request.settings() {
+                match result {
+                    Ok(Some(installed)) => request.installer.finish(&window, installed),
+                    Ok(None) => {
+                        window.set_plugin_update_status("Plugin installation cancelled.".into())
+                    }
+                    Err(error) => window.set_plugin_update_status(error.into()),
+                }
+            }
+        }) {
+            window
+                .set_plugin_update_status(format!("Could not start plugin import: {error}").into());
+        }
+    }
+
+    fn cancel_review(&self) {
+        let reviewing = self
+            .active
+            .borrow()
+            .as_ref()
+            .is_some_and(|phase| phase.get() == Phase::Reviewing);
+        if reviewing {
+            self.finish_request();
+            if let Some(window) = self.window.upgrade() {
+                window.set_plugin_github_sheet_open(false);
+            }
+        }
+    }
+
+    fn finish_request(&self) {
+        let phase = self.active.borrow_mut().take();
+        if let Some(phase) = phase {
+            phase.set(Phase::Closed);
+            if let Some(window) = self.window.upgrade() {
+                window.set_plugin_github_installing(false);
+            }
+        }
+    }
+
+    fn finish(&self, window: &PreferencesWindow, installed: Installed) {
+        let settings = &self.settings;
+        *settings.enabled.borrow_mut() = load_enabled(&settings.enabled_path);
+        refresh(
+            window,
+            &settings.plugins,
+            &settings.inventory,
+            &settings.enabled.borrow(),
+            settings.runtime_available,
+        );
+        let action = if installed.replaced {
+            "Reinstalled"
+        } else {
+            "Installed"
+        };
+        let name = &installed.manifest.name;
+        let status = if installed.enabled {
+            format!("{action} and enabled {name}.")
+        } else {
+            format!(
+                "{action} {name}. The plugin remains disabled because its runtime is unavailable."
+            )
+        };
+        window.set_plugin_update_status(status.clone().into());
+        if let Some(playback) = &self.playback {
+            if installed.manifest.identifier == "io.iina.ytdl" {
+                playback.ytdl_changed(installed.enabled);
+            }
+            if let Some(player) = playback.window.upgrade() {
+                crate::diagnostics::report(&player, crate::diagnostics::UserMessage::info(status));
+            }
+        }
+    }
+}
+
+impl Request {
+    fn settings(&self) -> Option<PreferencesWindow> {
+        if self.phase.get() == Phase::Closed {
+            return None;
+        }
+        self.installer.window.upgrade()
+    }
+
+    fn window(&self) -> Option<PreferencesWindow> {
+        self.settings()
+            .filter(|window| window.window().is_visible())
+    }
+
+    async fn run(&self, source: Source) -> Result<Option<Installed>, String> {
+        let source = match source {
+            Source::ChooseArchive => {
+                let Some(window) = self.window() else {
+                    return Ok(None);
+                };
+                let owner = window
+                    .window()
+                    .winit_window()
+                    .await
+                    .map_err(|error| error.to_string())?;
+                drop(window);
+                let file = AsyncFileDialog::new()
+                    .set_title("Install local plugin package")
+                    .set_parent(owner.as_ref())
+                    .add_filter("Riina plugin packages", &["iinaplgz"])
+                    .pick_file()
+                    .await;
+                let Some(file) = file else { return Ok(None) };
+                Source::Archive(file.path().to_owned())
+            }
+            source => source,
+        };
+        let Some(window) = self.window() else {
+            return Ok(None);
+        };
+        match &source {
+            Source::Repository(source) => {
+                window.set_plugin_update_status(format!("Downloading {source}…").into());
+            }
+            _ => window.set_plugin_update_status("Reading plugin package…".into()),
+        }
+        drop(window);
+        let profile = self.installer.profile.clone();
+        let review = run_worker("plugin-import-stage", move || {
+            profile.review(source.stage(&profile)?)
+        })
+        .await?;
+        if !self.confirm(&review).await? {
+            return Ok(None);
+        }
+        let Some(window) = self.window() else {
+            return Ok(None);
+        };
+        self.phase.set(Phase::Installing);
+        window.set_plugin_update_status(format!("Installing {}…", review.manifest().name).into());
+        drop(window);
+        let profile = self.installer.profile.clone();
+        run_worker("plugin-import-commit", move || profile.install(review))
+            .await
+            .map(Some)
+    }
+
+    async fn confirm(&self, review: &Review) -> Result<bool, String> {
+        let Some(window) = self.window() else {
+            return Ok(false);
+        };
+        window.set_plugin_github_sheet_open(false);
+        let owner = window
+            .window()
+            .winit_window()
+            .await
+            .map_err(|error| error.to_string())?;
+        drop(window);
+        let manifest = review.manifest();
+        let action = if review.replaces() {
+            "Replace"
+        } else {
+            "Install"
+        };
+        let can_enable =
+            self.installer.settings.runtime_available && current_runtime_supports(manifest);
+        let effect = if can_enable {
+            "Riina will enable this plugin after installation."
+        } else {
+            "This plugin will remain disabled because its runtime is unavailable."
+        };
+        let permissions = describe_permissions(manifest);
+        let permissions = if permissions.is_empty() {
+            "This plugin requests no additional permissions.".into()
+        } else {
+            permissions
+        };
+        let result = AsyncMessageDialog::new()
+            .set_parent(owner.as_ref())
+            .set_title(format!("{action} {}?", manifest.name))
+            .set_description(format!("{effect}\n\n{permissions}"))
+            .set_buttons(MessageButtons::YesNo)
+            .show()
+            .await;
+        Ok(result == MessageDialogResult::Yes)
+    }
+}
+
+async fn run_worker<T: Send + 'static>(
+    title: &'static str,
+    work: impl FnOnce() -> Result<T, String> + Send + 'static,
+) -> Result<T, String> {
+    let (complete, result) = tokio::sync::oneshot::channel();
+    crate::background::spawn_named(title, move || {
+        let _ = complete.send(work());
+    })
+    .map_err(|error| error.to_string())?;
+    result.await.map_err(|error| error.to_string())?
+}
+
+#[cfg(test)]
+mod tests;

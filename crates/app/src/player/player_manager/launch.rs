@@ -172,14 +172,15 @@ impl PlayerManager {
                 .invoke_open_preferences();
             return;
         }
-        let result = (|| -> Result<(), String> {
-            let path = crate::platform::preferences_path().map_err(|error| error.to_string())?;
-            let loaded = preference_load::load(&path).map_err(|error| error.to_string())?;
-            self.services().show_application_settings(&path, loaded)
-        })();
-        if let Err(error) = result {
+        if let Err(error) = self.open_application_settings() {
             crate::diagnostics::warn!("Could not open Settings: {error}");
         }
+    }
+
+    fn open_application_settings(&self) -> Result<(), String> {
+        let path = crate::platform::preferences_path().map_err(|error| error.to_string())?;
+        let loaded = preference_load::load(&path).map_err(|error| error.to_string())?;
+        self.services().show_application_settings(&path, loaded)
     }
 
     pub(crate) fn clear_application_recents(&self) {
@@ -228,6 +229,26 @@ impl PlayerManager {
     }
 
     pub(crate) fn open_application_documents(&self, paths: Vec<String>) {
+        if self.is_quitting() {
+            return;
+        }
+        if let Some(archive) = crate::plugin_packages::first_archive(&paths) {
+            if let Some((app, _)) = self.services().history.browser_destination()
+                && app.invoke_open_plugin_archive(archive.into())
+            {
+                return;
+            }
+            if self.is_empty() {
+                crate::platform::browser_activation::show_idle_menu();
+            }
+            let result = self
+                .open_application_settings()
+                .and_then(|()| self.services().open_plugin_archive(archive.to_owned()));
+            if let Err(error) = result {
+                crate::diagnostics::warn!("Could not open the plugin package: {error}");
+            }
+            return;
+        }
         self.open_application_selection(paths, ApplicationOpen::Finder);
     }
 

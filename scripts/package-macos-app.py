@@ -16,6 +16,7 @@ ROOT = Path(__file__).resolve().parents[1]
 MANIFEST = ROOT / "config" / "default-file-types.csv"
 OPEN_EXTENSIONS = ROOT / "config" / "macos-open-extensions.csv"
 BROWSER_EXTENSION = ROOT / "browser" / "open-in-riina"
+PLUGIN_PACKAGE_UTI = "io.iina.iinaplgz"
 CATEGORY_PARENT = {
     "video": "public.movie",
     "audio": "public.audio",
@@ -81,6 +82,23 @@ def make_info_plist(
         }
         for category, identifier, extensions in records
     ]
+    document_types.append(
+        {
+            "CFBundleTypeName": "IINA Plugin Package",
+            "CFBundleTypeRole": "Viewer",
+            "LSHandlerRank": "Alternate",
+            "LSItemContentTypes": [PLUGIN_PACKAGE_UTI],
+            "CFBundleTypeExtensions": ["iinaplgz"],
+        }
+    )
+    imported_types.append(
+        {
+            "UTTypeIdentifier": PLUGIN_PACKAGE_UTI,
+            "UTTypeDescription": "IINA Plugin Package",
+            "UTTypeConformsTo": ["com.pkware.zip-archive"],
+            "UTTypeTagSpecification": {"public.filename-extension": ["iinaplgz"]},
+        }
+    )
     info = {
         "CFBundleDevelopmentRegion": "en",
         "CFBundleExecutable": "riina",

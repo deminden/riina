@@ -28,6 +28,7 @@ impl VisibleSettings {
                     audio_devices.stop();
                 }
                 window.invoke_close_plugin_settings();
+                window.invoke_plugin_cancel_import();
                 window.invoke_dismiss_utility_dialogs();
                 // Continue releasing session resources if the window is closing.
                 let _ = window.hide();

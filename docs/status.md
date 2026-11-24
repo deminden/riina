@@ -83,6 +83,10 @@ Implementation does not imply every state or platform is verified.
   extension, plugin management, QuickJS host APIs and WebView surfaces,
   online-subtitle providers, online-media helpers, OCR and system-media
   adapters. Compatibility and platform coverage remain partial.
+- **Plugin packages:** the macOS bundle registers `.iinaplgz` for Finder.
+  Finder and Settings share the permission review and replacement flow.
+  Supported packages enable after approval, and unsupported packages stay
+  installed and disabled. Finder delivery still needs native verification.
 
 Volume defaults to 0-100%; the optional boost setting allows 200%.
 

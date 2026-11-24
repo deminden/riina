@@ -3849,3 +3849,36 @@ playback starts continues to edit defaults for subsequent players.
 - Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
 - Linux application SHA-256 `d614aadcb5ddb148d33247ce9597c440246753f554846efcd9e4987582b06d11`
 - Linux libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`
+
+### Finder plugin packages and installer review 2026-11-24
+
+The macOS bundle declares the IINA plugin archive type as an alternate
+handler. The first archive in a Finder document group opens the Plugins
+pane and follows the same review as a package selected in Settings.
+Local and GitHub installs validate the package on a worker. The owning
+Settings window asks before a new installation or a replacement. An
+approved compatible package can start after its grants are saved.
+
+Regression tests cover mixed Finder document groups, invalid archives,
+discarded reviews, enabling approved packages, stale replacement
+reviews and rollback after a grant write fails. A second writer cannot
+reserve the package directory while an earlier placement is rolling back.
+Bundle tests validate the file extension and ZIP type declaration.
+
+On a private Windows desktop, cancelling an initial package left it
+uninstalled. After approval, the package was installed and enabled.
+Cancelling a replacement kept the previous version and grants, and later
+approval installed the replacement with its reviewed grants. Playback
+stayed paused and the test process exited normally. The Windows workspace
+gate, locked Windows and Linux builds, strict Apple Silicon cross-Clippy
+and all 61 pinned Windows libmpv tests passed.
+On isolated Linux X11, the Utilities confirmations, reopening Settings and
+normal shutdown passed. The Linux application suite passed 592 tests.
+
+Native macOS verification still needs Finder delivery for cold and warm
+launches, Settings focus, the review sheet and closing it during shutdown.
+
+- Windows application SHA-256 `338fd4b5da0cbe592b8c75357c5956f8de6356c4c566585abad7ab11a3b71c83`
+- Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
+- Linux application SHA-256 `8f1b90fe164e9381e60535a79d4ef4691a01dc74bb8d47ce2f871881e85a887d`
+- Linux libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`

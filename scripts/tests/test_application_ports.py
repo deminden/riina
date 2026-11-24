@@ -61,6 +61,18 @@ class ApplicationPortsTests(unittest.TestCase):
                     )
                     with (contents / "Info.plist").open("rb") as info:
                         metadata = plistlib.load(info)
+                    packages = [
+                        item for item in metadata["CFBundleDocumentTypes"]
+                        if "iinaplgz" in item["CFBundleTypeExtensions"]
+                    ]
+                    self.assertEqual(len(packages), 1)
+                    self.assertEqual(packages[0]["LSItemContentTypes"], ["io.iina.iinaplgz"])
+                    self.assertEqual(packages[0]["LSHandlerRank"], "Alternate")
+                    imported_package = next(
+                        declaration for declaration in metadata["UTImportedTypeDeclarations"]
+                        if declaration["UTTypeIdentifier"] == "io.iina.iinaplgz"
+                    )
+                    self.assertEqual(imported_package["UTTypeConformsTo"], ["com.pkware.zip-archive"])
                     if opt_in:
                         self.assertEqual(metadata["CFBundleURLTypes"][0]["CFBundleURLSchemes"], ["riina"])
                     else:

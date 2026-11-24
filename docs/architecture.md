@@ -520,6 +520,14 @@ WebView with no plugin API, and its lifetime follows the Settings window.
 GitHub update checks initiated from the information panel use the existing
 package staging and permission-review flow.
 
+Finder groups containing an IINA plugin archive route the first package to
+Plugins in Settings. The local picker, Finder and GitHub installs stage
+packages on a worker, then show a review dialog under the Settings window.
+The reviewed package holds the package lock through placement, grant and
+enable changes, and rollback. Closing Settings cancels an outstanding
+review. An accepted installation can finish in the background. A supported
+package with an available runtime starts after the user approves the review.
+
 `preference_load` reads and validates the startup settings. Recovery preserves a
 copy of invalid input and loads recoverable fields. `PreferenceModel` holds the
 committed settings on the UI thread and delegates persistence to

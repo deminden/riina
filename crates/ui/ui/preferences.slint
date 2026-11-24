@@ -301,13 +301,14 @@ export component PreferencesWindow inherits Window {
     callback advanced-option-edited(int, string, string);
     callback plugin-request-github-install();
     callback plugin-github-install-requested(string);
-    callback plugin-github-install-completed(int);
     callback plugin-update-staged(int);
     callback plugin-update-completed(int);
     pure callback plugin-id-transfer(string) -> data-transfer;
     pure callback plugin-id-from-transfer(data-transfer) -> string;
     callback plugin-reordered(string, string);
     callback plugin-request-local-install();
+    callback plugin-install-archive(string);
+    callback plugin-cancel-import();
     callback plugin-refresh();
     callback plugin-enabled-changed(int, bool);
     callback plugin-row-about(int);
