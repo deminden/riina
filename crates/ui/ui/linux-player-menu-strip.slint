@@ -1,0 +1,73 @@
+import { Button, Palette } from "std-widgets.slint";
+import { PlaylistPluginPopupState, PlaylistPopupInput } from "playlist-plugin-popup.slint";
+import { Theme } from "theme.slint";
+
+// Keep the title strip above the client area used by the scrollable popups.
+export component LinuxPlayerMenuStrip inherits Rectangle {
+    in property <[string]> captions;
+    in property <bool> compact;
+    out property <length> required-width: title-bar.min-width;
+    preferred-height: 40px;
+    callback open-family(int, float, float);
+    private property <bool> menu-open: PlaylistPluginPopupState.shown && PlaylistPluginPopupState.player-menu;
+    background: root.compact ? Palette.background : transparent;
+
+    function select(index: int, x: length) {
+        if root.menu-open && PlaylistPluginPopupState.player-menu-family == index {
+            PlaylistPluginPopupState.input(PlaylistPopupInput.dismiss, 0, 0, 0);
+        } else {
+            root.open-family(index, x / 1px, (root.absolute-position.y + root.height) / 1px);
+        }
+    }
+
+    title-bar := HorizontalLayout {
+        x: 0px; y: 0px; width: parent.width; height: parent.height;
+        visible: !root.compact;
+        alignment: start; spacing: 0px;
+        for caption[index] in root.captions : item := FocusScope {
+            min-width: caption-text.preferred-width + 22px;
+            preferred-width: self.min-width;
+            focus-on-click: false;
+            accessible-role: button;
+            accessible-label: caption;
+            accessible-action-default => { root.select(index, self.absolute-position.x); }
+            key-pressed(event) => {
+                if event.text == Key.Return || event.text == Key.DownArrow || event.text == " " {
+                    root.select(index, self.absolute-position.x);
+                    return accept;
+                }
+                return reject;
+            }
+            Rectangle {
+                y: 5px; width: parent.width; height: parent.height - 10px;
+                border-radius: 3px;
+                background: (root.menu-open && PlaylistPluginPopupState.player-menu-family == index) || touch.has-hover
+                    ? Palette.foreground.with-alpha(0.08) : transparent;
+                border-width: item.has-focus ? 1px : 0px;
+                border-color: Theme.player-focus-accent;
+            }
+            caption-text := Text {
+                x: 11px; y: 0px; width: parent.width - 22px; height: parent.height - 2px;
+                text: caption; color: Palette.foreground; vertical-alignment: center;
+            }
+            touch := TouchArea {
+                width: parent.width; height: parent.height;
+                pointer-event(event) => {
+                    if event.kind == PointerEventKind.down && event.button == PointerEventButton.left {
+                        root.select(index, item.absolute-position.x);
+                    }
+                }
+                changed has-hover => {
+                    if self.has-hover && root.menu-open && PlaylistPluginPopupState.player-menu-family != index {
+                        root.select(index, item.absolute-position.x);
+                    }
+                }
+            }
+        }
+    }
+    if root.compact : Button {
+        x: 6px; y: 4px; height: parent.height - 8px;
+        text: @tr("Menu");
+        clicked => { root.select(-1, self.absolute-position.x); }
+    }
+}

@@ -1,25 +1,29 @@
 import { PlayerAppearance } from "player-appearance.slint";
 import { Theme } from "theme.slint";
 
-export enum PlaylistPopupInput { hover, choose, previous, next, back, forward, enter, dismiss }
+export enum PlaylistPopupInput { hover, choose, previous, next, first, last, back, forward, enter, dismiss }
 export struct PlaylistPopupBounds { x: float, y: float, width: float, height: float }
 export struct PlaylistPopupRow {
     title: string, shortcut: string, height: float, separator: bool, enabled: bool, checkable: bool, checked: bool,
     submenu: bool, highlighted: bool,
 }
 export struct PlaylistPopupPanel {
-    bounds: PlaylistPopupBounds, content-height: float, reveal: float, rows: [PlaylistPopupRow], back: bool,
+    bounds: PlaylistPopupBounds, content-height: float, reveal: float, reveal-serial: int,
+    rows: [PlaylistPopupRow], back: bool,
 }
 
 export global PlaylistPluginPopupState {
     in-out property <bool> shown;
     in-out property <bool> player-menu;
+    in-out property <int> player-menu-family: -1;
     in-out property <[PlaylistPopupPanel]> panels;
     callback input(PlaylistPopupInput, int, int, float);
     public function handle-key(text: string) {
         if text == Key.Escape { root.input(PlaylistPopupInput.dismiss, 0, 0, 0); }
         else if text == Key.UpArrow { root.input(PlaylistPopupInput.previous, 0, 0, 0); }
         else if text == Key.DownArrow { root.input(PlaylistPopupInput.next, 0, 0, 0); }
+        else if text == Key.Home { root.input(PlaylistPopupInput.first, 0, 0, 0); }
+        else if text == Key.End { root.input(PlaylistPopupInput.last, 0, 0, 0); }
         else if text == Key.LeftArrow { root.input(PlaylistPopupInput.back, 0, 0, 0); }
         else if text == Key.RightArrow { root.input(PlaylistPopupInput.forward, 0, 0, 0); }
         else if text == Key.Return || text == " " { root.input(PlaylistPopupInput.enter, 0, 0, 0); }
@@ -66,11 +70,11 @@ component PopupPanel inherits Rectangle {
         content-height: max(self.height, root.panel.content-height * 1px);
         accessible-role: list;
         accessible-label: PlaylistPluginPopupState.player-menu ? @tr("Menu") : "Playlist menu";
-        private property <float> reveal: root.panel.reveal;
-
-        changed reveal => {
-            if self.reveal >= 0 {
-                let top = -self.reveal * 1px;
+        // Repeated Home or End must reveal the row again after wheel scrolling.
+        private property <int> reveal-serial: root.panel.reveal-serial;
+        changed reveal-serial => {
+            if root.panel.reveal >= 0 {
+                let top = -root.panel.reveal * 1px;
                 let bottom = max(top, min(0px, top + self.height - 24px));
                 self.content-y = clamp(self.content-y, top, bottom);
                 self.content-y = clamp(self.content-y, self.height - self.content-height, 0px);

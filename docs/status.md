@@ -46,9 +46,9 @@ Implementation does not imply every state or platform is verified.
   the same captions where they share commands. The system language selects the
   catalog, with English as the fallback. Settings, player controls and some
   runtime messages still need translations.
-- **Small Linux players** switch to a scrollable Menu button when the
-  regular menu bar would overflow. All menu families stay available, with
-  keyboard navigation and a Back control for nested menus.
+- **Linux menus** scroll in short players with either the regular bar or the
+  compact Menu button. Menu titles switch on hover while a menu is open.
+  Keyboard navigation and a Back control keep overlapping submenus reachable.
 - **Log Viewer:** Window and Advanced Settings open the shared viewer for
   application and mpv logs. Filter by multiple subsystems, severity and message,
   copy selected rows or export the full or filtered view. The macOS Window menu

@@ -1,6 +1,6 @@
 use riina_ui::{
-    CompactPlayerMenu, IdlePlaybackAction, PlaybackAudioState, PlaybackMenuCatalog,
-    PlaybackMenuRow, PlaybackMenuText, PlayerMenuActions, PlayerPreferences, PluginMenuRow,
+    IdlePlaybackAction, PlaybackAudioState, PlaybackMenuCatalog, PlaybackMenuRow, PlaybackMenuText,
+    PlayerMenuActions, PlayerMenuCatalog, PlayerPreferences, PluginMenuRow,
 };
 use slint::{ComponentHandle, Keys, ModelRc, VecModel};
 use std::{cell::Cell, rc::Rc};
@@ -149,7 +149,7 @@ fn localized_application_menus_keep_file_and_plugin_commands()
         ),
     ] {
         slint::select_bundled_translation(locale)?;
-        let (window, menu) = CompactPlayerMenu::new_player()?;
+        let (window, menu) = PlayerMenuCatalog::new_player()?;
         let preferences = window.global::<PlayerPreferences>();
         preferences.set_open_in_new_player(false);
         let actions = window.global::<PlayerMenuActions>();

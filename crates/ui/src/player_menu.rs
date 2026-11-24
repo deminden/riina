@@ -8,7 +8,7 @@ use slint_runtime::{
     private_unstable_api::re_exports::{Menu, MenuEntry, SharedVector},
 };
 
-pub struct CompactPlayerMenu(MenuFromItemTree);
+pub struct PlayerMenuCatalog(MenuFromItemTree);
 
 pub struct PlayerMenuItem {
     pub id: SharedString,
@@ -21,7 +21,7 @@ pub struct PlayerMenuItem {
     pub children: Vec<Self>,
 }
 
-impl CompactPlayerMenu {
+impl PlayerMenuCatalog {
     pub fn new_player() -> Result<(PlayerWindow, Self), PlatformError> {
         let (component, tree) = capture_bar(PlayerWindow::new)?;
         component.set_native_video(false);
@@ -33,12 +33,18 @@ impl CompactPlayerMenu {
             .iter()
             .map(|entry| entry.title.clone())
             .collect::<Vec<_>>();
-        component.set_compact_menu_labels(ModelRc::new(VecModel::from(labels)));
+        component.set_player_menu_labels(ModelRc::new(VecModel::from(labels)));
         Ok((component, source))
     }
 
     pub fn items(&self) -> Vec<PlayerMenuItem> {
         self.items_under(None)
+    }
+
+    pub fn items_in_family(&self, family: usize) -> Vec<PlayerMenuItem> {
+        self.entries(None)
+            .get(family)
+            .map_or_else(Vec::new, |entry| self.items_under(Some(entry)))
     }
 
     pub fn activate(&self, id: SharedString) {

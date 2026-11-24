@@ -90,11 +90,11 @@ export enum PlayerWindowMode { fullscreen, music-mode, picture-in-picture }
 export enum PlaybackPowerActivity { idle, audio, video }
 
 export component PlayerWindow inherits PlayerMenuWindow {
-    in property <[string]> compact-menu-labels;
+    in property <[string]> player-menu-labels;
     out property <bool> compact-menu-visible: root.use-compact-menu;
-    callback open-compact-menu(float, float);
-    compact-menu-captions: root.compact-menu-labels;
-    request-compact-menu(x, y) => { root.open-compact-menu(x, y); }
+    callback open-player-menu(int, float, float);
+    player-menu-captions: root.player-menu-labels;
+    request-player-menu(index, x, y) => { root.open-player-menu(index, x, y); }
 
     in property <string> plugin-input-bindings: "{}";
     callback plugin-input-bindings-changed(string);

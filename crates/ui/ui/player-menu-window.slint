@@ -1,6 +1,6 @@
 import { ApplicationMenuText } from "application-menu-text.slint";
 import { PlaybackMenuText } from "playback-menu-text.slint";
-import { Button, Palette } from "std-widgets.slint";
+import { LinuxPlayerMenuStrip } from "linux-player-menu-strip.slint";
 import { PlayerLayoutState } from "player-layout-state.slint";
 import { PlayerSidebarState } from "player-sidebar-state.slint";
 import { PlayerCatalogState } from "player-catalog-state.slint";
@@ -20,10 +20,10 @@ import { MenuCatalogRow, MenuShortcutRow, PluginMenuDisplay, PluginMenuRow, Save
 // share the same actions, which Rust registers on PlayerWindow.
 export component PlayerMenuWindow inherits Window {
     in property <bool> menu-bar-visible;
-    in property <[string]> compact-menu-captions;
-    out property <bool> use-compact-menu: menu-bar-visible && compact-menu-captions.length > 0
-        && root.width < menu-measure.min-width;
-    callback request-compact-menu(float, float);
+    in property <[string]> player-menu-captions;
+    out property <bool> use-compact-menu: use-player-menu-strip
+        && root.width < strip.required-width;
+    callback request-player-menu(int, float, float);
     in property <bool> export-playback-menu-keys;
     function playback-entry(key: string, label: string) -> string {
         return root.export-playback-menu-keys ? "\u{1f}" + key + "\u{1f}" + label : label;
@@ -74,39 +74,27 @@ export component PlayerMenuWindow inherits Window {
             ? @keys() : shortcut;
     }
 
-    // Slint reports the area below its regular bar as root.height.
-    private property <length> compact-menu-height: use-compact-menu ? 40px : 0px;
-    out property <length> menu-content-height: max(0px, root.height - compact-menu-height);
-    menu-measure := HorizontalLayout {
-        visible: false;
-        height: 0px;
-        // Reserve the fallback bar's horizontal padding and inter-item spacing.
-        for label in root.compact-menu-captions : Rectangle {
-            min-width: measure.preferred-width + 36px;
-            measure := Text { text: label; }
-        }
-    }
+    // Only the shared Linux presenter installs captions for the in-client bar.
+    private property <bool> use-player-menu-strip: root.menu-bar-visible && root.player-menu-captions.length > 0;
+    private property <length> player-menu-height: use-player-menu-strip ? strip.preferred-height : 0px;
+    out property <length> menu-content-height: max(0px, root.height - player-menu-height);
+
     Rectangle {
-        y: root.compact-menu-height;
+        x: 0px; y: root.player-menu-height;
         width: root.width;
         height: root.menu-content-height;
         @children
     }
-    if root.use-compact-menu : Rectangle {
-        x: 0px; y: 0px;
-        width: root.width; height: root.compact-menu-height;
-        background: Palette.background;
-        menu-button := Button {
-            x: 6px; y: 4px; height: parent.height - 8px;
-            text: @tr("Menu");
-            clicked => {
-                root.request-compact-menu(self.absolute-position.x / 1px, (self.absolute-position.y + self.height) / 1px);
-            }
-        }
+    strip := LinuxPlayerMenuStrip {
+        x: 0px; y: 0px; width: parent.width; height: root.player-menu-height;
+        visible: root.use-player-menu-strip;
+        captions: root.player-menu-captions;
+        compact: root.use-compact-menu;
+        open-family(index, x, y) => { root.request-player-menu(index, x, y); }
     }
 
     if root.menu-bar-visible : MenuBar {
-        visible: !root.use-compact-menu;
+        visible: !root.use-player-menu-strip;
         Menu { title: "riina";
             MenuItem { title: ApplicationMenuText.about; activated => { PlayerMenuActions.show-about(); } }
             MenuItem { title: ApplicationMenuText.check-updates;

@@ -4163,3 +4163,30 @@ registration and Edit responder forwarding still need native macOS tests.
 - Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
 - Linux application SHA-256 `167e7aab1add62ac141d2059391d09bb101e87ebe0bdc94025d1fd98cf32a079`
 - Linux libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`
+
+### Scrollable regular Linux menus 2026-11-24
+
+A baseline capture from `d46ef93` at 1070 × 180 showed only the first few
+Video rows. The popup covered part of the menu bar, and End left the same
+rows visible. The candidate presents both the regular bar and the compact
+Menu button through the in-client popup.
+
+The widget regressions exercise the compact root at 320 × 180 and the
+regular Video menu at 1070 × 180. They check panel bounds, repeated End
+requests, a selected saved preset in the adjacent submenu, the Video Filters
+action, hover switching to File and dismissal by click or Escape.
+The Windows locked build and workspace gate passed, including the
+software-rendered player and Settings baselines. Apple Silicon cross-Clippy
+passed. The Linux application suite passed 599 tests and the widget suite
+passed 65.
+
+In private Sway Wayland sessions, Russian and Arabic exercised Video Filters
+and the saved preset submenu at 1070 × 180 and 320 × 180. The direct shortcut
+opened Video Filters again after resizing to 1070 × 640. The horizontal
+centers of all ten Russian captions matched the baseline capture. A private
+X11 session reached the last Video rows with the mouse wheel, switched to
+File on hover, and opened Video Filters using the menu and the shortcut.
+All test players exited normally.
+
+- Linux application SHA-256 `9fee2299b686a9b0da21c400a1178620ac5dc37b761f18b2defc8bf57e9e6d11`
+- Linux libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`

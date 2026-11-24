@@ -5,9 +5,9 @@ use slint::LogicalPosition;
 
 mod client;
 #[cfg(any(target_os = "linux", test))]
-mod compact;
+mod player_bar;
 #[cfg(target_os = "linux")]
-pub(super) use compact::new_player;
+pub(super) use player_bar::new_player;
 #[cfg(target_os = "linux")]
 mod x11;
 
