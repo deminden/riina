@@ -159,6 +159,26 @@ search path, or set the full executable path in the installed desktop entry.
 A development checkout can dispatch the same request with
 `riina --riina-browser-link "<link>"`. [Desktop Entry Specification](https://specifications.freedesktop.org/desktop-entry/latest-single/)
 
+The **Open in Riina** extension sends the current page from the toolbar and
+individual links, video, and audio from the browser context menu. Its settings
+can turn the toolbar button into a menu with playback, fullscreen,
+picture-in-picture, playlist, and new-window actions. It stores only those
+preferences and accesses the active tab when invoked.
+
+Open a guide from **Settings → Utilities → Browser Extensions** after opting
+in to browser links. Install from `browser/open-in-riina` in a checkout, or
+`browser-extension` in the Windows package and macOS app resources.
+Chrome and Edge load the folder unpacked. Firefox can load the manifest as a
+temporary add-on, which lasts until Firefox quits. Safari requires Xcode
+packaging and is awaiting native verification.
+[Chrome extension installation](https://developer.chrome.com/docs/extensions/get-started/tutorial/hello-world#load-unpacked),
+[Firefox add-on installation](https://developer.mozilla.org/en-US/docs/Mozilla/Add-ons/WebExtensions/Your_first_WebExtension.),
+[Safari extension packaging](https://developer.apple.com/documentation/safariservices/packaging-a-web-extension-for-safari)
+
+Run the focused extension regressions with Node.js 22 or newer.
+`node --test scripts/tests/browser-extension.test.mjs`
+The packaging workflow runs the same suite once on Linux.
+
 ## Checks
 
 Group related edits before running `cargo xtask check --fast`. It checks

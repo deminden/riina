@@ -3242,9 +3242,40 @@ built the opt-in handler against the archived portable
 payload. The macOS packager verified that URL registration appears only in
 opt-in bundle metadata. Strict Apple Silicon cross-Clippy passed. Installing
 the Windows handler on a deployed profile and native macOS URL delivery
-remain unverified. Browser extensions remain pending.
+remain unverified.
 
 - Windows application SHA-256 `0fe2cb15c58ee78be94f82ca2821ddc9b44c256ebd7e63c807f134df5ee528fa`
 - Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
 - Linux application SHA-256 `9885e6aacad3c7041400bd3a0e8a1d9bd2fa4737b90d95abf7f427990c9e26b5`
 - Wayland libmpv SHA-256 `cdce854e1811942602587310026306d92d30c0f593f2be676f07659ae43061d8`
+
+### Open in Riina extension 2026-11-24
+
+The extension has a direct toolbar action, a configurable playback menu and
+separate page, link, video and audio context actions. Settings → Utilities
+opens the bundled browser setup guides. The extension stores the toolbar
+preferences and requests access to the active tab when invoked.
+
+In an isolated Linux X11 session, Chrome for Testing 158.0.8127.88 loaded
+the extension unpacked. A toolbar click reached the browser's external-link
+prompt, then opened Riina and decoded the selected WAV after confirmation.
+The link context menu replaced the current media. After enabling the playback
+menu in extension settings, **Add to Playlist** appended a third fixture
+without changing the current item. The player received the exact signed
+query parameters in all three cases. Desktop dispatch used the opt-in
+GIO registration and the player from the browser-link activation batch.
+The test player closed through its Quit shortcut.
+
+Firefox 160.0.1 loaded the temporary add-on and opened a signed media link
+from the context menu through its native external-link confirmation. The
+player decoded the selected WAV and closed through its Quit shortcut. The
+new Linux build repeated that handoff and both Utilities buttons opened
+the correct packaged HTML files through the desktop's registered handler.
+
+The Windows workspace gate and all 60 native engine tests passed, with
+updated Utilities and Default Application dialog pixel baselines. The
+JavaScript suite exercises all five action encodings, four context targets,
+permission scope and rejected URLs. The Windows ZIP assembly and macOS bundle
+checks included all 11 extension files, and the setup guides remain available
+with URL registration disabled. Separate Edge and Safari runtime checks and
+signed extension packages remain open.

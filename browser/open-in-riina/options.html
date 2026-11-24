@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Open in Riina Settings</title>
+<link rel="stylesheet" href="style.css">
+<body class="options">
+  <main>
+    <h1>Open in Riina</h1>
+    <form>
+      <label for="toolbar">When you click the toolbar button</label>
+      <select id="toolbar" disabled>
+        <option value="direct">Send the current page to Riina</option>
+        <option value="menu">Show playback actions</option>
+      </select>
+      <label for="mode">Default playback action</label>
+      <select id="mode" disabled></select>
+      <button type="submit" disabled>Save</button>
+      <p id="status" role="status"></p>
+    </form>
+  </main>
+  <script type="module" src="options.js"></script>
+</body>
+</html>

@@ -30,8 +30,9 @@ Implementation does not imply every state or platform is verified.
 - **Interface:** floating/top/bottom controls, Quick Settings, configurable
   sidebars, native menus and shortcut hints, Welcome and Preferences windows.
   All eleven Preferences categories have implementation; completeness varies.
-- **Extensions and services:** plugin management, QuickJS host APIs and WebView
-  surfaces, online-subtitle providers, online-media helpers, OCR and system-media
+- **Extensions and services:** browser links and the Open in Riina web
+  extension, plugin management, QuickJS host APIs and WebView surfaces,
+  online-subtitle providers, online-media helpers, OCR and system-media
   adapters. Compatibility and platform coverage remain partial.
 
 Volume defaults to 0-100%; the optional boost setting allows 200%.

@@ -15,6 +15,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 MANIFEST = ROOT / "config" / "default-file-types.csv"
 OPEN_EXTENSIONS = ROOT / "config" / "macos-open-extensions.csv"
+BROWSER_EXTENSION = ROOT / "browser" / "open-in-riina"
 CATEGORY_PARENT = {
     "video": "public.movie",
     "audio": "public.audio",
@@ -134,6 +135,9 @@ def main() -> int:
         macos = staged_bundle / "Contents" / "MacOS"
         macos.mkdir(parents=True)
         shutil.copy2(executable, macos / "riina")
+        shutil.copytree(
+            BROWSER_EXTENSION, staged_bundle / "Contents" / "Resources" / "browser-extension"
+        )
         with (staged_bundle / "Contents" / "Info.plist").open("wb") as output:
             plistlib.dump(
                 make_info_plist(version, records, extensions_by_category, arguments.browser_links),

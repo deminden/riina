@@ -2,7 +2,10 @@
 use crate::PreferencesWindow;
 use rfd::{MessageButtons, MessageDialog, MessageDialogResult};
 use slint::ComponentHandle;
-use std::{fs, io, path::Path};
+use std::{
+    fs, io,
+    path::{Path, PathBuf},
+};
 
 pub(crate) fn connect(
     window: &PreferencesWindow,
@@ -12,7 +15,64 @@ pub(crate) fn connect(
     let watch_later = preferences_path.with_file_name("watch-later");
     refresh_sizes(window, &watch_later);
     install_default_app_actions(window);
+    install_browser_extension_action(window);
     install_cache_and_history_actions(window, watch_later, clear_history);
+}
+
+fn install_browser_extension_action(window: &PreferencesWindow) {
+    use riina_ui::BrowserExtension;
+
+    window
+        .global::<riina_ui::UtilitySettingsState>()
+        .set_utilities_safari_available(cfg!(target_os = "macos"));
+    let weak = window.as_weak();
+    window.on_utilities_browser_extension(move |browser| {
+        let Some(window) = weak.upgrade() else {
+            return;
+        };
+        let filename = match browser {
+            BrowserExtension::Chromium => "setup-chromium.html",
+            BrowserExtension::Firefox => "setup-firefox.html",
+            BrowserExtension::Safari => "setup-safari.html",
+        };
+        let result = browser_extension_guide(filename)
+            .and_then(|path| crate::platform::open_associated_path(&path));
+        let status = result.err().map_or_else(String::new, |error| {
+            format!("Could not open setup: {error}")
+        });
+        window
+            .global::<riina_ui::UtilitySettingsState>()
+            .set_utilities_status(status.into());
+    });
+}
+
+fn browser_extension_guide(filename: &str) -> io::Result<PathBuf> {
+    let executable = std::env::current_exe()?;
+    let directory = executable
+        .parent()
+        .ok_or_else(|| io::Error::other("The application folder is unavailable."))?;
+    let root = if cfg!(target_os = "macos") {
+        directory.join("../Resources")
+    } else {
+        directory.to_path_buf()
+    };
+    let packaged = root.join("browser-extension").join(filename);
+    #[cfg(debug_assertions)]
+    if !packaged.is_file() {
+        let checkout = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../browser/open-in-riina");
+        let guide = checkout.join(filename);
+        if guide.is_file() {
+            return Ok(guide);
+        }
+    }
+    if packaged.is_file() {
+        Ok(packaged)
+    } else {
+        Err(io::Error::new(
+            io::ErrorKind::NotFound,
+            "The browser extension folder is missing.",
+        ))
+    }
 }
 
 fn refresh_sizes(window: &PreferencesWindow, watch_later: &Path) {

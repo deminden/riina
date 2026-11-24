@@ -1,0 +1,35 @@
+:root {
+  color-scheme: light dark;
+  font: 15px/1.5 system-ui, sans-serif;
+  background: Canvas;
+  color: CanvasText;
+}
+
+body { margin: 0; }
+main { max-width: 38rem; margin: 3rem auto; padding: 0 1.25rem; }
+h1 { font-size: 1.55rem; margin: 0 0 1rem; }
+a { color: LinkText; }
+code { overflow-wrap: anywhere; }
+button, select { font: inherit; }
+
+.popup { min-width: 15rem; padding: .4rem; }
+.popup button {
+  display: block;
+  width: 100%;
+  border: 0;
+  border-radius: .35rem;
+  padding: .38rem .6rem;
+  text-align: start;
+  color: inherit;
+  background: transparent;
+}
+.popup button:hover, .popup button:focus-visible {
+  background: color-mix(in srgb, CanvasText 10%, Canvas);
+}
+.popup .secondary { margin-top: .35rem; border-top: 1px solid ButtonBorder; }
+.popup p { margin: .4rem .6rem; }
+
+.options form { display: grid; justify-items: start; gap: .5rem; }
+.options label { margin-top: .5rem; }
+.options button { margin-top: .75rem; }
+.options #status { margin: 0; min-height: 1.5em; }

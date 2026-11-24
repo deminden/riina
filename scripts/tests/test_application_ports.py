@@ -1,6 +1,10 @@
 """Keep the full Linux app's native dependencies in the port build gate."""
+import plistlib
 from pathlib import Path
 import re
+import subprocess
+import sys
+import tempfile
 import unittest
 
 from workflow_reader import named_step, workflow
@@ -31,6 +35,36 @@ class ApplicationPortsTests(unittest.TestCase):
         self.assertEqual(bundle["if"], "runner.os == 'macOS'")
         self.assertIn("package-macos-app.py", bundle["run"])
         self.assertIn("plutil -lint", bundle["run"])
+
+    def test_browser_setup_is_bundled_with_or_without_url_registration(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            executable = root / "riina"
+            executable.write_bytes(b"application fixture")
+            extension = ROOT / "browser" / "open-in-riina"
+            for opt_in, flags in enumerate(([], ["--browser-links"])):
+                with self.subTest(browser_links=bool(opt_in)):
+                    bundle = root / f"Riina-{opt_in}.app"
+                    subprocess.run(
+                        [
+                            sys.executable, ROOT / "scripts" / "package-macos-app.py",
+                            executable, bundle, *flags,
+                        ],
+                        check=True,
+                        capture_output=True,
+                    )
+                    contents = bundle / "Contents"
+                    with (contents / "Info.plist").open("rb") as info:
+                        metadata = plistlib.load(info)
+                    if opt_in:
+                        self.assertEqual(metadata["CFBundleURLTypes"][0]["CFBundleURLSchemes"], ["riina"])
+                    else:
+                        self.assertNotIn("CFBundleURLTypes", metadata)
+                    resources = contents / "Resources" / "browser-extension"
+                    self.assertEqual(
+                        {item.name: item.read_bytes() for item in resources.iterdir()},
+                        {item.name: item.read_bytes() for item in extension.iterdir()},
+                    )
 
     def test_application_jobs_share_no_duplicate_core_workflow(self):
         self.assertFalse((ROOT / ".github/workflows/core.yml").exists())

@@ -332,6 +332,7 @@ jobs:
           Copy-Item target/x86_64-pc-windows-msvc/release/riina.exe $dist
           Copy-Item native-runtime/* $dist -Recurse -Force
           Copy-Item LICENSE, LICENSE-GPL-3.0.txt, THIRD_PARTY_NOTICES.md, README.md $dist
+          Copy-Item browser/open-in-riina "$dist/browser-extension" -Recurse
           Copy-Item docs/licensing.md $dist/LICENSING.md
           Copy-Item docs/SOURCE-ACCESS.md $dist/SOURCE-ACCESS.md
           $env:RIINA_SOURCE_SHA | Set-Content -NoNewline (Join-Path $dist 'SOURCE-COMMIT.txt')

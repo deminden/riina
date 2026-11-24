@@ -19,8 +19,8 @@ import { AudioPreferencesPage } from "preferences-audio.slint";
 export { AudioSettingsState } from "preferences-audio.slint";
 import { VideoPreferencesPage, VideoSettingsState } from "preferences-video.slint";
 export { VideoSettingsState } from "preferences-video.slint";
-import { UtilitySettingsState, UtilitiesPreferencesPage, DefaultAppDialog } from "preferences-utilities.slint";
-export { UtilitySettingsState } from "preferences-utilities.slint";
+import { BrowserExtension, UtilitySettingsState, UtilitiesPreferencesPage, DefaultAppDialog } from "preferences-utilities.slint";
+export { BrowserExtension, UtilitySettingsState } from "preferences-utilities.slint";
 import { PreferencesNavigation } from "preferences-navigation.slint";
 import { PreferencesSearchResult, PreferenceSearchPopup } from "preferences-search.slint";
 export { PreferencesSearchResult } from "preferences-search.slint";
@@ -284,6 +284,7 @@ export component PreferencesWindow inherits Window {
     callback utilities-clear-progress();
     callback utilities-clear-history();
     callback utilities-clear-thumbnail-cache();
+    callback utilities-browser-extension(BrowserExtension);
     callback advanced-settings-changed();
     callback advanced-choose-config-directory();
     callback advanced-open-log-folder();
@@ -580,6 +581,7 @@ export component PreferencesWindow inherits Window {
         utilities-clear-progress => { root.utilities-clear-progress(); }
         utilities-clear-history => { root.utilities-clear-history(); }
         utilities-clear-thumbnail-cache => { root.utilities-clear-thumbnail-cache(); }
+        utilities-browser-extension(browser) => { root.utilities-browser-extension(browser); }
     }
 
     if !root.search-query.is-empty : PreferenceSearchPopup {

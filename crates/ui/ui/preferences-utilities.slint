@@ -2,6 +2,8 @@ import { Theme } from "theme.slint";
 import { CheckBox, ScrollView } from "std-widgets.slint";
 import { PreferenceActionButton, UtilitiesActionRow } from "preferences-controls.slint";
 
+export enum BrowserExtension { chromium, firefox, safari }
+
 export global UtilitySettingsState {
     in-out property <string> utilities-progress-size: "0 B";
     in-out property <string> utilities-thumbnail-size: "0 B";
@@ -10,6 +12,7 @@ export global UtilitySettingsState {
     in-out property <bool> utilities-default-video: true;
     in-out property <bool> utilities-default-audio: true;
     in-out property <bool> utilities-default-playlist: true;
+    in-out property <bool> utilities-safari-available: false;
 }
 
 export component UtilitiesPreferencesPage inherits ScrollView {
@@ -19,6 +22,7 @@ export component UtilitiesPreferencesPage inherits ScrollView {
     callback utilities-clear-progress();
     callback utilities-clear-history();
     callback utilities-clear-thumbnail-cache();
+    callback utilities-browser-extension(BrowserExtension);
 
     content-height: 700px; content-width: self.visible-width;
     horizontal-scrollbar-policy: always-off;
@@ -65,12 +69,27 @@ export component UtilitiesPreferencesPage inherits ScrollView {
         Text { x: 20px; y: 514px; text: "Browser Extensions"; font-size: 12px; font-weight: 600; color: Theme.settings-section-heading; }
         Rectangle { x: 20px; y: 536px; width: parent.width - 40px; height: 116px;
             border-width: 1px; border-color: Theme.settings-card-border; border-radius: 12px; background: Theme.settings-card-surface(root.mica-backdrop-enabled);
-            Text { x: 16px; y: 12px; width: parent.width - 32px; height: 20px;
+            Image { x: 15px; y: 16px; width: 20px; height: 20px;
+                source: @image-url("../../../assets/icons/network.svg");
+                colorize: Theme.settings-card-title; }
+            Text { x: 47px; y: 12px; width: parent.width - 63px; height: 20px;
                 text: "Get Browser Extensions for Riina"; font-size: 12px; color: Theme.settings-card-title; }
-            Text { x: 16px; y: 34px; width: parent.width - 32px; height: 34px;
+            Text { x: 47px; y: 34px; width: parent.width - 63px; height: 34px;
                 text: "Send a link or the current webpage to the player."; font-size: 10px; color: Theme.settings-card-description; wrap: word-wrap; }
-            Text { x: 16px; y: 76px; width: parent.width - 32px; height: 24px;
-                text: "Enable browser links during setup."; font-size: 10px; color: Theme.settings-card-description; vertical-alignment: center; }
+            HorizontalLayout { x: 47px; y: 76px; spacing: 8px; alignment: start;
+                if UtilitySettingsState.utilities-safari-available : PreferenceActionButton {
+                    label: "Safari";
+                    activated => { root.utilities-browser-extension(BrowserExtension.safari); }
+                }
+                PreferenceActionButton {
+                    width: 96px; label: "Chrome / Edge";
+                    activated => { root.utilities-browser-extension(BrowserExtension.chromium); }
+                }
+                PreferenceActionButton {
+                    label: "Firefox";
+                    activated => { root.utilities-browser-extension(BrowserExtension.firefox); }
+                }
+            }
         }
         if !UtilitySettingsState.utilities-status.is-empty : Text {
             x: 20px; y: 660px; width: parent.width - 40px; height: 20px;

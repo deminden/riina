@@ -15,6 +15,9 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       - name: Portable package, license and workflow regressions
         run: python -m unittest discover -s scripts/tests -p 'test_*.py'
+      - name: Browser extension regressions
+        if: runner.os == 'Linux'
+        run: node --test scripts/tests/browser-extension.test.mjs
       - name: Lint workflow syntax with pinned actionlint
         if: runner.os == 'Linux'
         shell: bash
