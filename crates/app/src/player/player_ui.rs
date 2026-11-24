@@ -291,6 +291,7 @@ pub(crate) use startup::InitialMedia;
 #[derive(Clone, Default)]
 pub(crate) struct ApplicationServices {
     pub(crate) plugins: Rc<ApplicationPlugins>,
+    pub(crate) filters: Rc<crate::video_filter_window::ApplicationFilters>,
     pub(crate) history: Rc<crate::playback_history_window::ApplicationHistory>,
     inspector: Rc<crate::windows::media_inspector::ApplicationInspector>,
     logs: Rc<crate::log_viewer::ApplicationLogViewer>,
@@ -316,6 +317,7 @@ impl ApplicationServices {
         self.updates.closed.bind(callback.clone());
         self.settings.closed.bind(callback.clone());
         self.plugins.closed.bind(callback.clone());
+        self.filters.closed.bind(callback.clone());
         self.highlights.closed.bind(callback);
     }
 
@@ -329,6 +331,7 @@ impl ApplicationServices {
             || self.highlights.is_visible()
             || self.settings.is_visible()
             || self.plugins.auxiliary_is_visible()
+            || self.filters.is_visible()
     }
 
     #[cfg(target_os = "macos")]
@@ -658,8 +661,7 @@ fn configure_with_engine(
             history_window: &application.history,
             plugin_host: session.plugin_host_handle.as_ref(),
             plugin_commands: &session.plugin_ui.plugin_command_sender,
-            saved_video_filters: &session.saved_video_filters,
-            saved_audio_filters: &session.saved_audio_filters,
+            filters: &session.filters,
             music_mode: &music_mode_state,
             transition_release_generation: &transition_release_generation,
             picture_in_picture: &session.picture_in_picture,
@@ -733,8 +735,6 @@ fn configure_with_engine(
         preference_model,
         preference_state: session_preferences::SessionState {
             audio_equalizer: session.audio_equalizer,
-            saved_video_filters: session.saved_video_filters,
-            saved_audio_filters: session.saved_audio_filters,
             recent: session.recent,
             history: session.history,
             latest_playback: session.projection.latest_playback,

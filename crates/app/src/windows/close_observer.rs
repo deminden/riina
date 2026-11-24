@@ -5,7 +5,6 @@ use std::{cell::OnceCell, rc::Rc, time::Duration};
 pub(crate) struct CloseObserver(OnceCell<Rc<dyn Fn()>>);
 
 impl CloseObserver {
-    #[cfg(any(test, target_os = "macos"))]
     pub(crate) fn bind(&self, callback: Rc<dyn Fn()>) {
         let _ = self.0.set(callback);
     }

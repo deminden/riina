@@ -56,6 +56,10 @@ Implementation does not imply every state or platform is verified.
 - **Inspector** opens from the Window menu and shows the focused player's
   general media details, tracks, file metadata and playback status. Watched
   mpv properties are saved in the profile and update while the window is visible.
+- **Audio and Video Filters:** each editor follows the last active player and
+  retains saved presets when playback closes. The macOS Audio and Video menus
+  can open the editors before playback. Preset changes are shared across
+  player menus and shortcuts.
 - **Release Highlights:** Help opens the current release notes. Released builds
   show the bundled guide on the first launch of each version with a player or
   Welcome window. The idle macOS Help menu can open the guide on demand.

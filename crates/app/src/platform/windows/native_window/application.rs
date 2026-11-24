@@ -126,6 +126,12 @@ pub(super) fn run(
             .map_err(|error| error.to_string())
     });
     let closed = owner.clone();
+    let filters_closed = owner.clone();
+    application.services.filters.closed.bind(Rc::new(move || {
+        if let Some(application) = filters_closed.upgrade() {
+            application.quit_if_no_windows();
+        }
+    }));
     application.services.history.bind(
         move |window, mut media| {
             let application = owner.upgrade().ok_or("Riina is closing")?;
@@ -310,6 +316,7 @@ impl Application {
     fn finish(&self) {
         self.quitting.set(true);
         self.services.history.hide();
+        self.services.filters.hide();
         let players = std::mem::take(&mut *self.players.borrow_mut());
         for player in players {
             player.finish();
@@ -327,6 +334,7 @@ impl Application {
         if !self.quitting.get()
             && self.players.borrow().is_empty()
             && !self.services.history.is_visible()
+            && !self.services.filters.is_visible()
         {
             // Native Win32 has no application menu after its final window closes.
             self.quit();

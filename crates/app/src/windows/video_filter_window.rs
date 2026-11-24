@@ -1,40 +1,89 @@
-use riina_ui::PlayerMenuActions;
+//! Own the filter windows independently of playback sessions.
+mod editor;
 mod preset_editor;
+mod profile;
 
-use crate::{PlayerWindow, SavedFilterMenuRow, VideoFilterWindowRow, VideoFiltersWindow};
-use riina_core::video_filters;
+use crate::{PlaybackStore, PlayerWindow, SavedFilterMenuRow};
+use riina_core::{Preferences, crop::VideoFilter, sync::lock, video_filters};
+use riina_ui::PlayerMenuActions;
 use slint::{ComponentHandle, ModelRc, VecModel};
-use std::{
-    cell::RefCell,
-    path::PathBuf,
-    rc::Rc,
-    sync::{Arc, Mutex},
-    time::Duration,
-};
+use std::{cell::RefCell, path::Path, rc::Rc};
 
-type Settings = Arc<Mutex<video_filters::Settings>>;
-type WindowSlot = Rc<RefCell<Option<VideoFiltersWindow>>>;
+use crate::playback_history_window::ApplicationHistory;
+pub(crate) use profile::{Kind, Profile};
 
-struct FilterWindow {
-    _window: WindowSlot,
-    _refresh: Rc<slint::Timer>,
+#[derive(Default)]
+pub(crate) struct ApplicationFilters {
+    profiles: RefCell<Vec<Rc<Profile>>>,
+    pub(crate) closed: Rc<super::close_observer::CloseObserver>,
 }
 
-pub(crate) struct Guard {
-    _video: FilterWindow,
-    _audio: FilterWindow,
+impl ApplicationFilters {
+    pub(crate) fn profile(&self, path: &Path, preferences: &Preferences) -> Rc<Profile> {
+        let mut profiles = self.profiles.borrow_mut();
+        if let Some(profile) = profiles.iter().find(|profile| profile.path == path) {
+            return profile.clone();
+        }
+        let profile = Rc::new(Profile::new(path, preferences, &self.closed));
+        profiles.push(profile.clone());
+        profile
+    }
+
+    pub(crate) fn is_visible(&self) -> bool {
+        self.profiles
+            .borrow()
+            .iter()
+            .any(|profile| profile.is_visible())
+    }
+
+    pub(crate) fn hide(&self) {
+        for profile in self.profiles.borrow().iter() {
+            profile.hide();
+        }
+    }
+}
+
+pub(crate) struct Registration {
+    // The app and its tool windows refer to this session only while it is registered.
+    _target: Rc<Target>,
+}
+
+struct Target {
+    app: slint::Weak<PlayerWindow>,
+    playback: PlaybackStore,
+    player: riina_mpv::CommandSender,
+}
+
+impl Target {
+    fn matches(&self, app: &PlayerWindow) -> bool {
+        self.app
+            .upgrade()
+            .is_some_and(|registered| std::ptr::eq(registered.window(), app.window()))
+    }
 }
 
 pub(crate) fn install(
     app: &PlayerWindow,
-    latest: crate::PlaybackStore,
-    video_settings: Settings,
-    audio_settings: Settings,
+    playback: PlaybackStore,
     player: riina_mpv::CommandSender,
-    preferences_path: PathBuf,
-) -> Guard {
-    let shortcut_video_settings = video_settings.clone();
-    let shortcut_audio_settings = audio_settings.clone();
+    profile: &Rc<Profile>,
+    history: &Rc<ApplicationHistory>,
+) -> Registration {
+    let target = Rc::new(Target {
+        app: app.as_weak(),
+        playback,
+        player,
+    });
+    profile.register(&target);
+    bind_shortcuts(app, &target.player, profile);
+    bind_menu(app, &target, profile, history, Kind::Video);
+    bind_menu(app, &target, profile, history, Kind::Audio);
+    Registration { _target: target }
+}
+
+fn bind_shortcuts(app: &PlayerWindow, player: &riina_mpv::CommandSender, profile: &Profile) {
+    let shortcut_video_settings = profile.settings(Kind::Video);
+    let shortcut_audio_settings = profile.settings(Kind::Audio);
     let shortcut_player = player.clone();
     app.global::<riina_ui::PlayerControlActions>()
         .on_activate_saved_filter_shortcut(move |key, control, alt, shift, meta| {
@@ -53,8 +102,8 @@ pub(crate) fn install(
                 } else {
                     0
                 });
-            let matches = |settings: &Settings| {
-                riina_core::sync::lock(settings)
+            let matches = |settings: &profile::SharedSettings| {
+                lock(settings)
                     .saved
                     .iter()
                     .find(|saved| {
@@ -69,437 +118,59 @@ pub(crate) fn install(
                 });
             command.is_some_and(|command| shortcut_player.send(command).is_ok())
         });
-
-    let video = install_for_kind(
-        app,
-        latest.clone(),
-        video_settings,
-        player.clone(),
-        preferences_path.clone(),
-        false,
-    );
-    let audio = install_for_kind(app, latest, audio_settings, player, preferences_path, true);
-    Guard {
-        _video: video,
-        _audio: audio,
-    }
 }
 
-fn install_for_kind(
+fn bind_menu(
     app: &PlayerWindow,
-    latest: crate::PlaybackStore,
-    settings: Settings,
-    player: riina_mpv::CommandSender,
-    preferences_path: PathBuf,
-    is_audio: bool,
-) -> FilterWindow {
-    let slot = Rc::new(RefCell::new(None::<VideoFiltersWindow>));
-    let timer = Rc::new(slint::Timer::default());
-    let show_timer = timer.clone();
-    let show_slot = slot.clone();
-    let show_latest = latest.clone();
-    let show_settings = settings.clone();
-    let show_player = player.clone();
-    let show_path = preferences_path.clone();
-    let saved_menu_player = player.clone();
-    let menu_weak_app = app.as_weak();
-    let toggle_saved = move |filter: slint::SharedString| {
-        let Some(app) = menu_weak_app.upgrade() else {
-            return;
-        };
-        let command = if is_audio {
-            riina_core::Command::ToggleAudioFilter(filter.to_string())
-        } else {
-            riina_core::Command::ToggleVideoFilter(filter.to_string())
-        };
-        if let Err(error) = saved_menu_player.send(command) {
+    target: &Rc<Target>,
+    profile: &Rc<Profile>,
+    history: &Rc<ApplicationHistory>,
+    kind: Kind,
+) {
+    let weak = Rc::downgrade(target);
+    let toggle = move |filter: slint::SharedString| {
+        if let Some(target) = weak.upgrade()
+            && let Some(app) = target.app.upgrade()
+            && let Err(error) = target.player.send(kind.toggle(filter.to_string()))
+        {
             crate::diagnostics::report(&app, error);
         }
     };
-    if is_audio {
-        app.global::<PlayerMenuActions>()
-            .on_toggle_saved_audio_filter(toggle_saved);
-    } else {
-        app.global::<PlayerMenuActions>()
-            .on_toggle_saved_video_filter(toggle_saved);
-    }
 
-    let open_weak_app = app.as_weak();
-    let open_filter_window = move || {
-        let Some(app) = open_weak_app.upgrade() else {
-            return;
-        };
-        let window = if let Some(window) = show_slot.borrow().as_ref() {
-            window.clone_strong()
-        } else {
-            let window = match VideoFiltersWindow::new() {
-                Ok(window) => window,
-                Err(error) => {
-                    let label = if is_audio { "Audio" } else { "Video" };
-                    crate::diagnostics::report(
-                        &app,
-                        format!("Could not open {label} Filters: {error}"),
-                    );
-                    return;
-                }
-            };
-            crate::appearance_preferences::install_system_typography(&window);
-            window.set_is_audio(is_audio);
-            window.set_window_title(if is_audio {
-                "Audio Filters".into()
-            } else {
-                "Video Filters".into()
-            });
-            window.set_presets(ModelRc::new(VecModel::from(
-                std::iter::once("Choose Preset…")
-                    .chain(
-                        if is_audio {
-                            &video_filters::AUDIO_PRESET_LABELS[..]
-                        } else {
-                            &video_filters::PRESET_LABELS[..]
-                        }
-                        .iter()
-                        .copied(),
-                    )
-                    .map(Into::into)
-                    .collect::<Vec<slint::SharedString>>(),
-            )));
-            connect_window(
-                &app,
-                &window,
-                show_latest.clone(),
-                show_settings.clone(),
-                show_player.clone(),
-                show_path.clone(),
-                is_audio,
-            );
-            crate::platform::center_auxiliary_window(&window, &app);
-            *show_slot.borrow_mut() = Some(window.clone_strong());
-            window
-        };
-        refresh(&app, &window, &show_latest, &show_settings, is_audio);
-        if let Err(error) = crate::platform::show_window(&window) {
-            crate::diagnostics::report(&app, format!("Could not show filter window: {error}"));
-        } else {
-            crate::platform::enable_video_filters_acrylic(&window);
-            let app = app.as_weak();
-            let latest = show_latest.clone();
-            let settings = show_settings.clone();
-            super::visible_refresh::start(
-                &window,
-                &show_timer,
-                Duration::from_millis(300),
-                move |window| {
-                    if let Some(app) = app.upgrade() {
-                        refresh(&app, window, &latest, &settings, is_audio);
-                    }
-                },
-            );
+    let owner = Rc::downgrade(profile);
+    let history = Rc::downgrade(history);
+    let weak = target.app.clone();
+    let open = move || {
+        if let (Some(profile), Some(history), Some(app)) =
+            (owner.upgrade(), history.upgrade(), weak.upgrade())
+            && let Err(error) = profile.show(kind, Some(&app), &history)
+        {
+            crate::diagnostics::report(&app, error);
         }
     };
-    if is_audio {
-        app.global::<PlayerMenuActions>()
-            .on_open_audio_filters(open_filter_window);
-    } else {
-        app.global::<PlayerMenuActions>()
-            .on_open_video_filters(open_filter_window);
-    }
-
-    FilterWindow {
-        _window: slot,
-        _refresh: timer,
-    }
-}
-
-fn connect_window(
-    app: &PlayerWindow,
-    window: &VideoFiltersWindow,
-    latest: crate::PlaybackStore,
-    settings: Settings,
-    player: riina_mpv::CommandSender,
-    preferences_path: PathBuf,
-    is_audio: bool,
-) {
-    preset_editor::install(app, window, is_audio);
-    bind_current_filters(app, window, &latest, &player, is_audio);
-    bind_saved_filters(
-        app,
-        window,
-        &latest,
-        &settings,
-        &player,
-        &preferences_path,
-        is_audio,
-    );
-}
-
-fn bind_current_filters(
-    app: &PlayerWindow,
-    window: &VideoFiltersWindow,
-    latest: &crate::PlaybackStore,
-    player: &riina_mpv::CommandSender,
-    is_audio: bool,
-) {
-    let weak_app = app.as_weak();
-    let add_window = window.as_weak();
-    let add_player = player.clone();
-    let add_is_audio = is_audio;
-    window.on_add_filter(move |filter| {
-        let Some(app) = weak_app.upgrade() else {
-            return;
-        };
-        let filter = filter.to_string();
-        if !video_filters::valid_filter_string(&filter) {
-            app.set_status("The filter string is empty or invalid".into());
-            return;
+    let menu = app.global::<PlayerMenuActions>();
+    match kind {
+        Kind::Video => {
+            menu.on_toggle_saved_video_filter(toggle);
+            menu.on_open_video_filters(open);
         }
-        let command = if add_is_audio {
-            riina_core::Command::AddAudioFilter(filter)
-        } else {
-            riina_core::Command::AddVideoFilter(filter)
-        };
-        match add_player.send(command) {
-            Ok(()) => {
-                if let Some(window) = add_window.upgrade() {
-                    window.set_filter_string("".into());
-                }
-            }
-            Err(error) => crate::diagnostics::report(&app, error),
+        Kind::Audio => {
+            menu.on_toggle_saved_audio_filter(toggle);
+            menu.on_open_audio_filters(open);
         }
-    });
-
-    let weak_app = app.as_weak();
-    let remove_latest = latest.clone();
-    let remove_player = player.clone();
-    let remove_is_audio = is_audio;
-    window.on_remove_current_filter(move |token| {
-        let Some(app) = weak_app.upgrade() else {
-            return;
-        };
-        let index = token.parse::<usize>().ok();
-        let filter = index.and_then(|index| {
-            let playback = riina_core::sync::lock(&remove_latest);
-            if remove_is_audio {
-                playback.audio_filters.as_ref()?.get(index).cloned()
-            } else {
-                playback.video_filters.as_ref()?.get(index).cloned()
-            }
-        });
-        let Some(filter) = filter else {
-            app.set_status("The selected filter is no longer active".into());
-            return;
-        };
-        let command = if remove_is_audio {
-            riina_core::Command::RemoveAudioFilter(filter)
-        } else {
-            riina_core::Command::RemoveVideoFilter(filter)
-        };
-        if let Err(error) = remove_player.send(command) {
-            crate::diagnostics::report(&app, error);
-        }
-    });
-
-    let weak_app = app.as_weak();
-    let edit_window = window.as_weak();
-    let edit_player = player.clone();
-    let edit_is_audio = is_audio;
-    window.on_apply_current_filter(move |index, filter| {
-        let Some(app) = weak_app.upgrade() else {
-            return;
-        };
-        let filter = filter.to_string();
-        if !video_filters::valid_filter_string(&filter) {
-            app.set_status("The filter string is empty or invalid".into());
-            return;
-        }
-        let Ok(index) = usize::try_from(index) else {
-            app.set_status("The selected filter is no longer active".into());
-            return;
-        };
-        let command = if edit_is_audio {
-            riina_core::Command::SetAudioFilterAt { index, filter }
-        } else {
-            riina_core::Command::SetVideoFilterAt { index, filter }
-        };
-        match edit_player.send(command) {
-            Ok(()) => {
-                if let Some(window) = edit_window.upgrade() {
-                    window.set_editing_current_index(-1);
-                    window.set_editing_current_filter("".into());
-                }
-            }
-            Err(error) => crate::diagnostics::report(&app, error),
-        }
-    });
-}
-
-fn bind_saved_filters(
-    app: &PlayerWindow,
-    window: &VideoFiltersWindow,
-    latest: &crate::PlaybackStore,
-    settings: &Settings,
-    player: &riina_mpv::CommandSender,
-    preferences_path: &std::path::Path,
-    is_audio: bool,
-) {
-    let weak_app = app.as_weak();
-    let save_settings = settings.clone();
-    let save_path = preferences_path.to_path_buf();
-    window.on_save_current_filter(move |filter, name| {
-        let Some(app) = weak_app.upgrade() else {
-            return;
-        };
-        let result = save_settings
-            .lock()
-            .map_err(|_| "Saved filter settings are unavailable".to_owned())
-            .and_then(|mut settings| {
-                settings
-                    .save(name.as_str(), filter.as_str())
-                    .map_err(|error| error.to_string())
-            });
-        if let Err(error) = result {
-            crate::diagnostics::report(&app, error);
-        } else if let Err(error) = persist(&save_settings, &save_path, is_audio) {
-            crate::diagnostics::report(&app, error);
-        }
-    });
-
-    let weak_app = app.as_weak();
-    let toggle_player = player.clone();
-    let toggle_is_audio = is_audio;
-    window.on_toggle_saved_filter(move |filter| {
-        let Some(app) = weak_app.upgrade() else {
-            return;
-        };
-        let command = if toggle_is_audio {
-            riina_core::Command::ToggleAudioFilter(filter.to_string())
-        } else {
-            riina_core::Command::ToggleVideoFilter(filter.to_string())
-        };
-        if let Err(error) = toggle_player.send(command) {
-            crate::diagnostics::report(&app, error);
-        }
-    });
-
-    let weak_app = app.as_weak();
-    let remove_settings = settings.clone();
-    let remove_path = preferences_path.to_path_buf();
-    window.on_remove_saved_filter(move |index| {
-        let Some(app) = weak_app.upgrade() else {
-            return;
-        };
-        let index = usize::try_from(index).ok();
-        let result = index
-            .ok_or("The selected saved filter no longer exists".to_owned())
-            .and_then(|index| {
-                remove_settings
-                    .lock()
-                    .map_err(|_| "Saved filter settings are unavailable".to_owned())?
-                    .remove(index)
-                    .map_err(|error| error.to_string())
-            });
-        if let Err(error) = result {
-            crate::diagnostics::report(&app, error);
-        } else if let Err(error) = persist(&remove_settings, &remove_path, is_audio) {
-            crate::diagnostics::report(&app, error);
-        }
-    });
-
-    let weak_app = app.as_weak();
-    let update_settings = settings.clone();
-    let update_path = preferences_path.to_path_buf();
-    let update_latest = latest.clone();
-    window.on_update_saved_filter(
-        move |index, name, filter, shortcut_key, shortcut_modifiers| {
-            let Some(app) = weak_app.upgrade() else {
-                return;
-            };
-            let index = usize::try_from(index).ok();
-            let result = index
-                .ok_or("The selected saved filter no longer exists".to_owned())
-                .and_then(|index| {
-                    let modifiers = u8::try_from(shortcut_modifiers)
-                        .map_err(|_| "The saved-filter shortcut is invalid".to_owned())?;
-                    update_settings
-                        .lock()
-                        .map_err(|_| "Saved filter settings are unavailable".to_owned())?
-                        .update_with_shortcut(
-                            index,
-                            name.as_str(),
-                            filter.as_str(),
-                            shortcut_key.as_str(),
-                            modifiers,
-                        )
-                        .map_err(|error| error.to_string())
-                });
-            if let Err(error) = result {
-                crate::diagnostics::report(&app, error);
-            } else if let Err(error) = persist(&update_settings, &update_path, is_audio) {
-                crate::diagnostics::report(&app, error);
-            } else {
-                refresh_player_menu_rows(&app, &update_latest, &update_settings, is_audio);
-            }
-        },
-    );
-}
-
-fn refresh(
-    app: &PlayerWindow,
-    window: &VideoFiltersWindow,
-    latest: &crate::PlaybackStore,
-    settings: &Settings,
-    is_audio: bool,
-) {
-    window.set_dark_theme(app.global::<riina_ui::PlayerAppearance>().get_dark_theme());
-    let playback = latest
-        .lock()
-        .map(|playback| playback.clone())
-        .unwrap_or_default();
-    let filters = if is_audio {
-        playback.audio_filters.as_deref().unwrap_or_default()
-    } else {
-        playback.video_filters.as_deref().unwrap_or_default()
-    };
-    window.set_current_filters(ModelRc::new(VecModel::from(
-        filters
-            .iter()
-            .enumerate()
-            .map(|(index, filter)| VideoFilterWindowRow {
-                token: index.to_string().into(),
-                name: filter.name.clone().into(),
-                detail: video_filters::format_filter(filter).into(),
-                filter: video_filters::format_filter(filter).into(),
-            })
-            .collect::<Vec<_>>(),
-    )));
-    let settings = riina_core::sync::lock(settings);
-    let rows = saved_filter_rows(&settings.saved, filters);
-    window.set_saved_filters(ModelRc::new(VecModel::from(rows.clone())));
-    if is_audio {
-        app.set_saved_audio_filter_rows(ModelRc::new(VecModel::from(rows)));
-    } else {
-        app.set_saved_video_filter_rows(ModelRc::new(VecModel::from(rows)));
     }
 }
 
-fn refresh_player_menu_rows(
+fn project_saved_menu(
     app: &PlayerWindow,
-    latest: &crate::PlaybackStore,
-    settings: &Settings,
-    is_audio: bool,
+    kind: Kind,
+    saved: &[video_filters::SavedFilter],
+    active: &[VideoFilter],
 ) {
-    let playback = riina_core::sync::lock(latest).clone();
-    let settings = riina_core::sync::lock(settings);
-    let active = if is_audio {
-        playback.audio_filters.as_deref().unwrap_or_default()
-    } else {
-        playback.video_filters.as_deref().unwrap_or_default()
-    };
-    let rows = ModelRc::new(VecModel::from(saved_filter_rows(&settings.saved, active)));
-    if is_audio {
-        app.set_saved_audio_filter_rows(rows);
-    } else {
-        app.set_saved_video_filter_rows(rows);
+    let rows = ModelRc::new(VecModel::from(saved_filter_rows(saved, active)));
+    match kind {
+        Kind::Video => app.set_saved_video_filter_rows(rows),
+        Kind::Audio => app.set_saved_audio_filter_rows(rows),
     }
 }
 
@@ -599,19 +270,4 @@ fn format_shortcut(key: &str, modifiers: u8) -> String {
         .collect::<String>();
     result.push_str(key);
     result
-}
-
-fn persist(settings: &Settings, path: &std::path::Path, is_audio: bool) -> Result<(), String> {
-    let settings = settings
-        .lock()
-        .map_err(|_| "Saved filter settings are unavailable")?
-        .clone();
-    crate::preference_store::update(path, &riina_core::Preferences::default(), |preferences| {
-        if is_audio {
-            preferences.audio_filters = settings;
-        } else {
-            preferences.video_filters = settings;
-        }
-        Ok(())
-    })
 }

@@ -13,7 +13,7 @@ use crate::{
     preference_load::{LoadedPreferences, Recovery},
     window_aspect::MediaGeometry,
 };
-use riina_core::{Command, Preferences, audio_equalizer, sync::lock, video_filters};
+use riina_core::{Command, Preferences, audio_equalizer, sync::lock};
 use riina_mpv::{CommandSender, Player};
 use slint::ComponentHandle;
 use std::{
@@ -27,8 +27,6 @@ pub(super) struct PreparedSettings {
     pub(super) prefs: Preferences,
     pub(super) recovery: Option<Recovery>,
     pub(super) audio_equalizer: Arc<Mutex<audio_equalizer::Settings>>,
-    pub(super) saved_video_filters: Arc<Mutex<video_filters::Settings>>,
-    pub(super) saved_audio_filters: Arc<Mutex<video_filters::Settings>>,
     pub(super) history: LoadedHistory,
 }
 
@@ -64,16 +62,12 @@ pub(super) fn prepare_settings(
         crate::diagnostics::report(app, format!("OpenSubtitles credential storage: {error}"));
     }
     let audio_equalizer = Arc::new(Mutex::new(prefs.audio_equalizer.clone()));
-    let saved_video_filters = Arc::new(Mutex::new(prefs.video_filters.clone()));
-    let saved_audio_filters = Arc::new(Mutex::new(prefs.audio_filters.clone()));
     set_audio_equalizer_controls(app, &lock(&audio_equalizer));
     let history = LoadedHistory::load(app, prefs_path, &mut prefs);
     PreparedSettings {
         prefs,
         recovery,
         audio_equalizer,
-        saved_video_filters,
-        saved_audio_filters,
         history,
     }
 }
@@ -419,14 +413,13 @@ pub(super) struct PreparedStartup {
 }
 
 pub(super) struct PreparedSession {
+    pub(super) filters: Rc<crate::video_filter_window::Profile>,
     pub(super) projection: initial_projection::SessionProjection,
     pub(super) history: Tracking,
     pub(super) recent: SessionRecents,
     pub(super) plugin_ui: plugins::InstalledPluginUi,
     pub(super) plugin_host_handle: Option<PluginHostHandle>,
     pub(super) plugin_host: Option<PluginHost>,
-    pub(super) saved_audio_filters: Arc<Mutex<video_filters::Settings>>,
-    pub(super) saved_video_filters: Arc<Mutex<video_filters::Settings>>,
     pub(super) audio_equalizer: Arc<Mutex<audio_equalizer::Settings>>,
     pub(super) recovery: Option<Recovery>,
     pub(super) prefs: Preferences,
@@ -456,10 +449,9 @@ pub(super) fn prepare(
         prefs,
         recovery,
         audio_equalizer,
-        saved_video_filters,
-        saved_audio_filters,
         history,
     } = prepare_settings(app, &prefs_path, loaded, use_system_services);
+    let filters = startup.application.filters.profile(&prefs_path, &prefs);
     if let Some(ticket) = startup.managed {
         app.global::<riina_ui::PlayerControlsState>()
             .set_plugin_ui_disabled(ticket.options.disable_ui);
@@ -522,8 +514,8 @@ pub(super) fn prepare(
             native_presentation: native.is_some(),
             reported_playback: projection.latest_playback.clone(),
             history: history.observe(plugin_host_handle.clone()),
-            saved_video_filters: saved_video_filters.clone(),
-            saved_audio_filters: saved_audio_filters.clone(),
+            saved_video_filters: filters.settings(crate::video_filter_window::Kind::Video),
+            saved_audio_filters: filters.settings(crate::video_filter_window::Kind::Audio),
             audio_device_sender: plugin_ui.plugin_command_sender.clone(),
             picture_in_picture_state_dirty: picture_in_picture.notification_flag(),
             managed_visibility: startup
@@ -539,14 +531,13 @@ pub(super) fn prepare(
         observation,
         engine_options,
         session: PreparedSession {
+            filters,
             projection,
             history,
             recent,
             plugin_ui,
             plugin_host_handle,
             plugin_host,
-            saved_audio_filters,
-            saved_video_filters,
             audio_equalizer,
             recovery,
             prefs,

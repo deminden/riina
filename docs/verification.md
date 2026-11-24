@@ -4004,8 +4004,34 @@ libmpv tests. On a private Windows desktop, the active player retained all
 four native menu sections, kept the fixture paused through a plugin workflow,
 and exited normally. Apple Silicon cross-Clippy passed. A native Mac run
 still needs to check menu navigation, inactive shortcuts and Finder opening.
-Video and Audio Filters still need application-owned editors for use before
-playback.
+That batch left Video and Audio Filters tied to playback sessions.
 
 - Windows application SHA-256 `c4b6dc4983d14f669ccddbfe1fb461575a7bca89acb7d60bf2d7f01a6f319a93`
+- Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
+
+### Application-owned audio and video filters 2026-11-24
+
+The Video and Audio Filters commands open one editor of each kind for the
+profile. The idle macOS menu can open them before playback. Saving presets and
+editing their shortcuts work with no open player. The active filter chain follows
+the last active playback window. Closing a player leaves a visible filter editor
+available for preset editing.
+
+The Windows workspace gate passed, including the software-rendered player and
+Settings baselines. Headless tests saved a preset before playback, routed commands
+between two players, rejected an edit after the media generation changed, and
+kept the same editor after both player routes closed. Profile-store tests merged
+edits from independent profile views and rejected a stale removal. The locked
+Linux application build, 597 Linux application tests and strict Apple Silicon
+cross-Clippy passed. Native macOS checks still need to cover opening from the
+idle menu, adopting a Finder-opened player, the LUT picker and final-window
+shutdown.
+
+On a private Windows desktop, the native Video and Audio menus opened separate
+editors. Reopening reused the same video window, and a saved video filter became
+active while the fixture stayed paused. Both editors stayed open after the
+player closed. Closing the final editor shut down the isolated process normally.
+The separate pinned libmpv suite passed all 61 tests.
+
+- Windows application SHA-256 `99d96d622d03f36cf5edff582c9f8d4fa82e5da81ac6efd9906d08655c1de567`
 - Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`

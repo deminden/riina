@@ -9,7 +9,7 @@ use super::{
     thumbnail_actions, transitions,
 };
 use crate::{PlaybackStore, PlayerWindow, platform, plugin_host::PluginHostHandle};
-use riina_core::{Playback, music_mode, sync::lock, video_filters};
+use riina_core::{Playback, music_mode, sync::lock};
 use riina_mpv::CommandSender;
 use std::{
     path::Path,
@@ -20,7 +20,7 @@ use std::{
 pub(super) struct PlaybackFeatures {
     _online_subtitles_window: crate::open_subtitles::SearchWindowGuard,
     _playback_history_window: crate::playback_history_window::Registration,
-    _filter_windows: crate::video_filter_window::Guard,
+    _filter_target: crate::video_filter_window::Registration,
     _automatic_music_mode_timer: Rc<slint::Timer>,
     _file_drop_timer: Rc<slint::Timer>,
     _player_window_focus: input::PlayerWindowFocusRegistration,
@@ -79,8 +79,7 @@ pub(super) struct Inputs<'a> {
     pub(super) history_window: &'a Rc<crate::playback_history_window::ApplicationHistory>,
     pub(super) plugin_host: Option<&'a PluginHostHandle>,
     pub(super) plugin_commands: &'a Mutex<Option<CommandSender>>,
-    pub(super) saved_video_filters: &'a Arc<Mutex<video_filters::Settings>>,
-    pub(super) saved_audio_filters: &'a Arc<Mutex<video_filters::Settings>>,
+    pub(super) filters: &'a Rc<crate::video_filter_window::Profile>,
     pub(super) music_mode: &'a Arc<Mutex<music_mode::State>>,
     pub(super) transition_release_generation: &'a Arc<AtomicU64>,
     pub(super) picture_in_picture: &'a platform::PictureInPictureSession,
@@ -100,8 +99,7 @@ pub(super) fn install(app: &PlayerWindow, inputs: Inputs<'_>) -> Installed {
         history_window,
         plugin_host,
         plugin_commands,
-        saved_video_filters,
-        saved_audio_filters,
+        filters,
         music_mode,
         transition_release_generation,
         picture_in_picture,
@@ -118,13 +116,12 @@ pub(super) fn install(app: &PlayerWindow, inputs: Inputs<'_>) -> Installed {
         history_sync,
         display,
     );
-    let filter_windows = crate::video_filter_window::install(
+    let filter_target = crate::video_filter_window::install(
         app,
         playback.clone(),
-        saved_video_filters.clone(),
-        saved_audio_filters.clone(),
         commands.clone(),
-        prefs_path.to_path_buf(),
+        filters,
+        history_window,
     );
     let folder_series = crate::playlist_metadata::series::Cache::default();
     let playlist_metadata = playlist::install_metadata_refresh(
@@ -202,7 +199,7 @@ pub(super) fn install(app: &PlayerWindow, inputs: Inputs<'_>) -> Installed {
         guards: PlaybackFeatures {
             _online_subtitles_window: online_subtitles_window,
             _playback_history_window: playback_history_window,
-            _filter_windows: filter_windows,
+            _filter_target: filter_target,
             _automatic_music_mode_timer: automatic_music_mode_timer,
             _file_drop_timer: file_drop_timer,
             _player_window_focus: player_window_focus,

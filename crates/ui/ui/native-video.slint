@@ -478,7 +478,7 @@ export component NativeVideoHost inherits Window {
                 enabled: root.delogo-menu-enabled;
                 activated => { root.toggle-delogo(); } }
             MenuSeparator {}
-            MenuItem { title: "Video Filters…"; enabled: root.playback-loaded;
+            MenuItem { title: "Video Filters…";
                 shortcut: root.primary-shortcut-is-meta ? @keys(Meta + Shift + F) : @keys(Control + Shift + F);
                 activated => { root.open-video-filters(); } }
             Menu { title: "Saved Video Filters"; enabled: root.playback-loaded;
@@ -541,7 +541,7 @@ export component NativeVideoHost inherits Window {
                 }
             }
             MenuSeparator {}
-            MenuItem { title: "Audio Filters…"; enabled: root.playback-loaded;
+            MenuItem { title: "Audio Filters…";
                 shortcut: root.primary-shortcut-is-meta ? @keys(Meta + Shift + G) : @keys(Control + Shift + G);
                 activated => { root.open-audio-filters(); } }
             Menu { title: "Saved Audio Filters"; enabled: root.playback-loaded;

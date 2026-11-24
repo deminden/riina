@@ -85,6 +85,25 @@ impl Launch {
         }
     }
 
+    fn show_filters(&self, kind: crate::video_filter_window::Kind) {
+        if self.manager.is_quitting() {
+            return;
+        }
+        self.default_action.take();
+        let action = || {
+            let path = crate::platform::preferences_path().map_err(|error| error.to_string())?;
+            let saved = crate::preference_load::load(&path).map_err(|error| error.to_string())?;
+            let services = self.manager.services();
+            services
+                .filters
+                .profile(&path, &saved.preferences)
+                .show(kind, None, &services.history)
+        };
+        if let Err(error) = action() {
+            crate::diagnostics::warn!("Could not open {}: {error}", kind.title());
+        }
+    }
+
     fn reopen(self: &Rc<Self>) {
         self.default_action.take();
         let launch = self.clone();
@@ -319,6 +338,16 @@ define_class!(
             if let Err(error) = action() {
                 crate::diagnostics::warn!("Could not open the screenshot folder: {error}");
             }
+        }
+
+        #[unsafe(method(riinaIdleVideoFilters:))]
+        fn idle_video_filters(&self, _sender: Option<&AnyObject>) {
+            self.ivars().show_filters(crate::video_filter_window::Kind::Video);
+        }
+
+        #[unsafe(method(riinaIdleAudioFilters:))]
+        fn idle_audio_filters(&self, _sender: Option<&AnyObject>) {
+            self.ivars().show_filters(crate::video_filter_window::Kind::Audio);
         }
 
         #[unsafe(method(riinaIdleNewWindow:))]

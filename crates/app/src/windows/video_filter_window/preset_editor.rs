@@ -1,8 +1,11 @@
 //! Project preset drafts into the filter form after releasing the mutable borrow.
-use crate::{PlayerWindow, VideoFilterParameterRow, VideoFiltersWindow};
+use crate::{VideoFilterParameterRow, VideoFiltersWindow};
 use riina_core::video_filters;
 use slint::{ComponentHandle, ModelRc, VecModel, winit_030::WinitWindowAccessor};
-use std::{cell::RefCell, rc::Rc};
+use std::{
+    cell::{Cell, RefCell},
+    rc::Rc,
+};
 
 #[derive(Clone, Default)]
 struct PresetDraft {
@@ -10,7 +13,7 @@ struct PresetDraft {
     values: Vec<String>,
 }
 
-pub(super) fn install(app: &PlayerWindow, window: &VideoFiltersWindow, is_audio: bool) {
+pub(super) fn install(window: &VideoFiltersWindow, is_audio: bool) {
     let draft = Rc::new(RefCell::new(PresetDraft::default()));
     let weak_window = window.as_weak();
     let select_draft = draft.clone();
@@ -91,7 +94,9 @@ pub(super) fn install(app: &PlayerWindow, window: &VideoFiltersWindow, is_audio:
         }
     });
 
-    install_lut_picker(app, window, &draft, is_audio);
+    if !is_audio {
+        install_lut_picker(window, &draft);
+    }
 
     let raw_draft = draft.clone();
     let raw_window = window.as_weak();
@@ -106,37 +111,24 @@ pub(super) fn install(app: &PlayerWindow, window: &VideoFiltersWindow, is_audio:
     });
 }
 
-fn install_lut_picker(
-    app: &PlayerWindow,
-    window: &VideoFiltersWindow,
-    draft: &Rc<RefCell<PresetDraft>>,
-    is_audio: bool,
-) {
-    let browse_draft = draft.clone();
-    let browse_window = window.as_weak();
-    let browse_app = app.as_weak();
+fn install_lut_picker(window: &VideoFiltersWindow, draft: &Rc<RefCell<PresetDraft>>) {
+    let window_handle = window.as_weak();
+    let draft = draft.clone();
+    let busy = Rc::new(Cell::new(false));
     window.on_browse_filter_file(move || {
-        let Some(app) = browse_app.upgrade() else {
+        let Some(index) = draft.borrow().index else {
             return;
         };
-        if is_audio
-            || app
-                .global::<riina_ui::PlayerDialogState>()
-                .get_dialog_open()
-        {
+        if busy.replace(true) {
             return;
         }
-        app.global::<riina_ui::PlayerDialogState>()
-            .set_dialog_open(true);
-        app.global::<riina_ui::PlayerControlActions>()
-            .invoke_activity();
-        let weak_app = app.as_weak();
-        let weak_window = browse_window.clone();
-        let selection_window = browse_window.clone();
-        let selection_draft = browse_draft.clone();
-        let path_result = slint::spawn_local(async move {
-            let selected = async {
-                let Some(window) = weak_window.upgrade() else {
+
+        let window = window_handle.clone();
+        let active_draft = draft.clone();
+        let dialog = busy.clone();
+        let result = slint::spawn_local(async move {
+            let selection = async {
+                let Some(window) = window.upgrade() else {
                     return Ok(None);
                 };
                 let owner = window
@@ -158,40 +150,32 @@ fn install_lut_picker(
                 .transpose()
             }
             .await;
-            let Some(app) = weak_app.upgrade() else {
+            dialog.set(false);
+            let Some(window) = window.upgrade() else {
                 return;
             };
-            app.global::<riina_ui::PlayerDialogState>()
-                .set_dialog_open(false);
-            app.global::<riina_ui::PlayerControlActions>()
-                .invoke_activity();
-            match selected {
-                Ok(Some(path)) => {
-                    let Some(window) = selection_window.upgrade() else {
-                        return;
-                    };
-                    let index = selection_draft.borrow().index;
-                    if let Some(index) = index
-                        && let Some(parameter) =
-                            preset_parameters(index, false).and_then(|parameters| {
-                                parameters
-                                    .iter()
-                                    .position(|parameter| parameter.name == "file")
-                            })
+            match selection {
+                Ok(Some(path)) if active_draft.borrow().index == Some(index) => {
+                    if let Some(parameter) =
+                        preset_parameters(index, false).and_then(|parameters| {
+                            parameters
+                                .iter()
+                                .position(|parameter| parameter.name == "file")
+                        })
                     {
-                        update_value(&window, &selection_draft, parameter, path, false);
+                        update_value(&window, &active_draft, parameter, path, false);
+                        window.set_filter_status("".into());
                     }
                 }
-                Ok(None) => {}
-                Err(error) => app.set_status(error.into()),
+                Ok(_) => {}
+                Err(error) => window.set_filter_status(error.into()),
             }
         });
-        if let Err(error) = path_result {
-            app.global::<riina_ui::PlayerDialogState>()
-                .set_dialog_open(false);
-            app.global::<riina_ui::PlayerControlActions>()
-                .invoke_activity();
-            app.set_status(error.to_string().into());
+        if let Err(error) = result {
+            busy.set(false);
+            if let Some(window) = window_handle.upgrade() {
+                window.set_filter_status(error.to_string().into());
+            }
         }
     });
 }
@@ -288,9 +272,8 @@ mod tests {
     fn editing_preset_text_numbers_and_choices_updates_the_form()
     -> Result<(), Box<dyn std::error::Error>> {
         i_slint_backend_testing::init_no_event_loop();
-        let app = PlayerWindow::new()?;
         let filters = VideoFiltersWindow::new()?;
-        install(&app, &filters, false);
+        install(&filters, false);
 
         filters.invoke_select_preset(1);
         filters.invoke_update_preset_text(0, "256".into());

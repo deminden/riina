@@ -682,7 +682,8 @@ thread using the saved grouping and window preferences. An AppKit Open panel
 can choose files and folders in one selection, as a sheet for an existing
 player or as an application panel while idle. Playback History shares its
 archive and window with the idle application menu. About, Log Viewer, History,
-Open URL, Software Update and Release Highlights can outlive the last player.
+Open URL, Software Update, Release Highlights and the audio and video filter
+editors can outlive the last player.
 The idle Window menu is registered
 with AppKit, and the quit decision is deferred until the final tool closes.
 Closing a tool before any player opened leaves the application available.
@@ -692,6 +693,15 @@ profile shortcuts, static choices and saved filter names use the same models
 as playback. Unavailable commands have no action target while idle. The
 screenshot-folder command uses the saved profile and the same directory opener
 as the player menu.
+
+The application owns one audio and one video filter editor for the profile.
+Both read saved presets before playback and follow the last active player when
+a playback session is available. Changes to the active filter chain are checked
+against the displayed player, media generation and filter list before positional
+edits are sent. Preset edits merge into the latest profile under its write lock,
+and every registered player's menu and keyboard shortcuts use the shared saved
+list. Windows and Linux defer the last-player shutdown decision while a filter
+editor is visible.
 [AppKit application event handling](https://developer.apple.com/documentation/appkit/nsapplication)
 [AppKit recent documents](https://developer.apple.com/documentation/appkit/nsdocumentcontroller)
 [AppKit Window menu](https://developer.apple.com/documentation/appkit/nsapplication/windowsmenu)

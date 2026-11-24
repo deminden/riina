@@ -1,6 +1,6 @@
 import { Theme } from "theme.slint";
 import { Button, ComboBox, LineEdit, ScrollView } from "std-widgets.slint";
-import { MenuCatalogRow, SavedFilterMenuRow } from "native-video.slint";
+import { SavedFilterMenuRow } from "native-video.slint";
 import { AuxiliaryPalette, NativeTypography, PlayerSlider } from "shared-controls.slint";
 
 export struct VideoFilterWindowRow {
@@ -42,6 +42,8 @@ export component VideoFiltersWindow inherits Window {
     in property <[VideoFilterParameterRow]> preset-parameters: [];
     in property <bool> dark-theme: true;
     in property <bool> is-audio: false;
+    in property <bool> live-filter-controls: true;
+    in property <string> filter-status: "";
     in property <string> window-title: "Video Filters";
     in-out property <int> preset-index: 0;
     in-out property <string> filter-string: "";
@@ -66,8 +68,9 @@ export component VideoFiltersWindow inherits Window {
     callback apply-current-filter(int, string);
     callback save-current-filter(string, string);
     callback toggle-saved-filter(string);
+    callback select-saved-filter(int);
     callback remove-saved-filter(int);
-    callback update-saved-filter(int, string, string, string, int);
+    callback update-saved-filter(string, string, string, int);
 
     Rectangle {
         x: 0; y: 0; width: parent.width; height: 46px;
@@ -82,10 +85,18 @@ export component VideoFiltersWindow inherits Window {
             }
             LineEdit { text <=> root.filter-string; placeholder-text: "mpv filter string"; horizontal-stretch: 1;
                 edited => { root.raw-filter-edited(); } }
-            Button {
+            if root.live-filter-controls : Button {
                 text: root.is-audio ? "Add Audio Filter" : "Add Video Filter";
                 enabled: !root.filter-string.is-empty;
                 clicked => { root.add-filter(root.filter-string); }
+            }
+            if !root.live-filter-controls : LineEdit {
+                width: 125px; text <=> root.filter-name; placeholder-text: "Saved name";
+            }
+            if !root.live-filter-controls : Button {
+                text: "Save Filter";
+                enabled: !root.filter-string.is-empty && !root.filter-name.is-empty;
+                clicked => { root.save-current-filter(root.filter-string, root.filter-name); }
             }
         }
     }
@@ -183,10 +194,15 @@ export component VideoFiltersWindow inherits Window {
                     }
                     if root.current-filters.length == 0 : Text {
                         x: 14px; y: 14px; width: parent.width - 28px; height: 36px;
-                        text: root.is-audio ? "No active audio filters" : "No active video filters";
+                        text: !root.live-filter-controls ? "Open media to use active filters" :
+                            (root.is-audio ? "No active audio filters" : "No active video filters");
                         color: Theme.filter-empty-list-text(root.dark-theme); font-size: 12px;
                     }
                 }
+            }
+            if !root.filter-status.is-empty : Text {
+                text: root.filter-status; font-size: 12px;
+                color: Theme.filter-section-heading(root.dark-theme); wrap: word-wrap;
             }
         }
 
@@ -217,6 +233,7 @@ export component VideoFiltersWindow inherits Window {
                                 root.editing-saved-shortcut-key = row.shortcut-key;
                                 root.editing-saved-shortcut-label = row.shortcut-label;
                                 root.editing-saved-shortcut-modifiers = row.shortcut-modifiers;
+                                root.select-saved-filter(index);
                             }
                         }
                         TouchArea {
@@ -228,7 +245,7 @@ export component VideoFiltersWindow inherits Window {
                     }
                     if root.saved-filters.length == 0 : Text {
                         x: 12px; y: 14px; width: parent.width - 24px; height: 36px;
-                        text: "Save an active filter to use it here"; color: Theme.auxiliary-light-secondary-text; font-size: 12px; wrap: word-wrap;
+                        text: "No saved filters"; color: Theme.auxiliary-light-secondary-text; font-size: 12px; wrap: word-wrap;
                     }
                 }
             }
@@ -252,11 +269,10 @@ export component VideoFiltersWindow inherits Window {
             }
             HorizontalLayout {
                 height: 30px; spacing: 6px;
-                Button { text: "Toggle"; enabled: root.editing-saved-index >= 0;
+                Button { text: "Toggle"; enabled: root.live-filter-controls && root.editing-saved-index >= 0;
                     clicked => { root.toggle-saved-filter(root.editing-saved-filter); } }
                 Button { text: "Save Changes"; enabled: root.editing-saved-index >= 0;
-                    clicked => { root.update-saved-filter(root.editing-saved-index,
-                        root.editing-saved-name, root.editing-saved-filter,
+                    clicked => { root.update-saved-filter(root.editing-saved-name, root.editing-saved-filter,
                         root.editing-saved-shortcut-key, root.editing-saved-shortcut-modifiers); } }
             }
         }

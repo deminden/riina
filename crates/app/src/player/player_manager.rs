@@ -132,10 +132,19 @@ impl PlayerManager {
             },
             move || {
                 if let Some(state) = on_close.upgrade() {
-                    finish_after_history_close(&state);
+                    finish_after_auxiliary_close(&state);
                 }
             },
         );
+        #[cfg(not(target_os = "macos"))]
+        {
+            let state = Rc::downgrade(&manager.state);
+            manager.services().filters.closed.bind(Rc::new(move || {
+                if let Some(state) = state.upgrade() {
+                    finish_after_auxiliary_close(&state);
+                }
+            }));
+        }
         #[cfg(target_os = "macos")]
         {
             let state = Rc::downgrade(&manager.state);
@@ -464,6 +473,7 @@ fn schedule_quit(state: Weak<RefCell<ManagerState>>) {
         let Some(state) = state.upgrade() else { return };
         let services = state.borrow().services.clone();
         services.history.hide();
+        services.filters.hide();
         #[cfg(target_os = "macos")]
         services.hide_auxiliary_tools();
         let players = std::mem::take(&mut state.borrow_mut().players);
@@ -523,15 +533,13 @@ fn close_player(state: &Rc<RefCell<ManagerState>>, id: u64, from_welcome: bool) 
         return;
     }
     #[cfg(not(target_os = "macos"))]
-    if state.borrow().services.history.is_visible() {
-        return;
+    {
+        let state = state.borrow();
+        if state.services.history.is_visible() || state.services.filters.is_visible() {
+            return;
+        }
     }
     finish_empty_application(state, quit_when_empty, from_welcome);
-}
-
-#[cfg(target_os = "macos")]
-fn finish_after_history_close(state: &Rc<RefCell<ManagerState>>) {
-    finish_after_auxiliary_close(state);
 }
 
 #[cfg(target_os = "macos")]
@@ -561,8 +569,15 @@ fn finish_after_auxiliary_close(state: &Rc<RefCell<ManagerState>>) {
 }
 
 #[cfg(not(target_os = "macos"))]
-fn finish_after_history_close(state: &Rc<RefCell<ManagerState>>) {
-    if state.borrow().players.is_empty() {
+fn finish_after_auxiliary_close(state: &Rc<RefCell<ManagerState>>) {
+    let finished = {
+        let state = state.borrow();
+        !state.quitting
+            && state.players.is_empty()
+            && !state.services.history.is_visible()
+            && !state.services.filters.is_visible()
+    };
+    if finished {
         finish_after_last_player(state);
     }
 }

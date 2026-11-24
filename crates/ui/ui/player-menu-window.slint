@@ -352,7 +352,7 @@ export component PlayerMenuWindow inherits Window {
                 enabled: root.menu-value-delogo-enabled && !root.menu-value-crop-editing;
                 activated => { PlayerMenuActions.toggle-delogo(); } }
             MenuSeparator {}
-            MenuItem { title: "Video Filters…"; enabled: root.menu-value-loaded && !root.menu-value-crop-editing;
+            MenuItem { title: "Video Filters…"; enabled: !root.menu-value-crop-editing;
                 shortcut: root.player-shortcut(root.menu-value-primary-shortcut-is-meta ? @keys(Meta + Shift + F) : @keys(Control + Shift + F));
                 activated => { PlayerMenuActions.open-video-filters(); } }
             Menu { title: "Saved Video Filters"; enabled: root.menu-value-loaded && !root.menu-value-crop-editing;
@@ -415,7 +415,7 @@ export component PlayerMenuWindow inherits Window {
                 }
             }
             MenuSeparator {}
-            MenuItem { title: "Audio Filters…"; enabled: root.menu-value-loaded && !root.menu-value-crop-editing;
+            MenuItem { title: "Audio Filters…"; enabled: !root.menu-value-crop-editing;
                 shortcut: root.player-shortcut(root.menu-value-primary-shortcut-is-meta ? @keys(Meta + Shift + G) : @keys(Control + Shift + G));
                 activated => { PlayerMenuActions.open-audio-filters(); } }
             Menu { title: "Saved Audio Filters"; enabled: root.menu-value-loaded && !root.menu-value-crop-editing;

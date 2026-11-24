@@ -59,23 +59,22 @@ fn append(menu: &NSMenu, target: &LaunchTarget, rows: &[PlaybackMenuRow]) {
             menu.addItem(&NSMenuItem::separatorItem(main));
             continue;
         }
-        let screenshot = row.title == SCREENSHOT_FOLDER;
+        let action = match row.title.as_str() {
+            SCREENSHOT_FOLDER => Some(sel!(riinaIdleScreenshotFolder:)),
+            "Video Filters…" => Some(sel!(riinaIdleVideoFilters:)),
+            "Audio Filters…" => Some(sel!(riinaIdleAudioFilters:)),
+            _ => None,
+        };
         let (key, modifiers) = equivalent(&row.shortcut);
-        let action_target: Option<&AnyObject> = if screenshot { Some(target) } else { None };
-        let item = idle_menu::item(
-            main,
-            &row.title,
-            screenshot.then_some(sel!(riinaIdleScreenshotFolder:)),
-            &key,
-            action_target,
-        );
+        let action_target: Option<&AnyObject> = if action.is_some() { Some(target) } else { None };
+        let item = idle_menu::item(main, &row.title, action, &key, action_target);
         item.setKeyEquivalentModifierMask(modifiers);
         if !row.children.is_empty() {
             let children = submenu(main, &row.title);
             append(&children, target, &row.children);
             item.setSubmenu(Some(&children));
         }
-        item.setEnabled(screenshot || !row.children.is_empty());
+        item.setEnabled(action.is_some() || !row.children.is_empty());
         menu.addItem(&item);
     }
 }

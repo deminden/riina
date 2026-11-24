@@ -5,7 +5,7 @@ use super::{
     recent_activity::RecentActivity, startup,
 };
 use crate::{PlaybackStore, PlayerWindow};
-use riina_core::{Phase, Preferences, audio_equalizer, video_filters};
+use riina_core::{Phase, Preferences, audio_equalizer};
 use riina_ui::{
     PlaybackAudioState, PlaybackSubtitleState, PlayerAppearance, PlayerLayoutState,
     PlayerMusicModeState, PlayerPreferences, PlayerSidebarState,
@@ -63,8 +63,6 @@ impl UiSession {
 
 pub(super) struct SessionState {
     pub(super) audio_equalizer: Arc<Mutex<audio_equalizer::Settings>>,
-    pub(super) saved_video_filters: Arc<Mutex<video_filters::Settings>>,
-    pub(super) saved_audio_filters: Arc<Mutex<video_filters::Settings>>,
     pub(super) recent: startup::SessionRecents,
     pub(super) history: history_session::Tracking,
     pub(super) latest_playback: PlaybackStore,
@@ -77,16 +75,6 @@ impl SessionState {
             .audio_equalizer
             .lock()
             .map_err(|_| std::io::Error::other("audio equalizer settings lock poisoned"))?
-            .clone();
-        prefs.video_filters = self
-            .saved_video_filters
-            .lock()
-            .map_err(|_| std::io::Error::other("saved video filter settings lock poisoned"))?
-            .clone();
-        prefs.audio_filters = self
-            .saved_audio_filters
-            .lock()
-            .map_err(|_| std::io::Error::other("saved audio filter settings lock poisoned"))?
             .clone();
         prefs.playback_history = self
             .history
