@@ -2,23 +2,33 @@
 
 use crate::{
     CatalogRow, PlayerWindow,
-    playlist_metadata::{durations, resume},
+    playlist_metadata::{durations, resume, series},
 };
 use riina_core::{Phase, Playback, sync::lock, time_label};
-use riina_ui::PlayerMenuActions;
+use riina_ui::{PlayerMenuActions, PlaylistInteraction};
 use slint::{ComponentHandle, Model};
 use std::{
+    collections::HashMap,
     path::{Path, PathBuf},
     rc::Rc,
     sync::Arc,
     time::Duration,
 };
 
-pub(in super::super) fn update(
-    app: &PlayerWindow,
-    state: &Playback,
-    positions: Option<&resume::Positions>,
-) {
+#[derive(Default)]
+pub(in super::super) struct MetadataSnapshot {
+    positions: Option<Arc<resume::Positions>>,
+    series: Option<Arc<series::Series>>,
+}
+
+pub(in super::super) fn update(app: &PlayerWindow, state: &Playback, metadata: &MetadataSnapshot) {
+    let catalog = app.global::<riina_ui::PlayerCatalogState>();
+    let current = catalog.get_playlist();
+    let expanded: HashMap<_, _> = current
+        .iter()
+        .filter(|row| row.series_expanded)
+        .map(|row| (row.token, row.series_prefix))
+        .collect();
     let show_metadata = app.get_show_playlist_metadata();
     let observed_duration = state.duration.filter(|seconds| {
         seconds.is_finite()
@@ -35,7 +45,7 @@ pub(in super::super) fn update(
         durations::remember(path, seconds);
     }
     let selected_playlist_tokens = app
-        .global::<riina_ui::PlaylistInteraction>()
+        .global::<PlaylistInteraction>()
         .get_selected_playlist_tokens();
     let rows = state
         .playlist
@@ -52,22 +62,38 @@ pub(in super::super) fn update(
                     )
                 }
             });
-            let metadata = show_metadata
+            let tags = show_metadata
                 .then(|| crate::playlist_metadata::lookup(&entry.filename))
                 .flatten();
             let duration = observed_duration.filter(|_| entry.playing).or_else(|| {
                 durations::local_path(&entry.filename).and_then(|path| durations::lookup(&path))
             });
-            let position = positions.and_then(|positions| positions.get(&entry.filename).copied());
+            let position = metadata
+                .positions
+                .as_ref()
+                .and_then(|positions| positions.get(&entry.filename).copied());
+            let (prefix, episode) = metadata
+                .series
+                .as_ref()
+                .filter(|_| tags.is_none())
+                .and_then(|series| series.split_title(&entry.filename, &file_label))
+                .unwrap_or_default();
+            let series_expanded = !prefix.is_empty()
+                && expanded
+                    .get(token.as_str())
+                    .is_some_and(|label| label.as_str() == prefix);
             CatalogRow {
                 token: token.clone().into(),
                 path: entry.filename.clone().into(),
                 language: "".into(),
-                label: metadata
+                series_expanded,
+                series_prefix: prefix.into(),
+                episode_label: episode.into(),
+                label: tags
                     .as_ref()
                     .map_or(file_label, |metadata| metadata.title.clone())
                     .into(),
-                detail: metadata
+                detail: tags
                     .map_or_else(String::new, |metadata| metadata.artist)
                     .into(),
                 selected: selected_playlist_tokens
@@ -80,8 +106,6 @@ pub(in super::super) fn update(
             }
         })
         .collect::<Vec<_>>();
-    let catalog = app.global::<riina_ui::PlayerCatalogState>();
-    let current = catalog.get_playlist();
     if current.row_count() == rows.len()
         && current
             .iter()
@@ -174,15 +198,30 @@ fn duration_summary(rows: impl Iterator<Item = CatalogRow>) -> String {
 pub(in super::super) struct MetadataRefresh {
     _timer: Rc<slint::Timer>,
     _subscription: crate::playlist_metadata::Subscription,
-    resume: Rc<resume::Reader>,
+    sources: Rc<Sources>,
 }
 
 impl MetadataRefresh {
-    pub(in super::super) fn saved_positions(
-        &self,
-        playback: &Playback,
-    ) -> Option<Arc<resume::Positions>> {
-        self.resume.positions(playback)
+    pub(in super::super) fn snapshot(&self, playback: &Playback) -> MetadataSnapshot {
+        self.sources.snapshot(playback)
+    }
+}
+
+struct Sources {
+    resume: resume::Reader,
+    series: series::Cache,
+}
+
+impl Sources {
+    fn snapshot(&self, playback: &Playback) -> MetadataSnapshot {
+        MetadataSnapshot {
+            positions: self.resume.positions(playback),
+            series: if playback.explicit_playlist {
+                None
+            } else {
+                lock(&self.series).clone()
+            },
+        }
     }
 }
 
@@ -190,23 +229,24 @@ pub(in super::super) fn install_metadata_refresh(
     app: &PlayerWindow,
     playback: crate::PlaybackStore,
     preferences: &Path,
+    series: series::Cache,
 ) -> MetadataRefresh {
     let timer = Rc::new(slint::Timer::default());
     let weak = app.as_weak();
     let demand = std::cell::RefCell::new(durations::Demand::default());
-    let resume = Rc::new(resume::Reader::new(
-        preferences.with_file_name("watch-later"),
-    ));
-    let reader = resume.clone();
+    let sources = Rc::new(Sources {
+        resume: resume::Reader::new(preferences.with_file_name("watch-later")),
+        series,
+    });
+    let reader = sources.clone();
     timer.start(
         slint::TimerMode::SingleShot,
         Duration::from_millis(300),
         move || {
             let Some(app) = weak.upgrade() else { return };
             let snapshot = lock(&playback).clone();
-            reader.refresh(&app, &snapshot);
-            let positions = reader.positions(&snapshot);
-            update(&app, &snapshot, positions.as_deref());
+            reader.resume.refresh(&app, &snapshot);
+            update(&app, &snapshot, &reader.snapshot(&snapshot));
             let paths = if app.get_prefetch_playlist_durations() {
                 snapshot
                     .playlist
@@ -221,6 +261,13 @@ pub(in super::super) fn install_metadata_refresh(
                 .invoke_video_menu_changed();
         },
     );
+    let weak = app.as_weak();
+    app.global::<PlaylistInteraction>()
+        .on_toggle_series_prefix(move |token| {
+            if let Some(app) = weak.upgrade() {
+                toggle_series_prefix(&app, &token);
+            }
+        });
     let weak_timer = Rc::downgrade(&timer);
     app.on_refresh_playlist_metadata(move || {
         if let Some(timer) = weak_timer.upgrade() {
@@ -249,7 +296,19 @@ pub(in super::super) fn install_metadata_refresh(
     MetadataRefresh {
         _timer: timer,
         _subscription: subscription,
-        resume,
+        sources,
+    }
+}
+
+fn toggle_series_prefix(app: &PlayerWindow, token: &str) {
+    let rows = app.global::<riina_ui::PlayerCatalogState>().get_playlist();
+    if let Some((index, mut row)) = rows
+        .iter()
+        .enumerate()
+        .find(|(_, row)| row.token.as_str() == token && !row.series_prefix.is_empty())
+    {
+        row.series_expanded = !row.series_expanded;
+        rows.set_row_data(index, row);
     }
 }
 
@@ -319,14 +378,73 @@ mod metadata_tests {
                 .collect::<Vec<_>>()
         };
 
-        update(&app, &state, Some(&positions));
+        let metadata = MetadataSnapshot {
+            positions: Some(Arc::new(positions)),
+            ..MetadataSnapshot::default()
+        };
+        update(&app, &state, &metadata);
         assert_eq!(rows(), [("1".into(), 0.5), ("2".into(), 0.0)]);
         state.playlist = vec![unreadable, watched].into();
         state.duration = Some(3.0);
-        update(&app, &state, Some(&positions));
+        update(&app, &state, &metadata);
         assert_eq!(rows(), [("2".into(), 0.0), ("1".into(), 1.0)]);
-        update(&app, &state, None);
+        update(&app, &state, &MetadataSnapshot::default());
         assert_eq!(rows(), [("2".into(), 0.0), ("1".into(), 0.0)]);
+        Ok(())
+    }
+
+    #[test]
+    fn expanding_an_episode_preserves_its_full_title_and_survives_reordering()
+    -> Result<(), slint::PlatformError> {
+        i_slint_backend_testing::init_no_event_loop();
+        let app = PlayerWindow::new()?;
+        let paths = [
+            "Show name - 1.avi",
+            "Show name - 2.avi",
+            "Show name - 3.avi",
+        ]
+        .map(str::to_owned);
+        let entries = paths
+            .iter()
+            .enumerate()
+            .map(|(index, filename)| riina_core::PlaylistEntry {
+                id: i64::try_from(index).unwrap(),
+                filename: filename.clone(),
+                title: None,
+                current: false,
+                playing: false,
+            })
+            .collect::<Vec<_>>();
+        let mut state = Playback {
+            playlist: entries.into(),
+            ..Playback::default()
+        };
+        let metadata = MetadataSnapshot {
+            series: Some(Arc::new(series::Series::from_files(&paths))),
+            ..MetadataSnapshot::default()
+        };
+        let row = |index| {
+            app.global::<riina_ui::PlayerCatalogState>()
+                .get_playlist()
+                .row_data(index)
+                .unwrap()
+        };
+        update(&app, &state, &metadata);
+        assert_eq!(row(0).series_prefix.as_str(), "Show name - ");
+        assert_eq!(row(0).label.as_str(), paths[0]);
+        assert_eq!(row(0).episode_label.as_str(), "1.avi");
+        assert!(!row(0).series_expanded);
+        toggle_series_prefix(&app, "0");
+        assert!(row(0).series_expanded);
+        assert!(!row(1).series_expanded);
+        Arc::make_mut(&mut state.playlist).swap(0, 2);
+        update(&app, &state, &metadata);
+        assert_eq!(row(2).token.as_str(), "0");
+        assert!(row(2).series_expanded);
+        Arc::make_mut(&mut state.playlist)[2].title = Some("Custom display title".into());
+        update(&app, &state, &metadata);
+        assert_eq!(row(2).label.as_str(), "Custom display title");
+        assert!(row(2).series_prefix.is_empty());
         Ok(())
     }
 
@@ -338,6 +456,7 @@ mod metadata_tests {
             &app,
             crate::PlaybackStore::default(),
             Path::new("preferences.json"),
+            series::Cache::default(),
         );
         i_slint_backend_testing::mock_elapsed_time(Duration::from_millis(300));
         assert!(!refresh._timer.running());

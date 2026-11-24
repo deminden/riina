@@ -2535,6 +2535,22 @@ players exited normally. The Linux executable SHA-256 was
 `7314d6c419a0926973e0c68d5807fef253e9283703736f2e47c1db22e7be331b`.
 Live Win32, Wayland and macOS menu interaction remains open for this batch.
 
+### Playlist series titles 2026-11-24
+
+The Windows workspace gate and all 59 pinned libmpv null-output tests passed.
+The workspace tests cover Unicode sibling detection, discovery with folder
+auto-add off, and persistence of expanded titles through row projection.
+The locked Apple Silicon workspace passed strict Clippy from Windows.
+
+In isolated Linux X11, opening the second of three `Café Stories` episodes
+added the neighboring episodes and an unrelated clip in filename order.
+The unrelated clip kept its full name. The first episode expanded in the
+main sidebar, kept its expanded title after reordering, and folded again in
+Music Mode. The second episode stayed paused while the playlist changed.
+The test player exited normally. The Linux executable SHA-256 was
+`12dcc777127863bfab11afff755e6c9a105b7db6ac5e9b709b32235c328ed216`.
+Live Windows, Wayland and macOS interaction remains open for this batch.
+
 ### macOS application menu composition 2026-10-14
 
 The AppKit adapter consolidates application actions in one native menu while

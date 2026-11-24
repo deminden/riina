@@ -217,11 +217,11 @@ pub(super) fn should_fallback_removed_audio_device(
 pub(super) fn update_catalog(
     app: &PlayerWindow,
     state: &Playback,
-    positions: Option<&crate::playlist_metadata::resume::Positions>,
+    metadata: &playlist::MetadataSnapshot,
 ) {
     update_tracks(app, state);
     update_chapters(app, state);
-    playlist::update(app, state, positions);
+    playlist::update(app, state, metadata);
     if app.get_prefetch_playlist_durations() {
         app.invoke_refresh_playlist_metadata();
     }

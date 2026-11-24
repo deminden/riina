@@ -120,7 +120,13 @@ pub(super) fn install(app: &PlayerWindow, inputs: Inputs<'_>) -> Installed {
         commands.clone(),
         prefs_path.to_path_buf(),
     );
-    let playlist_metadata = playlist::install_metadata_refresh(app, playback.clone(), prefs_path);
+    let folder_series = crate::playlist_metadata::series::Cache::default();
+    let playlist_metadata = playlist::install_metadata_refresh(
+        app,
+        playback.clone(),
+        prefs_path,
+        folder_series.clone(),
+    );
     let automatic_music_mode_timer =
         crate::automatic_music_mode::install(app, playback.clone(), music_mode.clone());
     *lock(plugin_commands) = Some(commands.clone());
@@ -145,6 +151,7 @@ pub(super) fn install(app: &PlayerWindow, inputs: Inputs<'_>) -> Installed {
         playback.clone(),
         subtitle_discovery_ready,
         subtitle_assignments.clone(),
+        folder_series,
     );
     picture_in_picture.bind(app, commands, playback);
     let input::InstalledInput {

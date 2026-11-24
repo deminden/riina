@@ -7,6 +7,7 @@ import { PlayerSidebarState } from "player-sidebar-state.slint";
 import { PlaylistDropScrollView } from "playlist-drop-viewport.slint";
 import { PlaylistInsertionIndicator, PlaylistRowInput } from "playlist-row-input.slint";
 import { PlaylistResumeMark } from "playlist-resume-mark.slint";
+import { PlaylistSeriesTitle } from "playlist-series-title.slint";
 
 export component MusicModePlaylist inherits Rectangle {
     in property <bool> dark-theme;
@@ -61,10 +62,6 @@ export component MusicModePlaylist inherits Rectangle {
                     Text { text: row.detail; color: Theme.music-mode-playlist-detail(root.dark-theme);
                         font-size: 10px; vertical-alignment: center; overflow: elide; }
                 }
-                if row.detail == "" : Text { x: row.playing ? 28px : 10px;
-                    width: parent.width - (row.playing ? 38px : 20px) - duration-width; text: row.label;
-                    color: Theme.music-mode-playlist-title(root.dark-theme); font-size: 12px;
-                    vertical-alignment: center; overflow: elide; }
                 if duration-width > 0px : Text {
                     x: parent.width - duration-width - 10px; width: duration-width; height: parent.height;
                     text: row.duration-label; font-size: 11px;
@@ -83,6 +80,14 @@ export component MusicModePlaylist inherits Rectangle {
                         }
                     }
                     open-menu(x, y) => { music-row-menu.open-at(x, y); }
+                }
+                if row.detail == "" : PlaylistSeriesTitle {
+                    x: row.playing ? 28px : 10px;
+                    width: max(0px, parent.width - (row.playing ? 38px : 20px) - duration-width);
+                    height: parent.height; entry: row;
+                    text-color: Theme.music-mode-playlist-title(root.dark-theme);
+                    focus-color: root.platform-windows ? root.windows-accent-color : Theme.playback-progress-accent;
+                    open-menu(x, y) => { music-row-menu.open-at(self.x + x, self.y + y); }
                 }
                 music-row-menu := PlaylistContextMenu {
                     origin: PlaylistMenuOrigin.music-mode;

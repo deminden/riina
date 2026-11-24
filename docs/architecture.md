@@ -91,6 +91,12 @@ decoder's observed filename policy. Row ordering and playback clock ticks
 leave completed lookups available for the same media. Hiding the playlist
 withdraws pending reads. Clearing saved playback progress invalidates the
 displayed positions and supersedes any read still in flight.
+Folder discovery also supplies common series filename prefixes to the
+player's playlist. The grouping rules are shared with subtitle matching.
+The row keeps its full title for accessibility and folds the shared part
+behind a button in the sidebar and Music Mode. Expansion follows the
+playlist entry when it moves. Custom titles and tagged track names retain
+their own display text.
 The sidebar, layout, controls and dialogs read state from the owning window.
 Rendered frames and material samples share
 that lifetime. Keyboard input and both menu presentations invoke the actions

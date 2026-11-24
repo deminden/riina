@@ -2,10 +2,13 @@
 use super::playlist_subtitles::Assignments;
 use crate::{
     PlaybackStore, PlayerWindow,
+    playlist_metadata::series,
     subtitle_discovery::{AutoDiscovery, Readiness},
 };
 use riina_core::{
-    Command, Phase, Playback, TrackKind, subtitle_controls::AutoLoadPreferences, sync::lock,
+    Command, Phase, Playback, TrackKind,
+    subtitle_controls::{AutoLoadMode, AutoLoadPreferences},
+    sync::lock,
 };
 use riina_mpv::CommandSender;
 use slint::ComponentHandle;
@@ -17,6 +20,7 @@ pub(super) fn install(
     latest_playback: PlaybackStore,
     subtitle_discovery_ready: Arc<Readiness>,
     subtitle_assignments: Assignments,
+    folder_series: series::Cache,
 ) -> Rc<slint::Timer> {
     let subtitle_priority_timer = Rc::new(slint::Timer::default());
     let priority_player = player.clone();
@@ -33,7 +37,7 @@ pub(super) fn install(
         ready: subtitle_discovery_ready,
     });
     let auto_folder_discovery = Rc::new(RefCell::new(
-        crate::auto_playlist::AutoFolderAdder::default(),
+        crate::auto_playlist::FolderDiscovery::default(),
     ));
     let auto_folder_state = auto_folder_discovery.clone();
     let auto_folder_player = player.clone();
@@ -59,17 +63,20 @@ pub(super) fn install(
                 return;
             };
             let state = lock(&priority_playback).clone();
-            if let Some(request) = auto_folder_state.borrow_mut().observe(
-                &state,
-                app.global::<riina_ui::PlayerPreferences>()
-                    .get_playlist_auto_add(),
-            ) {
+            let options = folder_options(&app);
+            if (!options.series || state.explicit_playlist || state.playlist.is_empty())
+                && lock(&folder_series).take().is_some()
+            {
+                app.invoke_refresh_playlist_metadata();
+            }
+            if let Some(request) = auto_folder_state.borrow_mut().observe(&state, options) {
                 discover_playlist_files(
                     &app,
                     request,
                     state.clone(),
                     auto_folder_playback.clone(),
                     auto_folder_player.clone(),
+                    folder_series.clone(),
                 );
             }
             subtitles.borrow_mut().observe(&app, &state, &preferences);
@@ -87,6 +94,15 @@ pub(super) fn install(
         },
     );
     subtitle_priority_timer
+}
+
+fn folder_options(app: &PlayerWindow) -> crate::auto_playlist::Options {
+    let preferences = app.global::<riina_ui::PlayerPreferences>();
+    crate::auto_playlist::Options {
+        append: preferences.get_playlist_auto_add(),
+        series: AutoLoadMode::from_index(preferences.get_subtitle_auto_load_mode_index())
+            .is_some_and(|mode| mode != AutoLoadMode::Disabled),
+    }
 }
 
 struct SubtitleDiscovery {
@@ -201,20 +217,29 @@ fn discover_playlist_files(
     snapshot: Arc<Playback>,
     playback: crate::PlaybackStore,
     sender: riina_mpv::CommandSender,
+    series: series::Cache,
 ) {
     let weak_app = app.as_weak();
     let started = crate::background::spawn_named("riina-playlist-auto-add", move || {
-        let Some(command) = crate::auto_playlist::prepare(&request, &snapshot) else {
+        let Some(prepared) = crate::auto_playlist::prepare(&request, &snapshot) else {
             return;
         };
-        let still_current =
-            crate::auto_playlist::request_is_current(&request, &riina_core::sync::lock(&playback));
-        if still_current && let Err(error) = sender.send(command) {
-            // The result has no recipient once its window or event loop closes.
-            let _ = crate::background::to_ui(weak_app, move |app| {
+        let _ = crate::background::to_ui(weak_app, move |app| {
+            if folder_options(&app) != request.options
+                || !crate::auto_playlist::request_is_current(&request, &lock(&playback))
+            {
+                return;
+            }
+            if let Some(prefixes) = prepared.series {
+                *lock(&series) = Some(Arc::new(prefixes));
+                app.invoke_refresh_playlist_metadata();
+            }
+            if let Some(command) = prepared.insert
+                && let Err(error) = sender.send(command)
+            {
                 crate::diagnostics::report(&app, error);
-            });
-        }
+            }
+        });
     });
     if let Err(error) = started {
         crate::diagnostics::report(app, format!("Could not start playlist discovery: {error}"));
@@ -237,6 +262,7 @@ mod tests {
             crate::PlaybackStore::default(),
             Arc::default(),
             Assignments::default(),
+            series::Cache::default(),
         );
         i_slint_backend_testing::mock_elapsed_time(Duration::from_millis(120));
         assert!(!timer.running());

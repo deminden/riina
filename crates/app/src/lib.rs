@@ -15,6 +15,7 @@ mod playback_history_store;
 mod player;
 mod plugins;
 mod preferences;
+mod series_names;
 mod settings_search;
 mod subtitles;
 mod ui_dialogs;

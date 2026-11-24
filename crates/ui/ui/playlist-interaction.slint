@@ -20,6 +20,7 @@ export global PlaylistInteraction {
     callback request-playlist-menu(PlaylistMenuOrigin, string, float, float);
     callback subtitle-targets(string) -> PlaylistSubtitleTargets;
     callback subtitle-action(PlaylistSubtitleAction, string);
+    callback toggle-series-prefix(string);
     in property <string> reveal-action-label: "Show in File Manager";
     in-out property <string> selected-playlist-token: "";
     in-out property <[string]> selected-playlist-tokens: [];

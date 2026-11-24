@@ -1,5 +1,6 @@
-//! IINA's General > Playlist option that adds supported media from the current folder.
+//! Discover playlist neighbors and filename series in the current media folder.
 
+use crate::playlist_metadata::series::Series;
 use riina_core::{Command, Phase, Playback, file_selection};
 use std::{
     collections::HashSet,
@@ -8,8 +9,14 @@ use std::{
 };
 
 #[derive(Default)]
-pub(crate) struct AutoFolderAdder {
-    last_media: Option<(u64, String)>,
+pub(crate) struct FolderDiscovery {
+    last_media: Option<(u64, String, Options)>,
+}
+
+#[derive(Clone, Copy, Default, PartialEq, Eq)]
+pub(crate) struct Options {
+    pub(crate) append: bool,
+    pub(crate) series: bool,
 }
 
 #[derive(Clone)]
@@ -17,11 +24,17 @@ pub(crate) struct Request {
     generation: u64,
     media_path: PathBuf,
     current_path: String,
+    pub(crate) options: Options,
 }
 
-impl AutoFolderAdder {
-    pub(crate) fn observe(&mut self, state: &Playback, enabled: bool) -> Option<Request> {
-        if !enabled || state.explicit_playlist {
+pub(crate) struct Prepared {
+    pub(crate) insert: Option<Command>,
+    pub(crate) series: Option<Series>,
+}
+
+impl FolderDiscovery {
+    pub(crate) fn observe(&mut self, state: &Playback, options: Options) -> Option<Request> {
+        if options == Options::default() || state.explicit_playlist || state.playlist.is_empty() {
             self.last_media = None;
             return None;
         }
@@ -36,18 +49,18 @@ impl AutoFolderAdder {
             .iter()
             .find(|entry| entry.current)
             .map(|entry| entry.filename.clone())?;
-        if current_path.contains("://") {
-            return None;
-        }
-        let identity = (state.generation, current_path.clone());
+        let media_path = crate::file_actions::local_media_path(&current_path)?;
+        let media_path = std::path::absolute(media_path).ok()?;
+        let identity = (state.generation, current_path.clone(), options);
         if self.last_media.as_ref() == Some(&identity) {
             return None;
         }
         self.last_media = Some(identity);
         Some(Request {
             generation: state.generation,
-            media_path: PathBuf::from(&current_path),
+            media_path,
             current_path,
+            options,
         })
     }
 }
@@ -61,11 +74,23 @@ pub(crate) fn request_is_current(request: &Request, state: &Playback) -> bool {
             .any(|entry| entry.current && entry.filename == request.current_path)
 }
 
-pub(crate) fn prepare(request: &Request, state: &Playback) -> Option<Command> {
+pub(crate) fn prepare(request: &Request, state: &Playback) -> Option<Prepared> {
     if !request_is_current(request, state) {
         return None;
     }
     let folder = request.media_path.parent()?;
+    let files = read_media_files(folder)?;
+    Some(Prepared {
+        insert: request
+            .options
+            .append
+            .then(|| insertion(request, state, &files))
+            .flatten(),
+        series: request.options.series.then(|| Series::from_files(&files)),
+    })
+}
+
+fn read_media_files(folder: &Path) -> Option<Vec<String>> {
     let mut videos = Vec::new();
     let mut audio = Vec::new();
     let mut seen = HashSet::new();
@@ -102,7 +127,10 @@ pub(crate) fn prepare(request: &Request, state: &Playback) -> Option<Command> {
     }
     sort_media(&mut videos);
     sort_media(&mut audio);
-    let files = videos.into_iter().chain(audio).collect::<Vec<_>>();
+    Some(videos.into_iter().chain(audio).collect())
+}
+
+fn insertion(request: &Request, state: &Playback, files: &[String]) -> Option<Command> {
     let current = files
         .iter()
         .position(|path| crate::media_open::same_media(path, &request.current_path))?;

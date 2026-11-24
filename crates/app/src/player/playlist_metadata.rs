@@ -2,6 +2,7 @@
 
 pub(crate) mod durations;
 pub(crate) mod resume;
+pub(crate) mod series;
 
 use lofty::{file::TaggedFileExt, probe::Probe, tag::ItemKey};
 use riina_core::sync::lock;

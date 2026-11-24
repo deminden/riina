@@ -2,6 +2,11 @@ use super::*;
 use riina_core::PlaylistEntry;
 use riina_test_support::TempDir;
 
+const APPEND: Options = Options {
+    append: true,
+    series: false,
+};
+
 struct Folder(TempDir);
 
 impl Folder {
@@ -57,9 +62,9 @@ fn discovery_orders_each_media_group_and_excludes_hidden_nested_and_existing_fil
         current: false,
         playing: false,
     });
-    let request = AutoFolderAdder::default().observe(&state, true).unwrap();
+    let request = FolderDiscovery::default().observe(&state, APPEND).unwrap();
     let Some(Command::InsertPlaylistFilesAroundCurrent { before, after }) =
-        prepare(&request, &state)
+        prepare(&request, &state).and_then(|prepared| prepared.insert)
     else {
         panic!("Expected files around the active item")
     };
@@ -75,15 +80,15 @@ fn discovery_orders_each_media_group_and_excludes_hidden_nested_and_existing_fil
 fn discovery_is_once_per_media_and_generation_and_can_be_reenabled() {
     let folder = Folder::new();
     let mut state = state(&folder.file("clip.mp4"));
-    let mut adder = AutoFolderAdder::default();
-    assert!(adder.observe(&state, true).is_some());
-    assert!(adder.observe(&state, true).is_none());
+    let mut adder = FolderDiscovery::default();
+    assert!(adder.observe(&state, APPEND).is_some());
+    assert!(adder.observe(&state, APPEND).is_none());
     state.generation += 1;
-    assert!(adder.observe(&state, true).is_some());
-    assert!(adder.observe(&state, false).is_none());
-    assert!(adder.observe(&state, true).is_some());
+    assert!(adder.observe(&state, APPEND).is_some());
+    assert!(adder.observe(&state, Options::default()).is_none());
+    assert!(adder.observe(&state, APPEND).is_some());
     std::sync::Arc::make_mut(&mut state.playlist)[0].filename = folder.file("next.mp4");
-    assert!(adder.observe(&state, true).is_some());
+    assert!(adder.observe(&state, APPEND).is_some());
 }
 
 #[test]
@@ -91,10 +96,10 @@ fn worker_results_cannot_attach_to_a_new_media_or_generation() {
     let folder = Folder::new();
     let mut state = state(&folder.file("clip.mp4"));
     folder.file("next.mp4");
-    let request = AutoFolderAdder::default().observe(&state, true).unwrap();
+    let request = FolderDiscovery::default().observe(&state, APPEND).unwrap();
     state.explicit_playlist = true;
     assert!(prepare(&request, &state).is_none());
-    assert!(AutoFolderAdder::default().observe(&state, true).is_none());
+    assert!(FolderDiscovery::default().observe(&state, APPEND).is_none());
     state.explicit_playlist = false;
     state.generation += 1;
     assert!(!request_is_current(&request, &state));
@@ -107,17 +112,46 @@ fn worker_results_cannot_attach_to_a_new_media_or_generation() {
 
 #[test]
 fn remote_loading_and_already_complete_playlists_do_not_add_files() {
-    let mut adder = AutoFolderAdder::default();
+    let mut adder = FolderDiscovery::default();
     assert!(
         adder
-            .observe(&state("https://example.invalid/clip.mp4"), true)
+            .observe(&state("https://example.invalid/clip.mp4"), APPEND)
             .is_none()
     );
     let folder = Folder::new();
     let mut state = state(&folder.file("clip.mp4"));
     state.phase = Phase::Loading;
-    assert!(adder.observe(&state, true).is_none());
+    assert!(adder.observe(&state, APPEND).is_none());
     state.phase = Phase::Playing;
-    let request = adder.observe(&state, true).unwrap();
-    assert!(prepare(&request, &state).is_none());
+    let request = adder.observe(&state, APPEND).unwrap();
+    assert!(prepare(&request, &state).unwrap().insert.is_none());
+}
+
+#[test]
+fn series_are_available_without_automatically_adding_every_file() {
+    let folder = Folder::new();
+    let current = folder.file("Café Stories - Episode 01.avi");
+    let next = folder.file("Café Stories - Episode 02.avi");
+    let state = state(&current);
+    let mut discovery = FolderDiscovery::default();
+    let options = Options {
+        series: true,
+        append: false,
+    };
+    let request = discovery.observe(&state, options).unwrap();
+    let first = prepare(&request, &state).unwrap();
+    assert!(first.insert.is_none());
+    let display = "Café Stories - Episode 02.avi";
+    assert_eq!(first.series.unwrap().split_title(&next, display), None);
+
+    folder.file("Café Stories - Episode 03.avi");
+    let prepared = prepare(&request, &state).unwrap();
+    assert!(prepared.insert.is_none());
+    assert_eq!(
+        prepared.series.unwrap().split_title(&next, display),
+        Some(("Café Stories - Episode 0", "2.avi"))
+    );
+    assert!(discovery.observe(&state, options).is_none());
+    let changed = discovery.observe(&state, APPEND).unwrap();
+    assert!(prepare(&changed, &state).unwrap().series.is_none());
 }

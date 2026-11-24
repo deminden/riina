@@ -1,0 +1,71 @@
+import { CatalogRow } from "catalog-row.slint";
+import { PlaylistInteraction } from "playlist-interaction.slint";
+
+export component PlaylistSeriesTitle inherits Rectangle {
+    in property <CatalogRow> entry;
+    in property <color> text-color;
+    in property <color> focus-color;
+    callback open-menu(length, length);
+    clip: true;
+
+    HorizontalLayout {
+        if root.entry.series-prefix != "" : toggle := FocusScope {
+            private property <length> label-width: min(root.width * 0.55, max(17px, prefix.preferred-width));
+            min-width: self.label-width;
+            max-width: self.label-width;
+            horizontal-stretch: 0;
+            accessible-role: button;
+            accessible-label: (root.entry.series-expanded ? "Hide series prefix " : "Show series prefix ")
+                + root.entry.series-prefix;
+            accessible-checkable: true;
+            accessible-checked: root.entry.series-expanded;
+            accessible-action-default => { PlaylistInteraction.toggle-series-prefix(root.entry.token); }
+            Rectangle {
+                border-radius: 3px;
+                border-width: toggle.has-focus ? 1px : 0px;
+                border-color: root.focus-color;
+                background: touch.has-hover ? root.focus-color.with-alpha(0.15) : transparent;
+                prefix := Text {
+                    text: root.entry.series-expanded ? root.entry.series-prefix : "…";
+                    font-size: 12px; color: root.text-color;
+                    vertical-alignment: center; overflow: elide;
+                }
+                touch := TouchArea {
+                    clicked => {
+                        toggle.focus();
+                        PlaylistInteraction.toggle-series-prefix(root.entry.token);
+                    }
+                    pointer-event(event) => {
+                        if event.button == PointerEventButton.right && event.kind == PointerEventKind.up
+                            && self.mouse-x >= 0px && self.mouse-x < self.width
+                            && self.mouse-y >= 0px && self.mouse-y < self.height {
+                            root.open-menu(self.mouse-x, self.mouse-y);
+                        }
+                    }
+                }
+            }
+            key-pressed(event) => {
+                if event.modifiers.alt || event.modifiers.control || event.modifiers.meta { return reject; }
+                if event.text == Key.F10 && event.modifiers.shift {
+                    root.open-menu(0px, root.height);
+                    return accept;
+                }
+                if event.text == Key.Return || event.text == " " {
+                    PlaylistInteraction.toggle-series-prefix(root.entry.token);
+                    return accept;
+                }
+                return reject;
+            }
+        }
+
+        Text {
+            text: root.entry.series-prefix == "" ? root.entry.label : root.entry.episode-label;
+            font-size: 12px;
+            color: root.text-color;
+            min-width: 0px;
+            horizontal-stretch: 1;
+            vertical-alignment: center;
+            overflow: elide;
+        }
+    }
+}

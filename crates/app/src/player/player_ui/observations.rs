@@ -81,10 +81,11 @@ pub(super) fn update_ui(
             || old.audio_output != state.audio_output
             || current_chapter(old) != current_chapter(state)
     }) {
-        let positions = timers
+        let metadata = timers
             .as_ref()
-            .and_then(|timers| timers.playlist.saved_positions(state));
-        update_catalog(app, state, positions.as_deref());
+            .map(|timers| timers.playlist.snapshot(state))
+            .unwrap_or_default();
+        update_catalog(app, state, &metadata);
         *displayed = Some(state.clone());
     } else if displayed
         .as_ref()
