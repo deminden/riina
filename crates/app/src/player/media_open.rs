@@ -1,6 +1,7 @@
 //! Filesystem preparation never runs inside a rendering callback or GUI event.
 mod routing;
 
+use super::player_ui::ObserverId;
 use crate::{PlayerWindow, file_selection};
 use riina_core::Command;
 use riina_mpv::CommandSender;
@@ -62,6 +63,7 @@ pub(crate) fn history_selection(
                 None,
                 sender,
                 SelectionSource::ExplicitPlaylist,
+                None,
             );
         }
         HistoryDestination::NewPlayer => {
@@ -266,7 +268,7 @@ pub fn dropped(app: &PlayerWindow, paths: Vec<OsString>, sender: CommandSender) 
         }
         return;
     }
-    startup_selection(app, paths, None, sender, SelectionSource::DesktopDrop);
+    startup_selection(app, paths, None, sender, SelectionSource::DesktopDrop, None);
 }
 
 pub(crate) struct WelcomeDrop {
@@ -349,11 +351,13 @@ fn dropped_lut(paths: &[OsString]) -> Option<Result<String, String>> {
     )
 }
 
-pub(crate) fn startup_at(
+pub(super) fn startup_at(
     app: &PlayerWindow,
     media: crate::player_ui::InitialMedia,
     sender: CommandSender,
+    observer: ObserverId,
 ) {
+    let grouped_stream = media.managed.is_none().then_some(observer);
     startup_selection(
         app,
         media.files,
@@ -366,6 +370,7 @@ pub(crate) fn startup_at(
         } else {
             SelectionSource::Startup
         },
+        grouped_stream,
     );
 }
 
@@ -392,13 +397,22 @@ fn startup_selection(
     resume_position: Option<f64>,
     sender: CommandSender,
     source: SelectionSource,
+    grouped_stream: Option<ObserverId>,
 ) {
     let paths = paths
         .into_iter()
         .map(OsString::into_string)
         .collect::<Result<Vec<_>, _>>();
     match paths {
-        Ok(paths) => selection_at(app, paths, false, resume_position, sender, source),
+        Ok(paths) => selection_at(
+            app,
+            paths,
+            false,
+            resume_position,
+            sender,
+            source,
+            grouped_stream,
+        ),
         Err(_) => app.set_status("A media path contains invalid Unicode".into()),
     }
 }
@@ -495,6 +509,7 @@ pub fn selection(app: &PlayerWindow, paths: Vec<String>, append: bool, sender: C
         None,
         sender,
         SelectionSource::Interactive,
+        None,
     );
 }
 
@@ -505,6 +520,7 @@ fn selection_at(
     resume_position: Option<f64>,
     sender: CommandSender,
     source: SelectionSource,
+    grouped_stream: Option<ObserverId>,
 ) {
     if paths.is_empty() {
         return;
@@ -519,7 +535,8 @@ fn selection_at(
         let _ = crate::background::to_ui(weak, move |app| {
             // A newer accepted selection or Stop owns the player now.
             if app.get_media_request_generation() == generation
-                && let Err(error) = result.and_then(|prepared| prepared.open(&app, &sender))
+                && let Err(error) = result
+                    .and_then(|prepared| prepared.open(&app, &sender, grouped_stream, generation))
             {
                 app.set_status(error.into());
             }
@@ -609,7 +626,13 @@ enum PreparedSelection {
 }
 
 impl PreparedSelection {
-    fn open(self, app: &PlayerWindow, sender: &CommandSender) -> Result<(), String> {
+    fn open(
+        self,
+        app: &PlayerWindow,
+        sender: &CommandSender,
+        grouped_stream: Option<ObserverId>,
+        generation: i32,
+    ) -> Result<(), String> {
         match self {
             Self::Subtitles(paths) => {
                 let count = paths.len();
@@ -634,6 +657,13 @@ impl PreparedSelection {
                 open_new_players(app, players)
             }
             Self::Command(command) => {
+                if let Some(opening) = grouped_stream.and_then(ObserverId::open_url)
+                    && let Some((address, following, explicit)) = grouped_stream_paths(&command)
+                {
+                    return opening.open_initial_playlist(
+                        app, sender, address, following, explicit, generation,
+                    );
+                }
                 if let Command::AppendFiles(paths) = &command {
                     let count = paths.len();
                     sender.send(command)?;
@@ -653,6 +683,20 @@ impl PreparedSelection {
             }
         }
     }
+}
+
+fn grouped_stream_paths(command: &Command) -> Option<(&str, &[String], bool)> {
+    let paths = match command {
+        Command::OpenFiles(paths) | Command::OpenPlaylist(paths) => paths,
+        _ => return None,
+    };
+    let (address, following) = paths.split_first()?;
+    let stream = validate_url(address).ok()?;
+    Some((
+        stream,
+        following,
+        matches!(command, Command::OpenPlaylist(_)),
+    ))
 }
 
 fn dropped_subtitles(paths: &[String]) -> Vec<String> {
@@ -710,6 +754,37 @@ mod tests {
     use super::manual_open_repeat_command;
     use super::{parse_internet_shortcut, validate_url};
     use riina_core::{Command, LoopMode};
+
+    #[test]
+    fn grouped_startup_tracks_only_an_open_with_a_network_lead() {
+        use super::{PreparedSelection, SelectionSource, grouped_stream_paths, prepare_selection};
+
+        let address = "https://media.example/opening.avi";
+        let second = "https://media.example/closing.avi";
+        let prepared = prepare_selection(
+            vec![
+                address.into(),
+                "part10.avi".into(),
+                "part2.avi".into(),
+                second.into(),
+            ],
+            false,
+            None,
+            SelectionSource::ExplicitPlaylist,
+        )
+        .unwrap();
+        let PreparedSelection::Command(command) = prepared else {
+            panic!("An explicit playlist should prepare one playback command");
+        };
+        let (first, following, explicit) = grouped_stream_paths(&command).unwrap();
+        assert_eq!(first, address);
+        assert_eq!(following, ["part2.avi", "part10.avi", second]);
+        assert!(explicit);
+        let local_first = vec!["local.avi".into(), address.into()];
+        assert!(grouped_stream_paths(&Command::OpenFiles(local_first.clone())).is_none());
+        assert!(grouped_stream_paths(&Command::OpenShuffledPlaylist(local_first)).is_none());
+        assert!(grouped_stream_paths(&Command::AppendFiles(vec![address.into()])).is_none());
+    }
 
     #[test]
     fn history_actions_keep_the_selection_in_one_explicit_playlist() {

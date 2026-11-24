@@ -26,8 +26,9 @@ Implementation does not imply every state or platform is verified.
   frame stepping, loops, chapters, playlist editing, history and resume.
 - **Open URL:** one dialog serves the File menu and Welcome. It previews the
   default HTTP scheme, offers HTTP authentication, and can stop a pending load.
-  Direct browser links and single-URL command-line launches share its loading
-  and retry controls.
+  Direct browser links and startup groups that begin with a network URL share
+  its loading and retry controls. Retrying the first stream preserves the
+  remaining playlist.
 - **Recent activity:** player windows share Open Recent with Welcome and
   plugins. Settings Utilities clears history, recent documents and the saved
   Welcome resume item together after confirmation.

@@ -569,12 +569,15 @@ load fails. The worker associates each attempt with mpv's playlist entry ID,
 including the successor entry for a playlist redirect. A replacement invalidates
 the pending attempt before cancellation can act on the new file.
 
-Single network URLs at startup and immediate browser opens use the same stream
-attempt. Browser enqueue only adds the item to the playlist. A retry keeps the
-playback options for the original external request. The shared window displays
-the latest request. Starting a stream in another player leaves earlier players
-running. Native completion is tied to the load command's reply, which can
-precede commands that apply browser playback settings.
+Network-first startup groups and immediate browser opens use the same stream
+attempt. A group keeps the prepared file order and submits the leading load and
+playlist tail through one native command plan. Discovery and the first load
+share a request generation so a replacement can invalidate them together.
+Browser enqueue only adds the item to the playlist. A retry keeps the original
+external playback options or the grouped playlist tail. The shared window
+displays the latest request. Starting a stream in another player leaves earlier
+players running. Native completion is tied to the leading load command's reply,
+which can precede commands that apply browser playback settings.
 
 For HTTP authentication, the platform credential service stores an opted-in
 account under the scheme, host and port. The worker applies a credentialed

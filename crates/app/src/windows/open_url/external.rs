@@ -1,4 +1,5 @@
 //! External opens share the same progress and retry window as menu requests.
+use super::request::StreamRequest;
 use super::{ApplicationOpenUrl, Destination, PendingStream, Route, StreamMode, credentials};
 use crate::PlayerWindow;
 use riina_core::MediaLink;
@@ -14,7 +15,13 @@ impl ApplicationOpenUrl {
         address: &str,
         start: Option<f64>,
     ) -> Result<(), String> {
-        self.open_external(app, sender, address, StreamMode::Startup(start))
+        self.open_external(
+            app,
+            sender,
+            address,
+            StreamMode::Startup(start),
+            StreamRequest::New,
+        )
     }
 
     pub(crate) fn open_browser_stream(
@@ -24,7 +31,35 @@ impl ApplicationOpenUrl {
         link: MediaLink,
     ) -> Result<(), String> {
         let address = link.path.clone();
-        self.open_external(app, sender, &address, StreamMode::Browser(link))
+        self.open_external(
+            app,
+            sender,
+            &address,
+            StreamMode::Browser(link),
+            StreamRequest::New,
+        )
+    }
+
+    pub(crate) fn open_initial_playlist(
+        self: &Rc<Self>,
+        app: &PlayerWindow,
+        sender: &CommandSender,
+        address: &str,
+        following: &[String],
+        explicit: bool,
+        generation: i32,
+    ) -> Result<(), String> {
+        let mode = StreamMode::Playlist {
+            following: following.into(),
+            explicit,
+        };
+        self.open_external(
+            app,
+            sender,
+            address,
+            mode,
+            StreamRequest::Prepared(generation),
+        )
     }
 
     fn open_external(
@@ -33,11 +68,12 @@ impl ApplicationOpenUrl {
         sender: &CommandSender,
         address: &str,
         mode: StreamMode,
+        request: StreamRequest,
     ) -> Result<(), String> {
         let source = credentials::source(address, &credentials::Account::default());
         let visible = credentials::visible_address(&source.address);
-        let (request, running) = PendingStream::new(source, mode.clone());
-        if !request.dispatch(app, sender)? {
+        let (pending, running) = PendingStream::new(source, mode.clone());
+        if !pending.dispatch(app, sender, request)? {
             return Ok(());
         }
         let presented = (|| -> Result<(), slint::PlatformError> {

@@ -116,6 +116,38 @@ fn stream_open_tracks_authentication_failure_and_cancellation() {
             && (state.volume - 31.0).abs() < 0.01
             && state.muted
     });
+
+    let grouped = StreamAttempt::default();
+    let lead = format!("http://{address}/opening.avi");
+    let remote_following = format!("http://{address}/closing.avi");
+    let local_following = root.join("tests/fixtures/moving-square.avi");
+    let local_following = local_following.to_str().unwrap();
+    let following = [local_following.to_owned(), remote_following.clone()];
+    sender.send(Command::SetPauseWhenOpen(true)).unwrap();
+    sender
+        .open_stream_playlist(
+            StreamSource {
+                address: lead.clone(),
+                authenticated_address: None,
+            },
+            &following,
+            true,
+            grouped.clone(),
+        )
+        .unwrap();
+    let group = harness.wait(|state| {
+        grouped.status() == StreamStatus::Opened
+            && state.phase == Phase::Paused
+            && state.playlist.len() == 3
+            && state.explicit_playlist
+    });
+    assert!(group.playlist[0].playing || group.playlist[0].current);
+    assert_eq!(group.playlist[0].filename, lead);
+    assert_eq!(
+        std::fs::canonicalize(&group.playlist[1].filename).unwrap(),
+        std::fs::canonicalize(local_following).unwrap()
+    );
+    assert_eq!(group.playlist[2].filename, remote_following);
     drop(harness);
     stop.send(()).unwrap();
     server.join().unwrap().unwrap();

@@ -84,9 +84,13 @@ impl UiObserverState {
 }
 
 #[derive(Clone, Copy)]
-pub(super) struct ObserverId(u64);
+pub(in crate::player) struct ObserverId(u64);
 
 impl ObserverId {
+    pub(in crate::player) fn open_url(self) -> Option<Rc<ApplicationOpenUrl>> {
+        self.lookup()?.borrow().open_url.upgrade()
+    }
+
     pub(super) fn lookup(self) -> Option<Rc<RefCell<UiObserverState>>> {
         OBSERVERS.with(|observers| observers.borrow().get(&self.0).and_then(Weak::upgrade))
     }

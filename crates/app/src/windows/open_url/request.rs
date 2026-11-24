@@ -25,7 +25,17 @@ impl RunningStream {
 pub(super) enum StreamMode {
     Manual,
     Startup(Option<f64>),
+    Playlist {
+        following: Arc<[String]>,
+        explicit: bool,
+    },
     Browser(MediaLink),
+}
+
+#[derive(Clone, Copy)]
+pub(super) enum StreamRequest {
+    New,
+    Prepared(i32),
 }
 
 pub(crate) struct PendingStream {
@@ -48,7 +58,7 @@ impl PendingStream {
     }
 
     pub(crate) fn start(self, app: &crate::PlayerWindow, sender: &CommandSender) {
-        if let Err(error) = self.dispatch(app, sender) {
+        if let Err(error) = self.dispatch(app, sender, StreamRequest::New) {
             crate::diagnostics::report(app, error);
         }
     }
@@ -57,7 +67,13 @@ impl PendingStream {
         mut self,
         app: &crate::PlayerWindow,
         sender: &CommandSender,
+        request: StreamRequest,
     ) -> Result<bool, EngineError> {
+        if let StreamRequest::Prepared(generation) = request
+            && app.get_media_request_generation() != generation
+        {
+            return Ok(false);
+        }
         let Some(source) = self.source.take() else {
             return Ok(false);
         };
@@ -65,23 +81,40 @@ impl PendingStream {
         if self.running.status() != StreamStatus::Loading {
             return Ok(false);
         }
-        let options = match &self.mode {
-            StreamMode::Manual => None,
-            StreamMode::Startup(start) => Some(MediaLink {
-                start: *start,
-                ..MediaLink::default()
-            }),
-            StreamMode::Browser(options) => Some(options.clone()),
+        let opened = match &self.mode {
+            StreamMode::Manual => sender.open_stream(source, self.running.attempt.clone()),
+            StreamMode::Startup(start) => sender.open_stream_with_options(
+                source,
+                Some(MediaLink {
+                    start: *start,
+                    ..MediaLink::default()
+                }),
+                self.running.attempt.clone(),
+            ),
+            StreamMode::Playlist {
+                following,
+                explicit,
+            } => sender.open_stream_playlist(
+                source,
+                following,
+                *explicit,
+                self.running.attempt.clone(),
+            ),
+            StreamMode::Browser(options) => sender.open_stream_with_options(
+                source,
+                Some(options.clone()),
+                self.running.attempt.clone(),
+            ),
         };
-        if let Err(error) =
-            sender.open_stream_with_options(source, options, self.running.attempt.clone())
-        {
+        if let Err(error) = opened {
             self.running.attempt.mark_failed();
             return Err(error);
         }
         *attached = Some(sender.clone());
         drop(attached);
-        crate::media_open::invalidate(app);
+        if matches!(request, StreamRequest::New) {
+            crate::media_open::invalidate(app);
+        }
         app.set_status("Opening…".into());
         if !matches!(self.mode, StreamMode::Browser(_))
             && let Err(error) = crate::media_open::apply_manual_open_repeat(app, sender)

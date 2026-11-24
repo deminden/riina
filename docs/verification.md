@@ -3566,3 +3566,28 @@ window activation and comparison with matched IINA pixels still need verificatio
 - Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
 - Linux application SHA-256 `0ad79bb9d2a8ea18be74ea136832f678b491f3c5452809e204061764e98a37dc`
 - X11 libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`
+
+### Grouped startup streams 2026-11-24
+
+The grouped regression checks that a prepared network-first startup selection
+retains local filename order and subsequent URLs. The existing native HTTP
+test also opens an explicit three-item playlist and verifies the paused first
+stream, local file identity and trailing URL.
+
+The private Windows desktop and isolated Linux X11 session each launched a
+group containing a delayed HTTP stream, a local clip and a second HTTP stream.
+Stop Loading cancelled the first request after it reached the server. Submitting
+a replacement address in the same dialog opened the replacement and dismissed
+the dialog. The Windows Playlist menu showed all three items in order. Native
+Next Media on Windows and the playlist shortcut on Linux advanced through both
+remaining items in the same player. The second HTTP stream was first requested
+after navigation. Both sessions exited normally.
+
+The Windows workspace gate, all 61 pinned libmpv tests and strict Apple Silicon
+cross-Clippy passed. Native macOS interaction and startup selections where
+shuffle chooses a network item still need verification.
+
+- Windows application SHA-256 `69ea4c12840467736759a8b07bf34ddfe99663f3d0ee9197c4b0a9c87cbce1d3`
+- Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
+- Linux application SHA-256 `6c97ff773b546a6650cedc8d80e9eb11731460992e426e32c90e2b7dcbd33ed7`
+- X11 libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`

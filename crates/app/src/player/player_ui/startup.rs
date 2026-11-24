@@ -349,9 +349,7 @@ fn open_initial_media(
     } else if media.launch.stdin {
         crate::media_open::startup_stdin(app, &sender);
     } else if let Some(address) = media.external_stream()
-        && let Some(open_url) = observer
-            .lookup()
-            .and_then(|state| state.borrow().open_url.upgrade())
+        && let Some(open_url) = observer.open_url()
     {
         if let Err(error) =
             open_url.open_initial_stream(app, &sender, address, media.resume_position)
@@ -359,7 +357,7 @@ fn open_initial_media(
             crate::diagnostics::report(app, error);
         }
     } else {
-        crate::media_open::startup_at(app, media, sender);
+        crate::media_open::startup_at(app, media, sender, observer);
     }
     let request = app.get_media_request_generation();
     if let Some(presentation) = presentation
