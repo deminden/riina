@@ -7,7 +7,11 @@ use crate::video_blur::VideoBlurSurface;
 use riina_core::Command;
 use riina_mpv::{Player, video::VideoSurface};
 use slint::{ComponentHandle, GraphicsAPI, RenderingState, Weak};
-use std::{cell::Cell, rc::Rc, time::Duration};
+use std::{
+    cell::{Cell, RefCell},
+    rc::Rc,
+    time::Duration,
+};
 
 pub(super) fn install(
     app: &PlayerWindow,
@@ -20,7 +24,7 @@ pub(super) fn install(
         app: app.as_weak(),
         player: player.clone(),
         opening: Some(InitialPlayback { media, volume }),
-        surface: None,
+        surface: Rc::default(),
         blur_surface: None,
         generation: Rc::new(Cell::new(0)),
         repaint: CoalescedUiCallback::default(),
@@ -46,7 +50,7 @@ struct RenderSession {
     app: Weak<PlayerWindow>,
     player: Player,
     opening: Option<InitialPlayback>,
-    surface: Option<VideoSurface>,
+    surface: Rc<RefCell<Option<VideoSurface>>>,
     blur_surface: Option<VideoBlurSurface>,
     generation: Rc<Cell<u64>>,
     repaint: CoalescedUiCallback,
@@ -98,15 +102,17 @@ impl RenderSession {
                     }
                 }
                 // SAFETY: rendering setup holds the GL context for all player surfaces.
-                if let Err(error) = unsafe { self.extras.configure_rendering(get_proc_address) }
-                    && let Some(app) = self.app.upgrade()
+                if let Err(error) = unsafe {
+                    self.extras
+                        .configure_rendering(get_proc_address, &self.surface)
+                } && let Some(app) = self.app.upgrade()
                 {
                     crate::diagnostics::report(
                         &app,
                         format!("PiP renderer initialization failed: {error}"),
                     );
                 }
-                self.surface = Some(video);
+                self.surface.replace(Some(video));
                 if let Some(app) = self.app.upgrade() {
                     app.set_engine_ready(true);
                 }
@@ -123,7 +129,8 @@ impl RenderSession {
     }
 
     fn draw(&mut self) {
-        let (Some(video), Some(app)) = (self.surface.as_mut(), self.app.upgrade()) else {
+        let mut surface = self.surface.borrow_mut();
+        let (Some(video), Some(app)) = (surface.as_mut(), self.app.upgrade()) else {
             return;
         };
         self.extras.update_display_color(&app, video, &self.player);
@@ -151,11 +158,12 @@ impl RenderSession {
         if let Err(error) = unsafe { self.extras.render_pip(video) } {
             crate::diagnostics::report(&app, format!("PiP frame rendering failed: {error}"));
         }
+        drop(surface);
         self.start_playback(&app);
     }
 
     fn submitted(&self) {
-        if let Some(video) = self.surface.as_ref() {
+        if let Some(video) = self.surface.borrow().as_ref() {
             // Slint presents immediately after this notifier. Report at its
             // submission boundary so libmpv can pace the next frame.
             // SAFETY: the same renderer and context composed this frame.
@@ -167,7 +175,7 @@ impl RenderSession {
         // SAFETY: RenderingTeardown precedes release of this player's GL context.
         unsafe { self.extras.teardown_rendering() };
         drop(self.blur_surface.take());
-        drop(self.surface.take());
+        drop(self.surface.replace(None));
         self.extras.reset_display_color();
         // Wait for Slint to release its mutable window borrow. A subsequent
         // setup owns a new frame and invalidates this cleanup request.

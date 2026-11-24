@@ -10,6 +10,7 @@ mod gesture_events;
 mod icc_profile;
 mod pip;
 mod pip_frame;
+pub(super) mod pip_window;
 pub(super) mod playlist_menu;
 mod plugin_menu;
 mod scroll_events;

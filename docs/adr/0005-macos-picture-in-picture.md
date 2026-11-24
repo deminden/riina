@@ -31,26 +31,31 @@ owner that remains alive for the player session. The delegate routes play, pause
 and skip requests into the existing player, reports duration and paused state,
 and refreshes AVKit playback controls when player state changes. Unknown duration
 is reported as live playback. Starting PiP is gated on a real sample having been
-enqueued. The session waits for AVKit's start and stop callbacks before
-publishing the corresponding player state. Its controller waits for a source
-sample, accepts cancellation while waiting, and rechecks AVKit availability
-when playback is paused. `pip_frame.rs` creates a three-buffer IOSurface-backed
-Core Video pool, binds each surface to a temporary rectangle texture in the
-existing CGL context, renders through the same libmpv surface, and wraps it in a timed
-`CMSampleBuffer`. The player rendering notifier feeds this producer, limits
-active samples to about 30 fps and inactive refreshes to one per second, and
-resets the source after completed seeks. Frames are capped at 640 pixels on the
-long edge. This source type-checks for `x86_64-apple-darwin`; it has not been
-linked or run on a Mac, so it is not yet a verified or supported PiP path.
+enqueued. The session publishes player state after AVKit confirms start or
+stop. A start is cancellable and times out when AVKit leaves the source
+unavailable. `pip_frame.rs` creates a three-buffer IOSurface-backed Core Video
+pool, attaches a surface to a framebuffer in the player's existing CGL context, and
+wraps each output in a timed `CMSampleBuffer`. The player renders about 30
+samples per second while opening or active. It flushes stale samples on media
+replacement and completed seeks. Frames are capped at 640 pixels on the long
+edge.
+
+When the player is occluded, hidden, or minimized, a main-thread timer borrows
+the same libmpv surface, makes its CGL context current for the IOSurface draw,
+and restores the previous context afterward. The renderer notifier still owns
+the context and retires the offscreen source during rendering teardown. The
+path passes Apple Silicon source checks. Linking and playback on macOS remain
+open.
 
 Apple's public `AVPictureInPictureController` accepts an `AVPlayerLayer` or an
 `AVSampleBufferDisplayLayer` as its content source. Riina now supplies the
 sample-buffer layer and timed producer described above; the borrowed Slint
 texture alone is not a media source. The bridge also supplies a playback
-delegate. For macOS 14 and later, submit buffers through the layer's
-`sampleBufferRenderer.enqueueSampleBuffer` API; Apple discourages the older layer
-`enqueueSampleBuffer` entry point. The producer bounds queued buffers using the
-renderer readiness state and flushes it across seek discontinuities.
+delegate. macOS 14 and later use the layer's `sampleBufferRenderer` APIs.
+macOS 12 and 13 use the older layer queue APIs. Riina checks runtime
+availability and handles a controller that rejects the content source.
+The producer bounds queued buffers using the renderer readiness state.
+[Apple controller initialization](https://developer.apple.com/documentation/avkit/avpictureinpicturecontroller/init%28contentsource%3A%29)
 
 The current bridge experiment binds an IOSurface-backed Core Video pixel
 buffer directly to a framebuffer in the existing CGL context. Apple documents
@@ -70,13 +75,14 @@ Evaluate a GPU-backed IOSurface/sample-buffer bridge and the documented Cocoa
 video-output path. Measure frame pacing and GPU copies. Do not use per-frame CPU
 readback, create a second unsynchronized player, or present a static image as PiP.
 
-The lifecycle contract is already shared: entering PiP honors the configured
-window action and optional pause; closing restores only state changed by that
-session without changing playback; the explicit Stop action pauses. The macOS
-surface policy/restoration, system controls, minimize-to-toggle behavior, screen
-movement, paused-frame restoration, HDR and color handling, accessibility, and
-matched IINA captures remain unimplemented or unverified until the experiment
-succeeds. The current BGRA8 producer does not preserve HDR metadata.
+The macOS adapter uses the shared window policy after confirmed entry. AppKit
+handles hide, minimize, and restore. The AVKit Return control requests the
+owning player window. Minimize-to-toggle listens to the player's own AppKit
+notifications and tracks whether PiP initiated the minimization. Closing the
+player stops its PiP session before releasing the renderer. The BGRA8
+producer discards HDR metadata. Window policy, native controls, frame pacing,
+screen movement, accessibility, and matched IINA captures require Mac runtime
+verification.
 
 ## Primary references
 

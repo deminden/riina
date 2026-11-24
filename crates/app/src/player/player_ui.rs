@@ -186,6 +186,10 @@ pub(crate) struct UiSession {
 }
 
 impl UiSession {
+    pub(super) fn prepare_to_close(&self) {
+        self.platform_extras.prepare_to_close();
+    }
+
     #[cfg(target_os = "windows")]
     pub(crate) fn player(&self) -> Option<&Player> {
         match self.player.as_ref()? {
@@ -208,7 +212,7 @@ impl UiSession {
 
 impl Drop for UiSession {
     fn drop(&mut self) {
-        self.platform_extras.prepare_to_close();
+        self.prepare_to_close();
         // Release session ownership before its presentation on every platform.
         // Native playback joins here; GL callbacks retain their player until the
         // renderer has released its surface during RenderingTeardown.

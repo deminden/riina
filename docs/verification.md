@@ -2782,3 +2782,29 @@ started, stopped, and failed-start paths still require native macOS execution.
 - Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
 - Linux application SHA-256 `1a285aed3aed5db8645eb0b37b9b3fa6cc237c0ce10f578ceb66ab340e9e3453`
 - Wayland libmpv SHA-256 `cdce854e1811942602587310026306d92d30c0f593f2be676f07659ae43061d8`
+
+### macOS Picture-in-Picture window lifecycle 2026-11-24
+
+The macOS source applies the configured window action and pause preference
+after AVKit confirms PiP entry. It binds AppKit minimize and restore events to
+the owning player. The rendering timer borrows the same libmpv surface while
+the window is occluded, hidden, or minimized. It uses the context created for
+the player renderer and restores the previous context after drawing. AVKit
+availability, frame delivery, and window lifecycle on an actual Mac remain open.
+
+Strict Apple Silicon workspace cross-Clippy passed, including compilation of
+the new macOS frame-source regression test. That test still needs execution
+on macOS. The Windows workspace gate passed 955 tests and 78 Python tests.
+The pinned native engine suite passed all 59 tests.
+
+The locked Linux x64 build passed a private Sway playback sweep with pixel
+samples, fullscreen preferences, Music Mode shortcut and toolbar input, and
+ordered plugin callbacks. The process exited when its compositor window
+closed. On the Windows private desktop, the native player returned from
+fullscreen and Music Mode, emitted the PiP start and stop events, and exited
+normally. The Windows Save As probe timed out immediately after a PiP close
+in one run. A subsequent run with a 500 ms settle interval cancelled and
+completed Unicode playlist export. Immediate dialog availability remains open.
+
+- Windows application SHA-256 `cb38029878851b0836334d51349c9ecb728c5445dc86c31d968d26538dde1175`
+- Linux application SHA-256 `b7cf8f3b1dc8eff0d14c9bf5232a2b487608ad7154da47843ba8147d32164af8`

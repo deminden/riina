@@ -47,22 +47,27 @@ impl PictureInPictureSession {
 #[cfg(target_os = "macos")]
 mod macos {
     use super::*;
-    use crate::platform::MacPictureInPicture;
+    use crate::platform::{MacPictureInPicture, macos::pip_window::MinimizeObservation};
     use slint::{ComponentHandle, Timer, TimerMode};
     use std::{cell::RefCell, rc::Rc, sync::atomic::Ordering, time::Duration};
 
+    const IDLE_INTERVAL: Duration = Duration::from_millis(100);
+    const OFFSCREEN_INTERVAL: Duration = Duration::from_millis(33);
+
     pub(crate) struct PictureInPictureSession {
         manager: Rc<RefCell<Option<MacPictureInPicture>>>,
-        timer: Timer,
+        timer: Rc<Timer>,
         dirty: Arc<AtomicBool>,
+        minimize_observation: RefCell<Option<MinimizeObservation>>,
     }
 
     impl PictureInPictureSession {
         pub(crate) fn new(_app: &PlayerWindow) -> Self {
             Self {
                 manager: Rc::new(RefCell::new(None)),
-                timer: Timer::default(),
+                timer: Rc::new(Timer::default()),
                 dirty: Arc::new(AtomicBool::new(false)),
+                minimize_observation: RefCell::new(None),
             }
         }
 
@@ -103,10 +108,10 @@ mod macos {
             app.global::<riina_ui::PlayerMenuActions>()
                 .on_toggle_picture_in_picture(move || {
                     let result = toggle_manager
-                        .borrow()
-                        .as_ref()
+                        .borrow_mut()
+                        .as_mut()
                         .ok_or_else(|| "macOS PiP is unavailable on this system".to_owned())
-                        .map(MacPictureInPicture::toggle);
+                        .and_then(MacPictureInPicture::toggle);
                     if let Err(error) = result
                         && let Some(app) = weak_app.upgrade()
                     {
@@ -119,18 +124,65 @@ mod macos {
                 return;
             }
 
-            let manager = self.manager.clone();
+            let weak_player = app.as_weak();
+            let minimized_manager = Rc::downgrade(&self.manager);
+            self.minimize_observation
+                .replace(Some(MinimizeObservation::new(app, move |minimized| {
+                    if let (Some(player), Some(manager)) =
+                        (weak_player.upgrade(), minimized_manager.upgrade())
+                        && let Ok(mut manager) = manager.try_borrow_mut()
+                        && let Some(manager) = manager.as_mut()
+                    {
+                        manager.minimized(&player, minimized);
+                    }
+                })));
+            self.start_timer(app);
+        }
+
+        fn start_timer(&self, app: &PlayerWindow) {
+            let manager = Rc::downgrade(&self.manager);
             let dirty = self.dirty.clone();
+            let player = app.as_weak();
+            let timer = Rc::downgrade(&self.timer);
             self.timer
-                .start(TimerMode::Repeated, Duration::from_millis(100), move || {
-                    if let Some(manager) = manager.borrow_mut().as_mut() {
-                        if dirty.swap(false, Ordering::AcqRel) {
-                            manager.synchronize_playback();
+                .start(TimerMode::Repeated, IDLE_INTERVAL, move || {
+                    let (Some(player), Some(manager), Some(timer)) =
+                        (player.upgrade(), manager.upgrade(), timer.upgrade())
+                    else {
+                        return;
+                    };
+                    let Ok(mut manager) = manager.try_borrow_mut() else {
+                        return;
+                    };
+                    let Some(manager) = manager.as_mut() else {
+                        return;
+                    };
+                    if dirty.swap(false, Ordering::AcqRel) {
+                        manager.synchronize_playback();
+                    }
+                    let interval = match manager.poll_source(&player) {
+                        Ok(true) => OFFSCREEN_INTERVAL,
+                        Ok(false) => IDLE_INTERVAL,
+                        Err(error) => {
+                            crate::diagnostics::report(
+                                &player,
+                                format!("Picture-in-Picture: {error}"),
+                            );
+                            IDLE_INTERVAL
                         }
-                        // AVKit availability can change while playback has no new frames.
-                        manager.advance_start();
+                    };
+                    if timer.interval() != interval {
+                        timer.set_interval(interval);
                     }
                 });
+        }
+
+        pub(crate) fn prepare_to_close(&self) {
+            self.timer.stop();
+            self.minimize_observation.replace(None);
+            if let Some(manager) = self.manager.borrow().as_ref() {
+                manager.close();
+            }
         }
     }
 }

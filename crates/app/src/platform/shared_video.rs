@@ -1,13 +1,14 @@
 //! Native extensions to the shared GL surface's renderer lifecycle.
 use crate::PlayerWindow;
 use riina_mpv::{Player, video::VideoSurface};
-use std::ffi::{CStr, c_void};
+use std::{
+    cell::RefCell,
+    ffi::{CStr, c_void},
+    rc::Rc,
+};
 
 #[cfg(target_os = "macos")]
 mod display_color;
-
-#[cfg(target_os = "macos")]
-use std::{cell::RefCell, rc::Rc};
 
 #[derive(Default)]
 pub(crate) struct SharedVideoExtras {
@@ -33,14 +34,15 @@ impl SharedVideoExtras {
     pub(crate) unsafe fn configure_rendering(
         &self,
         loader: &dyn Fn(&CStr) -> *const c_void,
+        surface: &Rc<RefCell<Option<VideoSurface>>>,
     ) -> Result<(), String> {
         #[cfg(target_os = "macos")]
         if let Some(manager) = self.picture_in_picture.borrow_mut().as_mut() {
             // SAFETY: the caller holds the current CGL context for this setup.
-            return unsafe { manager.configure_rendering(loader) };
+            return unsafe { manager.configure_rendering(loader, Rc::downgrade(surface)) };
         }
         #[cfg(not(target_os = "macos"))]
-        let _ = loader;
+        let _ = (loader, surface);
         Ok(())
     }
 
@@ -62,7 +64,7 @@ impl SharedVideoExtras {
         #[cfg(target_os = "macos")]
         if let Some(manager) = self.picture_in_picture.borrow_mut().as_mut() {
             // SAFETY: the shared surface and PiP renderer use this current CGL context.
-            return unsafe { manager.render_frame(video) };
+            return unsafe { manager.render_frame(video) }.map(|_| ());
         }
         #[cfg(not(target_os = "macos"))]
         let _ = video;

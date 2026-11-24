@@ -23,6 +23,7 @@ struct ManagedPlayer {
 impl ManagedPlayer {
     fn hide_windows(&self) {
         self.app.invoke_window_will_close();
+        self.session.prepare_to_close();
         if let Some(welcome) = &self.welcome {
             // Keep releasing the session if a window is already closing.
             let _ = welcome.hide();

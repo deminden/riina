@@ -1,210 +1,53 @@
-//! Public AVKit sample-buffer PiP ownership for the macOS player.
+//! Own the native Picture-in-Picture controller and its renderer lifetime.
 
+mod avkit;
+
+use self::avkit::{PlaybackDelegate, SampleQueue};
+use super::{pip_frame::PipFrameSource, pip_window::window_can_draw};
 use objc2::{
-    AnyThread, DefinedClass, MainThreadMarker, MainThreadOnly, define_class, msg_send,
-    rc::Retained, runtime::ProtocolObject,
+    AnyThread, DefinedClass, MainThreadMarker, msg_send, rc::Retained, runtime::ProtocolObject,
 };
-use objc2_av_foundation::{
-    AVQueuedSampleBufferRendering, AVSampleBufferDisplayLayer, AVSampleBufferVideoRenderer,
+use objc2_av_foundation::AVSampleBufferDisplayLayer;
+use objc2_av_kit::{AVPictureInPictureController, AVPictureInPictureControllerContentSource};
+use objc2_core_media::{CMClock, CMTime, CMTimebase};
+use objc2_foundation::NSProcessInfo;
+use riina_core::{Phase, Playback, VideoParameters, pip_lifecycle};
+use riina_mpv::{CommandSender, video::VideoSurface};
+use slint::ComponentHandle;
+use std::{
+    cell::{Cell, RefCell},
+    ffi::CStr,
+    ptr::NonNull,
+    rc::Weak,
+    time::{Duration, Instant},
 };
-use objc2_av_kit::{
-    AVPictureInPictureController, AVPictureInPictureControllerContentSource,
-    AVPictureInPictureControllerDelegate, AVPictureInPictureSampleBufferPlaybackDelegate,
-};
-use objc2_core_media::{
-    CMClock, CMTime, CMTimeRange, CMTimebase, CMVideoDimensions, kCMTimePositiveInfinity,
-};
-use objc2_foundation::{NSError, NSObject, NSObjectProtocol};
-use riina_core::{Command, Playback, VideoParameters};
-use riina_mpv::CommandSender;
-use std::{cell::Cell, ffi::CStr, ptr::NonNull};
 
-use super::pip_frame::PipFrameSource;
-
-struct PlaybackDelegateIvars {
-    player: slint::Weak<crate::PlayerWindow>,
-    commands: CommandSender,
-    playback: crate::PlaybackStore,
-    transition: Cell<Transition>,
-}
+const START_TIMEOUT: Duration = Duration::from_secs(5);
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Transition {
     Idle,
-    WaitingForSource,
+    WaitingForSource(Instant),
     Starting,
+    CancellingStart,
     Stopping,
-}
-
-define_class!(
-    #[unsafe(super = NSObject)]
-    #[thread_kind = MainThreadOnly]
-    #[ivars = PlaybackDelegateIvars]
-    struct PlaybackDelegate;
-
-    // SAFETY: the class inherits NSObject and uses its protocol implementation.
-    unsafe impl NSObjectProtocol for PlaybackDelegate {}
-
-    #[allow(non_snake_case)]
-    // SAFETY: these selectors match AVKit's main-thread lifecycle protocol.
-    unsafe impl AVPictureInPictureControllerDelegate for PlaybackDelegate {
-        #[unsafe(method(pictureInPictureControllerDidStartPictureInPicture:))]
-        unsafe fn pictureInPictureControllerDidStartPictureInPicture(
-            &self,
-            _controller: &AVPictureInPictureController,
-        ) {
-            self.confirm(true);
-        }
-
-        #[unsafe(method(pictureInPictureControllerDidStopPictureInPicture:))]
-        unsafe fn pictureInPictureControllerDidStopPictureInPicture(
-            &self,
-            _controller: &AVPictureInPictureController,
-        ) {
-            self.confirm(false);
-        }
-
-        #[unsafe(method(pictureInPictureController:failedToStartPictureInPictureWithError:))]
-        unsafe fn pictureInPictureController_failedToStartPictureInPictureWithError(
-            &self,
-            _controller: &AVPictureInPictureController,
-            error: &NSError,
-        ) {
-            self.confirm(false);
-            if let Some(player) = self.ivars().player.upgrade() {
-                crate::diagnostics::report(
-                    &player,
-                    format!(
-                        "Could not start Picture-in-Picture: {}",
-                        error.localizedDescription()
-                    ),
-                );
-            }
-        }
-    }
-
-    #[allow(non_snake_case)]
-    // SAFETY: the selectors below implement the AVKit protocol with its declared ABI.
-    unsafe impl AVPictureInPictureSampleBufferPlaybackDelegate for PlaybackDelegate {
-        #[unsafe(method(pictureInPictureController:setPlaying:))]
-        unsafe fn pictureInPictureController_setPlaying(
-            &self,
-            _controller: &AVPictureInPictureController,
-            playing: bool,
-        ) {
-            if let Err(error) = self.ivars().commands.send(Command::SetPaused(!playing)) {
-                crate::diagnostics::warn!("Could not change Picture-in-Picture playback: {error}");
-            }
-        }
-
-        #[unsafe(method(pictureInPictureControllerTimeRangeForPlayback:))]
-        unsafe fn pictureInPictureControllerTimeRangeForPlayback(
-            &self,
-            _controller: &AVPictureInPictureController,
-        ) -> CMTimeRange {
-            let playback = riina_core::sync::lock(&self.ivars().playback);
-            let duration = playback
-                .duration
-                .filter(|value| value.is_finite() && *value >= 0.0);
-            // The sample renderer's control timebase starts at the first media
-            // timestamp; unknown duration denotes live media to AVKit.
-            let duration = duration.map_or_else(
-                || {
-                    // SAFETY: this immutable time constant is exported by Core Media.
-                    unsafe { kCMTimePositiveInfinity }
-                },
-                |duration| {
-                    // SAFETY: duration was checked to be finite and the timescale is positive.
-                    unsafe { CMTime::with_seconds(duration, 1_000) }
-                },
-            );
-            // SAFETY: both times are initialized Core Media values passed by value.
-            unsafe { CMTimeRange::new(CMTime::new(0, 1), duration) }
-        }
-
-        #[unsafe(method(pictureInPictureControllerIsPlaybackPaused:))]
-        unsafe fn pictureInPictureControllerIsPlaybackPaused(
-            &self,
-            _controller: &AVPictureInPictureController,
-        ) -> bool {
-            self.ivars()
-                .playback
-                .lock()
-                .map_or(true, |playback| playback.paused)
-        }
-
-        #[unsafe(method(pictureInPictureController:didTransitionToRenderSize:))]
-        unsafe fn pictureInPictureController_didTransitionToRenderSize(
-            &self,
-            _controller: &AVPictureInPictureController,
-            _new_render_size: CMVideoDimensions,
-        ) {
-            // The source dimensions follow the decoded video; PiP size is fitted
-            // by AVKit and does not reconfigure the single libmpv render context.
-        }
-
-        #[unsafe(method(pictureInPictureController:skipByInterval:completionHandler:))]
-        unsafe fn pictureInPictureController_skipByInterval_completionHandler(
-            &self,
-            _controller: &AVPictureInPictureController,
-            interval: CMTime,
-            completion_handler: &block2::DynBlock<dyn Fn()>,
-        ) {
-            // SAFETY: AVKit supplies a CMTime by value for this callback.
-            let seconds = unsafe { interval.seconds() };
-            if seconds.is_finite()
-                && seconds != 0.0
-                && let Err(error) = self.ivars().commands.send(Command::Seek {
-                    seconds,
-                    absolute: false,
-                })
-            {
-                crate::diagnostics::warn!("Could not seek in Picture-in-Picture: {error}");
-            }
-            completion_handler.call(());
-        }
-    }
-);
-
-impl PlaybackDelegate {
-    fn new(
-        mtm: MainThreadMarker,
-        player: slint::Weak<crate::PlayerWindow>,
-        commands: CommandSender,
-        playback: crate::PlaybackStore,
-    ) -> Retained<Self> {
-        let this = Self::alloc(mtm).set_ivars(PlaybackDelegateIvars {
-            player,
-            commands,
-            playback,
-            transition: Cell::new(Transition::Idle),
-        });
-        // SAFETY: NSObject initializes the allocated, ivar-initialized object on the main thread.
-        unsafe { msg_send![super(this), init] }
-    }
-
-    fn confirm(&self, active: bool) {
-        self.ivars().transition.set(Transition::Idle);
-        if let Some(player) = self.ivars().player.upgrade() {
-            crate::player::presentation::set_picture_in_picture(&player, active);
-        }
-    }
 }
 
 /// Owns the AVKit source and delegate for the full player-session lifetime.
 /// Frames are accepted only through `enqueue_sample`; the controller cannot
 /// start until the same mpv render context has supplied a real video sample.
 pub(crate) struct MacPictureInPicture {
-    _layer: Retained<AVSampleBufferDisplayLayer>,
-    renderer: Retained<AVSampleBufferVideoRenderer>,
+    surface: SampleQueue,
     controller: Retained<AVPictureInPictureController>,
     delegate: Retained<PlaybackDelegate>,
     playback: crate::PlaybackStore,
     clock: objc2_core_foundation::CFRetained<CMClock>,
     timebase: objc2_core_foundation::CFRetained<CMTimebase>,
     frame_source: Option<PipFrameSource>,
-    last_seek_generation: u64,
+    video_surface: Weak<RefCell<Option<VideoSurface>>>,
+    frame_revision: Option<(u64, u64)>,
     has_sample: bool,
+    minimize_requested_start: Cell<bool>,
 }
 
 impl MacPictureInPicture {
@@ -218,6 +61,12 @@ impl MacPictureInPicture {
         playback: crate::PlaybackStore,
         mtm: MainThreadMarker,
     ) -> Result<Self, String> {
+        let major_version = NSProcessInfo::processInfo()
+            .operatingSystemVersion()
+            .majorVersion;
+        if major_version < 12 {
+            return Err("Sample-buffer Picture-in-Picture requires macOS 12 or later".into());
+        }
         // SAFETY: the main-thread marker establishes the caller's AVKit thread.
         if !unsafe { AVPictureInPictureController::isPictureInPictureSupported() } {
             return Err("Picture-in-Picture is not supported on this Mac".into());
@@ -225,7 +74,7 @@ impl MacPictureInPicture {
         // SAFETY: construction and the retained layer access occur on the main thread.
         let layer = unsafe { AVSampleBufferDisplayLayer::new() };
         // SAFETY: the macOS 14+ renderer accessor receives a live sample-buffer layer.
-        let renderer = unsafe { layer.sampleBufferRenderer() };
+        let renderer = (major_version >= 14).then(|| unsafe { layer.sampleBufferRenderer() });
         let delegate = PlaybackDelegate::new(mtm, player, commands, playback.clone());
         let protocol = ProtocolObject::from_ref(&*delegate);
         // SAFETY: the main-thread owner retains the layer and typed delegate for the
@@ -237,13 +86,13 @@ impl MacPictureInPicture {
                 protocol,
             )
         };
-        // SAFETY: the source is retained for controller initialization on the main thread.
-        let controller = unsafe {
-            AVPictureInPictureController::initWithContentSource(
-                AVPictureInPictureController::alloc(),
-                &source,
-            )
+        // AVKit can reject a content source even if the device supports PiP.
+        // SAFETY: this is the documented initializer, and the source is live on the main thread.
+        let controller: Option<Retained<AVPictureInPictureController>> = unsafe {
+            msg_send![AVPictureInPictureController::alloc(), initWithContentSource: &*source]
         };
+        let controller = controller
+            .ok_or_else(|| "AVKit rejected the Picture-in-Picture video source".to_owned())?;
         // SAFETY: Core Media provides the host clock for the lifetime of this timebase.
         let clock = unsafe { CMClock::host_time_clock() };
         let mut timebase = std::ptr::null_mut();
@@ -281,16 +130,17 @@ impl MacPictureInPicture {
             controller.setCanStartPictureInPictureAutomaticallyFromInline(false);
         }
         Ok(Self {
-            _layer: layer,
-            renderer,
+            surface: SampleQueue { layer, renderer },
             controller,
             delegate,
             playback,
             clock,
             timebase,
             frame_source: None,
-            last_seek_generation: 0,
+            video_surface: Weak::new(),
+            frame_revision: None,
             has_sample: false,
+            minimize_requested_start: Cell::new(false),
         })
     }
 
@@ -299,37 +149,83 @@ impl MacPictureInPicture {
     pub(crate) unsafe fn configure_rendering(
         &mut self,
         loader: &dyn Fn(&CStr) -> *const std::ffi::c_void,
+        video_surface: Weak<RefCell<Option<VideoSurface>>>,
     ) -> Result<(), String> {
         // SAFETY: the caller keeps Slint's CGL context current throughout setup.
         self.frame_source = Some(unsafe { PipFrameSource::new(loader)? });
+        self.video_surface = video_surface;
         Ok(())
     }
 
-    pub(crate) fn toggle(&self) {
+    pub(crate) fn toggle(&mut self) -> Result<(), String> {
         let transition = &self.delegate.ivars().transition;
         match transition.get() {
-            Transition::Starting | Transition::Stopping => return,
-            Transition::WaitingForSource => {
+            Transition::Stopping | Transition::CancellingStart => return Ok(()),
+            Transition::Starting => {
+                transition.set(Transition::CancellingStart);
+                return Ok(());
+            }
+            Transition::WaitingForSource(_) => {
                 transition.set(Transition::Idle);
-                return;
+                return Ok(());
             }
             Transition::Idle => {}
         }
-        // SAFETY: the retained controller is queried and stopped on its owning thread.
-        unsafe {
-            if self.controller.isPictureInPictureActive() {
-                transition.set(Transition::Stopping);
-                self.controller.stopPictureInPicture();
-                return;
-            }
+        self.minimize_requested_start.set(false);
+        if self.is_active() {
+            self.request_stop();
+            return Ok(());
         }
-        transition.set(Transition::WaitingForSource);
-        self.advance_start();
+        self.request_start()
     }
 
-    pub(crate) fn advance_start(&self) {
-        let transition = &self.delegate.ivars().transition;
-        if transition.get() == Transition::WaitingForSource && self.has_sample {
+    fn request_start(&mut self) -> Result<(), String> {
+        if self.frame_source.is_none()
+            || video_dimensions(&riina_core::sync::lock(&self.playback)).is_none()
+        {
+            return Err("Picture-in-Picture requires a loaded video".into());
+        }
+        self.clear_samples();
+        if let Some(source) = self.frame_source.as_mut() {
+            source.reset_after_seek();
+        }
+        self.delegate
+            .ivars()
+            .transition
+            .set(Transition::WaitingForSource(Instant::now() + START_TIMEOUT));
+        self.advance_start();
+        Ok(())
+    }
+
+    fn is_active(&self) -> bool {
+        // SAFETY: the retained controller belongs to this UI thread.
+        unsafe { self.controller.isPictureInPictureActive() }
+    }
+
+    fn request_stop(&self) {
+        self.delegate.ivars().transition.set(Transition::Stopping);
+        // SAFETY: the retained controller is queried and stopped on its owning thread.
+        unsafe { self.controller.stopPictureInPicture() };
+    }
+
+    fn advance_start(&self) {
+        let ivars = self.delegate.ivars();
+        if ivars.window.is_closing() {
+            return;
+        }
+        let transition = &ivars.transition;
+        let Transition::WaitingForSource(deadline) = transition.get() else {
+            return;
+        };
+        if Instant::now() >= deadline {
+            transition.set(Transition::Idle);
+            if let Some(player) = self.delegate.ivars().player.upgrade() {
+                crate::diagnostics::report(
+                    &player,
+                    "macOS did not make the Picture-in-Picture video source available".to_owned(),
+                );
+            }
+        } else if self.has_sample {
             // SAFETY: the controller owns a sample source and remains on its owning thread.
             unsafe {
                 if self.controller.isPictureInPicturePossible() {
@@ -337,6 +233,64 @@ impl MacPictureInPicture {
                     self.controller.startPictureInPicture();
                 }
             }
+        }
+    }
+
+    pub(crate) fn minimized(&mut self, player: &crate::PlayerWindow, minimized: bool) {
+        let ivars = self.delegate.ivars();
+        if ivars.window.owns_minimization() || ivars.window.is_closing() {
+            return;
+        }
+        let Ok(settings) = crate::pip_preferences::current_player(player) else {
+            return;
+        };
+        if settings.toggle_by_minimizing
+            && !minimized
+            && self.minimize_requested_start.replace(false)
+        {
+            match ivars.transition.get() {
+                Transition::WaitingForSource(_) => {
+                    ivars.transition.set(Transition::Idle);
+                    return;
+                }
+                Transition::Starting => {
+                    ivars.transition.set(Transition::CancellingStart);
+                    return;
+                }
+                _ => {}
+            }
+        }
+        let phase = match ivars.transition.get() {
+            Transition::WaitingForSource(_) | Transition::Starting => {
+                pip_lifecycle::Phase::Entering
+            }
+            Transition::Stopping | Transition::CancellingStart => pip_lifecycle::Phase::Exiting,
+            Transition::Idle if self.is_active() => pip_lifecycle::Phase::Active,
+            Transition::Idle => pip_lifecycle::Phase::Off,
+        };
+        let is_video = matches!(
+            riina_core::sync::lock(&self.playback).audio_status(),
+            riina_core::music_mode::AudioStatus::Video
+        );
+        match pip_lifecycle::minimize_toggle_target(settings, is_video, minimized, phase) {
+            Some(true) => {
+                if self.request_start().is_ok() {
+                    self.minimize_requested_start.set(true);
+                }
+            }
+            Some(false) => self.request_stop(),
+            None => {}
+        }
+    }
+
+    pub(crate) fn close(&self) {
+        let ivars = self.delegate.ivars();
+        if ivars.window.is_closing() {
+            return;
+        }
+        ivars.window.close();
+        if self.is_active() && ivars.transition.get() != Transition::Stopping {
+            self.request_stop();
         }
     }
 
@@ -353,18 +307,17 @@ impl MacPictureInPicture {
         } else {
             1.0
         };
-        let completed_seeks = playback.completed_seeks;
+        let revision = (playback.generation, playback.completed_seeks);
+        let closed_media = matches!(playback.phase, Phase::Stopped | Phase::Failed);
         drop(playback);
-        if completed_seeks != self.last_seek_generation {
-            self.last_seek_generation = completed_seeks;
-            self.has_sample = false;
-            if let Some(source) = self.frame_source.as_mut() {
-                source.reset_after_seek();
-            }
-            // SAFETY: the retained renderer may flush without a completion block.
-            unsafe {
-                self.renderer
-                    .flushWithRemovalOfDisplayedImage_completionHandler(true, None);
+        self.refresh_frame_revision(revision);
+        if closed_media {
+            let transition = &self.delegate.ivars().transition;
+            match transition.get() {
+                Transition::WaitingForSource(_) => transition.set(Transition::Idle),
+                Transition::Starting => transition.set(Transition::CancellingStart),
+                Transition::Idle if self.is_active() => self.request_stop(),
+                _ => {}
             }
         }
         // SAFETY: the position and rate are finite, the timescale is positive,
@@ -379,37 +332,118 @@ impl MacPictureInPicture {
         unsafe { self.controller.invalidatePlaybackState() };
     }
 
-    /// # Safety
-    /// Must be called while the CGL context used by the renderer is current.
-    pub(crate) unsafe fn teardown_rendering(&mut self) {
-        self.has_sample = false;
-        // SAFETY: the renderer remains live through teardown and accepts a null completion block.
-        unsafe {
-            self.renderer
-                .flushWithRemovalOfDisplayedImage_completionHandler(true, None);
+    fn refresh_frame_revision(&mut self, revision: (u64, u64)) {
+        if self.frame_revision != Some(revision) {
+            self.frame_revision = Some(revision);
+            self.clear_samples();
+            if let Some(source) = self.frame_source.as_mut() {
+                source.reset_after_seek();
+            }
         }
-        self.frame_source.take();
+    }
+
+    fn clear_samples(&mut self) {
+        self.has_sample = false;
+        self.surface.flush();
     }
 
     /// # Safety
-    /// Must be called from the renderer notifier with its CGL context current.
-    pub(crate) unsafe fn render_frame(
-        &mut self,
-        video: &mut riina_mpv::video::VideoSurface,
-    ) -> Result<(), String> {
+    /// Must be called while the CGL context used by the renderer is current.
+    pub(crate) unsafe fn teardown_rendering(&mut self) {
+        self.clear_samples();
+        self.frame_revision = None;
+        self.frame_source.take();
+        self.video_surface = Weak::new();
+    }
+
+    pub(crate) fn poll_source(&mut self, player: &crate::PlayerWindow) -> Result<bool, String> {
+        let active = self.is_active();
+        let transition = self.delegate.ivars().transition.get();
+        let waiting = matches!(
+            transition,
+            Transition::WaitingForSource(_) | Transition::Starting
+        );
+        if active && self.frame_source.is_none() && transition == Transition::Idle {
+            self.request_stop();
+            return Ok(false);
+        }
+        let offscreen = (active || waiting) && !window_can_draw(player);
+        if offscreen {
+            if let Err(error) = self.render_offscreen() {
+                self.frame_source.take();
+                self.clear_samples();
+                if active && transition != Transition::Stopping {
+                    self.request_stop();
+                }
+                return Err(error);
+            }
+        } else if waiting && !self.has_sample {
+            player.window().request_redraw();
+        }
+        if transition == Transition::Idle && !active && self.has_sample {
+            self.clear_samples();
+        }
+        // AVKit availability can change without triggering a new video frame.
+        self.advance_start();
+        Ok(offscreen && active)
+    }
+
+    fn render_offscreen(&mut self) -> Result<(), String> {
+        let (Some(surface), Some(source)) =
+            (self.video_surface.upgrade(), self.frame_source.as_ref())
+        else {
+            return Ok(());
+        };
+        let Ok(mut surface) = surface.try_borrow_mut() else {
+            return Ok(());
+        };
+        let Some(video) = surface.as_mut() else {
+            return Ok(());
+        };
+        // SAFETY: the rendering notifier and timer are serialized on the main
+        // thread. The borrowed video still belongs to the source's CGL context.
+        let _current = unsafe { source.bind_context()? };
+        // SAFETY: the guard keeps the creating CGL context current.
+        if unsafe { self.render_frame(video)? } {
+            // SAFETY: the IOSurface sample is this frame's sole presentation.
+            unsafe { video.report_swap() };
+        }
+        Ok(())
+    }
+
+    /// # Safety
+    /// Must be called with the retained player's CGL context current.
+    pub(crate) unsafe fn render_frame(&mut self, video: &mut VideoSurface) -> Result<bool, String> {
+        let active = self.is_active();
+        let ivars = self.delegate.ivars();
+        if ivars.window.is_closing()
+            || (!active
+                && !matches!(
+                    ivars.transition.get(),
+                    Transition::WaitingForSource(_) | Transition::Starting
+                ))
+        {
+            return Ok(false);
+        }
         let playback = riina_core::sync::lock(&self.playback);
         let size = video_dimensions(&playback);
-        // SAFETY: Slint's render notifier runs on this session's UI thread.
-        let active = unsafe { self.controller.isPictureInPictureActive() };
-        let is_paused = playback.paused || playback.buffering || playback.seeking;
+        let revision = (playback.generation, playback.completed_seeks);
+        let can_render = !playback.seeking && !playback.buffering;
+        let is_paused = playback.paused;
         drop(playback);
+        if self.frame_revision != Some(revision) {
+            self.synchronize_playback();
+        }
+        let mut enqueued = false;
         if let Some(size) = size
+            && can_render
             && (!is_paused || !self.has_sample)
+            && self.surface.ready()
             && let Some(source) = self.frame_source.as_mut()
         {
             // SAFETY: the notifier holds the current CGL context, the render
             // source and the control timebase for the synchronous frame copy.
-            let sample = match unsafe { source.sample(video, size, self.timebase.time(), active) } {
+            let sample = match unsafe { source.sample(video, size, self.timebase.time()) } {
                 Ok(sample) => sample,
                 Err(error) => {
                     self.frame_source = None;
@@ -417,25 +451,23 @@ impl MacPictureInPicture {
                 }
             };
             if let Some(sample) = sample {
-                self.enqueue_sample(&sample);
+                self.surface.enqueue(&sample);
+                self.has_sample = true;
+                enqueued = true;
             }
         }
         self.advance_start();
-        Ok(())
-    }
-
-    fn enqueue_sample(&mut self, sample: &objc2_core_media::CMSampleBuffer) {
-        // SAFETY: the retained renderer is still attached to this session's layer.
-        if !unsafe { self.renderer.isReadyForMoreMediaData() } {
-            return;
-        }
-        // SAFETY: sample is an initialized buffer borrowed for the enqueue call.
-        unsafe { self.renderer.enqueueSampleBuffer(sample) };
-        self.has_sample = true;
+        Ok(enqueued)
     }
 }
 
 fn video_dimensions(playback: &Playback) -> Option<(u32, u32)> {
+    if matches!(
+        playback.phase,
+        Phase::Stopped | Phase::Loading | Phase::Failed
+    ) {
+        return None;
+    }
     let parameters: &VideoParameters =
         playback.video_target.as_ref().or(playback.video.as_ref())?;
     let (mut width, mut height) = (
@@ -446,4 +478,25 @@ fn video_dimensions(playback: &Playback) -> Option<(u32, u32)> {
         std::mem::swap(&mut width, &mut height);
     }
     (width > 0 && height > 0).then_some((width, height))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn pip_source_rejects_stale_dimensions_until_a_replacement_is_ready() {
+        let mut playback = Playback {
+            phase: Phase::Loading,
+            video: Some(serde_json::from_str(r#"{"w":1920,"h":1080,"rotate":90}"#).unwrap()),
+            ..Playback::default()
+        };
+        assert_eq!(video_dimensions(&playback), None);
+
+        playback.phase = Phase::Paused;
+        assert_eq!(video_dimensions(&playback), Some((1080, 1920)));
+
+        playback.phase = Phase::Failed;
+        assert_eq!(video_dimensions(&playback), None);
+    }
 }

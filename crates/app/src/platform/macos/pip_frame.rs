@@ -17,7 +17,9 @@ use objc2_core_video::{
     kCVPixelBufferPixelFormatTypeKey, kCVPixelBufferPoolAllocationThresholdKey,
     kCVPixelBufferWidthKey, kCVPixelFormatType_32BGRA, kCVReturnSuccess,
 };
-use objc2_open_gl::{CGLContextObj, CGLGetCurrentContext, CGLTexImageIOSurface2D};
+use objc2_open_gl::{
+    CGLContextObj, CGLGetCurrentContext, CGLSetCurrentContext, CGLTexImageIOSurface2D,
+};
 use std::{
     ffi::CStr,
     num::NonZeroU32,
@@ -27,8 +29,7 @@ use std::{
 
 const MAX_DIMENSION: u32 = 640;
 const POOL_LIMIT: i32 = 3;
-const INACTIVE_SAMPLE_INTERVAL: Duration = Duration::from_secs(1);
-const ACTIVE_SAMPLE_INTERVAL: Duration = Duration::from_millis(33);
+const SAMPLE_INTERVAL: Duration = Duration::from_millis(33);
 
 pub(crate) struct PipFrameSource {
     gl: glow::Context,
@@ -70,6 +71,27 @@ impl PipFrameSource {
     }
 
     /// # Safety
+    /// The caller must keep the Slint context alive until the returned guard drops.
+    pub(crate) unsafe fn bind_context(&self) -> Result<CurrentContext, String> {
+        // SAFETY: the caller owns the same live context from RenderingSetup.
+        let previous = unsafe { CGLGetCurrentContext() };
+        if previous != self.context {
+            // SAFETY: the retained renderer's context is live on this UI thread.
+            let status = unsafe { CGLSetCurrentContext(self.context) };
+            if status.0 != 0 {
+                return Err(format!(
+                    "Could not bind the Picture-in-Picture context ({})",
+                    status.0
+                ));
+            }
+        }
+        Ok(CurrentContext {
+            previous,
+            changed: previous != self.context,
+        })
+    }
+
+    /// # Safety
     /// Must run on the same current CGL context used to create this source.
     #[expect(
         clippy::expect_used,
@@ -80,17 +102,11 @@ impl PipFrameSource {
         video: &mut riina_mpv::video::VideoSurface,
         dimensions: (u32, u32),
         presentation_time: CMTime,
-        active: bool,
     ) -> Result<Option<CFRetained<CMSampleBuffer>>, String> {
         let now = Instant::now();
-        let interval = if active {
-            ACTIVE_SAMPLE_INTERVAL
-        } else {
-            INACTIVE_SAMPLE_INTERVAL
-        };
         if self
             .last_sample_at
-            .is_some_and(|last| now.saturating_duration_since(last) < interval)
+            .is_some_and(|last| now.saturating_duration_since(last) < SAMPLE_INTERVAL)
         {
             return Ok(None);
         }
@@ -203,6 +219,26 @@ impl PipFrameSource {
         }
         self.last_sample_at = Some(now);
         result.map(Some)
+    }
+}
+
+pub(crate) struct CurrentContext {
+    previous: CGLContextObj,
+    changed: bool,
+}
+
+impl Drop for CurrentContext {
+    fn drop(&mut self) {
+        if self.changed {
+            // SAFETY: the guard stays on the UI thread. A null prior context clears the binding.
+            let status = unsafe { CGLSetCurrentContext(self.previous) };
+            if status.0 != 0 {
+                crate::diagnostics::warn!(
+                    "Could not restore the current CGL context: {}",
+                    status.0
+                );
+            }
+        }
     }
 }
 
