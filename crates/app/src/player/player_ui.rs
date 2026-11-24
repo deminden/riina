@@ -310,7 +310,9 @@ impl ApplicationServices {
     pub(crate) fn bind_auxiliary_close(&self, callback: Rc<dyn Fn()>) {
         self.about.closed.bind(callback.clone());
         self.logs.closed.bind(callback.clone());
-        self.open_url.closed.bind(callback);
+        self.open_url.closed.bind(callback.clone());
+        self.updates.closed.bind(callback.clone());
+        self.highlights.closed.bind(callback);
     }
 
     #[cfg(target_os = "macos")]
@@ -319,6 +321,8 @@ impl ApplicationServices {
             || self.about.is_visible()
             || self.logs.is_visible()
             || self.open_url.is_visible()
+            || self.updates.is_visible()
+            || self.highlights.is_visible()
     }
 
     #[cfg(target_os = "macos")]
@@ -326,6 +330,40 @@ impl ApplicationServices {
         self.about.hide();
         self.logs.hide();
         self.open_url.hide_for_quit();
+        self.updates.hide_for_quit();
+        self.highlights.hide();
+    }
+
+    #[cfg(target_os = "macos")]
+    pub(crate) fn configure_application_updates(
+        &self,
+        path: &std::path::Path,
+        preferences: &riina_core::Preferences,
+    ) {
+        self.updates.configure_application(path, preferences);
+    }
+
+    #[cfg(target_os = "macos")]
+    pub(crate) fn show_application_updates(
+        &self,
+        path: &std::path::Path,
+        preferences: &riina_core::Preferences,
+    ) -> Result<(), slint::PlatformError> {
+        self.configure_application_updates(path, preferences);
+        self.updates.show_from_application()
+    }
+
+    #[cfg(target_os = "macos")]
+    pub(crate) fn show_application_highlights(
+        &self,
+        preferences: &riina_core::Preferences,
+    ) -> Result<(), slint::PlatformError> {
+        self.highlights.show_from_application(preferences)
+    }
+
+    #[cfg(target_os = "macos")]
+    pub(crate) fn dump_application_debug_information(&self) {
+        self.debug_information.dump_from_application();
     }
 
     #[cfg(target_os = "macos")]

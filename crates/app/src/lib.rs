@@ -123,6 +123,13 @@ fn run_shared_player(
     let media = players.next().ok_or("Missing initial player")?;
     platform::startup::select_shared_backend(&loaded.preferences)?;
     let player_manager = player_manager::PlayerManager::new();
+    #[cfg(target_os = "macos")]
+    match platform::preferences_path() {
+        Ok(path) => player_manager
+            .services()
+            .configure_application_updates(&path, &loaded.preferences),
+        Err(error) => diagnostics::warn!("Could not load the application update schedule: {error}"),
+    }
     let application_menu = platform::startup::ApplicationMenu::new();
     let _browser = player_manager.register_browser_links(browser);
     #[cfg(target_os = "macos")]

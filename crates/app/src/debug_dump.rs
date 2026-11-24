@@ -46,24 +46,26 @@ impl ApplicationDebugInformation {
         let application = self.clone();
         let player = app.as_weak();
         app.global::<PlayerMenuActions>()
-            .on_dump_debug_info(move || {
-                let snapshots = application.snapshots();
-                let recipient = player.clone();
-                let result = crate::background::spawn_named("debug-information", move || {
-                    let result = write_download(&snapshots);
-                    let _ = crate::background::to_ui(recipient, move |app| report(&app, result));
-                });
-                if let Err(error) = result
-                    && let Some(app) = player.upgrade()
-                {
-                    crate::diagnostics::report(
-                        &app,
-                        format!("Could not save debug information: {error}"),
-                    );
-                }
-            });
+            .on_dump_debug_info(move || application.dump(Some(&player)));
         Registration {
             source: RefCell::new(Some(source)),
+        }
+    }
+
+    #[cfg(target_os = "macos")]
+    pub(crate) fn dump_from_application(&self) {
+        self.dump(None);
+    }
+
+    fn dump(&self, owner: Option<&slint::Weak<PlayerWindow>>) {
+        let snapshots = self.snapshots();
+        let recipient = owner.cloned();
+        let started = crate::background::spawn_named("debug-information", move || {
+            let result = write_download(&snapshots);
+            let _ = slint::invoke_from_event_loop(move || report(recipient.as_ref(), result));
+        });
+        if let Err(error) = started {
+            report(owner, Err(error));
         }
     }
 
@@ -77,7 +79,11 @@ impl ApplicationDebugInformation {
     }
 }
 
-fn report(app: &PlayerWindow, result: io::Result<PathBuf>) {
+fn report(owner: Option<&slint::Weak<PlayerWindow>>, result: io::Result<PathBuf>) {
+    let app = owner.and_then(slint::Weak::upgrade);
+    if owner.is_some() && app.is_none() {
+        return;
+    }
     match result {
         Ok(path) => {
             let _ = rfd::MessageDialog::new()
@@ -90,7 +96,17 @@ fn report(app: &PlayerWindow, result: io::Result<PathBuf>) {
                 .show();
         }
         Err(error) => {
-            crate::diagnostics::report(app, format!("Could not save debug information: {error}"));
+            let message = format!("Could not save debug information: {error}");
+            if let Some(app) = app.as_ref() {
+                crate::diagnostics::report(app, message);
+            } else {
+                crate::diagnostics::warn!("{message}");
+                let _ = rfd::MessageDialog::new()
+                    .set_title("Debug Info")
+                    .set_description(message)
+                    .set_buttons(rfd::MessageButtons::Ok)
+                    .show();
+            }
         }
     }
 }
@@ -371,6 +387,9 @@ mod tests {
         let first = PlayerWindow::new()?;
         let second = PlayerWindow::new()?;
         let information = Rc::new(ApplicationDebugInformation::default());
+        let mut startup_report = Vec::new();
+        super::write_report(&mut startup_report, &information.snapshots())?;
+        assert!(String::from_utf8(startup_report)?.contains("Players: 0"));
         let observation = |title: &str| {
             Arc::new(Mutex::new(Arc::new(Playback {
                 title: title.into(),

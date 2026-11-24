@@ -2,9 +2,12 @@
 mod first_launch;
 mod notes;
 
+use super::close_observer::CloseObserver;
 use crate::{PlayerWindow, WelcomeWindow, platform};
 use riina_ui::{PlayerAppearance, PlayerMenuActions, ReleaseHighlightsWindow};
-use slint::{ComponentHandle, ModelRc, VecModel, winit_030::WinitWindowAccessor};
+use slint::{
+    CloseRequestResponse, ComponentHandle, ModelRc, VecModel, winit_030::WinitWindowAccessor,
+};
 use std::{cell::RefCell, rc::Rc};
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
@@ -13,6 +16,7 @@ const NOTES: &str = include_str!(concat!(env!("OUT_DIR"), "/current-release.md")
 #[derive(Default)]
 pub(crate) struct ReleaseHighlights {
     window: RefCell<Option<ReleaseHighlightsWindow>>,
+    pub(crate) closed: CloseObserver,
 }
 
 impl ReleaseHighlights {
@@ -23,7 +27,7 @@ impl ReleaseHighlights {
             .global::<PlayerMenuActions>()
             .on_show_release_highlights(move || {
                 if let Some(player) = weak.upgrade()
-                    && let Err(error) = owner.show(&player, None)
+                    && let Err(error) = owner.show_for_player(&player, None)
                 {
                     crate::diagnostics::report(
                         &player,
@@ -33,7 +37,11 @@ impl ReleaseHighlights {
             });
     }
 
-    pub(crate) fn show_first_launch(&self, player: &PlayerWindow, welcome: Option<&WelcomeWindow>) {
+    pub(crate) fn show_first_launch(
+        self: &Rc<Self>,
+        player: &PlayerWindow,
+        welcome: Option<&WelcomeWindow>,
+    ) {
         if cfg!(debug_assertions) || NOTES.trim().is_empty() {
             return;
         }
@@ -42,7 +50,7 @@ impl ReleaseHighlights {
             if let Some(profile) = path.parent()
                 && let Some(launch) = first_launch::FirstLaunch::claim(profile, VERSION)?
             {
-                self.show(player, welcome)?;
+                self.show_for_player(player, welcome)?;
                 launch.record_shown()?;
             }
             Ok(())
@@ -52,11 +60,52 @@ impl ReleaseHighlights {
         }
     }
 
-    fn show(
-        &self,
+    fn show_for_player(
+        self: &Rc<Self>,
         player: &PlayerWindow,
         welcome: Option<&WelcomeWindow>,
     ) -> Result<(), slint::PlatformError> {
+        let dark = player.global::<PlayerAppearance>().get_dark_theme();
+        self.show(Some(player), welcome, dark).map(|_| ())
+    }
+
+    #[cfg(target_os = "macos")]
+    pub(crate) fn show_from_application(
+        self: &Rc<Self>,
+        preferences: &riina_core::Preferences,
+    ) -> Result<(), slint::PlatformError> {
+        let theme = preferences.effective_theme_material();
+        let window = self.show(None, None, theme.dark_for(preferences.dark))?;
+        window.window().with_winit_window(|host| {
+            let dark = host.theme().map_or(preferences.dark, |theme| {
+                theme == slint::winit_030::winit::window::Theme::Dark
+            });
+            window.set_dark_theme(theme.dark_for(dark));
+        });
+        Ok(())
+    }
+
+    #[cfg(target_os = "macos")]
+    pub(crate) fn is_visible(&self) -> bool {
+        self.window
+            .borrow()
+            .as_ref()
+            .is_some_and(|window| window.window().is_visible())
+    }
+
+    #[cfg(target_os = "macos")]
+    pub(crate) fn hide(&self) {
+        if let Some(window) = self.window.borrow().as_ref() {
+            let _ = window.hide();
+        }
+    }
+
+    fn show(
+        self: &Rc<Self>,
+        player: Option<&PlayerWindow>,
+        welcome: Option<&WelcomeWindow>,
+        dark: bool,
+    ) -> Result<ReleaseHighlightsWindow, slint::PlatformError> {
         let existing = self
             .window
             .borrow()
@@ -80,20 +129,31 @@ impl ReleaseHighlights {
                 }
             });
             let weak = window.as_weak();
+            let owner = Rc::downgrade(self);
             window.on_dismiss(move || {
                 if let Some(window) = weak.upgrade() {
                     let _ = window.hide();
+                    if let Some(owner) = owner.upgrade() {
+                        owner.closed.notify();
+                    }
                 }
+            });
+            let owner = Rc::downgrade(self);
+            window.window().on_close_requested(move || {
+                if let Some(owner) = owner.upgrade() {
+                    owner.closed.notify();
+                }
+                CloseRequestResponse::HideWindow
             });
             if let Some(welcome) = welcome {
                 platform::center_auxiliary_window(&window, welcome);
-            } else {
+            } else if let Some(player) = player {
                 platform::center_auxiliary_window(&window, player);
             }
             self.window.borrow_mut().replace(window.clone_strong());
             window
         };
-        window.set_dark_theme(player.global::<PlayerAppearance>().get_dark_theme());
+        window.set_dark_theme(dark);
         window.set_message(if NOTES.trim().is_empty() {
             "Release notes are available online.".into()
         } else {
@@ -105,7 +165,7 @@ impl ReleaseHighlights {
             window.focus_window();
         });
         window.invoke_focus_continue();
-        Ok(())
+        Ok(window)
     }
 }
 
@@ -122,16 +182,13 @@ mod tests {
         owner.connect(&first);
         owner.connect(&second);
         assert!(owner.window.borrow().is_none());
+        let window = owner.show(None, None, true)?;
+        assert!(window.window().is_visible());
+        assert!(window.get_dark_theme());
 
         first
             .global::<PlayerMenuActions>()
             .invoke_show_release_highlights();
-        let window = owner
-            .window
-            .borrow()
-            .as_ref()
-            .ok_or("Guide did not open")?
-            .clone_strong();
         assert_eq!(window.get_release_name(), format!("Riina {VERSION}"));
         window.invoke_dismiss();
         assert!(!window.window().is_visible());

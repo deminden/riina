@@ -103,6 +103,22 @@ impl PlayerManager {
         }
     }
 
+    pub(crate) fn show_application_updates(&self) {
+        if self.is_quitting() {
+            return;
+        }
+        let result = (|| -> Result<(), Box<dyn std::error::Error>> {
+            let path = crate::platform::preferences_path()?;
+            let loaded = preference_load::load(&path)?;
+            self.services()
+                .show_application_updates(&path, &loaded.preferences)?;
+            Ok(())
+        })();
+        if let Err(error) = result {
+            crate::diagnostics::warn!("Could not open Software Update: {error}");
+        }
+    }
+
     pub(crate) fn show_application_about(&self) {
         if self.is_quitting() {
             return;
@@ -116,6 +132,21 @@ impl PlayerManager {
         })();
         if let Err(error) = result {
             crate::diagnostics::warn!("Could not show About Riina: {error}");
+        }
+    }
+
+    pub(crate) fn show_application_highlights(&self) {
+        if self.is_quitting() {
+            return;
+        }
+        let result = (|| -> Result<(), Box<dyn std::error::Error>> {
+            let loaded = preference_load::load(&crate::platform::preferences_path()?)?;
+            self.services()
+                .show_application_highlights(&loaded.preferences)?;
+            Ok(())
+        })();
+        if let Err(error) = result {
+            crate::diagnostics::warn!("Could not show Release Highlights: {error}");
         }
     }
 

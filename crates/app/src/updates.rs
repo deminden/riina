@@ -33,6 +33,8 @@ pub(crate) struct ApplicationUpdates {
     timer: Timer,
     consent_due: Cell<bool>,
     running: Cell<Option<check::Running>>,
+    pub(crate) closed: crate::windows::close_observer::CloseObserver,
+    application_theme: Cell<Option<(riina_core::ThemeMaterial, bool)>>,
     #[cfg(target_os = "windows")]
     install: install::InstallFlow,
 }
@@ -58,6 +60,22 @@ impl ApplicationUpdates {
             .borrow_mut()
             .retain(|owner| owner.player.upgrade().is_some());
         self.owners.borrow_mut().push(owner.clone());
+        self.initialize_schedule(preferences_path);
+        let updates = Rc::downgrade(self);
+        app.global::<PlayerMenuActions>()
+            .on_check_for_updates(move || {
+                if let (Some(updates), Some(app)) = (updates.upgrade(), owner.player.upgrade())
+                    && let Err(error) = updates.show_manual(Some(&owner))
+                {
+                    crate::diagnostics::report(
+                        &app,
+                        format!("Could not open Software Update: {error}"),
+                    );
+                }
+            });
+    }
+
+    fn initialize_schedule(self: &Rc<Self>, preferences_path: &Path) {
         if self
             .store
             .set(Store::for_preferences(preferences_path))
@@ -69,28 +87,34 @@ impl ApplicationUpdates {
             }
             self.refresh_schedule();
         }
-        let updates = Rc::downgrade(self);
-        app.global::<PlayerMenuActions>()
-            .on_check_for_updates(move || {
-                if let (Some(updates), Some(app)) = (updates.upgrade(), owner.player.upgrade())
-                    && let Err(error) = updates.show_manual(&owner)
-                {
-                    crate::diagnostics::report(
-                        &app,
-                        format!("Could not open Software Update: {error}"),
-                    );
-                }
-            });
     }
 
-    fn show_manual(self: &Rc<Self>, owner: &Owner) -> Result<(), slint::PlatformError> {
+    #[cfg(any(test, target_os = "macos"))]
+    pub(crate) fn configure_application(
+        self: &Rc<Self>,
+        preferences_path: &Path,
+        preferences: &riina_core::Preferences,
+    ) {
+        self.application_theme.set(Some((
+            preferences.effective_theme_material(),
+            preferences.dark,
+        )));
+        self.initialize_schedule(preferences_path);
+    }
+
+    #[cfg(any(test, target_os = "macos"))]
+    pub(crate) fn show_from_application(self: &Rc<Self>) -> Result<(), slint::PlatformError> {
+        self.show_manual(None)
+    }
+
+    fn show_manual(self: &Rc<Self>, owner: Option<&Owner>) -> Result<(), slint::PlatformError> {
         let window = self.window()?;
         let start = !window.window().is_visible() || window.get_asking_permission();
         self.consent_due.set(false);
         if start && !self.install_in_progress() {
             self.request_manual(&window);
         }
-        reveal(&window, Some(owner))?;
+        self.reveal(&window, owner)?;
         window
             .window()
             .with_winit_window(|native| native.focus_window());
@@ -129,6 +153,7 @@ impl ApplicationUpdates {
                 && updates.can_dismiss(&window)
             {
                 let _ = window.hide();
+                updates.closed.notify();
             }
         });
         let weak = window.as_weak();
@@ -138,21 +163,39 @@ impl ApplicationUpdates {
                 && updates.answer_consent(&window, enabled)
             {
                 let _ = window.hide();
+                updates.closed.notify();
             }
         });
         let weak = window.as_weak();
         let updates = Rc::downgrade(self);
         window.window().on_close_requested(move || {
-            if let (Some(window), Some(updates)) = (weak.upgrade(), updates.upgrade())
-                && !updates.can_dismiss(&window)
-            {
-                slint::CloseRequestResponse::KeepWindowShown
-            } else {
-                slint::CloseRequestResponse::HideWindow
+            if let (Some(window), Some(updates)) = (weak.upgrade(), updates.upgrade()) {
+                if !updates.can_dismiss(&window) {
+                    return slint::CloseRequestResponse::KeepWindowShown;
+                }
+                updates.closed.notify();
             }
+            slint::CloseRequestResponse::HideWindow
         });
         *slot = Some(window.clone_strong());
         Ok(window)
+    }
+
+    #[cfg(target_os = "macos")]
+    pub(crate) fn is_visible(&self) -> bool {
+        self.window
+            .borrow()
+            .as_ref()
+            .is_some_and(|window| window.window().is_visible())
+    }
+
+    #[cfg(target_os = "macos")]
+    pub(crate) fn hide_for_quit(&self) {
+        self.timer.stop();
+        self.running.take();
+        if let Some(window) = self.window.borrow().as_ref() {
+            let _ = window.hide();
+        }
     }
 
     fn can_dismiss(self: &Rc<Self>, window: &UpdateWindow) -> bool {
@@ -218,7 +261,7 @@ impl ApplicationUpdates {
         window.set_asking_permission(true);
         window.set_headline("Check for updates automatically?".into());
         window.set_detail("Riina can check for new releases in the background.".into());
-        reveal(&window, self.owner().as_ref())?;
+        self.reveal(&window, self.owner().as_ref())?;
         window.invoke_focus_dismiss();
         Ok(())
     }
@@ -267,25 +310,45 @@ impl ApplicationUpdates {
         #[cfg(not(target_os = "windows"))]
         false
     }
-}
-
-fn reveal(window: &UpdateWindow, owner: Option<&Owner>) -> Result<(), slint::PlatformError> {
-    if let Some(owner) = owner
-        && let Some(app) = owner.player.upgrade()
-    {
-        window.set_dark_theme(app.global::<PlayerAppearance>().get_dark_theme());
-        if !window.window().is_visible() {
-            if let Some(host) = owner.host.as_ref().and_then(Weak::upgrade) {
-                crate::platform::center_auxiliary_window(window, &host);
-            } else {
-                crate::platform::center_auxiliary_window(window, &app);
+    fn reveal(
+        &self,
+        window: &UpdateWindow,
+        owner: Option<&Owner>,
+    ) -> Result<(), slint::PlatformError> {
+        let app = owner.and_then(|owner| owner.player.upgrade());
+        if let Some(app) = app.as_ref() {
+            window.set_dark_theme(app.global::<PlayerAppearance>().get_dark_theme());
+            if !window.window().is_visible() {
+                if let Some(host) = owner
+                    .and_then(|owner| owner.host.as_ref())
+                    .and_then(Weak::upgrade)
+                {
+                    crate::platform::center_auxiliary_window(window, &host);
+                } else {
+                    crate::platform::center_auxiliary_window(window, app);
+                }
             }
         }
+        let application_theme = app
+            .is_none()
+            .then_some(self.application_theme.get())
+            .flatten();
+        if let Some((theme, dark)) = application_theme {
+            window.set_dark_theme(theme.dark_for(dark));
+        }
+        if !window.window().is_visible() {
+            crate::platform::show_window(window)?;
+        }
+        if let Some((theme, fallback_dark)) = application_theme {
+            window.window().with_winit_window(|host| {
+                let dark = host.theme().map_or(fallback_dark, |theme| {
+                    theme == slint::winit_030::winit::window::Theme::Dark
+                });
+                window.set_dark_theme(theme.dark_for(dark));
+            });
+        }
+        Ok(())
     }
-    if !window.window().is_visible() {
-        crate::platform::show_window(window)?;
-    }
-    Ok(())
 }
 
 fn present(

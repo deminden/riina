@@ -222,9 +222,10 @@ Windows event loop. A separately launched Riina process has its own application
 owner.
 
 Software Update is an application service shared by its players. Either menu
-opens the same window and joins an in-flight scheduled check. The General
-settings edit one update policy per profile. Independent app processes share
-the policy and claim a due check under a file lock. A worker retrieves public
+opens the same window and joins an in-flight scheduled check. On macOS the
+service starts with the application and the idle app menu can check on demand.
+The General settings edit one update policy per profile. Independent app
+processes share the policy and claim a due check under a file lock. A worker retrieves public
 release metadata and compares versions. A scheduled check opens the window
 only when a newer release is available. The window can open the project's
 release page. For a registered Windows installation, a download worker
@@ -572,7 +573,10 @@ A newer selection replaces a pending target.
 
 Release Highlights and About each have one application-owned window. Highlights
 reads notes bundled for the package version and opens the browser only through
-its release link. A profile lock coordinates automatic launch across processes.
+its release link. The macOS Help menu keeps the guide, support links and the
+debug report action available before a player opens. AppKit supplies Help search
+for both menu states. A profile lock coordinates automatic launch across
+processes.
 The version marker is created after the guide opens. About follows the appearance
 of the player that opened it and stays usable when that player closes.
 
@@ -630,13 +634,15 @@ action. The shared manager prepares windowless Finder selections off the UI
 thread using the saved grouping and window preferences. An AppKit Open panel
 can choose files and folders in one selection, as a sheet for an existing
 player or as an application panel while idle. Playback History shares its
-archive and window with the idle application menu. About, Log Viewer, History
-and Open URL can outlive the last player. The idle Window menu is registered
+archive and window with the idle application menu. About, Log Viewer, History,
+Open URL, Software Update and Release Highlights can outlive the last player.
+The idle Window menu is registered
 with AppKit, and the quit decision is deferred until the final tool closes.
 Closing a tool before any player opened leaves the application available.
 [AppKit application event handling](https://developer.apple.com/documentation/appkit/nsapplication)
 [AppKit recent documents](https://developer.apple.com/documentation/appkit/nsdocumentcontroller)
 [AppKit Window menu](https://developer.apple.com/documentation/appkit/nsapplication/windowsmenu)
+[AppKit Help menu](https://developer.apple.com/documentation/appkit/nsapplication/helpmenu)
 
 The player keeps pending fullscreen intent separate from the observed
 presentation. Windows confirms through its native owner. macOS uses AppKit

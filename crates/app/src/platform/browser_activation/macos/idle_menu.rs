@@ -24,12 +24,32 @@ pub(super) fn prepare(
     enable_new_window_shortcut: bool,
 ) {
     let menu = NSMenu::new(main);
+    for submenu in [
+        application_menu(main, target),
+        file_menu(main, target, enable_new_window_shortcut),
+        window_menu(main, target),
+        help_menu(main, target),
+    ] {
+        let parent = item(main, &submenu.title().to_string(), None, "", None);
+        parent.setSubmenu(Some(&submenu));
+        menu.addItem(&parent);
+    }
+    IDLE_MENU.replace(Some(menu));
+}
+
+fn application_menu(main: MainThreadMarker, target: &LaunchTarget) -> Retained<NSMenu> {
     let app = NSMenu::initWithTitle(NSMenu::alloc(main), &NSString::from_str("Riina"));
-    let file = NSMenu::initWithTitle(NSMenu::alloc(main), &NSString::from_str("File"));
     app.addItem(&item(
         main,
         "About Riina",
         Some(sel!(riinaIdleAbout:)),
+        "",
+        Some(target),
+    ));
+    app.addItem(&item(
+        main,
+        "Check for Updates…",
+        Some(sel!(riinaIdleUpdates:)),
         "",
         Some(target),
     ));
@@ -42,6 +62,15 @@ pub(super) fn prepare(
         "q",
         Some(target),
     ));
+    app
+}
+
+fn file_menu(
+    main: MainThreadMarker,
+    target: &LaunchTarget,
+    enable_new_window_shortcut: bool,
+) -> Retained<NSMenu> {
+    let file = NSMenu::initWithTitle(NSMenu::alloc(main), &NSString::from_str("File"));
     for (titles, action, key, modifiers) in [
         (
             FILE_TITLES,
@@ -90,6 +119,10 @@ pub(super) fn prepare(
         .setKeyEquivalentModifierMask(NSEventModifierFlags::Command | NSEventModifierFlags::Shift);
     file.addItem(&NSMenuItem::separatorItem(main));
     file.addItem(&history);
+    file
+}
+
+fn window_menu(main: MainThreadMarker, target: &LaunchTarget) -> Retained<NSMenu> {
     let window = NSMenu::initWithTitle(NSMenu::alloc(main), &NSString::from_str("Window"));
     window.addItem(&item(
         main,
@@ -119,12 +152,52 @@ pub(super) fn prepare(
         NSEventModifierFlags::Control | NSEventModifierFlags::Command,
     );
     window.addItem(&logs);
-    for (title, submenu) in [("Riina", app), ("File", file), ("Window", window)] {
-        let parent = item(main, title, None, "", None);
-        parent.setSubmenu(Some(&submenu));
-        menu.addItem(&parent);
+    window
+}
+
+fn help_menu(main: MainThreadMarker, target: &LaunchTarget) -> Retained<NSMenu> {
+    let help = NSMenu::initWithTitle(NSMenu::alloc(main), &NSString::from_str("Help"));
+    help.addItem(&help_link(main, target, "Riina Help", "help", "?"));
+    help.addItem(&item(
+        main,
+        "Dump Debug Info",
+        Some(sel!(riinaIdleDebugInfo:)),
+        "",
+        Some(target),
+    ));
+    help.addItem(&NSMenuItem::separatorItem(main));
+    help.addItem(&item(
+        main,
+        "Release Highlights",
+        Some(sel!(riinaIdleHighlights:)),
+        "",
+        Some(target),
+    ));
+    help.addItem(&NSMenuItem::separatorItem(main));
+    help.addItem(&help_link(main, target, "GitHub", "github", ""));
+    help.addItem(&help_link(main, target, "Website", "website", ""));
+    help
+}
+
+fn help_link(
+    main: MainThreadMarker,
+    target: &LaunchTarget,
+    title: &str,
+    destination: &str,
+    shortcut: &str,
+) -> Retained<NSMenuItem> {
+    let link = item(
+        main,
+        title,
+        Some(sel!(riinaIdleHelpLink:)),
+        shortcut,
+        Some(target),
+    );
+    // SAFETY: the item retains the immutable destination while it can send its action.
+    unsafe {
+        link.setRepresentedObject(Some(&NSString::from_str(destination)));
     }
-    IDLE_MENU.replace(Some(menu));
+    link
 }
 
 pub(crate) fn show_idle_menu() {
@@ -146,6 +219,12 @@ pub(crate) fn show_idle_menu() {
                 .and_then(|item| item.submenu())
             {
                 app.setWindowsMenu(Some(&window));
+            }
+            if let Some(help) = menu
+                .itemWithTitle(&NSString::from_str("Help"))
+                .and_then(|item| item.submenu())
+            {
+                app.setHelpMenu(Some(&help));
             }
         }
     });
@@ -238,6 +317,16 @@ pub(super) fn clear() {
                 .is_some_and(|active| std::ptr::eq(active, &*window))
         {
             app.setWindowsMenu(None);
+        }
+        if let Some(help) = menu
+            .itemWithTitle(&NSString::from_str("Help"))
+            .and_then(|item| item.submenu())
+            && app
+                .helpMenu()
+                .as_deref()
+                .is_some_and(|active| std::ptr::eq(active, &*help))
+        {
+            app.setHelpMenu(None);
         }
         if app
             .mainMenu()

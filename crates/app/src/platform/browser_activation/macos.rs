@@ -190,6 +190,45 @@ define_class!(
             launch.manager.show_application_logs();
         }
 
+        #[unsafe(method(riinaIdleUpdates:))]
+        fn idle_updates(&self, _sender: Option<&AnyObject>) {
+            let launch = self.ivars();
+            launch.default_action.take();
+            launch.manager.show_application_updates();
+        }
+
+        #[unsafe(method(riinaIdleHighlights:))]
+        fn idle_highlights(&self, _sender: Option<&AnyObject>) {
+            let launch = self.ivars();
+            launch.default_action.take();
+            launch.manager.show_application_highlights();
+        }
+
+        #[unsafe(method(riinaIdleHelpLink:))]
+        fn idle_help_link(&self, sender: Option<&objc2_app_kit::NSMenuItem>) {
+            let launch = self.ivars();
+            if launch.manager.is_quitting() {
+                return;
+            }
+            if let Some(destination) = sender
+                .and_then(objc2_app_kit::NSMenuItem::representedObject)
+                .and_then(|value| value.downcast::<objc2_foundation::NSString>().ok())
+                .and_then(|value| crate::player_ui::help_menu_url(&value.to_string()))
+                && let Err(error) = crate::platform::open_http_url_in_browser(destination)
+            {
+                crate::diagnostics::warn!("Could not open the help link: {error}");
+            }
+        }
+
+        #[unsafe(method(riinaIdleDebugInfo:))]
+        fn idle_debug_info(&self, _sender: Option<&AnyObject>) {
+            let launch = self.ivars();
+            if !launch.manager.is_quitting() {
+                launch.default_action.take();
+                launch.manager.services().dump_application_debug_information();
+            }
+        }
+
         #[unsafe(method(riinaIdleAbout:))]
         fn idle_about(&self, _sender: Option<&AnyObject>) {
             let launch = self.ivars();

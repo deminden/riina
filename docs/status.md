@@ -51,12 +51,16 @@ Implementation does not imply every state or platform is verified.
 - **New Window:** the optional File menu shortcut opens an independent Welcome
   window. The command stays hidden with the default profile.
 - **Debug Info:** Help saves one report with playback snapshots from every
-  open player in the application.
+  open player in the application. The idle macOS Help menu can save a report
+  before playback starts.
 - **Inspector** opens from the Window menu and shows the focused player's
   general media details, tracks, file metadata and playback status. Watched
   mpv properties are saved in the profile and update while the window is visible.
 - **Release Highlights:** Help opens the current release notes. Released builds
-  show the bundled guide on the first launch of each version.
+  show the bundled guide on the first launch of each version with a player or
+  Welcome window. The idle macOS Help menu can open the guide on demand.
+- **Software Update:** the idle macOS application menu can check on demand,
+  and the opt-in schedule starts with the application.
 - **About:** player menus and the idle macOS menu share one window. About can
   check the installed libmpv and FFmpeg versions before the first player opens.
 - **Command line:** `riina-cli` starts playback from files, URLs or standard

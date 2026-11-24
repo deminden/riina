@@ -3754,3 +3754,34 @@ and deferred quit with several tools still need a native macOS desktop run.
 - Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
 - Linux application SHA-256 `a33f23f6a59799359eca8082a64945512a9b47577e997deb9cff478698e4c7f1`
 - Linux libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`
+
+### Software Update and Help without a player 2026-11-24
+
+The macOS application initializes the per-profile update schedule before opening
+a player. The idle menu can open the shared update window and offers the Help
+links, Release Highlights and Debug Info. Software Update and Release Highlights
+participate in the deferred quit workflow when they outlive the last player.
+
+The headless update regression covers the first and second launches, declining
+automatic checks, and a manual check that joins an in-flight request. It asserts
+that player and application commands use the same window and preserve the saved
+consent choice. Its update result is supplied locally. The release guide regression
+opens before a player connects. Debug Info can produce a zero-player report.
+
+A private Windows desktop checked the live release service, retried from the
+same window and preserved paused playback. Release Highlights reopened the
+same guide from Help. The test process exited normally. An isolated Linux X11
+desktop exercised update consent, saved the Escape dismissal as disabled and
+opened the manual update window afterwards. A separate isolated Linux run
+saved debug reports showing two players and then only the remaining player.
+The report confirmation dialog was unavailable in that desktop.
+
+The Windows workspace gate, all 61 pinned Windows libmpv tests, locked Windows
+and Linux application builds, 580 Linux application unit tests and strict Apple
+Silicon cross-Clippy passed. The idle AppKit actions, Help search, and shutdown
+with these windows open still need native macOS verification.
+
+- Windows application SHA-256 `b915def17e721fb123e918a52738b3a9c518ab7868bedc244058a135a71bb323`
+- Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
+- Linux application SHA-256 `adab5ac9c2cda6b41414f31ddf392c2648f63e0cb3281baca133c41606df5fa6`
+- Linux libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`

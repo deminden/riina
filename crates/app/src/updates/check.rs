@@ -1,6 +1,6 @@
 //! Coalesce menu and scheduled checks and deliver their results on the UI thread.
 use super::{
-    ApplicationUpdates, present, releases, reveal,
+    ApplicationUpdates, present, releases,
     schedule::{self, Channel, Permission},
 };
 use crate::UpdateWindow;
@@ -102,7 +102,7 @@ impl ApplicationUpdates {
             }
         };
         present(self, &window, result);
-        if !manual && let Err(error) = reveal(&window, self.owner().as_ref()) {
+        if !manual && let Err(error) = self.reveal(&window, self.owner().as_ref()) {
             crate::diagnostics::warn!("Could not show the available update: {error}");
         }
     }
@@ -112,7 +112,61 @@ impl ApplicationUpdates {
 mod tests {
     use super::*;
     use crate::updates::schedule::Store;
+    use riina_core::{Preferences, ThemeMaterial};
     use semver::Version;
+
+    #[test]
+    fn idle_update_schedule_prompts_once_and_manual_check_reuses_the_window()
+    -> Result<(), Box<dyn std::error::Error>> {
+        i_slint_backend_testing::init_no_event_loop();
+        let profile = riina_test_support::TempDir::new("idle-update-schedule")?;
+        let path = profile.path().join("preferences.json");
+        let preferences = Preferences {
+            theme_material: Some(ThemeMaterial::Dark),
+            ..Preferences::default()
+        };
+        let first_launch = Rc::new(ApplicationUpdates::default());
+        first_launch.configure_application(&path, &preferences);
+        first_launch.configure_application(&path, &preferences);
+        assert!(!first_launch.timer.running());
+        assert!(first_launch.window.borrow().is_none());
+
+        let updates = Rc::new(ApplicationUpdates::default());
+        updates.configure_application(&path, &preferences);
+        assert!(updates.timer.running());
+        i_slint_backend_testing::mock_elapsed_time(super::super::STARTUP_DELAY);
+        let window = updates.window()?;
+        assert!(window.window().is_visible());
+        assert!(window.get_dark_theme());
+        assert!(window.get_asking_permission());
+        window.invoke_set_permission(false);
+        assert_eq!(updates.state()?.permission, Permission::Disabled);
+        assert!(!window.window().is_visible());
+        assert!(!updates.timer.running());
+
+        // Provide the in-flight result locally so the test never contacts the release service.
+        updates
+            .running
+            .set(Some(Running::automatic(Channel::Stable)));
+        updates.show_from_application()?;
+        assert!(window.window().is_visible());
+        assert!(window.get_checking());
+        assert!(updates.running.get().is_some_and(|running| running.manual));
+        let player = crate::PlayerWindow::new()?;
+        updates.connect(&player, None, &path);
+        player
+            .global::<riina_ui::PlayerMenuActions>()
+            .invoke_check_for_updates();
+        updates.finish(Ok(releases::Outcome::Current(Version::parse(env!(
+            "CARGO_PKG_VERSION"
+        ))?)));
+        assert!(!window.get_checking());
+        assert!(!window.get_release_available());
+        assert_eq!(updates.state()?.permission, Permission::Disabled);
+        window.invoke_dismiss();
+        assert!(!window.window().is_visible());
+        Ok(())
+    }
 
     #[test]
     fn automatic_results_stay_hidden_unless_a_new_release_is_available() {
