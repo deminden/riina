@@ -67,7 +67,7 @@ pub(super) struct Installed {
     pub(super) pending_navigation: PendingNavigation,
     pub(super) scroll_monitor: platform::PlayerScrollMonitor,
     pub(super) subtitle_assignments: Assignments,
-    pub(super) touch_bar_samples: platform::player_touch_bar::Samples,
+    pub(super) timeline_samples: platform::player_thumbnails::Samples,
 }
 
 pub(super) struct Inputs<'a> {
@@ -180,6 +180,7 @@ pub(super) fn install(app: &PlayerWindow, inputs: Inputs<'_>) -> Installed {
         native.map(platform::NativePresentation::host),
     );
     let thumbnail_preview = thumbnail_actions::install(app, playback, plugin_host.cloned());
+    system_media.bind_timeline_samples(&thumbnail_preview.timeline_samples);
     let (transition_frame_timer, pending_navigation) = transitions::install(
         capture_transition_first,
         native,
@@ -217,7 +218,7 @@ pub(super) fn install(app: &PlayerWindow, inputs: Inputs<'_>) -> Installed {
         pending_navigation,
         scroll_monitor,
         subtitle_assignments,
-        touch_bar_samples: thumbnail_preview.touch_bar_samples,
+        timeline_samples: thumbnail_preview.timeline_samples,
     }
 }
 

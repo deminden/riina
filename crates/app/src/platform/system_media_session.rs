@@ -179,6 +179,15 @@ mod macos {
     }
 
     impl SystemMediaSession {
+        pub(super) fn associate_thumbnail_cache(
+            &self,
+            samples: &super::super::player_thumbnails::Samples,
+        ) {
+            self.controls
+                .borrow_mut()
+                .bind_timeline_samples(&samples.controller);
+        }
+
         pub(crate) fn new(app: &PlayerWindow, latest_playback: PlaybackStore) -> Self {
             let system_media_sender = Rc::new(RefCell::new(None::<riina_mpv::CommandSender>));
             let (system_media_controls, system_media_controls_timer) = {
@@ -323,3 +332,12 @@ pub(crate) use windows::SystemMediaSession;
 mod linux;
 #[cfg(target_os = "linux")]
 pub(crate) use linux::SystemMediaSession;
+
+impl SystemMediaSession {
+    pub(crate) fn bind_timeline_samples(&self, samples: &super::player_thumbnails::Samples) {
+        #[cfg(target_os = "macos")]
+        self.associate_thumbnail_cache(samples);
+        #[cfg(not(target_os = "macos"))]
+        let _ = samples;
+    }
+}

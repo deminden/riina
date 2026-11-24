@@ -101,6 +101,7 @@ pub(crate) struct Controller {
     identity: Option<Identity>,
     task: Option<PreviewTask>,
     frames: Vec<Option<(f64, Vec<u8>)>>,
+    complete: bool,
     hover_time: Option<f64>,
     displayed_index: Option<usize>,
     sample_revision: u64,
@@ -125,6 +126,7 @@ impl Controller {
             self.cancel_current();
             self.identity = next.clone();
             self.frames.clear();
+            self.complete = false;
             self.sample_revision = self.sample_revision.wrapping_add(1);
             self.displayed_index = None;
             app.global::<riina_ui::PlaybackTimelineState>()
@@ -191,7 +193,8 @@ impl Controller {
                 }
                 PreviewEvent::Finished(result) => {
                     self.task.take();
-                    thumbnails_ready = result.is_ok() && complete_frame_set(&self.frames);
+                    self.complete = result.is_ok() && complete_frame_set(&self.frames);
+                    thumbnails_ready = self.complete;
                     if let Err(error) = result
                         && error != "Thumbnail extraction was cancelled"
                     {
@@ -209,6 +212,17 @@ impl Controller {
 
     pub(crate) fn sample_revision(&self) -> u64 {
         self.sample_revision
+    }
+
+    /// Artwork uses the preceding frame from a completed cache for the current file.
+    #[cfg(any(target_os = "macos", test))]
+    pub(crate) fn artwork_sample(&self, generation: u64, seconds: f64) -> Option<&[u8]> {
+        if !self.complete || self.identity.as_ref()?.generation != generation {
+            return None;
+        }
+        self.sample_near(None, seconds.next_down().max(0.0))
+            .map(|(_, jpeg)| jpeg)
+            .or_else(|| Some(self.frames.first()?.as_ref()?.1.as_slice()))
     }
 
     /// Use the latest sample at or before the requested time. Callers projecting
@@ -610,6 +624,7 @@ mod tests {
             }),
             task: None,
             frames: vec![Some((0.0, vec![10])), None, Some((2.0, vec![20]))],
+            complete: false,
             hover_time: None,
             displayed_index: None,
             sample_revision: 0,
@@ -630,6 +645,31 @@ mod tests {
         playback.phase = Phase::Loading;
         assert_eq!(cache.sample_near(Some(&playback), 2.5), None);
         assert_eq!(cache.sample_near(None, 1.5), Some((0, &[10][..])));
+    }
+
+    #[test]
+    fn artwork_uses_the_preceding_sample_only_after_the_current_cache_completes() {
+        let mut cache = super::Controller {
+            identity: Some(super::Identity {
+                generation: 4,
+                media_path: "fixture.avi".into(),
+                settings: Settings::default(),
+            }),
+            task: None,
+            frames: vec![Some((0.0, vec![10])), Some((2.0, vec![20]))],
+            complete: false,
+            hover_time: None,
+            displayed_index: None,
+            sample_revision: 0,
+        };
+        assert_eq!(cache.artwork_sample(4, 2.5), None);
+        cache.complete = true;
+        assert_eq!(cache.artwork_sample(3, 2.5), None);
+        assert_eq!(cache.artwork_sample(4, 0.0), Some(&[10][..]));
+        assert_eq!(cache.artwork_sample(4, 2.0), Some(&[10][..]));
+        assert_eq!(cache.artwork_sample(4, 2.5), Some(&[20][..]));
+        cache.frames[0].as_mut().unwrap().0 = 0.5;
+        assert_eq!(cache.artwork_sample(4, 0.25), Some(&[10][..]));
     }
 
     #[test]

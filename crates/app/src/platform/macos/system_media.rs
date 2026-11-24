@@ -1,7 +1,8 @@
+use crate::thumbnail_preview::Controller as ThumbnailCache;
 use block2::RcBlock;
 use objc2::{
     AnyThread,
-    rc::Retained,
+    rc::{Retained, autoreleasepool},
     runtime::{AnyObject, NSObject, ProtocolObject},
 };
 use objc2_app_kit::{
@@ -37,14 +38,16 @@ use objc2_quick_look_thumbnailing::{
 };
 use riina_core::{LoopMode, Phase, Playback};
 use std::{
+    cell::RefCell,
     path::PathBuf,
     ptr::NonNull,
+    rc::{Rc, Weak},
     sync::{
         Arc,
         atomic::{AtomicBool, Ordering},
         mpsc::{self, Receiver, SyncSender, TrySendError},
     },
-    thread::{self, JoinHandle},
+    thread,
     time::{Duration, Instant},
 };
 
@@ -76,8 +79,7 @@ struct RegisteredTarget {
 struct GeneratedArtworkTask {
     generation: u64,
     cancel: Arc<AtomicBool>,
-    receiver: Receiver<Result<Vec<u8>, String>>,
-    thread: Option<JoinHandle<()>>,
+    receiver: Receiver<Option<Vec<u8>>>,
 }
 
 impl GeneratedArtworkTask {
@@ -85,20 +87,16 @@ impl GeneratedArtworkTask {
         library: PathBuf,
         media: String,
         track_id: Option<i64>,
-        fallback_time: Option<f64>,
         generation: u64,
     ) -> Result<Self, String> {
         let cancel = Arc::new(AtomicBool::new(false));
         let worker_cancel = cancel.clone();
         let (sender, receiver) = mpsc::channel();
-        let thread = crate::background::spawn_named("riina-now-playing-artwork", move || {
-            let result = capture_now_playing_artwork(
-                &library,
-                &media,
-                track_id,
-                fallback_time,
-                &worker_cancel,
-            );
+        // Artwork extraction and cancellation never block the application UI thread.
+        crate::background::spawn_named("riina-now-playing-artwork", move || {
+            let result = autoreleasepool(|_| {
+                capture_now_playing_artwork(&library, &media, track_id, &worker_cancel)
+            });
             // The owner can drop the result receiver while canceling artwork.
             let _ = sender.send(result);
         })
@@ -107,27 +105,23 @@ impl GeneratedArtworkTask {
             generation,
             cancel,
             receiver,
-            thread: Some(thread),
         })
     }
 
-    fn cancel(&self) {
-        self.cancel.store(true, Ordering::Release);
-    }
-
-    fn try_recv(&self) -> Result<Result<Vec<u8>, String>, mpsc::TryRecvError> {
+    fn try_recv(&self) -> Result<Option<Vec<u8>>, mpsc::TryRecvError> {
         self.receiver.try_recv()
     }
 }
 
 impl Drop for GeneratedArtworkTask {
     fn drop(&mut self) {
-        self.cancel();
-        if let Some(thread) = self.thread.take() {
-            // The named worker logs panics before returning.
-            let _ = thread.join();
-        }
+        self.cancel.store(true, Ordering::Release);
     }
+}
+
+struct TimelineArtwork {
+    key: (u64, u64, u64),
+    image: Option<Retained<MPMediaItemArtwork>>,
 }
 
 pub(crate) struct SystemMediaControls {
@@ -141,8 +135,10 @@ pub(crate) struct SystemMediaControls {
     lifecycle_observers: Vec<Retained<ProtocolObject<dyn NSObjectProtocol>>>,
     last_published: Option<NowPlayingSnapshot>,
     artwork_task: Option<GeneratedArtworkTask>,
-    artwork_attempt: Option<(u64, String)>,
-    generated_artwork: Option<(u64, Vec<u8>)>,
+    cover_artwork: Option<Retained<MPMediaItemArtwork>>,
+    generated_artwork: Option<Retained<MPMediaItemArtwork>>,
+    timeline_samples: Weak<RefCell<ThumbnailCache>>,
+    timeline_artwork: Option<TimelineArtwork>,
     configuration: Option<(String, Option<f64>, Option<f64>)>,
     pending_install_at: Option<Instant>,
 }
@@ -168,13 +164,13 @@ struct NowPlayingSnapshot {
     asset_url: Option<String>,
     artwork_path: Option<String>,
     embedded_artwork_track: Option<i64>,
-    fallback_video_track: Option<i64>,
-    fallback_video_time: Option<f64>,
+    timeline_position: Option<f64>,
 }
 
 impl NowPlayingSnapshot {
     fn from_playback(state: &Playback, thumbnail_preview_enabled: bool) -> Self {
-        let audio_media = state.audio_status() == riina_core::music_mode::AudioStatus::Audio;
+        let audio_status = state.audio_status();
+        let audio_media = audio_status == riina_core::music_mode::AudioStatus::Audio;
         let artwork_enabled = now_playing_artwork_enabled();
         let album_art_track = if artwork_enabled {
             state
@@ -234,35 +230,14 @@ impl NowPlayingSnapshot {
             embedded_artwork_track: album_art_track
                 .filter(|track| track.external_filename.is_none())
                 .map(|track| track.id),
-            fallback_video_track: if artwork_enabled && thumbnail_preview_enabled && !audio_media {
-                state
-                    .tracks
-                    .iter()
-                    .find(|track| {
-                        track.kind == riina_core::TrackKind::Video
-                            && !track.albumart
-                            && track.selected
-                    })
-                    .map(|track| track.id)
-            } else {
-                None
-            },
-            fallback_video_time: if artwork_enabled && thumbnail_preview_enabled && !audio_media {
+            timeline_position: if artwork_enabled
+                && thumbnail_preview_enabled
+                && audio_status == riina_core::music_mode::AudioStatus::Video
+            {
                 state
                     .duration
                     .filter(|duration| duration.is_finite() && *duration > 0.0)
-                    .map(|duration| {
-                        let requested = if duration < 120.0 {
-                            duration / 2.0
-                        } else {
-                            60.0
-                        };
-                        let sample = (requested / duration
-                            * f64::from(riina_mpv::thumbnail_generator::SAMPLE_COUNT))
-                        .ceil()
-                            - 1.0;
-                        duration * sample / f64::from(riina_mpv::thumbnail_generator::SAMPLE_COUNT)
-                    })
+                    .map(|duration| (duration / 2.0).min(60.0))
             } else {
                 None
             },
@@ -329,11 +304,17 @@ impl SystemMediaControls {
             lifecycle_observers,
             last_published: None,
             artwork_task: None,
-            artwork_attempt: None,
+            cover_artwork: None,
             generated_artwork: None,
+            timeline_samples: Weak::new(),
+            timeline_artwork: None,
             configuration: None,
             pending_install_at: None,
         }
+    }
+
+    pub(crate) fn bind_timeline_samples(&mut self, samples: &Rc<RefCell<ThumbnailCache>>) {
+        self.timeline_samples = Rc::downgrade(samples);
     }
 
     pub(crate) fn synchronize(
@@ -387,54 +368,13 @@ impl SystemMediaControls {
                 || previous.artwork_path != snapshot.artwork_path
                 || previous.artwork_enabled != snapshot.artwork_enabled
                 || previous.embedded_artwork_track != snapshot.embedded_artwork_track
-                || previous.fallback_video_track != snapshot.fallback_video_track
-                || previous.fallback_video_time != snapshot.fallback_video_time
                 || previous.asset_url != snapshot.asset_url
         });
         if artwork_source_changed {
-            self.artwork_task.take();
-            self.artwork_attempt = None;
-            self.generated_artwork = None;
+            self.reset_artwork(&snapshot);
         }
-        if snapshot.artwork_enabled
-            && let Some(media) = snapshot.asset_url.clone()
-            && !riina_core::media_reference::is_network_url_candidate(&media)
-            && self.artwork_attempt.as_ref() != Some(&(snapshot.generation, media.clone()))
-        {
-            self.artwork_attempt = Some((snapshot.generation, media.clone()));
-            let selected_track = snapshot.embedded_artwork_track;
-            match GeneratedArtworkTask::start(
-                self.library.clone(),
-                media,
-                selected_track,
-                snapshot.fallback_video_time,
-                snapshot.generation,
-            ) {
-                Ok(task) => self.artwork_task = Some(task),
-                Err(error) => crate::diagnostics::warn!("{error}"),
-            }
-        }
-        let artwork_finished = self
-            .artwork_task
-            .as_ref()
-            .filter(|task| task.generation == snapshot.generation)
-            .and_then(|task| task.try_recv().ok());
-        let artwork_changed = if let Some(result) = artwork_finished {
-            self.artwork_task.take();
-            match result {
-                Ok(image) => {
-                    self.generated_artwork = Some((snapshot.generation, image));
-                    true
-                }
-                Err(error) if error != "Now Playing artwork extraction was cancelled" => {
-                    crate::diagnostics::warn!("Could not extract Now Playing artwork: {error}");
-                    false
-                }
-                Err(_) => false,
-            }
-        } else {
-            false
-        };
+        let preferred_changed = self.refresh_generated_artwork(snapshot.generation);
+        let timeline_changed = self.refresh_timeline_artwork(&snapshot);
         let position_changed = self.last_published.as_ref().is_some_and(|previous| {
             match (previous.position, snapshot.position) {
                 (Some(old), Some(new)) => (new - old).abs() >= 1.0,
@@ -460,14 +400,100 @@ impl SystemMediaControls {
                 || previous.asset_url != snapshot.asset_url
                 || previous.artwork_path != snapshot.artwork_path
                 || previous.embedded_artwork_track != snapshot.embedded_artwork_track
-                || previous.fallback_video_track != snapshot.fallback_video_track
-                || previous.fallback_video_time != snapshot.fallback_video_time
         });
-        if metadata_changed || position_changed || artwork_changed || self.last_published.is_none()
-        {
+        if metadata_changed || position_changed || preferred_changed || timeline_changed {
             self.write_now_playing(&snapshot);
             self.last_published = Some(snapshot);
         }
+    }
+
+    fn reset_artwork(&mut self, snapshot: &NowPlayingSnapshot) {
+        self.artwork_task.take();
+        self.generated_artwork = None;
+        self.timeline_artwork = None;
+        self.cover_artwork = snapshot
+            .artwork_path
+            .as_deref()
+            .and_then(now_playing_artwork);
+        if !snapshot.artwork_enabled || self.cover_artwork.is_some() {
+            return;
+        }
+        if let Some(media) = &snapshot.asset_url
+            && !riina_core::media_reference::is_network_url_candidate(media)
+        {
+            match GeneratedArtworkTask::start(
+                self.library.clone(),
+                media.clone(),
+                snapshot.embedded_artwork_track,
+                snapshot.generation,
+            ) {
+                Ok(task) => self.artwork_task = Some(task),
+                Err(error) => crate::diagnostics::warn!("{error}"),
+            }
+        }
+    }
+
+    fn refresh_generated_artwork(&mut self, generation: u64) -> bool {
+        let Some(task) = self
+            .artwork_task
+            .as_ref()
+            .filter(|task| task.generation == generation)
+        else {
+            return false;
+        };
+        match task.try_recv() {
+            Err(mpsc::TryRecvError::Empty) => false,
+            Ok(None) | Err(mpsc::TryRecvError::Disconnected) => {
+                self.artwork_task.take();
+                false
+            }
+            Ok(Some(bytes)) => {
+                self.artwork_task.take();
+                self.generated_artwork = now_playing_artwork_data(&bytes);
+                self.generated_artwork.is_some()
+            }
+        }
+    }
+
+    fn refresh_timeline_artwork(&mut self, snapshot: &NowPlayingSnapshot) -> bool {
+        let (Some(samples), Some(seconds)) =
+            (self.timeline_samples.upgrade(), snapshot.timeline_position)
+        else {
+            return self.timeline_artwork.take().is_some();
+        };
+        if self.cover_artwork.is_some() || self.generated_artwork.is_some() {
+            return self.timeline_artwork.take().is_some();
+        }
+        let Ok(cache) = samples.try_borrow() else {
+            return false;
+        };
+        let key = (
+            snapshot.generation,
+            cache.sample_revision(),
+            seconds.to_bits(),
+        );
+        if self
+            .timeline_artwork
+            .as_ref()
+            .is_some_and(|stored| stored.key == key)
+        {
+            return false;
+        }
+        let Some(bytes) = cache
+            .artwork_sample(snapshot.generation, seconds)
+            .map(<[u8]>::to_vec)
+        else {
+            return self.timeline_artwork.take().is_some();
+        };
+        drop(cache);
+        let image = now_playing_artwork_data(&bytes);
+        let changed = image.is_some()
+            || self
+                .timeline_artwork
+                .as_ref()
+                .is_some_and(|stored| stored.image.is_some());
+        self.timeline_artwork = Some(TimelineArtwork { key, image });
+        changed
     }
 
     fn write_now_playing(&self, state: &NowPlayingSnapshot) {
@@ -488,17 +514,18 @@ impl SystemMediaControls {
                 keys.push(MPNowPlayingInfoPropertyAssetURL);
                 values.push(asset_url.into_super());
             }
-            if let Some(artwork) = state.artwork_path.as_deref().and_then(now_playing_artwork) {
-                keys.push(MPMediaItemPropertyArtwork);
-                values.push(artwork.into_super());
-            } else if let Some(artwork) = self
-                .generated_artwork
+            if let Some(artwork) = self
+                .cover_artwork
                 .as_ref()
-                .filter(|(generation, _)| *generation == state.generation)
-                .and_then(|(_, bytes)| now_playing_artwork_data(bytes))
+                .or(self.generated_artwork.as_ref())
+                .or_else(|| {
+                    self.timeline_artwork
+                        .as_ref()
+                        .and_then(|stored| stored.image.as_ref())
+                })
             {
                 keys.push(MPMediaItemPropertyArtwork);
-                values.push(artwork.into_super());
+                values.push(artwork.clone().into_super());
             }
             if let Some(duration) = state.duration {
                 keys.push(MPMediaItemPropertyPlaybackDuration);
@@ -580,8 +607,9 @@ impl SystemMediaControls {
 
     fn clear_now_playing(&mut self) {
         self.artwork_task.take();
-        self.artwork_attempt = None;
+        self.cover_artwork = None;
         self.generated_artwork = None;
+        self.timeline_artwork = None;
         // SAFETY: this app owns the info-center entry while media controls are active.
         unsafe {
             self.now_playing.setNowPlayingInfo(None);
@@ -776,29 +804,17 @@ fn capture_now_playing_artwork(
     library: &std::path::Path,
     media: &str,
     track_id: Option<i64>,
-    fallback_time: Option<f64>,
     cancel: &AtomicBool,
-) -> Result<Vec<u8>, String> {
+) -> Option<Vec<u8>> {
+    if cancel.load(Ordering::Acquire) {
+        return None;
+    }
     if let Some(track_id) = track_id
         && let Ok(bytes) = capture_video_artwork(library, media, track_id, cancel)
     {
-        return Ok(bytes);
+        return Some(bytes);
     }
-    if cancel.load(Ordering::Acquire) {
-        return Err("Now Playing artwork extraction was cancelled".into());
-    }
-    if let Ok(bytes) = capture_quick_look_artwork(media, cancel) {
-        return Ok(bytes);
-    }
-    if cancel.load(Ordering::Acquire) {
-        return Err("Now Playing artwork extraction was cancelled".into());
-    }
-    if let Some(seconds) = fallback_time
-        && let Ok(bytes) = capture_timeline_artwork(library, media, seconds, cancel)
-    {
-        return Ok(bytes);
-    }
-    Err("No Now Playing artwork could be generated".into())
+    capture_quick_look_artwork(media, cancel).ok()
 }
 
 fn capture_video_artwork(
@@ -810,17 +826,6 @@ fn capture_video_artwork(
     let mut generator = riina_mpv::thumbnail_generator::Generator::start_for_video_track(
         library, media, 768, track_id,
     )?;
-    receive_video_artwork(&mut generator, cancel)
-}
-
-fn capture_timeline_artwork(
-    library: &std::path::Path,
-    media: &str,
-    seconds: f64,
-    cancel: &AtomicBool,
-) -> Result<Vec<u8>, String> {
-    let mut generator =
-        riina_mpv::thumbnail_generator::Generator::start_at_time(library, media, 768, seconds)?;
     receive_video_artwork(&mut generator, cancel)
 }
 
@@ -903,21 +908,20 @@ fn capture_quick_look_request(url: &NSURL, cancel: &AtomicBool) -> Result<Vec<u8
                 let image = unsafe { representation.CGImage() };
                 encode_cgimage_jpeg(&image)
             };
-            // The capture deadline can expire before Quick Look replies.
-            let _ = sender.send(result);
+            // Quick Look can finish after the worker has cancelled the request.
+            let _ = sender.try_send(result);
         },
     );
     // SAFETY: the request is retained until completion and Quick Look copies the block.
     unsafe {
         generator.generateBestRepresentationForRequest_completionHandler(&request, &completion)
     };
-    let mut cancellation_requested = false;
     loop {
-        if cancel.load(Ordering::Acquire) && !cancellation_requested {
-            // The completion block remains alive until Quick Look confirms cancellation.
-            // SAFETY: the original generator and request remain retained across cancellation.
+        if cancel.load(Ordering::Acquire) {
+            // SAFETY: both objects are retained through this call. Quick Look
+            // owns the copied block and can finish independently of the worker.
             unsafe { generator.cancelRequest(&request) };
-            cancellation_requested = true;
+            return Err("Now Playing artwork extraction was cancelled".into());
         }
         match receiver.recv_timeout(Duration::from_millis(50)) {
             Ok(result) => {

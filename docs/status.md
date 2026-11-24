@@ -28,6 +28,9 @@ Implementation does not imply every state or platform is verified.
   time displays, and a scrubber with cached thumbnails. The second clock has
   its own saved mode. AppKit supplies the customization menu on supported Macs.
   Physical Touch Bar interaction and appearance still need a native macOS session.
+- **macOS Now Playing artwork:** cover art and Quick Look take precedence over
+  the current video's completed timeline thumbnails. The fallback uses the
+  frame just before the midpoint, capped at 60 seconds.
 - **Controller arrows:** Interface Settings selects playback speed, playlist
   navigation, or a 10-second seek. The main controller and Touch Bar use the
   selected action. The Music Mode arrows navigate the playlist.

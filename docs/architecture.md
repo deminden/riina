@@ -71,6 +71,11 @@ On macOS, the platform adapter registers each player's AppKit Touch Bar with
 the playback observer and retires it before native window cleanup. The scrubber
 samples the player's existing thumbnail cache. The timeline timer publishes
 sample changes after releasing the cache borrow so AppKit can redraw safely.
+Now Playing uses that same cache as its artwork fallback after the current
+media's timeline finishes generating or loading. It keeps a weak reference to
+the cache and lets cover art or Quick Look replace the fallback when available.
+Artwork cancellation signals the background worker without blocking playback
+updates or window shutdown.
 A touch gesture records both the current file and
 open request before pausing. Its seek and resume commands also carry the media
 generation through the mpv queue. The Touch Bar's end-clock mode belongs to the

@@ -4469,3 +4469,21 @@ desktop, the cache stored all 101 JPEGs through 34.999 seconds and the player
 exited normally. The Apple Silicon and Intel Mac targets passed strict Clippy.
 Native macOS playback, Touch Bar delivery, and physical pressure feedback
 remain open.
+
+### Now Playing timeline artwork 2026-11-24
+
+Now Playing uses the completed thumbnails of the current media when neither
+cover art nor Quick Look is available. The shared cache regression covers
+incomplete and superseded media, timestamps between samples, exact timestamp
+boundaries, and the first frame. Artwork requests can be cancelled without
+joining the extraction worker on the UI thread.
+
+The full Windows workspace gate passed, including the headless player and
+Settings pixel comparisons. Strict application Clippy passed for Apple Silicon
+and Intel Mac. The locked Linux application build ran in an isolated Wayland
+session, persisted all 101 JPEGs through 34.999 seconds, and exited normally.
+Native macOS still needs a Control Center check for artwork priority, media
+replacement during Quick Look, and window shutdown while extraction is pending.
+
+- Linux application SHA-256 `54abb5f4af62b4cd7e06bf352024417277e988837b4d19516620b7df7123d08d`
+- Linux libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`

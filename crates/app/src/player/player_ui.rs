@@ -661,7 +661,7 @@ fn configure_with_engine(
         pending_navigation,
         scroll_monitor,
         subtitle_assignments,
-        touch_bar_samples,
+        timeline_samples,
     } = features::install(
         app,
         features::Inputs {
@@ -724,11 +724,11 @@ fn configure_with_engine(
         &session.picture_in_picture,
     )?;
     application.connect_preferences(app, &context, &session, native.as_ref());
-    observer_state.bind_touch_bar(application.touch_bars.install(
-        app,
-        &context,
-        &touch_bar_samples,
-    ));
+    observer_state.bind_touch_bar(
+        application
+            .touch_bars
+            .install(app, &context, &timeline_samples),
+    );
     let debug_information = application.debug_information.connect(app, latest_playback);
     let (platform_extras, plugin_runtime) = session.plugin_ui.finish(
         session.plugin_host,

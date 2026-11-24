@@ -1,7 +1,7 @@
 //! Route native Touch Bar actions through the owning player's playback and profile.
 use super as native;
 use crate::{
-    PlayerWindow, osc_preferences, platform::player_touch_bar::Samples, player_ui::PlayerContext,
+    PlayerWindow, osc_preferences, platform::player_thumbnails::Samples, player_ui::PlayerContext,
     preference_store,
 };
 use riina_core::{

@@ -7,7 +7,7 @@ use std::{cell::RefCell, rc::Rc, time::Duration};
 
 pub(super) struct Installed {
     pub(super) timer: Rc<slint::Timer>,
-    pub(super) touch_bar_samples: platform::player_touch_bar::Samples,
+    pub(super) timeline_samples: platform::player_thumbnails::Samples,
 }
 
 pub(super) fn install(
@@ -18,8 +18,8 @@ pub(super) fn install(
     let thumbnail_preview_timer = Rc::new(slint::Timer::default());
     let thumbnail_controller =
         Rc::new(RefCell::new(crate::thumbnail_preview::Controller::default()));
-    let touch_bar_samples = platform::player_touch_bar::Samples::new(&thumbnail_controller);
-    let sample_observer = touch_bar_samples.clone();
+    let timeline_samples = platform::player_thumbnails::Samples::new(&thumbnail_controller);
+    let sample_observer = timeline_samples.clone();
     let thumbnail_hover = thumbnail_controller.clone();
     let thumbnail_weak = app.as_weak();
     app.global::<riina_ui::PlayerControlActions>()
@@ -76,7 +76,7 @@ pub(super) fn install(
     );
     Installed {
         timer: thumbnail_preview_timer,
-        touch_bar_samples,
+        timeline_samples,
     }
 }
 
