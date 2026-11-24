@@ -560,10 +560,23 @@ load fails. The worker associates each attempt with mpv's playlist entry ID,
 including the successor entry for a playlist redirect. A replacement invalidates
 the pending attempt before cancellation can act on the new file.
 
+Single network URLs at startup and immediate browser opens use the same stream
+attempt. Browser enqueue only adds the item to the playlist. A retry keeps the
+playback options for the original external request. The shared window displays
+the latest request. Starting a stream in another player leaves earlier players
+running. Native completion is tied to the load command's reply, which can
+precede commands that apply browser playback settings.
+
 For HTTP authentication, the platform credential service stores an opted-in
 account under the scheme, host and port. The worker applies a credentialed
 address at mpv's load hook. The playlist, displayed title and watched transport
 properties use the public address. [Pinned mpv command contract](https://github.com/mpv-player/mpv/blob/36abaa32d00a7229ee206aae12dc0e97e7962dca/DOCS/man/input.rst)
+
+The Help menu's debug report takes one snapshot of each live player in creation
+order. Each session registers its playback store and retires the registration
+when it closes. The application writes the snapshot on a background thread.
+The initiating window shows the result. The report strips user information
+from standalone URLs in the title, playlist and external-track fields.
 
 The Inspector uses the player focus events already dispatched by each window's
 platform adapter. Its shared window follows the newest live player and uses

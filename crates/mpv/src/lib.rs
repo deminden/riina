@@ -66,7 +66,7 @@ pub use worker::read_local_duration;
 
 enum Message {
     Intent(Command),
-    OpenStream(StreamSource, StreamAttempt),
+    OpenStream(Command, StreamSource, StreamAttempt),
     Client(client_request::Request),
     Wake,
     Shutdown,

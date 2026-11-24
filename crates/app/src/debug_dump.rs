@@ -1,25 +1,111 @@
-use riina_core::Playback;
+use crate::{PlaybackStore, PlayerWindow};
+use riina_core::{Playback, sync::lock};
+use riina_ui::PlayerMenuActions;
+use slint::ComponentHandle;
 use std::{
+    cell::RefCell,
     fs::{self, OpenOptions},
     io::{self, Write},
     path::{Path, PathBuf},
+    rc::{Rc, Weak},
+    sync::Arc,
     time::{SystemTime, UNIX_EPOCH},
 };
 
 const MAX_COLLECTION_ITEMS: usize = 512;
 const MAX_FIELD_CHARS: usize = 1024;
 
-pub(crate) fn write_download(playback: &Playback) -> io::Result<PathBuf> {
+#[derive(Default)]
+pub(crate) struct ApplicationDebugInformation {
+    players: RefCell<Vec<Weak<PlaybackStore>>>,
+}
+
+pub(crate) struct Registration {
+    source: RefCell<Option<Rc<PlaybackStore>>>,
+}
+
+impl Registration {
+    pub(crate) fn retire(&self) {
+        self.source.take();
+    }
+}
+
+impl ApplicationDebugInformation {
+    pub(crate) fn connect(
+        self: &Rc<Self>,
+        app: &PlayerWindow,
+        playback: &PlaybackStore,
+    ) -> Registration {
+        // The session can close while Slint still retains its component.
+        let source = Rc::new(playback.clone());
+        let mut players = self.players.borrow_mut();
+        players.retain(|player| player.strong_count() != 0);
+        players.push(Rc::downgrade(&source));
+        drop(players);
+
+        let application = self.clone();
+        let player = app.as_weak();
+        app.global::<PlayerMenuActions>()
+            .on_dump_debug_info(move || {
+                let snapshots = application.snapshots();
+                let recipient = player.clone();
+                let result = crate::background::spawn_named("debug-information", move || {
+                    let result = write_download(&snapshots);
+                    let _ = crate::background::to_ui(recipient, move |app| report(&app, result));
+                });
+                if let Err(error) = result
+                    && let Some(app) = player.upgrade()
+                {
+                    crate::diagnostics::report(
+                        &app,
+                        format!("Could not save debug information: {error}"),
+                    );
+                }
+            });
+        Registration {
+            source: RefCell::new(Some(source)),
+        }
+    }
+
+    fn snapshots(&self) -> Vec<Arc<Playback>> {
+        self.players
+            .borrow()
+            .iter()
+            .filter_map(Weak::upgrade)
+            .map(|player| lock(&player).clone())
+            .collect()
+    }
+}
+
+fn report(app: &PlayerWindow, result: io::Result<PathBuf>) {
+    match result {
+        Ok(path) => {
+            let _ = rfd::MessageDialog::new()
+                .set_title("Debug Info Saved")
+                .set_description(format!(
+                    "Debug information was saved to {}. It may contain media filenames and URLs. Review it before sharing.",
+                    path.display()
+                ))
+                .set_buttons(rfd::MessageButtons::Ok)
+                .show();
+        }
+        Err(error) => {
+            crate::diagnostics::report(app, format!("Could not save debug information: {error}"));
+        }
+    }
+}
+
+fn write_download(snapshots: &[Arc<Playback>]) -> io::Result<PathBuf> {
     let directory = dirs::download_dir().ok_or_else(|| {
         io::Error::new(
             io::ErrorKind::NotFound,
             "the system Downloads folder could not be located",
         )
     })?;
-    write_to(&directory, playback)
+    write_to(&directory, snapshots)
 }
 
-fn write_to(directory: &Path, playback: &Playback) -> io::Result<PathBuf> {
+fn write_to(directory: &Path, snapshots: &[Arc<Playback>]) -> io::Result<PathBuf> {
     fs::create_dir_all(directory)?;
     let stamp = SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -30,6 +116,18 @@ fn write_to(directory: &Path, playback: &Playback) -> io::Result<PathBuf> {
         .write(true)
         .create_new(true)
         .open(&path)?;
+
+    let result = write_report(&mut file, snapshots);
+    drop(file);
+    if let Err(error) = result {
+        // A failed write must not look like a completed report in Downloads.
+        let _ = fs::remove_file(&path);
+        return Err(error);
+    }
+    Ok(path)
+}
+
+fn write_report(file: &mut impl Write, snapshots: &[Arc<Playback>]) -> io::Result<()> {
     writeln!(
         file,
         "Riina {} debug information",
@@ -41,7 +139,16 @@ fn write_to(directory: &Path, playback: &Playback) -> io::Result<PathBuf> {
         std::env::consts::OS,
         std::env::consts::ARCH
     )?;
-    writeln!(file, "\nPlayer snapshot:")?;
+    writeln!(file, "Players: {}", snapshots.len())?;
+    for (index, snapshot) in snapshots.iter().enumerate() {
+        writeln!(file, "\nPlayer {} snapshot:", index + 1)?;
+        write_player(file, snapshot)?;
+    }
+    file.flush()?;
+    Ok(())
+}
+
+fn write_player(file: &mut impl Write, playback: &Playback) -> io::Result<()> {
     writeln!(file, "Generation: {}", playback.generation)?;
     writeln!(file, "Phase: {:?}", playback.phase)?;
     writeln!(
@@ -54,7 +161,7 @@ fn write_to(directory: &Path, playback: &Playback) -> io::Result<PathBuf> {
         "FFmpeg version: {:?}",
         clipped_option(&playback.ffmpeg_version)
     )?;
-    writeln!(file, "Title: {:?}", clipped(&playback.title))?;
+    writeln!(file, "Title: {:?}", media_reference(&playback.title))?;
     writeln!(file, "Artist: {:?}", clipped_option(&playback.artist))?;
     writeln!(file, "Album: {:?}", clipped_option(&playback.album))?;
     writeln!(file, "Position: {:?}", playback.position)?;
@@ -110,7 +217,7 @@ fn write_to(directory: &Path, playback: &Playback) -> io::Result<PathBuf> {
             clipped_option(&track.title),
             clipped_option(&track.lang),
             clipped_option(&track.codec),
-            clipped_option(&track.external_filename)
+            track.external_filename.as_deref().map(media_reference)
         )?;
     }
     writeln!(
@@ -138,12 +245,22 @@ fn write_to(directory: &Path, playback: &Playback) -> io::Result<PathBuf> {
             entry.id,
             entry.current,
             entry.playing,
-            clipped(&entry.filename),
+            media_reference(&entry.filename),
             entry.title.as_deref().map(clipped)
         )?;
     }
-    file.flush()?;
-    Ok(path)
+    Ok(())
+}
+
+fn media_reference(value: &str) -> String {
+    if let Ok(mut url) = url::Url::parse(value)
+        && (!url.username().is_empty() || url.password().is_some())
+    {
+        let _ = url.set_username("");
+        let _ = url.set_password(None);
+        return clipped(url.as_str());
+    }
+    clipped(value)
 }
 
 fn clipped_option(value: &Option<String>) -> Option<String> {
@@ -165,7 +282,7 @@ fn clipped(value: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::{MAX_FIELD_CHARS, write_to};
+    use super::{MAX_FIELD_CHARS, media_reference, write_to};
     use riina_core::{Phase, Playback, PlaylistEntry};
     use riina_test_support::TempDir;
     use std::fs;
@@ -200,7 +317,7 @@ mod tests {
             ..Playback::default()
         };
 
-        let path = write_to(directory.path(), &playback).unwrap();
+        let path = write_to(directory.path(), &[std::sync::Arc::new(playback)]).unwrap();
         assert!(
             path.file_name()
                 .unwrap()
@@ -214,5 +331,62 @@ mod tests {
         assert!(contents.contains("513 total; showing at most 512"));
         assert!(!contents.contains("private-tail.mkv"));
         assert!(contents.contains("[truncated]"));
+    }
+    #[test]
+    fn one_report_keeps_player_order_and_removes_url_credentials() {
+        let directory = TempDir::new("multiple-player-dump").unwrap();
+        let snapshots = [
+            std::sync::Arc::new(Playback {
+                title: "First player".into(),
+                ..Playback::default()
+            }),
+            std::sync::Arc::new(Playback {
+                title: "https://viewer:password@media.example/play.mkv".into(),
+                ..Playback::default()
+            }),
+        ];
+        let path = write_to(directory.path(), &snapshots).unwrap();
+        let result = fs::read_to_string(path).unwrap();
+        assert!(result.contains("Players: 2"));
+        assert!(
+            result.find("First player").unwrap()
+                < result.find("https://media.example/play.mkv").unwrap()
+        );
+        assert!(!result.contains("password"));
+        assert_eq!(
+            media_reference("C:\\Local\\file.mkv"),
+            "C:\\Local\\file.mkv"
+        );
+    }
+    #[test]
+    fn closed_player_windows_are_excluded_even_with_retained_observations()
+    -> Result<(), Box<dyn std::error::Error>> {
+        use super::{ApplicationDebugInformation, PlayerWindow};
+        use std::{
+            rc::Rc,
+            sync::{Arc, Mutex},
+        };
+
+        i_slint_backend_testing::init_no_event_loop();
+        let first = PlayerWindow::new()?;
+        let second = PlayerWindow::new()?;
+        let information = Rc::new(ApplicationDebugInformation::default());
+        let observation = |title: &str| {
+            Arc::new(Mutex::new(Arc::new(Playback {
+                title: title.into(),
+                ..Playback::default()
+            })))
+        };
+        let first_observation = observation("First");
+        let second_observation = observation("Second");
+        let first_session = information.connect(&first, &first_observation);
+        let _second_session = information.connect(&second, &second_observation);
+        assert_eq!(information.snapshots().len(), 2);
+        first_session.retire();
+        let live = information.snapshots();
+        assert_eq!(live.len(), 1);
+        assert_eq!(live[0].title, "Second");
+        assert_eq!(riina_core::sync::lock(&first_observation).title, "First");
+        Ok(())
     }
 }

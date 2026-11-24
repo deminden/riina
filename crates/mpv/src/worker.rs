@@ -108,8 +108,8 @@ impl<N: Fn(Arc<Playback>)> Start<N> {
                         state.observe_dynamic(&handle, &command, &notify);
                     }
                     Message::Intent(command) => state.handle_intent(&handle, command),
-                    Message::OpenStream(source, attempt) => {
-                        state.open_stream(&handle, source, attempt);
+                    Message::OpenStream(command, source, attempt) => {
+                        state.open_stream(&handle, command, source, attempt);
                     }
                     Message::Client(request) => {
                         if matches!(request.operation, Operation::RegisterHook(_)) {
@@ -320,6 +320,15 @@ impl WorkerState {
     }
 
     fn handle_intent(&mut self, handle: &Handle, command: Command) {
+        self.handle_intent_with_stream(handle, command, None);
+    }
+
+    fn handle_intent_with_stream(
+        &mut self,
+        handle: &Handle,
+        command: Command,
+        stream: Option<stream::StreamLoad>,
+    ) {
         if command.replaces_media() {
             self.pending_drop_subtitles.clear();
         }
@@ -360,7 +369,7 @@ impl WorkerState {
         {
             self.playlist_resume = PlaylistResume::Idle;
         }
-        if let Err(error) = self.issue_plan(handle, &command, plan) {
+        if let Err(error) = self.issue_plan(handle, &command, plan, stream) {
             if matches!(command, Command::CaptureMaterialFrame) {
                 diagnostic!("Could not request a Windows video material frame: {error}");
             } else {
@@ -382,6 +391,7 @@ impl WorkerState {
         handle: &Handle,
         command: &Command,
         plan: CommandPlan,
+        mut stream: Option<stream::StreamLoad>,
     ) -> Result<(), String> {
         let is_auto_seek = matches!(
             command,
@@ -419,6 +429,9 @@ impl WorkerState {
                 && args.first().is_some_and(|name| name == "loadfile")
                 && args.get(2).is_some_and(|mode| mode == "replace")
             {
+                if let Some(stream) = stream.take() {
+                    self.stream = Some(stream.for_reply(self.next_id));
+                }
                 let explicit = matches!(command, Command::OpenPlaylist(_));
                 if self.playback.explicit_playlist != explicit {
                     self.playback.explicit_playlist = explicit;

@@ -12,13 +12,18 @@ const TRANSPORT_PROPERTIES: [&str; 2] = ["stream-open-filename", "stream-path"];
 
 pub(super) struct StreamLoad {
     attempt: StreamAttempt,
-    reply: u64,
+    reply: Option<u64>,
     entry: Option<i64>,
     authentication: Option<String>,
     address: String,
 }
 
 impl StreamLoad {
+    pub(super) fn for_reply(mut self, reply: u64) -> Self {
+        self.reply = Some(reply);
+        self
+    }
+
     fn owns(&self, entry: i64) -> bool {
         self.entry == Some(entry)
     }
@@ -71,6 +76,7 @@ impl WorkerState {
     pub(super) fn open_stream(
         &mut self,
         handle: &Handle,
+        command: Command,
         source: StreamSource,
         attempt: StreamAttempt,
     ) {
@@ -85,31 +91,21 @@ impl WorkerState {
             self.stream_auth.installed = true;
         }
 
-        let before = self.next_id;
-        self.handle_intent(handle, Command::Load(source.address.clone()));
-        if before == self.next_id
-            || self
-                .pending
-                .get(&self.next_id)
-                .is_none_or(|reply| reply.label != "loadfile")
-        {
-            attempt.finish(StreamStatus::Failed);
-            return;
-        }
-        self.stream = Some(StreamLoad {
+        let stream = StreamLoad {
             attempt,
-            reply: self.next_id,
+            reply: None,
             entry: None,
             authentication: source.authenticated_address,
             address: source.address,
-        });
+        };
+        self.handle_intent_with_stream(handle, command, Some(stream));
     }
 
     pub(super) fn on_stream_reply(&mut self, event: &EventRef<'_>) {
         let Some(load) = self
             .stream
             .as_mut()
-            .filter(|load| load.reply == event.userdata())
+            .filter(|load| load.reply == Some(event.userdata()))
         else {
             return;
         };

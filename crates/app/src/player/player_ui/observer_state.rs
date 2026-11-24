@@ -1,5 +1,6 @@
 //! Snapshot projection state belongs to the UI thread for each player session.
 use super::features::PlaybackTimers;
+use crate::windows::open_url::ApplicationOpenUrl;
 use crate::{screenshot_osd::ScreenshotOsd, seek_osd::SeekOsd, video_osd::VideoOsd};
 use riina_core::Playback;
 use std::{
@@ -26,6 +27,7 @@ pub(super) struct UiObserverState {
     pub(super) screenshot: ScreenshotOsd,
     pub(super) timers: Option<PlaybackTimers>,
     pub(super) startup_presentation: Option<(i32, crate::startup_arguments::Presentation)>,
+    pub(super) open_url: Weak<ApplicationOpenUrl>,
     power: Option<crate::playback_power::Registration>,
 }
 
@@ -43,6 +45,7 @@ impl UiObserverState {
             screenshot: ScreenshotOsd::default(),
             timers: None,
             startup_presentation: None,
+            open_url: Weak::new(),
             power: None,
         }
     }
@@ -110,6 +113,10 @@ impl ObserverRegistration {
 
     pub(super) fn id(&self) -> ObserverId {
         self.id
+    }
+
+    pub(super) fn bind_open_url(&self, open_url: &Rc<ApplicationOpenUrl>) {
+        self.state.borrow_mut().open_url = Rc::downgrade(open_url);
     }
 
     pub(super) fn bind_playback(

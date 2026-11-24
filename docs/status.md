@@ -26,6 +26,8 @@ Implementation does not imply every state or platform is verified.
   frame stepping, loops, chapters, playlist editing, history and resume.
 - **Open URL:** one dialog serves the File menu and Welcome. It previews the
   default HTTP scheme, offers HTTP authentication, and can stop a pending load.
+  Direct browser links and single-URL command-line launches share its loading
+  and retry controls.
 - **Recent activity:** player windows share Open Recent with Welcome and
   plugins. Settings Utilities clears history, recent documents and the saved
   Welcome resume item together after confirmation.
@@ -34,6 +36,8 @@ Implementation does not imply every state or platform is verified.
 - **Log Viewer:** Window and Advanced Settings open the shared viewer for
   application and mpv logs. Filter by multiple subsystems, severity and message,
   copy selected rows or export the full or filtered view.
+- **Debug Info:** Help saves one report with playback snapshots from every
+  open player in the application.
 - **Inspector** opens from the Window menu and shows the focused player's
   general media details, tracks, file metadata and playback status. Watched
   mpv properties are saved in the profile and update while the window is visible.

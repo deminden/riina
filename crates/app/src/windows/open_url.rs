@@ -1,11 +1,12 @@
 mod credentials;
+mod external;
 mod request;
 
 pub(crate) use request::PendingStream;
 
 use crate::{PlayerWindow, WelcomeWindow, platform};
 use credentials::{Account, Origin};
-use request::RunningStream;
+use request::{RunningStream, StreamMode};
 use riina_core::stream_address::stream_address;
 use riina_mpv::StreamStatus;
 use riina_ui::{OpenUrlWindow, PlayerAppearance, PlayerMenuActions};
@@ -25,7 +26,13 @@ struct Destination {
     player: slint::Weak<PlayerWindow>,
     welcome: Option<slint::Weak<WelcomeWindow>>,
     current: Rc<Current>,
-    alternative: bool,
+    route: Route,
+    mode: StreamMode,
+}
+
+enum Route {
+    Menu { alternative: bool },
+    Current,
 }
 
 #[derive(Default)]
@@ -64,7 +71,8 @@ impl ApplicationOpenUrl {
                         player: weak.clone(),
                         welcome: welcome_handle.clone(),
                         current: current.clone(),
-                        alternative,
+                        route: Route::Menu { alternative },
+                        mode: StreamMode::Manual,
                     };
                     if let Err(error) = owner.show(&app, destination) {
                         crate::diagnostics::report(
@@ -90,33 +98,44 @@ impl ApplicationOpenUrl {
         app: &PlayerWindow,
         destination: Destination,
     ) -> Result<(), slint::PlatformError> {
+        let window = self.window_for(app, destination.welcome.as_ref())?;
+        if self.running.borrow().is_none() {
+            self.destination.replace(Some(destination));
+            self.reset_draft(&window);
+        }
+        Self::reveal(&window, app)
+    }
+
+    fn window_for(
+        self: &Rc<Self>,
+        app: &PlayerWindow,
+        welcome: Option<&slint::Weak<WelcomeWindow>>,
+    ) -> Result<OpenUrlWindow, slint::PlatformError> {
         let existing = self
             .window
             .borrow()
             .as_ref()
             .map(ComponentHandle::clone_strong);
-        let window = if let Some(window) = existing {
-            window
-        } else {
-            let window = OpenUrlWindow::new()?;
-            crate::appearance_preferences::install_system_typography(&window);
-            self.connect_window(&window);
-            if let Some(welcome) = destination.welcome.as_ref().and_then(slint::Weak::upgrade)
-                && welcome.window().is_visible()
-            {
-                platform::center_auxiliary_window(&window, &welcome);
-            } else {
-                platform::center_auxiliary_window(&window, app);
-            }
-            self.window.replace(Some(window.clone_strong()));
-            window
-        };
-        if self.running.borrow().is_none() {
-            self.destination.replace(Some(destination));
-            self.reset_draft(&window);
+        if let Some(window) = existing {
+            return Ok(window);
         }
+        let window = OpenUrlWindow::new()?;
+        crate::appearance_preferences::install_system_typography(&window);
+        self.connect_window(&window);
+        if let Some(welcome) = welcome.and_then(slint::Weak::upgrade)
+            && welcome.window().is_visible()
+        {
+            platform::center_auxiliary_window(&window, &welcome);
+        } else {
+            platform::center_auxiliary_window(&window, app);
+        }
+        self.window.replace(Some(window.clone_strong()));
+        Ok(window)
+    }
+
+    fn reveal(window: &OpenUrlWindow, app: &PlayerWindow) -> Result<(), slint::PlatformError> {
         window.set_dark_theme(app.global::<PlayerAppearance>().get_dark_theme());
-        platform::show_window(&window)?;
+        platform::show_window(window)?;
         window.window().with_winit_window(|host| {
             host.set_minimized(false);
             host.focus_window();
@@ -237,11 +256,15 @@ impl ApplicationOpenUrl {
         window.set_password("".into());
         self.credential_timer.stop();
 
-        let (request, running) = PendingStream::new(source);
+        let (request, running) = PendingStream::new(source, target.mode.clone());
         if let Err(error) = self.launch(target, &player, request) {
             window.set_message(error.into());
             return;
         }
+        self.show_progress(window, running);
+    }
+
+    fn show_progress(self: &Rc<Self>, window: &OpenUrlWindow, running: RunningStream) {
         self.running.replace(Some(running));
         window.set_loading(true);
         window.invoke_focus_stop();
@@ -262,8 +285,9 @@ impl ApplicationOpenUrl {
         request: PendingStream,
     ) -> Result<(), String> {
         let launch = self.launch_new.borrow().clone();
-        if let Some(launch) = launch
-            && crate::media_open::stream_in_new_player(player, target.alternative)?
+        if let Route::Menu { alternative } = target.route
+            && let Some(launch) = launch
+            && crate::media_open::stream_in_new_player(player, alternative)?
         {
             launch(player, request)
         } else {
@@ -354,6 +378,61 @@ mod tests {
         window.invoke_cancel();
         assert!(!window.window().is_visible());
         welcome.hide()?;
+        Ok(())
+    }
+
+    #[test]
+    fn overlapping_external_loads_keep_independent_cancellation_and_retry_options()
+    -> Result<(), Box<dyn std::error::Error>> {
+        use riina_core::{Command, MediaLink};
+        use riina_mpv::CommandSender;
+
+        i_slint_backend_testing::init_no_event_loop();
+        let owner = Rc::new(ApplicationOpenUrl::default());
+        let first = PlayerWindow::new()?;
+        let second = PlayerWindow::new()?;
+        let (initial, initial_engine) = CommandSender::recording(8);
+        let (browser, browser_engine) = CommandSender::recording(8);
+        let first_address = "https://example.test/first";
+        owner.open_initial_stream(&first, &initial, first_address, Some(3.0))?;
+        assert_eq!(
+            initial_engine.commands.try_recv()?,
+            Command::OpenMediaLink(MediaLink {
+                path: first_address.into(),
+                start: Some(3.0),
+                ..MediaLink::default()
+            })
+        );
+        let first_load = owner.running.borrow().as_ref().unwrap().clone();
+        let window = owner.window.borrow().as_ref().unwrap().clone_strong();
+
+        let mut link = MediaLink {
+            path: "https://example.test/second".into(),
+            pause: Some(true),
+            speed: Some(1.25),
+            ..MediaLink::default()
+        };
+        owner.open_browser_stream(&second, &browser, link.clone())?;
+        assert_eq!(
+            browser_engine.commands.try_recv()?,
+            Command::OpenMediaLink(link.clone())
+        );
+        assert_eq!(window.get_address(), link.path.as_str());
+        let second_load = owner.running.borrow().as_ref().unwrap().clone();
+        window.invoke_stop();
+        assert_eq!(first_load.status(), StreamStatus::Loading);
+        assert_eq!(second_load.status(), StreamStatus::Cancelled);
+
+        link.path = "https://example.test/retry".into();
+        window.set_address(link.path.as_str().into());
+        window.invoke_address_edited();
+        window.invoke_submit();
+        assert_eq!(
+            browser_engine.commands.try_recv()?,
+            Command::OpenMediaLink(link)
+        );
+        window.invoke_cancel();
+        assert!(!window.window().is_visible());
         Ok(())
     }
 }

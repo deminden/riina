@@ -169,7 +169,8 @@ pub(crate) struct UiSession {
     player: Option<SessionResource<Player>>,
     platform_extras: platform::SessionExtras,
     _plugins: plugins::RuntimeSession,
-    _application: ApplicationServices,
+    application: ApplicationServices,
+    debug_information: crate::debug_dump::Registration,
     _presentation: Option<SessionResource<platform::NativePresentation>>,
     _live_text_timer: Option<Rc<slint::Timer>>,
     _preference_recovery_notice: Option<Rc<slint::Timer>>,
@@ -183,6 +184,7 @@ pub(crate) struct UiSession {
 
 impl UiSession {
     pub(super) fn prepare_to_close(&self) {
+        self.debug_information.retire();
         self.observer_state.release_power();
         self.platform_extras.prepare_to_close();
     }
@@ -203,7 +205,17 @@ impl UiSession {
         let player = self.player().ok_or("The playback engine is unavailable")?;
         let append = link.enqueue && media_open::has_playlist(app);
         let presentation = link.launch.presentation;
-        player.send(Command::OpenMediaLink(link.playback(append)))?;
+        let playback = link.playback(append);
+        let is_stream = !append && media_open::validate_url(&playback.path).is_ok();
+        if is_stream {
+            self.application.open_url.open_browser_stream(
+                app,
+                &player.command_sender(),
+                playback,
+            )?;
+        } else {
+            player.send(Command::OpenMediaLink(playback))?;
+        }
         if append {
             show_osd_message(
                 app,
@@ -217,8 +229,12 @@ impl UiSession {
                 observation_dispatch::apply_startup_presentation(app, presentation);
             }
         } else {
-            let request = media_open::invalidate(app);
-            app.set_status("Opening…".into());
+            let request = if is_stream {
+                app.get_media_request_generation()
+            } else {
+                app.set_status("Opening…".into());
+                media_open::invalidate(app)
+            };
             if let Some(presentation) = presentation {
                 self.observer_state
                     .queue_startup_presentation(request, presentation);
@@ -263,6 +279,7 @@ pub(crate) struct ApplicationServices {
     pub(crate) history: Rc<crate::playback_history_window::ApplicationHistory>,
     inspector: Rc<crate::windows::media_inspector::ApplicationInspector>,
     logs: Rc<crate::log_viewer::ApplicationLogViewer>,
+    debug_information: Rc<crate::debug_dump::ApplicationDebugInformation>,
     highlights: Rc<crate::windows::release_highlights::ReleaseHighlights>,
     pub(crate) open_url: Rc<crate::windows::open_url::ApplicationOpenUrl>,
     about: Rc<crate::about_window::ApplicationAbout>,
@@ -466,6 +483,7 @@ fn configure_with_engine(
     );
     window_actions::install_lifecycle(app, welcome);
 
+    observer_state.bind_open_url(&application.open_url);
     startup::activate_output(
         app,
         native.is_some(),
@@ -480,6 +498,7 @@ fn configure_with_engine(
         &session.picture_in_picture,
     )?;
     application.connect_preferences(app, &context, &session, native.as_ref());
+    let debug_information = application.debug_information.connect(app, latest_playback);
     let (platform_extras, plugin_runtime) = session.plugin_ui.finish(
         session.plugin_host,
         session.projection.system_media,
@@ -490,7 +509,8 @@ fn configure_with_engine(
         player: player.map(SessionResource::Live),
         platform_extras,
         _plugins: plugin_runtime,
-        _application: application,
+        application,
+        debug_information,
         _presentation: native.map(SessionResource::Live),
         _live_text_timer: live_text_timer,
         _preference_recovery_notice: session.recovery.and_then(|recovery| recovery.announce(app)),

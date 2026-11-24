@@ -3,7 +3,7 @@ use crate::{Playback, valid_path};
 
 /// Only playback controls that can be represented as typed values cross the
 /// browser boundary. In particular, links cannot supply arbitrary mpv options.
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct MediaLink {
     pub path: String,
     pub append: bool,

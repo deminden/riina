@@ -6,7 +6,7 @@ const SERVICE: &str = "Riina HTTP Authentication";
 #[derive(Clone, PartialEq, Eq)]
 pub(super) struct Origin(String);
 
-#[derive(Deserialize, Serialize)]
+#[derive(Default, Deserialize, Serialize)]
 pub(super) struct Account {
     pub(super) username: String,
     pub(super) password: String,
@@ -68,6 +68,18 @@ pub(super) fn source(address: &str, account: &Account) -> riina_mpv::StreamSourc
     riina_mpv::StreamSource {
         address: visible.into(),
         authenticated_address: Some(authenticated.into()),
+    }
+}
+
+pub(super) fn visible_address(address: &str) -> String {
+    if let Ok(mut parsed) = Url::parse(address)
+        && (!parsed.username().is_empty() || parsed.password().is_some())
+    {
+        let _ = parsed.set_username("");
+        let _ = parsed.set_password(None);
+        parsed.into()
+    } else {
+        address.to_owned()
     }
 }
 

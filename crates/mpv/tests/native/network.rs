@@ -88,8 +88,34 @@ fn stream_open_tracks_authentication_failure_and_cancellation() {
     sender.cancel_stream(&slow);
     harness.wait(|state| state.phase == Phase::Stopped);
     assert_eq!(slow.status(), StreamStatus::Cancelled);
-    let next = open("moving-square.avi", false);
-    harness.wait(|state| next.status() == StreamStatus::Opened && state.phase == Phase::Playing);
+    let next = StreamAttempt::default();
+    sender
+        .open_stream_with_options(
+            StreamSource {
+                address: format!("http://{address}/moving-square.avi"),
+                authenticated_address: None,
+            },
+            Some(riina_core::MediaLink {
+                start: Some(1.25),
+                pause: Some(true),
+                speed: Some(1.25),
+                volume: Some(31.0),
+                mute: Some(true),
+                ..Default::default()
+            }),
+            next.clone(),
+        )
+        .unwrap();
+    harness.wait(|state| {
+        next.status() == StreamStatus::Opened
+            && state.phase == Phase::Paused
+            && state
+                .position
+                .is_some_and(|position| (position - 1.25).abs() < 0.15)
+            && (state.speed - 1.25).abs() < 0.01
+            && (state.volume - 31.0).abs() < 0.01
+            && state.muted
+    });
     drop(harness);
     stop.send(()).unwrap();
     server.join().unwrap().unwrap();

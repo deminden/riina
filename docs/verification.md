@@ -3501,9 +3501,40 @@ it, and Quit exited normally. The final grouped Windows checks and strict Apple
 Silicon cross-Clippy passed after the theme and accessible-input adjustment.
 
 Remembered credentials across application restarts, native macOS interaction,
-matched IINA pixels and progress presentation for external launches remain open.
+and matched IINA pixels remain open. The following record covers external
+stream loading.
 
 - Windows application SHA-256 `7b22f1ee987287144fee23fcefca0787aa72ce279fb89cd6ff049fa535f92613`
 - Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
 - Linux application SHA-256 `3987fbfac3b0a001324f20d49a1c5ce292cb3c081ec09be7cd0765185afe58a2`
+- X11 libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`
+
+### External stream loading and Debug Info 2026-11-24
+
+A single URL supplied at startup and an immediately opened browser URL use the
+same loading window. A private Windows desktop opened a delayed localhost
+stream from the command line. Stop Loading was invoked through Windows
+accessibility after the server received the request. The retry and a later
+browser activation used the same player. Closing it exited normally.
+
+An isolated Linux X11 session repeated the command-line cancellation and
+retried a browser URL after a 404 response. The stream retained the requested
+1.5-second start, paused state, 1.25× speed and volume 31. Enqueue added a
+playlist item without opening the loading window or requesting the URL. The
+new-window browser action opened a second player in the same process.
+
+Help → Dump Debug Info saved both player snapshots in creation order. After
+the first player closed, the next report contained only the remaining player.
+The session exited normally. The report confirmation dialog was unavailable in
+the isolated desktop. The grouped regressions also cover credential removal
+from standalone URLs and a closed session whose observations are still retained.
+
+The full Windows workspace gate and all 61 pinned libmpv tests passed. The final
+grouped Windows gate and strict Apple Silicon cross-Clippy passed after the
+report ownership correction. Native macOS interaction and loading presentation
+for mixed or grouped command-line inputs remain open.
+
+- Windows application SHA-256 `e3993a0d1ba67338df7e5b25fda6beeca88104e09566f934f026cdeaf4e0edcf`
+- Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
+- Linux application SHA-256 `ec1bfaff4873606cca03de4428e100a13841eb894b40cfcf321a60c27096da3d`
 - X11 libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`

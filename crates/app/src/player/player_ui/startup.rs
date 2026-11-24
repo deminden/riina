@@ -255,6 +255,20 @@ pub(crate) struct InitialMedia {
 }
 
 impl InitialMedia {
+    fn external_stream(&self) -> Option<&str> {
+        if self.explicit_playlist
+            || self.launch.shuffle
+            || self.launch.stdin
+            || self.managed.is_some()
+        {
+            return None;
+        }
+        let [file] = self.files.as_slice() else {
+            return None;
+        };
+        crate::media_open::validate_url(file.to_str()?).ok()
+    }
+
     pub(super) fn startup_context<'a>(
         &'a self,
         application: &'a super::ApplicationServices,
@@ -297,22 +311,28 @@ impl InitialOpen {
             plugins,
             observer,
         } = self;
+        let presents_window = media.external_stream().is_some();
         let open = move |app: &PlayerWindow| open_initial_media(app, media, sender, observer);
-        let Some(plugins) = plugins else {
+        if plugins.is_none() && !presents_window {
             open(app);
             return;
-        };
+        }
 
         let player = app.as_weak();
         let generation = app.get_media_request_generation();
-        plugins.after_initial_plugins(move || {
+        let when_ready = move || {
+            // Showing a separate progress window must run outside the render callback.
             let _ = player.upgrade_in_event_loop(move |app| {
-                // A newer open request owns this player while plugins initialize.
                 if app.get_media_request_generation() == generation {
                     open(&app);
                 }
             });
-        });
+        };
+        if let Some(plugins) = plugins {
+            plugins.after_initial_plugins(when_ready);
+        } else {
+            when_ready();
+        }
     }
 }
 
@@ -328,6 +348,16 @@ fn open_initial_media(
         stream.start(app, &sender);
     } else if media.launch.stdin {
         crate::media_open::startup_stdin(app, &sender);
+    } else if let Some(address) = media.external_stream()
+        && let Some(open_url) = observer
+            .lookup()
+            .and_then(|state| state.borrow().open_url.upgrade())
+    {
+        if let Err(error) =
+            open_url.open_initial_stream(app, &sender, address, media.resume_position)
+        {
+            crate::diagnostics::report(app, error);
+        }
     } else {
         crate::media_open::startup_at(app, media, sender);
     }

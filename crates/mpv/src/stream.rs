@@ -2,7 +2,7 @@
 use std::sync::{Arc, Mutex};
 
 use crate::{CommandQueue, CommandSender, EngineError, Message, send_error};
-use riina_core::sync::lock;
+use riina_core::{Command, MediaLink, sync::lock};
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum StreamStatus {
@@ -52,6 +52,15 @@ impl CommandSender {
         source: StreamSource,
         attempt: StreamAttempt,
     ) -> Result<(), EngineError> {
+        self.open_stream_with_options(source, None, attempt)
+    }
+
+    pub fn open_stream_with_options(
+        &self,
+        source: StreamSource,
+        options: Option<MediaLink>,
+        attempt: StreamAttempt,
+    ) -> Result<(), EngineError> {
         if riina_core::media_reference::validate_network_url(&source.address).is_err() {
             return Err(EngineError::InvalidArgument {
                 reason: "The stream address is invalid",
@@ -60,12 +69,19 @@ impl CommandSender {
         if self.stopped.load(std::sync::atomic::Ordering::Acquire) {
             return Err(EngineError::Stopped);
         }
+        let command = if let Some(mut options) = options {
+            options.path.clone_from(&source.address);
+            options.append = false;
+            Command::OpenMediaLink(options)
+        } else {
+            Command::Load(source.address.clone())
+        };
         match &self.sender {
             CommandQueue::Native(sender) => sender
-                .try_send(Message::OpenStream(source, attempt))
+                .try_send(Message::OpenStream(command, source, attempt))
                 .map_err(send_error),
             #[cfg(feature = "test-support")]
-            CommandQueue::Recording(_) => self.send(riina_core::Command::Load(source.address)),
+            CommandQueue::Recording(_) => self.send(command),
         }
     }
 
