@@ -1,9 +1,13 @@
 //! External opens share the same progress and retry window as menu requests.
 use super::request::StreamRequest;
-use super::{ApplicationOpenUrl, Destination, PendingStream, Route, StreamMode, credentials};
+use super::{
+    ApplicationOpenUrl, Destination, PendingStream, PlayerDestination, Route, StreamMode,
+    credentials,
+};
 use crate::PlayerWindow;
 use riina_core::MediaLink;
 use riina_mpv::CommandSender;
+use riina_ui::PlayerAppearance;
 use slint::ComponentHandle;
 use std::rc::Rc;
 
@@ -77,14 +81,15 @@ impl ApplicationOpenUrl {
             return Ok(());
         }
         let presented = (|| -> Result<(), slint::PlatformError> {
-            let window = self.window_for(app, None)?;
+            let window = self.window_for(Some(app), None)?;
             self.reset_draft(&window);
             let sender = sender.clone();
             self.destination.replace(Some(Destination {
-                player: app.as_weak(),
-                welcome: None,
-                current: Rc::new(move |app, stream| stream.start(app, &sender)),
-                route: Route::Current,
+                player: Some(PlayerDestination {
+                    player: app.as_weak(),
+                    current: Rc::new(move |app, stream| stream.start(app, &sender)),
+                    route: Route::Current,
+                }),
                 mode,
             }));
             window.set_address(visible.into());
@@ -92,7 +97,7 @@ impl ApplicationOpenUrl {
             // Only the foreground request owns Stop Loading. Earlier loads on
             // other players continue when a newer external request is shown.
             self.show_progress(&window, running);
-            Self::reveal(&window, app)
+            Self::reveal(&window, app.global::<PlayerAppearance>().get_dark_theme())
         })();
         if let Err(error) = presented {
             crate::diagnostics::report(

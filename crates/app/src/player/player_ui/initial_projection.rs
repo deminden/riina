@@ -97,6 +97,7 @@ fn install_media(app: &PlayerWindow, prefs: &Preferences) {
     player_preferences.set_record_playback_history(prefs.record_playback_history);
     player_preferences.set_record_recent_files(prefs.record_recent_files);
     player_preferences.set_enable_new_window_shortcut(prefs.enable_new_window_shortcut);
+    player_preferences.set_open_in_new_player(prefs.allow_multiple_windows);
     player_preferences
         .set_track_all_files_in_recent_open_menu(prefs.track_all_files_in_recent_open_menu);
     player_preferences.set_launch_action_index(prefs.action_after_launch.index());

@@ -39,6 +39,7 @@ pub(super) fn project(
     player_preferences.set_quit_when_no_opened_window(saved.quit_when_no_opened_window);
     player_preferences.set_keep_open_on_file_end(saved.keep_open_on_file_end);
     player_preferences.set_record_recent_files(saved.record_recent_files);
+    crate::player_ui::project_open_window_policy(app, saved.allow_multiple_windows);
     player_preferences
         .set_track_all_files_in_recent_open_menu(saved.track_all_files_in_recent_open_menu);
     player_preferences.set_playlist_auto_play_next(saved.playlist_auto_play_next);

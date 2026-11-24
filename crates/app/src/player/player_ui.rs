@@ -105,6 +105,16 @@ pub(crate) fn reorder_all_open_plugin_menus(order: &[String]) {
     }
 }
 
+pub(crate) fn project_open_window_policy(owner: &PlayerWindow, always_open_new: bool) {
+    owner
+        .global::<riina_ui::PlayerPreferences>()
+        .set_open_in_new_player(always_open_new);
+    for app in input::open_player_windows() {
+        app.global::<riina_ui::PlayerPreferences>()
+            .set_open_in_new_player(always_open_new);
+    }
+}
+
 pub(crate) fn refresh_playlist_resume_positions() {
     crate::playlist_metadata::resume::invalidate();
     for app in input::open_player_windows() {

@@ -32,7 +32,7 @@ impl PlayerManager {
                     crate::diagnostics::warn!("Could not open Welcome: {error}");
                 }
             }
-            ActionAfterLaunch::OpenPanel => self.open_application_panel(),
+            ActionAfterLaunch::OpenPanel => self.open_application_panel(false),
             ActionAfterLaunch::None => {}
         }
     }
@@ -51,7 +51,24 @@ impl PlayerManager {
         }
     }
 
-    pub(crate) fn open_application_panel(&self) {
+    pub(crate) fn show_application_open_url(&self) {
+        if self.is_quitting() {
+            return;
+        }
+        let result = (|| -> Result<(), Box<dyn std::error::Error>> {
+            let loaded = preference_load::load(&crate::platform::preferences_path()?)?;
+            self.services().open_url.show_from_application(
+                loaded.preferences.effective_theme_material(),
+                loaded.preferences.dark,
+            )?;
+            Ok(())
+        })();
+        if let Err(error) = result {
+            crate::diagnostics::warn!("Could not show Open URL: {error}");
+        }
+    }
+
+    pub(crate) fn open_application_panel(&self, alternative: bool) {
         {
             let mut state = self.state.borrow_mut();
             if state.quitting || state.open_panel_visible {
@@ -67,7 +84,7 @@ impl PlayerManager {
             let files = crate::platform::choose_application_media("Open File", None).await;
             manager.state.borrow_mut().open_panel_visible = false;
             match files {
-                Ok(Some(paths)) => manager.open_application_documents(paths),
+                Ok(Some(paths)) => manager.open_application_selection(paths, alternative),
                 Ok(None) => {}
                 Err(error) => crate::diagnostics::warn!("Could not open the file picker: {error}"),
             }
@@ -79,13 +96,20 @@ impl PlayerManager {
     }
 
     pub(crate) fn open_application_documents(&self, paths: Vec<String>) {
-        if paths.is_empty() || self.is_quitting() || self.open_with_existing_player(&paths) {
+        self.open_application_selection(paths, false);
+    }
+
+    fn open_application_selection(&self, paths: Vec<String>, alternative: bool) {
+        if paths.is_empty()
+            || self.is_quitting()
+            || self.open_with_existing_player(&paths, alternative)
+        {
             return;
         }
         let manager = self.clone();
         self.state.borrow_mut().opening_documents += 1;
         if let Err(error) = slint::spawn_local(async move {
-            let result = manager.open_without_player(paths).await;
+            let result = manager.open_without_player(paths, alternative).await;
             manager.state.borrow_mut().opening_documents -= 1;
             if let Err(error) = result {
                 crate::diagnostics::warn!("Could not open Finder documents: {error}");
@@ -96,7 +120,7 @@ impl PlayerManager {
         }
     }
 
-    fn open_with_existing_player(&self, paths: &[String]) -> bool {
+    fn open_with_existing_player(&self, paths: &[String], alternative: bool) -> bool {
         let destination = self.services().history.browser_destination();
         let Some((app, display)) = destination else {
             return false;
@@ -117,7 +141,11 @@ impl PlayerManager {
                 display.focus(&app);
                 ui_dialogs::dispatch_selection(
                     &app,
-                    ui_dialogs::Purpose::Media,
+                    if alternative {
+                        ui_dialogs::Purpose::MediaAlternative
+                    } else {
+                        ui_dialogs::Purpose::Media
+                    },
                     paths.to_vec(),
                     sender,
                 )
@@ -128,8 +156,12 @@ impl PlayerManager {
         true
     }
 
-    async fn open_without_player(&self, paths: Vec<String>) -> Result<(), String> {
-        if self.is_quitting() || self.open_with_existing_player(&paths) {
+    async fn open_without_player(
+        &self,
+        paths: Vec<String>,
+        alternative: bool,
+    ) -> Result<(), String> {
+        if self.is_quitting() || self.open_with_existing_player(&paths, alternative) {
             return Ok(());
         }
         let path = crate::platform::preferences_path().map_err(|error| error.to_string())?;
@@ -140,6 +172,7 @@ impl PlayerManager {
             let _ = ready.send(media_open::prepare_application_documents(
                 paths,
                 &preferences,
+                alternative,
             ));
         })
         .map_err(|error| error.to_string())?;
@@ -147,9 +180,8 @@ impl PlayerManager {
         if self.is_quitting() {
             return Ok(());
         }
-        let owner = PlayerWindow::new().map_err(|error| error.to_string())?;
         for media in players {
-            open_new_player(&self.state, &owner, media, loaded.clone())?;
+            open_new_player::<PlayerWindow>(&self.state, None, media, loaded.clone())?;
         }
         Ok(())
     }

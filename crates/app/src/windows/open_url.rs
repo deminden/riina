@@ -19,15 +19,18 @@ use std::{
     time::Duration,
 };
 
-type Launch = dyn Fn(&PlayerWindow, PendingStream) -> Result<(), String>;
+type Launch = dyn Fn(Option<&PlayerWindow>, PendingStream) -> Result<(), String>;
 type Current = dyn Fn(&PlayerWindow, PendingStream);
 
 struct Destination {
+    player: Option<PlayerDestination>,
+    mode: StreamMode,
+}
+
+struct PlayerDestination {
     player: slint::Weak<PlayerWindow>,
-    welcome: Option<slint::Weak<WelcomeWindow>>,
     current: Rc<Current>,
     route: Route,
-    mode: StreamMode,
 }
 
 enum Route {
@@ -49,7 +52,7 @@ pub(crate) struct ApplicationOpenUrl {
 impl ApplicationOpenUrl {
     pub(crate) fn bind(
         &self,
-        launch: impl Fn(&PlayerWindow, PendingStream) -> Result<(), String> + 'static,
+        launch: impl Fn(Option<&PlayerWindow>, PendingStream) -> Result<(), String> + 'static,
     ) {
         self.launch_new.replace(Some(Rc::new(launch)));
     }
@@ -68,13 +71,21 @@ impl ApplicationOpenUrl {
             move |alternative| {
                 if let Some(app) = weak.upgrade() {
                     let destination = Destination {
-                        player: weak.clone(),
-                        welcome: welcome_handle.clone(),
-                        current: current.clone(),
-                        route: Route::Menu { alternative },
+                        player: Some(PlayerDestination {
+                            player: weak.clone(),
+                            current: current.clone(),
+                            route: Route::Menu { alternative },
+                        }),
                         mode: StreamMode::Manual,
                     };
-                    if let Err(error) = owner.show(&app, destination) {
+                    let result = owner
+                        .window_for(Some(&app), welcome_handle.as_ref())
+                        .and_then(|window| {
+                            owner.begin_editing(&window, destination);
+                            let dark = app.global::<PlayerAppearance>().get_dark_theme();
+                            Self::reveal(&window, dark)
+                        });
+                    if let Err(error) = result {
                         crate::diagnostics::report(
                             &app,
                             format!("Could not show Open URL: {error}"),
@@ -93,22 +104,40 @@ impl ApplicationOpenUrl {
         }
     }
 
-    fn show(
+    #[cfg(any(test, target_os = "macos"))]
+    pub(crate) fn show_from_application(
         self: &Rc<Self>,
-        app: &PlayerWindow,
-        destination: Destination,
+        theme: riina_core::ThemeMaterial,
+        fallback_dark: bool,
     ) -> Result<(), slint::PlatformError> {
-        let window = self.window_for(app, destination.welcome.as_ref())?;
+        let window = self.window_for(None, None)?;
+        self.begin_editing(
+            &window,
+            Destination {
+                player: None,
+                mode: StreamMode::Manual,
+            },
+        );
+        Self::reveal(&window, theme.dark_for(fallback_dark))?;
+        window.window().with_winit_window(|host| {
+            let dark = host.theme().map_or(fallback_dark, |theme| {
+                theme == slint::winit_030::winit::window::Theme::Dark
+            });
+            window.set_dark_theme(theme.dark_for(dark));
+        });
+        Ok(())
+    }
+
+    fn begin_editing(&self, window: &OpenUrlWindow, destination: Destination) {
         if self.running.borrow().is_none() {
             self.destination.replace(Some(destination));
-            self.reset_draft(&window);
+            self.reset_draft(window);
         }
-        Self::reveal(&window, app)
     }
 
     fn window_for(
         self: &Rc<Self>,
-        app: &PlayerWindow,
+        app: Option<&PlayerWindow>,
         welcome: Option<&slint::Weak<WelcomeWindow>>,
     ) -> Result<OpenUrlWindow, slint::PlatformError> {
         let existing = self
@@ -126,15 +155,15 @@ impl ApplicationOpenUrl {
             && welcome.window().is_visible()
         {
             platform::center_auxiliary_window(&window, &welcome);
-        } else {
+        } else if let Some(app) = app {
             platform::center_auxiliary_window(&window, app);
         }
         self.window.replace(Some(window.clone_strong()));
         Ok(window)
     }
 
-    fn reveal(window: &OpenUrlWindow, app: &PlayerWindow) -> Result<(), slint::PlatformError> {
-        window.set_dark_theme(app.global::<PlayerAppearance>().get_dark_theme());
+    fn reveal(window: &OpenUrlWindow, dark: bool) -> Result<(), slint::PlatformError> {
+        window.set_dark_theme(dark);
         platform::show_window(window)?;
         window.window().with_winit_window(|host| {
             host.set_minimized(false);
@@ -235,13 +264,17 @@ impl ApplicationOpenUrl {
         let Some(target) = destination.as_ref() else {
             return;
         };
-        let Some(player) = target.player.upgrade() else {
-            window.set_message(
-                "The player window closed. Open this dialog from another player.".into(),
-            );
-            return;
+        let player = if let Some(target) = &target.player {
+            let Some(player) = target.player.upgrade() else {
+                window.set_message(
+                    "The player window closed. Open this dialog from another player.".into(),
+                );
+                return;
+            };
+            Some((target, player))
+        } else {
+            None
         };
-
         let account = Account {
             username: window.get_username().to_string(),
             password: window.get_password().to_string(),
@@ -257,7 +290,7 @@ impl ApplicationOpenUrl {
         self.credential_timer.stop();
 
         let (request, running) = PendingStream::new(source, target.mode.clone());
-        if let Err(error) = self.launch(target, &player, request) {
+        if let Err(error) = self.launch(player, request) {
             window.set_message(error.into());
             return;
         }
@@ -280,18 +313,20 @@ impl ApplicationOpenUrl {
 
     fn launch(
         &self,
-        target: &Destination,
-        player: &PlayerWindow,
+        target: Option<(&PlayerDestination, PlayerWindow)>,
         request: PendingStream,
     ) -> Result<(), String> {
         let launch = self.launch_new.borrow().clone();
+        let Some((target, player)) = target else {
+            return launch.ok_or("Riina is closing")?(None, request);
+        };
         if let Route::Menu { alternative } = target.route
             && let Some(launch) = launch
-            && crate::media_open::stream_in_new_player(player, alternative)?
+            && crate::media_open::stream_in_new_player(&player, alternative)?
         {
-            launch(player, request)
+            launch(Some(&player), request)
         } else {
-            (target.current)(player, request);
+            (target.current)(&player, request);
             Ok(())
         }
     }
@@ -336,7 +371,7 @@ mod tests {
     use std::cell::Cell;
 
     #[test]
-    fn welcome_and_player_menus_share_the_validated_stream_dialog()
+    fn welcome_player_and_windowless_menus_share_the_validated_stream_dialog()
     -> Result<(), Box<dyn std::error::Error>> {
         i_slint_backend_testing::init_no_event_loop();
         let open_url = Rc::new(ApplicationOpenUrl::default());
@@ -378,6 +413,25 @@ mod tests {
         window.invoke_cancel();
         assert!(!window.window().is_visible());
         welcome.hide()?;
+
+        let observed = selected.clone();
+        open_url.bind(move |player, _request| {
+            assert!(player.is_none());
+            observed.set(3);
+            Ok(())
+        });
+        open_url.show_from_application(riina_core::ThemeMaterial::Dark, false)?;
+        assert!(window.window().is_visible());
+        assert!(window.get_dark_theme());
+        assert!(window.get_address().is_empty());
+        window.set_address("https://media.example/from-menu.avi".into());
+        window.invoke_submit();
+        assert_eq!(selected.get(), 3);
+        assert!(window.get_loading());
+        window.invoke_stop();
+        assert!(!window.get_loading());
+        window.invoke_cancel();
+        assert!(!window.window().is_visible());
         Ok(())
     }
 

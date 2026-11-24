@@ -117,10 +117,10 @@ pub(super) fn run(
         let launch = NativeLaunch {
             media,
             loaded,
-            owner_center: crate::platform::player_window_center(owner.window()),
+            owner_center: owner.and_then(|app| crate::platform::player_window_center(app.window())),
         };
         application
-            .launch(launch, Some(Origin::Player(owner.as_weak())))
+            .launch(launch, owner.map(|app| Origin::Player(app.as_weak())))
             .map(|_| ())
             .map_err(|error| error.to_string())
     });

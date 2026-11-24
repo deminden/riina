@@ -15,7 +15,7 @@ pub(crate) fn open(
 #[derive(Clone, Copy)]
 pub enum Purpose {
     Media,
-    MediaInNewPlayer,
+    MediaAlternative,
     Audio,
     Subtitle,
     Playlist,
@@ -23,13 +23,12 @@ pub enum Purpose {
 
 impl Purpose {
     pub(crate) fn allows_multiple(self) -> bool {
-        matches!(self, Self::Media | Self::MediaInNewPlayer | Self::Playlist)
+        matches!(self, Self::Media | Self::MediaAlternative | Self::Playlist)
     }
 
     pub(crate) fn title(self) -> &'static str {
         match self {
-            Self::Media => "Open File",
-            Self::MediaInNewPlayer => "Open in New Window",
+            Self::Media | Self::MediaAlternative => "Open File",
             Self::Audio => "Load External Audio",
             Self::Subtitle => "Load Subtitle",
             Self::Playlist => "Add to Playlist",
@@ -42,7 +41,7 @@ impl Purpose {
         }
         Some(match self {
             Self::Media => Command::OpenFiles(paths),
-            Self::MediaInNewPlayer => return None,
+            Self::MediaAlternative => return None,
             Self::Audio => Command::AddAudio(paths[0].clone()),
             Self::Subtitle => Command::AddSubtitle(paths[0].clone()),
             Self::Playlist => Command::AppendFiles(paths),
@@ -57,17 +56,20 @@ pub(crate) fn dispatch_selection(
     sender: riina_mpv::CommandSender,
 ) -> Result<(), String> {
     match purpose {
-        Purpose::Media | Purpose::MediaInNewPlayer | Purpose::Playlist => {
-            if matches!(purpose, Purpose::Media | Purpose::MediaInNewPlayer) {
-                for path in &paths {
-                    app.invoke_remember_recent_path(path.clone().into());
-                }
+        Purpose::Media | Purpose::MediaAlternative => {
+            for path in &paths {
+                app.invoke_remember_recent_path(path.clone().into());
             }
-            if matches!(purpose, Purpose::MediaInNewPlayer) {
-                media_open::selection_in_new_player(app, paths);
-            } else {
-                media_open::selection(app, paths, matches!(purpose, Purpose::Playlist), sender);
-            }
+            media_open::file_dialog_selection(
+                app,
+                paths,
+                matches!(purpose, Purpose::MediaAlternative),
+                sender,
+            );
+            Ok(())
+        }
+        Purpose::Playlist => {
+            media_open::selection(app, paths, true, sender);
             Ok(())
         }
         Purpose::Audio | Purpose::Subtitle => purpose

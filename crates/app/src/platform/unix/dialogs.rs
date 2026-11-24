@@ -21,7 +21,7 @@ pub fn open(
         welcome,
         move |owner| async move {
             #[cfg(target_os = "macos")]
-            if matches!(purpose, Purpose::Media | Purpose::MediaInNewPlayer) {
+            if matches!(purpose, Purpose::Media | Purpose::MediaAlternative) {
                 return crate::platform::choose_application_media(purpose.title(), Some(&owner))
                     .await;
             }

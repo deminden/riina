@@ -24,8 +24,11 @@ Implementation does not imply every state or platform is verified.
 
 - **Playback:** files, folders and URLs; play/pause, seeking, volume/mute, speed,
   frame stepping, loops, chapters, playlist editing, history and resume.
-- **Open URL:** one dialog serves the File menu and Welcome. It previews the
-  default HTTP scheme, offers HTTP authentication, and can stop a pending load.
+- **File opens:** the primary File commands follow the new-window preference,
+  and their modifier shortcuts invert it. Active menus show the actual destination.
+- **Open URL:** one dialog serves the File menu, Welcome and the windowless
+  macOS application menu. It previews the default HTTP scheme, offers HTTP
+  authentication, and can stop a pending load.
   Direct browser links and startup groups that begin with a network URL share
   its loading and retry controls. Retrying the first stream preserves the
   remaining playlist.

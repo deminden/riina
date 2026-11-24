@@ -296,24 +296,8 @@ fn install_file_open(
     let open_player = commands.clone();
     let weak = app.as_weak();
     let file_welcome = welcome_window.clone();
-    let file_open_host = open_host.clone();
-    let file_dialog_host = open_host.clone();
-    let new_window_app = app.as_weak();
-    let new_window_host = open_host.clone();
-    let new_window_sender = open_player.clone();
-    app.global::<PlayerMenuActions>()
-        .on_open_in_new_window(move || {
-            if let Some(app) = new_window_app.upgrade() {
-                ui_dialogs::open(
-                    &app,
-                    new_window_host.clone(),
-                    Purpose::MediaInNewPlayer,
-                    new_window_sender.clone(),
-                    None,
-                );
-            }
-        });
-    app.global::<PlayerMenuActions>().on_open_file(move || {
+    let open_host = open_host.clone();
+    let open = move |purpose| {
         if let Some(app) = weak.upgrade() {
             let welcome_is_visible = file_welcome
                 .as_ref()
@@ -321,7 +305,7 @@ fn install_file_open(
                 .is_some_and(|welcome| welcome.window().is_visible());
             if welcome_is_visible {
                 media_open::invalidate(&app);
-                platform::set_native_video_host_visible(file_open_host.as_ref(), true);
+                platform::set_native_video_host_visible(open_host.as_ref(), true);
                 if let Err(error) = platform::show_window(&app) {
                     app.set_status(error.to_string().into());
                     return;
@@ -333,13 +317,17 @@ fn install_file_open(
             }
             ui_dialogs::open(
                 &app,
-                file_dialog_host.clone(),
-                Purpose::Media,
+                open_host.clone(),
+                purpose,
                 open_player.clone(),
                 welcome_is_visible.then(|| file_welcome.clone()).flatten(),
             );
         }
-    });
+    };
+    let primary = open.clone();
+    let menu = app.global::<PlayerMenuActions>();
+    menu.on_open_file(move || primary(Purpose::Media));
+    menu.on_open_file_alternative(move || open(Purpose::MediaAlternative));
 }
 
 fn install_open_recent_menu(app: &PlayerWindow, context: &Context<'_>) {

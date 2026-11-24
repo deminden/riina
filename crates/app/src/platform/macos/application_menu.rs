@@ -3,7 +3,7 @@
 use block2::RcBlock;
 use objc2::{MainThreadMarker, rc::Retained, runtime::ProtocolObject, sel};
 use objc2_app_kit::{
-    NSApplication, NSImage, NSImageNamePreferencesGeneral, NSMenu,
+    NSApplication, NSEventModifierFlags, NSImage, NSImageNamePreferencesGeneral, NSMenu,
     NSMenuDidBeginTrackingNotification, NSMenuItem,
 };
 use objc2_foundation::{NSNotificationCenter, NSObjectProtocol, NSOperationQueue, NSString};
@@ -143,6 +143,9 @@ fn normalize_application_menu(main_thread: MainThreadMarker) {
 fn install_system_menus(application: &NSApplication, main_menu: &NSMenu) {
     // AppKit supplies the window roster, the standard window actions and
     // Help search. Slint retains the application's Inspector and Log Viewer.
+    if let Some(menu) = named_submenu(main_menu, "File") {
+        install_file_open_alternates(&menu);
+    }
     if let Some(menu) = named_submenu(main_menu, "Window") {
         install_window_actions(&menu);
         if !application
@@ -160,6 +163,27 @@ fn install_system_menus(application: &NSApplication, main_menu: &NSMenu) {
             .is_some_and(|active| std::ptr::eq(active, &*menu))
     {
         application.setHelpMenu(Some(&menu));
+    }
+}
+
+fn install_file_open_alternates(menu: &NSMenu) {
+    // Each Option action immediately follows its primary File command. Ask
+    // AppKit to exchange the pair as the user presses or releases Option.
+    for index in [0, 2] {
+        let (Some(primary), Some(alternate)) =
+            (menu.itemAtIndex(index), menu.itemAtIndex(index + 1))
+        else {
+            continue;
+        };
+        let primary_key = primary.keyEquivalent();
+        if !alternate.isAlternate()
+            && !primary_key.is_empty()
+            && alternate.keyEquivalent().isEqualToString(&primary_key)
+            && alternate.keyEquivalentModifierMask()
+                == (primary.keyEquivalentModifierMask() | NSEventModifierFlags::Option)
+        {
+            alternate.setAlternate(true);
+        }
     }
 }
 

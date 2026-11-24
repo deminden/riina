@@ -84,7 +84,7 @@ impl PlayerManager {
                     .map_err(|error| error.to_string())?;
                 let id = open_new_player(
                     &application,
-                    owner,
+                    Some(owner),
                     InitialMedia::for_plugin(ticket),
                     loaded,
                 )?;
@@ -118,7 +118,7 @@ impl PlayerManager {
                 if !loaded.preferences.resume_last_position {
                     media.resume_position = None;
                 }
-                open_new_player(&state, window, media, loaded).map(|_| ())
+                open_new_player(&state, Some(window), media, loaded).map(|_| ())
             },
             move || {
                 let Some(state) = on_close.upgrade() else {
@@ -148,7 +148,7 @@ impl PlayerManager {
         loaded: &LoadedPreferences,
     ) -> Result<(), String> {
         for media in players {
-            open_new_player(&self.state, first, media, loaded.clone())?;
+            open_new_player(&self.state, Some(first), media, loaded.clone())?;
         }
         Ok(())
     }
@@ -269,13 +269,8 @@ fn open_browser_link(
     }
     let path = crate::platform::preferences_path().map_err(|error| error.to_string())?;
     let loaded = crate::preference_load::load(&path).map_err(|error| error.to_string())?;
-    if let Some((app, _)) = active {
-        open_new_player(state, &app, link.initial_media(), loaded)?;
-    } else {
-        // Playback History can keep the application alive with no player.
-        let owner = PlayerWindow::new().map_err(|error| error.to_string())?;
-        open_new_player(state, &owner, link.initial_media(), loaded)?;
-    }
+    let owner = active.as_ref().map(|(app, _)| app);
+    open_new_player(state, owner, link.initial_media(), loaded)?;
     Ok(())
 }
 
@@ -345,13 +340,13 @@ fn open_player(
         owner.set_status("The selected media is already open.".into());
         return Ok(());
     }
-    open_new_player(state, owner, media, loaded)?;
+    open_new_player(state, Some(owner), media, loaded)?;
     Ok(())
 }
 
-fn open_new_player(
+fn open_new_player<Owner: ComponentHandle + 'static>(
     state: &Rc<RefCell<ManagerState>>,
-    owner: &(impl ComponentHandle + 'static),
+    owner: Option<&Owner>,
     media: InitialMedia,
     loaded: LoadedPreferences,
 ) -> Result<u64, String> {
@@ -390,19 +385,21 @@ fn open_new_player(
 
 fn show_opened_player(
     app: &PlayerWindow,
-    owner: &(impl ComponentHandle + 'static),
+    owner: Option<&(impl ComponentHandle + 'static)>,
     disable_animation: bool,
 ) -> Result<(), String> {
     crate::platform::show_window(app).map_err(|error| error.to_string())?;
     if disable_animation {
         crate::platform::window_sizing::disable_plugin_window_animation(app.window());
     }
-    crate::platform::center_player_window_for_owner(
-        app,
-        owner,
-        app.global::<riina_ui::PlayerPreferences>()
-            .get_initial_window_position_enabled(),
-    );
+    let initial_position = app
+        .global::<riina_ui::PlayerPreferences>()
+        .get_initial_window_position_enabled();
+    if let Some(owner) = owner {
+        crate::platform::center_player_window_for_owner(app, owner, initial_position);
+    } else {
+        crate::platform::center_player_window(app, initial_position);
+    }
     Ok(())
 }
 

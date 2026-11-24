@@ -151,8 +151,18 @@ define_class!(
         }
 
         #[unsafe(method(riinaIdleOpen:))]
-        fn idle_open(&self, _sender: Option<&AnyObject>) {
-            self.ivars().manager.open_application_panel();
+        fn idle_open(&self, sender: Option<&objc2_app_kit::NSMenuItem>) {
+            let launch = self.ivars();
+            launch.default_action.take();
+            let alternative = sender.is_some_and(objc2_app_kit::NSMenuItem::isAlternate);
+            launch.manager.open_application_panel(alternative);
+        }
+
+        #[unsafe(method(riinaIdleOpenURL:))]
+        fn idle_open_url(&self, _sender: Option<&AnyObject>) {
+            let launch = self.ivars();
+            launch.default_action.take();
+            launch.manager.show_application_open_url();
         }
 
         #[unsafe(method(riinaIdleNewWindow:))]

@@ -32,9 +32,9 @@ fn install_application_actions(host: &NativeVideoHost, app: &PlayerWindow) {
     forward!(host, app, on_open_media_file, || {
         app.global::<PlayerMenuActions>().invoke_open_file();
     });
-    forward!(host, app, on_open_in_new_window, || {
+    forward!(host, app, on_open_file_alternative, || {
         app.global::<PlayerMenuActions>()
-            .invoke_open_in_new_window();
+            .invoke_open_file_alternative();
     });
     forward!(host, app, on_reveal_current_media, || {
         app.global::<PlayerMenuActions>()

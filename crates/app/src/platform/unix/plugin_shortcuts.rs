@@ -2,7 +2,7 @@
 
 use crate::{PlayerWindow, plugin_runtime::standalone::Endpoint};
 use gtk::{gdk::ModifierType, glib::Propagation, prelude::WidgetExt};
-use riina_ui::{PlayerCropState, PlayerDialogState, PlayerMenuActions};
+use riina_ui::{PlayerCropState, PlayerDialogState, PlayerMenuActions, PlayerPreferences};
 use slint::ComponentHandle;
 use std::sync::Weak;
 use wry::{WebView, WebViewExtUnix};
@@ -18,9 +18,10 @@ enum MenuShortcut {
     Hide,
     Quit,
     OpenFile,
-    OpenInNewWindow,
+    OpenFileAlternative,
     OpenUrl,
     OpenUrlAlternative,
+    NewWindow,
     History,
     Inspector,
     LogViewer,
@@ -41,9 +42,10 @@ impl MenuShortcut {
             ('h', CONTROL) => Some(Self::Hide),
             ('q', CONTROL) => Some(Self::Quit),
             ('o', CONTROL) => Some(Self::OpenFile),
-            ('o', CONTROL_ALT) => Some(Self::OpenInNewWindow),
+            ('o', CONTROL_ALT) => Some(Self::OpenFileAlternative),
             ('o', CONTROL_SHIFT) => Some(Self::OpenUrl),
             ('o', CONTROL_ALT_SHIFT) => Some(Self::OpenUrlAlternative),
+            ('n', CONTROL) => Some(Self::NewWindow),
             ('h', CONTROL_SHIFT) => Some(Self::History),
             ('i', CONTROL) => Some(Self::Inspector),
             ('l', CONTROL_ALT) => Some(Self::LogViewer),
@@ -65,9 +67,15 @@ impl MenuShortcut {
         match self {
             Self::Preferences
             | Self::OpenFile
-            | Self::OpenInNewWindow
+            | Self::OpenFileAlternative
             | Self::OpenUrl
             | Self::OpenUrlAlternative => !editing,
+            Self::NewWindow => {
+                !editing
+                    && app
+                        .global::<PlayerPreferences>()
+                        .get_enable_new_window_shortcut()
+            }
             Self::Jump | Self::VideoFilters | Self::AudioFilters => app.get_loaded() && !editing,
             _ => true,
         }
@@ -80,9 +88,10 @@ impl MenuShortcut {
             Self::Hide => actions.invoke_hide_riina(),
             Self::Quit => actions.invoke_quit_riina(),
             Self::OpenFile => actions.invoke_open_file(),
-            Self::OpenInNewWindow => actions.invoke_open_in_new_window(),
+            Self::OpenFileAlternative => actions.invoke_open_file_alternative(),
             Self::OpenUrl => actions.invoke_open_url_dialog(),
             Self::OpenUrlAlternative => actions.invoke_open_url_alternative(),
+            Self::NewWindow => actions.invoke_create_welcome_window(),
             Self::History => actions.invoke_show_playback_history(),
             Self::Inspector => actions.invoke_show_inspector(),
             Self::LogViewer => actions.invoke_show_log_viewer(),
@@ -161,7 +170,7 @@ mod tests {
         assert_eq!(MenuShortcut::from_key('q', CONTROL_SHIFT), None);
         assert_eq!(
             MenuShortcut::from_key('O', CONTROL_ALT),
-            Some(MenuShortcut::OpenInNewWindow)
+            Some(MenuShortcut::OpenFileAlternative)
         );
         assert_eq!(
             MenuShortcut::from_key('o', CONTROL_SHIFT),
@@ -169,7 +178,11 @@ mod tests {
         );
         assert_eq!(
             MenuShortcut::from_key('o', CONTROL_ALT.union(ModifierType::SHIFT_MASK)),
-            None
+            Some(MenuShortcut::OpenUrlAlternative)
+        );
+        assert_eq!(
+            MenuShortcut::from_key('n', CONTROL),
+            Some(MenuShortcut::NewWindow)
         );
     }
 }

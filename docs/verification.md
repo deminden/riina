@@ -3663,3 +3663,33 @@ The native macOS menu and Cmd+N interaction still need a packaged desktop run.
 - Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
 - Linux application SHA-256 `fce31d52c0a962f6e096fe643125058c3b980dffa3e6dc74408193d3adf9cc26`
 - Linux libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`
+
+### File and URL open destinations 2026-11-24
+
+The primary File commands follow the saved new-window preference. The modifier
+commands invert it, and each label reflects its destination. The windowless
+macOS menu opens the shared URL dialog without constructing a player before
+submission. Headless regressions cover that dialog route, cancellation, and
+the grouping and ordering of files opened without an existing player.
+
+A private Windows desktop exercised both menu entries with the preference on
+and off. The four cases each selected a local clip through the native picker
+and submitted a loopback stream through Open URL. Each selection played in the
+existing frame or opened a second frame as indicated. Changing the preference
+in General Settings refreshed both active players’ File and URL labels. Each
+test session exited normally.
+
+The isolated Linux X11 desktop passed all four Open URL shortcut combinations
+with Ctrl+Shift+O and Ctrl+Alt+Shift+O. Reuse kept the same player and a separate
+open kept the original clip available. The four sessions exited normally.
+
+The full Windows workspace gate, all 61 pinned Windows libmpv tests, locked
+Windows and Linux application builds, 576 Linux application unit tests and
+strict Apple Silicon cross-Clippy passed.
+The AppKit Option menu replacements, windowless Open URL on a native Mac, and
+the Linux native file picker still need desktop verification.
+
+- Windows application SHA-256 `73c1822ec875147911d32902f0666386145f5d753b1d6a72d40cce692a4dafd3`
+- Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
+- Linux application SHA-256 `3e8c1d227f2d38e615f1136a908dcc9e3c1f7fad671e1e08f20cda139c80095f`
+- Linux libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`

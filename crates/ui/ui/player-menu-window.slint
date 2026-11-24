@@ -93,16 +93,16 @@ export component PlayerMenuWindow inherits Window {
             }
         }
         Menu { title: "File";
-            MenuItem { title: "Open…"; enabled: !root.menu-value-crop-editing;
+            MenuItem { title: PlayerPreferences.open-in-new-player ? "Open in New Window…" : "Open…"; enabled: !root.menu-value-crop-editing;
                 shortcut: root.player-shortcut(root.menu-value-primary-shortcut-is-meta ? @keys(Meta + O) : @keys(Control + O));
                 activated => { PlayerMenuActions.open-file(); } }
-            MenuItem { title: "Open in New Window…"; enabled: !root.menu-value-crop-editing;
+            MenuItem { title: PlayerPreferences.open-in-new-player ? "Open…" : "Open in New Window…"; enabled: !root.menu-value-crop-editing;
                 shortcut: root.player-shortcut(root.menu-value-primary-shortcut-is-meta ? @keys(Meta + Alt + O) : @keys(Control + Alt + O));
-                activated => { PlayerMenuActions.open-in-new-window(); } }
-            MenuItem { title: "Open URL…"; enabled: !root.menu-value-crop-editing;
+                activated => { PlayerMenuActions.open-file-alternative(); } }
+            MenuItem { title: PlayerPreferences.open-in-new-player ? "Open URL in New Window…" : "Open URL…"; enabled: !root.menu-value-crop-editing;
                 shortcut: root.player-shortcut(root.menu-value-primary-shortcut-is-meta ? @keys(Meta + Shift + O) : @keys(Control + Shift + O));
                 activated => { PlayerMenuActions.open-url-dialog(); } }
-            MenuItem { title: "Open URL in New Window…"; enabled: !root.menu-value-crop-editing;
+            MenuItem { title: PlayerPreferences.open-in-new-player ? "Open URL…" : "Open URL in New Window…"; enabled: !root.menu-value-crop-editing;
                 shortcut: root.player-shortcut(root.menu-value-primary-shortcut-is-meta
                     ? @keys(Meta + Alt + Shift + O) : @keys(Control + Alt + Shift + O));
                 activated => { PlayerMenuActions.open-url-alternative(); } }

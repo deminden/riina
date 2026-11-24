@@ -35,11 +35,7 @@ fn manual_open_repeat_command(enabled: bool, mode_index: i32) -> Result<Option<C
 }
 
 pub(super) fn playlist_in_new_player(app: &PlayerWindow, paths: Vec<String>) {
-    new_player_selection(app, paths, NewPlayerSelection::ExplicitPlaylist);
-}
-
-pub fn selection_in_new_player(app: &PlayerWindow, paths: Vec<String>) {
-    new_player_selection(app, paths, NewPlayerSelection::Media);
+    new_player_selection(app, paths);
 }
 
 #[derive(Clone, Copy)]
@@ -72,13 +68,7 @@ pub(crate) fn history_selection(
     }
 }
 
-#[derive(Clone, Copy)]
-enum NewPlayerSelection {
-    Media,
-    ExplicitPlaylist,
-}
-
-fn new_player_selection(app: &PlayerWindow, paths: Vec<String>, selection: NewPlayerSelection) {
+fn new_player_selection(app: &PlayerWindow, paths: Vec<String>) {
     if paths.is_empty() {
         return;
     }
@@ -95,12 +85,7 @@ fn new_player_selection(app: &PlayerWindow, paths: Vec<String>, selection: NewPl
     let weak = app.as_weak();
     let failure = weak.clone();
     let started = crate::background::spawn_named("new-player-media-discovery", move || {
-        let result = match selection {
-            NewPlayerSelection::Media => {
-                preferences_for_open().and_then(|prefs| prepare_new_players(paths, &prefs))
-            }
-            NewPlayerSelection::ExplicitPlaylist => prepare_explicit_player(paths),
-        };
+        let result = prepare_explicit_player(paths);
         // The result has no recipient once its window or event loop closes.
         let _ = crate::background::to_ui(weak, move |app| {
             if let Err(error) = result.and_then(|players| {
@@ -136,8 +121,9 @@ fn prepare_explicit_player(paths: Vec<String>) -> Result<Vec<PlayerSelection>, S
 pub(super) fn prepare_application_documents(
     paths: Vec<String>,
     preferences: &riina_core::Preferences,
+    alternative: bool,
 ) -> Result<Vec<crate::player_ui::InitialMedia>, String> {
-    let selections = if preferences.allow_multiple_windows {
+    let selections = if preferences.allow_multiple_windows != alternative {
         prepare_new_players(paths, preferences)?
             .into_iter()
             .map(|selection| selection.paths)
@@ -414,7 +400,7 @@ pub(crate) fn startup_stdin(app: &PlayerWindow, sender: &CommandSender) {
 enum SelectionSource {
     Startup,
     StartupShuffled,
-    Interactive,
+    Interactive { alternative: bool },
     DesktopDrop,
     ExplicitPlaylist,
 }
@@ -536,7 +522,24 @@ pub fn selection(app: &PlayerWindow, paths: Vec<String>, append: bool, sender: C
         append,
         None,
         sender,
-        SelectionSource::Interactive,
+        SelectionSource::Interactive { alternative: false },
+        None,
+    );
+}
+
+pub(crate) fn file_dialog_selection(
+    app: &PlayerWindow,
+    paths: Vec<String>,
+    alternative: bool,
+    sender: CommandSender,
+) {
+    selection_at(
+        app,
+        paths,
+        false,
+        None,
+        sender,
+        SelectionSource::Interactive { alternative },
         None,
     );
 }
@@ -599,12 +602,13 @@ fn prepare_selection(
         && resume_position.is_none()
         && matches!(
             source,
-            SelectionSource::Interactive | SelectionSource::DesktopDrop
+            SelectionSource::Interactive { .. } | SelectionSource::DesktopDrop
         )
         && subtitles.is_empty()
     {
         let prefs = preferences_for_open()?;
-        if prefs.allow_multiple_windows {
+        let alternative = matches!(source, SelectionSource::Interactive { alternative: true });
+        if prefs.allow_multiple_windows != alternative {
             let players = prepare_new_players(paths, &prefs)?;
             return if players.is_empty() {
                 Err("No playable files were found".into())
@@ -786,22 +790,26 @@ mod tests {
     #[test]
     fn windowless_document_opens_follow_the_saved_window_and_grouping_preferences() {
         let files = || vec!["clip10.avi".into(), "clip2.avi".into()];
-        let paths = |preferences: &riina_core::Preferences| {
-            super::prepare_application_documents(files(), preferences)
+        let paths = |preferences: &riina_core::Preferences, alternative| {
+            super::prepare_application_documents(files(), preferences, alternative)
                 .unwrap()
                 .into_iter()
                 .map(|media| media.files)
                 .collect::<Vec<_>>()
         };
         let mut preferences = riina_core::Preferences::default();
-        assert_eq!(paths(&preferences), [vec!["clip10.avi"], vec!["clip2.avi"]]);
+        let grouped = [vec!["clip2.avi", "clip10.avi"]];
+        let separate = [vec!["clip10.avi"], vec!["clip2.avi"]];
+        assert_eq!(paths(&preferences, false), separate);
+        assert_eq!(paths(&preferences, true), grouped);
         preferences.group_simultaneous_opens_in_playlist = true;
-        assert_eq!(paths(&preferences), [vec!["clip2.avi", "clip10.avi"]]);
+        assert_eq!(paths(&preferences, false), grouped);
         preferences.group_simultaneous_opens_in_playlist = false;
         preferences.allow_multiple_windows = false;
-        assert_eq!(paths(&preferences), [vec!["clip2.avi", "clip10.avi"]]);
+        assert_eq!(paths(&preferences, false), grouped);
+        assert_eq!(paths(&preferences, true), separate);
         assert!(
-            super::prepare_application_documents(vec!["captions.srt".into()], &preferences)
+            super::prepare_application_documents(vec!["captions.srt".into()], &preferences, false)
                 .is_err()
         );
     }
