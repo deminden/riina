@@ -4,6 +4,8 @@ import { CheckBox, ComboBox, ScrollView } from "std-widgets.slint";
 import { SubtitleColorWell } from "shared-controls.slint";
 import { MenuCatalogRow } from "native-video.slint";
 
+export struct SubtitleEncodingCaption { source: string, localized: string }
+
 export global SubtitleSettingsState {
     in-out property <int> subtitle-ass-override-lane: 0;
     in-out property <int> subtitle-ass-override-primary-index: 2;
@@ -26,8 +28,37 @@ export global SubtitleSettingsState {
     in-out property <string> open-subtitles-threshold-text: "20";
     in-out property <int> subtitle-encoding-index: 0;
     in property <[string]> subtitle-encoding-options;
+    out property <[SubtitleEncodingCaption]> encoding-captions: [
+        { source: "Universal", localized: @tr("Universal") },
+        { source: "Arabic", localized: @tr("Arabic") },
+        { source: "Baltic", localized: @tr("Baltic") },
+        { source: "Celtic", localized: @tr("Celtic") },
+        { source: "Central European", localized: @tr("Central European") },
+        { source: "Cyrillic", localized: @tr("Cyrillic") },
+        { source: "Eastern European", localized: @tr("Eastern European") },
+        { source: "Western Languages", localized: @tr("Western Languages") },
+        { source: "Greek", localized: @tr("Greek") },
+        { source: "Hebrew", localized: @tr("Hebrew") },
+        { source: "Japanese", localized: @tr("Japanese") },
+        { source: "Korean", localized: @tr("Korean") },
+        { source: "Nordic", localized: @tr("Nordic") },
+        { source: "North European", localized: @tr("North European") },
+        { source: "Russian", localized: @tr("Russian") },
+        { source: "Simplified Chinese", localized: @tr("Simplified Chinese") },
+        { source: "South European", localized: @tr("South European") },
+        { source: "South-Eastern European", localized: @tr("South-Eastern European") },
+        { source: "Thai", localized: @tr("Thai") },
+        { source: "Traditional Chinese", localized: @tr("Traditional Chinese") },
+        { source: "Turkish", localized: @tr("Turkish") },
+        { source: "Ukrainian", localized: @tr("Ukrainian") },
+        { source: "Vietnamese", localized: @tr("Vietnamese") },
+        { source: "Western European", localized: @tr("Western European") },
+        { source: "Auto detect", localized: @tr("Auto detect") },
+    ];
     in-out property <int> subtitle-auto-load-mode-index: 2;
-    in property <[string]> subtitle-auto-load-mode-options;
+    out property <[string]> subtitle-auto-load-mode-options: [
+        @tr("Disabled"), @tr("Subtitles containing media filename"), @tr("Detect intelligently by IINA")
+    ];
     in-out property <string> subtitle-auto-load-priority-text;
     in-out property <string> subtitle-search-paths-text: "./*";
     in-out property <bool> subtitle-auto-load-advanced-expanded: false;
@@ -87,8 +118,9 @@ export component SubtitlesPreferencesPage inherits ScrollView {
         Text { x: 28px; y: 52px; text: @tr("Auto Load"); font-size: 13px; font-weight: 600; color: Theme.settings-section-heading; }
         Rectangle { x: 20px; y: 78px; width: parent.width - 40px; height: root.subtitle-autoload-height;
             border-width: 1px; border-color: Theme.settings-card-border; border-radius: 12px; background: Theme.settings-card-surface(root.mica-backdrop-enabled);
-            Text { x: 14px; y: 6px; width: 80px; height: 28px; text: "Auto load"; font-size: 12px; color: Theme.settings-control-label; vertical-alignment: center; }
+            Text { x: 14px; y: 6px; width: 86px; height: 28px; text: @tr("Auto load"); font-size: 12px; color: Theme.settings-control-label; vertical-alignment: center; }
             ComboBox { x: 102px; y: 8px; width: parent.width - 116px; height: 26px;
+                accessible-label: @tr("Auto load");
                 model: SubtitleSettingsState.subtitle-auto-load-mode-options; current-index <=> SubtitleSettingsState.subtitle-auto-load-mode-index;
                 selected => { root.settings-changed(); }
             }
@@ -98,18 +130,18 @@ export component SubtitlesPreferencesPage inherits ScrollView {
                 activated => { SubtitleSettingsState.subtitle-auto-load-advanced-expanded = !SubtitleSettingsState.subtitle-auto-load-advanced-expanded; }
             }
             if SubtitleSettingsState.subtitle-auto-load-advanced-expanded : Rectangle { x: 14px; y: 82px; width: parent.width - 28px; height: 150px; background: transparent;
-                Text { x: 0px; y: 8px; width: parent.width; height: 18px; text: "Filename priority keywords"; font-size: 12px; color: Theme.settings-control-label; }
+                Text { x: 0px; y: 8px; width: parent.width; height: 18px; text: @tr("Filename priority keywords"); font-size: 12px; color: Theme.settings-control-label; }
                 Rectangle { x: 0px; y: 30px; width: parent.width; height: 24px; border-width: 1px; border-color: Theme.settings-field-border; border-radius: 3px; background: Theme.settings-field-surface; clip: true;
                     TextInput { x: 5px; y: 1px; width: parent.width - 10px; height: parent.height - 2px; single-line: true;
-                        accessible-label: "Subtitle filename priority keywords"; text <=> SubtitleSettingsState.subtitle-auto-load-priority-text;
+                        accessible-label: @tr("Subtitle filename priority keywords"); text <=> SubtitleSettingsState.subtitle-auto-load-priority-text;
                         accepted => { root.settings-changed(); }
                     }
                 }
-                Text { x: 0px; y: 58px; width: parent.width; height: 20px; text: "Comma-separated strings, in priority order."; font-size: 10px; color: Theme.settings-section-heading; }
-                Text { x: 0px; y: 84px; width: parent.width; height: 18px; text: "Also search these directories"; font-size: 12px; color: Theme.settings-control-label; }
+                Text { x: 0px; y: 58px; width: parent.width; height: 20px; text: @tr("Comma-separated strings, in priority order."); font-size: 10px; color: Theme.settings-section-heading; }
+                Text { x: 0px; y: 84px; width: parent.width; height: 18px; text: @tr("Also search these directories"); font-size: 12px; color: Theme.settings-control-label; }
                 Rectangle { x: 0px; y: 106px; width: parent.width; height: 24px; border-width: 1px; border-color: Theme.settings-field-border; border-radius: 3px; background: Theme.settings-field-surface; clip: true;
                     TextInput { x: 5px; y: 1px; width: parent.width - 10px; height: parent.height - 2px; single-line: true;
-                        accessible-label: "Subtitle search paths"; text <=> SubtitleSettingsState.subtitle-search-paths-text;
+                        accessible-label: @tr("Subtitle search paths"); text <=> SubtitleSettingsState.subtitle-search-paths-text;
                         accepted => { root.settings-changed(); }
                     }
                 }
@@ -118,14 +150,14 @@ export component SubtitlesPreferencesPage inherits ScrollView {
         Text { x: 28px; y: root.subtitle-ass-y; text: @tr("ASS Subtitles"); font-size: 13px; font-weight: 600; color: Theme.settings-section-heading; }
         Rectangle { x: 20px; y: root.subtitle-ass-y + 26px; width: parent.width - 40px; height: 354px;
             border-width: 1px; border-color: Theme.settings-card-border; border-radius: 12px; background: Theme.settings-card-surface(root.mica-backdrop-enabled);
-            Text { x: 14px; y: 12px; width: 150px; height: 26px; text: "Override level"; font-size: 12px; color: Theme.settings-control-label; vertical-alignment: center; }
-            OverrideLaneButton { x: parent.width - 178px; y: 12px; width: 80px; height: 26px; label: "Primary"; accessible-label: "Primary subtitles";
+            Text { x: 14px; y: 12px; width: 150px; height: 26px; text: @tr("Override level"); font-size: 12px; color: Theme.settings-control-label; vertical-alignment: center; }
+            OverrideLaneButton { x: parent.width - 178px; y: 12px; width: 80px; height: 26px; label: @tr("Primary"); accessible-label: @tr("Primary subtitles");
                 selected: SubtitleSettingsState.subtitle-ass-override-lane == 0; activated => { SubtitleSettingsState.subtitle-ass-override-lane = 0; }
             }
-            OverrideLaneButton { x: parent.width - 94px; y: 12px; width: 80px; height: 26px; label: "Secondary"; accessible-label: "Secondary subtitles";
+            OverrideLaneButton { x: parent.width - 94px; y: 12px; width: 80px; height: 26px; label: @tr("Secondary"); accessible-label: @tr("Secondary subtitles");
                 selected: SubtitleSettingsState.subtitle-ass-override-lane == 1; activated => { SubtitleSettingsState.subtitle-ass-override-lane = 1; }
             }
-            for option[index] in ["no", "yes", "scale", "force", "strip"] : PreferenceOptionCard {
+            for option[index] in [@tr("no"), @tr("yes"), @tr("scale"), @tr("force"), @tr("strip")] : PreferenceOptionCard {
                 x: 14px; y: 54px + index * 58px; width: parent.width - 28px;
                 title: option; description: root.subtitle-override-descriptions[index];
                 selected: (SubtitleSettingsState.subtitle-ass-override-lane == 0 ? SubtitleSettingsState.subtitle-ass-override-primary-index : SubtitleSettingsState.subtitle-ass-override-secondary-index) == index;
@@ -135,102 +167,102 @@ export component SubtitlesPreferencesPage inherits ScrollView {
         Text { x: 28px; y: root.subtitle-text-y; text: @tr("Text Subtitles"); font-size: 13px; font-weight: 600; color: Theme.settings-section-heading; }
         Rectangle { x: 20px; y: root.subtitle-text-y + 26px; width: parent.width - 40px; height: root.subtitle-text-height;
             border-width: 1px; border-color: Theme.settings-card-border; border-radius: 12px; background: Theme.settings-card-surface(root.mica-backdrop-enabled);
-            Text { x: 14px; y: 12px; width: 70px; height: 26px; text: "Font"; font-size: 12px; color: Theme.settings-control-label; vertical-alignment: center; }
-            PreferenceActionButton { x: 90px; y: 12px; width: parent.width - 104px; label: SubtitleSettingsState.subtitle-font; accessible-label: "Choose subtitle font";
+            Text { x: 14px; y: 12px; width: 70px; height: 26px; text: @tr("Font"); font-size: 12px; color: Theme.settings-control-label; vertical-alignment: center; }
+            PreferenceActionButton { x: 90px; y: 12px; width: parent.width - 104px; label: SubtitleSettingsState.subtitle-font; accessible-label: @tr("Choose subtitle font");
                 activated => { root.choose-subtitle-font(); }
             }
-            Text { x: 14px; y: 52px; width: 70px; height: 24px; text: "Size"; font-size: 12px; color: Theme.settings-control-label; vertical-alignment: center; }
-            PreferenceNumericInput { x: 90px; y: 52px; width: 44px; height: 24px; label: "Subtitle font size"; text <=> SubtitleSettingsState.subtitle-font-size-text; accepted => { root.settings-changed(); } }
-            CheckBox { x: 150px; y: 52px; width: 72px; height: 24px; text: "Bold"; checked <=> SubtitleSettingsState.subtitle-bold; toggled => { root.settings-changed(); } }
-            CheckBox { x: 236px; y: 52px; width: 72px; height: 24px; text: "Italic"; checked <=> SubtitleSettingsState.subtitle-italic; toggled => { root.settings-changed(); } }
-            Text { x: 14px; y: 92px; width: 70px; height: 24px; text: "Color"; font-size: 12px; color: Theme.settings-control-label; vertical-alignment: center; }
-            SubtitleColorWell { x: 90px; y: 92px; observed-color: SubtitleSettingsState.subtitle-text-color; hint: "Subtitle text color"; native-color-panel: root.platform-macos; color-target: 1;
+            Text { x: 14px; y: 52px; width: 70px; height: 24px; text: @tr("Size"); font-size: 12px; color: Theme.settings-control-label; vertical-alignment: center; }
+            PreferenceNumericInput { x: 90px; y: 52px; width: 44px; height: 24px; label: @tr("Subtitle font size"); text <=> SubtitleSettingsState.subtitle-font-size-text; accepted => { root.settings-changed(); } }
+            CheckBox { x: 150px; y: 52px; width: 72px; height: 24px; text: @tr("Bold"); checked <=> SubtitleSettingsState.subtitle-bold; toggled => { root.settings-changed(); } }
+            CheckBox { x: 236px; y: 52px; width: 72px; height: 24px; text: @tr("Italic"); checked <=> SubtitleSettingsState.subtitle-italic; toggled => { root.settings-changed(); } }
+            Text { x: 14px; y: 92px; width: 70px; height: 24px; text: @tr("Color"); font-size: 12px; color: Theme.settings-control-label; vertical-alignment: center; }
+            SubtitleColorWell { x: 90px; y: 92px; observed-color: SubtitleSettingsState.subtitle-text-color; hint: @tr("Subtitle text color"); native-color-panel: root.platform-macos; color-target: 1;
                 native-color-requested(target, color) => { root.native-subtitle-color-requested(target, color); }
                 edited(value) => { SubtitleSettingsState.subtitle-text-color = value; root.settings-changed(); }
             }
-            Text { x: 150px; y: 92px; width: 100px; height: 24px; text: "Background"; font-size: 12px; color: Theme.settings-control-label; vertical-alignment: center; }
-            SubtitleColorWell { x: parent.width - 54px; y: 92px; observed-color: SubtitleSettingsState.subtitle-background-color; hint: "Subtitle background color"; native-color-panel: root.platform-macos; color-target: 2;
+            Text { x: 150px; y: 92px; width: 100px; height: 24px; text: @tr("Background"); font-size: 12px; color: Theme.settings-control-label; vertical-alignment: center; }
+            SubtitleColorWell { x: parent.width - 54px; y: 92px; observed-color: SubtitleSettingsState.subtitle-background-color; hint: @tr("Subtitle background color"); native-color-panel: root.platform-macos; color-target: 2;
                 native-color-requested(target, color) => { root.native-subtitle-color-requested(target, color); }
                 edited(value) => { SubtitleSettingsState.subtitle-background-color = value; SubtitleSettingsState.subtitle-shadow-color = value; root.settings-changed(); }
             }
-            Text { x: 14px; y: 132px; width: 70px; height: 24px; text: "Border"; font-size: 12px; color: Theme.settings-control-label; vertical-alignment: center; }
-            PreferenceNumericInput { x: 90px; y: 132px; width: 44px; height: 24px; label: "Subtitle border size"; text <=> SubtitleSettingsState.subtitle-outline-size-text; accepted => { root.settings-changed(); } }
-            Text { x: 166px; y: 132px; width: 74px; height: 24px; text: "Color"; font-size: 12px; color: Theme.settings-control-label; vertical-alignment: center; }
-            SubtitleColorWell { x: parent.width - 54px; y: 132px; observed-color: SubtitleSettingsState.subtitle-outline-color; hint: "Subtitle border color"; native-color-panel: root.platform-macos; color-target: 3;
+            Text { x: 14px; y: 132px; width: 70px; height: 24px; text: @tr("Border"); font-size: 12px; color: Theme.settings-control-label; vertical-alignment: center; }
+            PreferenceNumericInput { x: 90px; y: 132px; width: 44px; height: 24px; label: @tr("Subtitle border size"); text <=> SubtitleSettingsState.subtitle-outline-size-text; accepted => { root.settings-changed(); } }
+            Text { x: 166px; y: 132px; width: 74px; height: 24px; text: @tr("Color"); font-size: 12px; color: Theme.settings-control-label; vertical-alignment: center; }
+            SubtitleColorWell { x: parent.width - 54px; y: 132px; observed-color: SubtitleSettingsState.subtitle-outline-color; hint: @tr("Subtitle border color"); native-color-panel: root.platform-macos; color-target: 3;
                 native-color-requested(target, color) => { root.native-subtitle-color-requested(target, color); }
                 edited(value) => { SubtitleSettingsState.subtitle-outline-color = value; root.settings-changed(); }
             }
-            Text { x: 14px; y: 172px; width: 70px; height: 24px; text: "Shadow"; font-size: 12px; color: Theme.settings-control-label; vertical-alignment: center; }
-            PreferenceNumericInput { x: 90px; y: 172px; width: 44px; height: 24px; label: "Subtitle shadow offset"; text <=> SubtitleSettingsState.subtitle-shadow-offset-text; accepted => { root.settings-changed(); } }
-            Text { x: 166px; y: 172px; width: 74px; height: 24px; text: "Color"; font-size: 12px; color: Theme.settings-control-label; vertical-alignment: center; }
-            SubtitleColorWell { x: parent.width - 54px; y: 172px; observed-color: SubtitleSettingsState.subtitle-shadow-color; hint: "Subtitle shadow color"; native-color-panel: root.platform-macos; color-target: 4;
+            Text { x: 14px; y: 172px; width: 70px; height: 24px; text: @tr("Shadow"); font-size: 12px; color: Theme.settings-control-label; vertical-alignment: center; }
+            PreferenceNumericInput { x: 90px; y: 172px; width: 44px; height: 24px; label: @tr("Subtitle shadow offset"); text <=> SubtitleSettingsState.subtitle-shadow-offset-text; accepted => { root.settings-changed(); } }
+            Text { x: 166px; y: 172px; width: 74px; height: 24px; text: @tr("Color"); font-size: 12px; color: Theme.settings-control-label; vertical-alignment: center; }
+            SubtitleColorWell { x: parent.width - 54px; y: 172px; observed-color: SubtitleSettingsState.subtitle-shadow-color; hint: @tr("Subtitle shadow color"); native-color-panel: root.platform-macos; color-target: 4;
                 native-color-requested(target, color) => { root.native-subtitle-color-requested(target, color); }
                 edited(value) => { SubtitleSettingsState.subtitle-shadow-color = value; SubtitleSettingsState.subtitle-background-color = value; root.settings-changed(); }
             }
-            GeneralDisclosureRow { x: 0px; y: 204px; width: parent.width; label: "Other styles"; expanded: SubtitleSettingsState.subtitle-text-advanced-expanded;
+            GeneralDisclosureRow { x: 0px; y: 204px; width: parent.width; label: @tr("Other styles"); expanded: SubtitleSettingsState.subtitle-text-advanced-expanded;
                 activated => { SubtitleSettingsState.subtitle-text-advanced-expanded = !SubtitleSettingsState.subtitle-text-advanced-expanded; }
             }
             if SubtitleSettingsState.subtitle-text-advanced-expanded : Rectangle { x: 14px; y: 248px; width: parent.width - 28px; height: 26px; background: transparent;
-                Text { x: 0px; y: 0px; width: 40px; height: 24px; text: "Blur"; font-size: 12px; color: Theme.settings-control-label; vertical-alignment: center; }
-                PreferenceNumericInput { x: 44px; y: 0px; width: 44px; height: 24px; label: "Subtitle blur"; text <=> SubtitleSettingsState.subtitle-blur-text; accepted => { root.settings-changed(); } }
-                Text { x: 108px; y: 0px; width: 100px; height: 24px; text: "Font spacing"; font-size: 12px; color: Theme.settings-control-label; vertical-alignment: center; }
-                PreferenceNumericInput { x: parent.width - 56px; y: 0px; width: 56px; height: 24px; label: "Subtitle font spacing"; text <=> SubtitleSettingsState.subtitle-spacing-text; accepted => { root.settings-changed(); } }
+                Text { x: 0px; y: 0px; width: 40px; height: 24px; text: @tr("Blur"); font-size: 12px; color: Theme.settings-control-label; vertical-alignment: center; }
+                PreferenceNumericInput { x: 44px; y: 0px; width: 44px; height: 24px; label: @tr("Subtitle blur"); text <=> SubtitleSettingsState.subtitle-blur-text; accepted => { root.settings-changed(); } }
+                Text { x: 108px; y: 0px; width: 100px; height: 24px; text: @tr("Font spacing"); font-size: 12px; color: Theme.settings-control-label; vertical-alignment: center; }
+                PreferenceNumericInput { x: parent.width - 56px; y: 0px; width: 56px; height: 24px; label: @tr("Subtitle font spacing"); text <=> SubtitleSettingsState.subtitle-spacing-text; accepted => { root.settings-changed(); } }
             }
         }
         Text { x: 28px; y: root.subtitle-position-y; text: @tr("Position"); font-size: 13px; font-weight: 600; color: Theme.settings-section-heading; }
         Rectangle { x: 20px; y: root.subtitle-position-y + 26px; width: parent.width - 40px; height: 248px;
             border-width: 1px; border-color: Theme.settings-card-border; border-radius: 12px; background: Theme.settings-card-surface(root.mica-backdrop-enabled);
-            Text { x: 14px; y: 12px; width: 126px; height: 24px; text: "Horizontal alignment"; font-size: 12px; color: Theme.settings-control-label; vertical-alignment: center; }
-            ComboBox { x: 150px; y: 12px; width: parent.width - 164px; height: 26px; model: ["Left", "Center", "Right"]; current-index <=> SubtitleSettingsState.subtitle-align-x-index; selected => { root.settings-changed(); } }
-            Text { x: 14px; y: 52px; width: 126px; height: 24px; text: "Vertical alignment"; font-size: 12px; color: Theme.settings-control-label; vertical-alignment: center; }
-            ComboBox { x: 150px; y: 52px; width: parent.width - 164px; height: 26px; model: ["Top", "Center", "Bottom"]; current-index <=> SubtitleSettingsState.subtitle-align-y-index; selected => { root.settings-changed(); } }
-            Text { x: 14px; y: 92px; width: 64px; height: 24px; text: "Margin X"; font-size: 12px; color: Theme.settings-control-label; vertical-alignment: center; }
-            PreferenceNumericInput { x: 80px; y: 92px; width: 54px; height: 24px; label: "Horizontal subtitle margin"; text <=> SubtitleSettingsState.subtitle-margin-x-text; accepted => { root.settings-changed(); } }
-            Text { x: 166px; y: 92px; width: 64px; height: 24px; text: "Margin Y"; font-size: 12px; color: Theme.settings-control-label; vertical-alignment: center; }
-            PreferenceNumericInput { x: parent.width - 68px; y: 92px; width: 54px; height: 24px; label: "Vertical subtitle margin"; text <=> SubtitleSettingsState.subtitle-margin-y-text; accepted => { root.settings-changed(); } }
-            Text { x: 14px; y: 132px; width: 150px; height: 24px; text: "Vertical position"; font-size: 12px; color: Theme.settings-control-label; vertical-alignment: center; }
-            PreferenceNumericInput { x: 180px; y: 132px; width: 64px; height: 24px; label: "Subtitle vertical position percent"; text <=> SubtitleSettingsState.subtitle-position-text; accepted => { root.settings-changed(); } }
+            Text { x: 14px; y: 10px; width: 126px; height: 28px; text: @tr("Horizontal alignment"); font-size: 12px; color: Theme.settings-control-label; vertical-alignment: center; wrap: word-wrap; }
+            ComboBox { x: 150px; y: 12px; width: parent.width - 164px; height: 26px; accessible-label: @tr("Horizontal alignment"); model: [@tr("Left"), @tr("Center"), @tr("Right")]; current-index <=> SubtitleSettingsState.subtitle-align-x-index; selected => { root.settings-changed(); } }
+            Text { x: 14px; y: 50px; width: 126px; height: 28px; text: @tr("Vertical alignment"); font-size: 12px; color: Theme.settings-control-label; vertical-alignment: center; wrap: word-wrap; }
+            ComboBox { x: 150px; y: 52px; width: parent.width - 164px; height: 26px; accessible-label: @tr("Vertical alignment"); model: [@tr("Top"), @tr("Center"), @tr("Bottom")]; current-index <=> SubtitleSettingsState.subtitle-align-y-index; selected => { root.settings-changed(); } }
+            Text { x: 14px; y: 92px; width: 64px; height: 24px; text: @tr("Margin X"); font-size: 12px; color: Theme.settings-control-label; vertical-alignment: center; }
+            PreferenceNumericInput { x: 80px; y: 92px; width: 54px; height: 24px; label: @tr("Horizontal subtitle margin"); text <=> SubtitleSettingsState.subtitle-margin-x-text; accepted => { root.settings-changed(); } }
+            Text { x: 166px; y: 92px; width: 64px; height: 24px; text: @tr("Margin Y"); font-size: 12px; color: Theme.settings-control-label; vertical-alignment: center; }
+            PreferenceNumericInput { x: parent.width - 68px; y: 92px; width: 54px; height: 24px; label: @tr("Vertical subtitle margin"); text <=> SubtitleSettingsState.subtitle-margin-y-text; accepted => { root.settings-changed(); } }
+            Text { x: 14px; y: 132px; width: 150px; height: 24px; text: @tr("Vertical position"); font-size: 12px; color: Theme.settings-control-label; vertical-alignment: center; }
+            PreferenceNumericInput { x: 180px; y: 132px; width: 64px; height: 24px; label: @tr("Subtitle vertical position percent"); text <=> SubtitleSettingsState.subtitle-position-text; accepted => { root.settings-changed(); } }
             Text { x: 250px; y: 132px; width: 24px; height: 24px; text: "%"; font-size: 12px; color: Theme.settings-control-label; vertical-alignment: center; }
-            PreferenceSwitch { x: 14px; y: 168px; width: parent.width - 28px; label: "Display subtitles in fullscreen letterboxes"; checked <=> SubtitleSettingsState.subtitle-display-in-letterbox; toggled => { root.settings-changed(); } }
-            PreferenceSwitch { x: 14px; y: 204px; width: parent.width - 28px; label: "Scale subtitles with window size"; checked <=> SubtitleSettingsState.subtitle-scale-with-window; toggled => { root.settings-changed(); } }
+            PreferenceSwitch { x: 14px; y: 168px; width: parent.width - 28px; wrap-label: true; label: @tr("Display subtitles in fullscreen letterboxes"); checked <=> SubtitleSettingsState.subtitle-display-in-letterbox; toggled => { root.settings-changed(); } }
+            PreferenceSwitch { x: 14px; y: 204px; width: parent.width - 28px; wrap-label: true; label: @tr("Scale subtitles with window size"); checked <=> SubtitleSettingsState.subtitle-scale-with-window; toggled => { root.settings-changed(); } }
         }
         Text { x: 28px; y: root.subtitle-online-y; text: @tr("Online Subtitles"); font-size: 13px; font-weight: 600; color: Theme.settings-section-heading; }
         Rectangle { x: 20px; y: root.subtitle-online-y + 26px; width: parent.width - 40px; height: root.subtitle-online-height;
             border-width: 1px; border-color: Theme.settings-card-border; border-radius: 12px; background: Theme.settings-card-surface(root.mica-backdrop-enabled);
-            Text { x: 14px; y: 12px; width: 104px; height: 26px; text: "Provider"; font-size: 12px; color: Theme.settings-control-label; vertical-alignment: center; }
-            ComboBox { x: 130px; y: 12px; width: parent.width - 144px; height: 26px; model: SubtitleSettingsState.open-subtitles-provider-options; current-index <=> SubtitleSettingsState.open-subtitles-provider-index; selected => { root.settings-changed(); } }
+            Text { x: 14px; y: 12px; width: 104px; height: 26px; text: @tr("Provider"); font-size: 12px; color: Theme.settings-control-label; vertical-alignment: center; }
+            ComboBox { x: 130px; y: 12px; width: parent.width - 144px; height: 26px; accessible-label: @tr("Provider"); model: SubtitleSettingsState.open-subtitles-provider-options; current-index <=> SubtitleSettingsState.open-subtitles-provider-index; selected => { root.settings-changed(); } }
             if SubtitleSettingsState.open-subtitles-provider-index < 2 : Rectangle { x: 14px; y: 48px; width: parent.width - 28px; height: 84px; background: transparent;
-                Text { x: 0px; y: 0px; width: parent.width; height: 18px; text: SubtitleSettingsState.open-subtitles-provider-index == 1 ? "Assrt.net token" : "OpenSubtitles API key"; font-size: 12px; color: Theme.settings-control-label; }
+                Text { x: 0px; y: 0px; width: parent.width; height: 18px; text: SubtitleSettingsState.open-subtitles-provider-index == 1 ? @tr("Assrt.net token") : @tr("OpenSubtitles API key"); font-size: 12px; color: Theme.settings-control-label; }
                 Rectangle { x: 0px; y: 22px; width: parent.width; height: 24px; background: Theme.settings-field-surface; border-width: 1px; border-color: Theme.settings-field-border; border-radius: 3px; clip: true;
                     TextInput { x: 5px; y: 1px; width: parent.width - 10px; height: parent.height - 2px; single-line: true; input-type: password; visible: SubtitleSettingsState.open-subtitles-provider-index == 0;
-                        accessible-label: "OpenSubtitles API key"; text <=> SubtitleSettingsState.open-subtitles-api-key; accepted => { root.settings-changed(); }
+                        accessible-label: @tr("OpenSubtitles API key"); text <=> SubtitleSettingsState.open-subtitles-api-key; accepted => { root.settings-changed(); }
                     }
                     TextInput { x: 5px; y: 1px; width: parent.width - 10px; height: parent.height - 2px; single-line: true; input-type: password; visible: SubtitleSettingsState.open-subtitles-provider-index == 1;
-                        accessible-label: "Assrt.net token"; text <=> SubtitleSettingsState.assrt-token; accepted => { root.settings-changed(); }
+                        accessible-label: @tr("Assrt.net token"); text <=> SubtitleSettingsState.assrt-token; accepted => { root.settings-changed(); }
                     }
                 }
-                Text { x: 0px; y: 52px; width: parent.width; height: 30px; text: "Stored in your system credential store."; font-size: 10px; color: Theme.settings-section-heading; wrap: word-wrap; }
+                Text { x: 0px; y: 52px; width: parent.width; height: 30px; text: @tr("Stored in your system credential store."); font-size: 10px; color: Theme.settings-section-heading; wrap: word-wrap; }
             }
-            if SubtitleSettingsState.open-subtitles-provider-index == 1 : PreferenceActionButton { x: 14px; y: 136px; width: 176px; label: "Get an Assrt API token"; activated => { root.open-assrt-token-page(); } }
+            if SubtitleSettingsState.open-subtitles-provider-index == 1 : PreferenceActionButton { x: 14px; y: 136px; width: 176px; label: @tr("Get an Assrt API token"); activated => { root.open-assrt-token-page(); } }
             if SubtitleSettingsState.open-subtitles-provider-index == 2 : Text { x: 14px; y: 48px; width: parent.width - 28px; height: 54px; text: "Shooter matches local videos using file samples and their path. Searching sends both to Shooter.cn; no account is needed."; font-size: 10px; color: Theme.settings-section-heading; wrap: word-wrap; }
             PreferenceSwitch { x: 14px; y: SubtitleSettingsState.open-subtitles-provider-index == 1 ? 168px : SubtitleSettingsState.open-subtitles-provider-index == 2 ? 116px : SubtitleSettingsState.open-subtitles-provider-index > 2 ? 50px : 136px; width: parent.width - 28px;
-                label: "Search online subtitles automatically"; checked <=> SubtitleSettingsState.open-subtitles-auto-search; toggled => { root.settings-changed(); }
+                label: @tr("Search online subtitles automatically"); checked <=> SubtitleSettingsState.open-subtitles-auto-search; toggled => { root.settings-changed(); }
             }
-            Text { x: 14px; y: root.subtitle-online-height - 68px; width: parent.width - 28px; height: 20px; text: "Only search when media is longer than"; font-size: 11px; color: Theme.settings-control-label; }
-            PreferenceNumericInput { x: 14px; y: root.subtitle-online-height - 40px; width: 64px; height: 24px; label: "Online subtitle search minimum minutes"; text <=> SubtitleSettingsState.open-subtitles-threshold-text; accepted => { root.settings-changed(); } }
-            Text { x: 88px; y: root.subtitle-online-height - 40px; width: 80px; height: 24px; text: "minutes"; font-size: 12px; color: Theme.settings-control-label; vertical-alignment: center; }
+            Text { x: 14px; y: root.subtitle-online-height - 68px; width: parent.width - 28px; height: 20px; text: @tr("Only search when media is longer than"); font-size: 11px; color: Theme.settings-control-label; }
+            PreferenceNumericInput { x: 14px; y: root.subtitle-online-height - 40px; width: 64px; height: 24px; label: @tr("Online subtitle search minimum minutes"); text <=> SubtitleSettingsState.open-subtitles-threshold-text; accepted => { root.settings-changed(); } }
+            Text { x: 88px; y: root.subtitle-online-height - 40px; width: 80px; height: 24px; text: @tr("minutes"); font-size: 12px; color: Theme.settings-control-label; vertical-alignment: center; }
         }
         Text { x: 28px; y: root.subtitle-other-y; text: @tr("Other"); font-size: 13px; font-weight: 600; color: Theme.settings-section-heading; }
         Rectangle { x: 20px; y: root.subtitle-other-y + 26px; width: parent.width - 40px; height: 168px;
             border-width: 1px; border-color: Theme.settings-card-border; border-radius: 12px; background: Theme.settings-card-surface(root.mica-backdrop-enabled);
-            Text { x: 14px; y: 12px; width: parent.width - 28px; height: 20px; text: "Preferred languages"; font-size: 12px; color: Theme.settings-control-label; }
+            Text { x: 14px; y: 12px; width: parent.width - 28px; height: 20px; text: @tr("Preferred languages"); font-size: 12px; color: Theme.settings-control-label; }
             LanguageTokenEditor { x: 14px; y: 36px; width: parent.width - 28px; height: 26px; tokens: SubtitleSettingsState.subtitle-language-tokens;
                 add-token(entry) => { root.add-subtitle-language-token(entry); }
                 remove-token(index) => { root.remove-subtitle-language-token(index); }
             }
-            Text { x: 14px; y: 68px; width: parent.width - 28px; height: 34px; text: "Comma-separated language codes, in preference order."; font-size: 10px; color: Theme.settings-section-heading; wrap: word-wrap; }
-            Text { x: 14px; y: 116px; width: 120px; height: 26px; text: "Default encoding"; font-size: 12px; color: Theme.settings-control-label; vertical-alignment: center; }
-            ComboBox { x: 148px; y: 116px; width: parent.width - 162px; height: 26px; model: SubtitleSettingsState.subtitle-encoding-options; current-index <=> SubtitleSettingsState.subtitle-encoding-index; selected => { root.settings-changed(); } }
+            Text { x: 14px; y: 68px; width: parent.width - 28px; height: 34px; text: @tr("Comma-separated language codes, in preference order."); font-size: 10px; color: Theme.settings-section-heading; wrap: word-wrap; }
+            Text { x: 14px; y: 116px; width: 120px; height: 26px; text: @tr("Default encoding"); font-size: 12px; color: Theme.settings-control-label; vertical-alignment: center; }
+            ComboBox { x: 148px; y: 116px; width: parent.width - 162px; height: 26px; accessible-label: @tr("Default encoding"); model: SubtitleSettingsState.subtitle-encoding-options; current-index <=> SubtitleSettingsState.subtitle-encoding-index; selected => { root.settings-changed(); } }
         }
     }
 }

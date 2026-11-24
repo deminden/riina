@@ -134,7 +134,10 @@ def main():
     assert all(f"root.reveal-network-section({index})" in NAV_SOURCE for index in range(3)), (
         "Every Network subsection needs a reveal route"
     )
-    assert "window.invoke_reveal_network_section" in SEARCH_SOURCE, (
+    assert (
+        "window.invoke_reveal_network_setting(section, inset)" in SEARCH_SOURCE
+        and "root.reveal-network-setting(section, 0px);" in SOURCE
+    ), (
         "Network search must use the same reveal route as navigation"
     )
     assert all(token in network_body for token in (

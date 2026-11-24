@@ -904,7 +904,7 @@ msgid "Position"
 msgstr "Положение"
 
 msgid "Online Subtitles"
-msgstr "Субтитры из интернета"
+msgstr "Онлайн-субтитры"
 
 msgid "Other"
 msgstr "Другое"
@@ -916,7 +916,7 @@ msgid "Cache"
 msgstr "Кэш"
 
 msgid "Online Videos (yt-dlp)"
-msgstr "Видео из интернета (yt-dlp)"
+msgstr "Видео (yt-dlp)"
 
 msgid "Hardware"
 msgstr "Оборудование"
@@ -928,7 +928,7 @@ msgid "Control"
 msgstr "Управление"
 
 msgid "Key Bindings"
-msgstr "Сочетания клавиш"
+msgstr "Горячие клавиши"
 
 msgid "Advanced"
 msgstr "Дополнительно"
@@ -1550,3 +1550,483 @@ msgstr "10 мс"
 
 msgid "1 ms"
 msgstr "1 мс"
+
+msgid "Trackpad"
+msgstr "Трекпад"
+
+msgid "Pinch to"
+msgstr "Жест сведения пальцев"
+
+msgid "Adjust window size"
+msgstr "Размер окна"
+
+msgid "Fullscreen"
+msgstr "Во весь экран"
+
+msgid "Force Touch to"
+msgstr "Сильное нажатие"
+
+msgid "Enter/Exit full screen"
+msgstr "Полный экран"
+
+msgid "Pause/Resume"
+msgstr "Пуск / пауза"
+
+msgid "Hide OSC"
+msgstr "Скрыть панель"
+
+msgid "Mouse"
+msgstr "Мышь"
+
+msgid "Single click to"
+msgstr "Одинарный щелчок"
+
+msgid "Double click to"
+msgstr "Двойной щелчок"
+
+msgid "Right click to"
+msgstr "Правая кнопка мыши"
+
+msgid "Middle click to"
+msgstr "Средняя кнопка мыши"
+
+msgid "Enter/Exit picture-in-picture"
+msgstr "Картинка в картинке"
+
+msgid "A-B loop"
+msgstr "Повтор A–B"
+
+msgid "Reset speed"
+msgstr "Сбросить скорость"
+
+msgid "Accepts first mouse click when not focused"
+msgstr "Принимать щелчок по неактивному окну"
+
+msgid "Scroll"
+msgstr "Прокрутка"
+
+msgid "Scroll vertically to"
+msgstr "Вертикальная прокрутка"
+
+msgid "Scroll horizontally to"
+msgstr "Горизонтальная прокрутка"
+
+msgid "Adjust volume"
+msgstr "Громкость"
+
+msgid "Adjust playback speed"
+msgstr "Скорость воспроизв."
+
+msgid "Scrolling sensitivity"
+msgstr "Чувствительность прокрутки"
+
+msgid "Seek type"
+msgstr "Тип перемотки"
+
+msgid "Keyframe seek"
+msgstr "К ключ. кадрам"
+
+msgid "Exact seek"
+msgstr "Точная перемотка"
+
+msgid "Volume sensitivity"
+msgstr "Чувствительность громкости"
+
+msgid "Seek sensitivity"
+msgstr "Чувствительность перемотки"
+
+msgid "Auto load"
+msgstr "Автозагрузка"
+
+msgid "Subtitle matching mode"
+msgstr "Правило подбора субтитров"
+
+msgid "Filename priority keywords"
+msgstr "Ключевые слова для имён файлов"
+
+msgid "Comma-separated strings, in priority order."
+msgstr "Фразы через запятую, в порядке приоритета."
+
+msgid "Also search these directories"
+msgstr "Искать также в этих папках"
+
+msgid "Priority keywords"
+msgstr "Ключевые слова"
+
+msgid "Search paths"
+msgstr "Папки поиска"
+
+msgid "Override level"
+msgstr "Переопределение"
+
+msgid "Primary"
+msgstr "Основные"
+
+msgid "Secondary"
+msgstr "Вторые"
+
+msgid "Primary subtitles"
+msgstr "Основные субтитры"
+
+msgid "Secondary subtitles"
+msgstr "Вторые субтитры"
+
+msgid "Font"
+msgstr "Шрифт"
+
+msgid "Choose subtitle font"
+msgstr "Выбрать шрифт субтитров"
+
+msgid "Font and size"
+msgstr "Шрифт и размер"
+
+msgid "Size"
+msgstr "Размер"
+
+msgid "Color"
+msgstr "Цвет"
+
+msgid "Background"
+msgstr "Фон"
+
+msgid "Border"
+msgstr "Контур"
+
+msgid "Shadow"
+msgstr "Тень"
+
+msgid "Other styles"
+msgstr "Другие стили"
+
+msgid "Shadow and other styles"
+msgstr "Тень и другие стили"
+
+msgid "Blur"
+msgstr "Размытие"
+
+msgid "Font spacing"
+msgstr "Интервал между буквами"
+
+msgid "Horizontal alignment"
+msgstr "Выравнивание по горизонтали"
+
+msgid "Vertical alignment"
+msgstr "Выравнивание по вертикали"
+
+msgid "Alignment and margins"
+msgstr "Выравнивание и отступы"
+
+msgid "Margin X"
+msgstr "Отступ X"
+
+msgid "Margin Y"
+msgstr "Отступ Y"
+
+msgid "Vertical position"
+msgstr "Положение по вертикали"
+
+msgid "Provider"
+msgstr "Поставщик"
+
+msgid "Subtitle provider"
+msgstr "Поставщик субтитров"
+
+msgid "OpenSubtitles API key"
+msgstr "Ключ API OpenSubtitles"
+
+msgid "Assrt.net token"
+msgstr "Токен Assrt.net"
+
+msgid "Stored in your system credential store."
+msgstr "Хранится в системном хранилище учётных данных."
+
+msgid "Get an Assrt API token"
+msgstr "Получить токен Assrt"
+
+msgid "Shooter matches local videos using file samples and their path. Searching sends both to Shooter.cn; no account is needed."
+msgstr "Для поиска субтитров Shooter получает фрагменты файла и его путь. Учётная запись не нужна."
+
+msgid "Only search when media is longer than"
+msgstr "Искать при длительности больше"
+
+msgid "minutes"
+msgstr "мин"
+
+msgid "Default encoding"
+msgstr "Кодировка по умолчанию"
+
+msgid "Automatic subtitle search"
+msgstr "Автоматический поиск субтитров"
+
+msgid "Languages and encoding"
+msgstr "Языки и кодировка"
+
+msgid "Prefetch and buffer network data"
+msgstr "Предзагрузка и буферизация данных"
+
+msgid "Buffer before starting playback"
+msgstr "Заполнять буфер до начала воспроизведения"
+
+msgid "Enter buffering mode before playback starts. This can be useful to ensure playback starts smoothly, in exchange for waiting some time to prefetch and buffer network data."
+msgstr "Заполняет буфер перед воспроизведением. Начало задерживается, чтобы видео началось плавно."
+
+msgid "Seconds to buffer before restarting"
+msgstr "Буфер перед продолжением, с"
+
+msgid "Number of seconds the cache should have buffered before starting playback again if buffering mode was entered. Increase this setting if playback quickly reenters buffering mode."
+msgstr "Сколько секунд данных накопить перед возобновлением. Увеличьте значение, если воспроизведение снова быстро прерывается."
+
+msgid "Default: 1"
+msgstr "По умолчанию: 1"
+
+msgid "Seconds to prefetch"
+msgstr "Предзагрузка, с"
+
+msgid "Default: 36,000"
+msgstr "По умолчанию: 36 000"
+
+msgid "Cache buffer size (KiB)"
+msgstr "Размер буфера (КиБ)"
+
+msgid "Cache buffer size in KiB"
+msgstr "Размер буфера в кибибайтах"
+
+msgid "Default: 153,600"
+msgstr "По умолчанию: 153 600"
+
+msgid "Show throbber when buffering"
+msgstr "Показывать значок буферизации"
+
+msgid "Show throbber when seeking"
+msgstr "Показывать значок при перемотке"
+
+msgid "User agent"
+msgstr "Агент клиента"
+
+msgid "HTTP proxy"
+msgstr "Прокси HTTP"
+
+msgid "Enter a proxy URL, such as http://proxy.example:8080."
+msgstr "Введите URL прокси, например http://proxy.example:8080."
+
+msgid "RTSP transport"
+msgstr "Режим RTSP"
+
+msgid "Changes take effect after restarting riina."
+msgstr "Изменения вступят в силу после перезапуска riina."
+
+msgid "The Online Media plugin is enabled"
+msgstr "Дополнение «Онлайн-медиа» включено"
+
+msgid "The Online Media plugin is recommended"
+msgstr "Рекомендуется дополнение «Онлайн-медиа»"
+
+msgid "Custom youtube-dl path"
+msgstr "Задать путь к youtube-dl"
+
+msgid "Search this folder at startup. Restart required."
+msgstr "Поиск в этой папке при запуске. Требуется перезапуск."
+
+msgid "Raw options"
+msgstr "Параметры командной строки"
+
+msgid "Format: {0}"
+msgstr "Формат: {0}"
+
+msgid "Relative seek amount"
+msgstr "Величина перемотки"
+
+msgid "Sensitivity for speed"
+msgstr "Чувствительность скорости"
+
+msgid "Sensitivity for volume"
+msgstr "Чувствительность громкости"
+
+msgid "Bold"
+msgstr "Полужирный"
+
+msgid "Italic"
+msgstr "Курсив"
+
+msgid "Subtitle filename priority keywords"
+msgstr "Ключевые слова для имён файлов субтитров"
+
+msgid "Subtitle search paths"
+msgstr "Папки поиска субтитров"
+
+msgid "Subtitle font size"
+msgstr "Размер шрифта субтитров"
+
+msgid "Subtitle text color"
+msgstr "Цвет текста субтитров"
+
+msgid "Subtitle background color"
+msgstr "Цвет фона субтитров"
+
+msgid "Subtitle border size"
+msgstr "Толщина контура субтитров"
+
+msgid "Subtitle border color"
+msgstr "Цвет контура субтитров"
+
+msgid "Subtitle shadow offset"
+msgstr "Смещение тени субтитров"
+
+msgid "Subtitle shadow color"
+msgstr "Цвет тени субтитров"
+
+msgid "Subtitle blur"
+msgstr "Размытие субтитров"
+
+msgid "Subtitle font spacing"
+msgstr "Интервал между буквами субтитров"
+
+msgid "Horizontal subtitle margin"
+msgstr "Горизонтальный отступ субтитров"
+
+msgid "Vertical subtitle margin"
+msgstr "Вертикальный отступ субтитров"
+
+msgid "Subtitle vertical position percent"
+msgstr "Положение субтитров по вертикали в процентах"
+
+msgid "Display subtitles in fullscreen letterboxes"
+msgstr "Субтитры на полях полноэкранного видео"
+
+msgid "Scale subtitles with window size"
+msgstr "Масштабировать субтитры вместе с окном"
+
+msgid "Search online subtitles automatically"
+msgstr "Автоматически искать субтитры в сети"
+
+msgid "Online subtitle search minimum minutes"
+msgstr "Минимальная длительность видео для поиска субтитров, мин"
+
+msgid "Preferred language"
+msgstr "Предпочитаемый язык"
+
+msgid "Left"
+msgstr "Слева"
+
+msgid "Center"
+msgstr "По центру"
+
+msgid "Right"
+msgstr "Справа"
+
+msgid "Subtitles containing media filename"
+msgstr "По имени медиафайла"
+
+msgid "Detect intelligently by IINA"
+msgstr "Умный подбор IINA"
+
+msgid "Render subtitle scripts without overriding their styles."
+msgstr "Показывать субтитры в исходном оформлении."
+
+msgid "Apply all style settings from this section."
+msgstr "Применять настройки оформления этого раздела."
+
+msgid "Apply subtitle scale together with these style settings."
+msgstr "Применять масштаб и настройки оформления."
+
+msgid "Apply all subtitle styles."
+msgstr "Применять все настройки оформления субтитров."
+
+msgid "Remove ASS tags and styling from the subtitle."
+msgstr "Убирать теги ASS и оформление субтитров."
+
+msgid "The plugin adds quality selection and video downloads. mpv's built-in extractor is disabled while the plugin is enabled."
+msgstr "Дополнение позволяет выбирать качество и скачивать видео. Пока оно включено, загрузчик mpv отключён."
+
+msgid "The plugin adds quality selection and video downloads. The settings below configure mpv's built-in extractor."
+msgstr "Дополнение позволяет выбирать качество и скачивать видео. Ниже приведены настройки загрузчика mpv."
+
+msgid "Enable mpv's youtube-dl script"
+msgstr "Включить скрипт youtube-dl для mpv"
+
+msgid "Universal"
+msgstr "Универсальная"
+
+msgid "Arabic"
+msgstr "Арабская"
+
+msgid "Baltic"
+msgstr "Балтийская"
+
+msgid "Celtic"
+msgstr "Кельтская"
+
+msgid "Central European"
+msgstr "Центральноевропейская"
+
+msgid "Cyrillic"
+msgstr "Кириллица"
+
+msgid "Eastern European"
+msgstr "Восточноевропейская"
+
+msgid "Western Languages"
+msgstr "Западные языки"
+
+msgid "Greek"
+msgstr "Греческая"
+
+msgid "Hebrew"
+msgstr "Иврит"
+
+msgid "Japanese"
+msgstr "Японская"
+
+msgid "Korean"
+msgstr "Корейская"
+
+msgid "Nordic"
+msgstr "Скандинавская"
+
+msgid "North European"
+msgstr "Североевропейская"
+
+msgid "Russian"
+msgstr "Русская"
+
+msgid "Simplified Chinese"
+msgstr "Упрощённая китайская"
+
+msgid "South European"
+msgstr "Южноевропейская"
+
+msgid "South-Eastern European"
+msgstr "Юго-восточноевропейская"
+
+msgid "Thai"
+msgstr "Тайская"
+
+msgid "Traditional Chinese"
+msgstr "Традиционная китайская"
+
+msgid "Turkish"
+msgstr "Турецкая"
+
+msgid "Ukrainian"
+msgstr "Украинская"
+
+msgid "Vietnamese"
+msgstr "Вьетнамская"
+
+msgid "Western European"
+msgstr "Западноевропейская"
+
+msgid "no"
+msgstr "Нет"
+
+msgid "yes"
+msgstr "Да"
+
+msgid "scale"
+msgstr "Масштаб"
+
+msgid "force"
+msgstr "Принудительно"
+
+msgid "strip"
+msgstr "Без стилей"

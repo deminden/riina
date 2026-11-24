@@ -566,6 +566,9 @@ live layout after expanding a disclosure. Video search shares the rendered
 card positions, including the offsets introduced by Live Text or the macOS
 display profile control. Search checks feature availability on each query
 because text recognition can become available after the window opens.
+Subtitles search opens the relevant disclosure, and Network and Control
+search scroll the matching groups into view. The localizable subtitle
+encoding menu uses the portable ordered encoding table for the mpv values.
 Audio device models keep the recorded name and description separate from the
 display caption, including when the last selected device is disconnected.
 The controller clock reads libmpv's elapsed, duration, remaining and scaled

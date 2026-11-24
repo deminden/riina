@@ -22,6 +22,16 @@ const fn general(section: &'static str, title: &'static str, terms: &'static str
     }
 }
 
+const fn control(section: &'static str, title: &'static str, terms: &'static str) -> Entry {
+    Entry {
+        page_index: 6,
+        page: "Control",
+        section,
+        title,
+        terms,
+    }
+}
+
 // The index follows visible user-facing labels. Aliases make common queries
 // useful without advertising controls that the current page does not expose.
 const ENTRIES: &[Entry] = &[
@@ -785,13 +795,32 @@ const ENTRIES: &[Entry] = &[
         title: "Raw options",
         terms: "youtube-dl yt-dlp format key value",
     },
-    Entry {
-        page_index: 6,
-        page: "Control",
-        section: "",
-        title: "Control",
-        terms: "preferences",
-    },
+    control("", "Control", "preferences"),
+    control("Trackpad", "Pinch to", "gesture trackpad zoom resize"),
+    control("Trackpad", "Force Touch to", "trackpad hard press pressure"),
+    control("Mouse", "Single click to", "mouse button one"),
+    control("Mouse", "Double click to", "mouse button two"),
+    control("Mouse", "Right click to", "mouse secondary button context"),
+    control("Mouse", "Middle click to", "mouse wheel button"),
+    control(
+        "Mouse",
+        "Accepts first mouse click when not focused",
+        "inactive background focus click-through",
+    ),
+    control("Scroll", "Scroll vertically to", "mouse wheel up down"),
+    control("Scroll", "Scroll horizontally to", "mouse wheel left right"),
+    control("Scrolling sensitivity", "Seek type", "keyframe exact auto"),
+    control("Scrolling sensitivity", "Relative seek amount", "skip step"),
+    control(
+        "Scrolling sensitivity",
+        "Sensitivity for speed",
+        "scroll playback speed",
+    ),
+    control(
+        "Scrolling sensitivity",
+        "Sensitivity for volume",
+        "scroll audio volume",
+    ),
     Entry {
         page_index: 7,
         page: "Key Bindings",
@@ -955,6 +984,9 @@ fn anchor_y(entry: &Entry) -> i32 {
         (4, "Online Subtitles", _) => 1164,
         (4, "Other", _) => 1454,
         (5, "Cache", _) | (5, "Network", _) => 80,
+        (6, "Mouse", _) => 174,
+        (6, "Scroll", _) => 418,
+        (6, "Scrolling sensitivity", _) => 538,
         _ => 0,
     }
 }
@@ -994,6 +1026,13 @@ fn build_index(labels: &SearchLabels) -> Vec<IndexedEntry> {
                 "Suppress pause and resume messages" => "Pause / Resume",
                 "Suppress seek messages" => "Seek",
                 "Suppress speed messages" => "Speed",
+                "Subtitle matching mode" => "Auto load",
+                "Priority keywords" => "Filename priority keywords",
+                "Search paths" => "Also search these directories",
+                "Shadow and other styles" => "Other styles",
+                "Subtitle provider" => "Provider",
+                "Automatic subtitle search" => "Search online subtitles automatically",
+                "Preferred language" => "Preferred languages",
                 _ => source.title,
             };
             IndexedEntry {
@@ -1213,6 +1252,21 @@ fn general_target(window: &PreferencesWindow, section: &str, title: &str) -> f32
     }
 }
 
+fn reveal_network_result(window: &PreferencesWindow, section: &str, title: &str) {
+    let section = match section {
+        "Network" => 1,
+        "Online Videos (yt-dlp)" => 2,
+        _ => 0,
+    };
+    let inset = match title {
+        "Seconds to buffer before restarting" => 168.0,
+        "Seconds to prefetch" | "Cache buffer size (KiB)" => 240.0,
+        "Show throbber when buffering" | "Show throbber when seeking" => 330.0,
+        _ => 0.0,
+    };
+    window.invoke_reveal_network_setting(section, inset);
+}
+
 fn activate_result(window: &PreferencesWindow, page: i32, section: &str, title: &str) {
     if page == 0 {
         let target = general_target(window, section, title);
@@ -1289,9 +1343,13 @@ fn activate_result(window: &PreferencesWindow, page: i32, section: &str, title: 
         });
     }
     if page == 5 {
-        window.invoke_reveal_network_section(match section {
-            "Network" => 1,
-            "Online Videos (yt-dlp)" => 2,
+        reveal_network_result(window, section, title);
+    }
+    if page == 6 {
+        window.invoke_reveal_control_section(match section {
+            "Mouse" => 1,
+            "Scroll" => 2,
+            "Scrolling sensitivity" => 3,
             _ => 0,
         });
     }
@@ -1550,6 +1608,70 @@ mod tests {
             .map(|result| result.page_name.to_string())
             .collect::<Vec<_>>();
         assert_eq!(pages, ["General", "Subtitles"]);
+    }
+
+    #[test]
+    fn localized_subtitle_network_and_control_results_reveal_settings()
+    -> Result<(), Box<dyn std::error::Error>> {
+        i_slint_backend_testing::init_no_event_loop();
+        let window = PreferencesWindow::new()?;
+        window
+            .window()
+            .set_size(slint::LogicalSize::new(600.0, 480.0));
+        window.show()?;
+        let subtitles = window.global::<crate::SubtitleSettingsState>();
+        for (locale, paths, seeking, mouse) in [
+            (
+                "ru",
+                "искать также в этих папках",
+                "показывать значок при перемотке",
+                "правая кнопка мыши",
+            ),
+            (
+                "ar",
+                "البحث أيضًا في هذه المجلدات",
+                "إظهار المؤشر عند التنقل",
+                "النقر بالزر الأيمن",
+            ),
+        ] {
+            slint::select_bundled_translation(locale)?;
+            connect(&window);
+            subtitles.set_subtitle_auto_load_advanced_expanded(false);
+
+            for (query, page) in [(paths, 4), (seeking, 5), (mouse, 6)] {
+                window.invoke_search_query_changed(query.into());
+                let row = window
+                    .get_search_results()
+                    .iter()
+                    .find(|row| !row.is_header && row.page_index == page)
+                    .ok_or("Missing localized Settings result")?;
+                window.invoke_search_result_activated(row.target);
+                slint::platform::update_timers_and_animations();
+                assert_eq!(window.get_selected_pane(), page);
+                match page {
+                    4 => {
+                        assert!(subtitles.get_subtitle_auto_load_advanced_expanded());
+                        assert_eq!(window.get_selected_subtitle_section(), 0);
+                    }
+                    5 => {
+                        assert_eq!(window.get_selected_network_section(), 0);
+                        assert!((window.get_network_scroll_position() + 330.0).abs() < 0.5);
+                    }
+                    _ => assert!((window.get_control_scroll_position() + 158.0).abs() < 0.5),
+                }
+            }
+            window.invoke_search_query_changed("scroll audio volume".into());
+            let row = window
+                .get_search_results()
+                .iter()
+                .find(|row| !row.is_header && row.page_index == 6)
+                .ok_or("Missing Control result for English alias")?;
+            window.invoke_search_result_activated(row.target);
+            assert!((window.get_control_scroll_position() + 280.0).abs() < 0.5);
+        }
+        slint::select_bundled_translation("en")?;
+        window.hide()?;
+        Ok(())
     }
 
     #[test]

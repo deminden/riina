@@ -4,8 +4,7 @@ use slint::ComponentHandle;
 use super::model::{PreferenceSection, SectionError};
 use crate::{PlayerWindow, PreferencesWindow};
 use riina_core::Preferences;
-use riina_core::subtitle_controls::{AutoLoadMode, AutoLoadPreferences, SUBTITLE_AUTO_LOAD_MODES};
-use slint::{ModelRc, SharedString, VecModel};
+use riina_core::subtitle_controls::{AutoLoadMode, AutoLoadPreferences};
 
 impl PreferenceSection for AutoLoadPreferences {
     fn get(all: &Preferences) -> Self {
@@ -27,15 +26,6 @@ impl PreferenceSection for AutoLoadPreferences {
     fn write_player(&self, app: &PlayerWindow) {
         install_player(app, self);
     }
-}
-
-pub(crate) fn mode_options() -> ModelRc<SharedString> {
-    ModelRc::new(VecModel::from(
-        SUBTITLE_AUTO_LOAD_MODES
-            .iter()
-            .map(|label| SharedString::from(*label))
-            .collect::<Vec<_>>(),
-    ))
 }
 
 pub(crate) fn current_player(app: &crate::PlayerWindow) -> Result<AutoLoadPreferences, String> {
@@ -99,16 +89,29 @@ pub(crate) fn install_window(window: &crate::PreferencesWindow, preferences: &Au
 
 #[cfg(test)]
 mod tests {
-    use super::mode_options;
+    use super::*;
     use riina_core::subtitle_controls::SUBTITLE_AUTO_LOAD_MODES;
     use slint::Model;
 
     #[test]
-    fn mode_menu_matches_the_reference_order() {
-        let options = mode_options();
+    fn mode_menu_matches_the_reference_order() -> Result<(), Box<dyn std::error::Error>> {
+        i_slint_backend_testing::init_no_event_loop();
+        let window = PreferencesWindow::new()?;
+        slint::select_bundled_translation("en")?;
+        let state = window.global::<crate::SubtitleSettingsState>();
+        let options = state.get_subtitle_auto_load_mode_options();
         assert_eq!(options.row_count(), SUBTITLE_AUTO_LOAD_MODES.len());
         for (index, label) in SUBTITLE_AUTO_LOAD_MODES.iter().enumerate() {
             assert_eq!(options.row_data(index), Some((*label).into()));
         }
+        slint::select_bundled_translation("ru")?;
+        let options = state.get_subtitle_auto_load_mode_options();
+        let intelligent = usize::try_from(AutoLoadMode::Intelligent.index())?;
+        assert_eq!(
+            options.row_data(intelligent),
+            Some("Умный подбор IINA".into())
+        );
+        slint::select_bundled_translation("en")?;
+        Ok(())
     }
 }

@@ -42,9 +42,8 @@ pub(super) fn refresh(window: &crate::PreferencesWindow, app: &PlayerWindow) {
     if let Ok(settings) = crate::key_binding_preferences::current_player(app) {
         settings.write_window(window);
     }
-    subtitles.set_subtitle_encoding_options(crate::subtitle_other_preferences::encoding_options());
     subtitles
-        .set_subtitle_auto_load_mode_options(crate::subtitle_auto_load_preferences::mode_options());
+        .set_subtitle_encoding_options(crate::subtitle_other_preferences::encoding_options(window));
     subtitles.set_subtitle_font(
         app.global::<riina_ui::PlaybackSubtitleState>()
             .get_subtitle_font(),

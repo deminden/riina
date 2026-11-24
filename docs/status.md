@@ -45,10 +45,10 @@ Implementation does not imply every state or platform is verified.
   top-level player menu families. The application and idle macOS menus use
   the same captions where they share commands. The system language selects the
   catalog, with English as the fallback. The Settings window, page and section
-  labels, and General, Interface, Video and Audio controls also use these
-  catalogs. Search on those pages accepts translated titles and English
-  aliases. Other Settings pages, player controls and some runtime messages
-  still need translations.
+  labels, and General, Interface, Video, Audio, Subtitles, Network and Control
+  settings also use these catalogs. Search accepts translated titles and English
+  aliases for those pages. Other Settings pages, the player encoding menu and
+  other player controls and runtime messages still need translations.
 - **Linux menus** scroll in short players with either the regular bar or the
   compact Menu button. Menu titles switch on hover while a menu is open.
   Keyboard navigation and a Back control keep overlapping submenus reachable.

@@ -5,7 +5,8 @@ use super::model::{PreferenceSection, SectionError};
 use crate::{PlayerWindow, PreferencesWindow};
 use riina_core::Preferences;
 use riina_core::subtitle_controls::{OtherPreferences, SUBTITLE_ENCODING_CHOICES};
-use slint::{ModelRc, SharedString, VecModel};
+use slint::{Model, ModelRc, SharedString, VecModel};
+use std::collections::BTreeMap;
 
 impl PreferenceSection for OtherPreferences {
     fn get(all: &Preferences) -> Self {
@@ -31,11 +32,30 @@ impl PreferenceSection for OtherPreferences {
     }
 }
 
-pub(crate) fn encoding_options() -> ModelRc<SharedString> {
+pub(crate) fn encoding_options(window: &PreferencesWindow) -> ModelRc<SharedString> {
+    let captions = window
+        .global::<crate::SubtitleSettingsState>()
+        .get_encoding_captions()
+        .iter()
+        .map(|caption| (caption.source.to_string(), caption.localized))
+        .collect::<BTreeMap<_, _>>();
     ModelRc::new(VecModel::from(
         SUBTITLE_ENCODING_CHOICES
             .iter()
-            .map(|(label, _)| SharedString::from(*label))
+            .map(|(label, _)| {
+                let (name, identifier) = label.split_once(" (").unwrap_or((label, ""));
+                let Some(translated) = captions
+                    .get(name)
+                    .filter(|caption| caption.as_str() != name)
+                else {
+                    return SharedString::from(*label);
+                };
+                if identifier.is_empty() {
+                    translated.clone()
+                } else {
+                    format!("{translated} \u{2066}({identifier}\u{2069}").into()
+                }
+            })
             .collect::<Vec<_>>(),
     ))
 }
@@ -157,13 +177,17 @@ pub(crate) fn apply(
 
 #[cfg(test)]
 mod tests {
-    use super::{encoding_code, encoding_options};
+    use super::{PreferencesWindow, encoding_code, encoding_options};
     use riina_core::subtitle_controls::SUBTITLE_ENCODING_CHOICES;
     use slint::Model;
 
     #[test]
-    fn encoding_menu_matches_the_pinned_order_and_round_trips_every_item() {
-        let options = encoding_options();
+    fn encoding_menu_matches_the_pinned_order_and_round_trips_every_item()
+    -> Result<(), Box<dyn std::error::Error>> {
+        i_slint_backend_testing::init_no_event_loop();
+        let window = PreferencesWindow::new()?;
+        slint::select_bundled_translation("en")?;
+        let options = encoding_options(&window);
         assert_eq!(options.row_count(), SUBTITLE_ENCODING_CHOICES.len());
         for (index, (title, code)) in SUBTITLE_ENCODING_CHOICES.iter().enumerate() {
             assert_eq!(options.row_data(index), Some((*title).into()));
@@ -171,5 +195,17 @@ mod tests {
         }
         assert_eq!(encoding_code(-1), None);
         assert_eq!(encoding_code(SUBTITLE_ENCODING_CHOICES.len() as i32), None);
+        let index = SUBTITLE_ENCODING_CHOICES
+            .iter()
+            .position(|(_, code)| *code == "WINDOWS-1256")
+            .ok_or("Missing Arabic Windows encoding")?;
+        slint::select_bundled_translation("ar")?;
+        assert_eq!(
+            encoding_options(&window).row_data(index),
+            Some("العربية \u{2066}(WINDOWS-1256)\u{2069}".into())
+        );
+        assert_eq!(encoding_code(i32::try_from(index)?), Some("WINDOWS-1256"));
+        slint::select_bundled_translation("en")?;
+        Ok(())
     }
 }

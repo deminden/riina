@@ -172,8 +172,22 @@ export component PreferencesWindow inherits Window {
     private property <length> network-online-y: network-connection-y + 259px;
     private property <length> network-content-height: max(network-online-y + 390px, root.height + network-online-y - 16px);
     public function reveal-network-section(section: int) {
+        root.reveal-network-setting(section, 0px);
+    }
+    public function reveal-network-setting(section: int, inset: length) {
         root.selected-network-section = section;
-        root.network-scroll-position = section == 1 ? 16px - network-connection-y : section == 2 ? 16px - network-online-y : 0px;
+        let start = section == 1 ? 16px - network-connection-y : section == 2 ? 16px - network-online-y : 0px;
+        root.network-scroll-position = max(root.height - network-content-height, start - inset);
+    }
+
+    in-out property <length> control-scroll-position: 0px;
+    private property <length> control-content-height: 760px;
+    private property <length> control-mouse-y: 174px;
+    private property <length> control-scroll-y: 418px;
+    private property <length> control-sensitivity-y: 538px;
+    public function reveal-control-section(section: int) {
+        let heading = section == 1 ? control-mouse-y : section == 2 ? control-scroll-y : section == 3 ? control-sensitivity-y : 16px;
+        root.control-scroll-position = max(min(0px, root.height - control-content-height), 16px - heading);
     }
 
     in-out property <int> selected-audio-section: 0;
@@ -199,11 +213,11 @@ export component PreferencesWindow inherits Window {
     private property <length> subtitle-other-y: subtitle-online-y + 26px + subtitle-online-height + 20px;
     private property <length> subtitle-content-height: max(subtitle-other-y + 214px, root.height + subtitle-other-y - 16px);
     private property <[string]> subtitle-override-descriptions: [
-        "Render subtitle scripts without overriding their styles.",
-        "Apply all style settings from this section.",
-        "Apply subtitle scale together with these style settings.",
-        "Apply all subtitle styles.",
-        "Remove ASS tags and styling from the subtitle."
+        @tr("Render subtitle scripts without overriding their styles."),
+        @tr("Apply all style settings from this section."),
+        @tr("Apply subtitle scale together with these style settings."),
+        @tr("Apply all subtitle styles."),
+        @tr("Remove ASS tags and styling from the subtitle.")
     ];
     pure function subtitle-section-y(section: int) -> length {
         return section == 1 ? subtitle-ass-y : section == 2 ? subtitle-text-y : section == 3 ? subtitle-position-y : section == 4 ? subtitle-online-y : section == 5 ? subtitle-other-y : 52px;
@@ -560,6 +574,11 @@ export component PreferencesWindow inherits Window {
 
     if root.selected-pane == 6 : ControlPreferencesPage {
         x: 200px; y: 0; width: parent.width - 200px; height: parent.height;
+        control-content-height: root.control-content-height;
+        control-scroll-position <=> root.control-scroll-position;
+        control-mouse-y: root.control-mouse-y;
+        control-scroll-y: root.control-scroll-y;
+        control-sensitivity-y: root.control-sensitivity-y;
         mica-backdrop-enabled: root.mica-backdrop-enabled;
         settings-changed => { root.settings-changed(); }
     }

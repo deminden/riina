@@ -4306,3 +4306,38 @@ remain to be verified.
 - Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
 - Linux application SHA-256 `d26234beae74eca1b00800de9206c2da2199d01415f5659b80dd79e3290b02fa`
 - Linux libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`
+
+### Subtitles, Network and Control Settings localization 2026-11-24
+
+The Russian and Arabic catalogs cover the three pages and their search
+results. Searching for the subtitle paths opens the Advanced disclosure.
+Search takes the Network feedback results to the switches near the bottom of
+Cache and Control results to their input group. The subtitle auto-load and
+encoding selectors preserve the same item order and engine values across
+languages. The Russian Key Bindings navigation label fits the narrow sidebar.
+
+The Windows workspace gate passed strict Clippy, 641 application tests,
+79 Python checks and all 51 software-rendered visual comparisons. Review
+updated two baselines. The Subtitles image shows the default auto-load choice,
+and the Network image shows the startup buffering switch centered in its row.
+Strict Clippy passed for the Apple Silicon application target. Native macOS
+rendering and interaction remain to be verified.
+
+The locked Windows workspace built successfully. On a private Windows
+desktop, native accessibility search reached the subtitle paths and encoding,
+the seeking indicator, and the right-click action. The Windows test saved and
+restored the seeking indicator, kept the player paused at the same frame
+geometry, and exited normally.
+
+The locked Linux application ran both languages in an isolated Wayland
+session at 600 × 480. Search opened the relevant controls. Editing the
+subtitle path, choosing an encoding, toggling the seeking indicator and
+changing the right-click action all saved the expected values. Both player
+windows retained their frames and exited normally. The Arabic capture shows
+the encoding identifier and extractor syntax in left-to-right order. The
+Picture-in-Picture mouse choice still truncates in both narrow menus.
+
+- Windows application SHA-256 `079725caf9ed9106c42d3489cfe586248bb2235beb98f119c6d2ba6c12d90c3d`
+- Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
+- Linux application SHA-256 `6ad6d14242db08d34868ab168cab5b9911cdee845f4bb9e2991da6d959739d13`
+- Linux libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`

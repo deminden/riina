@@ -21,51 +21,58 @@ export global ControlSettingsState {
 }
 
 export component ControlPreferencesPage inherits ScrollView {
+    in property <length> control-content-height;
+    in-out property <length> control-scroll-position;
+    in property <length> control-mouse-y;
+    in property <length> control-scroll-y;
+    in property <length> control-sensitivity-y;
     in property <bool> mica-backdrop-enabled;
     callback settings-changed();
 
-    content-height: 760px; content-width: self.visible-width;
+    content-height: root.control-content-height; content-width: self.visible-width;
+    content-y <=> root.control-scroll-position;
     horizontal-scrollbar-policy: always-off;
-    Rectangle { width: parent.width; height: 760px;
+    Rectangle { width: parent.width; height: root.control-content-height;
         background: Theme.settings-content-surface(root.mica-backdrop-enabled);
         Text { x: 28px; y: 16px; text: @tr("Control"); font-size: 15px; font-weight: 600; color: Theme.settings-page-heading; }
-        Text { x: 28px; y: 52px; text: "Trackpad"; font-size: 13px; font-weight: 600; color: Theme.settings-section-heading; }
+        Text { x: 28px; y: 52px; text: @tr("Trackpad"); font-size: 13px; font-weight: 600; color: Theme.settings-section-heading; }
         Rectangle { x: 20px; y: 78px; width: parent.width - 40px; height: 82px;
             border-width: 1px; border-color: Theme.settings-input-card-border; border-radius: 10px; background: Theme.settings-card-surface(root.mica-backdrop-enabled);
             VerticalLayout { spacing: 0px;
-                PreferenceChoiceRow { label: "Pinch to"; options: ["Adjust window size", "Fullscreen", "None"];
+                PreferenceChoiceRow { label: @tr("Pinch to"); options: [@tr("Adjust window size"), @tr("Fullscreen"), @tr("None")];
                     selected-index <=> ControlSettingsState.control-pinch-index;
                     selected => { root.settings-changed(); }
                 }
-                PreferenceChoiceRow { label: "Force Touch to"; options: ["None", "Enter/Exit full screen", "Pause/Resume", "Hide OSC"];
+                PreferenceChoiceRow { label: @tr("Force Touch to"); options: [@tr("None"), @tr("Enter/Exit full screen"), @tr("Pause/Resume"), @tr("Hide OSC")];
                     selected-index <=> ControlSettingsState.control-force-touch-choice;
                     selected => { root.settings-changed(); }
                 }
             }
         }
 
-        Text { x: 28px; y: 174px; text: "Mouse"; font-size: 13px; font-weight: 600; color: Theme.settings-section-heading; }
-        Rectangle { x: 20px; y: 200px; width: parent.width - 40px; height: 204px;
+        Text { x: 28px; y: root.control-mouse-y; text: @tr("Mouse"); font-size: 13px; font-weight: 600; color: Theme.settings-section-heading; }
+        Rectangle { x: 20px; y: root.control-mouse-y + 26px; width: parent.width - 40px; height: 204px;
             border-width: 1px; border-color: Theme.settings-input-card-border; border-radius: 10px; background: Theme.settings-card-surface(root.mica-backdrop-enabled);
             VerticalLayout { spacing: 0px;
-                PreferenceChoiceRow { label: "Single click to"; options: ["None", "Pause/Resume", "Hide OSC"];
+                PreferenceChoiceRow { label: @tr("Single click to"); options: [@tr("None"), @tr("Pause/Resume"), @tr("Hide OSC")];
                     selected-index <=> ControlSettingsState.control-single-click-choice;
                     selected => { root.settings-changed(); }
                 }
-                PreferenceChoiceRow { label: "Double click to"; options: ["None", "Enter/Exit full screen", "Pause/Resume", "Hide OSC", "Enter/Exit picture-in-picture", "A-B loop", "Reset speed"];
+                PreferenceChoiceRow { label: @tr("Double click to"); options: [@tr("None"), @tr("Enter/Exit full screen"), @tr("Pause/Resume"), @tr("Hide OSC"), @tr("Enter/Exit picture-in-picture"), @tr("A-B loop"), @tr("Reset speed")];
                     selected-index <=> ControlSettingsState.control-double-click-choice;
                     selected => { root.settings-changed(); }
                 }
-                PreferenceChoiceRow { label: "Right click to"; options: ["None", "Pause/Resume", "Hide OSC", "Enter/Exit picture-in-picture", "A-B loop", "Reset speed"];
+                PreferenceChoiceRow { label: @tr("Right click to"); options: [@tr("None"), @tr("Pause/Resume"), @tr("Hide OSC"), @tr("Enter/Exit picture-in-picture"), @tr("A-B loop"), @tr("Reset speed")];
                     selected-index <=> ControlSettingsState.control-right-click-choice;
                     selected => { root.settings-changed(); }
                 }
-                PreferenceChoiceRow { label: "Middle click to"; options: ["None", "Enter/Exit full screen", "Pause/Resume", "Hide OSC", "Enter/Exit picture-in-picture", "A-B loop", "Reset speed"];
+                PreferenceChoiceRow { label: @tr("Middle click to"); options: [@tr("None"), @tr("Enter/Exit full screen"), @tr("Pause/Resume"), @tr("Hide OSC"), @tr("Enter/Exit picture-in-picture"), @tr("A-B loop"), @tr("Reset speed")];
                     selected-index <=> ControlSettingsState.control-middle-click-choice;
                     selected => { root.settings-changed(); }
                 }
                 Rectangle { height: 28px;
-                PreferenceSwitch { x: 35px; width: parent.width - 47px; label: "Accepts first mouse click when not focused";
+                PreferenceSwitch { x: 35px; width: parent.width - 47px; wrap-label: true;
+                    label: @tr("Accepts first mouse click when not focused");
                     checked <=> ControlSettingsState.control-accepts-first-mouse;
                     toggled => { root.settings-changed(); }
                 }
@@ -73,36 +80,36 @@ export component ControlPreferencesPage inherits ScrollView {
             }
         }
 
-        Text { x: 28px; y: 418px; text: "Scroll"; font-size: 13px; font-weight: 600; color: Theme.settings-section-heading; }
-        Rectangle { x: 20px; y: 444px; width: parent.width - 40px; height: 80px;
+        Text { x: 28px; y: root.control-scroll-y; text: @tr("Scroll"); font-size: 13px; font-weight: 600; color: Theme.settings-section-heading; }
+        Rectangle { x: 20px; y: root.control-scroll-y + 26px; width: parent.width - 40px; height: 80px;
             border-width: 1px; border-color: Theme.settings-input-card-border; border-radius: 10px; background: Theme.settings-card-surface(root.mica-backdrop-enabled);
             VerticalLayout { spacing: 0px;
-                PreferenceChoiceRow { label: "Scroll vertically to"; options: ["Adjust volume", "Seek", "None", "Adjust playback speed"];
+                PreferenceChoiceRow { label: @tr("Scroll vertically to"); options: [@tr("Adjust volume"), @tr("Seek"), @tr("None"), @tr("Adjust playback speed")];
                     selected-index <=> ControlSettingsState.control-vertical-scroll-index;
                     selected => { root.settings-changed(); }
                 }
-                PreferenceChoiceRow { label: "Scroll horizontally to"; options: ["Adjust volume", "Seek", "None", "Adjust playback speed"];
+                PreferenceChoiceRow { label: @tr("Scroll horizontally to"); options: [@tr("Adjust volume"), @tr("Seek"), @tr("None"), @tr("Adjust playback speed")];
                     selected-index <=> ControlSettingsState.control-horizontal-scroll-index;
                     selected => { root.settings-changed(); }
                 }
             }
         }
 
-        Text { x: 28px; y: 538px; text: "Scrolling sensitivity"; font-size: 13px; font-weight: 600; color: Theme.settings-section-heading; }
-        Rectangle { x: 20px; y: 564px; width: parent.width - 40px; height: 152px;
+        Text { x: 28px; y: root.control-sensitivity-y; text: @tr("Scrolling sensitivity"); font-size: 13px; font-weight: 600; color: Theme.settings-section-heading; }
+        Rectangle { x: 20px; y: root.control-sensitivity-y + 26px; width: parent.width - 40px; height: 152px;
             border-width: 1px; border-color: Theme.settings-input-card-border; border-radius: 10px; background: Theme.settings-card-surface(root.mica-backdrop-enabled);
             VerticalLayout { spacing: 0px;
-                PreferenceChoiceRow { label: "Seek type"; options: ["Keyframe seek", "Exact seek", "Auto"];
+                PreferenceChoiceRow { label: @tr("Seek type"); options: [@tr("Keyframe seek"), @tr("Exact seek"), @tr("Auto")];
                     selected-index <=> ControlSettingsState.control-seek-type-index;
                     selected => { root.settings-changed(); }
                 }
-                PreferenceSensitivityRow { label: "Relative seek amount"; value <=> ControlSettingsState.control-relative-seek-amount;
+                PreferenceSensitivityRow { label: @tr("Relative seek amount"); value <=> ControlSettingsState.control-relative-seek-amount;
                     changed => { root.settings-changed(); }
                 }
-                PreferenceSensitivityRow { label: "Sensitivity for speed"; value <=> ControlSettingsState.control-speed-sensitivity;
+                PreferenceSensitivityRow { label: @tr("Sensitivity for speed"); value <=> ControlSettingsState.control-speed-sensitivity;
                     changed => { root.settings-changed(); }
                 }
-                PreferenceSensitivityRow { label: "Sensitivity for volume"; value <=> ControlSettingsState.control-volume-sensitivity;
+                PreferenceSensitivityRow { label: @tr("Sensitivity for volume"); value <=> ControlSettingsState.control-volume-sensitivity;
                     changed => { root.settings-changed(); }
                 }
             }

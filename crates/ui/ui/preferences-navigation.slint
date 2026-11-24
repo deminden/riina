@@ -20,7 +20,7 @@ export component PreferenceNavItem inherits Rectangle {
     Image { x: 5px; y: 8px; width: 20px; height: 20px; source: root.icon; }
     Text { x: 34px; width: parent.width - 42px; height: parent.height;
         text: root.label; font-size: 13px; font-weight: 600; color: Theme.settings-primary-label;
-        vertical-alignment: center; }
+        vertical-alignment: center; wrap: word-wrap; overflow: elide; }
     touch := TouchArea { clicked => { focus.focus(); root.activated(); } }
     focus := FocusScope {
         width: parent.width; height: parent.height;

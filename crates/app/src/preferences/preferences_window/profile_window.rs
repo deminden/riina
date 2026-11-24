@@ -124,9 +124,8 @@ fn install_display(window: &PreferencesWindow, saved: &Preferences) {
 
 fn install_subtitles(window: &PreferencesWindow, saved: &Preferences) {
     let subtitles = window.global::<crate::SubtitleSettingsState>();
-    subtitles.set_subtitle_encoding_options(crate::subtitle_other_preferences::encoding_options());
     subtitles
-        .set_subtitle_auto_load_mode_options(crate::subtitle_auto_load_preferences::mode_options());
+        .set_subtitle_encoding_options(crate::subtitle_other_preferences::encoding_options(window));
     subtitles.set_subtitle_font(saved.subtitle_font.clone().into());
     subtitles.set_subtitle_font_size_text(crate::subtitle_preferences::format_number(
         saved.subtitle_font_size as f32,

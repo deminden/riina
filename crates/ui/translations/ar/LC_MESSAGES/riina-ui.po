@@ -1553,3 +1553,483 @@ msgstr "١٠ ملّي ثانية"
 
 msgid "1 ms"
 msgstr "١ ملّي ثانية"
+
+msgid "Trackpad"
+msgstr "لوحة اللمس"
+
+msgid "Pinch to"
+msgstr "ضم الإصبعين"
+
+msgid "Adjust window size"
+msgstr "تغيير حجم النافذة"
+
+msgid "Fullscreen"
+msgstr "ملء الشاشة"
+
+msgid "Force Touch to"
+msgstr "الضغط بقوة"
+
+msgid "Enter/Exit full screen"
+msgstr "دخول أو مغادرة ملء الشاشة"
+
+msgid "Pause/Resume"
+msgstr "إيقاف مؤقت أو استئناف"
+
+msgid "Hide OSC"
+msgstr "إخفاء عناصر التحكم"
+
+msgid "Mouse"
+msgstr "الفأرة"
+
+msgid "Single click to"
+msgstr "نقرة واحدة"
+
+msgid "Double click to"
+msgstr "نقرة مزدوجة"
+
+msgid "Right click to"
+msgstr "النقر بالزر الأيمن"
+
+msgid "Middle click to"
+msgstr "النقر بالزر الأوسط"
+
+msgid "Enter/Exit picture-in-picture"
+msgstr "دخول أو مغادرة صورة داخل صورة"
+
+msgid "A-B loop"
+msgstr "تكرار المقطع A–B"
+
+msgid "Reset speed"
+msgstr "إعادة ضبط السرعة"
+
+msgid "Accepts first mouse click when not focused"
+msgstr "قبول أول نقرة عند غياب التركيز"
+
+msgid "Scroll"
+msgstr "التمرير"
+
+msgid "Scroll vertically to"
+msgstr "التمرير العمودي"
+
+msgid "Scroll horizontally to"
+msgstr "التمرير الأفقي"
+
+msgid "Adjust volume"
+msgstr "تغيير مستوى الصوت"
+
+msgid "Adjust playback speed"
+msgstr "تغيير سرعة التشغيل"
+
+msgid "Scrolling sensitivity"
+msgstr "حساسية التمرير"
+
+msgid "Seek type"
+msgstr "نوع التنقل"
+
+msgid "Keyframe seek"
+msgstr "إلى إطار رئيسي"
+
+msgid "Exact seek"
+msgstr "التنقل الدقيق"
+
+msgid "Volume sensitivity"
+msgstr "حساسية مستوى الصوت"
+
+msgid "Seek sensitivity"
+msgstr "حساسية التنقل"
+
+msgid "Auto load"
+msgstr "التحميل التلقائي"
+
+msgid "Subtitle matching mode"
+msgstr "طريقة مطابقة الترجمة"
+
+msgid "Filename priority keywords"
+msgstr "كلمات أولوية أسماء الملفات"
+
+msgid "Comma-separated strings, in priority order."
+msgstr "عبارات مفصولة بفاصلة، مرتبة حسب الأولوية."
+
+msgid "Also search these directories"
+msgstr "البحث أيضًا في هذه المجلدات"
+
+msgid "Priority keywords"
+msgstr "الكلمات ذات الأولوية"
+
+msgid "Search paths"
+msgstr "مسارات البحث"
+
+msgid "Override level"
+msgstr "مستوى تجاوز التنسيق"
+
+msgid "Primary"
+msgstr "أساسية"
+
+msgid "Secondary"
+msgstr "ثانوية"
+
+msgid "Primary subtitles"
+msgstr "الترجمة الأساسية"
+
+msgid "Secondary subtitles"
+msgstr "الترجمة الثانوية"
+
+msgid "Font"
+msgstr "الخط"
+
+msgid "Choose subtitle font"
+msgstr "اختيار خط الترجمة"
+
+msgid "Font and size"
+msgstr "الخط والحجم"
+
+msgid "Size"
+msgstr "الحجم"
+
+msgid "Color"
+msgstr "اللون"
+
+msgid "Background"
+msgstr "الخلفية"
+
+msgid "Border"
+msgstr "الحدود"
+
+msgid "Shadow"
+msgstr "الظل"
+
+msgid "Other styles"
+msgstr "أنماط أخرى"
+
+msgid "Shadow and other styles"
+msgstr "الظل وأنماط أخرى"
+
+msgid "Blur"
+msgstr "التمويه"
+
+msgid "Font spacing"
+msgstr "تباعد الحروف"
+
+msgid "Horizontal alignment"
+msgstr "المحاذاة أفقيًا"
+
+msgid "Vertical alignment"
+msgstr "المحاذاة عموديًا"
+
+msgid "Alignment and margins"
+msgstr "المحاذاة والهوامش"
+
+msgid "Margin X"
+msgstr "هامش X"
+
+msgid "Margin Y"
+msgstr "هامش Y"
+
+msgid "Vertical position"
+msgstr "الموضع العمودي"
+
+msgid "Provider"
+msgstr "المزوّد"
+
+msgid "Subtitle provider"
+msgstr "مزوّد الترجمة"
+
+msgid "OpenSubtitles API key"
+msgstr "مفتاح API لـ OpenSubtitles"
+
+msgid "Assrt.net token"
+msgstr "رمز Assrt.net"
+
+msgid "Stored in your system credential store."
+msgstr "يُحفظ في مخزن بيانات الاعتماد في النظام."
+
+msgid "Get an Assrt API token"
+msgstr "الحصول على رمز API لـ Assrt"
+
+msgid "Shooter matches local videos using file samples and their path. Searching sends both to Shooter.cn; no account is needed."
+msgstr "يرسل البحث عينات من ملف الفيديو المحلي ومساره إلى Shooter.cn لمطابقته بالترجمة. لا يلزم حساب."
+
+msgid "Only search when media is longer than"
+msgstr "البحث فقط عندما تتجاوز مدة الوسائط"
+
+msgid "minutes"
+msgstr "دقائق"
+
+msgid "Default encoding"
+msgstr "الترميز الافتراضي"
+
+msgid "Automatic subtitle search"
+msgstr "البحث التلقائي عن الترجمة"
+
+msgid "Languages and encoding"
+msgstr "اللغات والترميز"
+
+msgid "Prefetch and buffer network data"
+msgstr "التحميل المسبق للبيانات وتخزينها مؤقتًا"
+
+msgid "Buffer before starting playback"
+msgstr "التخزين المؤقت قبل بدء التشغيل"
+
+msgid "Enter buffering mode before playback starts. This can be useful to ensure playback starts smoothly, in exchange for waiting some time to prefetch and buffer network data."
+msgstr "ينتظر بدء التشغيل حتى تُحمّل بيانات كافية في الذاكرة المؤقتة ليبدأ بسلاسة."
+
+msgid "Seconds to buffer before restarting"
+msgstr "ثواني التخزين المؤقت قبل الاستئناف"
+
+msgid "Number of seconds the cache should have buffered before starting playback again if buffering mode was entered. Increase this setting if playback quickly reenters buffering mode."
+msgstr "مدة البيانات المطلوبة لاستئناف التشغيل. زدها إذا تكرر توقف التشغيل بسبب التخزين المؤقت."
+
+msgid "Default: 1"
+msgstr "الافتراضي: 1"
+
+msgid "Seconds to prefetch"
+msgstr "ثواني التحميل المسبق"
+
+msgid "Default: 36,000"
+msgstr "الافتراضي: 36,000"
+
+msgid "Cache buffer size (KiB)"
+msgstr "حجم الذاكرة المؤقتة (KiB)"
+
+msgid "Cache buffer size in KiB"
+msgstr "حجم الذاكرة المؤقتة بالكيبي بايت"
+
+msgid "Default: 153,600"
+msgstr "الافتراضي: 153,600"
+
+msgid "Show throbber when buffering"
+msgstr "إظهار مؤشر التخزين المؤقت"
+
+msgid "Show throbber when seeking"
+msgstr "إظهار المؤشر عند التنقل"
+
+msgid "User agent"
+msgstr "وكيل المستخدم"
+
+msgid "HTTP proxy"
+msgstr "وكيل HTTP"
+
+msgid "Enter a proxy URL, such as http://proxy.example:8080."
+msgstr "أدخل عنوان الوكيل، مثل http://proxy.example:8080."
+
+msgid "RTSP transport"
+msgstr "نقل RTSP"
+
+msgid "Changes take effect after restarting riina."
+msgstr "تسري التغييرات بعد إعادة تشغيل riina."
+
+msgid "The Online Media plugin is enabled"
+msgstr "إضافة الوسائط عبر الإنترنت مفعّلة"
+
+msgid "The Online Media plugin is recommended"
+msgstr "نوصي بإضافة الوسائط عبر الإنترنت"
+
+msgid "Custom youtube-dl path"
+msgstr "مسار youtube-dl مخصّص"
+
+msgid "Search this folder at startup. Restart required."
+msgstr "يُبحث في هذا المجلد عند البدء. يلزم إعادة التشغيل."
+
+msgid "Raw options"
+msgstr "خيارات سطر الأوامر"
+
+msgid "Format: {0}"
+msgstr "الصيغة: {0}"
+
+msgid "Relative seek amount"
+msgstr "مقدار التنقل النسبي"
+
+msgid "Sensitivity for speed"
+msgstr "حساسية سرعة التشغيل"
+
+msgid "Sensitivity for volume"
+msgstr "حساسية مستوى الصوت"
+
+msgid "Bold"
+msgstr "عريض"
+
+msgid "Italic"
+msgstr "مائل"
+
+msgid "Subtitle filename priority keywords"
+msgstr "كلمات أولوية أسماء ملفات الترجمة"
+
+msgid "Subtitle search paths"
+msgstr "مسارات البحث عن الترجمة"
+
+msgid "Subtitle font size"
+msgstr "حجم خط الترجمة"
+
+msgid "Subtitle text color"
+msgstr "لون نص الترجمة"
+
+msgid "Subtitle background color"
+msgstr "لون خلفية الترجمة"
+
+msgid "Subtitle border size"
+msgstr "سماكة حدود الترجمة"
+
+msgid "Subtitle border color"
+msgstr "لون حدود الترجمة"
+
+msgid "Subtitle shadow offset"
+msgstr "إزاحة ظل الترجمة"
+
+msgid "Subtitle shadow color"
+msgstr "لون ظل الترجمة"
+
+msgid "Subtitle blur"
+msgstr "تمويه الترجمة"
+
+msgid "Subtitle font spacing"
+msgstr "تباعد حروف الترجمة"
+
+msgid "Horizontal subtitle margin"
+msgstr "الهامش الأفقي للترجمة"
+
+msgid "Vertical subtitle margin"
+msgstr "الهامش العمودي للترجمة"
+
+msgid "Subtitle vertical position percent"
+msgstr "الموضع العمودي للترجمة بالنسبة المئوية"
+
+msgid "Display subtitles in fullscreen letterboxes"
+msgstr "عرض الترجمة في أشرطة ملء الشاشة"
+
+msgid "Scale subtitles with window size"
+msgstr "تغيير حجم الترجمة مع النافذة"
+
+msgid "Search online subtitles automatically"
+msgstr "البحث تلقائيًا عن الترجمة عبر الإنترنت"
+
+msgid "Online subtitle search minimum minutes"
+msgstr "الحد الأدنى لمدة الفيديو للبحث عن الترجمة بالدقائق"
+
+msgid "Preferred language"
+msgstr "اللغة المفضلة"
+
+msgid "Left"
+msgstr "يسار"
+
+msgid "Center"
+msgstr "وسط"
+
+msgid "Right"
+msgstr "يمين"
+
+msgid "Subtitles containing media filename"
+msgstr "حسب اسم ملف الوسائط"
+
+msgid "Detect intelligently by IINA"
+msgstr "مطابقة IINA الذكية"
+
+msgid "Render subtitle scripts without overriding their styles."
+msgstr "عرض الترجمة بتنسيقها الأصلي."
+
+msgid "Apply all style settings from this section."
+msgstr "تطبيق إعدادات التنسيق في هذا القسم."
+
+msgid "Apply subtitle scale together with these style settings."
+msgstr "تطبيق مقياس الترجمة مع إعدادات التنسيق."
+
+msgid "Apply all subtitle styles."
+msgstr "تطبيق كل أنماط الترجمة."
+
+msgid "Remove ASS tags and styling from the subtitle."
+msgstr "إزالة وسوم ASS وتنسيق الترجمة."
+
+msgid "The plugin adds quality selection and video downloads. mpv's built-in extractor is disabled while the plugin is enabled."
+msgstr "تتيح الإضافة اختيار الجودة وتنزيل الفيديو، ويتعطّل مستخرج mpv المدمج أثناء تشغيلها."
+
+msgid "The plugin adds quality selection and video downloads. The settings below configure mpv's built-in extractor."
+msgstr "تتيح الإضافة اختيار الجودة وتنزيل الفيديو. تتحكم الإعدادات أدناه في مستخرج mpv المدمج."
+
+msgid "Enable mpv's youtube-dl script"
+msgstr "تفعيل برنامج youtube-dl النصي في mpv"
+
+msgid "Universal"
+msgstr "عام"
+
+msgid "Arabic"
+msgstr "العربية"
+
+msgid "Baltic"
+msgstr "البلطيقية"
+
+msgid "Celtic"
+msgstr "السلتية"
+
+msgid "Central European"
+msgstr "وسط أوروبا"
+
+msgid "Cyrillic"
+msgstr "السيريلية"
+
+msgid "Eastern European"
+msgstr "شرق أوروبا"
+
+msgid "Western Languages"
+msgstr "اللغات الغربية"
+
+msgid "Greek"
+msgstr "اليونانية"
+
+msgid "Hebrew"
+msgstr "العبرية"
+
+msgid "Japanese"
+msgstr "اليابانية"
+
+msgid "Korean"
+msgstr "الكورية"
+
+msgid "Nordic"
+msgstr "الإسكندنافية"
+
+msgid "North European"
+msgstr "شمال أوروبا"
+
+msgid "Russian"
+msgstr "الروسية"
+
+msgid "Simplified Chinese"
+msgstr "الصينية المبسطة"
+
+msgid "South European"
+msgstr "جنوب أوروبا"
+
+msgid "South-Eastern European"
+msgstr "جنوب شرق أوروبا"
+
+msgid "Thai"
+msgstr "التايلاندية"
+
+msgid "Traditional Chinese"
+msgstr "الصينية التقليدية"
+
+msgid "Turkish"
+msgstr "التركية"
+
+msgid "Ukrainian"
+msgstr "الأوكرانية"
+
+msgid "Vietnamese"
+msgstr "الفيتنامية"
+
+msgid "Western European"
+msgstr "غرب أوروبا"
+
+msgid "no"
+msgstr "لا"
+
+msgid "yes"
+msgstr "نعم"
+
+msgid "scale"
+msgstr "المقياس"
+
+msgid "force"
+msgstr "فرض"
+
+msgid "strip"
+msgstr "إزالة الأنماط"
