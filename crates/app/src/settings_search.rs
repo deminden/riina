@@ -54,6 +54,20 @@ const ENTRIES: &[Entry] = &[
         page_index: 0,
         page: "General",
         section: "Behavior",
+        title: "Prevent screen saver",
+        terms: "prevent display sleep idle power during playback",
+    },
+    Entry {
+        page_index: 0,
+        page: "General",
+        section: "Behavior",
+        title: "Allow screen saver for audio playback",
+        terms: "display sleep audio music mode idle power",
+    },
+    Entry {
+        page_index: 0,
+        page: "General",
+        section: "Behavior",
         title: "Check for updates automatically",
         terms: "software update background interval hour day week month",
     },
@@ -879,6 +893,14 @@ fn next_selectable_index(
 fn activate_result(window: &PreferencesWindow, page: i32, section: &str, title: &str, anchor: i32) {
     if page == 0 {
         let target = match section {
+            "Behavior"
+                if matches!(
+                    title,
+                    "Prevent screen saver" | "Allow screen saver for audio playback"
+                ) =>
+            {
+                window.get_general_power_target()
+            }
             "Behavior"
                 if matches!(
                     title,

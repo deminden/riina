@@ -21,6 +21,7 @@ pub(crate) struct Session {
     pub(crate) latest_playback: crate::PlaybackStore,
     pub(crate) plugin_host: Option<crate::plugin_host::PluginHostHandle>,
     pub(crate) updates: Rc<crate::updates::ApplicationUpdates>,
+    pub(crate) power: Rc<crate::playback_power::ApplicationPower>,
 }
 
 pub(crate) fn connect(
@@ -32,6 +33,7 @@ pub(crate) fn connect(
         latest_playback,
         plugin_host,
         updates,
+        power,
     }: Session,
     clear_history: impl Fn() -> Result<usize, String> + Clone + 'static,
 ) {
@@ -90,6 +92,7 @@ pub(crate) fn connect(
                     return;
                 };
                 updates.connect_settings(&window, &app);
+                power.connect_settings(&window, &app, &path, &baseline);
                 timers.install_close(&window);
                 crate::platform::center_auxiliary_window(&window, &app);
                 *current.borrow_mut() = Some(window.clone_strong());
@@ -112,6 +115,7 @@ pub(crate) fn connect(
             crate::audio_preferences::install_window(&window, &stored_audio, &available_devices);
             refresh(&window, &app);
             updates.refresh_settings(&window);
+            power.refresh_settings(&window);
             if let Err(error) = crate::platform::show_window(&window) {
                 app.set_status(error.to_string().into());
                 return;

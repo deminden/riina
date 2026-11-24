@@ -12,6 +12,7 @@ mod localized_number;
 mod platform;
 mod playback_history;
 mod playback_history_store;
+mod playback_power;
 mod player;
 mod plugins;
 mod preferences;

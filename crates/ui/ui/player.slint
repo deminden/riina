@@ -56,6 +56,7 @@ import { TopmostPin } from "player-chrome-controls.slint";
 export { AboutWindow } from "about-window.slint";
 export { UpdateWindow } from "update-window.slint";
 export { UpdatePreference } from "preferences-general.slint";
+export { PlaybackPowerPreference } from "preferences-general.slint";
 export { PluginInteractionWindow } from "plugin-interaction.slint";
 export { PluginStandaloneWindow } from "plugin-standalone-window.slint";
 export { PluginDeveloperTool, DeveloperConsoleRow } from "plugin-developer-tool.slint";
@@ -80,6 +81,7 @@ export { LogViewerWindow, LogViewerRow } from "log-viewer.slint";
 export { VideoFiltersWindow, VideoFilterWindowRow, VideoFilterParameterRow } from "video-filters-window.slint";
 
 export enum PlayerWindowMode { fullscreen, music-mode, picture-in-picture }
+export enum PlaybackPowerActivity { idle, audio, video }
 
 export component PlayerWindow inherits PlayerMenuWindow {
     in property <string> plugin-input-bindings: "{}";
@@ -257,6 +259,11 @@ export component PlayerWindow inherits PlayerMenuWindow {
     in-out property <bool> menu-alternates-visible: false;
     changed menu-alternates-visible => { PlayerMenuActions.video-menu-changed(); }
     in property <bool> playing: false;
+    private property <PlaybackPowerActivity> playback-power-activity: !root.playing ? PlaybackPowerActivity.idle
+        : ((root.music-mode || PlayerMusicModeState.music-mode-is-audio)
+            ? PlaybackPowerActivity.audio : PlaybackPowerActivity.video);
+    callback playback-power-changed(PlaybackPowerActivity);
+    changed playback-power-activity => { root.playback-power-changed(root.playback-power-activity); }
     in-out property <bool> fullscreen: false;
     in property <bool> entering-fullscreen: false;
     callback native-fullscreen-observed(bool, bool);

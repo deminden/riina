@@ -1,6 +1,6 @@
 //! Save changes that belong to an individual player session.
 
-use super::{PlayerContext, UiSession, history_session, startup};
+use super::{ApplicationServices, PlayerContext, UiSession, history_session, startup};
 use crate::{PlaybackStore, PlayerWindow};
 use riina_core::{Phase, Preferences, audio_equalizer, video_filters};
 use riina_ui::{
@@ -11,7 +11,6 @@ use slint::ComponentHandle;
 use std::{
     io,
     path::PathBuf,
-    rc::Rc,
     sync::{Arc, Mutex, atomic::Ordering},
 };
 
@@ -19,7 +18,7 @@ pub(super) fn connect(
     app: &PlayerWindow,
     context: &PlayerContext,
     history: &history_session::Tracking,
-    updates: Rc<crate::updates::ApplicationUpdates>,
+    services: &ApplicationServices,
 ) {
     crate::preferences_window::connect(
         app,
@@ -29,7 +28,8 @@ pub(super) fn connect(
             model: context.preferences().clone(),
             latest_playback: context.playback().clone(),
             plugin_host: context.plugin_host().cloned(),
-            updates,
+            updates: services.updates.clone(),
+            power: services.power.clone(),
         },
         history.clear_hook(
             context.preferences_path().to_path_buf(),

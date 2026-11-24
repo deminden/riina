@@ -233,6 +233,14 @@ size and SHA-256. Opening Setup requires a second user action. The Windows
 adapter reinspects the installation and keeps the verified file read-locked
 through the handoff to the shell.
 
+Playback power also belongs to the application. The first actively playing
+session in creation order determines the request. General settings can
+release it or let audio and Music Mode keep only the system awake. Player
+close releases that session's registration before decoder teardown. Windows
+uses process-owned power requests, macOS uses a Foundation activity, and
+Linux uses desktop idle inhibitors and the logind idle lock when available.
+The Linux requests run off the window thread.
+
 Media discovery chooses destination players from the original selection before
 enumerating folders or filtering files. A folder stays with its assigned player,
 and a standalone playlist goes to mpv as a single reference. The Windows and

@@ -288,10 +288,11 @@ fn exercise_startup(profile: &std::path::Path) -> Result<(), Box<dyn std::error:
         .collect();
     assert_eq!(decoder_options, ["4", "2"]);
     assert_eq!(
-        &options[options.len() - 2..],
+        &options[options.len() - 3..],
         &[
             ("osd-level".into(), "1".into()),
-            ("vd-lavc-threads".into(), "2".into())
+            ("vd-lavc-threads".into(), "2".into()),
+            ("stop-screensaver".into(), "no".into()),
         ]
     );
     let controls = &harness.startup_commands;

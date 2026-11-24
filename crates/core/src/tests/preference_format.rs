@@ -1,5 +1,13 @@
 use crate::*;
 
+#[test]
+fn older_profiles_get_the_reference_playback_power_defaults() {
+    let old = Preferences::parse(r#"{"pause_when_goes_to_sleep":false}"#).unwrap();
+    assert!(old.playback_power.prevent_screen_saver);
+    assert!(!old.playback_power.allow_screen_saver_for_audio);
+    assert!(!old.pause_when_goes_to_sleep);
+}
+
 fn configured_playback() -> Preferences {
     Preferences {
         video_threads: 8,

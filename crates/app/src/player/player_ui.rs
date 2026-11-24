@@ -177,7 +177,7 @@ pub(crate) struct UiSession {
     _presentation: Option<SessionResource<platform::NativePresentation>>,
     _live_text_timer: Option<Rc<slint::Timer>>,
     _preference_recovery_notice: Option<Rc<slint::Timer>>,
-    _observer_state: observer_state::ObserverRegistration,
+    observer_state: observer_state::ObserverRegistration,
     // The repeated sampler is held for the same lifetime as the player window.
     _appearance_timer: Rc<slint::Timer>,
     _features: features::PlaybackFeatures,
@@ -187,6 +187,7 @@ pub(crate) struct UiSession {
 
 impl UiSession {
     pub(super) fn prepare_to_close(&self) {
+        self.observer_state.release_power();
         self.platform_extras.prepare_to_close();
     }
 
@@ -234,6 +235,7 @@ pub(crate) struct ApplicationServices {
     pub(crate) plugins: Rc<ApplicationPlugins>,
     pub(crate) history: Rc<crate::playback_history_window::ApplicationHistory>,
     updates: Rc<crate::updates::ApplicationUpdates>,
+    power: Rc<crate::playback_power::ApplicationPower>,
 }
 
 impl ApplicationServices {
@@ -246,7 +248,20 @@ impl ApplicationServices {
     ) {
         self.updates
             .connect(app, presentation, context.preferences_path());
-        session_preferences::connect(app, context, history, self.updates.clone());
+        self.power
+            .initialize(context.preferences().snapshot().playback_power);
+        session_preferences::connect(app, context, history, self);
+    }
+
+    fn bind_playback(
+        &self,
+        app: &PlayerWindow,
+        observer: &observer_state::ObserverRegistration,
+        timers: features::PlaybackTimers,
+        native_engine: bool,
+    ) {
+        let power = native_engine.then(|| self.power.attach(app));
+        observer.bind_playback(timers, power);
     }
 }
 
@@ -352,7 +367,7 @@ fn configure_with_engine(
             resize_filter,
         },
     );
-    observer_state.bind_timers(timers);
+    application.bind_playback(app, &observer_state, timers, player.is_some());
     let preference_model = PreferenceModel::new(prefs_path.clone(), prefs.clone());
     let context = PlayerContext::new(
         app,
@@ -421,7 +436,7 @@ fn configure_with_engine(
         _presentation: native.map(SessionResource::Live),
         _live_text_timer: live_text_timer,
         _preference_recovery_notice: session.recovery.and_then(|recovery| recovery.announce(app)),
-        _observer_state: observer_state,
+        observer_state,
         _appearance_timer: session.projection.appearance_timer,
         _features: guards,
         preference_model,

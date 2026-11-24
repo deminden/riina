@@ -24,6 +24,7 @@ pub(super) struct UiObserverState {
     pub(super) video: Rc<RefCell<VideoOsd>>,
     pub(super) screenshot: ScreenshotOsd,
     pub(super) timers: Option<PlaybackTimers>,
+    power: Option<crate::playback_power::Registration>,
 }
 
 impl UiObserverState {
@@ -38,6 +39,7 @@ impl UiObserverState {
             video: Rc::new(RefCell::new(video)),
             screenshot: ScreenshotOsd::default(),
             timers: None,
+            power: None,
         }
     }
 }
@@ -74,8 +76,18 @@ impl ObserverRegistration {
         self.id
     }
 
-    pub(super) fn bind_timers(&self, timers: PlaybackTimers) {
-        self.state.borrow_mut().timers = Some(timers);
+    pub(super) fn bind_playback(
+        &self,
+        timers: PlaybackTimers,
+        power: Option<crate::playback_power::Registration>,
+    ) {
+        let mut state = self.state.borrow_mut();
+        state.timers = Some(timers);
+        state.power = power;
+    }
+
+    pub(super) fn release_power(&self) {
+        self.state.borrow_mut().power.take();
     }
 }
 

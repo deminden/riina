@@ -2,9 +2,9 @@
 use crate::{
     DefaultRepeatMode, advanced_preferences, audio_equalizer, audio_preferences,
     control_preferences, hdr_preferences, key_bindings, liquid_glass, network_preferences,
-    online_subtitles, osc_preferences, pip_preferences, playback_history, screenshot,
-    subtitle_controls, thumbnail_preferences, valid_path, video_controls, video_filters,
-    window_resize,
+    online_subtitles, osc_preferences, pip_preferences, playback_history, playback_power,
+    screenshot, subtitle_controls, thumbnail_preferences, valid_path, video_controls,
+    video_filters, window_resize,
 };
 use serde::{Deserialize, Serialize, de::value::MapDeserializer};
 use serde_json::value::RawValue;
@@ -57,6 +57,7 @@ pub struct Preferences {
     pub pause_when_inactive: bool,
     pub pause_when_minimized: bool,
     pub pause_when_goes_to_sleep: bool,
+    pub playback_power: playback_power::Settings,
     pub fullscreen_when_open: bool,
     pub resume_last_position: bool,
     pub auto_switch_to_music_mode: bool,
@@ -284,6 +285,7 @@ impl Default for Preferences {
             pause_when_inactive: false,
             pause_when_minimized: false,
             pause_when_goes_to_sleep: true,
+            playback_power: playback_power::Settings::default(),
             fullscreen_when_open: false,
             resume_last_position: true,
             auto_switch_to_music_mode: true,

@@ -21,6 +21,7 @@ pub mod osc_preferences;
 pub mod pip_lifecycle;
 pub mod pip_preferences;
 pub mod playback_history;
+pub mod playback_power;
 pub mod playlist;
 pub mod plugin;
 pub mod plugin_menu;

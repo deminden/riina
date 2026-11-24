@@ -57,6 +57,10 @@
   "pause_when_inactive": false,
   "pause_when_minimized": false,
   "pause_when_goes_to_sleep": true,
+  "playback_power": {
+    "prevent_screen_saver": true,
+    "allow_screen_saver_for_audio": false
+  },
   "fullscreen_when_open": false,
   "resume_last_position": true,
   "auto_switch_to_music_mode": true,

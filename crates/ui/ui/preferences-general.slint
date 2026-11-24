@@ -3,6 +3,7 @@ import { FolderChooser, GeneralDisclosureRow, GeneralSettingToggle } from "prefe
 import { CheckBox, ComboBox, ScrollView } from "std-widgets.slint";
 
 export enum UpdatePreference { automatic, interval, prereleases }
+export enum PlaybackPowerPreference { prevent-screen-saver, allow-audio }
 
 export global GeneralSettingsState {
     in-out property <bool> when-media-opened-expanded: false;
@@ -31,6 +32,9 @@ export global GeneralSettingsState {
     in-out property <bool> pause-policies-available: false;
     in-out property <bool> quit-when-no-opened-window: false;
     in-out property <bool> keep-open-on-file-end: true;
+    in-out property <bool> prevent-screen-saver: true;
+    in-out property <bool> allow-screen-saver-for-audio: false;
+    callback playback-power-setting-changed(PlaybackPowerPreference);
     in-out property <bool> automatic-update-checks: false;
     in-out property <int> update-interval-index: 1;
     in-out property <bool> receive-prerelease-updates: false;
@@ -56,6 +60,7 @@ export component GeneralPreferencesPage inherits ScrollView {
     in property <length> general-screenshots-target;
     in property <bool> mica-backdrop-enabled;
     callback settings-changed();
+    in property <length> general-power-y;
     in property <length> general-updates-y;
     in property <length> general-history-y;
     in property <length> general-playlist-y;
@@ -67,7 +72,9 @@ export component GeneralPreferencesPage inherits ScrollView {
     content-y <=> root.general-scroll-position;
     horizontal-scrollbar-policy: always-off;
     changed content-y => {
-        if root.general-scroll-position > root.general-history-target / 2 { root.selected-general-section = 0; }
+        if root.general-scroll-position > (13px - root.general-updates-y + root.general-history-target) / 2 {
+            root.selected-general-section = 0;
+        }
         else if root.general-scroll-position > (root.general-history-target + root.general-playlist-target) / 2 { root.selected-general-section = 1; }
         else if root.general-scroll-position > (root.general-playlist-target + root.general-screenshots-target) / 2 { root.selected-general-section = 2; }
         else { root.selected-general-section = 3; }
@@ -190,6 +197,28 @@ export component GeneralPreferencesPage inherits ScrollView {
         GeneralSettingToggle { x: 12px; y: 170px; width: parent.width - 24px; height: 36px;
             label: "Keep window open after playback finishes";
             checked <=> GeneralSettingsState.keep-open-on-file-end; toggled => { root.settings-changed(); } }
+    }
+    Rectangle {
+        x: 12px; y: root.general-power-y; width: parent.width - 24px; height: 82px;
+        border-width: 1px; border-color: Theme.settings-general-card-border; border-radius: 12px;
+        background: Theme.settings-card-surface(root.mica-backdrop-enabled);
+        GeneralSettingToggle {
+            x: 12px; y: 4px; width: parent.width - 24px; height: 36px;
+            label: "Prevent screen saver";
+            checked <=> GeneralSettingsState.prevent-screen-saver;
+            toggled => { GeneralSettingsState.playback-power-setting-changed(PlaybackPowerPreference.prevent-screen-saver); }
+        }
+        Rectangle {
+            x: 12px; y: 41px; width: parent.width - 24px; height: 1px;
+            background: Theme.settings-general-divider;
+        }
+        GeneralSettingToggle {
+            x: 32px; y: 43px; width: parent.width - 44px; height: 36px;
+            label: "Allow screen saver for audio playback";
+            enabled: GeneralSettingsState.prevent-screen-saver;
+            checked <=> GeneralSettingsState.allow-screen-saver-for-audio;
+            toggled => { GeneralSettingsState.playback-power-setting-changed(PlaybackPowerPreference.allow-audio); }
+        }
     }
     Rectangle {
         x: 12px; y: root.general-updates-y; width: parent.width - 24px; height: 124px;

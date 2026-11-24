@@ -3149,3 +3149,36 @@ paused and closing the player exited the exact test process normally.
 
 - Linux application SHA-256 `cd6afdb3c13936494a2e11139a07cc844d8d496de96db5562a4f99b17d0e17c8`
 - Wayland libmpv SHA-256 `cdce854e1811942602587310026306d92d30c0f593f2be676f07659ae43061d8`
+
+### Playback idle requests 2026-11-24
+
+General settings now default to preventing display idle during playback.
+The audio exception keeps the system awake while allowing display idle for
+audio files and Music Mode. One application-owned request follows the first
+playing window in creation order. Pausing or closing that window transfers
+the request to the next player if playback continues there.
+
+On Windows 11, the isolated player opened paused without requesting power.
+Starting and pausing video acquired and released the display request. Both
+General settings were operated through the Settings window while video
+played. With the audio exception enabled, switching to Music Mode released
+the display request and retained system idle prevention. A second process
+loaded an audio file with the saved settings and requested only system idle
+prevention. Each test process exited normally and cleared its requests.
+
+The locked Linux application build played video and audio in two native
+Wayland windows. Private D-Bus test services recorded the logind idle lock,
+portal Idle flag and request disposal. Pause released both requests,
+resuming reacquired both, and audio requested only the logind lock. The
+fixture verified no inherited mpv screen saver request. Both test processes
+closed normally and their requests were released.
+
+The Windows workspace gate, Settings pixel comparisons, all 59 pinned
+libmpv native tests and strict Apple Silicon cross-Clippy passed. Physical
+sleep, legacy Windows screen saver behavior, a real Linux desktop power
+service and native macOS runtime remain unverified.
+
+- Windows application SHA-256 `6571abb938c2a19f8cc38cabe9faff500d6a0936e29cb0eaa3891504add4bbc5`
+- Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
+- Linux application SHA-256 `e8b67e5e88534dcb08f7713921eed81588763d2a56af5e1b100c2e429fc4a0d0`
+- Wayland libmpv SHA-256 `cdce854e1811942602587310026306d92d30c0f593f2be676f07659ae43061d8`

@@ -138,6 +138,8 @@ pub(super) fn engine_options(
         engine_options.push(("icc-profile-auto".into(), "no".into()));
     }
     engine_options.extend(advanced_options?);
+    // Playback power is app-wide, including sessions without a native video output.
+    engine_options.push(("stop-screensaver".into(), "no".into()));
     Ok(engine_options)
 }
 
