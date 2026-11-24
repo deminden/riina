@@ -208,7 +208,7 @@ pub(super) fn runtime_action(mapping: &Mapping) -> Option<RuntimeAction> {
     }
 }
 
-#[cfg(any(target_os = "macos", target_os = "windows"))]
+#[cfg(any(target_os = "linux", target_os = "macos", target_os = "windows"))]
 pub(crate) fn dispatch_system_media_key(
     app: &PlayerWindow,
     key: &str,

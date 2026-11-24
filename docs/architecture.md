@@ -67,6 +67,12 @@ The callback's published media generation must still match when it runs.
 Disabling system media controls or closing the player withdraws the session
 and removes its callbacks before the native window goes away.
 
+Linux publishes one MPRIS service per application with an eligible player.
+It follows the focused player while retaining the last focus when such
+observations are available. Without a keyboard seat it selects the newest
+ready player. The bus worker exposes a playback snapshot and queues requests.
+The UI verifies the player and media generation again before dispatch.
+
 Manual playlist navigation applies a temporary pause. The worker associates it
 with the native command reply and the media generation that starts next. It
 checks the current pause-on-open preference when mpv reports playback ready

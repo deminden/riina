@@ -2997,3 +2997,25 @@ gate and private-desktop playback, controls and shutdown smoke test passed.
 
 - Windows application SHA-256 `7c49f5de7a226ef291d1f5ffabe65d03f8d5bf10799cc34348d10eb70f8696bd`
 - Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
+
+### Linux system media controls 2026-11-24
+
+Private X11 and native Wayland sessions used the actual MPRIS interface and
+pinned libmpv. The runs checked title and track identity, play, pause, seek,
+rejection of a stale track ID, the default 100% volume limit, and the native
+position and volume after a request. The bus monitor observed playback
+property changes and the `Seeked` signal. With multiple windows disabled,
+`OpenUri` switched media in the current player. With multiple windows enabled,
+Wayland opened the new player and published its track even on a headless seat
+without a keyboard. Quit withdrew the service and closed every test window
+and exact player process.
+
+The Linux candidate passed strict workspace Clippy, 542 application tests and
+63 widget tests before the focus fallback adjustment. The locked application
+build and the three desktop runs passed after that adjustment. The Windows
+workspace also passed Apple Silicon cross-Clippy. Native macOS runtime
+verification remains open.
+
+- Linux application SHA-256 `4cbf64d69a6afd0ea49b5c8710cb2e9e3a31de3bcf2d988d2b14db36f1b600b5`
+- X11 libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`
+- Wayland libmpv SHA-256 `cdce854e1811942602587310026306d92d30c0f593f2be676f07659ae43061d8`

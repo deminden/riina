@@ -34,6 +34,10 @@ It keeps submenu bounds within the client and scrolls lists that exceed its
 height. In narrow windows, a submenu can overlap its parent. Left Arrow
 returns to the parent. Both presenters keep the player event loop active.
 
+Linux desktop media controls use MPRIS over the session bus. They follow the
+active player and honor the system media controls preference. Opening media
+through MPRIS uses the normal file and URL opening rules. [MPRIS player interface](https://specifications.freedesktop.org/mpris/latest/Player_Interface.html)
+
 Picture-in-Picture uses the same playback session on Linux. The X11 preview
 requests always-on-top and supports the player's hide, minimize and restore
 policies. On Wayland it is a regular toplevel, and entering keeps the player
