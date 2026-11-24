@@ -3,8 +3,11 @@ use crate::{
     ui_dialogs::{Purpose, dispatch_selection},
 };
 use riina_mpv::CommandSender;
-use slint::{ComponentHandle, winit_030::WinitWindowAccessor};
-use std::{future::Future, path::PathBuf};
+use slint::{
+    ComponentHandle,
+    winit_030::{WinitWindowAccessor, winit::window::Window},
+};
+use std::{future::Future, path::PathBuf, sync::Arc};
 
 pub fn open(
     app: &PlayerWindow,
@@ -16,8 +19,15 @@ pub fn open(
     start(
         app,
         welcome,
-        move |dialog| async move {
-            let dialog = dialog.set_title(purpose.title());
+        move |owner| async move {
+            #[cfg(target_os = "macos")]
+            if matches!(purpose, Purpose::Media | Purpose::MediaInNewPlayer) {
+                return crate::platform::choose_application_media(purpose.title(), Some(&owner))
+                    .await;
+            }
+            let dialog = rfd::AsyncFileDialog::new()
+                .set_parent(owner.as_ref())
+                .set_title(purpose.title());
             let files = if purpose.allows_multiple() {
                 dialog.pick_files().await.unwrap_or_default()
             } else {
@@ -53,8 +63,9 @@ pub(crate) fn save_playlist_dialog(
     start(
         app,
         None,
-        |dialog| async {
-            Ok(dialog
+        |owner| async move {
+            Ok(rfd::AsyncFileDialog::new()
+                .set_parent(owner.as_ref())
                 .set_title("Save to Playlist")
                 .set_file_name("playlist.m3u8")
                 .add_filter("M3U8 playlist", &["m3u8"])
@@ -69,7 +80,7 @@ pub(crate) fn save_playlist_dialog(
 fn start<T: 'static, F: Future<Output = Result<Option<T>, String>> + 'static>(
     app: &PlayerWindow,
     welcome: Option<slint::Weak<WelcomeWindow>>,
-    pick: impl FnOnce(rfd::AsyncFileDialog) -> F + 'static,
+    pick: impl FnOnce(Arc<Window>) -> F + 'static,
     complete: impl FnOnce(&PlayerWindow, Result<Option<T>, String>) + 'static,
 ) {
     if app
@@ -94,7 +105,7 @@ fn start<T: 'static, F: Future<Output = Result<Option<T>, String>> + 'static>(
                 .winit_window()
                 .await
                 .map_err(|e| e.to_string())?;
-            pick(rfd::AsyncFileDialog::new().set_parent(owner.as_ref())).await
+            pick(owner).await
         }
         .await;
         app.global::<riina_ui::PlayerDialogState>()

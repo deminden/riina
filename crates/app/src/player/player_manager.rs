@@ -1,4 +1,6 @@
 //! Own independent shared-renderer player windows for the application lifetime.
+#[cfg(target_os = "macos")]
+mod launch;
 
 use crate::{
     PlayerWindow, WelcomeWindow,
@@ -48,6 +50,11 @@ struct ManagerState {
     next_id: u64,
     players: Vec<ManagedPlayer>,
     services: ApplicationServices,
+    quitting: bool,
+    #[cfg(target_os = "macos")]
+    opening_documents: usize,
+    #[cfg(target_os = "macos")]
+    open_panel_visible: bool,
 }
 
 pub(crate) const fn should_quit_after_last_window_closed(
@@ -240,6 +247,9 @@ fn open_browser_link(
     state: &Rc<RefCell<ManagerState>>,
     link: crate::browser_links::Link,
 ) -> Result<(), String> {
+    if state.borrow().quitting {
+        return Err("Riina is closing".into());
+    }
     let active = state.borrow().services.history.browser_destination();
     if let Some((app, display)) = &active
         && link.reuse_window(app)
@@ -341,6 +351,9 @@ fn open_new_player(
     media: InitialMedia,
     loaded: LoadedPreferences,
 ) -> Result<u64, String> {
+    if state.borrow().quitting {
+        return Err("Riina is closing".into());
+    }
     let hidden = media.managed.is_some() && media.files.is_empty();
     let disable_animation = media
         .managed
@@ -401,6 +414,13 @@ fn schedule_close(state: Weak<RefCell<ManagerState>>, id: u64, from_welcome: boo
 }
 
 fn schedule_quit(state: Weak<RefCell<ManagerState>>) {
+    let Some(owner) = state.upgrade() else { return };
+    {
+        let mut owner = owner.borrow_mut();
+        if std::mem::replace(&mut owner.quitting, true) {
+            return;
+        }
+    }
     let scheduled = slint::spawn_local(async move {
         let Some(state) = state.upgrade() else { return };
         let history = state.borrow().services.history.clone();
@@ -416,6 +436,7 @@ fn schedule_quit(state: Weak<RefCell<ManagerState>>) {
         let _ = slint::quit_event_loop();
     });
     if let Err(error) = scheduled {
+        owner.borrow_mut().quitting = false;
         crate::diagnostics::warn!("Could not schedule application quit: {error}");
     }
 }
@@ -450,11 +471,19 @@ fn close_player(state: &Rc<RefCell<ManagerState>>, id: u64, from_welcome: bool) 
 
 fn finish_empty_application(state: &Rc<RefCell<ManagerState>>, quit: bool, from_welcome: bool) {
     if quit {
+        state.borrow_mut().quitting = true;
         let _ = slint::quit_event_loop();
-    } else if !from_welcome && let Err(error) = show_welcome(state) {
+        return;
+    }
+    #[cfg(target_os = "macos")]
+    crate::platform::browser_activation::show_idle_menu();
+    #[cfg(not(target_os = "macos"))]
+    if !from_welcome && let Err(error) = show_welcome(state) {
         crate::diagnostics::warn!("Could not reopen the welcome window: {error}");
         let _ = slint::quit_event_loop();
     }
+    #[cfg(target_os = "macos")]
+    let _ = from_welcome;
 }
 
 fn show_welcome(state: &Rc<RefCell<ManagerState>>) -> Result<(), Box<dyn std::error::Error>> {
@@ -477,10 +506,16 @@ fn show_welcome(state: &Rc<RefCell<ManagerState>>) -> Result<(), Box<dyn std::er
     let manager = PlayerManager {
         state: state.clone(),
     };
-    manager.attach(&app, Some(welcome.clone_strong()), session);
+    let id = manager.attach(&app, Some(welcome.clone_strong()), session);
     crate::platform::center_auxiliary_window(&welcome, &app);
-    crate::platform::show_window(&welcome)?;
+    if let Err(error) = crate::platform::show_window(&welcome) {
+        close_player(state, id, true);
+        return Err(error.into());
+    }
     crate::platform::enable_welcome_mica(&welcome);
+    manager
+        .services()
+        .present_release_highlights(&app, Some(&welcome));
     Ok(())
 }
 

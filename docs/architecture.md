@@ -615,6 +615,16 @@ modality, clipboard access, window document identity, file associations, and OS
 media integration belong to platform services. `SessionExtras` keeps each
 platform's input and auxiliary presentation alive through decoder shutdown.
 
+macOS registers the Open Documents, Reopen, Quit and URL Apple events alongside
+Winit's application delegate. Finder groups short bursts of documents before
+opening them. Explicit playback requests bypass the deferred default launch
+action. The shared manager prepares windowless Finder selections off the UI
+thread using the saved grouping and window preferences. An AppKit Open panel
+can choose files and folders in one selection, as a sheet for an existing
+player or as an application panel while idle. Closing the last player can
+leave the application available for another Finder or Dock request.
+[AppKit application event handling](https://developer.apple.com/documentation/appkit/nsapplication)
+
 The player keeps pending fullscreen intent separate from the observed
 presentation. Windows confirms through its native owner. macOS uses AppKit
 window notifications, Wayland uses compositor configure state, and X11 uses

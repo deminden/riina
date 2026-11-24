@@ -4,6 +4,7 @@ mod appearance;
 mod application_menu;
 mod color_panel;
 pub(super) mod file_drop;
+pub(super) mod file_panel;
 mod fullscreen;
 pub(crate) use fullscreen::{FullscreenNotifications, request_fullscreen};
 mod gesture_events;

@@ -3611,3 +3611,28 @@ Wayland compositors remain open.
 
 - Linux application SHA-256 `6c537f88a3c36ca1989a0da1034933493d2cdd9b2657d1555d7d177a5fa33471`
 - Linux libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`
+
+### macOS launch routing and stdin playback 2026-11-24
+
+The macOS port registers Finder documents, Dock reopen, Quit and browser URLs
+alongside Winit's delegate. The deferred initial action lets a cold Finder open
+take precedence over Welcome or the Open panel. A folder and a file can be
+chosen together in the AppKit Open panel. The windowless menu retains Open
+File and Quit. The document-list regression covers order, spaces and Unicode.
+It compiled in the Apple Silicon check and still needs a native test run.
+
+The full Windows workspace gate and locked build passed. The windowless
+selection regression exercised separate players, grouped playlists and rejected
+subtitle-only selections without a GUI. Strict Apple Silicon cross-Clippy and
+the locked Linux application build and strict application Clippy passed.
+
+A private Windows desktop fed the fixture through an inherited pipe. An
+isolated Linux X11 desktop redirected the same fixture to standard input. Each
+application opened one player, decoded the 320 × 180 video, advanced playback
+and exited normally. The Finder, Dock and native Open panel workflows still
+need a packaged macOS desktop run.
+
+- Windows application SHA-256 `7ed94c9e449e65e1734973198b14fb8339e896e0e0771fab547151051c1276fe`
+- Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
+- Linux application SHA-256 `22bca8261c8e20af969156c9adc76554332af360d4d8a328994197638e2eaf3c`
+- Linux libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`

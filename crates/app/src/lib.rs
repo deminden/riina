@@ -120,12 +120,37 @@ fn run_shared_player(
     loaded: preference_load::LoadedPreferences,
     browser: &browser_links::Inbox,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    let action_after_launch = loaded.preferences.action_after_launch;
     let media = players.next().ok_or("Missing initial player")?;
-    let supplied_media_argument = !media.files.is_empty();
     platform::startup::select_shared_backend(&loaded.preferences)?;
-    let app = PlayerWindow::new()?;
     let player_manager = player_manager::PlayerManager::new();
+    let application_menu = platform::startup::ApplicationMenu::new();
+    let _browser = player_manager.register_browser_links(browser);
+    #[cfg(target_os = "macos")]
+    let _native_events = platform::browser_activation::ApplicationEvents::new(
+        browser.clone(),
+        player_manager.clone(),
+        (!media.requests_playback()).then_some(loaded.preferences.action_after_launch),
+    );
+    if !cfg!(target_os = "macos") || media.requests_playback() {
+        start_shared_player(&player_manager, &application_menu, media, players, loaded)?;
+    }
+    #[cfg(target_os = "macos")]
+    slint::run_event_loop_until_quit()?;
+    #[cfg(not(target_os = "macos"))]
+    slint::run_event_loop()?;
+    player_manager.save_all()
+}
+
+fn start_shared_player(
+    player_manager: &player_manager::PlayerManager,
+    application_menu: &platform::startup::ApplicationMenu,
+    media: InitialMedia,
+    players: impl Iterator<Item = InitialMedia>,
+    loaded: preference_load::LoadedPreferences,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let supplied_media_argument = media.requests_playback();
+    let action_after_launch = loaded.preferences.action_after_launch;
+    let app = PlayerWindow::new()?;
     // This entry point renders video in the Slint window and needs its menu bar.
     // Native-video mode keeps the transparent surface menu-free at initialization.
     app.set_native_video(false);
@@ -152,7 +177,6 @@ fn run_shared_player(
         welcome.as_ref().map(|window| window.clone_strong()),
         session,
     );
-    let application_menu = platform::startup::ApplicationMenu::new();
     if let Some(welcome) = &welcome {
         platform::center_auxiliary_window(welcome, &app);
         platform::show_window(welcome)?;
@@ -173,11 +197,7 @@ fn run_shared_player(
     player_manager
         .services()
         .present_release_highlights(&app, welcome.as_ref());
-    let _browser = player_manager.register_browser_links(browser);
-    #[cfg(target_os = "macos")]
-    let _browser_events = platform::browser_activation::BrowserEvents::new(browser.clone());
-    slint::run_event_loop()?;
-    player_manager.save_all()
+    Ok(())
 }
 
 unsafe fn prepare_online_video_path(

@@ -51,6 +51,10 @@ Implementation does not imply every state or platform is verified.
   also shares one About window across all players.
 - **Command line:** `riina-cli` starts playback from files, URLs or standard
   input. It can return immediately or wait for the player it started.
+- **macOS launch routing:** the port accepts Finder document groups, uses an
+  AppKit panel for mixed file and folder selection, and follows the launch
+  setting when reopened from the Dock. The windowless menu provides Open File
+  and Quit. These routes still need a native macOS session.
 - **Video/audio/subtitles:** track selection and external tracks, geometry and
   crop controls, filters/equalizers, subtitle styling/timing, screenshots,
   thumbnails, Music Mode and Picture in Picture.

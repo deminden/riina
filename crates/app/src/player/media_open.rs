@@ -132,6 +132,34 @@ fn prepare_explicit_player(paths: Vec<String>) -> Result<Vec<PlayerSelection>, S
         .collect())
 }
 
+#[cfg(any(test, target_os = "macos"))]
+pub(super) fn prepare_application_documents(
+    paths: Vec<String>,
+    preferences: &riina_core::Preferences,
+) -> Result<Vec<crate::player_ui::InitialMedia>, String> {
+    let selections = if preferences.allow_multiple_windows {
+        prepare_new_players(paths, preferences)?
+            .into_iter()
+            .map(|selection| selection.paths)
+            .collect()
+    } else {
+        vec![file_selection::prepare(paths, true)?]
+    };
+    let players = selections
+        .into_iter()
+        .filter(|paths| !paths.is_empty())
+        .map(|paths| crate::player_ui::InitialMedia {
+            files: paths.into_iter().map(OsString::from).collect(),
+            ..Default::default()
+        })
+        .collect::<Vec<_>>();
+    if players.is_empty() {
+        Err("No playable files were found".into())
+    } else {
+        Ok(players)
+    }
+}
+
 fn open_new_players(
     app: &PlayerWindow,
     players: impl IntoIterator<Item = PlayerSelection>,
@@ -754,6 +782,29 @@ mod tests {
     use super::manual_open_repeat_command;
     use super::{parse_internet_shortcut, validate_url};
     use riina_core::{Command, LoopMode};
+
+    #[test]
+    fn windowless_document_opens_follow_the_saved_window_and_grouping_preferences() {
+        let files = || vec!["clip10.avi".into(), "clip2.avi".into()];
+        let paths = |preferences: &riina_core::Preferences| {
+            super::prepare_application_documents(files(), preferences)
+                .unwrap()
+                .into_iter()
+                .map(|media| media.files)
+                .collect::<Vec<_>>()
+        };
+        let mut preferences = riina_core::Preferences::default();
+        assert_eq!(paths(&preferences), [vec!["clip10.avi"], vec!["clip2.avi"]]);
+        preferences.group_simultaneous_opens_in_playlist = true;
+        assert_eq!(paths(&preferences), [vec!["clip2.avi", "clip10.avi"]]);
+        preferences.group_simultaneous_opens_in_playlist = false;
+        preferences.allow_multiple_windows = false;
+        assert_eq!(paths(&preferences), [vec!["clip2.avi", "clip10.avi"]]);
+        assert!(
+            super::prepare_application_documents(vec!["captions.srt".into()], &preferences)
+                .is_err()
+        );
+    }
 
     #[test]
     fn grouped_startup_tracks_only_an_open_with_a_network_lead() {

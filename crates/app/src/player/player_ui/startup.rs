@@ -255,6 +255,10 @@ pub(crate) struct InitialMedia {
 }
 
 impl InitialMedia {
+    pub(crate) fn requests_playback(&self) -> bool {
+        !self.files.is_empty() || self.stream.is_some() || self.launch.stdin
+    }
+
     fn external_stream(&self) -> Option<&str> {
         if self.explicit_playlist
             || self.launch.shuffle
@@ -303,7 +307,7 @@ pub(super) struct InitialOpen {
 
 impl InitialOpen {
     pub(super) fn open(self, app: &PlayerWindow, sender: CommandSender) {
-        if self.media.files.is_empty() && self.media.stream.is_none() {
+        if !self.media.requests_playback() {
             return;
         }
         let Self {

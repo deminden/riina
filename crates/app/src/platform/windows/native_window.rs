@@ -105,7 +105,7 @@ impl NativePlayer {
             loaded,
         } = launch;
         let action_after_launch = loaded.preferences.action_after_launch;
-        let supplied_media_argument = !media.files.is_empty() || media.stream.is_some();
+        let supplied_media_argument = media.requests_playback();
         let managed_ticket = media.managed.clone();
         let disable_animation = media
             .managed
