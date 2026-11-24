@@ -261,6 +261,11 @@ export component PlayerWindow inherits PlayerMenuWindow {
     in-out property <bool> picture-in-picture-active: false;
     callback picture-in-picture-monitor-changed(bool);
     changed picture-in-picture-active => { root.picture-in-picture-monitor-changed(root.picture-in-picture-active); }
+    out property <bool> observe-pip-owner-minimization: PlayerPreferences.pip-toggle-by-minimizing;
+    callback pip-owner-minimization-observation-changed(bool);
+    changed observe-pip-owner-minimization => {
+        root.pip-owner-minimization-observation-changed(root.observe-pip-owner-minimization);
+    }
     private property <bool> picture-in-picture-available: loaded && !crop-editing;
     in property <string> media-title: "riina";
     callback show-screenshot-preview();

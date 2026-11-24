@@ -11,7 +11,7 @@ pub(crate) fn set_music_mode(app: &PlayerWindow, active: bool) {
     }
 }
 
-#[cfg(any(target_os = "windows", target_os = "macos"))]
+#[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
 pub(crate) fn set_picture_in_picture(app: &PlayerWindow, active: bool) {
     if app.get_picture_in_picture_active() != active {
         app.set_picture_in_picture_active(active);

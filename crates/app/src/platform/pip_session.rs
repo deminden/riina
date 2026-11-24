@@ -1,29 +1,20 @@
 //! Platform Picture-in-Picture setup and delivery lifetime for the shared player.
+#[cfg(not(target_os = "linux"))]
 use crate::{PlaybackStore, PlayerWindow};
+#[cfg(not(target_os = "linux"))]
 use riina_mpv::CommandSender;
+#[cfg(not(target_os = "linux"))]
 use std::sync::{Arc, atomic::AtomicBool};
 
-#[cfg(not(target_os = "macos"))]
+#[cfg(target_os = "linux")]
+pub(crate) use super::unix::pip::PictureInPictureSession;
+
+#[cfg(target_os = "windows")]
 pub(crate) struct PictureInPictureSession;
 
-#[cfg(not(target_os = "macos"))]
+#[cfg(target_os = "windows")]
 impl PictureInPictureSession {
-    pub(crate) fn new(app: &PlayerWindow) -> Self {
-        #[cfg(target_os = "linux")]
-        {
-            use slint::ComponentHandle;
-            let weak = app.as_weak();
-            app.global::<riina_ui::PlayerMenuActions>()
-                .on_toggle_picture_in_picture(move || {
-                    if let Some(app) = weak.upgrade() {
-                        app.set_status(
-                            "Picture-in-Picture is unavailable on this presentation path".into(),
-                        );
-                    }
-                });
-        }
-        #[cfg(target_os = "windows")]
-        let _ = app;
+    pub(crate) fn new(_app: &PlayerWindow) -> Self {
         Self
     }
 

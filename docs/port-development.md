@@ -34,6 +34,13 @@ It keeps submenu bounds within the client and scrolls lists that exceed its
 height. In narrow windows, a submenu can overlap its parent. Left Arrow
 returns to the parent. Both presenters keep the player event loop active.
 
+Picture-in-Picture uses the same playback session on Linux. The X11 preview
+requests always-on-top and supports the player's hide, minimize and restore
+policies. On Wayland it is a regular toplevel, and entering keeps the player
+open. Wayland does not provide the minimize observation needed for automatic
+entry. Placement and stacking depend on the compositor. Test the shared
+controls, live frames, and shutdown on both backends.
+
 The macOS drop adapter needs a native desktop check. On one isolated profile,
 drop a Finder file on Welcome, then drop a folder into the middle of the active
 player's playlist. Check the right-edge reveal, cancellation, insertion order,

@@ -9,6 +9,8 @@ mod dialogs;
 #[cfg(target_os = "linux")]
 mod fullscreen;
 #[cfg(target_os = "linux")]
+pub(super) mod pip;
+#[cfg(target_os = "linux")]
 pub(crate) use fullscreen::{observed_fullscreen, request_fullscreen};
 #[cfg(target_os = "linux")]
 pub(super) mod offscreen_webview;

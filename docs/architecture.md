@@ -509,6 +509,13 @@ restore changes on that same framed owner. Closing the preview restores the
 placement it took over when entering and preserves moves made while the main
 window remained open.
 
+On Linux, the Picture-in-Picture preview uses the player's existing libmpv
+render context. A fenced pixel buffer transfers bounded SDR frames into the
+preview's independent Slint window. The player can draw into this buffer on
+its own GL context when the main surface stops drawing. The X11 adapter owns
+window visibility and minimize transitions. The Wayland compositor owns
+placement and keeps control of the main surface's visibility.
+
 Test playback can use null native output or a recording engine to exercise UI
 callbacks without a native window. Windows software-rendered pixel
 baselines cover the Slint surfaces. The platform service recipe shows how to

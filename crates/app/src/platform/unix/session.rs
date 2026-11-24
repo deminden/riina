@@ -7,7 +7,7 @@ use crate::platform::{
 pub(crate) struct SessionExtras {
     _plugin_presenters: PluginPresenters,
     _system_media: SystemMediaSession,
-    _picture_in_picture: PictureInPictureSession,
+    picture_in_picture: PictureInPictureSession,
 }
 
 impl SessionExtras {
@@ -21,11 +21,12 @@ impl SessionExtras {
         Self {
             _plugin_presenters: presenters,
             _system_media: system_media,
-            _picture_in_picture: picture_in_picture,
+            picture_in_picture,
         }
     }
 
     pub(crate) fn prepare_to_close(&self) {
+        self.picture_in_picture.prepare_to_close();
         self._system_media.prepare_to_close();
     }
 }

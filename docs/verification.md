@@ -2834,3 +2834,39 @@ Apple Silicon workspace cross-Clippy passed.
 
 - Windows application SHA-256 `a25a9e1b5de0dd3f883ac4742d26cf6d2f856a1c56c73b3a4fc5f6e4f83d41fc`
 - Linux application SHA-256 `a17d7b50b2a9db59e2163be874453a063b3628186238f72c1369bfe9d74465c1`
+
+### Linux Picture-in-Picture preview 2026-11-24
+
+The locked x64 application built on Ubuntu 26.04.1. Strict Linux workspace
+Clippy and all 538 application unit tests passed. The preview preserves video
+orientation and uses the existing playback engine. In a private X11 session
+with Xvfb, Openbox and Mesa llvmpipe, the default shortcut opened a preview
+above other windows and hid the main player. The test captured moving frames
+while the main window was hidden. The preview controls paused, resumed,
+paused via Stop, and sought back while remaining paused. Closing the preview
+restored the original window with the same media and pause state. With
+automatic PiP enabled, a native minimize opened the preview and a native
+restore closed it, with no repeat transition. A test plugin observed the
+confirmed state in all four callbacks.
+
+A private 1280 × 800 Sway session with no XWayland used compositor-managed
+floating windows. The preview showed moving frames, paused and resumed
+playback, paused via Stop, and updated after a paused seek. The original
+player stayed open and kept its media, bounds, and pause state when the
+preview closed. The plugin received one confirmed entry and one confirmed
+exit in order. Both backends also reopened PiP and shut down cleanly when
+the main window received a native close request with the preview active.
+The X11 main window was hidden during that shutdown check.
+
+Adding the shared preview image property preserved the Windows native window
+workflow in a private desktop. The player restored its bounds after the
+preview closed, opened its native Save As and Open File dialogs immediately,
+exported a Unicode playlist, and exited while PiP was active with the main
+window hidden. The Windows workspace gate passed 955 Rust and 78 Python tests.
+The pinned engine suite passed 59 tests, and the Apple Silicon workspace
+passed strict cross-Clippy.
+
+- Windows application SHA-256 `41fee9a1d1eb869a683a586c4369108b83e91581c1dafb79cc725cb25c90be16`
+- Linux application SHA-256 `f29ff3c69845b50ba1c8731efccd69a4a4bbbacebaf81b37ab17e14f9c1eade5`
+- X11 libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`
+- Wayland libmpv SHA-256 `cdce854e1811942602587310026306d92d30c0f593f2be676f07659ae43061d8`

@@ -7,6 +7,7 @@ export component PictureInPictureWindow inherits Window {
     icon: @image-url("../../../assets/branding/svg/riina-app-icon-dark.svg");
     in property <string> media-title: "riina";
     in property <bool> paused: false;
+    in property <image> video-frame;
     in-out property <bool> acrylic-backdrop-enabled: false;
     callback play-pause();
     callback stop();
@@ -28,6 +29,12 @@ export component PictureInPictureWindow inherits Window {
             width: parent.width;
             height: parent.height - 54px;
             background: Theme.pip-video-background;
+            Image {
+                width: parent.width;
+                height: parent.height;
+                source: root.video-frame;
+                image-fit: contain;
+            }
         }
         Rectangle {
             x: 0;

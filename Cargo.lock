@@ -5165,6 +5165,7 @@ dependencies = [
  "image",
  "keyring",
  "libc",
+ "libloading 0.9.0",
  "lofty",
  "md-5",
  "muda",
