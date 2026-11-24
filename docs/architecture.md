@@ -547,6 +547,14 @@ open. Each file keeps its original order and records from the two clocks are
 combined in read order. Unchanged polls keep the current list and selection.
 Export captures the chosen records before opening the viewer's save dialog.
 
+The Inspector uses the player focus events already dispatched by each window's
+platform adapter. Its shared window follows the newest live player and uses
+cached playback and track observations plus read-only libmpv requests. Only a
+visible Inspector starts a sample, with one request in flight. Changing the
+player, media generation or active tab invalidates the request before it can
+update the view. The profile's watch list uses the preference store's locked
+read and update path.
+
 ## Platform boundary
 
 The Windows native presentation owns the video target used by the D3D11 route.

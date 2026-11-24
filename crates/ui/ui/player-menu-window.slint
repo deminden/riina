@@ -532,6 +532,11 @@ export component PlayerMenuWindow inherits Window {
             }
             MenuItem { title: "Zoom"; activated => { PlayerMenuActions.zoom-window(); } }
             MenuSeparator {}
+            MenuItem { title: "Inspector";
+                shortcut: root.player-shortcut(root.menu-value-primary-shortcut-is-meta
+                    ? @keys(Meta + I) : @keys(Control + I));
+                activated => { PlayerMenuActions.show-inspector(); }
+            }
             MenuItem { title: "Log Viewer";
                 shortcut: root.player-shortcut(root.menu-value-primary-shortcut-is-meta
                     ? @keys(Control + Meta + L) : @keys(Control + Alt + L));

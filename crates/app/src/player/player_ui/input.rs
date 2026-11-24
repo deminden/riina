@@ -185,6 +185,7 @@ fn install_window_events(
             focused.update(*now_focused);
             if *now_focused && let Some(app) = event_app.upgrade() {
                 app.invoke_history_player_activated();
+                app.invoke_inspector_player_activated();
             }
         }
         if matches!(event, winit::event::WindowEvent::CursorEntered { .. }) {

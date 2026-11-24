@@ -1,0 +1,267 @@
+import { Theme } from "theme.slint";
+import { NativeTypography } from "shared-controls.slint";
+import { Button, ComboBox, LineEdit, ScrollView } from "std-widgets.slint";
+
+export struct InspectorField {
+    label: string,
+    value: string,
+    web-link: bool,
+    available: bool,
+    heading: bool,
+}
+
+export enum InspectorTab { general, tracks, file, status }
+
+component InspectorFields inherits ScrollView {
+    in property <[InspectorField]> fields;
+    callback open-link(string);
+    horizontal-scrollbar-policy: always-off;
+    content-width: self.visible-width;
+    content-height: body.preferred-height;
+
+    body := VerticalLayout {
+        width: parent.width;
+        height: self.preferred-height;
+        spacing: 4px;
+        for field in root.fields : HorizontalLayout {
+            height: 25px;
+            spacing: 12px;
+            Text {
+                width: 150px;
+                text: field.label;
+                font-weight: field.heading ? 600 : 400;
+                vertical-alignment: center;
+                color: field.heading ? Theme.auxiliary-light-content-text : Theme.auxiliary-light-secondary-text;
+                overflow: elide;
+            }
+            if field.available && !field.web-link : TextInput {
+                text: field.value;
+                read-only: true;
+                single-line: true;
+                vertical-alignment: center;
+                color: Theme.auxiliary-light-content-text;
+            }
+            if !field.available && !field.heading : Text {
+                text: field.value;
+                vertical-alignment: center;
+                color: Theme.auxiliary-light-secondary-text;
+            }
+            if field.web-link : Button {
+                text: field.value;
+                clicked => { root.open-link(field.value); }
+            }
+        }
+    }
+}
+
+export component MediaInspectorWindow inherits Window {
+    title: "Inspector";
+    icon: @image-url("../../../assets/branding/svg/riina-app-icon-dark.svg");
+    preferred-width: 468px;
+    preferred-height: 481px;
+    min-width: 456px;
+    min-height: 450px;
+    default-font-family: NativeTypography.system-font-family;
+    default-font-size: 12px;
+    background: Theme.auxiliary-light-window-surface;
+
+    in-out property <InspectorTab> selected-tab: InspectorTab.general;
+    in-out property <int> selected-track: -1;
+    in-out property <int> selected-watch: -1;
+    in-out property <string> watch-name: "";
+    in-out property <bool> watch-prompt-open: false;
+    in property <[InspectorField]> general-fields;
+    in property <[InspectorField]> track-fields;
+    in property <[InspectorField]> file-fields;
+    in property <[InspectorField]> status-fields;
+    in property <[InspectorField]> watches;
+    in property <[string]> tracks;
+    in-out property <string> message;
+    callback tab-selected();
+    callback track-selected();
+    callback open-link(string);
+    callback watch-added(string);
+    callback watch-removed(int);
+
+    VerticalLayout {
+        padding: 12px;
+        spacing: 8px;
+        HorizontalLayout {
+            height: 28px;
+            spacing: 4px;
+            for tab in [
+                { value: InspectorTab.general, label: "General" },
+                { value: InspectorTab.tracks, label: "Tracks" },
+                { value: InspectorTab.file, label: "File" },
+                { value: InspectorTab.status, label: "Status" },
+            ] : Button {
+                text: tab.label;
+                checked: root.selected-tab == tab.value;
+                clicked => { root.selected-tab = tab.value; root.tab-selected(); }
+            }
+        }
+        if root.selected-tab == InspectorTab.tracks : ComboBox {
+            model: root.tracks;
+            current-index <=> root.selected-track;
+            enabled: root.tracks.length > 0;
+            selected => { root.track-selected(); }
+        }
+        InspectorFields {
+            vertical-stretch: 1;
+            fields: root.selected-tab == InspectorTab.general ? root.general-fields
+                : root.selected-tab == InspectorTab.tracks ? root.track-fields
+                : root.selected-tab == InspectorTab.file ? root.file-fields : root.status-fields;
+            open-link(url) => { root.open-link(url); }
+        }
+        if root.selected-tab == InspectorTab.status : VerticalLayout {
+            spacing: 6px;
+            Text {
+                text: "Watched Properties";
+                color: Theme.auxiliary-light-content-text;
+                font-weight: 600;
+            }
+            ScrollView {
+                height: 110px;
+                content-width: self.visible-width;
+                content-height: watch-rows.preferred-height;
+                horizontal-scrollbar-policy: always-off;
+                watch-rows := VerticalLayout {
+                    width: parent.width;
+                    height: self.preferred-height;
+                    for watch[index] in root.watches : Rectangle {
+                        height: 25px;
+                        background: root.selected-watch == index
+                            ? Theme.auxiliary-light-row-selection : Theme.auxiliary-light-list-surface;
+                        accessible-role: list-item;
+                        accessible-label: watch.label + " " + watch.value;
+                        accessible-checked: root.selected-watch == index;
+                        accessible-action-default => { root.selected-watch = index; }
+                        TouchArea { clicked => { root.selected-watch = index; } }
+                        HorizontalLayout {
+                            spacing: 8px;
+                            Text {
+                                width: 152px;
+                                text: watch.label;
+                                overflow: elide;
+                                color: watch.available ? Theme.auxiliary-light-content-text : Theme.auxiliary-light-secondary-text;
+                                vertical-alignment: center;
+                            }
+                            if watch.web-link : Button {
+                                text: watch.value;
+                                clicked => { root.open-link(watch.value); }
+                            }
+                            if !watch.web-link : Text {
+                                text: watch.value;
+                                overflow: elide;
+                                color: Theme.auxiliary-light-content-text;
+                                vertical-alignment: center;
+                            }
+                        }
+                    }
+                }
+            }
+            HorizontalLayout {
+                height: 27px;
+                spacing: 4px;
+                Button {
+                    text: "Add…";
+                    clicked => {
+                        root.watch-name = "";
+                        root.message = "";
+                        root.watch-prompt-open = true;
+                        watch-prompt.focus();
+                    }
+                }
+                Button {
+                    text: "Remove";
+                    enabled: root.selected-watch >= 0;
+                    clicked => { root.watch-removed(root.selected-watch); }
+                }
+            }
+        }
+        if !root.watch-prompt-open && !root.message.is-empty : Text {
+            text: root.message;
+            color: Theme.auxiliary-light-secondary-text;
+            wrap: word-wrap;
+        }
+    }
+
+    watch-prompt := FocusScope {
+        width: root.width;
+        height: root.height;
+        visible: root.watch-prompt-open;
+        forward-focus: watch-input;
+        key-pressed(event) => {
+            if event.text == Key.Escape {
+                root.watch-prompt-open = false;
+                return accept;
+            }
+            if event.text == Key.Tab || event.text == Key.Backtab {
+                if event.text == Key.Backtab {
+                    if watch-input.has-focus { add-watch.focus(); }
+                    else if add-watch.has-focus { cancel-watch.focus(); }
+                    else { watch-input.focus(); }
+                } else {
+                    if watch-input.has-focus { cancel-watch.focus(); }
+                    else if cancel-watch.has-focus { add-watch.focus(); }
+                    else { watch-input.focus(); }
+                }
+                return accept;
+            }
+            return reject;
+        }
+        TouchArea {
+            width: parent.width;
+            height: parent.height;
+            scroll-event(_) => { return accept; }
+        }
+        Rectangle {
+            width: parent.width;
+            height: parent.height;
+            background: #0005;
+        }
+        Rectangle {
+            width: min(380px, parent.width - 24px);
+            height: dialog.preferred-height + 24px;
+            x: (parent.width - self.width) / 2;
+            border-radius: 8px;
+            background: Theme.auxiliary-light-window-surface;
+            border-width: 1px;
+            border-color: Theme.history-column-header;
+            dialog := VerticalLayout {
+                x: 12px;
+                y: 12px;
+                width: parent.width - 24px;
+                height: self.preferred-height;
+                spacing: 6px;
+                Text {
+                    text: "Watch an mpv Property";
+                    color: Theme.auxiliary-light-content-text;
+                    font-weight: 600;
+                }
+                watch-input := LineEdit {
+                    text <=> root.watch-name;
+                    placeholder-text: "mpv property name";
+                    accepted => { root.watch-added(root.watch-name); }
+                }
+                if !root.message.is-empty : Text {
+                    text: root.message;
+                    color: Theme.auxiliary-light-secondary-text;
+                    wrap: word-wrap;
+                }
+                HorizontalLayout {
+                    spacing: 6px;
+                    Rectangle { horizontal-stretch: 1; }
+                    cancel-watch := Button {
+                        text: "Cancel";
+                        clicked => { root.watch-prompt-open = false; }
+                    }
+                    add-watch := Button {
+                        text: "Add";
+                        clicked => { root.watch-added(root.watch-name); }
+                    }
+                }
+            }
+        }
+    }
+}

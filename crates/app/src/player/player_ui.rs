@@ -266,6 +266,7 @@ pub(crate) use startup::InitialMedia;
 pub(crate) struct ApplicationServices {
     pub(crate) plugins: Rc<ApplicationPlugins>,
     pub(crate) history: Rc<crate::playback_history_window::ApplicationHistory>,
+    inspector: Rc<crate::windows::media_inspector::ApplicationInspector>,
     logs: Rc<crate::log_viewer::ApplicationLogViewer>,
     recents: Rc<recent_activity::ApplicationRecents>,
     updates: Rc<crate::updates::ApplicationUpdates>,
@@ -288,6 +289,12 @@ impl ApplicationServices {
             app,
             context.preferences_path(),
             preferences.advanced.log_level,
+        );
+        self.inspector.connect(
+            app,
+            context.playback().clone(),
+            context.commands().clone(),
+            context.preferences_path(),
         );
         session_preferences::connect(
             app,

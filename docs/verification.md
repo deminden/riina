@@ -3405,3 +3405,38 @@ interaction remain separate acceptance work.
 - Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
 - Linux application SHA-256 `f5ebaba6f99e3445b1870859d7ea012cb1c2a7b8d463b59a41c98f57703a2b52`
 - X11 libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`
+
+### Media Inspector 2026-11-24
+
+Window → Inspector opens one application window for the focused player. The
+General, Tracks, File and Status tabs combine playback observations with
+read-only libmpv requests. The profile stores watched properties. Closing the
+Inspector stops its timer. Switching the player, file or tab discards an
+outstanding sample before it can replace newer values.
+
+The grouped regressions cover incomplete requests across tab changes, file
+loads and closing the window. Watch edits preserve unrelated settings and
+reject a removal if another process changed the list first.
+
+An isolated Linux X11 session started a multilingual Matroska clip and the
+moving-square AVI in separate player windows. The Inspector showed the video
+details and the English subtitle track without selecting it for playback.
+Copying the File tab's path before and after a focus change confirmed that the
+same Inspector followed both files. The Status tab's `pause` watch changed from
+`yes` to `no` when playback started. Cancelling a watch prompt left the list
+intact. Adding and removing another watch, closing and reopening the Inspector,
+and quitting preserved the remaining watch in the profile. The isolated player
+then exited normally.
+
+A private Windows desktop opened Inspector from the native Window menu of two
+players. Both commands reused one window. Closing and reopening it reused the
+same window, and Quit exited the test process. The full Windows workspace gate
+passed before the final tab and track-label adjustments. The final grouped
+app, UI and engine checks, Windows workspace build, all 60 pinned engine tests
+and strict Apple Silicon cross-Clippy passed. Native macOS interaction, matched
+IINA appearance and keyboard interaction within watch rows remain open.
+
+- Windows application SHA-256 `926354d58e69e4377dac69103756018b3457daef23e9b0813a031181520867fe`
+- Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
+- Linux application SHA-256 `7f236bd39d9d7cbb5aafa222ba64e9b08e0bb19773bd2c31f0f4454a73d826d8`
+- X11 libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`

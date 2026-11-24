@@ -78,6 +78,7 @@ export { AdvancedSettingsState, AudioSettingsState, BrowserExtension, ControlSet
 export { OnlineSubtitlesWindow } from "online-subtitles.slint";
 export { PlaybackHistoryWindow, PlaybackHistoryRow, PlaybackHistoryNavigation } from "history-window.slint";
 export { LogNavigation, LogSubsystemChoice, LogViewerWindow, LogViewerRow } from "log-viewer.slint";
+export { InspectorField, InspectorTab, MediaInspectorWindow } from "media-inspector.slint";
 export { VideoFiltersWindow, VideoFilterWindowRow, VideoFilterParameterRow } from "video-filters-window.slint";
 
 export enum PlayerWindowMode { fullscreen, music-mode, picture-in-picture }
@@ -208,6 +209,7 @@ export component PlayerWindow inherits PlayerMenuWindow {
     callback window-will-close();
     callback window-mode-confirmed(PlayerWindowMode, bool);
     callback history-player-activated();
+    callback inspector-player-activated();
     in-out property <bool> in-process-player-manager: false;
     callback open-player-requested([string], string, float, bool);
     callback music-mode-changed();

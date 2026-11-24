@@ -72,6 +72,8 @@ pub struct Preferences {
     pub volume: f64,
     pub volume_boost: bool,
     pub advanced: advanced_preferences::Settings,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub inspector_watch_properties: Vec<String>,
     pub audio: audio_preferences::Settings,
     #[serde(default)]
     pub audio_equalizer: audio_equalizer::Settings,
@@ -302,6 +304,7 @@ impl Default for Preferences {
             volume: 100.0,
             volume_boost: false,
             advanced: advanced_preferences::Settings::default(),
+            inspector_watch_properties: Vec::new(),
             audio: audio_preferences::Settings::default(),
             audio_equalizer: audio_equalizer::Settings::default(),
             video_filters: video_filters::Settings::default(),

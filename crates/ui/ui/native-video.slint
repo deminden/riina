@@ -51,6 +51,7 @@ export component NativeVideoHost inherits Window {
     callback open-help-link(string);
     callback dump-debug-info();
     callback show-playback-history();
+    callback show-inspector();
     callback show-log-viewer();
     callback close-player();
     callback quit-riina();
@@ -645,6 +646,10 @@ export component NativeVideoHost inherits Window {
             }
             MenuItem { title: "Zoom"; activated => { root.zoom-window(); } }
             MenuSeparator {}
+            MenuItem { title: "Inspector";
+                shortcut: root.primary-shortcut-is-meta ? @keys(Meta + I) : @keys(Control + I);
+                activated => { root.show-inspector(); }
+            }
             MenuItem { title: "Log Viewer";
                 shortcut: root.primary-shortcut-is-meta
                     ? @keys(Control + Meta + L) : @keys(Control + Alt + L);

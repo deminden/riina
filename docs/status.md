@@ -32,6 +32,9 @@ Implementation does not imply every state or platform is verified.
 - **Log Viewer:** Window and Advanced Settings open the shared viewer for
   application and mpv logs. Filter by multiple subsystems, severity and message,
   copy selected rows or export the full or filtered view.
+- **Inspector** opens from the Window menu and shows the focused player's
+  general media details, tracks, file metadata and playback status. Watched
+  mpv properties are saved in the profile and update while the window is visible.
 - **Command line:** `riina-cli` starts playback from files, URLs or standard
   input. It can return immediately or wait for the player it started.
 - **Video/audio/subtitles:** track selection and external tracks, geometry and
