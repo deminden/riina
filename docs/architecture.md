@@ -535,6 +535,9 @@ projection at application scope. Player menus, Welcome and plugin snapshots
 use the same document list. Open Recent can clear its list independently.
 Settings Utilities also clears the shared Playback History archive and the
 resume entries. The separate History window's Clear action edits the archive.
+The Settings window owns Utilities confirmations and discards them when it
+closes. A confirmed action calls its profile service once. Acknowledgements
+stay on the owning window. Cache sizes refresh on entry, reopening and clearing.
 See [Add a preference](recipes/add-a-preference.md) for settings changes.
 
 ## Platform boundary

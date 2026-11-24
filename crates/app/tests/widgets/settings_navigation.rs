@@ -1,12 +1,12 @@
 //! Exercise Settings and Welcome routes with headless window input.
 use i_slint_backend_testing::{AccessibleRole, ElementHandle};
 use riina_ui::{
-    GeneralSettingsState, PluginPreferencesRow, PreferencesWindow, VideoSettingsState,
-    WelcomeWindow,
+    GeneralSettingsState, PluginPreferencesRow, PreferencesWindow, UtilityAction,
+    VideoSettingsState, WelcomeWindow,
 };
 use slint::{
     ComponentHandle, LogicalSize, ModelRc, VecModel,
-    platform::{PointerEventButton, WindowEvent},
+    platform::{Key, PointerEventButton, WindowEvent},
 };
 use std::{cell::Cell, error::Error, rc::Rc};
 
@@ -26,6 +26,75 @@ fn button(settings: &PreferencesWindow, label: &str) -> Result<ElementHandle, Bo
 fn select(settings: &PreferencesWindow, label: &str) -> Result<(), Box<dyn Error>> {
     button(settings, label)?.invoke_accessible_default_action();
     super::flush();
+    Ok(())
+}
+
+#[test]
+fn utility_actions_dispatch_once_after_confirmation() -> Result<(), Box<dyn Error>> {
+    i_slint_backend_testing::init_no_event_loop();
+    let settings = PreferencesWindow::new()?;
+    settings.set_disable_animations(true);
+    settings.window().set_size(LogicalSize::new(750.0, 670.0));
+    let received = Rc::new(Cell::new((UtilityAction::None, 0)));
+    let recorded = received.clone();
+    settings.on_utility_confirmed(move |action| {
+        recorded.set((action, recorded.get().1 + 1));
+        if action == UtilityAction::ClearThumbnails {
+            "".into()
+        } else {
+            "Done.".into()
+        }
+    });
+    settings.show()?;
+    super::flush();
+    select(&settings, "Utilities")?;
+
+    let key = |key: Key| {
+        let text: slint::SharedString = key.into();
+        settings
+            .window()
+            .dispatch_event(WindowEvent::KeyPressed { text: text.clone() });
+        settings
+            .window()
+            .dispatch_event(WindowEvent::KeyReleased { text });
+        super::flush();
+    };
+
+    select(&settings, "Clear Saved Playback Progress")?;
+    key(Key::Escape);
+    assert_eq!(received.get(), (UtilityAction::None, 0));
+    select(&settings, "Clear Playback History")?;
+    key(Key::Return);
+    assert_eq!(received.get(), (UtilityAction::None, 0));
+
+    for (index, (label, action)) in [
+        ("Restore Suppressed Alerts", UtilityAction::RestoreAlerts),
+        (
+            "Clear Saved Playback Progress",
+            UtilityAction::ClearProgress,
+        ),
+        ("Clear Playback History", UtilityAction::ClearHistory),
+        ("Clear Thumbnail Cache", UtilityAction::ClearThumbnails),
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        select(&settings, label)?;
+        assert_eq!(received.get().1, index);
+        key(Key::Tab);
+        key(Key::Return);
+        assert_eq!(received.get(), (action, index + 1));
+        if action != UtilityAction::ClearThumbnails {
+            key(Key::Return);
+            assert_eq!(received.get(), (action, index + 1));
+        }
+    }
+    select(&settings, "Clear Playback History")?;
+    settings.invoke_dismiss_utility_dialogs();
+    key(Key::Tab);
+    key(Key::Return);
+    assert_eq!(received.get().1, 4);
+    settings.hide()?;
     Ok(())
 }
 

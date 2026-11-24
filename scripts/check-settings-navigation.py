@@ -425,26 +425,16 @@ def main():
         )
     ), "Utilities must retain the source section and action hierarchy"
 
-    for action in (
-        "utilities-clear-progress", "utilities-clear-history", "utilities-restore-alerts",
-        "utilities-open-default-apps", "utilities-clear-thumbnail-cache",
-    ):
-        assert f"root.{action}();" in UTILITIES_SOURCE, f"Utilities row must activate {action}"
-        if action == "utilities-clear-history":
-            continue
-        assert f"{action} => {{ root.{action}(); }}" in utilities_route.group(1), (
-            f"Utilities page must forward {action} to its window"
-        )
-    assert re.search(
-        r"utilities-clear-history => \{\s*UtilitySettingsState.utilities-history-confirmation-open = true;"
-        r"\s*history-confirmation.focus\(\);\s*\}",
-        utilities_route.group(1),
-    ), "Clear Playback History must focus its confirmation sheet"
-    assert re.search(
-        r"answered\(accepted\) => \{\s*UtilitySettingsState.utilities-history-confirmation-open = false;"
-        r"\s*if accepted \{ root.utilities-clear-history\(\); \}",
-        SOURCE,
-    ), "Only an accepted confirmation may clear playback history"
+    assert "root.utilities-open-default-apps();" in UTILITIES_SOURCE
+    assert (
+        "utilities-open-default-apps => { root.utilities-open-default-apps(); }"
+        in utilities_route.group(1)
+    )
+    for action in ("restore-alerts", "clear-progress", "clear-history", "clear-thumbnails"):
+        assert f"root.utility-requested(UtilityAction.{action});" in UTILITIES_SOURCE
+    assert "utility-requested(action) => { utility-dialog.open(action); }" in utilities_route.group(1)
+    assert "if accepted && !root.acknowledgement-only" in UTILITIES_SOURCE
+    assert "root.result = root.confirmed(root.pending);" in UTILITIES_SOURCE
     history_row = re.search(
         r'UtilitiesActionRow\s*\{\s*y:\s*87px;(.*?)(?=\n\s*UtilitiesActionRow|\Z)',
         UTILITIES_SOURCE,

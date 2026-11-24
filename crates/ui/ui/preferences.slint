@@ -1,5 +1,4 @@
 import { Theme } from "theme.slint";
-import { ConfirmationSheet } from "confirmation-sheet.slint";
 import { KeyBindingDialogs } from "preferences-key-binding-dialogs.slint";
 import { PluginsPreferencesPage, PluginInstallDialog } from "preferences-plugin-page.slint";
 import { PluginInformation, PluginInformationAction, PluginInformationDialog } from "preferences-plugin-information.slint";
@@ -20,8 +19,8 @@ import { AudioPreferencesPage } from "preferences-audio.slint";
 export { AudioSettingsState } from "preferences-audio.slint";
 import { VideoPreferencesPage, VideoSettingsState } from "preferences-video.slint";
 export { VideoSettingsState } from "preferences-video.slint";
-import { BrowserExtension, UtilitySettingsState, UtilitiesPreferencesPage, DefaultAppDialog } from "preferences-utilities.slint";
-export { BrowserExtension, UtilitySettingsState } from "preferences-utilities.slint";
+import { BrowserExtension, UtilityAction, UtilityActionDialog, UtilitySettingsState, UtilitiesPreferencesPage, DefaultAppDialog } from "preferences-utilities.slint";
+export { BrowserExtension, UtilityAction, UtilitySettingsState } from "preferences-utilities.slint";
 import { PreferencesNavigation } from "preferences-navigation.slint";
 import { PreferencesSearchResult, PreferenceSearchPopup } from "preferences-search.slint";
 export { PreferencesSearchResult } from "preferences-search.slint";
@@ -281,10 +280,15 @@ export component PreferencesWindow inherits Window {
     callback choose-subtitle-font();
     callback utilities-open-default-apps();
     callback utilities-default-apps-requested(bool, bool, bool);
-    callback utilities-restore-alerts();
-    callback utilities-clear-progress();
-    callback utilities-clear-history();
-    callback utilities-clear-thumbnail-cache();
+    callback utilities-refresh-sizes();
+    callback utility-confirmed(UtilityAction) -> string;
+    public function refresh-utility-sizes-if-selected() {
+        if root.selected-pane == 10 { root.utilities-refresh-sizes(); }
+    }
+    public function dismiss-utility-dialogs() {
+        utility-dialog.dismiss();
+        UtilitySettingsState.utilities-default-app-sheet-open = false;
+    }
     callback utilities-browser-extension(BrowserExtension);
     callback advanced-settings-changed();
     callback advanced-choose-config-directory();
@@ -313,6 +317,7 @@ export component PreferencesWindow inherits Window {
     callback plugin-settings-pane-left();
 
     changed selected-pane => {
+        root.refresh-utility-sizes-if-selected();
         if root.selected-pane != 9 {
             root.plugin-information-open = false;
             root.plugin-settings-pane-left();
@@ -578,13 +583,7 @@ export component PreferencesWindow inherits Window {
         x: 200px; y: 0; width: parent.width - 200px; height: parent.height;
         mica-backdrop-enabled: root.mica-backdrop-enabled;
         utilities-open-default-apps => { root.utilities-open-default-apps(); }
-        utilities-restore-alerts => { root.utilities-restore-alerts(); }
-        utilities-clear-progress => { root.utilities-clear-progress(); }
-        utilities-clear-history => {
-            UtilitySettingsState.utilities-history-confirmation-open = true;
-            history-confirmation.focus();
-        }
-        utilities-clear-thumbnail-cache => { root.utilities-clear-thumbnail-cache(); }
+        utility-requested(action) => { utility-dialog.open(action); }
         utilities-browser-extension(browser) => { root.utilities-browser-extension(browser); }
     }
 
@@ -637,16 +636,9 @@ export component PreferencesWindow inherits Window {
         }
     }
 
-    history-confirmation := ConfirmationSheet {
+    utility-dialog := UtilityActionDialog {
         width: root.width;
         height: root.height;
-        visible: UtilitySettingsState.utilities-history-confirmation-open;
-        title: "Clear Playback History";
-        description: "Clear Playback History, Open Recent, and the Welcome window’s Resume item?";
-        action: "Clear History";
-        answered(accepted) => {
-            UtilitySettingsState.utilities-history-confirmation-open = false;
-            if accepted { root.utilities-clear-history(); }
-        }
+        confirmed(action) => { return root.utility-confirmed(action); }
     }
 }

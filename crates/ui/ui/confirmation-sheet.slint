@@ -5,6 +5,7 @@ export component ConfirmationSheet inherits FocusScope {
     in property <string> title;
     in property <string> description;
     in property <string> action;
+    in property <bool> acknowledgement-only: false;
     callback answered(bool);
     forward-focus: cancel;
 
@@ -52,10 +53,11 @@ export component ConfirmationSheet inherits FocusScope {
                 spacing: 8px;
                 Rectangle { horizontal-stretch: 1; }
                 cancel := Button {
-                    text: "Cancel";
+                    text: root.acknowledgement-only ? "OK" : "Cancel";
                     clicked => { root.answered(false); }
                 }
                 proceed := Button {
+                    visible: !root.acknowledgement-only;
                     text: root.action;
                     clicked => { root.answered(true); }
                 }
@@ -69,7 +71,11 @@ export component ConfirmationSheet inherits FocusScope {
             return accept;
         }
         if event.text == Key.Tab || event.text == Key.Backtab {
-            if cancel.has-focus { proceed.focus(); } else { cancel.focus(); }
+            if !root.acknowledgement-only && cancel.has-focus {
+                proceed.focus();
+            } else {
+                cancel.focus();
+            }
             return accept;
         }
         return reject;

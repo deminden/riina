@@ -1,15 +1,16 @@
 import { Theme } from "theme.slint";
+import { ConfirmationSheet } from "confirmation-sheet.slint";
 import { CheckBox, ScrollView } from "std-widgets.slint";
 import { PreferenceActionButton, UtilitiesActionRow } from "preferences-controls.slint";
 
 export enum BrowserExtension { chromium, firefox, safari }
+export enum UtilityAction { none, restore-alerts, clear-progress, clear-history, clear-thumbnails }
 
 export global UtilitySettingsState {
     in-out property <string> utilities-progress-size: "0 B";
     in-out property <string> utilities-thumbnail-size: "0 B";
     in-out property <string> utilities-status: "";
     in-out property <bool> utilities-default-app-sheet-open: false;
-    in-out property <bool> utilities-history-confirmation-open: false;
     in-out property <bool> utilities-default-video: true;
     in-out property <bool> utilities-default-audio: true;
     in-out property <bool> utilities-default-playlist: true;
@@ -19,10 +20,7 @@ export global UtilitySettingsState {
 export component UtilitiesPreferencesPage inherits ScrollView {
     in property <bool> mica-backdrop-enabled;
     callback utilities-open-default-apps();
-    callback utilities-restore-alerts();
-    callback utilities-clear-progress();
-    callback utilities-clear-history();
-    callback utilities-clear-thumbnail-cache();
+    callback utility-requested(UtilityAction);
     callback utilities-browser-extension(BrowserExtension);
 
     content-height: 700px; content-width: self.visible-width;
@@ -44,7 +42,7 @@ export component UtilitiesPreferencesPage inherits ScrollView {
             UtilitiesActionRow { width: parent.width; height: parent.height;
                 icon: @image-url("../../../assets/icons/resume-history.svg"); title: "Restore Suppressed Alerts";
                 description: "Restore alerts hidden with ‘Do not show this message again’.";
-                activated => { root.utilities-restore-alerts(); }
+                activated => { root.utility-requested(UtilityAction.restore-alerts); }
             }
         }
         Text { x: 20px; y: 268px; text: "Clear Cache"; font-size: 12px; font-weight: 600; color: Theme.settings-section-heading; }
@@ -53,18 +51,18 @@ export component UtilitiesPreferencesPage inherits ScrollView {
             UtilitiesActionRow { y: 0px; width: parent.width; height: 87px;
                 icon: @image-url("../../../assets/icons/resume-history.svg"); title: "Clear Saved Playback Progress";
                 description: "Delete all files in the \"watch later\" folder. These files contain all saved playback progress and settings applied during playback.";
-                trash: true; activated => { root.utilities-clear-progress(); }
+                trash: true; activated => { root.utility-requested(UtilityAction.clear-progress); }
             }
             UtilitiesActionRow { y: 87px; width: parent.width; height: 74px;
                 icon: @image-url("../../../assets/icons/playlist.svg"); title: "Clear Playback History";
                 description: "Delete all playback histories and entries in \"Open Recent\".";
                 trash: true;
-                activated => { root.utilities-clear-history(); }
+                activated => { root.utility-requested(UtilityAction.clear-history); }
             }
             UtilitiesActionRow { y: 161px; width: parent.width; height: 41px;
                 icon: @image-url("../../../assets/icons/photo.svg"); title: "Clear Thumbnail Cache";
                 metric: UtilitySettingsState.utilities-thumbnail-size; trash: true;
-                activated => { root.utilities-clear-thumbnail-cache(); }
+                activated => { root.utility-requested(UtilityAction.clear-thumbnails); }
             }
         }
         Text { x: 20px; y: 514px; text: "Browser Extensions"; font-size: 12px; font-weight: 600; color: Theme.settings-section-heading; }
@@ -95,6 +93,49 @@ export component UtilitiesPreferencesPage inherits ScrollView {
         if !UtilitySettingsState.utilities-status.is-empty : Text {
             x: 20px; y: 660px; width: parent.width - 40px; height: 20px;
             text: UtilitySettingsState.utilities-status; font-size: 10px; color: Theme.settings-status-text; wrap: word-wrap;
+        }
+    }
+}
+
+export component UtilityActionDialog inherits ConfirmationSheet {
+    private property <UtilityAction> pending: UtilityAction.none;
+    private property <string> result;
+    callback confirmed(UtilityAction) -> string;
+
+    public function open(action: UtilityAction) {
+        root.pending = action;
+        root.result = "";
+        root.focus();
+    }
+
+    public function dismiss() {
+        root.pending = UtilityAction.none;
+        root.result = "";
+    }
+
+    visible: root.pending != UtilityAction.none;
+    acknowledgement-only: !root.result.is-empty;
+    title: root.pending == UtilityAction.restore-alerts ? "Restore Suppressed Alerts"
+        : root.pending == UtilityAction.clear-progress ? "Clear Saved Playback Progress"
+        : root.pending == UtilityAction.clear-history ? "Clear Playback History"
+        : "Clear Thumbnail Cache";
+    description: root.acknowledgement-only ? root.result
+        : root.pending == UtilityAction.restore-alerts ? "Restore suppressed alerts?"
+        : root.pending == UtilityAction.clear-progress ?
+            "Delete saved playback positions and settings for all media? Current size: "
+                + UtilitySettingsState.utilities-progress-size + "."
+        : root.pending == UtilityAction.clear-history ?
+            "Clear Playback History, Open Recent, and the Welcome window’s Resume item?"
+        : "Delete all cached thumbnails? Current size: "
+            + UtilitySettingsState.utilities-thumbnail-size + ".";
+    action: root.pending == UtilityAction.restore-alerts ? "Restore"
+        : root.pending == UtilityAction.clear-history ? "Clear History" : "Clear";
+    answered(accepted) => {
+        if accepted && !root.acknowledgement-only {
+            root.result = root.confirmed(root.pending);
+            if root.result.is-empty { root.dismiss(); } else { root.focus(); }
+        } else {
+            root.dismiss();
         }
     }
 }

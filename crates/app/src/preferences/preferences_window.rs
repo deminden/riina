@@ -114,6 +114,7 @@ pub(crate) fn connect(
                 .unwrap_or_default();
             crate::audio_preferences::install_window(&window, &stored_audio, &available_devices);
             refresh(&window, &app);
+            window.invoke_refresh_utility_sizes_if_selected();
             updates.refresh_settings(&window);
             power.refresh_settings(&window);
             if let Err(error) = crate::platform::show_window(&window) {

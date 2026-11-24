@@ -27,6 +27,8 @@ Implementation does not imply every state or platform is verified.
 - **Recent activity:** player windows share Open Recent with Welcome and
   plugins. Settings Utilities clears history, recent documents and the saved
   Welcome resume item together after confirmation.
+- **Utilities:** Settings owns the confirmations for alerts, saved progress,
+  history and thumbnails. Cache sizes refresh when the page opens or data is cleared.
 - **Command line:** `riina-cli` starts playback from files, URLs or standard
   input. It can return immediately or wait for the player it started.
 - **Video/audio/subtitles:** track selection and external tracks, geometry and

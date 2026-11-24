@@ -3346,3 +3346,28 @@ dialog interaction remain unverified for this batch.
 
 - Linux application SHA-256 `c5b460b936ab701a6e054234070d20eae9b3b8e0dcc3268401e978c2b5bdc5e2`
 - X11 libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`
+
+### Settings Utilities confirmations 2026-11-24
+
+Settings owns the confirmation sheets for restoring alerts and clearing saved
+playback progress, history and thumbnails. Restore Alerts shows an acknowledgement,
+consistent with IINA v1.5.0 retaining the action without any suppressible alerts.
+Progress and history also report the result on the owning Settings window.
+
+An isolated Linux X11 session ran two paused video fixtures. Escape preserved
+seeded progress and thumbnail files. Keyboard confirmation cleared progress,
+history and thumbnails independently. The thumbnail cache shrank from 17 B
+to 0 B, and a symlink and its out-of-cache target were preserved. A regular file
+at the progress directory path stayed intact and produced a visible error.
+Closing Settings during the thumbnail confirmation preserved a new 18 B entry.
+Reopening Settings showed the new size and dismissed the earlier confirmation.
+The Quit shortcut exited the isolated player.
+
+The grouped headless regression covers all four actions, including safe initial
+focus, Escape, a single callback on confirmation and closing a pending sheet.
+The full Windows workspace build and gate, player and Settings pixel baselines,
+all 60 pinned native engine tests and strict Apple Silicon cross-Clippy passed.
+Native Windows and macOS dialog interaction and matched IINA pixels remain open.
+
+- Linux application SHA-256 `99228dfdf77772fe95bca36ef5b06e4ad6d5082489539eedc58a055c33959aa7`
+- X11 libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`

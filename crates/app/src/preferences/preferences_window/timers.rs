@@ -28,9 +28,7 @@ impl VisibleSettings {
                     audio_devices.stop();
                 }
                 window.invoke_close_plugin_settings();
-                window
-                    .global::<riina_ui::UtilitySettingsState>()
-                    .set_utilities_history_confirmation_open(false);
+                window.invoke_dismiss_utility_dialogs();
                 // Continue releasing session resources if the window is closing.
                 let _ = window.hide();
             }

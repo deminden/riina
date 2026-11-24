@@ -1,6 +1,6 @@
 //! System and cache actions from the source Settings > Utilities page.
 use crate::PreferencesWindow;
-use rfd::{MessageButtons, MessageDialog, MessageDialogResult};
+use riina_ui::{UtilityAction, UtilitySettingsState};
 use slint::ComponentHandle;
 use std::{
     fs, io,
@@ -13,7 +13,13 @@ pub(crate) fn connect(
     clear_history: impl Fn() -> Result<usize, String> + 'static,
 ) {
     let watch_later = preferences_path.with_file_name("watch-later");
-    refresh_sizes(window, &watch_later);
+    let weak = window.as_weak();
+    let progress_directory = watch_later.clone();
+    window.on_utilities_refresh_sizes(move || {
+        if let Some(window) = weak.upgrade() {
+            refresh_sizes(&window, &progress_directory);
+        }
+    });
     install_default_app_actions(window);
     install_browser_extension_action(window);
     install_cache_and_history_actions(window, watch_later, clear_history);
@@ -76,28 +82,11 @@ fn browser_extension_guide(filename: &str) -> io::Result<PathBuf> {
 }
 
 fn refresh_sizes(window: &PreferencesWindow, watch_later: &Path) {
-    window
-        .global::<riina_ui::UtilitySettingsState>()
-        .set_utilities_progress_size(
-            directory_size(watch_later)
-                .map(format_size)
-                .unwrap_or_else(|_| "—".into())
-                .into(),
-        );
-    match thumbnail_cache_directory() {
-        Ok(directory) => {
-            let size = fs::create_dir_all(&directory)
-                .and_then(|()| directory_size(&directory))
-                .map(format_size)
-                .unwrap_or_else(|_| "—".into());
-            window
-                .global::<riina_ui::UtilitySettingsState>()
-                .set_utilities_thumbnail_size(size.into());
-        }
-        Err(_) => window
-            .global::<riina_ui::UtilitySettingsState>()
-            .set_utilities_thumbnail_size("—".into()),
-    }
+    let settings = window.global::<UtilitySettingsState>();
+    settings.set_utilities_progress_size(display_size(watch_later).into());
+    let thumbnails = thumbnail_cache_directory()
+        .map_or_else(|_| "—".into(), |directory| display_size(&directory));
+    settings.set_utilities_thumbnail_size(thumbnails.into());
 }
 
 fn install_default_app_actions(window: &PreferencesWindow) {
@@ -126,139 +115,63 @@ fn install_default_app_actions(window: &PreferencesWindow) {
 
 fn install_cache_and_history_actions(
     window: &PreferencesWindow,
-    watch_later: std::path::PathBuf,
+    watch_later: PathBuf,
     clear_history: impl Fn() -> Result<usize, String> + 'static,
 ) {
     let weak = window.as_weak();
-    window.on_utilities_restore_alerts(move || {
+    window.on_utility_confirmed(move |action| {
         let Some(window) = weak.upgrade() else {
-            return;
+            return slint::SharedString::default();
         };
-        let response = MessageDialog::new()
-            .set_title("Restore Suppressed Alerts")
-            .set_description("Are you sure you want to restore suppressed alerts?")
-            .set_buttons(MessageButtons::YesNo)
-            .show();
-        if response != MessageDialogResult::Yes {
-            return;
-        }
-        let _ = MessageDialog::new()
-            .set_title("Restore Suppressed Alerts")
-            .set_description("Restored.")
-            .set_buttons(MessageButtons::Ok)
-            .show();
-        window
-            .global::<riina_ui::UtilitySettingsState>()
-            .set_utilities_status("Restored.".into());
-    });
-
-    let weak = window.as_weak();
-    window.on_utilities_clear_progress(move || {
-        let Some(window) = weak.upgrade() else {
-            return;
-        };
-        let response = MessageDialog::new()
-            .set_title("Clear Saved Playback Progress")
-            .set_description(format!(
-                "Delete saved playback positions for all media? Current size: {}.",
-                window
-                    .global::<riina_ui::UtilitySettingsState>()
-                    .get_utilities_progress_size()
-            ))
-            .set_buttons(MessageButtons::YesNo)
-            .show();
-        if response != MessageDialogResult::Yes {
-            return;
-        }
-        let cleared = clear_watch_later(&watch_later);
-        crate::player_ui::refresh_playlist_resume_positions();
-        match cleared {
-            Ok(removed_bytes) => {
-                window
-                    .global::<riina_ui::UtilitySettingsState>()
-                    .set_utilities_progress_size(format_size(0).into());
-                window
-                    .global::<riina_ui::UtilitySettingsState>()
-                    .set_utilities_status(
-                        format!(
-                            "Saved playback progress cleared ({} removed).",
-                            format_size(removed_bytes)
-                        )
-                        .into(),
-                    );
+        let settings = window.global::<UtilitySettingsState>();
+        settings.set_utilities_status("".into());
+        match action {
+            UtilityAction::None => String::new(),
+            // The pinned release retains this action without any suppressible alerts.
+            UtilityAction::RestoreAlerts => "Restored.".into(),
+            UtilityAction::ClearProgress => {
+                let cleared = clear_watch_later(&watch_later);
+                crate::player_ui::refresh_playlist_resume_positions();
+                settings.set_utilities_progress_size(display_size(&watch_later).into());
+                match cleared {
+                    Ok(bytes) => format!(
+                        "Saved playback progress cleared ({} removed).",
+                        format_size(bytes)
+                    ),
+                    Err(error) => format!("Could not clear saved playback progress: {error}"),
+                }
             }
-            Err(error) => window
-                .global::<riina_ui::UtilitySettingsState>()
-                .set_utilities_status(
-                    format!("Could not clear saved playback progress: {error}").into(),
-                ),
-        }
-    });
-
-    let weak = window.as_weak();
-    window.on_utilities_clear_history(move || {
-        let Some(window) = weak.upgrade() else {
-            return;
-        };
-        match clear_history() {
-            Ok(removed) => window
-                .global::<riina_ui::UtilitySettingsState>()
-                .set_utilities_status(
-                    format!("Playback history cleared ({removed} entries removed).").into(),
-                ),
-            Err(error) => window
-                .global::<riina_ui::UtilitySettingsState>()
-                .set_utilities_status(error.into()),
-        }
-    });
-
-    let weak = window.as_weak();
-    window.on_utilities_clear_thumbnail_cache(move || {
-        let Some(window) = weak.upgrade() else {
-            return;
-        };
-        let directory = match thumbnail_cache_directory() {
-            Ok(directory) => directory,
-            Err(error) => {
-                window
-                    .global::<riina_ui::UtilitySettingsState>()
-                    .set_utilities_status(error.into());
-                return;
+            UtilityAction::ClearHistory => match clear_history() {
+                Ok(removed) => format!("Playback history cleared ({removed} entries removed)."),
+                Err(error) => error,
+            },
+            UtilityAction::ClearThumbnails => {
+                let directory = match thumbnail_cache_directory() {
+                    Ok(directory) => directory,
+                    Err(error) => return error.into(),
+                };
+                let cleared = clear_thumbnail_cache(&directory);
+                settings.set_utilities_thumbnail_size(display_size(&directory).into());
+                match cleared {
+                    Ok(bytes) => {
+                        settings.set_utilities_status(
+                            format!("Thumbnail cache cleared ({} removed).", format_size(bytes))
+                                .into(),
+                        );
+                        String::new()
+                    }
+                    Err(error) => format!("Could not clear thumbnail cache: {error}"),
+                }
             }
-        };
-        let size = directory_size(&directory)
-            .map(format_size)
-            .unwrap_or_else(|_| "—".into());
-        let response = MessageDialog::new()
-            .set_title("Clear Thumbnail Cache")
-            .set_description(format!(
-                "Delete all cached thumbnails? Current size: {size}."
-            ))
-            .set_buttons(MessageButtons::YesNo)
-            .show();
-        if response != MessageDialogResult::Yes {
-            return;
         }
-        match clear_thumbnail_cache(&directory) {
-            Ok(removed_bytes) => {
-                window
-                    .global::<riina_ui::UtilitySettingsState>()
-                    .set_utilities_thumbnail_size(format_size(0).into());
-                window
-                    .global::<riina_ui::UtilitySettingsState>()
-                    .set_utilities_status(
-                        format!(
-                            "Thumbnail cache cleared ({} removed).",
-                            format_size(removed_bytes)
-                        )
-                        .into(),
-                    );
-            }
-            Err(error) => window
-                .global::<riina_ui::UtilitySettingsState>()
-                .set_utilities_status(format!("Could not clear thumbnail cache: {error}").into()),
-        }
+        .into()
     });
+}
+
+fn display_size(directory: &Path) -> String {
+    directory_size(directory)
+        .map(format_size)
+        .unwrap_or_else(|_| "—".into())
 }
 
 pub(crate) fn thumbnail_cache_directory() -> Result<std::path::PathBuf, String> {
