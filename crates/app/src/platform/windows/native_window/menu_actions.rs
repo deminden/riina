@@ -44,6 +44,9 @@ fn install_application_actions(host: &NativeVideoHost, app: &PlayerWindow) {
         app.global::<PlayerMenuActions>()
             .invoke_show_playback_history();
     });
+    forward!(host, app, on_show_log_viewer, || {
+        app.global::<PlayerMenuActions>().invoke_show_log_viewer();
+    });
     forward!(host, app, on_save_current_playlist, || {
         app.global::<PlayerMenuActions>()
             .invoke_save_current_playlist();

@@ -532,6 +532,12 @@ export component PlayerMenuWindow inherits Window {
             }
             MenuItem { title: "Zoom"; activated => { PlayerMenuActions.zoom-window(); } }
             MenuSeparator {}
+            MenuItem { title: "Log Viewer";
+                shortcut: root.player-shortcut(root.menu-value-primary-shortcut-is-meta
+                    ? @keys(Control + Meta + L) : @keys(Control + Alt + L));
+                activated => { PlayerMenuActions.show-log-viewer(); }
+            }
+            MenuSeparator {}
             MenuItem { title: "Bring All to Front";
                 enabled: root.menu-value-in-process-player-manager;
                 activated => { PlayerMenuActions.bring-all-to-front(); }

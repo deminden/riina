@@ -51,6 +51,7 @@ export component NativeVideoHost inherits Window {
     callback open-help-link(string);
     callback dump-debug-info();
     callback show-playback-history();
+    callback show-log-viewer();
     callback close-player();
     callback quit-riina();
     callback hide-riina();
@@ -643,6 +644,12 @@ export component NativeVideoHost inherits Window {
                 activated => { root.minimize-window(); }
             }
             MenuItem { title: "Zoom"; activated => { root.zoom-window(); } }
+            MenuSeparator {}
+            MenuItem { title: "Log Viewer";
+                shortcut: root.primary-shortcut-is-meta
+                    ? @keys(Control + Meta + L) : @keys(Control + Alt + L);
+                activated => { root.show-log-viewer(); }
+            }
             MenuSeparator {}
             MenuItem { title: "Bring All to Front";
                 enabled: root.bring-all-to-front-available;

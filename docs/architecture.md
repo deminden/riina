@@ -540,6 +540,13 @@ closes. A confirmed action calls its profile service once. Acknowledgements
 stay on the owning window. Cache sizes refresh on entry, reopening and clearing.
 See [Add a preference](recipes/add-a-preference.md) for settings changes.
 
+The Log Viewer is application-owned. The Window menu and Advanced Settings
+open the same window and share its filters and selection. The viewer reads the
+profile's diagnostic and optional mpv log in bounded batches only while it is
+open. Each file keeps its original order and records from the two clocks are
+combined in read order. Unchanged polls keep the current list and selection.
+Export captures the chosen records before opening the viewer's save dialog.
+
 ## Platform boundary
 
 The Windows native presentation owns the video target used by the D3D11 route.

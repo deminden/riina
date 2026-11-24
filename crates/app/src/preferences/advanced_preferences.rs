@@ -141,8 +141,13 @@ pub(crate) fn connect_actions(
         }
     });
 
-    let log_file = preferences_path.with_file_name("native-player.log");
-    crate::log_viewer::connect(app, window, log_file);
+    let log_app = app.as_weak();
+    window.on_advanced_open_log_viewer(move || {
+        if let Some(app) = log_app.upgrade() {
+            app.global::<riina_ui::PlayerMenuActions>()
+                .invoke_show_log_viewer();
+        }
+    });
 
     let chooser_app = app.as_weak();
     window.on_advanced_choose_config_directory(move || {

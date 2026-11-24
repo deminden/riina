@@ -1,5 +1,5 @@
 import { Theme } from "theme.slint";
-import { Button, ComboBox, LineEdit, ScrollView } from "std-widgets.slint";
+import { Button, CheckBox, ComboBox, LineEdit, ListView, ScrollView } from "std-widgets.slint";
 import { NativeTypography, AuxiliaryPalette } from "shared-controls.slint";
 
 export struct LogViewerRow {
@@ -8,7 +8,73 @@ export struct LogViewerRow {
     subsystem: string,
     message: string,
     level-color: color,
-    raw: string,
+    selected: bool,
+}
+
+export enum LogNavigation { previous, next, first, last }
+
+export struct LogSubsystemChoice {
+    name: string,
+    selected: bool,
+}
+
+component LogSubsystemMenu inherits Rectangle {
+    in property <[LogSubsystemChoice]> choices;
+    in property <int> selected-count;
+    callback toggled(string);
+    callback cleared();
+
+    Button {
+        width: parent.width;
+        height: parent.height;
+        text: root.selected-count == 0 ? "All Subsystems" : root.selected-count + " Subsystems";
+        clicked => { menu.show(); }
+    }
+
+    menu := PopupWindow {
+        x: 0px; y: root.height;
+        width: 254px;
+        height: min(308px, 52px + root.choices.length * 28px);
+        close-policy: close-on-click-outside;
+        Rectangle {
+            background: Theme.auxiliary-light-window-surface;
+            border-color: Theme.history-column-header;
+            border-width: 1px;
+            border-radius: 6px;
+
+            init => { clear.focus(); }
+            FocusScope {
+                key-pressed(event) => {
+                    if event.text == Key.Escape {
+                        menu.close();
+                        return accept;
+                    }
+                    return reject;
+                }
+                VerticalLayout {
+                    padding: 8px;
+                    spacing: 4px;
+                    clear := Button {
+                        text: "Clear Selections";
+                        height: 30px;
+                        clicked => { root.cleared(); }
+                    }
+                    ScrollView {
+                        horizontal-scrollbar-policy: always-off;
+                        content-height: root.choices.length * 28px;
+                        VerticalLayout {
+                            for subsystem in root.choices : CheckBox {
+                                height: 28px;
+                                text: subsystem.name;
+                                checked: subsystem.selected;
+                                toggled => { root.toggled(subsystem.name); }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
 }
 
 export component LogViewerWindow inherits Window {
@@ -23,25 +89,45 @@ export component LogViewerWindow inherits Window {
     background: acrylic-backdrop-enabled ? transparent : Theme.auxiliary-light-window-surface;
 
     in property <[LogViewerRow]> rows: [];
-    in property <[string]> subsystem-options: ["All Subsystems"];
+    in property <[LogSubsystemChoice]> subsystems: [];
+    in property <int> selected-subsystem-count: 0;
     in property <[string]> level-options: ["All Levels", "Fatal", "Error", "Warning", "Info", "Verbose", "Debug", "Trace"];
     in-out property <int> level-index: 0;
-    in-out property <int> subsystem-index: 0;
     in-out property <string> search-text: "";
     in-out property <bool> follow-latest: false;
-    in-out property <int> selected-index: -1;
     in-out property <length> log-scroll-y: 0px;
+    in property <bool> has-selection: false;
+    in property <bool> save-in-progress: false;
     in property <string> status-text: "";
-    callback filters-changed(string, int, int);
+    in property <string> feedback-text: "";
+    private property <length> row-height: 21px;
+    callback filters-changed();
+    callback subsystem-toggled(string);
+    callback subsystem-filter-cleared();
     callback refresh-logs();
-    callback save-filtered-logs();
-    callback copy-selected-log(string);
+    callback save-logs(bool);
+    callback select-row(int, bool, bool);
+    callback select-all-rows();
+    callback navigate-rows(LogNavigation, bool);
+    callback copy-rows(int);
     callback open-log-folder();
-    changed search-text => { root.filters-changed(root.search-text, root.level-index, root.subsystem-index); }
-    changed rows => {
+    changed search-text => { root.filters-changed(); }
+    function bottom-offset() -> length {
+        return min(0px, scroll.visible-height - root.rows.length * root.row-height);
+    }
+    public function logs-changed() {
         if root.follow-latest {
-            root.log-scroll-y = min(0px, root.height - 112px - root.rows.length * 21px);
+            root.log-scroll-y = root.bottom-offset();
         }
+    }
+    public function reveal-row(index: int) {
+        let top = index * root.row-height;
+        if top < -root.log-scroll-y {
+            root.log-scroll-y = -top;
+        } else if top + root.row-height > -root.log-scroll-y + scroll.visible-height {
+            root.log-scroll-y = scroll.visible-height - top - root.row-height;
+        }
+        root.follow-latest = root.log-scroll-y <= root.bottom-offset() + 2px;
     }
 
     Rectangle {
@@ -55,40 +141,41 @@ export component LogViewerWindow inherits Window {
                 checkable: true;
                 checked: root.follow-latest;
                 clicked => {
-                    root.follow-latest = !root.follow-latest;
-                    if root.follow-latest {
-                        root.log-scroll-y = min(0px, root.height - 112px - root.rows.length * 21px);
-                    }
+                    root.follow-latest = true;
+                    root.log-scroll-y = root.bottom-offset();
                 }
             }
             ComboBox {
                 width: 112px; height: 28px;
                 model: root.level-options;
                 current-index <=> root.level-index;
-                selected => { root.filters-changed(root.search-text, root.level-index, root.subsystem-index); }
+                selected => { root.filters-changed(); }
             }
-            ComboBox {
+            LogSubsystemMenu {
                 width: 170px; height: 28px;
-                model: root.subsystem-options;
-                current-index <=> root.subsystem-index;
-                selected => { root.filters-changed(root.search-text, root.level-index, root.subsystem-index); }
+                choices: root.subsystems;
+                selected-count: root.selected-subsystem-count;
+                toggled(name) => { root.subsystem-toggled(name); }
+                cleared => { root.subsystem-filter-cleared(); }
             }
-            LineEdit {
+            search := LineEdit {
                 width: 120px;
                 horizontal-stretch: 1;
                 height: 28px;
                 placeholder-text: "Search logs";
                 accessible-label: "Search logs";
                 text <=> root.search-text;
-                accepted => { root.filters-changed(root.search-text, root.level-index, root.subsystem-index); }
             }
             Button { text: "Refresh"; width: 70px; clicked => { root.refresh-logs(); } }
-            Button { text: "Save Filtered"; width: 104px; clicked => { root.save-filtered-logs(); } }
+            Button { text: "Save All"; width: 72px; enabled: !root.save-in-progress;
+                clicked => { root.save-logs(false); } }
+            Button { text: "Save Filtered"; width: 104px; enabled: !root.save-in-progress;
+                clicked => { root.save-logs(true); } }
             Button {
                 text: "Copy";
                 width: 60px;
-                enabled: root.selected-index >= 0 && root.selected-index < root.rows.length;
-                clicked => { root.copy-selected-log(root.rows[root.selected-index].raw); }
+                enabled: root.has-selection;
+                clicked => { root.copy-rows(-1); }
             }
             Button { text: "Open Folder"; width: 94px; clicked => { root.open-log-folder(); } }
         }
@@ -103,18 +190,46 @@ export component LogViewerWindow inherits Window {
         Text { x: 296px; width: parent.width - 302px; height: parent.height; text: "Message"; font-size: 10px; font-weight: 600; color: Theme.auxiliary-light-column-label; vertical-alignment: center; }
     }
 
-    scroll := ScrollView {
+    table-keys := FocusScope {
         x: 12px; y: 79px; width: parent.width - 24px; height: parent.height - 112px;
-        content-height: max(1px, root.rows.length * 21px);
-        content-width: self.visible-width;
-        content-y <=> root.log-scroll-y;
-        horizontal-scrollbar-policy: always-off;
+        key-pressed(event) => {
+            if event.modifiers.control || event.modifiers.meta {
+                if event.text == "a" || event.text == "A" { root.select-all-rows(); return accept; }
+                if event.text == "c" || event.text == "C" { root.copy-rows(-1); return accept; }
+                if event.text == "f" || event.text == "F" { search.focus(); return accept; }
+                return reject;
+            }
+            if !event.modifiers.alt && (event.text == Key.UpArrow || event.text == Key.DownArrow
+                    || event.text == Key.Home || event.text == Key.End) {
+                let action = event.text == Key.UpArrow ? LogNavigation.previous
+                    : event.text == Key.DownArrow ? LogNavigation.next
+                    : event.text == Key.Home ? LogNavigation.first : LogNavigation.last;
+                root.navigate-rows(action, event.modifiers.shift);
+                return accept;
+            }
+            return reject;
+        }
         Rectangle {
-            width: parent.width; height: max(1px, root.rows.length * 21px);
-            background: root.acrylic-backdrop-enabled ? AuxiliaryPalette.light-acrylic-fill : Theme.auxiliary-light-list-surface;
+            width: parent.width;
+            height: parent.height;
+            background: root.acrylic-backdrop-enabled
+                ? AuxiliaryPalette.light-acrylic-fill : Theme.auxiliary-light-list-surface;
+        }
+        scroll := ListView {
+            width: parent.width;
+            // Keep large jumps to the newest record on a row boundary.
+            height: floor(parent.height / root.row-height) * root.row-height;
+            content-y <=> root.log-scroll-y;
+            horizontal-scrollbar-policy: always-off;
+            scrolled => { root.follow-latest = root.log-scroll-y <= root.bottom-offset() + 2px; }
             for row[index] in root.rows : Rectangle {
-                x: 0; y: index * 21px; width: parent.width; height: 21px;
-                background: root.selected-index == index ? Theme.auxiliary-light-row-selection
+                width: scroll.visible-width - 14px;
+                height: root.row-height;
+                accessible-role: list-item;
+                accessible-label: row.level + " " + row.subsystem + " " + row.message;
+                accessible-checked: row.selected;
+                accessible-action-default => { root.select-row(index, false, false); }
+                background: row.selected ? Theme.auxiliary-light-row-selection
                     : root.acrylic-backdrop-enabled ? AuxiliaryPalette.light-acrylic-fill
                     : (Math.mod(index, 2) == 0 ? Theme.auxiliary-light-list-surface : Theme.auxiliary-light-list-alternate);
                 Text { x: 6px; width: 72px; height: parent.height; text: row.level; color: row.level-color; font-size: 10px; font-family: "monospace"; vertical-alignment: center; overflow: elide; }
@@ -123,15 +238,28 @@ export component LogViewerWindow inherits Window {
                 Text { x: 296px; width: parent.width - 302px; height: parent.height; text: row.message; color: Theme.auxiliary-light-content-text; font-size: 10px; font-family: "monospace"; vertical-alignment: center; overflow: elide; }
                 TouchArea {
                     width: parent.width; height: parent.height;
-                    clicked => { root.selected-index = index; }
-                    double-clicked => { root.copy-selected-log(row.raw); }
+                    pointer-event(event) => {
+                        if event.button == PointerEventButton.left && event.kind == PointerEventKind.up {
+                            table-keys.focus();
+                            root.select-row(index, event.modifiers.control || event.modifiers.meta,
+                                event.modifiers.shift);
+                        }
+                    }
+                    double-clicked => { root.copy-rows(index); }
+                }
+                ContextMenuArea {
+                    width: parent.width; height: parent.height;
+                    Menu {
+                        MenuItem { title: "Copy"; activated => { root.copy-rows(index); } }
+                    }
                 }
             }
-            if root.rows.length == 0 : Text {
-                x: 10px; y: 12px; width: parent.width - 20px; height: 28px;
-                text: root.status-text == "" ? "No matching log entries" : root.status-text;
-                color: Theme.auxiliary-light-secondary-text; font-size: 12px; horizontal-alignment: center; vertical-alignment: center;
-            }
+        }
+        if root.rows.length == 0 : Text {
+            x: 10px; y: 12px; width: parent.width - 20px; height: 28px;
+            text: "No matching log entries";
+            color: Theme.auxiliary-light-secondary-text; font-size: 12px;
+            horizontal-alignment: center; vertical-alignment: center;
         }
     }
 
@@ -140,7 +268,7 @@ export component LogViewerWindow inherits Window {
         background: root.acrylic-backdrop-enabled ? AuxiliaryPalette.light-acrylic-fill : Theme.auxiliary-light-toolbar-surface;
         Text {
             x: 12px; width: parent.width - 24px; height: parent.height;
-            text: root.status-text;
+            text: root.feedback-text.is-empty ? root.status-text : root.feedback-text;
             color: Theme.log-footer-text; font-size: 10px; vertical-alignment: center; overflow: elide;
         }
     }

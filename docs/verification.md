@@ -3371,3 +3371,37 @@ Native Windows and macOS dialog interaction and matched IINA pixels remain open.
 
 - Linux application SHA-256 `99228dfdf77772fe95bca36ef5b06e4ad6d5082489539eedc58a055c33959aa7`
 - X11 libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`
+
+### Shared Log Viewer 2026-11-24
+
+The Window menu and Advanced Settings share one Log Viewer. It reads the
+application diagnostic and optional mpv logs, combines subsystem, severity and
+case-insensitive message filters, and saves the complete retained log or the
+filtered records. Copy preserves the display order of the selected records.
+Unchanged polls leave the rows alone and closing the window stops its timer.
+
+The Windows private desktop exercised the native Window menu from two paused
+player windows. Both opened the same viewer. Closing and reopening reused that
+window, and Quit shut down the isolated process. In Linux X11, the Window
+shortcut also reused a single viewer, preserving filters and picking up a log
+append on reopen. Control-click and the system clipboard verified two selected
+records. A test FileChooser portal exercised full export, filtered export,
+cancellation and rejecting a destination that would replace an active log.
+The expanded run selected two subsystems, cleared the selections, and appended
+76 records to exercise the scrolling list. Follow Latest fully revealed the
+newest row, paused while reading older rows and resumed on request. The test
+player exited normally.
+
+The two grouped regressions cover record identity across appends, filters,
+replacement and partial lines, distinct export snapshots and visibility-bound
+polling. The Windows workspace gate and all 60 pinned native engine tests passed
+before the viewport adjustment. The final Windows build, grouped app and UI
+gate, headless pixel baselines and strict Apple Silicon cross-Clippy passed.
+Native macOS interaction, window geometry persistence and matched IINA pixels
+remain open. The export run used a test portal. Desktop picker appearance and
+interaction remain separate acceptance work.
+
+- Windows application SHA-256 `d3fda4b23129969a3ba31a21810edcb2b84b3b4f9e162b5ffe8893b79c47be1c`
+- Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
+- Linux application SHA-256 `f5ebaba6f99e3445b1870859d7ea012cb1c2a7b8d463b59a41c98f57703a2b52`
+- X11 libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`
