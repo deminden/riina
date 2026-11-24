@@ -3132,3 +3132,20 @@ asset against its published digest.
 
 - Windows application SHA-256 `9fad427141e0c08fe565eca7d133244cb69293d5eca43e7ca65720b598f4c46b`
 - Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
+
+### Native Wayland update consent retest 2026-11-24
+
+The earlier fixture failure came from Slint 1.18.1 selecting X11 when it
+detected WSL. A Winit-only probe connected to the Wayland compositor, while
+the Slint backend reported that it could not connect to an X server.
+The repeat hid the WSL markers inside a private mount namespace.
+
+The previous updater build and the current locked Linux build both opened
+Software Update on native Wayland. The current run checked the active
+filename, decoded video and pause state through libmpv. A full 1280 × 800
+desktop capture showed the paused fixture and the consent prompt. Escape
+saved the decline without recording a release check. The video stayed
+paused and closing the player exited the exact test process normally.
+
+- Linux application SHA-256 `cd6afdb3c13936494a2e11139a07cc844d8d496de96db5562a4f99b17d0e17c8`
+- Wayland libmpv SHA-256 `cdce854e1811942602587310026306d92d30c0f593f2be676f07659ae43061d8`
