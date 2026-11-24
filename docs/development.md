@@ -140,6 +140,25 @@ video output, window handle and display-sleep policy. Invoking the player
 directly keeps the process alive for its application session. Prefix a local
 filename that looks like a switch with `./`.
 
+## Browser links
+
+Use `riina://open?url=<percent-encoded media URL>`. The `weblink` action
+accepts the same parameters. Set `new_window=1` to open a second player or
+`enqueue=1` to add media to the active playlist. `full_screen=1` takes
+priority over `pip=1`. Browser links accept supported streams and absolute
+local media files. The typed playback options are `mpv_start`, `mpv_pause`,
+`mpv_mute`, `mpv_volume`, `mpv_speed`, and `mpv_fullscreen`.
+
+On Windows, select **Open Riina links from the browser** during installation.
+For a macOS development bundle, pass `--browser-links` to
+`scripts/package-macos-app.py`. On Linux, install the optional desktop
+entry `packaging/linux/org.riina.player.browser.desktop` in the user's
+applications directory and select it as the handler for
+`x-scheme-handler/riina`. Its executable must be on the desktop session's
+search path, or set the full executable path in the installed desktop entry.
+A development checkout can dispatch the same request with
+`riina --riina-browser-link "<link>"`. [Desktop Entry Specification](https://specifications.freedesktop.org/desktop-entry/latest-single/)
+
 ## Checks
 
 Group related edits before running `cargo xtask check --fast`. It checks

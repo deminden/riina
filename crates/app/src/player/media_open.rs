@@ -220,7 +220,7 @@ pub(crate) fn current_media(app: &PlayerWindow) -> Option<String> {
         .map(|row| row.path.to_string())
 }
 
-fn has_playlist(app: &PlayerWindow) -> bool {
+pub(crate) fn has_playlist(app: &PlayerWindow) -> bool {
     app.global::<riina_ui::PlayerCatalogState>()
         .get_playlist()
         .row_count()

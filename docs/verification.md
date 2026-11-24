@@ -3214,3 +3214,37 @@ of piped input, and browser URL activation remain separate work.
 - Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
 - Linux application SHA-256 `f0c4418cef0c497ecec35d3ea219e3babe02a8eb8b16089cd49f3b9c3f2545ad`
 - Wayland libmpv SHA-256 `cdce854e1811942602587310026306d92d30c0f593f2be676f07659ae43061d8`
+
+### Browser-link activation 2026-11-24
+
+The application accepts the `riina://open` and `riina://weblink` actions
+through a dedicated launch argument or a native URL event. Typed playback
+options reach the player without entering the ordinary mpv argument parser.
+The local handoff tests reject invalid packets and allow a new application
+to take ownership after the previous listener closes.
+
+An isolated Windows 11 session decoded the cold-start HTTP fixture and
+confirmed pause, volume and speed. Three separate handoff processes appended
+to the active playlist, replaced its selection and opened a second native
+frame in the original process. The handoff processes exited successfully.
+Both frames closed in order and the original test process exited normally.
+
+The locked Linux application passed cold activation and real desktop
+dispatch in an isolated native Wayland session. The registered desktop entry
+delivered enqueue, replace, new-window and fullscreen requests. The signed
+test query stayed out of the window title. The `weblink` action decoded
+a local file URI in the existing player after the fullscreen window closed.
+
+The Windows workspace gate, Settings pixel comparisons and all 60 pinned
+engine tests passed. The screenshot regression now waits for mpv's initial
+playback restart before testing capture. The pinned Inno Setup compiler
+built the opt-in handler against the archived portable
+payload. The macOS packager verified that URL registration appears only in
+opt-in bundle metadata. Strict Apple Silicon cross-Clippy passed. Installing
+the Windows handler on a deployed profile and native macOS URL delivery
+remain unverified. Browser extensions remain pending.
+
+- Windows application SHA-256 `0fe2cb15c58ee78be94f82ca2821ddc9b44c256ebd7e63c807f134df5ee528fa`
+- Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
+- Linux application SHA-256 `9885e6aacad3c7041400bd3a0e8a1d9bd2fa4737b90d95abf7f427990c9e26b5`
+- Wayland libmpv SHA-256 `cdce854e1811942602587310026306d92d30c0f593f2be676f07659ae43061d8`

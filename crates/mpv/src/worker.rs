@@ -381,6 +381,14 @@ impl WorkerState {
             if let (Command::Volume(volume), [_, _, value]) = (command, args.as_mut_slice()) {
                 *value = volume.min(self.volume_limit()).to_string();
             }
+            if let (Command::OpenMediaLink(link), [action, property, value]) =
+                (command, args.as_mut_slice())
+                && action == "set"
+                && property == "volume"
+                && let Some(volume) = link.volume
+            {
+                *value = volume.min(self.volume_limit()).to_string();
+            }
             let rewriting_seek = is_auto_seek && args.first().is_some_and(|arg| arg == "seek");
             if rewriting_seek && args.len() >= 3 {
                 args[2] = self.auto_seek.flags().into();

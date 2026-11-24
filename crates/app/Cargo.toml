@@ -49,7 +49,7 @@ encoding_rs = "=0.8.42"
 ureq = { version = "=3.4.2", default-features = false, features = ["rustls"] }
 futures-util = { version = "=0.3.34", default-features = false, features = ["sink", "std"] }
 socket2 = "=0.6.5"
-tokio = { version = "=1.53.2", features = ["macros", "net", "rt", "sync", "time"] }
+tokio = { version = "=1.53.2", features = ["io-util", "macros", "net", "rt", "sync", "time"] }
 tokio-tungstenite = { version = "=0.30.0", default-features = false, features = ["handshake"] }
 uuid = { version = "=1.28.0", features = ["v4"] }
 quick-xml = "=0.41.0"
@@ -66,7 +66,7 @@ libc = "=0.2.190"
 
 [target.'cfg(target_os = "windows")'.dependencies]
 tempfile = "=3.27.0"
-windows = { workspace = true, features = ["Win32_UI_HiDpi", "Win32_UI_Accessibility", "Win32_UI_Controls", "Win32_System_Com_StructuredStorage", "Win32_System_DataExchange", "Win32_System_Memory", "Win32_System_Ole", "Win32_Networking_WinSock", "Win32_Security", "Win32_System_JobObjects", "Win32_System_Pipes"] }
+windows = { workspace = true, features = ["Win32_UI_HiDpi", "Win32_UI_Accessibility", "Win32_UI_Controls", "Win32_System_Com_StructuredStorage", "Win32_System_DataExchange", "Win32_System_Memory", "Win32_System_Ole", "Win32_Networking_WinSock", "Win32_Security", "Win32_Security_Authorization", "Win32_System_JobObjects", "Win32_System_Pipes"] }
 windows-core = "=0.62.2"
 muda = { version = "=0.19.3", default-features = false }
 wry.workspace = true
@@ -84,7 +84,7 @@ x11rb = "=0.13.2"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2 = "=0.6.5"
-objc2-foundation = { version = "=0.3.2", default-features = false, features = ["std", "NSArray", "NSDictionary", "NSData", "NSError", "NSFileManager", "NSObject", "NSString", "NSURL", "NSUserDefaults", "NSValue", "NSGeometry", "NSObjCRuntime", "NSLocale", "NSProcessInfo", "NSNotification", "NSOperation", "block2"] }
+objc2-foundation = { version = "=0.3.2", default-features = false, features = ["std", "NSAppleEventDescriptor", "NSAppleEventManager", "NSArray", "NSDictionary", "NSData", "NSError", "NSFileManager", "NSObject", "NSString", "NSURL", "NSUserDefaults", "NSValue", "NSGeometry", "NSObjCRuntime", "NSLocale", "NSProcessInfo", "NSNotification", "NSOperation", "block2"] }
 objc2-app-kit = { version = "=0.3.2", default-features = false, features = ["NSWorkspace", "NSApplication", "NSResponder", "NSAccessibility", "NSFont", "NSImage", "NSEvent", "NSMenu", "NSView", "NSWindow", "NSPanel", "NSControl", "NSColor", "NSColorPanel", "NSScreen", "NSColorSpace", "NSPasteboard", "NSPasteboardItem", "NSDragging", "NSDocumentController", "block2", "objc2-core-graphics"] }
 objc2-core-graphics = { version = "=0.3.2", default-features = false, features = ["CGColorSpace", "CGDataProvider", "CGGeometry", "CGImage"] }
 objc2-core-foundation = { version = "=0.3.2", default-features = false, features = ["CFArray", "CFData", "CFDictionary", "CFNumber", "CFString", "CFURL", "std"] }

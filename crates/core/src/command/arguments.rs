@@ -90,6 +90,7 @@ impl Command {
             Self::OpenFiles(_)
             | Self::OpenPlaylist(_)
             | Self::OpenShuffledPlaylist(_)
+            | Self::OpenMediaLink(_)
             | Self::OpenFilesWithSubtitles { .. }
             | Self::SetPauseWhenOpen(_)
             | Self::SetResumeLastPosition(_)

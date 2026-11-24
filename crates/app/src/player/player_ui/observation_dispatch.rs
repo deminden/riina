@@ -294,7 +294,7 @@ impl WindowDelivery {
     }
 }
 
-fn apply_startup_presentation(
+pub(super) fn apply_startup_presentation(
     app: &PlayerWindow,
     presentation: crate::startup_arguments::Presentation,
 ) {

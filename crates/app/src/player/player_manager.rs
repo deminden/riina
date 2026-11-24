@@ -135,6 +135,20 @@ impl PlayerManager {
         Ok(())
     }
 
+    pub(crate) fn register_browser_links(
+        &self,
+        inbox: &crate::browser_links::Inbox,
+    ) -> crate::browser_links::Registration {
+        let state = Rc::downgrade(&self.state);
+        inbox.register(move |link| {
+            if let Some(state) = state.upgrade()
+                && let Err(error) = open_browser_link(&state, link)
+            {
+                crate::diagnostics::warn!("Could not open browser link: {error}");
+            }
+        })
+    }
+
     pub(crate) fn attach(
         &self,
         app: &PlayerWindow,
@@ -209,6 +223,35 @@ impl PlayerManager {
         }
         Ok(())
     }
+}
+
+fn open_browser_link(
+    state: &Rc<RefCell<ManagerState>>,
+    link: crate::browser_links::Link,
+) -> Result<(), String> {
+    let active = state.borrow().services.history.browser_destination();
+    if let Some((app, display)) = &active
+        && link.reuse_window(app)
+        && let Some(target) = state
+            .borrow()
+            .players
+            .iter()
+            .find(|player| std::ptr::eq(player.app.window(), app.window()))
+    {
+        display.reveal(app).map_err(|error| error.to_string())?;
+        display.focus(app);
+        return target.session.open_browser_link(app, link);
+    }
+    let path = crate::platform::preferences_path().map_err(|error| error.to_string())?;
+    let loaded = crate::preference_load::load(&path).map_err(|error| error.to_string())?;
+    if let Some((app, _)) = active {
+        open_new_player(state, &app, link.initial_media(), loaded)?;
+    } else {
+        // Playback History can keep the application alive with no player.
+        let owner = PlayerWindow::new().map_err(|error| error.to_string())?;
+        open_new_player(state, &owner, link.initial_media(), loaded)?;
+    }
+    Ok(())
 }
 
 fn bring_all_to_front(state: &Rc<RefCell<ManagerState>>, owner: &PlayerWindow) {

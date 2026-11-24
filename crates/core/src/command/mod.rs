@@ -1,5 +1,7 @@
 //! Validated playback intent and its native command plan.
 mod arguments;
+mod media_link;
+pub use media_link::MediaLink;
 mod audio;
 mod capture;
 mod error;
@@ -49,6 +51,7 @@ pub enum Command {
     /// Open an explicit playlist without discovering siblings of its entries.
     OpenPlaylist(Vec<String>),
     OpenShuffledPlaylist(Vec<String>),
+    OpenMediaLink(MediaLink),
     OpenFilesWithSubtitles {
         paths: Vec<String>,
         subtitles: Vec<String>,
@@ -289,6 +292,7 @@ impl Command {
                 | Self::OpenFiles(_)
                 | Self::OpenPlaylist(_)
                 | Self::OpenShuffledPlaylist(_)
+                | Self::OpenMediaLink(MediaLink { append: false, .. })
                 | Self::OpenFilesWithSubtitles { .. }
                 | Self::Stop
         ) || matches!(self, Self::PluginMpv(command) if command.name() == "stop")
@@ -332,6 +336,7 @@ impl Command {
                 | Self::InsertPlaylistFilesBefore { .. }
                 | Self::OpenFiles(_)
                 | Self::OpenPlaylist(_)
+                | Self::OpenMediaLink(_)
                 | Self::OpenFilesWithSubtitles { .. }
         )
     }

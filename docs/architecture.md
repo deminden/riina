@@ -279,6 +279,13 @@ rendering and plugin resources.
 
 Initial media opens after enabled plugin entries have initialized. The UI can
 accept another open request during startup and honors the newer request.
+Browser activation passes one validated link through a profile-scoped local
+endpoint to the application event loop. Windows restricts its named pipe to
+the current logon session. Unix uses a private socket with peer checks.
+The application resolves the most recently active player before choosing
+append, replace or a new player. Local link delivery shares the ordinary
+media generation and window presentation paths. [Named Pipe Security](https://learn.microsoft.com/en-us/windows/win32/ipc/named-pipe-security-and-access-rights)
+
 Hooks register on the player's native client. Each plugin realm owns its
 registrations and runs the callbacks on its JavaScript worker. The native
 worker keeps receiving events and answering property requests while a hook

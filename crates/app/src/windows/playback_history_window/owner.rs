@@ -52,7 +52,7 @@ pub(crate) struct PlayerDisplay {
 }
 
 impl PlayerDisplay {
-    fn reveal(&self, app: &PlayerWindow) -> Result<(), slint::PlatformError> {
+    pub(crate) fn reveal(&self, app: &PlayerWindow) -> Result<(), slint::PlatformError> {
         if let Some(welcome) = self.welcome.as_ref().and_then(slint::Weak::upgrade)
             && welcome.window().is_visible()
         {
@@ -61,6 +61,16 @@ impl PlayerDisplay {
             welcome.hide()?;
         }
         Ok(())
+    }
+
+    pub(crate) fn focus(&self, app: &PlayerWindow) {
+        let host = self.host.as_ref().and_then(slint::Weak::upgrade);
+        host.as_ref()
+            .map_or_else(|| app.window(), ComponentHandle::window)
+            .with_winit_window(|window| {
+                window.set_minimized(false);
+                window.focus_window();
+            });
     }
 }
 
@@ -150,6 +160,11 @@ impl ApplicationHistory {
             .iter()
             .rev()
             .find_map(|route| Some((route.window.upgrade()?, route.clone())))
+    }
+
+    pub(crate) fn browser_destination(&self) -> Option<(PlayerWindow, PlayerDisplay)> {
+        self.active_player()
+            .map(|(app, route)| (app, route.display))
     }
 
     pub(super) fn sync_plugins(&self, entries: &[Entry]) -> Result<(), String> {

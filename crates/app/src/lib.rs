@@ -1,6 +1,7 @@
 //! Application orchestration for the Riina executable.
 
 mod background;
+mod browser_links;
 mod debug_dump;
 mod diagnostics;
 mod file_actions;
@@ -96,13 +97,26 @@ unsafe fn run() -> Result<(), Box<dyn std::error::Error>> {
     let loaded = preference_load::load(&preferences_path)?;
     // SAFETY: the application is still in single-threaded process startup.
     unsafe { prepare_online_video_path(&loaded.preferences) }?;
-    let arguments = StartupArguments::parse(std::env::args_os().skip(1))?;
-    platform::startup::run_player(arguments, loaded)
+    let (arguments, browser_link) = StartupArguments::invocation(std::env::args_os().skip(1))?;
+    let activation = match platform::browser_activation::Activation::prepare(
+        &preferences_path,
+        browser_link.as_deref(),
+    ) {
+        Ok(Some(activation)) => activation,
+        Ok(None) => return Ok(()),
+        Err(error) if browser_link.is_none() => {
+            diagnostics::warn!("Browser links are unavailable for this application: {error}");
+            Default::default()
+        }
+        Err(error) => return Err(error.into()),
+    };
+    platform::startup::run_player(arguments, loaded, &activation.inbox)
 }
 
 fn run_shared_player(
     mut players: impl Iterator<Item = InitialMedia>,
     loaded: preference_load::LoadedPreferences,
+    browser: &browser_links::Inbox,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let action_after_launch = loaded.preferences.action_after_launch;
     let media = players.next().ok_or("Missing initial player")?;
@@ -154,6 +168,9 @@ fn run_shared_player(
         );
     }
     player_manager.open_startup_players(&app, players, &loaded)?;
+    let _browser = player_manager.register_browser_links(browser);
+    #[cfg(target_os = "macos")]
+    let _browser_events = platform::browser_activation::BrowserEvents::new(browser.clone());
     slint::run_event_loop()?;
     player_manager.save_all()
 }

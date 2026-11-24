@@ -123,6 +123,14 @@ impl ObserverRegistration {
     pub(super) fn release_power(&self) {
         self.state.borrow_mut().power.take();
     }
+
+    pub(super) fn queue_startup_presentation(
+        &self,
+        request: i32,
+        presentation: crate::startup_arguments::Presentation,
+    ) {
+        self.state.borrow_mut().startup_presentation = Some((request, presentation));
+    }
 }
 
 impl Drop for ObserverRegistration {

@@ -71,6 +71,7 @@ impl Backend {
 
 pub(super) fn run(
     launches: impl Iterator<Item = NativeLaunch>,
+    browser: &crate::browser_links::Inbox,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let application = Rc::new(Application {
         backend: Backend::install()?,
@@ -136,6 +137,14 @@ pub(super) fn run(
             return Err(error);
         }
     }
+    let owner = Rc::downgrade(&application);
+    let _browser = browser.register(move |link| {
+        if let Some(application) = owner.upgrade()
+            && let Err(error) = application.open_browser_link(link)
+        {
+            crate::diagnostics::warn!("Could not open browser link: {error}");
+        }
+    });
     let result = slint::run_event_loop_until_quit();
     application.finish();
     if let Some(error) = application.initial_error.borrow_mut().take() {
@@ -153,6 +162,39 @@ struct Application {
 }
 
 impl Application {
+    fn open_browser_link(
+        self: &Rc<Self>,
+        link: crate::browser_links::Link,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let active = self.services.history.browser_destination();
+        if let Some((app, display)) = &active
+            && link.reuse_window(app)
+            && let Some(player) = self
+                .players
+                .borrow()
+                .iter()
+                .find(|player| player.owns_controls(app))
+                .cloned()
+            && let Some(session) = player.session.borrow().as_ref()
+        {
+            display.reveal(app)?;
+            display.focus(app);
+            return session.open_browser_link(app, link).map_err(Into::into);
+        }
+        let owner_center = active
+            .as_ref()
+            .and_then(|(app, _)| crate::platform::player_window_center(app.window()));
+        self.launch(
+            NativeLaunch {
+                media: link.initial_media(),
+                owner_center,
+                loaded: preference_load::load(&crate::platform::preferences_path()?)?,
+            },
+            Some(Origin::BrowserLink),
+        )?;
+        Ok(())
+    }
+
     fn launch(
         self: &Rc<Self>,
         launch: NativeLaunch,
@@ -263,6 +305,13 @@ impl Application {
 }
 
 impl NativePlayer {
+    fn owns_controls(&self, target: &PlayerWindow) -> bool {
+        self.chrome
+            .borrow()
+            .as_ref()
+            .is_some_and(|app| std::ptr::eq(app.window(), target.window()))
+    }
+
     fn current_media(&self) -> Option<String> {
         let app = self.chrome.borrow();
         app.as_ref().and_then(media_open::current_media)
@@ -274,6 +323,7 @@ enum Origin {
     Player(slint::Weak<PlayerWindow>),
     History(slint::Weak<crate::PlaybackHistoryWindow>),
     CommandLine,
+    BrowserLink,
 }
 
 #[derive(Clone)]
@@ -386,6 +436,9 @@ impl WindowActions {
                         "Could not open media from Playback History: {error}"
                     );
                 }
+            }
+            Some(Origin::BrowserLink) => {
+                crate::diagnostics::warn!("Could not initialize the browser-link player: {error}");
             }
             None | Some(Origin::CommandLine) => {
                 *application.initial_error.borrow_mut() = Some(error);

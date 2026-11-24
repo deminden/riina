@@ -38,6 +38,39 @@ pub(crate) struct StartupArguments {
 }
 
 impl StartupArguments {
+    pub(crate) fn invocation(
+        args: impl Iterator<Item = OsString>,
+    ) -> Result<(Self, Option<String>), String> {
+        let mut args = args.peekable();
+        if args
+            .peek()
+            .is_some_and(|arg| arg == crate::browser_links::FLAG)
+        {
+            args.next();
+            let raw = args
+                .next()
+                .and_then(|value| value.into_string().ok())
+                .ok_or("Missing Riina browser link")?;
+            if args.next().is_some() {
+                return Err("A browser activation accepts exactly one Riina link".into());
+            }
+            let InitialMedia {
+                files,
+                resume_position,
+                launch,
+                ..
+            } = crate::browser_links::Link::parse(&raw)?.initial_media();
+            let arguments = Self {
+                media: files,
+                resume_position,
+                launch,
+                ..Default::default()
+            };
+            return Ok((arguments, Some(raw)));
+        }
+        Self::parse(args).map(|args| (args, None))
+    }
+
     pub(crate) fn parse(mut args: impl Iterator<Item = OsString>) -> Result<Self, String> {
         let mut parsed = Self::default();
         let mut mpv_tail = false;
@@ -184,6 +217,26 @@ mod tests {
 
     fn parse(args: &[&str]) -> Result<StartupArguments, String> {
         StartupArguments::parse(args.iter().map(OsString::from))
+    }
+
+    #[test]
+    fn browser_activation_cannot_supply_raw_command_line_switches() {
+        let uri = "riina://open?url=https://example.test/movie.mkv&mpv_volume=24";
+        let browser = [crate::browser_links::FLAG, uri]
+            .into_iter()
+            .map(OsString::from);
+        let (arguments, raw) = StartupArguments::invocation(browser.clone()).unwrap();
+        assert_eq!(raw.as_deref(), Some(uri));
+        assert_eq!(
+            arguments.players().next().unwrap().launch.volume,
+            Some(24.0)
+        );
+        assert!(
+            StartupArguments::invocation(
+                browser.chain([OsString::from("--mpv-script=untrusted.lua")])
+            )
+            .is_err()
+        );
     }
 
     #[test]

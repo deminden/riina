@@ -10,6 +10,7 @@ use slint::{BackendSelector, PlatformError};
 pub(crate) fn run_player(
     arguments: StartupArguments,
     loaded: LoadedPreferences,
+    browser: &crate::browser_links::Inbox,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let renderer = arguments.renderer;
     #[cfg(target_os = "windows")]
@@ -17,7 +18,12 @@ pub(crate) fn run_player(
     // overlay restores compositor alpha after Slint realizes the window.
     if renderer != RendererRequest::SharedGl {
         let owner_center = arguments.owner_center;
-        return super::windows::native_window::run(arguments.players(), owner_center, loaded);
+        return super::windows::native_window::run(
+            arguments.players(),
+            owner_center,
+            loaded,
+            browser,
+        );
     }
     #[cfg(not(target_os = "windows"))]
     {
@@ -26,7 +32,7 @@ pub(crate) fn run_player(
             return Err("Native video presentation is currently available on Windows; use --shared-gl on this platform".into());
         }
     }
-    crate::run_shared_player(arguments.players(), loaded)
+    crate::run_shared_player(arguments.players(), loaded, browser)
 }
 
 pub(crate) fn select_shared_backend(preferences: &Preferences) -> Result<(), PlatformError> {

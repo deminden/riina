@@ -132,6 +132,7 @@ impl Command {
                 playlist::insert_files_around_current(state, before, after)?
             }
             Self::Load(_) | Self::LoadAtPosition { .. } => playback::load(state, self)?,
+            Self::OpenMediaLink(link) => super::media_link::plan(state, link)?,
             Self::SelectChapter(index) => seek::select_chapter(state, *index)?,
             Self::SelectPlaylistEntry(_)
             | Self::PlaylistNext

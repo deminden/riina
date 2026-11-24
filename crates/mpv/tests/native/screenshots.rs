@@ -108,7 +108,15 @@ fn screenshots_complete_only_after_native_success() {
                 .into_owned(),
         ))
         .unwrap();
-    harness.wait(|state| state.phase == Phase::Playing && state.position.is_some());
+    // The clock can become available before mpv has presented its first frame.
+    harness.wait(|state| {
+        state.phase == Phase::Playing
+            && state.position.is_some()
+            && state
+                .mpv_events
+                .iter()
+                .any(|event| event.name.as_ref() == "playback-restart")
+    });
     harness.send(Command::TogglePause).unwrap();
     let paused = harness.wait(|state| state.paused && state.position.is_some());
     for (index, content) in [

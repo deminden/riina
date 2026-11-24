@@ -40,6 +40,7 @@ SetupLogging=yes
 
 [Tasks]
 Name: "desktopicon"; Description: "Create a &desktop shortcut"; GroupDescription: "Shortcuts:"; Flags: unchecked
+Name: "browserlinks"; Description: "Open Riina links from the browser"; GroupDescription: "Browser integration:"; Flags: unchecked; Check: BrowserLinksAvailable
 
 [Files]
 ; The builder enumerates the complete verified package, without wildcard extras.
@@ -49,8 +50,42 @@ Name: "desktopicon"; Description: "Create a &desktop shortcut"; GroupDescription
 Name: "{group}\Riina"; Filename: "{app}\riina.exe"; WorkingDir: "{app}"; AppUserModelID: "org.riina.player"
 Name: "{autodesktop}\Riina"; Filename: "{app}\riina.exe"; WorkingDir: "{app}"; AppUserModelID: "org.riina.player"; Tasks: desktopicon
 
+[Registry]
+Root: HKCU; Subkey: "Software\Classes\riina"; ValueType: string; ValueData: "URL:Riina media link"; Tasks: browserlinks
+Root: HKCU; Subkey: "Software\Classes\riina"; ValueType: string; ValueName: "URL Protocol"; ValueData: ""; Tasks: browserlinks
+Root: HKCU; Subkey: "Software\Classes\riina\shell\open\command"; ValueType: string; ValueData: """{app}\riina.exe"" --riina-browser-link ""%1"""; Tasks: browserlinks
+
 [Run]
 Filename: "{app}\riina.exe"; Description: "Launch Riina"; Flags: nowait postinstall skipifsilent
 
 ; Only installed files are removed. Preferences, history and user media are outside
 ; {app}; deliberately omit recursive deletion and default-association changes.
+
+[Code]
+var
+  CanInstallBrowserLinks: Boolean;
+
+function OwnBrowserLinks(Directory: String): Boolean;
+var
+  Command, Expected: String;
+begin
+  Expected := '"' + AddBackslash(Directory) + 'riina.exe" --riina-browser-link "%1"';
+  Result := RegQueryStringValue(HKCU, 'Software\Classes\riina\shell\open\command', '', Command)
+    and (CompareText(Command, Expected) = 0);
+end;
+
+procedure InitializeWizard();
+begin
+  CanInstallBrowserLinks := not RegKeyExists(HKCR, 'riina') or OwnBrowserLinks(WizardDirValue());
+end;
+
+function BrowserLinksAvailable(): Boolean;
+begin
+  Result := CanInstallBrowserLinks;
+end;
+
+procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
+begin
+  if (CurUninstallStep = usUninstall) and OwnBrowserLinks(ExpandConstant('{app}')) then
+    RegDeleteKeyIncludingSubkeys(HKCU, 'Software\Classes\riina');
+end;

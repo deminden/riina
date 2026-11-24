@@ -26,6 +26,10 @@ command_samples! {
     OpenFiles[vec!["first.mkv".into(), "second.mkv".into()]];
     OpenPlaylist[vec!["first.mkv".into(), "second.mkv".into()]];
     OpenShuffledPlaylist[vec!["first.mkv".into(), "second.mkv".into()]];
+    OpenMediaLink[MediaLink {
+        path: "https://example.test/media.mkv".into(), append: false,
+        start: Some(5.0), pause: Some(true), volume: Some(40.0), speed: Some(1.25), mute: Some(false),
+    }];
     OpenFilesWithSubtitles { paths: vec!["first.mkv".into()], subtitles: vec!["dialogue.srt".into()] };
     SetPauseWhenOpen[true];
     SetPlaybackEndPolicy { keep_open_on_file_end: true, playlist_auto_play_next: false };
@@ -300,6 +304,7 @@ fn worker_routes_every_command_to_the_expected_lifecycle() {
         "OpenFiles",
         "OpenPlaylist",
         "OpenShuffledPlaylist",
+        "OpenMediaLink",
         "OpenFilesWithSubtitles",
         "Stop",
     ];
@@ -332,6 +337,7 @@ fn worker_routes_every_command_to_the_expected_lifecycle() {
         "InsertPlaylistFilesBefore",
         "OpenFiles",
         "OpenPlaylist",
+        "OpenMediaLink",
         "OpenFilesWithSubtitles",
     ];
     for command in all_commands_for_snapshot() {

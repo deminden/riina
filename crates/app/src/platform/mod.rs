@@ -8,6 +8,7 @@ use std::{
     cell::RefCell,
     time::{Duration, Instant},
 };
+pub(crate) mod browser_activation;
 pub(crate) mod clipboard;
 #[cfg(any(target_os = "linux", target_os = "macos", target_os = "windows"))]
 pub(crate) mod desktop_drop;

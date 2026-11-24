@@ -48,10 +48,10 @@ pub(crate) use plugin_menus::refresh_plugin_menu_shortcuts;
 use plugin_menus::reorder_plugin_menu_rows;
 
 use crate::{
-    PlayerWindow, WelcomeWindow, platform, preference_load::LoadedPreferences,
+    PlayerWindow, WelcomeWindow, media_open, platform, preference_load::LoadedPreferences,
     preferences::model::PreferenceModel,
 };
-use riina_core::{Phase, Playback};
+use riina_core::{Command, Phase, Playback};
 use riina_mpv::Player;
 use slint::ComponentHandle;
 use std::rc::Rc;
@@ -191,13 +191,44 @@ impl UiSession {
         self.platform_extras.prepare_to_close();
     }
 
-    #[cfg(target_os = "windows")]
     pub(crate) fn player(&self) -> Option<&Player> {
         match self.player.as_ref()? {
             SessionResource::Live(player) => Some(player),
             #[cfg(test)]
             SessionResource::Recorded(_) => None,
         }
+    }
+
+    pub(crate) fn open_browser_link(
+        &self,
+        app: &PlayerWindow,
+        link: crate::browser_links::Link,
+    ) -> Result<(), String> {
+        let player = self.player().ok_or("The playback engine is unavailable")?;
+        let append = link.enqueue && media_open::has_playlist(app);
+        let presentation = link.launch.presentation;
+        player.send(Command::OpenMediaLink(link.playback(append)))?;
+        if append {
+            show_osd_message(
+                app,
+                crate::video_osd::action_message(crate::video_osd::ActionFeedback::PlaylistAdded(
+                    1,
+                ))
+                .text,
+                false,
+            );
+            if let Some(presentation) = presentation {
+                observation_dispatch::apply_startup_presentation(app, presentation);
+            }
+        } else {
+            let request = media_open::invalidate(app);
+            app.set_status("Opening…".into());
+            if let Some(presentation) = presentation {
+                self.observer_state
+                    .queue_startup_presentation(request, presentation);
+            }
+        }
+        Ok(())
     }
 
     pub(crate) fn release_player(&mut self) {

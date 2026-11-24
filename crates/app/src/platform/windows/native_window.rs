@@ -29,12 +29,14 @@ pub(crate) fn run(
     players: impl Iterator<Item = InitialMedia>,
     owner_center: Option<(i32, i32)>,
     loaded: LoadedPreferences,
+    browser: &crate::browser_links::Inbox,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    application::run(players.map(|media| NativeLaunch {
+    let launches = players.map(|media| NativeLaunch {
         media,
         owner_center,
         loaded: loaded.clone(),
-    }))
+    });
+    application::run(launches, browser)
 }
 
 struct NativeLaunch {

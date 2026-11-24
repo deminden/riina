@@ -59,6 +59,7 @@ pub(crate) fn playback_title(window: &slint::Window, state: &riina_core::Playbac
     let title = path
         .as_deref()
         .and_then(display_name_for_path)
+        .or_else(|| crate::platform::window_document::network_display_name(&state.title))
         .unwrap_or_else(|| state.title.clone());
     if title.is_empty() {
         "Riina".to_owned()

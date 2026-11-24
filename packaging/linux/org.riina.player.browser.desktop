@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Riina Browser Links
+Exec=riina --riina-browser-link %u
+TryExec=riina
+NoDisplay=true
+Terminal=false
+MimeType=x-scheme-handler/riina;

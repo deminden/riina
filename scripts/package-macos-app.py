@@ -57,6 +57,7 @@ def make_info_plist(
     version: str,
     records: list[tuple[str, str, list[str]]],
     extensions_by_category: dict[str, list[str]],
+    browser_links: bool = False,
 ) -> dict:
     document_types = []
     for category, name in (("video", "Video"), ("audio", "Audio"), ("playlist", "Playlist")):
@@ -79,7 +80,7 @@ def make_info_plist(
         }
         for category, identifier, extensions in records
     ]
-    return {
+    info = {
         "CFBundleDevelopmentRegion": "en",
         "CFBundleExecutable": "riina",
         "CFBundleIdentifier": "org.riina.player",
@@ -93,12 +94,22 @@ def make_info_plist(
         "CFBundleDocumentTypes": document_types,
         "UTImportedTypeDeclarations": imported_types,
     }
+    if browser_links:
+        info["CFBundleURLTypes"] = [
+            {
+                "CFBundleURLName": "org.riina.player.links",
+                "CFBundleTypeRole": "Viewer",
+                "CFBundleURLSchemes": ["riina"],
+            }
+        ]
+    return info
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("executable", type=Path, help="built macOS riina executable")
     parser.add_argument("app_bundle", type=Path, help="new .app output path")
+    parser.add_argument("--browser-links", action="store_true", help="enable riina: browser links")
     arguments = parser.parse_args()
 
     executable = arguments.executable.resolve(strict=True)
@@ -125,7 +136,7 @@ def main() -> int:
         shutil.copy2(executable, macos / "riina")
         with (staged_bundle / "Contents" / "Info.plist").open("wb") as output:
             plistlib.dump(
-                make_info_plist(version, records, extensions_by_category),
+                make_info_plist(version, records, extensions_by_category, arguments.browser_links),
                 output,
                 sort_keys=False,
             )
