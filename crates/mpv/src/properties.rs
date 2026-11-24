@@ -169,6 +169,26 @@ pub(super) static OBSERVED: &[ObservedProperty] = &[
             state.duration = None;
         }
     ),
+    property!(
+        c"time-remaining",
+        Double,
+        |state, value| {
+            state.remaining_time = value.is_finite().then_some(value.max(0.0));
+        },
+        |state| {
+            state.remaining_time = None;
+        }
+    ),
+    property!(
+        c"playtime-remaining",
+        Double,
+        |state, value| {
+            state.scaled_remaining_time = value.is_finite().then_some(value.max(0.0));
+        },
+        |state| {
+            state.scaled_remaining_time = None;
+        }
+    ),
     property!(c"pause", Flag, |state, flag| {
         state.paused = flag;
     }),

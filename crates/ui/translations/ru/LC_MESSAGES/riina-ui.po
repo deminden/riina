@@ -874,7 +874,7 @@ msgid "On Screen Controller"
 msgstr "Управление на экране"
 
 msgid "On Screen Display"
-msgstr "Экранные сообщения"
+msgstr "Сообщения OSD"
 
 msgid "On-Screen Controller"
 msgstr "Управление на экране"
@@ -1517,3 +1517,36 @@ msgstr "Удалить предпочитаемый язык {}"
 
 msgid "Add a preferred language code"
 msgstr "Добавить код предпочитаемого языка"
+
+msgid "Snap to center when dragging"
+msgstr "Привязывать к центру при перетаскивании"
+
+msgid "Show remaining time instead of total duration"
+msgstr "Показывать оставшееся время вместо длительности"
+
+msgid "Base remaining time on playback speed"
+msgstr "Учитывать скорость при расчёте оставшегося времени"
+
+msgid "Elapsed time: {}"
+msgstr "Прошло: {}"
+
+msgid "Remaining time: {}"
+msgstr "Осталось: {}"
+
+msgid "Total duration: {}"
+msgstr "Длительность: {}"
+
+msgid "Precision"
+msgstr "Точность"
+
+msgid "1 s"
+msgstr "1 с"
+
+msgid "100 ms"
+msgstr "100 мс"
+
+msgid "10 ms"
+msgstr "10 мс"
+
+msgid "1 ms"
+msgstr "1 мс"

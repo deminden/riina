@@ -1,5 +1,8 @@
 //! Shared policy for when the on-screen controller fades after interaction.
+mod clock;
+
 use crate::PreferenceError;
+pub use clock::{ControllerOptions, TimePrecision};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
@@ -7,6 +10,8 @@ use serde::{Deserialize, Serialize};
 pub struct Settings {
     pub auto_hide_enabled: bool,
     pub auto_hide_timeout_secs: f64,
+    #[serde(flatten)]
+    pub controller: ControllerOptions,
     /// Visibility mask for IINA's configurable controller actions.
     /// The first four bits retain the original Riina setting assignments.
     pub toolbar_buttons: u16,
@@ -74,6 +79,7 @@ impl Default for Settings {
         Self {
             auto_hide_enabled: true,
             auto_hide_timeout_secs: 2.5,
+            controller: ControllerOptions::default(),
             toolbar_buttons: Self::TOOLBAR_DEFAULT,
             toolbar_order: [7, 2, 1, 0, 3, 4, 5, 6, 8],
         }

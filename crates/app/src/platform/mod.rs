@@ -21,6 +21,8 @@ pub(crate) mod plugin_dialogs;
 pub(crate) use pip_session::PictureInPictureSession;
 pub(crate) mod playback_power;
 mod player_input;
+#[cfg(target_os = "macos")]
+pub(crate) use player_input::controller_alignment_feedback;
 pub(crate) mod playlist_menu;
 #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
 mod plugin_overlay;

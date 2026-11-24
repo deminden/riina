@@ -56,6 +56,9 @@ export component InterfacePreferencesPage inherits ScrollView {
     in-out property <bool> show-chapter-pos;
     in-out property <bool> control-auto-hide-enabled;
     in-out property <string> control-auto-hide-timeout-text;
+    in-out property <bool> control-stick-to-center;
+    in-out property <bool> control-show-remaining-time;
+    in-out property <bool> control-scale-remaining-time;
     in-out property <bool> control-disable-play-slider-scrolling;
     in-out property <bool> control-disable-volume-slider-scrolling;
     callback toolbar-reset();
@@ -293,16 +296,34 @@ export component InterfacePreferencesPage inherits ScrollView {
             toggled => { root.settings-changed(); }
         }
         PreferenceSwitch { x: 36px; y: 82px; width: parent.width - 48px;
+            label: @tr("Snap to center when dragging");
+            checked <=> root.control-stick-to-center;
+            toggled => { root.settings-changed(); }
+        }
+        PreferenceSwitch { x: 36px; y: 118px; width: parent.width - 48px;
             label: @tr("Show chapter position in progress bar");
             checked <=> root.show-chapter-pos;
             toggled => { root.settings-changed(); }
         }
-        PreferenceSwitch { x: 36px; y: 116px; width: 128px;
+        PreferenceSwitch { x: 36px; y: 150px; width: parent.width - 48px; height: 36px;
+            label: @tr("Show remaining time instead of total duration");
+            wrap-label: true;
+            checked <=> root.control-show-remaining-time;
+            toggled => { root.settings-changed(); }
+        }
+        PreferenceSwitch { x: 48px; y: 188px; width: parent.width - 60px; height: 36px;
+            label: @tr("Base remaining time on playback speed");
+            wrap-label: true;
+            checked <=> root.control-scale-remaining-time;
+            enabled: root.control-show-remaining-time;
+            toggled => { root.settings-changed(); }
+        }
+        PreferenceSwitch { x: 36px; y: 226px; width: 128px;
             label: @tr("Auto hide after:");
             checked <=> root.control-auto-hide-enabled;
             toggled => { root.settings-changed(); }
         }
-        Rectangle { x: 170px; y: 118px; width: 70px; height: 24px;
+        Rectangle { x: 170px; y: 228px; width: 70px; height: 24px;
             border-width: 1px; border-color: Theme.settings-field-border; border-radius: Theme.settings-text-field-corner; background: Theme.settings-field-surface;
             TextInput { x: 5px; y: 1px; width: parent.width - 10px; height: parent.height - 2px;
                 text <=> root.control-auto-hide-timeout-text; enabled: root.control-auto-hide-enabled;
@@ -310,27 +331,27 @@ export component InterfacePreferencesPage inherits ScrollView {
                 accepted => { root.settings-changed(); }
             }
         }
-        Text { x: 244px; y: 118px; width: 20px; height: 24px; text: "s";
+        Text { x: 244px; y: 228px; width: 20px; height: 24px; text: "s";
             font-size: 11px; color: Theme.settings-interface-unit-text(root.control-auto-hide-enabled);
             vertical-alignment: center; }
-        PreferenceSwitch { x: 36px; y: 150px; width: parent.width - 48px;
+        PreferenceSwitch { x: 36px; y: 260px; width: parent.width - 48px;
             label: @tr("Prevent scroll wheel from changing playback position");
             checked <=> root.control-disable-play-slider-scrolling;
             toggled => { root.settings-changed(); }
         }
-        PreferenceSwitch { x: 36px; y: 186px; width: parent.width - 48px;
+        PreferenceSwitch { x: 36px; y: 296px; width: parent.width - 48px;
             label: @tr("Prevent scroll wheel from changing volume");
             checked <=> root.control-disable-volume-slider-scrolling;
             toggled => { root.settings-changed(); }
         }
-        Text { x: 36px; y: 218px; text: @tr("Toolbar buttons");
+        Text { x: 36px; y: 328px; text: @tr("Toolbar buttons");
             font-size: 12px; font-weight: 600; color: Theme.settings-page-heading; }
-        PreferenceActionButton { x: parent.width - 112px; y: 214px;
+        PreferenceActionButton { x: parent.width - 112px; y: 324px;
             label: @tr("Restore Default");
             activated => { root.toolbar-reset(); }
         }
         for action-kind[index] in root.toolbar-order : ToolbarPreferenceRow {
-            x: 36px; y: 238px + index * 28px; width: parent.width - 72px;
+            x: 36px; y: 348px + index * 28px; width: parent.width - 72px;
             label: action-kind == 0 ? @tr("Quick Settings") :
                 action-kind == 1 ? @tr("Playlist and chapters") :
                 action-kind == 2 ? @tr("Picture in Picture") :

@@ -69,6 +69,11 @@ impl PreferenceModel {
         self.0.current.borrow().clone()
     }
 
+    pub(crate) fn adopt_controller_options(&self, options: osc_preferences::ControllerOptions) {
+        self.0.writer.adopt_controller_options(options);
+        self.0.current.borrow_mut().control_bar.controller = options;
+    }
+
     pub(crate) fn retain_subtitle_credentials(&self, app: &PlayerWindow) {
         let api_key = app
             .global::<riina_ui::PlayerPreferences>()

@@ -1345,7 +1345,7 @@ msgid "Override target peak"
 msgstr "تعيين ذروة السطوع يدويًا"
 
 msgid "nits (10–10,000)"
-msgstr "شمعة/م² ‏(10–10,000)"
+msgstr "شمعة/م² (⁦10–10,000⁩)"
 
 msgid "Algorithm"
 msgstr "الخوارزمية"
@@ -1520,3 +1520,36 @@ msgstr "إزالة اللغة المفضّلة {}"
 
 msgid "Add a preferred language code"
 msgstr "إضافة رمز لغة مفضّلة"
+
+msgid "Snap to center when dragging"
+msgstr "المحاذاة مع المنتصف عند السحب"
+
+msgid "Show remaining time instead of total duration"
+msgstr "إظهار الوقت المتبقي بدلًا من المدة الإجمالية"
+
+msgid "Base remaining time on playback speed"
+msgstr "حساب الوقت المتبقي حسب سرعة التشغيل"
+
+msgid "Elapsed time: {}"
+msgstr "الوقت المنقضي: ⁦{}⁩"
+
+msgid "Remaining time: {}"
+msgstr "الوقت المتبقي: ⁦{}⁩"
+
+msgid "Total duration: {}"
+msgstr "المدة الإجمالية: ⁦{}⁩"
+
+msgid "Precision"
+msgstr "الدقة"
+
+msgid "1 s"
+msgstr "١ ث"
+
+msgid "100 ms"
+msgstr "١٠٠ ملّي ثانية"
+
+msgid "10 ms"
+msgstr "١٠ ملّي ثانية"
+
+msgid "1 ms"
+msgstr "١ ملّي ثانية"

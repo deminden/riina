@@ -23,6 +23,10 @@
   "control_bar": {
     "auto_hide_enabled": true,
     "auto_hide_timeout_secs": 2.5,
+    "stick_to_center": true,
+    "show_remaining_time": false,
+    "scale_remaining_time": false,
+    "time_precision": "seconds",
     "toolbar_buttons": 15,
     "toolbar_order": [
       7,

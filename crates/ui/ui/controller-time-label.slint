@@ -1,0 +1,82 @@
+import { PlayerAppearance } from "player-appearance.slint";
+import { PlayerControlActions } from "player-control-actions.slint";
+import { PlayerPreferences } from "player-preferences.slint";
+import { Theme } from "theme.slint";
+
+export component ControllerTimeLabel inherits FocusScope {
+    in property <string> caption;
+    in property <bool> end-label;
+    in property <length> minimum-clock-width;
+    in property <length> font-size;
+    in property <TextHorizontalAlignment> horizontal-alignment: center;
+
+    min-width: minimum-clock-width;
+    preferred-width: max(minimum-clock-width, label.preferred-width);
+    horizontal-stretch: 0;
+    accessible-role: button;
+    accessible-label: !end-label ? @tr("Elapsed time: {}", caption)
+        : PlayerPreferences.control-show-remaining-time ? @tr("Remaining time: {}", caption)
+        : @tr("Total duration: {}", caption);
+    accessible-action-default => { root.activate(); }
+
+    function activate() {
+        if root.end-label { PlayerControlActions.toggle-time-display(); }
+        else { root.open-precision-menu(); }
+    }
+
+    function open-precision-menu() {
+        root.focus();
+        PlayerControlActions.activity();
+        choices.show({x: 0px, y: root.height});
+    }
+
+    key-pressed(event) => {
+        if event.modifiers.control || event.modifiers.meta || event.modifiers.alt { return reject; }
+        if event.modifiers.shift && event.text == Key.F10 {
+            root.open-precision-menu();
+            return accept;
+        }
+        if !event.modifiers.shift && (event.text == Key.Return || event.text == " ") {
+            root.activate();
+            return accept;
+        }
+        return reject;
+    }
+
+    if root.has-focus : Rectangle {
+        border-width: 1px;
+        border-radius: 3px;
+        border-color: PlayerAppearance.interactive-accent-color;
+    }
+    label := Text {
+        width: parent.width;
+        height: parent.height;
+        text: root.caption;
+        color: Theme.controller-time-text(PlayerAppearance.dark-theme);
+        font-size: root.font-size;
+        horizontal-alignment: root.horizontal-alignment;
+        vertical-alignment: center;
+    }
+    TouchArea {
+        mouse-cursor: root.end-label ? pointer : default;
+        clicked => { if root.end-label { root.focus(); root.activate(); } }
+        pointer-event(event) => {
+            if event.button == PointerEventButton.right && event.kind == PointerEventKind.up {
+                root.open-precision-menu();
+            }
+        }
+    }
+    choices := ContextMenuArea {
+        width: 0px;
+        height: 0px;
+        Menu {
+            MenuItem { title: @tr("Precision"); enabled: false; }
+            for step[index] in [@tr("1 s"), @tr("100 ms"), @tr("10 ms"), @tr("1 ms")] : MenuItem {
+                title: step;
+                checkable: true;
+                checked: PlayerPreferences.control-time-precision == index;
+                activated => { PlayerControlActions.select-time-precision(index); }
+            }
+        }
+    }
+}

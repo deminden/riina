@@ -41,7 +41,7 @@ fn settings_changes_before_playback_merge_with_an_independent_save() {
             original.clone(),
             credentials(),
             || Ok(0),
-            move || counter.set(counter.get() + 1),
+            move |_| counter.set(counter.get() + 1),
         )
         .unwrap();
     profile_window::connect_actions(&window, None, &path, || {});
@@ -104,7 +104,7 @@ fn invalid_edit_restores_the_form_and_keeps_the_existing_profile() {
             Preferences::default(),
             credentials(),
             || Ok(0),
-            || panic!("Invalid settings cannot commit"),
+            |_| panic!("Invalid settings cannot commit"),
         )
         .unwrap();
     let threads = window.get_video_threads_text();
@@ -133,7 +133,7 @@ fn credential_store_failure_keeps_the_previous_key_and_saves_other_changes() {
         ..credentials()
     };
     let owner = Rc::new(ApplicationSettings::default());
-    let window = owner.create(&path, saved, calls, || Ok(0), || {}).unwrap();
+    let window = owner.create(&path, saved, calls, || Ok(0), |_| {}).unwrap();
     let subtitles = window.global::<crate::SubtitleSettingsState>();
     subtitles.set_open_subtitles_api_key("new-test-key".into());
     window.set_load_icc_profile(false);

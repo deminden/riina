@@ -41,6 +41,8 @@ pub struct Playback {
     pub save_position_on_quit: Option<bool>,
     pub position: Option<f64>,
     pub duration: Option<f64>,
+    pub remaining_time: Option<f64>,
+    pub scaled_remaining_time: Option<f64>,
     pub paused: bool,
     pub buffering: bool,
     pub seeking: bool,
@@ -323,6 +325,8 @@ impl Playback {
         self.phase = Phase::Loading;
         self.position = None;
         self.duration = None;
+        self.remaining_time = None;
+        self.scaled_remaining_time = None;
         self.title.clear();
         self.seekable = false;
         self.ab_loop_a = None;

@@ -90,11 +90,11 @@ export component AudioPreferencesPage inherits ScrollView {
     Rectangle {
         x: 20px; y: root.audio-other-title-y + 26px; width: parent.width - 40px; height: 220px;
         border-radius: 12px; border-width: 1px; border-color: Theme.settings-audio-card-border; background: Theme.settings-audio-card-surface(root.mica-backdrop-enabled);
-        Text { x: 14px; y: 14px; width: 150px; height: 26px; text: @tr("Gapless playback"); font-size: 12px; color: Theme.settings-control-label; vertical-alignment: center; }
+        Text { x: 14px; y: 11px; width: 150px; height: 32px; text: @tr("Gapless playback"); font-size: 12px; color: Theme.settings-control-label; vertical-alignment: center; wrap: word-wrap; }
         ComboBox { x: 176px; y: 14px; width: parent.width - 194px; height: 25px;
             accessible-label: @tr("Gapless playback");
             model: AudioSettingsState.audio-gapless-options; current-index <=> AudioSettingsState.audio-gapless-index; selected => { root.settings-changed(); } }
-        Text { x: 14px; y: 52px; width: 150px; height: 34px; text: @tr("Preferred languages"); font-size: 12px; color: Theme.settings-control-label; vertical-alignment: center; }
+        Text { x: 14px; y: 52px; width: 150px; height: 34px; text: @tr("Preferred languages"); font-size: 12px; color: Theme.settings-control-label; vertical-alignment: center; wrap: word-wrap; }
         LanguageTokenEditor { x: 176px; y: 56px; width: parent.width - 194px; height: 24px;
             tokens: AudioSettingsState.audio-language-tokens;
             add-token(entry) => { root.add-audio-language-token(entry); }

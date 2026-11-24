@@ -69,7 +69,12 @@ pub(super) fn project(
     app.global::<riina_ui::PlayerAppearance>()
         .set_dark_theme(saved.dark);
     model.write_player::<Osd>(app);
+    let previous_controller = crate::osc_preferences::player_controller_options(app);
     model.write_player::<riina_core::osc_preferences::Settings>(app);
+    if previous_controller != saved.control_bar.controller {
+        app.global::<riina_ui::PlayerControlActions>()
+            .invoke_publish_controller_options();
+    }
     app.global::<riina_ui::PlayerLayoutState>()
         .set_always_float_on_top(saved.always_float_on_top);
     app.global::<riina_ui::PlayerLayoutState>()

@@ -2,6 +2,41 @@ use super::*;
 use riina_mpv::{CommandSender, EngineError, MpvPropertyFormat};
 
 #[test]
+#[ignore = "requires provisioned libmpv and compares its playback clocks"]
+fn remaining_clocks_follow_speed_while_paused_and_clear_on_stop() -> Result<(), EngineError> {
+    let root = fixture_root();
+    let harness = Harness::start(&root)?;
+    harness.send(Command::Load(
+        root.join("tests/fixtures/moving-square.avi")
+            .to_string_lossy()
+            .into_owned(),
+    ))?;
+    harness.wait(|state| state.phase == Phase::Playing && state.remaining_time.is_some());
+    harness.send(Command::SetPaused(true))?;
+    harness.wait(|state| state.paused && state.remaining_time.is_some_and(|seconds| seconds > 2.0));
+    harness.send(Command::Speed(2.0))?;
+    let paused = harness.wait(|state| {
+        state.paused
+            && (state.speed - 2.0).abs() < f64::EPSILON
+            && state
+                .remaining_time
+                .zip(state.scaled_remaining_time)
+                .is_some_and(|(remaining, scaled)| {
+                    scaled > 1.0 && (remaining - scaled * 2.0).abs() < 0.1
+                })
+    });
+    assert_eq!(paused.error(), None);
+
+    harness.send(Command::Stop)?;
+    harness.wait(|state| {
+        state.phase == Phase::Stopped
+            && state.remaining_time.is_none()
+            && state.scaled_remaining_time.is_none()
+    });
+    Ok(())
+}
+
+#[test]
 #[ignore = "requires provisioned libmpv; exercises generic property observation"]
 fn dynamic_mpv_property_observation_publishes_generic_node_values() -> Result<(), EngineError> {
     let root = fixture_root();

@@ -5,6 +5,11 @@ export enum PlayerPluginPointerPhase { down, up, move, cancel }
 export global PlayerControlActions {
     callback open-application-menu();
     callback timeline-hovered(float);
+    callback toggle-time-display();
+    callback select-time-precision(int);
+    callback publish-controller-options();
+    callback refresh-controller-options();
+    callback controller-snap-aligned();
     callback activate-saved-filter-shortcut(string, bool, bool, bool, bool) -> bool;
     callback dispatch-key-binding(string, bool, bool, bool, bool) -> bool;
     callback begin-plugin-key(string, bool, bool, bool, bool, bool, bool) -> bool;

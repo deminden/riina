@@ -9,7 +9,7 @@ use crate::{
     PlayerWindow, platform,
     seek_osd::{self, Change},
 };
-use riina_core::{Command, LoopMode, Phase, Playback, TrackKind, time_label};
+use riina_core::{Command, LoopMode, Phase, Playback, TrackKind};
 use slint::ComponentHandle;
 use std::{
     path::PathBuf,
@@ -122,9 +122,7 @@ pub(super) fn update_ui(
         .set_music_artist(state.artist.as_deref().unwrap_or_default().into());
     app.global::<riina_ui::PlayerMusicModeState>()
         .set_music_album(state.album.as_deref().unwrap_or_default().into());
-    let timeline = app.global::<riina_ui::PlaybackTimelineState>();
-    timeline.set_position_label(time_label(state.position).into());
-    timeline.set_duration_label(time_label(state.duration).into());
+    super::controller_clock::update_labels(app, state);
     // Playback state belongs to controls and transient OSD, not permanent text
     // over the video. Keep failures visible while ordinary clock ticks stay quiet.
     app.set_status(state.error().unwrap_or_default().into());

@@ -29,6 +29,13 @@ impl Writer {
         self.save_with_policy(candidate, false)
     }
 
+    pub(crate) fn adopt_controller_options(
+        &self,
+        options: riina_core::osc_preferences::ControllerOptions,
+    ) {
+        self.observed.borrow_mut().control_bar.controller = options;
+    }
+
     fn save_with_policy(&self, candidate: &Preferences, user_edit: bool) -> Result<(), String> {
         let previous = serde_json::to_value(&*self.observed.borrow()).map_err(|e| e.to_string())?;
         let next = serde_json::to_value(candidate).map_err(|e| e.to_string())?;

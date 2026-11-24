@@ -313,6 +313,10 @@ fn legacy_preferences_keep_osd_defaults_and_customization_round_trips() {
     let partial_control_bar =
         Preferences::parse(r#"{"control_bar":{"auto_hide_timeout_secs":1.5}}"#).unwrap();
     assert!(partial_control_bar.control_bar.auto_hide_enabled);
+    assert_eq!(
+        partial_control_bar.control_bar.controller,
+        osc_preferences::ControllerOptions::default()
+    );
     assert_eq!(partial_control_bar.control_bar.auto_hide_timeout_secs, 1.5);
     assert!(!old.display_time_and_battery_in_fullscreen);
     assert!(!old.live_text_enabled);
@@ -322,6 +326,12 @@ fn legacy_preferences_keep_osd_defaults_and_customization_round_trips() {
         control_bar: osc_preferences::Settings {
             auto_hide_enabled: false,
             auto_hide_timeout_secs: 4.25,
+            controller: osc_preferences::ControllerOptions {
+                stick_to_center: false,
+                show_remaining_time: true,
+                scale_remaining_time: true,
+                time_precision: osc_preferences::TimePrecision::Milliseconds,
+            },
             toolbar_buttons: osc_preferences::Settings::TOOLBAR_PLUGINS
                 | osc_preferences::Settings::TOOLBAR_QUICK_SETTINGS,
             toolbar_order: osc_preferences::Settings::default().toolbar_order,
@@ -340,6 +350,10 @@ fn legacy_preferences_keep_osd_defaults_and_customization_round_trips() {
     assert_eq!(restored.osd_timeout_secs, 0.125);
     assert!(!restored.control_bar.auto_hide_enabled);
     assert_eq!(restored.control_bar.auto_hide_timeout_secs, 4.25);
+    assert_eq!(
+        restored.control_bar.controller,
+        configured.control_bar.controller
+    );
     assert_eq!(restored.volume, 37.0);
     for timeout in ["-1", "1e300"] {
         assert!(Preferences::parse(&format!("{{\"osd_timeout_secs\":{timeout}}}")).is_err());

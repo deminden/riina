@@ -68,6 +68,11 @@ export component PreferencesWindow inherits Window {
     in-out property <int> selected-interface-section: 0;
     in-out property <bool> control-auto-hide-enabled: true;
     in-out property <string> control-auto-hide-timeout-text: "2.5";
+    in-out property <bool> control-stick-to-center: true;
+    in-out property <bool> control-show-remaining-time: false;
+    in-out property <bool> control-scale-remaining-time: false;
+    in-out property <int> control-time-precision: 0;
+    callback controller-options-adopted();
     in-out property <bool> toolbar-show-plugins: true;
     in-out property <bool> toolbar-show-pip: true;
     in-out property <bool> toolbar-show-playlist: true;
@@ -122,7 +127,7 @@ export component PreferencesWindow inherits Window {
     out property <length> interface-physical-resolution-y: interface-resize-y + 134px;
     out property <length> interface-float-y: interface-physical-resolution-y + 56px;
     out property <length> interface-osc-y: interface-float-y + 96px;
-    out property <length> interface-osc-card-height: 500px;
+    out property <length> interface-osc-card-height: 610px;
     out property <length> interface-osd-y: interface-osc-y + interface-osc-card-height + 16px;
     out property <length> osd-suppression-detail-height: osd-suppression-expanded ? 112px : 0px;
     private property <length> osd-settings-height: root.width < 820px ? 144px : 112px;
@@ -445,6 +450,9 @@ export component PreferencesWindow inherits Window {
         show-chapter-pos <=> root.show-chapter-pos;
         control-auto-hide-enabled <=> root.control-auto-hide-enabled;
         control-auto-hide-timeout-text <=> root.control-auto-hide-timeout-text;
+        control-stick-to-center <=> root.control-stick-to-center;
+        control-show-remaining-time <=> root.control-show-remaining-time;
+        control-scale-remaining-time <=> root.control-scale-remaining-time;
         toolbar-reset => { root.toolbar-reset(); }
         toolbar-order: root.toolbar-order;
         toolbar-drag-index <=> root.toolbar-drag-index;

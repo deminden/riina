@@ -568,6 +568,12 @@ display profile control. Search checks feature availability on each query
 because text recognition can become available after the window opens.
 Audio device models keep the recorded name and description separate from the
 display caption, including when the last selected device is disconnected.
+The controller clock reads libmpv's elapsed, duration, remaining and scaled
+remaining values. Its precision changes only the text. The slider still uses
+the original clock values. A committed controller option refreshes players
+and open Settings forms using the same profile, including paused players.
+Clicking the right clock and selecting precision from either clock's menu
+use the same persisted profile values as Settings.
 The idle macOS AppKit menu opens an application-owned Settings form from the
 current profile. It saves validated edits under the same profile lock as
 player sessions. The store merges differences between successive form values,

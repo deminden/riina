@@ -15,6 +15,18 @@ mod mac_gestures;
 pub(crate) use drop_position::file_drop_position;
 
 #[cfg(target_os = "macos")]
+pub(crate) fn controller_alignment_feedback() {
+    use objc2_app_kit::{
+        NSHapticFeedbackManager, NSHapticFeedbackPattern, NSHapticFeedbackPerformanceTime,
+        NSHapticFeedbackPerformer,
+    };
+    NSHapticFeedbackManager::defaultPerformer().performFeedbackPattern_performanceTime(
+        NSHapticFeedbackPattern::Alignment,
+        NSHapticFeedbackPerformanceTime::Default,
+    );
+}
+
+#[cfg(target_os = "macos")]
 thread_local! {
     static FOCUSED_PLAYER_WINDOWS: Cell<usize> = const { Cell::new(0) };
 }

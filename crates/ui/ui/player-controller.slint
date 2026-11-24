@@ -13,6 +13,7 @@ import { MusicModeControls } from "music-mode-controls.slint";
 import { ToolbarAction } from "player-chrome-controls.slint";
 import { Tool } from "player-tool.slint";
 import { PlayerSlider } from "shared-controls.slint";
+import { ControllerTimeLabel } from "controller-time-label.slint";
 
 struct ControllerGeometry {
     window-width: length,
@@ -156,6 +157,7 @@ export component PlayerController inherits Rectangle {
         private property <float> drag-start-y: 0;
         private property <float> drag-origin-x: 0;
         private property <float> drag-origin-y: 0;
+        private property <bool> center-aligned: false;
         moved => {
             if self.pressed && PlayerLayoutState.osc-position == 0 && !PlayerMusicModeState.music-mode {
                 let available-x = max(0px, osc-video-width - root.width);
@@ -170,7 +172,12 @@ export component PlayerController inherits Rectangle {
                 let bounded-x = clamp(requested-x, minimum-x, available-x / 1px);
                 let bounded-y = clamp(requested-y, minimum-y, available-y);
                 let center-x = (osc-video-width / 1px - root.width / 1px) / 2;
-                let snapped-x = abs(bounded-x - center-x) <= 5 ? center-x : bounded-x;
+                let aligned = PlayerPreferences.control-stick-to-center && abs(bounded-x - center-x) <= 5;
+                let snapped-x = aligned ? center-x : bounded-x;
+                if PlayerAppearance.platform-macos && aligned && !self.center-aligned {
+                    PlayerControlActions.controller-snap-aligned();
+                }
+                self.center-aligned = aligned;
                 PlayerLayoutState.control-bar-position-horizontal = (snapped-x + root.width / 2 / 1px) / max(1, osc-video-width / 1px);
                 PlayerLayoutState.control-bar-position-vertical = (root.geometry.window-height / 1px - bounded-y - root.height / 1px) / max(1, root.geometry.window-height / 1px);
                 PlayerControlsState.control-bar-dragging = true;
@@ -181,6 +188,7 @@ export component PlayerController inherits Rectangle {
                 && PlayerLayoutState.osc-position == 0 && !PlayerMusicModeState.music-mode {
                 drag-start-x = self.mouse-x / 1px;
                 drag-start-y = self.mouse-y / 1px;
+                self.center-aligned = false;
                 drag-origin-x = (root.x - osc-video-leading-inset) / 1px;
                 drag-origin-y = root.y / 1px;
             } else if event.button == PointerEventButton.left && event.kind == PointerEventKind.up
@@ -356,10 +364,11 @@ export component PlayerController inherits Rectangle {
             // IINA gives each centered time label a 46-point minimum
             // and keeps a 2-point gap to the native playback slider.
             spacing: root.layout.osc-timeline-gap;
-            Text { visible: root.geometry.window-width >= 150px; min-width: PlayerMusicModeState.music-mode ? root.layout.music-mode-time-label-min-width : root.layout.small-video-controller ? 34px : 46px;
+            ControllerTimeLabel { visible: root.geometry.window-width >= 150px;
+                minimum-clock-width: PlayerMusicModeState.music-mode ? root.layout.music-mode-time-label-min-width : root.layout.small-video-controller ? 34px : 46px;
                 horizontal-alignment: PlayerMusicModeState.music-mode ? right : center;
-                text: PlaybackTimelineState.position-label; color: Theme.controller-time-text(PlayerAppearance.dark-theme);
-                font-size: root.layout.small-video-controller ? 10px : 11px; vertical-alignment: center; }
+                caption: PlaybackTimelineState.position-label;
+                font-size: root.layout.small-video-controller ? 10px : 11px; }
             PlayerSlider { dark-theme: PlayerAppearance.dark-theme; height: root.layout.small-video-controller ? 14px : 13px;
                 knob-width: 3px; knob-height: root.layout.small-video-controller ? 12px : 15px; knob-radius: 1px;
                 scroll-override-enabled: PlaybackTimelineState.seekable && !PlayerPreferences.control-disable-play-slider-scrolling;
@@ -380,10 +389,11 @@ export component PlayerController inherits Rectangle {
                 loop-b-moved(value) => { PlayerControlActions.set-ab-loop-point(1, value); }
                 preview-requested(value) => { PlayerControlActions.timeline-hovered(value); }
                 preview-dismissed => { PlayerControlActions.timeline-hovered(-1); } }
-            Text { visible: root.geometry.window-width >= 150px; min-width: PlayerMusicModeState.music-mode ? root.layout.music-mode-time-label-min-width : root.layout.small-video-controller ? 34px : 46px;
+            ControllerTimeLabel { visible: root.geometry.window-width >= 150px; end-label: true;
+                minimum-clock-width: PlayerMusicModeState.music-mode ? root.layout.music-mode-time-label-min-width : root.layout.small-video-controller ? 34px : 46px;
                 horizontal-alignment: PlayerMusicModeState.music-mode ? left : center;
-                text: PlaybackTimelineState.duration-label; color: Theme.controller-time-text(PlayerAppearance.dark-theme);
-                font-size: root.layout.small-video-controller ? 10px : 11px; vertical-alignment: center; }
+                caption: PlaybackTimelineState.duration-label;
+                font-size: root.layout.small-video-controller ? 10px : 11px; }
         }
         }
     }

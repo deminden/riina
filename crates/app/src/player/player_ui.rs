@@ -2,6 +2,7 @@ mod audio_controls;
 mod catalog;
 mod context;
 mod control_actions;
+mod controller_clock;
 mod delays;
 mod dialogs;
 mod discovery;
@@ -304,6 +305,7 @@ pub(crate) struct ApplicationServices {
     recents: Rc<recent_activity::ApplicationRecents>,
     updates: Rc<crate::updates::ApplicationUpdates>,
     power: Rc<crate::playback_power::ApplicationPower>,
+    clocks: Rc<controller_clock::ApplicationClocks>,
     #[cfg(target_os = "macos")]
     settings: Rc<crate::preferences_window::ApplicationSettings>,
 }
@@ -385,40 +387,45 @@ impl ApplicationServices {
         self.configure_application_updates(path, &saved);
         self.power.initialize(saved.playback_power);
         let baseline = saved.clone();
-        self.settings.show(path, saved, clear, |window| {
-            if let Some(pane) = pane {
-                window.set_selected_pane(pane);
-            }
-            let report = crate::preferences_window::application_status(window);
-            self.updates.connect_settings(window, report.clone());
-            self.updates.refresh_settings(window);
-            self.power
-                .connect_settings(window, path, &baseline, report.clone());
-            self.power.refresh_settings(window);
-            if let Some(status) = status {
-                report(status);
-            }
-            let plugin_host = self
-                .plugins
-                .host(path)
-                .inspect_err(|error| report(error.clone()))
-                .ok();
-            crate::plugin_preferences::connect(window, path, plugin_host, None);
-            let logs = Rc::downgrade(&self.logs);
-            let path_for_logs = path.to_owned();
-            crate::preferences_window::configure_application_actions(window, path, move || {
-                let Some(logs) = logs.upgrade() else { return };
-                let level = crate::preference_load::read_valid(&path_for_logs)
-                    .ok()
-                    .flatten()
-                    .map_or(baseline.advanced.log_level, |saved| {
-                        saved.advanced.log_level
-                    });
-                if let Err(error) = logs.show(None, &path_for_logs, level) {
-                    report(error.to_string());
+        let clocks = Rc::clone(&self.clocks);
+        let controller_path = path.to_owned();
+        let controller_committed = move |options| clocks.publish_players(&controller_path, options);
+        self.settings
+            .show(path, saved, clear, controller_committed, |window| {
+                self.clocks.register_form(path, window);
+                if let Some(pane) = pane {
+                    window.set_selected_pane(pane);
                 }
-            });
-        })
+                let report = crate::preferences_window::application_status(window);
+                self.updates.connect_settings(window, report.clone());
+                self.updates.refresh_settings(window);
+                self.power
+                    .connect_settings(window, path, &baseline, report.clone());
+                self.power.refresh_settings(window);
+                if let Some(status) = status {
+                    report(status);
+                }
+                let plugin_host = self
+                    .plugins
+                    .host(path)
+                    .inspect_err(|error| report(error.clone()))
+                    .ok();
+                crate::plugin_preferences::connect(window, path, plugin_host, None);
+                let logs = Rc::downgrade(&self.logs);
+                let path_for_logs = path.to_owned();
+                crate::preferences_window::configure_application_actions(window, path, move || {
+                    let Some(logs) = logs.upgrade() else { return };
+                    let level = crate::preference_load::read_valid(&path_for_logs)
+                        .ok()
+                        .flatten()
+                        .map_or(baseline.advanced.log_level, |saved| {
+                            saved.advanced.log_level
+                        });
+                    if let Err(error) = logs.show(None, &path_for_logs, level) {
+                        report(error.to_string());
+                    }
+                });
+            })
     }
 
     #[cfg(target_os = "macos")]
@@ -542,6 +549,7 @@ impl ApplicationServices {
         );
         self.highlights.connect(app);
         self.about.connect(app, context.playback().clone());
+        self.clocks.connect(app, context);
         session_preferences::connect(
             app,
             context,

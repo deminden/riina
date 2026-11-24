@@ -3,7 +3,7 @@ mod fields;
 
 use super::profile_window;
 use crate::{PreferencesWindow, windows::close_observer::CloseObserver};
-use riina_core::Preferences;
+use riina_core::{Preferences, osc_preferences::ControllerOptions};
 use slint::{CloseRequestResponse, ComponentHandle, winit_030::WinitWindowAccessor};
 use std::{
     cell::RefCell,
@@ -47,14 +47,25 @@ impl Profile {
         path: PathBuf,
         saved: Preferences,
         credentials: Credentials,
-        committed: impl Fn() + 'static,
+        committed: impl Fn(Option<ControllerOptions>) + 'static,
     ) -> Result<(), String> {
         let displayed = fields::read(window, &saved)?;
-        let state = RefCell::new(Self {
+        let state = Rc::new(RefCell::new(Self {
             path,
             saved,
             displayed,
             credentials,
+        }));
+        let adopted = Rc::clone(&state);
+        let weak = window.as_weak();
+        window.on_controller_options_adopted(move || {
+            if let Some(window) = weak.upgrade()
+                && let Ok(options) = crate::osc_preferences::form_controller_options(&window)
+            {
+                let mut state = adopted.borrow_mut();
+                state.displayed.control_bar.controller = options;
+                state.saved.control_bar.controller = options;
+            }
         });
         let weak = window.as_weak();
         window.on_settings_changed(move || {
@@ -68,7 +79,11 @@ impl Profile {
         Ok(())
     }
 
-    fn save(&mut self, window: &PreferencesWindow, committed: impl FnOnce()) -> Result<(), String> {
+    fn save(
+        &mut self,
+        window: &PreferencesWindow,
+        committed: impl FnOnce(Option<ControllerOptions>),
+    ) -> Result<(), String> {
         let edit = fields::read(window, &self.displayed).and_then(|edit| {
             crate::preference_store::save_form_edit(
                 &self.path,
@@ -85,7 +100,8 @@ impl Profile {
                 return Err(error);
             }
         };
-        committed();
+        let options = edit.control_bar.controller;
+        committed((options != self.displayed.control_bar.controller).then_some(options));
         let previous = &self.displayed.online_subtitles;
         let selected = &mut edit.online_subtitles;
         // Commit the profile before writing credentials to the separate key store.
@@ -204,14 +220,24 @@ impl ApplicationSettings {
         path: &Path,
         saved: Preferences,
         clear_history: impl Fn() -> Result<usize, String> + 'static,
+        controller_committed: impl Fn(ControllerOptions) + 'static,
         configure: impl FnOnce(&PreferencesWindow),
     ) -> Result<(), String> {
         if self.show_visible(None).map_err(|error| error.to_string())? {
             return Ok(());
         }
-        let window = self.create(path, saved, Credentials::system(), clear_history, || {
-            crate::platform::browser_activation::refresh_idle_menu();
-        })?;
+        let window = self.create(
+            path,
+            saved,
+            Credentials::system(),
+            clear_history,
+            move |options| {
+                if let Some(options) = options {
+                    controller_committed(options);
+                }
+                crate::platform::browser_activation::refresh_idle_menu();
+            },
+        )?;
         configure(&window);
         show(&window).map_err(|error| error.to_string())?;
         self.window.replace(Some(window));
@@ -224,7 +250,7 @@ impl ApplicationSettings {
         saved: Preferences,
         credentials: Credentials,
         clear_history: impl Fn() -> Result<usize, String> + 'static,
-        committed: impl Fn() + 'static,
+        committed: impl Fn(Option<ControllerOptions>) + 'static,
     ) -> Result<PreferencesWindow, String> {
         let window = profile_window::create(path, &saved, &[], clear_history)?;
         Profile::connect(&window, path.to_owned(), saved, credentials, committed)?;

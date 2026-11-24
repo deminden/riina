@@ -87,6 +87,7 @@ pub(crate) fn connect(
     let timers = timers::VisibleSettings::default();
     let preferences_window = current.clone();
     let subtitle_catalog_window = current.clone();
+    connect_controller_options(app, current.clone());
     let owner = app.as_weak();
     app.on_plugin_subtitle_catalog_changed(move || {
         if let Some(app) = owner.upgrade()
@@ -202,5 +203,21 @@ pub(crate) fn connect(
                     native.focus_window();
                 }
             });
+        });
+}
+
+fn connect_controller_options(
+    app: &PlayerWindow,
+    window: Rc<RefCell<Option<crate::PreferencesWindow>>>,
+) {
+    let owner = app.as_weak();
+    app.global::<riina_ui::PlayerControlActions>()
+        .on_refresh_controller_options(move || {
+            if let Some(app) = owner.upgrade()
+                && let Some(window) = window.borrow().as_ref()
+            {
+                let options = crate::osc_preferences::player_controller_options(&app);
+                crate::osc_preferences::install_form_controller_options(window, options);
+            }
         });
 }

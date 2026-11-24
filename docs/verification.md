@@ -4260,3 +4260,49 @@ left-to-right isolation for its digits.
 - Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
 - Linux application SHA-256 `141f1d3be93caa94f86c47381d67ea2cddd0d35e81352ff572b7b9ee798d2d5f`
 - Linux libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`
+
+### Controller clocks and center snapping 2026-11-24
+
+The controller displays either duration or remaining time. The elapsed and
+right labels share the saved precision. Settings can scale remaining time
+by playback speed and disable snapping within five points of center. The
+older profile defaults retain the duration display and center snapping.
+Tests cover profile migration, precision rounding, paused multi-player
+updates and preservation of unrelated saved preferences.
+
+All 62 native Windows null-output tests passed. The added engine regression
+changed playback speed to 2× while paused, compared both remaining clocks,
+and verified that both became unavailable on stop.
+
+The Windows workspace gate passed with 640 application tests and all 51
+software-rendered visual comparisons. The Interface settings baseline changed
+only in the scrollbar thumb after adding the controller rows. The Linux
+application and widget suites passed 603 and 65 tests during the batch.
+
+The locked Windows executable passed the private desktop scenario. The right
+label switched to remaining time, and the native menu listed all four
+precisions and checked the saved 10 ms option. At 2× speed, changing Settings
+reduced the paused countdown from `-00:05.00` to `-00:02.50`. The center
+snap setting and clock options persisted together. The player retained its
+original physical frame and exited normally.
+
+The final locked Linux executable opened the same controller options under
+Wayland. A pointer click toggled remaining time, and the precision menu
+saved the 10 ms option. The paused countdown displayed `-00:02.50` after
+enabling speed scaling at 2×. A three-point horizontal drag stayed centered
+with snapping on and saved the offset with snapping off. The player retained
+its frame and exited normally.
+
+At 600 × 480 under Wayland, the Russian OSD sidebar label and the two wrapped
+Audio captions fit. The Russian Key Bindings sidebar label still clips at
+that width. In Arabic, the brightness range read `10–10,000` and the saved
+400-nit value remained visible.
+
+Strict Apple Silicon cross-target Clippy passed with the AppKit alignment
+feedback connected. Physical trackpad feedback and native macOS interaction
+remain to be verified.
+
+- Windows application SHA-256 `f8c2fc6accc0547cd99af3afd7e626cda71100163bdd6ad6e3e8d777ff4cd4af`
+- Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
+- Linux application SHA-256 `d26234beae74eca1b00800de9206c2da2199d01415f5659b80dd79e3290b02fa`
+- Linux libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`

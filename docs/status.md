@@ -52,6 +52,10 @@ Implementation does not imply every state or platform is verified.
 - **Linux menus** scroll in short players with either the regular bar or the
   compact Menu button. Menu titles switch on hover while a menu is open.
   Keyboard navigation and a Back control keep overlapping submenus reachable.
+- **Controller clocks:** Interface Settings controls remaining time, play-speed
+  scaling and center snapping. Click the right clock to switch between
+  duration and remaining time, and right-click either clock for precision.
+  Players using the same profile update together, including while paused.
 - **Log Viewer:** Window and Advanced Settings open the shared viewer for
   application and mpv logs. Filter by multiple subsystems, severity and message,
   copy selected rows or export the full or filtered view. The macOS Window menu

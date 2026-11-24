@@ -64,7 +64,11 @@ pub(crate) fn connect(app: &PlayerWindow, path: PathBuf, baseline: Preferences) 
             preferences.always_show_on_top_icon = layout.get_always_show_on_top_icon();
             preferences.leading_sidebar_width = sidebar.get_leading_sidebar_width() as u32;
             preferences.trailing_sidebar_width = sidebar.get_trailing_sidebar_width() as u32;
-            preferences.control_bar = crate::osc_preferences::current_player(&app);
+            let controller = preferences.control_bar.controller;
+            preferences.control_bar = riina_core::osc_preferences::Settings {
+                controller,
+                ..crate::osc_preferences::current_player(&app)
+            };
             preferences.liquid_glass = crate::liquid_glass_preferences::current_player(&app);
             Ok(())
         });

@@ -39,6 +39,7 @@ export component PreferenceSwitch inherits Rectangle {
     in-out property <bool> checked: false;
     in property <bool> enabled: true;
     in property <bool> show-label: true;
+    in property <bool> wrap-label: false;
     callback toggled();
     height: 28px;
     accessible-role: checkbox;
@@ -48,8 +49,8 @@ export component PreferenceSwitch inherits Rectangle {
     accessible-action-default => { if root.enabled { root.checked = !root.checked; root.toggled(); } }
     if root.show-label : Text { x: 0; y: 0; width: parent.width - 52px; height: parent.height;
         text: root.label; font-size: 12px; color: root.enabled ? Theme.settings-control-label : Theme.settings-disabled-control-label;
-        vertical-alignment: center; overflow: elide; }
-    Rectangle { x: parent.width - 40px; y: 5px; width: 36px; height: 18px;
+        vertical-alignment: center; wrap: root.wrap-label ? word-wrap : no-wrap; overflow: elide; }
+    Rectangle { x: parent.width - 40px; y: root.wrap-label ? (parent.height - 18px) / 2 : 5px; width: 36px; height: 18px;
         border-radius: 9px; background: Theme.settings-switch-track(root.checked);
         animate background { duration: MotionSettings.animations-disabled ? 0ms : 120ms; }
         opacity: root.enabled ? 1 : 0.55;
