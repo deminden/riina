@@ -3636,3 +3636,30 @@ need a packaged macOS desktop run.
 - Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
 - Linux application SHA-256 `22bca8261c8e20af969156c9adc76554332af360d4d8a328994197638e2eaf3c`
 - Linux libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`
+
+### Opt-in New Window 2026-11-24
+
+New Window follows IINA v1.5.0's default-off shortcut and opens an independent
+Welcome window. The profile regression covers the unset default, the IINA
+preference alias and an enabled setting round trip. Existing default profiles
+retain their serialized bytes.
+
+A private Windows desktop verified that File hides the command by default.
+With the opt-in enabled, two successive File menu activations each opened a
+Welcome window and added it to the Window menu. Closing each Welcome removed
+its entry while preserving the original playback frame. The saved Open Panel
+launch preference did not intercept either New Window command.
+
+An isolated Linux X11 desktop verified that Ctrl+N did nothing by default.
+With the opt-in enabled, the same shortcut opened and closed two separate
+Welcome windows in succession while keeping the original paused player open.
+Both test sessions shut down normally on Windows and Linux.
+
+The full Windows workspace gate, locked Windows and Linux builds, all 61
+pinned Windows libmpv tests and strict Apple Silicon cross-Clippy passed.
+The native macOS menu and Cmd+N interaction still need a packaged desktop run.
+
+- Windows application SHA-256 `70c28b225201770d021e54134ede8c041bf130226495940ec9f42f3e350094d0`
+- Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
+- Linux application SHA-256 `fce31d52c0a962f6e096fe643125058c3b980dffa3e6dc74408193d3adf9cc26`
+- Linux libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`

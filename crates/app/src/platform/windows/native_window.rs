@@ -169,7 +169,8 @@ impl NativePlayer {
                 install_music_mode_window(&host, &app, &startup_menu_lifecycle);
                 restore_recreated_chrome(&host, &app)?;
                 let welcome = (managed_ticket.is_none()
-                    && action_after_launch.show_welcome(supplied_media_argument))
+                    && (actions.opens_welcome()
+                        || action_after_launch.show_welcome(supplied_media_argument)))
                 .then(crate::WelcomeWindow::new)
                 .transpose()?;
                 if let Some(welcome) = &welcome {
@@ -223,18 +224,13 @@ impl NativePlayer {
                 // playback loads. That leaves idle launches and cancelled open
                 // dialogs stranded at the OS-selected (often top-left) position.
                 placement.schedule(host.as_weak(), app.as_weak(), owner_center);
-                if managed_ticket.is_none()
+                if welcome.is_none()
+                    && managed_ticket.is_none()
                     && action_after_launch.open_file_panel(supplied_media_argument)
                 {
                     app.global::<PlayerMenuActions>().invoke_open_file();
                 }
-                // Its initial DPI and frameless client geometry are not settled until
-                // the popup exists. Sizing a queued adapter can be overwritten at creation.
-                {
-                    let chrome_window = app.window().winit_window().await?;
-                    enable_video_transparency(&chrome_window).map_err(std::io::Error::other)?;
-                }
-                align(host.window(), &app);
+                surfaces::align_realized_overlay(&host, &app).await?;
                 if let Some(welcome) = &welcome {
                     show_welcome(&host, &app, welcome)?;
                 }
@@ -434,7 +430,7 @@ fn keep_player_after_welcome_close(
             app.global::<riina_ui::PlayerPreferences>()
                 .get_quit_when_no_opened_window()
         });
-        if setting {
+        if actions.opens_welcome() || setting {
             actions.close();
             return slint::CloseRequestResponse::KeepWindowShown;
         } else if let (Some(app), Some(host)) =

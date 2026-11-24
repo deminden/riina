@@ -41,6 +41,17 @@ thread_local! {
     static ALIGNMENT_WINDOWS_REPORTED: Cell<bool> = const { Cell::new(false) };
 }
 
+pub(super) async fn align_realized_overlay(
+    host: &NativeVideoHost,
+    app: &PlayerWindow,
+) -> Result<(), Box<dyn std::error::Error>> {
+    // A queued adapter's geometry may be overwritten when its HWND is created.
+    let window = app.window().winit_window().await?;
+    enable_video_transparency(&window).map_err(std::io::Error::other)?;
+    align(host.window(), app);
+    Ok(())
+}
+
 // Slint can change the popup's native styles while creating its shared menu.
 // Preserve Winit's layered composition surface, but restore interactive hit
 // testing after the shared menu has made the popup click-through.

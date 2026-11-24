@@ -41,6 +41,8 @@ Implementation does not imply every state or platform is verified.
   Windows and X11, including minimized players. On Wayland it requests
   activation from the compositor. The macOS port registers Window and Help
   with AppKit for the system window list, standard commands and Help search.
+- **New Window:** the optional File menu shortcut opens an independent Welcome
+  window. The command stays hidden with the default profile.
 - **Debug Info:** Help saves one report with playback snapshots from every
   open player in the application.
 - **Inspector** opens from the Window menu and shows the focused player's

@@ -78,6 +78,8 @@ export component NativeVideoHost inherits Window {
     callback clear-open-recent();
     callback open-jump-time-dialog();
     in property <bool> record-recent-files: true;
+    in property <bool> enable-new-window-shortcut;
+    callback create-welcome-window();
     in property <[MenuCatalogRow]> recent-open-menu-rows: [];
     in property <bool> playback-loaded: false;
     in property <int> open-subtitles-provider-index: 0;
@@ -251,6 +253,12 @@ export component NativeVideoHost inherits Window {
                 MenuSeparator {}
                 MenuItem { title: "Clear Menu"; enabled: root.recent-open-menu-rows.length > 0;
                     activated => { root.clear-open-recent(); } }
+            }
+            if root.enable-new-window-shortcut : MenuSeparator {}
+            if root.enable-new-window-shortcut : MenuItem {
+                title: "New Window";
+                shortcut: root.primary-shortcut-is-meta ? @keys(Meta + N) : @keys(Control + N);
+                activated => { root.create-welcome-window(); }
             }
             MenuSeparator {}
             MenuItem { title: "Playback History";

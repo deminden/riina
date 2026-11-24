@@ -14,7 +14,11 @@ thread_local! {
     static IDLE_MENU: RefCell<Option<Retained<NSMenu>>> = const { RefCell::new(None) };
 }
 
-pub(super) fn prepare(main: MainThreadMarker, target: &LaunchTarget) {
+pub(super) fn prepare(
+    main: MainThreadMarker,
+    target: &LaunchTarget,
+    enable_new_window_shortcut: bool,
+) {
     let menu = NSMenu::new(main);
     let app = NSMenu::initWithTitle(NSMenu::alloc(main), &NSString::from_str("Riina"));
     let file = NSMenu::initWithTitle(NSMenu::alloc(main), &NSString::from_str("File"));
@@ -33,6 +37,15 @@ pub(super) fn prepare(main: MainThreadMarker, target: &LaunchTarget) {
         "o",
         Some(target),
     ));
+    if enable_new_window_shortcut {
+        file.addItem(&item(
+            main,
+            "New Window",
+            Some(sel!(riinaIdleNewWindow:)),
+            "n",
+            Some(target),
+        ));
+    }
     for (title, submenu) in [("Riina", app), ("File", file)] {
         let parent = item(main, title, None, "", None);
         parent.setSubmenu(Some(&submenu));

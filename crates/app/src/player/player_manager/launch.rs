@@ -1,5 +1,5 @@
 //! Route AppKit document opens and idle launch actions into the player manager.
-use super::{PlayerManager, open_new_player, schedule_quit, show_welcome};
+use super::{PlayerManager, open_new_player, schedule_quit, schedule_welcome, show_welcome};
 use crate::{PlayerWindow, media_open, preference_load, ui_dialogs};
 use riina_core::ActionAfterLaunch;
 use slint::ComponentHandle;
@@ -18,13 +18,17 @@ impl PlayerManager {
         schedule_quit(Rc::downgrade(&self.state));
     }
 
+    pub(crate) fn request_welcome(&self) {
+        schedule_welcome(Rc::downgrade(&self.state), None);
+    }
+
     pub(crate) fn launch_action(&self, action: ActionAfterLaunch) {
         if self.is_quitting() {
             return;
         }
         match action {
             ActionAfterLaunch::WelcomeWindow => {
-                if let Err(error) = show_welcome(&self.state) {
+                if let Err(error) = show_welcome(&self.state, None) {
                     crate::diagnostics::warn!("Could not open Welcome: {error}");
                 }
             }

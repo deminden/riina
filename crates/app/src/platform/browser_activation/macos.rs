@@ -155,6 +155,11 @@ define_class!(
             self.ivars().manager.open_application_panel();
         }
 
+        #[unsafe(method(riinaIdleNewWindow:))]
+        fn idle_new_window(&self, _sender: Option<&AnyObject>) {
+            self.ivars().manager.request_welcome();
+        }
+
         #[unsafe(method(riinaIdleQuit:))]
         fn idle_quit(&self, _sender: Option<&AnyObject>) {
             self.ivars().manager.request_quit();
@@ -174,6 +179,7 @@ impl ApplicationEvents {
         browser: Inbox,
         manager: PlayerManager,
         default_action: Option<ActionAfterLaunch>,
+        enable_new_window_shortcut: bool,
     ) -> Option<Self> {
         let main = MainThreadMarker::new()?;
         let launch = Rc::new(Launch {
@@ -206,7 +212,7 @@ impl ApplicationEvents {
                 &block,
             )
         };
-        idle_menu::prepare(main, &target);
+        idle_menu::prepare(main, &target, enable_new_window_shortcut);
         if default_action.is_some() {
             slint::Timer::single_shot(Duration::from_millis(220), move || launch.launch_default());
         }

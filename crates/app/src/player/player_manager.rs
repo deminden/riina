@@ -219,6 +219,10 @@ impl PlayerManager {
         let state = Rc::downgrade(&self.state);
         let owner = app.as_weak();
         app.global::<PlayerMenuActions>()
+            .on_create_welcome_window(move || schedule_welcome(state.clone(), Some(owner.clone())));
+        let state = Rc::downgrade(&self.state);
+        let owner = app.as_weak();
+        app.global::<PlayerMenuActions>()
             .on_bring_all_to_front(move || {
                 let (Some(state), Some(owner)) = (state.upgrade(), owner.upgrade()) else {
                     return;
@@ -413,6 +417,19 @@ fn schedule_close(state: Weak<RefCell<ManagerState>>, id: u64, from_welcome: boo
     }
 }
 
+fn schedule_welcome(state: Weak<RefCell<ManagerState>>, owner: Option<slint::Weak<PlayerWindow>>) {
+    if let Err(error) = slint::spawn_local(async move {
+        if let Some(state) = state.upgrade() {
+            let owner = owner.as_ref().and_then(slint::Weak::upgrade);
+            if let Err(error) = show_welcome(&state, owner.as_ref()) {
+                crate::diagnostics::warn!("Could not open a new Welcome window: {error}");
+            }
+        }
+    }) {
+        crate::diagnostics::warn!("Could not schedule a new Welcome window: {error}");
+    }
+}
+
 fn schedule_quit(state: Weak<RefCell<ManagerState>>) {
     let Some(owner) = state.upgrade() else { return };
     {
@@ -478,7 +495,7 @@ fn finish_empty_application(state: &Rc<RefCell<ManagerState>>, quit: bool, from_
     #[cfg(target_os = "macos")]
     crate::platform::browser_activation::show_idle_menu();
     #[cfg(not(target_os = "macos"))]
-    if !from_welcome && let Err(error) = show_welcome(state) {
+    if !from_welcome && let Err(error) = show_welcome(state, None) {
         crate::diagnostics::warn!("Could not reopen the welcome window: {error}");
         let _ = slint::quit_event_loop();
     }
@@ -486,7 +503,13 @@ fn finish_empty_application(state: &Rc<RefCell<ManagerState>>, quit: bool, from_
     let _ = from_welcome;
 }
 
-fn show_welcome(state: &Rc<RefCell<ManagerState>>) -> Result<(), Box<dyn std::error::Error>> {
+fn show_welcome(
+    state: &Rc<RefCell<ManagerState>>,
+    owner: Option<&PlayerWindow>,
+) -> Result<(), Box<dyn std::error::Error>> {
+    if state.borrow().quitting {
+        return Ok(());
+    }
     let app = PlayerWindow::new()?;
     app.set_native_video(false);
     let welcome = WelcomeWindow::new()?;
@@ -507,7 +530,7 @@ fn show_welcome(state: &Rc<RefCell<ManagerState>>) -> Result<(), Box<dyn std::er
         state: state.clone(),
     };
     let id = manager.attach(&app, Some(welcome.clone_strong()), session);
-    crate::platform::center_auxiliary_window(&welcome, &app);
+    crate::platform::center_auxiliary_window(&welcome, owner.unwrap_or(&app));
     if let Err(error) = crate::platform::show_window(&welcome) {
         close_player(state, id, true);
         return Err(error.into());

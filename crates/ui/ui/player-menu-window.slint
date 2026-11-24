@@ -117,6 +117,13 @@ export component PlayerMenuWindow inherits Window {
                 MenuItem { title: "Clear Menu"; enabled: PlayerCatalogState.recent-open-menu-rows.length > 0;
                     activated => { PlayerMenuActions.clear-open-recent(); } }
             }
+            if PlayerPreferences.enable-new-window-shortcut : MenuSeparator {}
+            if PlayerPreferences.enable-new-window-shortcut : MenuItem {
+                title: "New Window"; enabled: !root.menu-value-crop-editing;
+                shortcut: root.player-shortcut(root.menu-value-primary-shortcut-is-meta
+                    ? @keys(Meta + N) : @keys(Control + N));
+                activated => { PlayerMenuActions.create-welcome-window(); }
+            }
             MenuSeparator {}
             MenuItem { title: "Playback History";
                 shortcut: root.player-shortcut(root.menu-value-primary-shortcut-is-meta ? @keys(Meta + Shift + H) : @keys(Control + Shift + H));

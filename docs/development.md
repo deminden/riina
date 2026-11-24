@@ -149,6 +149,13 @@ it waits for the specific player it started. Interrupting that wait stops the
 owned player. Invoking the player directly runs its full application session.
 Prefix a local filename that looks like a switch with `./`.
 
+To enable IINA's optional **New Window** command, close Riina and set
+`"enable_new_window_shortcut": true` in the profile's `preferences.json`.
+On Windows the file is `%LOCALAPPDATA%\riina\preferences.json`. See the
+[port guide](port-development.md) for macOS and Linux paths. After restart,
+File → New Window opens an independent Welcome window with Command+N on macOS
+or Control+N on Windows and Linux.
+
 ## Browser links
 
 Use `riina://open?url=<percent-encoded media URL>`. The `weblink` action

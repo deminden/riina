@@ -903,3 +903,18 @@ fn strict_preference_errors_preserve_section_identity_and_current_wording() {
         "Unsupported preference schema version 2"
     );
 }
+#[test]
+fn new_window_shortcut_remains_hidden_unless_the_profile_enables_it() {
+    let original: Preferences = serde_json::from_str("{}").unwrap();
+    assert!(!original.enable_new_window_shortcut);
+    assert!(
+        serde_json::to_value(&original)
+            .unwrap()
+            .get("enable_new_window_shortcut")
+            .is_none()
+    );
+    let imported: Preferences = serde_json::from_str(r#"{"enableCmdN":true}"#).unwrap();
+    assert!(imported.enable_new_window_shortcut);
+    let saved = serde_json::to_value(&imported).unwrap();
+    assert_eq!(saved["enable_new_window_shortcut"], true);
+}

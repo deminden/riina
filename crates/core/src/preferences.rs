@@ -14,6 +14,10 @@ fn default_true() -> bool {
     true
 }
 
+fn is_false(value: &bool) -> bool {
+    !value
+}
+
 fn is_zero_revision(revision: &u64) -> bool {
     *revision == 0
 }
@@ -43,6 +47,8 @@ pub struct Preferences {
     pub always_float_on_top: bool,
     pub always_show_on_top_icon: bool,
     pub action_after_launch: ActionAfterLaunch,
+    #[serde(alias = "enableCmdN", skip_serializing_if = "is_false")]
+    pub enable_new_window_shortcut: bool,
     pub allow_multiple_windows: bool,
     pub group_simultaneous_opens_in_playlist: bool,
     pub allow_duplicate_players: bool,
@@ -275,6 +281,7 @@ impl Default for Preferences {
             always_float_on_top: false,
             always_show_on_top_icon: false,
             action_after_launch: ActionAfterLaunch::default(),
+            enable_new_window_shortcut: false,
             allow_multiple_windows: true,
             group_simultaneous_opens_in_playlist: false,
             allow_duplicate_players: false,

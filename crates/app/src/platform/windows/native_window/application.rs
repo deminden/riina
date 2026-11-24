@@ -276,6 +276,22 @@ impl Application {
         .map(|_| ())
     }
 
+    fn open_welcome(
+        self: &Rc<Self>,
+        owner: &PlayerWindow,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let loaded = preference_load::load(&crate::platform::preferences_path()?)?;
+        self.launch(
+            NativeLaunch {
+                media: InitialMedia::default(),
+                owner_center: crate::platform::player_window_center(owner.window()),
+                loaded,
+            },
+            Some(Origin::Welcome(owner.as_weak())),
+        )
+        .map(|_| ())
+    }
+
     fn close(&self, target: &Rc<NativePlayer>) {
         let removed = {
             let mut players = self.players.borrow_mut();
@@ -340,6 +356,7 @@ impl NativePlayer {
 #[derive(Clone)]
 enum Origin {
     Player(slint::Weak<PlayerWindow>),
+    Welcome(slint::Weak<PlayerWindow>),
     History(slint::Weak<crate::PlaybackHistoryWindow>),
     CommandLine,
     BrowserLink,
@@ -358,6 +375,10 @@ impl WindowActions {
         self.origin.is_none()
     }
 
+    pub(super) fn opens_welcome(&self) -> bool {
+        matches!(self.origin, Some(Origin::Welcome(_)))
+    }
+
     pub(super) fn bind(&self, app: &PlayerWindow) {
         let actions = self.clone();
         let controls = app.as_weak();
@@ -374,6 +395,18 @@ impl WindowActions {
         let menus = app.global::<PlayerMenuActions>();
         let actions = self.clone();
         menus.on_close_player(move || actions.close());
+        let application = self.application.clone();
+        let welcome_owner = app.as_weak();
+        menus.on_create_welcome_window(move || {
+            let (application, owner) = (application.clone(), welcome_owner.clone());
+            schedule(move || {
+                if let (Some(application), Some(owner)) = (application.upgrade(), owner.upgrade())
+                    && let Err(error) = application.open_welcome(&owner)
+                {
+                    crate::diagnostics::report(&owner, error.to_string());
+                }
+            });
+        });
         let application = self.application.clone();
         menus.on_quit_riina(move || {
             let application = application.clone();
@@ -440,7 +473,7 @@ impl WindowActions {
             return;
         };
         match &self.origin {
-            Some(Origin::Player(origin)) => {
+            Some(Origin::Player(origin) | Origin::Welcome(origin)) => {
                 if let Some(app) = origin.upgrade() {
                     crate::diagnostics::report(&app, error.to_string());
                 } else {

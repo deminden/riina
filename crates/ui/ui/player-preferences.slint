@@ -25,6 +25,7 @@ export global PlayerPreferences {
     in-out property <bool> resume-last-position: true;
     in-out property <bool> record-playback-history: true;
     in-out property <bool> record-recent-files: true;
+    in-out property <bool> enable-new-window-shortcut;
     in-out property <bool> track-all-files-in-recent-open-menu: true;
 
     // Video output and window sizing
@@ -157,6 +158,7 @@ export global PlayerPreferences {
 
     changed key-binding-current-profile => { PlayerMenuActions.video-menu-changed(); }
     changed record-recent-files => { PlayerMenuActions.video-menu-changed(); }
+    changed enable-new-window-shortcut => { PlayerMenuActions.video-menu-changed(); }
     changed track-all-files-in-recent-open-menu => { PlayerMenuActions.video-menu-changed(); }
     changed open-subtitles-provider-index => { PlayerMenuActions.video-menu-changed(); }
     changed open-subtitles-plugin-provider-label => { PlayerMenuActions.video-menu-changed(); }
