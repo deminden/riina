@@ -12,7 +12,7 @@ use slint::{
         winit::raw_window_handle::{HasWindowHandle, RawWindowHandle},
     },
 };
-use std::{cell::RefCell, ffi::c_ulong, rc::Rc};
+use std::{cell::RefCell, ffi::c_ulong, rc::Rc, time::Duration};
 
 #[link(name = "gdk-3")]
 unsafe extern "C" {
@@ -25,6 +25,7 @@ unsafe extern "C" {
 struct ActiveMenu {
     owner: c_ulong,
     menu: gtk::Menu,
+    _events: slint::Timer,
 }
 
 thread_local! {
@@ -97,9 +98,17 @@ pub(super) fn popup<A: 'static>(
     let scale = parent.scale_factor().max(1);
     let rect = gdk::Rectangle::new(physical.x / scale, physical.y / scale, 1, 1);
     close_matching(|_| true);
+    // The menu also opens when no plugin view is driving GTK's event loop.
+    let events = slint::Timer::default();
+    events.start(
+        slint::TimerMode::Repeated,
+        Duration::from_millis(16),
+        super::super::pump_plugin_webviews,
+    );
     ACTIVE.set(Some(ActiveMenu {
         owner,
         menu: menu.clone(),
+        _events: events,
     }));
     menu.show_all();
     menu.popup_at_rect(

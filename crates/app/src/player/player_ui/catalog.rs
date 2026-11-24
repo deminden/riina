@@ -86,21 +86,41 @@ pub(super) fn selected_playlist_paths(app: &PlayerWindow, clicked_token: &str) -
 }
 
 pub(super) fn selected_playlist_rows(app: &PlayerWindow, clicked_token: &str) -> Vec<CatalogRow> {
+    let rows = app.global::<riina_ui::PlayerCatalogState>().get_playlist();
+    playlist_row_targets(app, &rows, clicked_token).map_or_else(Vec::new, |(_, indices)| {
+        indices
+            .into_iter()
+            .filter_map(|index| rows.row_data(index))
+            .collect()
+    })
+}
+
+pub(super) fn playlist_row_targets(
+    app: &PlayerWindow,
+    rows: &slint::ModelRc<CatalogRow>,
+    clicked_token: &str,
+) -> Option<(usize, Vec<usize>)> {
+    if clicked_token.is_empty() {
+        return None;
+    }
+    let clicked = rows
+        .iter()
+        .position(|row| row.token.as_str() == clicked_token)?;
     let selected = app
         .global::<riina_ui::PlaylistInteraction>()
         .get_selected_playlist_tokens()
         .iter()
         .collect::<std::collections::BTreeSet<_>>();
-    let rows = app.global::<riina_ui::PlayerCatalogState>().get_playlist();
-    let clicked = rows.iter().find(|row| row.token.as_str() == clicked_token);
-    match clicked {
-        Some(row) if selected.contains(&row.token) => rows
-            .iter()
-            .filter(|row| selected.contains(&row.token))
-            .collect(),
-        Some(row) => vec![row],
-        None => Vec::new(),
-    }
+    let clicked_token = slint::SharedString::from(clicked_token);
+    let indices = if selected.contains(&clicked_token) {
+        rows.iter()
+            .enumerate()
+            .filter_map(|(index, row)| selected.contains(&row.token).then_some(index))
+            .collect()
+    } else {
+        vec![clicked]
+    };
+    Some((clicked, indices))
 }
 
 pub(super) fn selected_playlist_ids(
@@ -237,7 +257,6 @@ fn update_tracks(app: &PlayerWindow, state: &Playback) {
             language: "".into(),
             selected: !tracks.iter().any(|track| track.is_primary_selected()),
             playing: false,
-            network: false,
             ..CatalogRow::default()
         }];
         rows.extend(tracks.into_iter().map(|track| CatalogRow {
@@ -248,7 +267,6 @@ fn update_tracks(app: &PlayerWindow, state: &Playback) {
             language: languages.display_name(track.lang.as_deref()).into(),
             selected: track.is_primary_selected(),
             playing: false,
-            network: false,
             ..CatalogRow::default()
         }));
         let selected_index = rows.iter().position(|row| row.selected).unwrap_or(0) as i32;
@@ -288,7 +306,6 @@ fn update_tracks(app: &PlayerWindow, state: &Playback) {
         language: "".into(),
         selected: !subtitle_tracks.iter().any(secondary_selected),
         playing: false,
-        network: false,
         ..CatalogRow::default()
     }];
     secondary_rows.extend(subtitle_tracks.into_iter().map(|track| CatalogRow {
@@ -299,7 +316,6 @@ fn update_tracks(app: &PlayerWindow, state: &Playback) {
         language: languages.display_name(track.lang.as_deref()).into(),
         selected: track.selected && track.main_selection == Some(1),
         playing: false,
-        network: false,
         ..CatalogRow::default()
     }));
     app.global::<riina_ui::PlaybackSubtitleState>()
@@ -342,7 +358,6 @@ fn update_chapters(app: &PlayerWindow, state: &Playback) {
                                 .is_none_or(|next| position < next.time)
                     }),
                     playing: false,
-                    network: false,
                     ..CatalogRow::default()
                 })
                 .collect::<Vec<_>>(),

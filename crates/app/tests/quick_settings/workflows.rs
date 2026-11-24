@@ -182,7 +182,6 @@ fn playlist_context_requests_keep_row_and_blank_targets_in_both_surfaces() {
     app.global::<PlaylistInteraction>()
         .on_request_playlist_menu(move |origin, token, x, y| {
             observe.borrow_mut().push((origin, token, x, y));
-            true
         });
     flush();
     let music = app.global::<PlayerMusicModeState>();

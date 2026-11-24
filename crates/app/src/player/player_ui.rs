@@ -20,6 +20,7 @@ mod playback_mailbox;
 mod playlist_actions;
 mod playlist_drop;
 mod playlist_hover;
+mod playlist_menu;
 mod playlist_subtitles;
 mod rendering;
 mod startup;

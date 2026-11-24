@@ -1,17 +1,13 @@
 //! Platform presentation for a playlist menu whose tree is supplied at runtime.
 use crate::PlayerWindow;
 use slint::ComponentHandle;
-use slint::{LogicalPosition, Window};
+use slint::LogicalPosition;
 
-#[cfg(any(target_os = "linux", test))]
 mod client;
 #[cfg(target_os = "linux")]
 mod x11;
 
-#[cfg_attr(
-    not(any(target_os = "windows", target_os = "macos", target_os = "linux")),
-    allow(dead_code)
-)]
+#[derive(Clone)]
 pub(crate) enum Entry<A> {
     Separator,
     Item {
@@ -22,85 +18,66 @@ pub(crate) enum Entry<A> {
     },
 }
 
-#[cfg_attr(
-    not(any(target_os = "windows", target_os = "macos", target_os = "linux")),
-    allow(dead_code)
-)]
+#[derive(Clone)]
 pub(crate) enum Target<A> {
     Action(A),
     Submenu(Vec<Entry<A>>),
 }
 
-pub(crate) fn supports(window: &Window) -> bool {
-    #[cfg(target_os = "linux")]
-    return is_wayland(window) || x11::owner(window).is_some();
-
-    #[cfg(not(target_os = "linux"))]
-    {
-        let _ = window;
-        cfg!(any(target_os = "windows", target_os = "macos"))
-    }
-}
-
 pub(crate) fn dismiss(app: &PlayerWindow) {
+    client::dismiss(app);
     #[cfg(target_os = "linux")]
-    {
-        client::dismiss(app);
-        x11::dismiss(app.window());
-    }
-    #[cfg(not(target_os = "linux"))]
-    let _ = app;
+    x11::dismiss(app.window());
 }
 
-pub(crate) fn popup<A: 'static>(
+pub(crate) fn popup<A: Clone + 'static>(
     app: &PlayerWindow,
     position: LogicalPosition,
     entries: Vec<Entry<A>>,
     selected: impl FnOnce(A) + 'static,
-) -> Result<(), String> {
+) {
+    #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
     let window = app.window();
-    #[cfg(target_os = "windows")]
-    let action = super::windows::playlist_menu::popup(window, position, entries)?;
-
-    #[cfg(target_os = "macos")]
-    let action = super::macos::playlist_menu::popup(window, position, entries)?;
-
     #[cfg(any(target_os = "windows", target_os = "macos"))]
     {
-        if let Some(action) = action {
-            selected(action);
+        use slint::winit_030::WinitWindowAccessor;
+
+        if window.has_winit_window() {
+            #[cfg(target_os = "windows")]
+            let native = super::windows::playlist_menu::popup;
+            #[cfg(target_os = "macos")]
+            let native = super::macos::playlist_menu::popup;
+            match native(window, position, entries.clone()) {
+                Ok(action) => {
+                    if let Some(action) = action {
+                        selected(action);
+                    }
+                    return;
+                }
+                Err(error) => {
+                    crate::diagnostics::warn!("Could not present native playlist menu: {error}")
+                }
+            }
         }
-        Ok(())
     }
 
     #[cfg(target_os = "linux")]
-    {
-        if is_wayland(window) {
-            client::show(app, position, entries, selected);
-            return Ok(());
+    if x11::owner(window).is_some() {
+        use std::{cell::Cell, rc::Rc};
+
+        let callback = Rc::new(Cell::new(Some(selected)));
+        let native = callback.clone();
+        if let Err(error) = x11::popup(window, position, entries.clone(), move |action| {
+            if let Some(selected) = native.take() {
+                selected(action);
+            }
+        }) {
+            crate::diagnostics::warn!("Could not present X11 playlist menu: {error}");
+            if let Some(selected) = callback.take() {
+                client::show(app, position, entries, selected);
+            }
         }
-        x11::popup(window, position, entries, selected)
+        return;
     }
-
-    #[cfg(not(any(target_os = "windows", target_os = "macos", target_os = "linux")))]
-    {
-        let _ = (window, position, entries, selected);
-        Ok(())
-    }
-}
-
-#[cfg(target_os = "linux")]
-fn is_wayland(window: &Window) -> bool {
-    use slint::winit_030::{
-        WinitWindowAccessor,
-        winit::raw_window_handle::{HasWindowHandle, RawWindowHandle},
-    };
-
-    window
-        .with_winit_window(|window| {
-            window
-                .window_handle()
-                .is_ok_and(|handle| matches!(handle.as_raw(), RawWindowHandle::Wayland(_)))
-        })
-        .unwrap_or_default()
+    client::show(app, position, entries, selected);
 }

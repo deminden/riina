@@ -148,13 +148,6 @@ pub(super) fn install(
                 PlaylistSubtitleTargets {
                     single: rows.len() == 1,
                     matched: i32::try_from(count).unwrap_or(i32::MAX),
-                    // Slint's fallback menu is clipped by the player window.
-                    compact: app
-                        .window()
-                        .size()
-                        .to_logical(app.window().scale_factor())
-                        .height
-                        < 620.0,
                 }
             })
     });

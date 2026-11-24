@@ -134,8 +134,8 @@ clears the associations for the selected rows and inhibits automatic rematching
 until Stop. The player owns automatic matching in the media directory and
 configured search locations. The decoder accepts matched files only for the
 generation that requested them.
-The fallback context menu groups the subtitle commands in a submenu when
-the player window is short.
+The in-window context menu scrolls when its actions exceed the available
+height in either player view.
 
 The desktop drop adapters publish the position of a playable offer to the same
 scroll view. X11 samples the native cursor after Winit reports the file list.
@@ -308,16 +308,22 @@ Slint continues to own presentation and menu lifetime on every platform.
 The provider refreshes the contribution tree when Slint assigns a new root
 identity after a binding change.
 
-### Playlist plugin menus
+### Playlist context menus
 
-The player captures the row order and selection when opening a playlist menu
-from the sidebar or Music Mode. A click below the rows passes an empty
-selection to each builder. The plugin host starts builders in the player
-realms and gathers their replies under one deadline. Each realm owns its
-callbacks and retains the latest popup's items until an action is chosen or
-another request supersedes them. The UI discards replies and actions when
-the observed playlist changes or the originating surface closes. The Windows
-and AppKit presenters hold their menus only for the duration of popup tracking.
+The player captures the playlist entry identities, filenames and selected
+indices when opening a menu in the sidebar or Music Mode. File and URL action
+availability comes from that selection. Copy URLs preserves the playlist
+order of supported stream URLs. The browser launcher receives eligible HTTP
+and HTTPS URLs. Both commands apply when the selection also contains files.
+
+Built-in actions share the presentation path for plugin contributions. A click
+below the rows passes an empty selection to each builder. The plugin host
+starts builders in the player realms and gathers their replies under one
+deadline. Each realm owns its callbacks and retains the latest popup's items
+until an action is chosen or another request supersedes them. The player
+discards replies and activations when the playlist, selection or originating
+surface changes. Win32, AppKit and GTK track native popup menus. Wayland and
+the native fallback use the scrollable in-window presenter.
 
 ### Plugin input
 

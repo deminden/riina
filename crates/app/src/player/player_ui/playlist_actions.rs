@@ -25,17 +25,7 @@ pub(super) fn install(
 ) {
     let interaction = app.global::<PlaylistInteraction>();
     interaction
-        .set_trash_action_label(format!("Move to {}", crate::platform::system_trash_name()).into());
-    interaction
         .set_reveal_action_label(format!("Show in {}", app.get_current_file_manager_name()).into());
-    let weak = app.as_weak();
-    interaction.on_has_local_file_targets(move |token| {
-        weak.upgrade().is_some_and(|app| {
-            selected_playlist_rows(&app, token.as_str())
-                .iter()
-                .any(|row| file_actions::local_media_path(row.path.as_str()).is_some())
-        })
-    });
     install_actions(
         app,
         command_sender,
@@ -185,31 +175,7 @@ fn handle_playlist_external_action(
                 Ok(())
             }
         }
-        10 => {
-            let urls = selected_playlist_paths(window, token)
-                .into_iter()
-                .filter(|path| crate::platform::is_http_url(path))
-                .collect::<Vec<_>>();
-            if urls.is_empty() {
-                Err("Select an HTTP or HTTPS playlist entry first".into())
-            } else {
-                urls.iter().try_for_each(|url| {
-                    crate::platform::open_http_url_in_browser(url)
-                        .map_err(|error| error.to_string())
-                })
-            }
-        }
-        11 => {
-            let urls = selected_playlist_paths(window, token)
-                .into_iter()
-                .filter(|path| crate::platform::is_http_url(path))
-                .collect::<Vec<_>>();
-            if urls.is_empty() {
-                Err("Select an HTTP or HTTPS playlist entry first".into())
-            } else {
-                crate::platform::clipboard::copy_text(&urls.join("\n"))
-            }
-        }
+        10 | 11 => handle_playlist_url_action(window, token, action),
         14 | 15 => {
             let files = selected_playlist_rows(window, token)
                 .into_iter()
@@ -245,6 +211,51 @@ fn handle_playlist_external_action(
             .global::<riina_ui::PlaylistInteraction>()
             .set_selected_playlist_tokens(slint::ModelRc::default());
         install_playlist_selection(window, &[]);
+    }
+}
+
+pub(super) fn playlist_network_url(row: &crate::CatalogRow) -> Option<&str> {
+    riina_core::media_reference::validate_network_url(row.path.as_str()).ok()
+}
+
+fn handle_playlist_url_action(
+    window: &PlayerWindow,
+    token: &str,
+    action: i32,
+) -> Result<(), String> {
+    let rows = selected_playlist_rows(window, token);
+    let urls = rows.iter().filter_map(playlist_network_url);
+    if action == 11 {
+        let urls = urls.collect::<Vec<_>>();
+        return if urls.is_empty() {
+            Err("Select a playlist URL first".into())
+        } else {
+            crate::platform::clipboard::copy_text(&urls.join("\n"))
+        };
+    }
+    open_selected_browser_urls(urls, crate::platform::open_http_url_in_browser)
+}
+
+fn open_selected_browser_urls<'a>(
+    urls: impl Iterator<Item = &'a str>,
+    mut open: impl FnMut(&str) -> std::io::Result<()>,
+) -> Result<(), String> {
+    let mut opened = 0;
+    let mut failed = 0;
+    for url in urls.filter(|url| crate::platform::is_http_url(url)) {
+        if open(url).is_ok() {
+            opened += 1;
+        } else {
+            failed += 1;
+        }
+    }
+    match (opened, failed) {
+        (0, 0) => Err("Select an HTTP or HTTPS playlist entry first".into()),
+        (_, 0) => Ok(()),
+        (_, 1) => Err("Could not open one selected URL in the browser".into()),
+        (_, failed) => Err(format!(
+            "Could not open {failed} selected URLs in the browser"
+        )),
     }
 }
 
@@ -478,4 +489,32 @@ pub(super) fn install_navigation(
                 capture_transition_first,
             );
         });
+}
+
+#[cfg(test)]
+mod browser_tests {
+    use super::open_selected_browser_urls;
+
+    #[test]
+    fn browser_launch_tries_each_web_url_in_order_and_reports_partial_failure() {
+        let first = "http://first.example.test/movie";
+        let last = "https://last.example.test/video";
+        let mut attempted = Vec::new();
+        let result = open_selected_browser_urls(
+            [first, "rtsp://camera.example.test/live", last].into_iter(),
+            |url| {
+                attempted.push(url.to_owned());
+                if url == first {
+                    Err(std::io::Error::other("Desktop launcher failed"))
+                } else {
+                    Ok(())
+                }
+            },
+        );
+        assert_eq!(attempted, [first, last]);
+        assert_eq!(
+            result,
+            Err("Could not open one selected URL in the browser".into())
+        );
+    }
 }

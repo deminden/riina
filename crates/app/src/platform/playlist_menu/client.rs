@@ -1,4 +1,4 @@
-//! Cascading menus inside the owning player surface on Wayland.
+//! Scrollable, cascading menus inside the owning player surface.
 use super::{Entry, Target};
 use crate::PlayerWindow;
 use riina_ui::{

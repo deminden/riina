@@ -99,7 +99,6 @@ pub(crate) fn install_player(app: &crate::PlayerWindow, preferences: &OtherPrefe
                     language: String::new().into(),
                     selected: *code == preferences.default_encoding,
                     playing: false,
-                    network: false,
                     ..crate::CatalogRow::default()
                 })
                 .collect::<Vec<_>>(),

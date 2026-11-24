@@ -3,7 +3,7 @@ mod application;
 mod developer;
 mod effects;
 mod input;
-mod playlist_menu;
+use super::playlist_menu;
 
 use crate::{PlayerWindow, background::CoalescedUiCallback, platform};
 pub(crate) use application::ApplicationPlugins;

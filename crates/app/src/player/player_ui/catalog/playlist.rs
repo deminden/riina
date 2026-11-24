@@ -74,7 +74,6 @@ pub(in super::super) fn update(
                     .iter()
                     .any(|selected| selected.as_str() == token),
                 playing: entry.current,
-                network: crate::platform::is_http_url(entry.filename.as_str()),
                 duration_label: duration.map_or_else(String::new, duration_label).into(),
                 duration_seconds: duration.unwrap_or_default() as f32,
                 resume_fraction: resume_fraction(position, duration),

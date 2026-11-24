@@ -2517,6 +2517,24 @@ exited normally. The Linux executable SHA-256 was
 `a3657921080736d098e4319df65fa5c909c68a546e8a36b65fa319fdc6a6d220`.
 Live Windows, Wayland and macOS presentation remains open.
 
+### Mixed playlist context menus 2026-11-24
+
+The Windows workspace gate passed with the mixed-selection, stale-target
+and partial browser-launch regressions. The widget checks also exercise
+row and blank-area requests in the main playlist and Music Mode.
+The locked Apple Silicon workspace passed strict Clippy from Windows.
+
+In isolated Linux X11, right-clicking a selected local file offered URL
+and local-file actions for a mixed selection of two files and three
+streams. Copy URLs returned all three URLs, including RTSP, in playlist
+order. The test desktop launcher received both web URLs. The GTK menu
+and the in-window fallback both passed these checks. At 300 × 365, the
+fallback scrolled a full row menu in Music Mode to reach Clear Playlist.
+The action kept the playing local entry and its paused state. Both test
+players exited normally. The Linux executable SHA-256 was
+`7314d6c419a0926973e0c68d5807fef253e9283703736f2e47c1db22e7be331b`.
+Live Win32, Wayland and macOS menu interaction remains open for this batch.
+
 ### macOS application menu composition 2026-10-14
 
 The AppKit adapter consolidates application actions in one native menu while

@@ -6,7 +6,6 @@ export enum PlaylistSubtitleAction { add, clear }
 export struct PlaylistSubtitleTargets {
     single: bool,
     matched: int,
-    compact: bool,
 }
 
 export struct PlaylistDropHover {
@@ -18,11 +17,9 @@ export struct PlaylistDropHover {
 // Selection and keyboard focus belong to the player, not a recycled row.
 export global PlaylistInteraction {
     in-out property <int> playlist-menu-generation: 0;
-    callback request-playlist-menu(PlaylistMenuOrigin, string, float, float) -> bool;
-    callback has-local-file-targets(string) -> bool;
+    callback request-playlist-menu(PlaylistMenuOrigin, string, float, float);
     callback subtitle-targets(string) -> PlaylistSubtitleTargets;
     callback subtitle-action(PlaylistSubtitleAction, string);
-    in property <string> trash-action-label: "Move to Trash";
     in property <string> reveal-action-label: "Show in File Manager";
     in-out property <string> selected-playlist-token: "";
     in-out property <[string]> selected-playlist-tokens: [];
