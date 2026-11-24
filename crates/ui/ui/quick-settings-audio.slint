@@ -2,9 +2,10 @@ import { ScrollView } from "std-widgets.slint";
 import { ScrollReveal } from "scroll-reveal.slint";
 import { PlaybackAudioState } from "playback-audio-state.slint";
 import { Theme } from "theme.slint";
-import { PlayerSlider, VerticalEqualizerSlider } from "shared-controls.slint";
+import { VerticalEqualizerSlider } from "shared-controls.slint";
 import { Tool } from "player-tool.slint";
-import { QuickSettingsInput } from "quick-settings-input.slint";
+import { QuickSettingsDelayEditor } from "quick-settings-delay.slint";
+import { DelayLane } from "delay-lane.slint";
 import { QuickSettingsTrackList } from "quick-settings-tracks.slint";
 import { AudioEqualizerProfilePicker } from "equalizer-profile-picker.slint";
 
@@ -18,7 +19,7 @@ export component AudioQuickSettingsPage inherits VerticalLayout {
     callback load-external-audio();
     in property <bool> loaded;
     in property <bool> platform-windows;
-    callback preview-audio-delay(float);
+    callback format-delay-preview(float) -> string;
     callback rename-audio-equalizer-profile(string) -> bool;
     callback reset-audio-delay();
     callback restore-player-focus();
@@ -112,26 +113,20 @@ export component AudioQuickSettingsPage inherits VerticalLayout {
                 enabled: root.loaded && PlaybackAudioState.audio-delay != 0;
                 activated => { root.reset-audio-delay(); } }
         }
-        HorizontalLayout { height: 24px; spacing: 8px;
-            audio-delay-slider := PlayerSlider { height: 24px; dark-theme: root.dark-theme; minimum: -5; maximum: 5; step: 0.05; value: PlaybackAudioState.audio-delay;
-                focus-entered(top, height) => { root.focus-entered(top, height); }
-                commit-on-release: true;
-                enabled: root.loaded; neutral-mark: true; tick-count: 21;
-                show-value-label: true;
-                value-label: (audio-delay-slider.previewing
-                    ? PlaybackAudioState.audio-delay-preview-text : PlaybackAudioState.audio-delay-text) + "s";
-                hint: "Audio delay";
-                draft-changed(value) => { root.preview-audio-delay(value); }
-                changed(value) => { root.set-delay(round(value * 20) / 20); }
-                committed(value) => { root.set-delay(round(value * 20) / 20); } }
-            QuickSettingsInput { accent-color: root.interactive-accent-color; dark-theme: root.dark-theme;
-                focus-entered(top, height) => { root.focus-entered(top, height); }
-                windows-acrylic-surface: root.windows-sidebar-material-active;
-                observed-value: audio-delay-slider.previewing
-                    ? PlaybackAudioState.audio-delay-preview-text : PlaybackAudioState.audio-delay-text;
-                enabled: root.loaded; hint: "Audio delay in seconds";
-                committed(text) => { return root.set-delay-text(text); }
-                editing-finished => { root.restore-player-focus(); } }
+        QuickSettingsDelayEditor {
+            lane: DelayLane.audio;
+            label: "Audio delay";
+            delay: PlaybackAudioState.audio-delay;
+            delay-text: PlaybackAudioState.audio-delay-text;
+            enabled: root.loaded;
+            accent-color: root.interactive-accent-color;
+            dark-theme: root.dark-theme;
+            windows-acrylic-surface: root.windows-sidebar-material-active;
+            format-preview(value) => { return root.format-delay-preview(value); }
+            focus-entered(top, height) => { root.focus-entered(top, height); }
+            set-delay(_, value) => { root.set-delay(value); }
+            set-delay-text(_, text) => { return root.set-delay-text(text); }
+            editing-finished => { root.restore-player-focus(); }
         }
         HorizontalLayout { height: 12px; spacing: 8px;
             HorizontalLayout { horizontal-stretch: 1;

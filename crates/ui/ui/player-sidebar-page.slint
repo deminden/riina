@@ -44,7 +44,7 @@ export component PlayerSidebarPage inherits VerticalLayout {
         load-external-audio => { PlayerMenuActions.browse-files(1); }
         loaded: root.loaded;
         platform-windows: PlayerAppearance.platform-windows;
-        preview-audio-delay(value-1) => { PlayerSidebarActions.preview-audio-delay(value-1); }
+        format-delay-preview(value) => { return PlayerSidebarActions.format-delay-preview(value); }
         rename-audio-equalizer-profile(value-1) => { return PlayerSidebarActions.rename-audio-equalizer-profile(value-1); }
         reset-audio-delay => { PlayerMenuActions.reset-audio-delay(); }
         restore-player-focus => { root.restore-player-focus(); }
@@ -120,6 +120,7 @@ export component PlayerSidebarPage inherits VerticalLayout {
         dark-theme: PlayerAppearance.dark-theme;
         focus-entered(top, height) => { root.focus-entered(top, height); }
         find-online-subtitles => { PlayerMenuActions.find-online-subtitles(); }
+        format-delay-preview(value) => { return PlayerSidebarActions.format-delay-preview(value); }
         interactive-accent-color: PlayerAppearance.interactive-accent-color;
         load-subtitle => { PlayerMenuActions.browse-files(2); }
         loaded: root.loaded;

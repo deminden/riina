@@ -14,6 +14,9 @@ mod track_navigation;
 #[path = "quick_settings/equalizer.rs"]
 mod equalizer;
 
+#[path = "quick_settings/timing.rs"]
+mod timing;
+
 #[path = "quick_settings/workflows.rs"]
 mod workflows;
 

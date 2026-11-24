@@ -2870,3 +2870,37 @@ passed strict cross-Clippy.
 - Linux application SHA-256 `f29ff3c69845b50ba1c8731efccd69a4a4bbbacebaf81b37ab17e14f9c1eade5`
 - X11 libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`
 - Wayland libmpv SHA-256 `cdce854e1811942602587310026306d92d30c0f593f2be676f07659ae43061d8`
+
+### Quick Settings timing controls 2026-11-24
+
+The IINA v1.5.0 Subtitle pane previews the delay on its indicator and input
+field during a drag. It uses half-second ticks and applies the selected lane
+on release. The pinned capture shows the indicator and ticks at zero delay
+with the reset action hidden. [Reference REF-25](visual-reference-audit.md)
+
+In the X11 baseline, libmpv reported a subtitle delay of −0.645 seconds while
+the pointer was held. The candidate kept the native delay at zero through
+each held drag. Both subtitle lanes showed their draft and committed 2 seconds
+on release. Audio committed 2.1 seconds using its existing 50 ms increments.
+The primary delay stayed unchanged while editing the secondary delay. Playback
+kept the isolated fixture open and paused, and the exact process exited.
+
+The same binary and fixture passed the three held-drag checks on native
+Wayland in a private Sway session with XWayland disabled. That run resized
+the window before entering fullscreen. On a private
+Windows desktop, UI Automation applied values to both subtitle lanes and the
+audio slider. UI Automation also populated the custom speed field. Focus and
+Return submitted the edit, and libmpv reported 1.25×. The exact Windows
+process exited normally.
+
+The Windows full gate passed, including the grouped widget tests for both
+subtitle lanes, drag cancellation, keyboard focus and accessibility edits.
+Only the two Subtitles player frames changed in the headless pixel baselines.
+The light and dark differences were limited to the delay controls. All 78
+Python and 59 pinned engine tests passed. Apple Silicon cross-Clippy passed.
+Linux strict workspace Clippy, 538 application tests and 63 widget tests passed.
+
+- Windows application SHA-256 `d93a3e69ded787a69b09ee73a6ceec9be38afa5cbc64c90c215210f639c5c292`
+- Linux application SHA-256 `63b676b4d41506861b7a20abad3935200d118d046acb773d2b73b36f46bd0d10`
+- X11 libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`
+- Wayland libmpv SHA-256 `cdce854e1811942602587310026306d92d30c0f593f2be676f07659ae43061d8`

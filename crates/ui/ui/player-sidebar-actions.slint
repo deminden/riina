@@ -30,6 +30,6 @@ export global PlayerSidebarActions {
     callback set-subtitle-position(bool, float);
     callback set-delay(DelayLane, float);
     callback set-delay-text(DelayLane, string) -> bool;
-    callback preview-audio-delay(float);
+    callback format-delay-preview(float) -> string;
     callback reorder-playlist([string], int);
 }

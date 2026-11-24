@@ -1,0 +1,68 @@
+import { DelayLane } from "delay-lane.slint";
+import { PlayerSlider } from "shared-controls.slint";
+import { QuickSettingsInput } from "quick-settings-input.slint";
+
+export component QuickSettingsDelayEditor inherits HorizontalLayout {
+    in property <DelayLane> lane;
+    in property <float> delay;
+    in property <string> delay-text;
+    in property <string> label;
+    in property <length> field-width: 50px;
+    in property <bool> enabled;
+    in property <bool> dark-theme;
+    in property <bool> windows-acrylic-surface;
+    in property <color> accent-color;
+    callback format-preview(float) -> string;
+    callback set-delay(DelayLane, float);
+    callback set-delay-text(DelayLane, string) -> bool;
+    callback focus-entered(length, length);
+    callback editing-finished();
+
+    private property <string> draft-text;
+    private property <string> display-text: slider.previewing ? root.draft-text : root.delay-text;
+    changed lane => { root.cancel-edit(); }
+    height: 24px;
+    spacing: 8px;
+
+    public function cancel-edit() {
+        slider.cancel-gesture();
+        input.discard-draft();
+    }
+    function apply-delay(value: float) {
+        root.set-delay(root.lane, root.lane == DelayLane.audio ? round(value * 20) / 20 : value);
+    }
+
+    slider := PlayerSlider {
+        height: 24px;
+        dark-theme: root.dark-theme;
+        minimum: -5; maximum: 5;
+        step: root.lane == DelayLane.audio ? 0.05 : 0.1;
+        // IINA snaps audio to 50 ms and subtitle drags to the 21 visible ticks.
+        drag-step: root.lane == DelayLane.audio ? 0.05 : 0.5;
+        value: root.delay;
+        enabled: root.enabled;
+        hint: root.label;
+        focus-entered(top, height) => { root.focus-entered(top, height); }
+        commit-on-release: true;
+        neutral-mark: true;
+        tick-count: 21;
+        show-value-label: true;
+        value-label: root.display-text + "s";
+        draft-changed(value) => { root.draft-text = root.format-preview(value); }
+        changed(value) => { root.apply-delay(value); }
+        committed(value) => { root.apply-delay(value); }
+    }
+    input := QuickSettingsInput {
+        width: root.field-width;
+        accent-color: root.accent-color;
+        dark-theme: root.dark-theme;
+        windows-acrylic-surface: root.windows-acrylic-surface;
+        enabled: root.enabled;
+        observed-value: root.display-text;
+        secondary: root.lane == DelayLane.secondary-subtitle;
+        hint: root.label + " in seconds";
+        focus-entered(top, height) => { root.focus-entered(top, height); }
+        committed(text) => { return root.set-delay-text(root.lane, text); }
+        editing-finished => { root.editing-finished(); }
+    }
+}

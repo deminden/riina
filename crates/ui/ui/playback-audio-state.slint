@@ -21,7 +21,6 @@ export global PlaybackAudioState {
     in-out property <bool> audio-equalizer-can-save-profile: true;
     in-out property <float> audio-delay: 0;
     in-out property <string> audio-delay-text: "0";
-    in-out property <string> audio-delay-preview-text: "0";
 
     changed muted => { PlayerMenuActions.video-menu-changed(); }
     changed volume-menu-title => { PlayerMenuActions.video-menu-changed(); }

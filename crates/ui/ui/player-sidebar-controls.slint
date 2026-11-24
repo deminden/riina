@@ -268,6 +268,8 @@ export component SubtitleLaneSegment inherits Rectangle {
     in property <color> accent-foreground: Theme.sidebar-catalog-accent-text;
     in property <color> focus-accent-color: Theme.player-focus-accent;
     callback activated();
+    callback navigate(bool);
+    public function take-focus() { focus.focus(); }
     height: 24px;
     horizontal-stretch: 1;
     border-radius: 4px;
@@ -287,14 +289,17 @@ export component SubtitleLaneSegment inherits Rectangle {
         horizontal-alignment: center; vertical-alignment: center; }
     if focus.has-focus : Rectangle { border-width: 1px; border-color: root.focus-accent-color;
         border-radius: 4px; background: transparent; }
-    touch := TouchArea { clicked => { focus.focus(); root.activated(); } }
+    touch := TouchArea { clicked => { root.activated(); root.take-focus(); } }
     focus := FocusScope {
         focus-changed-event => { if self.has-focus { root.focus-entered(root.absolute-position.y, root.height); } }
         focus-on-click: false;
+        focus-on-tab-navigation: root.selected;
         key-pressed(event) => {
             // Lane choice is idempotent; modified player shortcuts still bubble.
             if event.modifiers.alt || event.modifiers.control || event.modifiers.meta || event.modifiers.shift { return reject; }
             if event.text == Key.Return || event.text == " " { root.activated(); return accept; }
+            if event.text == Key.LeftArrow || event.text == Key.Home { root.navigate(false); return accept; }
+            if event.text == Key.RightArrow || event.text == Key.End { root.navigate(true); return accept; }
             return reject;
         }
     }

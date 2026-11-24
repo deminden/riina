@@ -122,6 +122,7 @@ export component VideoQuickSettingsPage inherits VerticalLayout {
                     dark-theme: root.dark-theme;
                     windows-acrylic-surface: root.windows-sidebar-material-active;
                     observed-value: root.speed-edit-value;
+                    empty-value: "1";
                     enabled: root.loaded; hint: "Custom playback speed";
                     committed(text) => { return root.set-speed-text(text); }
                     editing-finished => { root.restore-player-focus(); }

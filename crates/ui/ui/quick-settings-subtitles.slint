@@ -2,7 +2,7 @@ import { PlaybackSubtitleState } from "playback-subtitle-state.slint";
 import { Theme } from "theme.slint";
 import { PlayerSlider } from "shared-controls.slint";
 import { Tool } from "player-tool.slint";
-import { QuickSettingsInput } from "quick-settings-input.slint";
+import { QuickSettingsDelayEditor } from "quick-settings-delay.slint";
 import { QuickSettingsTrackList } from "quick-settings-tracks.slint";
 import { DelayLane } from "delay-lane.slint";
 import { SubtitleVisibilityRow, SubtitleLaneSegment } from "player-sidebar-controls.slint";
@@ -21,6 +21,7 @@ export component SubtitleQuickSettingsPage inherits VerticalLayout {
     in property <bool> platform-windows;
     callback reset-subtitle-delay();
     callback restore-player-focus();
+    callback format-delay-preview(float) -> string;
     callback set-delay(DelayLane, float);
     callback set-delay-text(DelayLane, string) -> bool;
     callback set-subtitle-color(int, color);
@@ -37,6 +38,22 @@ export component SubtitleQuickSettingsPage inherits VerticalLayout {
     in property <color> windows-accent-color;
     in property <color> windows-accent-foreground;
     in property <bool> windows-sidebar-material-active;
+    private property <bool> secondary: PlaybackSubtitleState.edit-secondary-subtitle;
+    private property <bool> delay-enabled: loaded && (!secondary || PlaybackSubtitleState.secondary-subtitle-delay-known);
+    private property <float> selected-delay: secondary
+        ? PlaybackSubtitleState.secondary-subtitle-delay : PlaybackSubtitleState.subtitle-delay;
+
+    function select-delay-lane(secondary: bool) {
+        if secondary != root.secondary {
+            delay-editor.cancel-edit();
+            PlaybackSubtitleState.edit-secondary-subtitle = secondary;
+        }
+    }
+    function focus-delay-lane(secondary: bool) {
+        root.select-delay-lane(secondary);
+        if secondary { secondary-lane.take-focus(); }
+        else { primary-lane.take-focus(); }
+    }
 
     width: root.sidebar-width - (root.compact-ui ? 28px : 32px);
     spacing: root.compact-ui ? 16px : 18px;
@@ -145,22 +162,26 @@ export component SubtitleQuickSettingsPage inherits VerticalLayout {
             Rectangle { height: 28px; border-radius: 5px;
                 background: Theme.sidebar-delay-target-surface(root.dark-theme);
                 HorizontalLayout { padding: 2px; spacing: 1px;
-                    SubtitleLaneSegment { focus-accent-color: root.interactive-accent-color; label: "Primary"; hint: "Edit primary subtitle timing and position";
+                    primary-lane := SubtitleLaneSegment { focus-accent-color: root.interactive-accent-color;
+                        label: "Primary"; hint: "Edit primary subtitle timing and position";
                         focus-entered(top, height) => { root.focus-entered(top, height); }
                         selected: !PlaybackSubtitleState.edit-secondary-subtitle;
                         dark-theme: root.dark-theme;
                         windows-acrylic-surface: root.windows-sidebar-material-active;
                         accent-color: root.platform-windows ? root.windows-accent-color : Theme.sidebar-catalog-accent;
                         accent-foreground: root.windows-accent-foreground;
-                        activated => { PlaybackSubtitleState.edit-secondary-subtitle = false; } }
-                    SubtitleLaneSegment { focus-accent-color: root.interactive-accent-color; label: "Secondary"; hint: "Edit secondary subtitle timing and position";
+                        activated => { root.select-delay-lane(false); }
+                        navigate(secondary) => { root.focus-delay-lane(secondary); } }
+                    secondary-lane := SubtitleLaneSegment { focus-accent-color: root.interactive-accent-color;
+                        label: "Secondary"; hint: "Edit secondary subtitle timing and position";
                         focus-entered(top, height) => { root.focus-entered(top, height); }
                         selected: PlaybackSubtitleState.edit-secondary-subtitle;
                         dark-theme: root.dark-theme;
                         windows-acrylic-surface: root.windows-sidebar-material-active;
                         accent-color: root.platform-windows ? root.windows-accent-color : Theme.sidebar-catalog-accent;
                         accent-foreground: root.windows-accent-foreground;
-                        activated => { PlaybackSubtitleState.edit-secondary-subtitle = true; } }
+                        activated => { root.select-delay-lane(true); }
+                        navigate(secondary) => { root.focus-delay-lane(secondary); } }
                 }
             }
             HorizontalLayout { height: 20px; spacing: 8px;
@@ -169,36 +190,32 @@ export component SubtitleQuickSettingsPage inherits VerticalLayout {
                 Text { text: "Delay"; color: Theme.sidebar-detail-text(root.dark-theme);
                     font-size: 11px; vertical-alignment: center; }
                 Rectangle { horizontal-stretch: 1; background: transparent; }
-                Tool { accent-color: root.interactive-accent-color; dark-theme: root.dark-theme; label: "↺"; hint: "Reset subtitle delay";
+                Tool { accent-color: root.interactive-accent-color; dark-theme: root.dark-theme; label: "↺";
                     focus-entered(top, height) => { root.focus-entered(top, height); }
-                    enabled: root.loaded && (!PlaybackSubtitleState.edit-secondary-subtitle || PlaybackSubtitleState.secondary-subtitle-delay-known);
+                    hint: root.secondary ? "Reset secondary subtitle delay" : "Reset subtitle delay";
+                    visible: root.delay-enabled && root.selected-delay != 0;
+                    enabled: self.visible;
                     windows-acrylic-surface: root.windows-sidebar-material-active;
                     activated => {
-                        if PlaybackSubtitleState.edit-secondary-subtitle { root.set-delay(DelayLane.secondary-subtitle, 0); }
+                        if root.secondary { root.set-delay(DelayLane.secondary-subtitle, 0); }
                         else { root.reset-subtitle-delay(); }
                     } }
             }
-            HorizontalLayout { height: 24px; spacing: 8px;
-                subtitle-delay-slider := PlayerSlider { dark-theme: root.dark-theme;
-                    focus-entered(top, height) => { root.focus-entered(top, height); }
-                    minimum: -5; maximum: 5; step: 0.1;
-                    value: PlaybackSubtitleState.edit-secondary-subtitle ? PlaybackSubtitleState.secondary-subtitle-delay : PlaybackSubtitleState.subtitle-delay;
-                    enabled: root.loaded && (!PlaybackSubtitleState.edit-secondary-subtitle || PlaybackSubtitleState.secondary-subtitle-delay-known);
-                    hint: PlaybackSubtitleState.edit-secondary-subtitle ? "Secondary subtitle delay" : "Subtitle delay";
-                    changed(value) => { root.set-delay(PlaybackSubtitleState.edit-secondary-subtitle ? DelayLane.secondary-subtitle : DelayLane.primary-subtitle, value); } }
-                QuickSettingsInput { accent-color: root.interactive-accent-color;
-                    focus-entered(top, height) => { root.focus-entered(top, height); }
-                    dark-theme: root.dark-theme;
-                    windows-acrylic-surface: root.windows-sidebar-material-active;
-                    observed-value: PlaybackSubtitleState.edit-secondary-subtitle
+            delay-editor := QuickSettingsDelayEditor {
+                lane: root.secondary ? DelayLane.secondary-subtitle : DelayLane.primary-subtitle;
+                label: root.secondary ? "Secondary subtitle delay" : "Subtitle delay";
+                delay: root.selected-delay;
+                delay-text: root.secondary
                     ? PlaybackSubtitleState.secondary-subtitle-delay-text : PlaybackSubtitleState.subtitle-delay-text;
-                    secondary: PlaybackSubtitleState.edit-secondary-subtitle;
-                    enabled: root.loaded && (!PlaybackSubtitleState.edit-secondary-subtitle || PlaybackSubtitleState.secondary-subtitle-delay-known);
-                    hint: PlaybackSubtitleState.edit-secondary-subtitle ? "Secondary subtitle delay in seconds" : "Subtitle delay in seconds";
-                    committed(text) => {
-                        return root.set-delay-text(PlaybackSubtitleState.edit-secondary-subtitle ? DelayLane.secondary-subtitle : DelayLane.primary-subtitle, text);
-                    }
-                    editing-finished => { root.restore-player-focus(); } }
+                enabled: root.delay-enabled;
+                accent-color: root.interactive-accent-color;
+                dark-theme: root.dark-theme;
+                windows-acrylic-surface: root.windows-sidebar-material-active;
+                format-preview(value) => { return root.format-delay-preview(value); }
+                focus-entered(top, height) => { root.focus-entered(top, height); }
+                set-delay(lane, value) => { root.set-delay(lane, value); }
+                set-delay-text(lane, text) => { return root.set-delay-text(lane, text); }
+                editing-finished => { root.restore-player-focus(); }
             }
             HorizontalLayout { height: 14px; spacing: 8px;
                 HorizontalLayout { horizontal-stretch: 1;

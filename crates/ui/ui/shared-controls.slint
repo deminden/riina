@@ -42,6 +42,7 @@ export component PlayerSlider inherits Rectangle {
     in property <bool> scroll-override-enabled: false;
     in property <bool> scroll-disabled: false;
     in property <bool> commit-on-release: false;
+    in property <float> drag-step: step;
     out property <bool> is-dragging: false;
     out property <bool> previewing: drag-value-active;
     callback changed(float);
@@ -72,6 +73,20 @@ export component PlayerSlider inherits Rectangle {
     private property <bool> drag-value-active: false;
     private property <bool> awaiting-native-commit: false;
     private property <float> display-value: drag-value-active ? drag-value : value;
+    public function cancel-gesture() {
+        root.is-dragging = false;
+        root.awaiting-native-commit = false;
+        root.drag-value-active = false;
+    }
+    changed enabled => { if !root.enabled { root.cancel-gesture(); } }
+    function move-thumb(value: float) {
+        if root.commit-on-release {
+            root.drag-value = clamp(round(value / max(0.0001, root.drag-step)) * root.drag-step,
+                root.minimum, root.maximum);
+            root.drag-value-active = true;
+            root.draft-changed(root.drag-value);
+        } else { root.changed(value); }
+    }
     changed value => {
         if awaiting-native-commit {
             awaiting-native-commit = false;
@@ -171,19 +186,13 @@ export component PlayerSlider inherits Rectangle {
             else { root.preview-dismissed(); }
         }
         pointer-event(event) => {
-            if event.button == PointerEventButton.left && event.kind == PointerEventKind.down {
+            if event.kind == PointerEventKind.cancel && root.is-dragging { root.cancel-gesture(); }
+            else if event.button == PointerEventButton.left && event.kind == PointerEventKind.down {
                 root.is-dragging = true;
+                root.awaiting-native-commit = false;
                 focus.focus();
-                let pointer-value = root.minimum + clamp((self.mouse-x - root.track-inset) / root.track-width, 0, 1) * (root.maximum - root.minimum);
-                if root.commit-on-release {
-                    root.drag-value = clamp(round(pointer-value / max(0.0001, root.step)) * root.step,
-                        root.minimum, root.maximum);
-                    root.drag-value-active = true;
-                    root.draft-changed(root.drag-value);
-                } else {
-                    root.changed(pointer-value);
-                }
-            } else if event.button == PointerEventButton.left && event.kind == PointerEventKind.up {
+                root.move-thumb(root.pointer-value);
+            } else if event.button == PointerEventButton.left && event.kind == PointerEventKind.up && root.is-dragging {
                 root.is-dragging = false;
                 if root.commit-on-release && root.drag-value-active {
                     root.awaiting-native-commit = true;
@@ -200,17 +209,7 @@ export component PlayerSlider inherits Rectangle {
             return reject;
         }
         moved => {
-            if self.pressed {
-                let pointer-value = root.minimum + clamp((self.mouse-x - root.track-inset) / root.track-width, 0, 1) * (root.maximum - root.minimum);
-                if root.commit-on-release {
-                    root.drag-value = clamp(round(pointer-value / max(0.0001, root.step)) * root.step,
-                        root.minimum, root.maximum);
-                    root.drag-value-active = true;
-                    root.draft-changed(root.drag-value);
-                } else {
-                    root.changed(pointer-value);
-                }
-            }
+            if self.pressed && root.is-dragging { root.move-thumb(root.pointer-value); }
             if root.preview-enabled { root.preview-requested(pointer-value); }
         }
     }

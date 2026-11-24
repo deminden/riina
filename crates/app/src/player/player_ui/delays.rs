@@ -6,15 +6,9 @@ use slint::ComponentHandle;
 
 pub(super) fn install_sliders(app: &PlayerWindow, player: &CommandSender) {
     let delay_player = player.clone();
-    let preview_weak = app.as_weak();
     app.global::<riina_ui::PlayerSidebarActions>()
-        .on_preview_audio_delay(move |value| {
-            if let Some(app) = preview_weak.upgrade() {
-                app.global::<riina_ui::PlaybackAudioState>()
-                    .set_audio_delay_preview_text(
-                        crate::localized_number::format_delay(f64::from(value)).into(),
-                    );
-            }
+        .on_format_delay_preview(|value| {
+            crate::localized_number::format_delay(value.into()).into()
         });
     let weak = app.as_weak();
     app.global::<riina_ui::PlayerSidebarActions>()
