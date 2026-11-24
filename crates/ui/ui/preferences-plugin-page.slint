@@ -19,7 +19,7 @@ export component PluginsPreferencesPage inherits Rectangle {
     callback plugin-reordered(string, string);
 
     background: Theme.settings-content-surface(root.mica-backdrop-enabled);
-    Text { x: 20px; y: 16px; text: "Plugins"; font-size: Theme.settings-page-title-size; font-weight: 600; color: Theme.settings-page-heading; }
+    Text { x: 20px; y: 16px; text: @tr("Plugins"); font-size: Theme.settings-page-title-size; font-weight: 600; color: Theme.settings-page-heading; }
     Rectangle {
         x: 12px; y: 52px; width: parent.width - 24px; height: 104px;
         border-width: 1px; border-color: Theme.settings-card-border; border-radius: 13px; background: Theme.settings-network-card-surface(root.mica-backdrop-enabled);

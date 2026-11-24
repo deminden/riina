@@ -34,7 +34,7 @@ import { NativeTypography } from "shared-controls.slint";
 
 export component PreferencesWindow inherits Window {
     default-font-family: NativeTypography.system-font-family;
-    title: "Settings";
+    title: @tr("Settings");
     icon: @image-url("../../../assets/branding/svg/riina-app-icon-dark.svg");
     preferred-width: 600px;
     preferred-height: 620px;
@@ -136,13 +136,18 @@ export component PreferencesWindow inherits Window {
     out property <length> interface-thumbnail-target: 0px - (interface-thumbnail-y - 13px);
     out property <length> interface-pip-target: 0px - (interface-pip-y - 13px);
     out property <length> interface-accessibility-target: 0px - (interface-accessibility-y - 13px);
-    private property <length> general-expanded-height: (GeneralSettingsState.when-media-opened-expanded ? 166px : 0px)
+    private property <length> general-media-opened-height: GeneralSettingsState.when-media-opened-expanded ? 166px : 0px;
+    private property <length> general-expanded-height: root.general-media-opened-height
         + (GeneralSettingsState.pause-resume-when-expanded ? (GeneralSettingsState.pause-policies-available ? 168px : 104px) : 0px);
-    private property <length> general-power-y: 447px + root.general-expanded-height;
+    private property <length> general-window-y: 219px + root.general-expanded-height;
+    private property <length> general-power-y: root.general-window-y + 228px;
     private property <length> general-updates-y: root.general-power-y + 98px;
     private property <length> general-history-y: root.general-updates-y + 152px;
     private property <length> general-playlist-y: root.general-history-y + 221px;
     private property <length> general-screenshots-y: root.general-playlist-y + 248px;
+    out property <length> general-media-opened-target: 13px - 122px;
+    out property <length> general-pause-policy-target: 13px - 163px - root.general-media-opened-height;
+    out property <length> general-window-target: 13px - root.general-window-y;
     out property <length> general-updates-target: 13px - root.general-updates-y;
     out property <length> general-power-target: 13px - root.general-power-y;
     out property <length> general-history-target: 13px - root.general-history-y;
@@ -209,7 +214,7 @@ export component PreferencesWindow inherits Window {
     callback search-query-changed(string);
     callback search-selection-moved(int);
     callback search-selection-activated();
-    callback search-result-activated(int, string, string, int);
+    callback search-result-activated(int);
     in-out property <int> osc-position: 0;
     in-out property <bool> show-chapter-pos: false;
     in-out property <int> pip-window-behavior-index: 1;
@@ -368,6 +373,7 @@ export component PreferencesWindow inherits Window {
         mica-backdrop-enabled: root.mica-backdrop-enabled;
         settings-changed => { root.settings-changed(); }
         general-power-y: root.general-power-y;
+        general-window-y: root.general-window-y;
         general-updates-y: root.general-updates-y;
         general-history-y: root.general-history-y;
         general-playlist-y: root.general-playlist-y;
@@ -594,9 +600,7 @@ export component PreferencesWindow inherits Window {
         x: 8px; y: 48px;
         results: root.search-results;
         selected-index: root.selected-search-index;
-        activated(page-index, section-name, title, anchor-y) => {
-            root.search-result-activated(page-index, section-name, title, anchor-y);
-        }
+        activated(target) => { root.search-result-activated(target); }
     }
 
     KeyBindingDialogs {

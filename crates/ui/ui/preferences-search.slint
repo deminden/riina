@@ -1,8 +1,10 @@
+import { SettingsSearchText } from "settings-search-text.slint";
 import { Theme } from "theme.slint";
 import { ScrollView } from "std-widgets.slint";
 
 
 export struct PreferencesSearchResult {
+    target: int,
     page-index: int,
     page-name: string,
     section-name: string,
@@ -30,13 +32,13 @@ export component PreferenceSearchField inherits Rectangle {
         source: @image-url("../../../assets/icons/search.svg"); }
     if root.query.is-empty : Text {
         x: 31px; y: 0px; width: parent.width - 38px; height: parent.height;
-        text: "Search"; font-size: 13px; color: Theme.settings-search-secondary-text;
+        text: SettingsSearchText.placeholder; font-size: 13px; color: Theme.settings-search-secondary-text;
         vertical-alignment: center;
     }
     input := TextInput {
         x: 31px; y: 0px; width: parent.width - 38px; height: parent.height;
         text <=> root.query; single-line: true;
-        accessible-label: "Search Settings";
+        accessible-label: @tr("Search Settings");
         accessible-action-set-value(value) => { self.text = value; }
         key-pressed(event) => {
             if event.text == Key.DownArrow && root.result-count > 0 {
@@ -72,14 +74,14 @@ component PreferenceSearchGroupHeader inherits Rectangle {
 component PreferenceSearchResultRow inherits Rectangle {
     in property <PreferencesSearchResult> result;
     in property <bool> selected: false;
-    callback activated(int, string, string, int);
+    callback activated(int);
     width: 340px;
     height: 38px;
     background: selected ? Theme.settings-search-result-selection : touch.has-hover ? Theme.settings-search-result-hover : transparent;
     accessible-role: button;
     accessible-label: root.result.page-name + " " + root.result.section-name + " " + root.result.title;
     accessible-action-default => {
-        root.activated(root.result.page-index, root.result.section-name, root.result.title, root.result.anchor-y);
+        root.activated(root.result.target);
     }
 
     Text {
@@ -94,7 +96,7 @@ component PreferenceSearchResultRow inherits Rectangle {
     }
     touch := TouchArea {
         clicked => {
-            root.activated(root.result.page-index, root.result.section-name, root.result.title, root.result.anchor-y);
+            root.activated(root.result.target);
         }
     }
 }
@@ -102,7 +104,7 @@ component PreferenceSearchResultRow inherits Rectangle {
 export component PreferenceSearchResultCell inherits Rectangle {
     in property <PreferencesSearchResult> result;
     in property <bool> selected: false;
-    callback activated(int, string, string, int);
+    callback activated(int);
     width: 340px;
     height: 38px;
 
@@ -112,16 +114,14 @@ export component PreferenceSearchResultCell inherits Rectangle {
     if !root.result.is-header : PreferenceSearchResultRow {
         result: root.result;
         selected: root.selected;
-        activated(page-index, section-name, title, anchor-y) => {
-            root.activated(page-index, section-name, title, anchor-y);
-        }
+        activated(target) => { root.activated(target); }
     }
 }
 
 export component PreferenceSearchPopup inherits Rectangle {
     in property <[PreferencesSearchResult]> results;
     in property <int> selected-index;
-    callback activated(int, string, string, int);
+    callback activated(int);
 
     width: 340px;
     height: min(400px, max(120px, root.results.length * 38px));
@@ -134,7 +134,7 @@ export component PreferenceSearchPopup inherits Rectangle {
         horizontal-scrollbar-policy: always-off;
         if root.results.length == 0 : Text {
             width: parent.width; height: parent.height;
-            text: "No Results"; font-size: 13px; color: Theme.settings-search-secondary-text;
+            text: @tr("No Results"); font-size: 13px; color: Theme.settings-search-secondary-text;
             horizontal-alignment: center; vertical-alignment: center;
         }
         if root.results.length > 0 : VerticalLayout {
@@ -142,9 +142,7 @@ export component PreferenceSearchPopup inherits Rectangle {
             for result[index] in root.results : PreferenceSearchResultCell {
                 result: result;
                 selected: root.selected-index == index;
-                activated(page-index, section-name, title, anchor-y) => {
-                    root.activated(page-index, section-name, title, anchor-y);
-                }
+                activated(target) => { root.activated(target); }
             }
         }
     }

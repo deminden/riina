@@ -40,8 +40,8 @@ export component NetworkPreferencesPage inherits ScrollView {
     }
     Rectangle { width: parent.width; height: root.network-content-height;
     background: Theme.settings-content-surface(root.mica-backdrop-enabled);
-    Text { x: 28px; y: 16px; text: "Network"; font-size: 15px; font-weight: 600; color: Theme.settings-page-heading; }
-    Text { x: 28px; y: 54px; text: "Cache"; font-size: 13px; font-weight: 600; color: Theme.settings-section-heading; }
+    Text { x: 28px; y: 16px; text: @tr("Network"); font-size: 15px; font-weight: 600; color: Theme.settings-page-heading; }
+    Text { x: 28px; y: 54px; text: @tr("Cache"); font-size: 13px; font-weight: 600; color: Theme.settings-section-heading; }
     Rectangle { x: 20px; y: 80px; width: parent.width - 40px; height: 482px;
         border-radius: 12px; border-width: 1px; border-color: Theme.settings-network-card-border; background: Theme.settings-network-card-surface(root.mica-backdrop-enabled);
         // Match the reference's compact rows; explanations stay with the control they qualify.
@@ -117,7 +117,7 @@ export component NetworkPreferencesPage inherits ScrollView {
             }
         }
     }
-    Text { x: 28px; y: root.network-connection-y; text: "Network"; font-size: 13px; font-weight: 600; color: Theme.settings-section-heading; }
+    Text { x: 28px; y: root.network-connection-y; text: @tr("Network"); font-size: 13px; font-weight: 600; color: Theme.settings-section-heading; }
     Rectangle {
         x: 20px; y: root.network-connection-y + 26px; width: parent.width - 40px; height: 205px;
         border-radius: 12px; border-width: 1px; border-color: Theme.settings-network-card-border; background: Theme.settings-network-card-surface(root.mica-backdrop-enabled);
@@ -153,7 +153,7 @@ export component NetworkPreferencesPage inherits ScrollView {
             text: "Changes take effect after restarting riina.";
             font-size: 11px; color: Theme.settings-section-heading; vertical-alignment: center; }
     }
-    Text { x: 28px; y: root.network-online-y; text: "Online Videos (yt-dlp)"; font-size: 13px; font-weight: 600; color: Theme.settings-section-heading; }
+    Text { x: 28px; y: root.network-online-y; text: @tr("Online Videos (yt-dlp)"); font-size: 13px; font-weight: 600; color: Theme.settings-section-heading; }
         Rectangle { x: 20px; y: root.network-online-y + 26px; width: parent.width - 40px; height: 90px;
             border-radius: 12px; border-width: 1px; border-color: Theme.settings-network-card-border; background: Theme.settings-network-card-surface(root.mica-backdrop-enabled);
             Image { x: 12px; y: 14px; width: 18px; height: 18px;

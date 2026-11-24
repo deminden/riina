@@ -44,8 +44,10 @@ Implementation does not imply every state or platform is verified.
   History, Log Viewer, About, the audio and video filter windows, and the
   top-level player menu families. The application and idle macOS menus use
   the same captions where they share commands. The system language selects the
-  catalog, with English as the fallback. Settings, player controls and some
-  runtime messages still need translations.
+  catalog, with English as the fallback. The Settings window, page and section
+  labels, and General controls also use these catalogs. General search accepts
+  translated titles and English aliases. Other Settings controls, player
+  controls and some runtime messages still need translations.
 - **Linux menus** scroll in short players with either the regular bar or the
   compact Menu button. Menu titles switch on hover while a menu is open.
   Keyboard navigation and a Back control keep overlapping submenus reachable.

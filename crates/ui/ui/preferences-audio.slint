@@ -45,8 +45,8 @@ export component AudioPreferencesPage inherits ScrollView {
     horizontal-scrollbar-policy: always-off;
     Rectangle { width: parent.width; height: root.audio-content-height;
     background: Theme.settings-content-surface(root.mica-backdrop-enabled);
-    Text { x: 28px; y: 16px; text: "Audio"; font-size: 15px; font-weight: 600; color: Theme.settings-page-heading; }
-    Text { x: 28px; y: 50px; text: "Hardware"; font-size: 13px; font-weight: 600; color: Theme.settings-section-heading; }
+    Text { x: 28px; y: 16px; text: @tr("Audio"); font-size: 15px; font-weight: 600; color: Theme.settings-page-heading; }
+    Text { x: 28px; y: 50px; text: @tr("Hardware"); font-size: 13px; font-weight: 600; color: Theme.settings-section-heading; }
     Rectangle {
         x: 20px; y: 76px; width: parent.width - 40px; height: 240px;
         border-radius: 12px; border-width: 1px; border-color: Theme.settings-audio-card-border; background: Theme.settings-audio-card-surface(root.mica-backdrop-enabled);
@@ -64,7 +64,7 @@ export component AudioPreferencesPage inherits ScrollView {
         CheckBox { x: 14px; y: 188px; text: "E-AC-3"; checked <=> AudioSettingsState.audio-spdif-eac3; toggled => { root.settings-changed(); } }
         CheckBox { x: 104px; y: 188px; text: "TrueHD"; checked <=> AudioSettingsState.audio-spdif-truehd; toggled => { root.settings-changed(); } }
     }
-    Text { x: 28px; y: root.audio-volume-title-y; text: "Volume"; font-size: 13px; font-weight: 600; color: Theme.settings-section-heading; }
+    Text { x: 28px; y: root.audio-volume-title-y; text: @tr("Volume"); font-size: 13px; font-weight: 600; color: Theme.settings-section-heading; }
     Rectangle {
         x: 20px; y: root.audio-volume-title-y + 26px; width: parent.width - 40px; height: 250px;
         border-radius: 12px; border-width: 1px; border-color: Theme.settings-audio-card-border; background: Theme.settings-audio-card-surface(root.mica-backdrop-enabled);
@@ -80,7 +80,7 @@ export component AudioPreferencesPage inherits ScrollView {
         Text { x: 14px; y: 194px; width: 150px; height: 38px; text: "ReplayGain fallback (dB)"; font-size: 12px; color: Theme.settings-control-label; vertical-alignment: center; wrap: word-wrap; }
         PreferenceNumericInput { label: "ReplayGain fallback in decibels"; font-size: 12px; x: 176px; y: 201px; width: 68px; height: 24px; text <=> AudioSettingsState.audio-replay-gain-fallback-text; accepted => { root.settings-changed(); } }
     }
-    Text { x: 28px; y: root.audio-other-title-y; text: "Other"; font-size: 13px; font-weight: 600; color: Theme.settings-section-heading; }
+    Text { x: 28px; y: root.audio-other-title-y; text: @tr("Other"); font-size: 13px; font-weight: 600; color: Theme.settings-section-heading; }
     Rectangle {
         x: 20px; y: root.audio-other-title-y + 26px; width: parent.width - 40px; height: 220px;
         border-radius: 12px; border-width: 1px; border-color: Theme.settings-audio-card-border; background: Theme.settings-audio-card-surface(root.mica-backdrop-enabled);

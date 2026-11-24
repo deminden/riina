@@ -24,7 +24,7 @@ export component KeyBindingsPreferencesPage inherits ScrollView {
     Rectangle {
         width: parent.width; height: max(parent.height, KeyBindingSettingsState.key-binding-rows.length == 0 ? 310px : 290px + KeyBindingSettingsState.key-binding-rows.length * 32px);
         background: Theme.settings-content-surface(root.mica-backdrop-enabled);
-        Text { x: 28px; y: 16px; text: "Key Bindings";
+        Text { x: 28px; y: 16px; text: @tr("Key Bindings");
             font-size: Theme.settings-page-title-size; font-weight: 600; color: Theme.settings-page-heading; }
         Rectangle {
             x: 20px; y: 52px; width: parent.width - 40px; height: 42px;
@@ -84,7 +84,7 @@ export component KeyBindingsPreferencesPage inherits ScrollView {
                     source: @image-url("../../../assets/icons/search.svg"); }
                 if KeyBindingSettingsState.key-binding-search-query.is-empty : Text {
                     x: 30px; y: 0; width: parent.width - 38px; height: parent.height;
-                    text: "Search"; font-size: 11px; color: Theme.settings-key-binding-search-placeholder; vertical-alignment: center;
+                    text: @tr("Search"); font-size: 11px; color: Theme.settings-key-binding-search-placeholder; vertical-alignment: center;
                 }
                 TextInput {
                     x: 30px; y: 0; width: parent.width - 38px; height: parent.height;

@@ -27,7 +27,7 @@ export component UtilitiesPreferencesPage inherits ScrollView {
     horizontal-scrollbar-policy: always-off;
     Rectangle { width: parent.width; height: 700px;
         background: Theme.settings-content-surface(root.mica-backdrop-enabled);
-        Text { x: 28px; y: 16px; text: "Utilities"; font-size: 15px; font-weight: 600; color: Theme.settings-page-heading; }
+        Text { x: 28px; y: 16px; text: @tr("Utilities"); font-size: 15px; font-weight: 600; color: Theme.settings-page-heading; }
         Text { x: 20px; y: 52px; text: "Default Application"; font-size: 12px; font-weight: 600; color: Theme.settings-section-heading; }
         Rectangle { x: 20px; y: 81px; width: parent.width - 40px; height: 42px;
             border-width: 1px; border-color: Theme.settings-card-border; border-radius: 12px; background: Theme.settings-card-surface(root.mica-backdrop-enabled);
@@ -160,9 +160,9 @@ export component DefaultAppDialog inherits Rectangle {
             text: "Choose the media types you want Riina to open. Your system controls the final default selection.";
             font-size: 11px; color: Theme.settings-modal-message; wrap: word-wrap; }
         CheckBox { x: 24px; y: 96px; width: parent.width - 48px; height: 22px;
-            text: "Video"; checked <=> root.video; }
+            text: @tr("Video"); checked <=> root.video; }
         CheckBox { x: 24px; y: 122px; width: parent.width - 48px; height: 22px;
-            text: "Audio"; checked <=> root.audio; }
+            text: @tr("Audio"); checked <=> root.audio; }
         CheckBox { x: 24px; y: 148px; width: parent.width - 48px; height: 22px;
             text: "Playlists"; checked <=> root.playlist; }
         PreferenceActionButton {

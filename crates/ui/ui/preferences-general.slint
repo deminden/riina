@@ -60,6 +60,7 @@ export component GeneralPreferencesPage inherits ScrollView {
     in property <length> general-screenshots-target;
     in property <bool> mica-backdrop-enabled;
     callback settings-changed();
+    in property <length> general-window-y;
     in property <length> general-power-y;
     in property <length> general-updates-y;
     in property <length> general-history-y;
@@ -83,119 +84,117 @@ export component GeneralPreferencesPage inherits ScrollView {
     width: parent.width;
     height: root.general-content-height;
     background: Theme.settings-content-surface(root.mica-backdrop-enabled);
-    Text { x: 20px; y: 16px; text: "General"; font-size: 15px; font-weight: 600; color: Theme.settings-page-heading; }
-    Text { x: 20px; y: 52px; text: "Behavior"; font-weight: 600; font-size: 13px; color: Theme.settings-general-section-heading; }
+    Text { x: 20px; y: 16px; text: @tr("General"); font-size: 15px; font-weight: 600; color: Theme.settings-page-heading; }
+    Text { x: 20px; y: 52px; text: @tr("Behavior"); font-weight: 600; font-size: 13px; color: Theme.settings-general-section-heading; }
     Rectangle {
         x: 12px; y: 81px; width: parent.width - 24px;
         height: 122px + (GeneralSettingsState.when-media-opened-expanded ? 166px : 0px)
             + (GeneralSettingsState.pause-resume-when-expanded ? (GeneralSettingsState.pause-policies-available ? 168px : 104px) : 0px);
         border-width: 1px; border-color: Theme.settings-general-card-border; border-radius: 12px; background: Theme.settings-card-surface(root.mica-backdrop-enabled);
-        Text { x: 38px; y: 0; width: 120px; height: 40px; text: "At launch";
+        Text { x: 38px; y: 0; width: 120px; height: 40px; text: @tr("At launch");
             font-size: 13px; color: Theme.settings-page-heading; vertical-alignment: center; }
         ComboBox { x: 180px; y: 7px; width: parent.width - 192px; height: 26px;
-            model: ["Show welcome window", "Show open file panel", "Do nothing"];
+            model: [@tr("Show welcome window"), @tr("Show open file panel"), @tr("Do nothing")];
             current-index <=> GeneralSettingsState.launch-action-index;
             selected => { root.settings-changed(); }
         }
         Rectangle { x: 12px; y: 40px; width: parent.width - 24px; height: 1px; background: Theme.settings-general-divider; }
-        GeneralDisclosureRow { x: 0; y: 41px; width: parent.width; label: "When media is opened";
+        GeneralDisclosureRow { x: 0; y: 41px; width: parent.width; label: @tr("When media is opened");
             expanded: GeneralSettingsState.when-media-opened-expanded;
             activated => { GeneralSettingsState.when-media-opened-expanded = !GeneralSettingsState.when-media-opened-expanded; } }
         Rectangle { x: 12px; y: 81px + (GeneralSettingsState.when-media-opened-expanded ? 166px : 0px);
             width: parent.width - 24px; height: 1px; background: Theme.settings-general-divider; }
         if GeneralSettingsState.when-media-opened-expanded : GeneralSettingToggle {
             x: 12px; y: 82px; width: parent.width - 24px; height: 32px;
-            label: "Pause"; checked <=> GeneralSettingsState.pause-when-open;
+            label: @tr("Pause"); checked <=> GeneralSettingsState.pause-when-open;
             toggled => { root.settings-changed(); }
         }
         if GeneralSettingsState.when-media-opened-expanded : GeneralSettingToggle {
             x: 12px; y: 114px; width: parent.width - 24px; height: 32px;
-            label: "Enter fullscreen"; checked <=> GeneralSettingsState.fullscreen-when-open;
+            label: @tr("Enter fullscreen"); checked <=> GeneralSettingsState.fullscreen-when-open;
             toggled => { root.settings-changed(); }
         }
         if GeneralSettingsState.when-media-opened-expanded : GeneralSettingToggle {
             x: 12px; y: 146px; width: parent.width - 24px; height: 32px;
-            label: "Automatically switch to Music Mode";
+            label: @tr("Automatically switch to Music Mode");
             checked <=> GeneralSettingsState.auto-switch-to-music-mode; toggled => { root.settings-changed(); }
         }
         if GeneralSettingsState.when-media-opened-expanded : GeneralSettingToggle {
             x: 12px; y: 178px; width: parent.width - 24px; height: 32px;
-            label: "Show playlist in Music Mode";
+            label: @tr("Show playlist in Music Mode");
             checked <=> GeneralSettingsState.music-mode-show-playlist; toggled => { root.settings-changed(); }
         }
         if GeneralSettingsState.when-media-opened-expanded : GeneralSettingToggle {
             x: 12px; y: 210px; width: parent.width - 24px; height: 32px;
-            label: "Show album artwork in Music Mode";
+            label: @tr("Show album artwork in Music Mode");
             checked <=> GeneralSettingsState.music-mode-show-album-art; toggled => { root.settings-changed(); }
         }
         GeneralDisclosureRow {
             x: 0; y: 82px + (GeneralSettingsState.when-media-opened-expanded ? 166px : 0px);
-            width: parent.width; label: "Pause/resume when";
+            width: parent.width; label: @tr("Pause/resume when");
             expanded: GeneralSettingsState.pause-resume-when-expanded;
             activated => { GeneralSettingsState.pause-resume-when-expanded = !GeneralSettingsState.pause-resume-when-expanded; }
         }
         if GeneralSettingsState.pause-resume-when-expanded : GeneralSettingToggle {
             x: 12px; y: 122px + (GeneralSettingsState.when-media-opened-expanded ? 166px : 0px);
             width: parent.width - 24px; height: 32px;
-            label: "Play when entering fullscreen";
+            label: @tr("Play when entering fullscreen");
             checked <=> GeneralSettingsState.play-when-entering-fullscreen;
             toggled => { root.settings-changed(); }
         }
         if GeneralSettingsState.pause-resume-when-expanded : GeneralSettingToggle {
             x: 12px; y: 154px + (GeneralSettingsState.when-media-opened-expanded ? 166px : 0px);
             width: parent.width - 24px; height: 32px;
-            label: "Pause when leaving fullscreen";
+            label: @tr("Pause when leaving fullscreen");
             checked <=> GeneralSettingsState.pause-when-leaving-fullscreen;
             toggled => { root.settings-changed(); }
         }
         if GeneralSettingsState.pause-resume-when-expanded && GeneralSettingsState.pause-policies-available : GeneralSettingToggle {
             x: 12px; y: 186px + (GeneralSettingsState.when-media-opened-expanded ? 166px : 0px);
             width: parent.width - 24px; height: 32px;
-            label: "Window becomes inactive/active";
+            label: @tr("Window becomes inactive/active");
             checked <=> GeneralSettingsState.pause-when-inactive;
             toggled => { root.settings-changed(); }
         }
         if GeneralSettingsState.pause-resume-when-expanded : GeneralSettingToggle {
             x: 12px; y: (GeneralSettingsState.pause-policies-available ? 218px : 186px) + (GeneralSettingsState.when-media-opened-expanded ? 166px : 0px);
             width: parent.width - 24px; height: 32px;
-            label: "Minimized/un-minimized";
+            label: @tr("Minimized/un-minimized");
             checked <=> GeneralSettingsState.pause-when-minimized;
             toggled => { root.settings-changed(); }
         }
         if GeneralSettingsState.pause-resume-when-expanded && GeneralSettingsState.pause-policies-available : GeneralSettingToggle {
             x: 12px; y: 250px + (GeneralSettingsState.when-media-opened-expanded ? 166px : 0px);
             width: parent.width - 24px; height: 32px;
-            label: "Pause when machine goes to sleep";
+            label: @tr("Pause when machine goes to sleep");
             checked <=> GeneralSettingsState.pause-when-goes-to-sleep;
             toggled => { root.settings-changed(); }
         }
     }
     Rectangle {
-        x: 12px; y: 81px + 122px + 16px
-            + (GeneralSettingsState.when-media-opened-expanded ? 166px : 0px)
-            + (GeneralSettingsState.pause-resume-when-expanded ? (GeneralSettingsState.pause-policies-available ? 168px : 104px) : 0px);
+        x: 12px; y: root.general-window-y;
         width: parent.width - 24px; height: 212px;
         border-width: 1px; border-color: Theme.settings-general-card-border; border-radius: 12px; background: Theme.settings-card-surface(root.mica-backdrop-enabled);
         GeneralSettingToggle { x: 12px; y: 8px; width: parent.width - 24px; height: 36px;
-            label: "Always open media in new window";
+            label: @tr("Always open media in new window");
             checked <=> GeneralSettingsState.allow-multiple-windows; toggled => { root.settings-changed(); } }
         Rectangle { x: 24px; y: 47px; width: parent.width - 36px; height: 1px; background: Theme.settings-general-divider; }
         GeneralSettingToggle { x: 32px; y: 48px; width: parent.width - 44px; height: 40px;
-            label: "Group media in playlist when opening multiple files at once";
+            label: @tr("Group media in playlist when opening multiple files at once");
             checked <=> GeneralSettingsState.group-simultaneous-opens-in-playlist;
             enabled: GeneralSettingsState.allow-multiple-windows; toggled => { root.settings-changed(); } }
         Rectangle { x: 24px; y: 89px; width: parent.width - 36px; height: 1px; background: Theme.settings-general-divider; }
         GeneralSettingToggle { x: 32px; y: 90px; width: parent.width - 44px; height: 40px;
-            label: "Allow opening the same file in multiple windows";
+            label: @tr("Allow opening the same file in multiple windows");
             checked <=> GeneralSettingsState.allow-duplicate-players;
             enabled: GeneralSettingsState.allow-multiple-windows; toggled => { root.settings-changed(); } }
         Rectangle { x: 12px; y: 131px; width: parent.width - 24px; height: 1px; background: Theme.settings-general-divider; }
         GeneralSettingToggle { x: 12px; y: 132px; width: parent.width - 24px; height: 36px;
-            label: "Quit after all windows are closed";
+            label: @tr("Quit after all windows are closed");
             checked <=> GeneralSettingsState.quit-when-no-opened-window; toggled => { root.settings-changed(); } }
         Rectangle { x: 12px; y: 169px; width: parent.width - 24px; height: 1px; background: Theme.settings-general-divider; }
         GeneralSettingToggle { x: 12px; y: 170px; width: parent.width - 24px; height: 36px;
-            label: "Keep window open after playback finishes";
+            label: @tr("Keep window open after playback finishes");
             checked <=> GeneralSettingsState.keep-open-on-file-end; toggled => { root.settings-changed(); } }
     }
     Rectangle {
@@ -204,7 +203,7 @@ export component GeneralPreferencesPage inherits ScrollView {
         background: Theme.settings-card-surface(root.mica-backdrop-enabled);
         GeneralSettingToggle {
             x: 12px; y: 4px; width: parent.width - 24px; height: 36px;
-            label: "Prevent screen saver";
+            label: @tr("Prevent screen saver");
             checked <=> GeneralSettingsState.prevent-screen-saver;
             toggled => { GeneralSettingsState.playback-power-setting-changed(PlaybackPowerPreference.prevent-screen-saver); }
         }
@@ -214,7 +213,7 @@ export component GeneralPreferencesPage inherits ScrollView {
         }
         GeneralSettingToggle {
             x: 32px; y: 43px; width: parent.width - 44px; height: 36px;
-            label: "Allow screen saver for audio playback";
+            label: @tr("Allow screen saver for audio playback");
             enabled: GeneralSettingsState.prevent-screen-saver;
             checked <=> GeneralSettingsState.allow-screen-saver-for-audio;
             toggled => { GeneralSettingsState.playback-power-setting-changed(PlaybackPowerPreference.allow-audio); }
@@ -226,7 +225,7 @@ export component GeneralPreferencesPage inherits ScrollView {
         background: Theme.settings-card-surface(root.mica-backdrop-enabled);
         GeneralSettingToggle {
             x: 12px; y: 4px; width: parent.width - 24px; height: 36px;
-            label: "Check for updates automatically";
+            label: @tr("Check for updates automatically");
             checked <=> GeneralSettingsState.automatic-update-checks;
             toggled => { GeneralSettingsState.update-setting-changed(UpdatePreference.automatic); }
         }
@@ -235,14 +234,14 @@ export component GeneralPreferencesPage inherits ScrollView {
             background: Theme.settings-general-divider;
         }
         Text {
-            x: 38px; y: 43px; width: 120px; height: 37px; text: "Check every";
+            x: 38px; y: 43px; width: 120px; height: 37px; text: @tr("Check every");
             font-size: 13px; vertical-alignment: center;
             color: Theme.settings-page-heading;
         }
         ComboBox {
             x: 166px; y: 48px; width: parent.width - 182px; height: 27px;
-            model: ["Hour", "Day", "Week", "Month"];
-            accessible-label: "Update check interval";
+            model: [@tr("Hour"), @tr("Day"), @tr("Week"), @tr("Month")];
+            accessible-label: @tr("Update check interval");
             current-index <=> GeneralSettingsState.update-interval-index;
             enabled: GeneralSettingsState.automatic-update-checks;
             selected => { GeneralSettingsState.update-setting-changed(UpdatePreference.interval); }
@@ -253,67 +252,67 @@ export component GeneralPreferencesPage inherits ScrollView {
         }
         GeneralSettingToggle {
             x: 12px; y: 83px; width: parent.width - 24px; height: 36px;
-            label: "Receive beta updates";
+            label: @tr("Receive beta updates");
             checked <=> GeneralSettingsState.receive-prerelease-updates;
             toggled => { GeneralSettingsState.update-setting-changed(UpdatePreference.prereleases); }
         }
     }
     Text { x: 20px; y: root.general-history-y;
-        text: "History"; font-weight: 600; font-size: 13px; color: Theme.settings-general-section-heading; }
+        text: @tr("History"); font-weight: 600; font-size: 13px; color: Theme.settings-general-section-heading; }
     Rectangle { x: 12px; y: root.general-history-y + 29px;
         width: parent.width - 24px; height: 164px;
         border-width: 1px; border-color: Theme.settings-general-card-border; border-radius: 12px; background: Theme.settings-card-surface(root.mica-backdrop-enabled);
-        CheckBox { x: 16px; y: 6px; height: 32px; text: "Resume last position";
+        CheckBox { x: 16px; y: 6px; height: 32px; text: @tr("Resume last position");
             checked <=> GeneralSettingsState.resume-last-position; toggled => { root.settings-changed(); } }
         Rectangle { x: 12px; y: 43px; width: parent.width - 24px; height: 1px; background: Theme.settings-general-divider; }
-        CheckBox { x: 16px; y: 48px; height: 32px; text: "Record playback history";
+        CheckBox { x: 16px; y: 48px; height: 32px; text: @tr("Record playback history");
             checked <=> GeneralSettingsState.record-playback-history; toggled => { root.settings-changed(); } }
         Rectangle { x: 12px; y: 83px; width: parent.width - 24px; height: 1px; background: Theme.settings-general-divider; }
-        CheckBox { x: 16px; y: 88px; height: 32px; text: "Enable \"Open Recent\" menu";
+        CheckBox { x: 16px; y: 88px; height: 32px; text: @tr("Enable \"Open Recent\" menu");
             checked <=> GeneralSettingsState.record-recent-files; toggled => { root.settings-changed(); } }
         Rectangle { x: 24px; y: 123px; width: parent.width - 36px; height: 1px; background: Theme.settings-general-divider; }
         CheckBox { x: 32px; y: 128px; width: parent.width - 48px; height: 32px;
-            text: "Track all played files in \"Open Recent\" menu";
+            text: @tr("Track all played files in \"Open Recent\" menu");
             checked <=> GeneralSettingsState.track-all-files-in-recent-open-menu;
             enabled: GeneralSettingsState.record-recent-files; toggled => { root.settings-changed(); } }
     }
     Text { x: 20px; y: root.general-playlist-y;
-        text: "Playlist"; font-weight: 600; font-size: 13px; color: Theme.settings-general-section-heading; }
+        text: @tr("Playlist"); font-weight: 600; font-size: 13px; color: Theme.settings-general-section-heading; }
     Rectangle { x: 12px; y: root.general-playlist-y + 28px;
         width: parent.width - 24px; height: 192px;
         border-width: 1px; border-color: Theme.settings-general-card-border; border-radius: 12px; background: Theme.settings-card-surface(root.mica-backdrop-enabled);
-        CheckBox { x: 16px; y: 2px; height: 28px; text: "Add files in the same folder automatically";
+        CheckBox { x: 16px; y: 2px; height: 28px; text: @tr("Add files in the same folder automatically");
             checked <=> GeneralSettingsState.playlist-auto-add; toggled => { root.settings-changed(); } }
         Rectangle { x: 12px; y: 32px; width: parent.width - 24px; height: 1px; background: Theme.settings-general-divider; }
-        CheckBox { x: 16px; y: 34px; height: 28px; text: "Play next item automatically";
+        CheckBox { x: 16px; y: 34px; height: 28px; text: @tr("Play next item automatically");
             checked <=> GeneralSettingsState.playlist-auto-play-next; toggled => { root.settings-changed(); } }
         Rectangle { x: 12px; y: 64px; width: parent.width - 24px; height: 1px; background: Theme.settings-general-divider; }
         CheckBox { x: 16px; y: 66px; width: parent.width - 32px; height: 28px;
-            text: "Show artist and track name for audio files when available";
+            text: @tr("Show artist and track name for audio files when available");
             checked <=> GeneralSettingsState.playlist-show-metadata; toggled => { root.settings-changed(); } }
         CheckBox { x: 36px; y: 94px; width: parent.width - 52px; height: 28px;
-            text: "Only in Music Mode"; enabled: GeneralSettingsState.playlist-show-metadata;
+            text: @tr("Only in Music Mode"); enabled: GeneralSettingsState.playlist-show-metadata;
             checked <=> GeneralSettingsState.playlist-show-metadata-in-music-mode;
             toggled => { root.settings-changed(); } }
         Rectangle { x: 12px; y: 124px; width: parent.width - 24px; height: 1px; background: Theme.settings-general-divider; }
         CheckBox { x: 16px; y: 128px; width: parent.width - 32px; height: 28px;
-            text: "Loop when a file is opened manually";
+            text: @tr("Loop when a file is opened manually");
             checked <=> GeneralSettingsState.auto-repeat; toggled => { root.settings-changed(); } }
         ComboBox { x: 36px; y: 158px; width: parent.width - 52px; height: 26px;
-            model: ["Loop playlist", "Loop file"];
+            model: [@tr("Loop playlist"), @tr("Loop file")];
             current-index <=> GeneralSettingsState.default-repeat-mode-index;
             enabled: GeneralSettingsState.auto-repeat;
             selected => { root.settings-changed(); }
         }
     }
     Text { x: 20px; y: root.general-screenshots-y;
-        text: "Screenshots"; font-weight: 600; font-size: 13px; color: Theme.settings-general-section-heading; }
+        text: @tr("Screenshots"); font-weight: 600; font-size: 13px; color: Theme.settings-general-section-heading; }
     Rectangle { x: 12px; y: root.general-screenshots-y + 28px;
         width: parent.width - 24px; height: 184px;
     border-width: 1px; border-color: Theme.settings-general-card-border; border-radius: 12px; background: Theme.settings-card-surface(root.mica-backdrop-enabled);
-    Text { x: 16px; y: 8px; text: "Destination:"; font-size: 13px; color: Theme.settings-page-heading; }
-    Text { x: 16px; y: 112px; text: "Options:"; font-size: 13px; color: Theme.settings-page-heading; }
-    CheckBox { x: 120px; y: 28px; height: 24px; text: "Save to";
+    Text { x: 16px; y: 8px; text: @tr("Destination:"); font-size: 13px; color: Theme.settings-page-heading; }
+    Text { x: 16px; y: 112px; text: @tr("Options:"); font-size: 13px; color: Theme.settings-page-heading; }
+    CheckBox { x: 120px; y: 28px; height: 24px; text: @tr("Save to");
         checked <=> GeneralSettingsState.save-to-file;
         toggled => { root.settings-changed(); }
     }
@@ -322,7 +321,7 @@ export component GeneralPreferencesPage inherits ScrollView {
     FolderChooser { x: parent.width - 43px; y: 29px; width: 24px; height: 22px;
         enabled: GeneralSettingsState.save-to-file && !GeneralSettingsState.folder-dialog-open;
         activated => { root.choose-folder(); } }
-    Text { x: 137px; y: 56px; text: "Format:"; font-size: 13px; color: Theme.settings-page-heading; }
+    Text { x: 137px; y: 56px; text: @tr("Format:"); font-size: 13px; color: Theme.settings-page-heading; }
     ComboBox {
         x: 194px; y: 52px; width: 132px; height: 24px;
         model: ["PNG", "JPEG (.jpg)", "JPEG (.jpeg)", "WebP (.webp)", "JPEG XL (.jxl)"];
@@ -330,15 +329,15 @@ export component GeneralPreferencesPage inherits ScrollView {
         enabled: GeneralSettingsState.save-to-file;
         selected => { root.settings-changed(); }
     }
-    CheckBox { x: 120px; y: 80px; height: 24px; text: "Copy to clipboard";
+    CheckBox { x: 120px; y: 80px; height: 24px; text: @tr("Copy to clipboard");
         checked <=> GeneralSettingsState.copy-to-clipboard;
         toggled => { root.settings-changed(); }
     }
-    CheckBox { x: 120px; y: 136px; height: 24px; text: "Include subtitles";
+    CheckBox { x: 120px; y: 136px; height: 24px; text: @tr("Include subtitles");
         checked <=> GeneralSettingsState.include-subtitles;
         toggled => { root.settings-changed(); }
     }
-    CheckBox { x: 120px; y: 160px; height: 24px; text: "Show previews after taking screenshots";
+    CheckBox { x: 120px; y: 160px; height: 24px; text: @tr("Show previews after taking screenshots");
         checked <=> GeneralSettingsState.show-preview;
         toggled => { root.settings-changed(); }
     }

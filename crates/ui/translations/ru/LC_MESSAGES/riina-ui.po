@@ -839,3 +839,258 @@ msgstr "Ещё…"
 
 msgid "Delete"
 msgstr "Удалить"
+
+msgid "Settings"
+msgstr "Настройки"
+
+msgid "Search"
+msgstr "Поиск"
+
+msgid "Search Settings"
+msgstr "Поиск по настройкам"
+
+msgid "No Results"
+msgstr "Ничего не найдено"
+
+msgid "General"
+msgstr "Основные"
+
+msgid "Behavior"
+msgstr "Поведение"
+
+msgid "History"
+msgstr "История"
+
+msgid "Screenshots"
+msgstr "Снимки экрана"
+
+msgid "Interface"
+msgstr "Интерфейс"
+
+msgid "Appearance"
+msgstr "Оформление"
+
+msgid "On Screen Controller"
+msgstr "Управление на экране"
+
+msgid "On Screen Display"
+msgstr "Информация на экране"
+
+msgid "On-Screen Controller"
+msgstr "Управление на экране"
+
+msgid "On-Screen Display"
+msgstr "Информация на экране"
+
+msgid "Thumbnail Preview"
+msgstr "Эскизы на шкале времени"
+
+msgid "Picture-in-Picture"
+msgstr "Картинка в картинке"
+
+msgid "Accessibility"
+msgstr "Универсальный доступ"
+
+msgid "Auto Load"
+msgstr "Автозагрузка"
+
+msgid "ASS Subtitles"
+msgstr "Субтитры ASS"
+
+msgid "Text Subtitles"
+msgstr "Текстовые субтитры"
+
+msgid "Position"
+msgstr "Положение"
+
+msgid "Online Subtitles"
+msgstr "Субтитры из интернета"
+
+msgid "Other"
+msgstr "Другое"
+
+msgid "Network"
+msgstr "Сеть"
+
+msgid "Cache"
+msgstr "Кэш"
+
+msgid "Online Videos (yt-dlp)"
+msgstr "Видео из интернета (yt-dlp)"
+
+msgid "Hardware"
+msgstr "Оборудование"
+
+msgid "Volume"
+msgstr "Громкость"
+
+msgid "Control"
+msgstr "Управление"
+
+msgid "Key Bindings"
+msgstr "Сочетания клавиш"
+
+msgid "Advanced"
+msgstr "Дополнительно"
+
+msgid "Plugins"
+msgstr "Плагины"
+
+msgid "Utilities"
+msgstr "Утилиты"
+
+msgid "At launch"
+msgstr "При запуске"
+
+msgid "Show welcome window"
+msgstr "Окно приветствия"
+
+msgid "Show open file panel"
+msgstr "Окно выбора файла"
+
+msgid "Do nothing"
+msgstr "Ничего не делать"
+
+msgid "When media is opened"
+msgstr "При открытии медиафайла"
+
+msgid "Enter fullscreen"
+msgstr "Перейти в полноэкранный режим"
+
+msgid "Automatically switch to Music Mode"
+msgstr "Автоматически включать режим музыки"
+
+msgid "Show playlist in Music Mode"
+msgstr "Показывать плейлист в режиме музыки"
+
+msgid "Show album artwork in Music Mode"
+msgstr "Показывать обложку в режиме музыки"
+
+msgid "Pause/resume when"
+msgstr "Пауза и продолжение"
+
+msgid "Play when entering fullscreen"
+msgstr "Воспроизводить при переходе на полный экран"
+
+msgid "Pause when leaving fullscreen"
+msgstr "Приостановить при выходе из полноэкранного режима"
+
+msgid "Window becomes inactive/active"
+msgstr "Окно теряет или получает фокус"
+
+msgid "Minimized/un-minimized"
+msgstr "Сворачивание и разворачивание окна"
+
+msgid "Pause when machine goes to sleep"
+msgstr "Приостановить при переходе в спящий режим"
+
+msgid "Always open media in new window"
+msgstr "Всегда открывать медиафайлы в новом окне"
+
+msgid "Group media in playlist when opening multiple files at once"
+msgstr "Собирать вместе открытые файлы в плейлист"
+
+msgid "Allow opening the same file in multiple windows"
+msgstr "Разрешить открытие файла в нескольких окнах"
+
+msgid "Quit after all windows are closed"
+msgstr "Выходить после закрытия всех окон"
+
+msgid "Keep window open after playback finishes"
+msgstr "Оставлять окно открытым после завершения воспроизведения"
+
+msgid "Prevent screen saver"
+msgstr "Не запускать заставку"
+
+msgid "Allow screen saver for audio playback"
+msgstr "Разрешить заставку при воспроизведении аудио"
+
+msgid "Check for updates automatically"
+msgstr "Автоматически проверять обновления"
+
+msgid "Check every"
+msgstr "Проверять каждые"
+
+msgid "Hour"
+msgstr "Час"
+
+msgid "Day"
+msgstr "День"
+
+msgid "Week"
+msgstr "Неделя"
+
+msgid "Month"
+msgstr "Месяц"
+
+msgid "Update check interval"
+msgstr "Интервал проверки обновлений"
+
+msgid "Receive beta updates"
+msgstr "Получать бета-версии"
+
+msgid "Resume last position"
+msgstr "Продолжить с последней позиции"
+
+msgid "Record playback history"
+msgstr "Сохранять историю воспроизведения"
+
+msgid "Add files in the same folder automatically"
+msgstr "Автоматически добавлять файлы из той же папки"
+
+msgid "Play next item automatically"
+msgstr "Автопереход к следующему элементу"
+
+msgid "Show artist and track name for audio files when available"
+msgstr "Показывать исполнителя и название аудиозаписи"
+
+msgid "Only in Music Mode"
+msgstr "Только в режиме музыки"
+
+msgid "Loop when a file is opened manually"
+msgstr "Зацикливать файл при открытии вручную"
+
+msgid "Destination:"
+msgstr "Назначение:"
+
+msgid "Options:"
+msgstr "Параметры:"
+
+msgid "Save to"
+msgstr "В файл"
+
+msgid "Format:"
+msgstr "Формат:"
+
+msgid "Format"
+msgstr "Формат"
+
+msgid "Copy to clipboard"
+msgstr "Копировать в буфер обмена"
+
+msgid "Include subtitles"
+msgstr "Включать субтитры"
+
+msgid "Show previews after taking screenshots"
+msgstr "Показывать эскиз снимка"
+
+msgid "Enable \"Open Recent\" menu"
+msgstr "Показывать меню «Открыть недавние»"
+
+msgid "Track all played files in \"Open Recent\" menu"
+msgstr "Все проигранные файлы в «Недавних»"
+
+msgid "Loop playlist"
+msgstr "Зациклить плейлист"
+
+msgid "Loop file"
+msgstr "Зациклить файл"
+
+msgid "Choose screenshot save path"
+msgstr "Выбрать папку для снимков экрана"
+
+msgid "Decoding"
+msgstr "Декодирование"
+
+msgid "Color and HDR"
+msgstr "Цвет и HDR"

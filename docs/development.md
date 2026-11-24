@@ -208,7 +208,9 @@ catalog's plural rules for translated counts.
 Russian and Arabic cover interface labels in Welcome, Open URL, Playback
 History, Log Viewer, About, the audio and video filter windows, and the player
 menus. The idle macOS menus share the application and playback message bundles.
-Settings, player controls, technical labels and some runtime messages still need translations.
+Settings uses the catalogs for navigation, headings, the General page and its
+search results. Other Settings controls, player controls, technical labels and
+some runtime messages still need translations.
 The widget suite checks localized actions, plural
 forms, mixed-direction text and a long label in a narrow dialog.
 

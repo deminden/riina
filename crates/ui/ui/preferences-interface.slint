@@ -114,13 +114,13 @@ export component InterfacePreferencesPage inherits ScrollView {
     }
     Rectangle { width: parent.width; height: root.interface-content-height;
         background: Theme.settings-content-surface(root.mica-backdrop-enabled);
-    Text { x: 28px; y: 16px; text: "Interface"; font-size: Theme.settings-page-title-size; font-weight: 600; color: Theme.settings-page-heading; }
-    Text { x: 28px; y: 52px; text: "Appearance";
+    Text { x: 28px; y: 16px; text: @tr("Interface"); font-size: Theme.settings-page-title-size; font-weight: 600; color: Theme.settings-page-heading; }
+    Text { x: 28px; y: 52px; text: @tr("Appearance");
         font-size: 13px; font-weight: 600; color: Theme.settings-general-section-heading; }
     Rectangle { x: 20px; y: root.interface-appearance-card-y;
         width: parent.width - 40px; height: root.interface-appearance-card-height;
         border-width: 1px; border-color: Theme.settings-option-border; border-radius: Theme.settings-card-corner; background: Theme.settings-card-surface(root.mica-backdrop-enabled);
-        Text { x: 36px; y: 8px; text: "Appearance";
+        Text { x: 36px; y: 8px; text: @tr("Appearance");
             font-size: 12px; color: Theme.settings-page-heading; vertical-alignment: center; }
         ComboBox { x: 160px; y: 4px; width: 190px; height: 24px;
             model: ["Dark", "Light", "Match System Appearance"];
@@ -133,11 +133,11 @@ export component InterfacePreferencesPage inherits ScrollView {
         }
         if root.liquid-glass-expanded : VerticalLayout {
             x: 52px; y: 80px; width: parent.width - 68px; height: 84px; spacing: 0px;
-            PreferenceSwitch { height: 28px; label: "On-Screen Display";
+            PreferenceSwitch { height: 28px; label: @tr("On-Screen Display");
                 checked <=> root.liquid-glass-osd;
                 toggled => { root.settings-changed(); }
             }
-            PreferenceSwitch { height: 28px; label: "On-Screen Controller";
+            PreferenceSwitch { height: 28px; label: @tr("On-Screen Controller");
                 checked <=> root.liquid-glass-osc;
                 toggled => { root.settings-changed(); }
             }
@@ -152,7 +152,7 @@ export component InterfacePreferencesPage inherits ScrollView {
             toggled => { root.settings-changed(); }
         }
     }
-    Text { x: 28px; y: root.interface-window-title-y; text: "Window";
+    Text { x: 28px; y: root.interface-window-title-y; text: @tr("Window");
         font-size: 13px; font-weight: 600; color: Theme.settings-general-section-heading; }
     Rectangle { x: 20px; y: root.interface-window-y; width: parent.width - 40px; height: root.interface-window-card-height;
         border-width: 1px; border-color: Theme.settings-option-border; border-radius: Theme.settings-card-corner; background: Theme.settings-card-surface(root.mica-backdrop-enabled);
@@ -415,7 +415,7 @@ export component InterfacePreferencesPage inherits ScrollView {
     Rectangle { x: 20px; y: root.interface-osd-y + 108px + root.osd-suppression-detail-height;
         width: parent.width - 40px; height: 112px;
         border-width: 1px; border-color: Theme.settings-option-border; border-radius: Theme.settings-card-corner; background: Theme.settings-card-surface(root.mica-backdrop-enabled);
-        Text { x: 36px; y: 4px; text: "On-Screen Display";
+        Text { x: 36px; y: 4px; text: @tr("On-Screen Display");
             font-size: 12px; color: Theme.settings-page-heading; vertical-alignment: center; }
         Text { x: 36px; y: 39px; width: 132px; height: 24px; text: "Auto hide after:";
             font-size: 12px; color: Theme.settings-page-heading; vertical-alignment: center; }
@@ -445,7 +445,7 @@ export component InterfacePreferencesPage inherits ScrollView {
             toggled => { root.settings-changed(); }
         }
     }
-    Text { x: 28px; y: root.interface-pip-y; text: "Picture-in-Picture";
+    Text { x: 28px; y: root.interface-pip-y; text: @tr("Picture-in-Picture");
         font-size: 13px; font-weight: 600; color: Theme.settings-section-heading; }
     Rectangle {
         x: 20px; y: root.interface-pip-y + 28px; width: parent.width - 40px;
@@ -477,7 +477,7 @@ export component InterfacePreferencesPage inherits ScrollView {
         x: 20px; y: root.interface-thumbnail-y;
         width: parent.width - 40px; height: 220px;
         border-width: 1px; border-color: Theme.settings-option-border; border-radius: Theme.settings-card-corner; background: Theme.settings-card-surface(root.mica-backdrop-enabled);
-        Text { x: 0; y: 8px; text: "Thumbnail Preview";
+        Text { x: 0; y: 8px; text: @tr("Thumbnail Preview");
             font-weight: 600; font-size: 13px; color: Theme.settings-page-heading; }
         PreferenceSwitch { x: 16px; y: 36px; width: parent.width - 32px;
             label: "Enable thumbnail preview";
@@ -518,7 +518,7 @@ export component InterfacePreferencesPage inherits ScrollView {
         x: 20px; y: root.interface-accessibility-y;
         width: parent.width - 40px; height: 80px;
         border-width: 1px; border-color: Theme.settings-option-border; border-radius: Theme.settings-card-corner; background: Theme.settings-card-surface(root.mica-backdrop-enabled);
-        Text { x: 0; y: 8px; text: "Accessibility";
+        Text { x: 0; y: 8px; text: @tr("Accessibility");
             font-weight: 600; font-size: 13px; color: Theme.settings-page-heading; }
         PreferenceSwitch { x: 16px; y: 29px; width: parent.width - 32px;
             label: "Disable animations"; checked <=> root.disable-animations;

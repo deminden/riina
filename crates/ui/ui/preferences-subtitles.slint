@@ -83,8 +83,8 @@ export component SubtitlesPreferencesPage inherits ScrollView {
     }
     Rectangle { x: 0px; y: 0px; width: parent.width; height: root.subtitle-content-height;
         background: Theme.settings-content-surface(root.mica-backdrop-enabled);
-        Text { x: 28px; y: 16px; text: "Subtitles"; font-size: 15px; font-weight: 600; color: Theme.settings-page-heading; }
-        Text { x: 28px; y: 52px; text: "Auto Load"; font-size: 13px; font-weight: 600; color: Theme.settings-section-heading; }
+        Text { x: 28px; y: 16px; text: @tr("Subtitles"); font-size: 15px; font-weight: 600; color: Theme.settings-page-heading; }
+        Text { x: 28px; y: 52px; text: @tr("Auto Load"); font-size: 13px; font-weight: 600; color: Theme.settings-section-heading; }
         Rectangle { x: 20px; y: 78px; width: parent.width - 40px; height: root.subtitle-autoload-height;
             border-width: 1px; border-color: Theme.settings-card-border; border-radius: 12px; background: Theme.settings-card-surface(root.mica-backdrop-enabled);
             Text { x: 14px; y: 6px; width: 80px; height: 28px; text: "Auto load"; font-size: 12px; color: Theme.settings-control-label; vertical-alignment: center; }
@@ -93,7 +93,7 @@ export component SubtitlesPreferencesPage inherits ScrollView {
                 selected => { root.settings-changed(); }
             }
             Rectangle { x: 14px; y: 40px; width: parent.width - 28px; height: 1px; background: Theme.settings-card-border; }
-            GeneralDisclosureRow { x: 0px; y: 41px; width: parent.width; label: "Advanced";
+            GeneralDisclosureRow { x: 0px; y: 41px; width: parent.width; label: @tr("Advanced");
                 expanded: SubtitleSettingsState.subtitle-auto-load-advanced-expanded;
                 activated => { SubtitleSettingsState.subtitle-auto-load-advanced-expanded = !SubtitleSettingsState.subtitle-auto-load-advanced-expanded; }
             }
@@ -115,7 +115,7 @@ export component SubtitlesPreferencesPage inherits ScrollView {
                 }
             }
         }
-        Text { x: 28px; y: root.subtitle-ass-y; text: "ASS Subtitles"; font-size: 13px; font-weight: 600; color: Theme.settings-section-heading; }
+        Text { x: 28px; y: root.subtitle-ass-y; text: @tr("ASS Subtitles"); font-size: 13px; font-weight: 600; color: Theme.settings-section-heading; }
         Rectangle { x: 20px; y: root.subtitle-ass-y + 26px; width: parent.width - 40px; height: 354px;
             border-width: 1px; border-color: Theme.settings-card-border; border-radius: 12px; background: Theme.settings-card-surface(root.mica-backdrop-enabled);
             Text { x: 14px; y: 12px; width: 150px; height: 26px; text: "Override level"; font-size: 12px; color: Theme.settings-control-label; vertical-alignment: center; }
@@ -132,7 +132,7 @@ export component SubtitlesPreferencesPage inherits ScrollView {
                 activated => { root.choose-subtitle-override(index); }
             }
         }
-        Text { x: 28px; y: root.subtitle-text-y; text: "Text Subtitles"; font-size: 13px; font-weight: 600; color: Theme.settings-section-heading; }
+        Text { x: 28px; y: root.subtitle-text-y; text: @tr("Text Subtitles"); font-size: 13px; font-weight: 600; color: Theme.settings-section-heading; }
         Rectangle { x: 20px; y: root.subtitle-text-y + 26px; width: parent.width - 40px; height: root.subtitle-text-height;
             border-width: 1px; border-color: Theme.settings-card-border; border-radius: 12px; background: Theme.settings-card-surface(root.mica-backdrop-enabled);
             Text { x: 14px; y: 12px; width: 70px; height: 26px; text: "Font"; font-size: 12px; color: Theme.settings-control-label; vertical-alignment: center; }
@@ -177,7 +177,7 @@ export component SubtitlesPreferencesPage inherits ScrollView {
                 PreferenceNumericInput { x: parent.width - 56px; y: 0px; width: 56px; height: 24px; label: "Subtitle font spacing"; text <=> SubtitleSettingsState.subtitle-spacing-text; accepted => { root.settings-changed(); } }
             }
         }
-        Text { x: 28px; y: root.subtitle-position-y; text: "Position"; font-size: 13px; font-weight: 600; color: Theme.settings-section-heading; }
+        Text { x: 28px; y: root.subtitle-position-y; text: @tr("Position"); font-size: 13px; font-weight: 600; color: Theme.settings-section-heading; }
         Rectangle { x: 20px; y: root.subtitle-position-y + 26px; width: parent.width - 40px; height: 248px;
             border-width: 1px; border-color: Theme.settings-card-border; border-radius: 12px; background: Theme.settings-card-surface(root.mica-backdrop-enabled);
             Text { x: 14px; y: 12px; width: 126px; height: 24px; text: "Horizontal alignment"; font-size: 12px; color: Theme.settings-control-label; vertical-alignment: center; }
@@ -194,7 +194,7 @@ export component SubtitlesPreferencesPage inherits ScrollView {
             PreferenceSwitch { x: 14px; y: 168px; width: parent.width - 28px; label: "Display subtitles in fullscreen letterboxes"; checked <=> SubtitleSettingsState.subtitle-display-in-letterbox; toggled => { root.settings-changed(); } }
             PreferenceSwitch { x: 14px; y: 204px; width: parent.width - 28px; label: "Scale subtitles with window size"; checked <=> SubtitleSettingsState.subtitle-scale-with-window; toggled => { root.settings-changed(); } }
         }
-        Text { x: 28px; y: root.subtitle-online-y; text: "Online Subtitles"; font-size: 13px; font-weight: 600; color: Theme.settings-section-heading; }
+        Text { x: 28px; y: root.subtitle-online-y; text: @tr("Online Subtitles"); font-size: 13px; font-weight: 600; color: Theme.settings-section-heading; }
         Rectangle { x: 20px; y: root.subtitle-online-y + 26px; width: parent.width - 40px; height: root.subtitle-online-height;
             border-width: 1px; border-color: Theme.settings-card-border; border-radius: 12px; background: Theme.settings-card-surface(root.mica-backdrop-enabled);
             Text { x: 14px; y: 12px; width: 104px; height: 26px; text: "Provider"; font-size: 12px; color: Theme.settings-control-label; vertical-alignment: center; }
@@ -220,7 +220,7 @@ export component SubtitlesPreferencesPage inherits ScrollView {
             PreferenceNumericInput { x: 14px; y: root.subtitle-online-height - 40px; width: 64px; height: 24px; label: "Online subtitle search minimum minutes"; text <=> SubtitleSettingsState.open-subtitles-threshold-text; accepted => { root.settings-changed(); } }
             Text { x: 88px; y: root.subtitle-online-height - 40px; width: 80px; height: 24px; text: "minutes"; font-size: 12px; color: Theme.settings-control-label; vertical-alignment: center; }
         }
-        Text { x: 28px; y: root.subtitle-other-y; text: "Other"; font-size: 13px; font-weight: 600; color: Theme.settings-section-heading; }
+        Text { x: 28px; y: root.subtitle-other-y; text: @tr("Other"); font-size: 13px; font-weight: 600; color: Theme.settings-section-heading; }
         Rectangle { x: 20px; y: root.subtitle-other-y + 26px; width: parent.width - 40px; height: 168px;
             border-width: 1px; border-color: Theme.settings-card-border; border-radius: 12px; background: Theme.settings-card-surface(root.mica-backdrop-enabled);
             Text { x: 14px; y: 12px; width: parent.width - 28px; height: 20px; text: "Preferred languages"; font-size: 12px; color: Theme.settings-control-label; }

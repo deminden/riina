@@ -842,3 +842,258 @@ msgstr "المزيد…"
 
 msgid "Delete"
 msgstr "حذف"
+
+msgid "Settings"
+msgstr "الإعدادات"
+
+msgid "Search"
+msgstr "بحث"
+
+msgid "Search Settings"
+msgstr "البحث في الإعدادات"
+
+msgid "No Results"
+msgstr "لا توجد نتائج"
+
+msgid "General"
+msgstr "عام"
+
+msgid "Behavior"
+msgstr "السلوك"
+
+msgid "History"
+msgstr "السجل"
+
+msgid "Screenshots"
+msgstr "لقطات الشاشة"
+
+msgid "Interface"
+msgstr "الواجهة"
+
+msgid "Appearance"
+msgstr "المظهر"
+
+msgid "On Screen Controller"
+msgstr "عناصر التحكم على الشاشة"
+
+msgid "On Screen Display"
+msgstr "المعلومات على الشاشة"
+
+msgid "On-Screen Controller"
+msgstr "عناصر التحكم على الشاشة"
+
+msgid "On-Screen Display"
+msgstr "المعلومات على الشاشة"
+
+msgid "Thumbnail Preview"
+msgstr "معاينة الصور المصغّرة"
+
+msgid "Picture-in-Picture"
+msgstr "صورة داخل صورة"
+
+msgid "Accessibility"
+msgstr "تسهيلات الاستخدام"
+
+msgid "Auto Load"
+msgstr "التحميل التلقائي"
+
+msgid "ASS Subtitles"
+msgstr "ترجمة ASS"
+
+msgid "Text Subtitles"
+msgstr "الترجمة النصية"
+
+msgid "Position"
+msgstr "الموضع"
+
+msgid "Online Subtitles"
+msgstr "الترجمة عبر الإنترنت"
+
+msgid "Other"
+msgstr "أخرى"
+
+msgid "Network"
+msgstr "الشبكة"
+
+msgid "Cache"
+msgstr "ذاكرة التخزين المؤقت"
+
+msgid "Online Videos (yt-dlp)"
+msgstr "الفيديو عبر الإنترنت (yt-dlp)"
+
+msgid "Hardware"
+msgstr "الأجهزة"
+
+msgid "Volume"
+msgstr "مستوى الصوت"
+
+msgid "Control"
+msgstr "التحكم"
+
+msgid "Key Bindings"
+msgstr "اختصارات المفاتيح"
+
+msgid "Advanced"
+msgstr "متقدّم"
+
+msgid "Plugins"
+msgstr "الإضافات"
+
+msgid "Utilities"
+msgstr "الأدوات"
+
+msgid "At launch"
+msgstr "عند التشغيل"
+
+msgid "Show welcome window"
+msgstr "عرض نافذة الترحيب"
+
+msgid "Show open file panel"
+msgstr "نافذة اختيار الملف"
+
+msgid "Do nothing"
+msgstr "عدم اتخاذ إجراء"
+
+msgid "When media is opened"
+msgstr "عند فتح وسائط"
+
+msgid "Enter fullscreen"
+msgstr "الدخول إلى ملء الشاشة"
+
+msgid "Automatically switch to Music Mode"
+msgstr "التبديل تلقائيًا إلى وضع الموسيقى"
+
+msgid "Show playlist in Music Mode"
+msgstr "إظهار قائمة التشغيل في وضع الموسيقى"
+
+msgid "Show album artwork in Music Mode"
+msgstr "إظهار غلاف الألبوم في وضع الموسيقى"
+
+msgid "Pause/resume when"
+msgstr "الإيقاف المؤقت والاستئناف"
+
+msgid "Play when entering fullscreen"
+msgstr "متابعة التشغيل عند الدخول إلى ملء الشاشة"
+
+msgid "Pause when leaving fullscreen"
+msgstr "الإيقاف المؤقت عند الخروج من ملء الشاشة"
+
+msgid "Window becomes inactive/active"
+msgstr "عند فقدان النافذة التركيز أو استعادته"
+
+msgid "Minimized/un-minimized"
+msgstr "عند تصغير النافذة أو استعادتها"
+
+msgid "Pause when machine goes to sleep"
+msgstr "الإيقاف المؤقت عند دخول الجهاز في وضع السكون"
+
+msgid "Always open media in new window"
+msgstr "فتح الوسائط دائمًا في نافذة جديدة"
+
+msgid "Group media in playlist when opening multiple files at once"
+msgstr "تجميع الملفات في قائمة تشغيل عند فتح عدة ملفات"
+
+msgid "Allow opening the same file in multiple windows"
+msgstr "السماح بفتح الملف نفسه في عدة نوافذ"
+
+msgid "Quit after all windows are closed"
+msgstr "الإنهاء عند إغلاق كل النوافذ"
+
+msgid "Keep window open after playback finishes"
+msgstr "إبقاء النافذة مفتوحة بعد انتهاء التشغيل"
+
+msgid "Prevent screen saver"
+msgstr "منع تشغيل شاشة التوقف"
+
+msgid "Allow screen saver for audio playback"
+msgstr "السماح بشاشة التوقف عند تشغيل الصوت"
+
+msgid "Check for updates automatically"
+msgstr "البحث عن تحديثات تلقائيًا"
+
+msgid "Check every"
+msgstr "التحقق كل"
+
+msgid "Hour"
+msgstr "ساعة"
+
+msgid "Day"
+msgstr "يوم"
+
+msgid "Week"
+msgstr "أسبوع"
+
+msgid "Month"
+msgstr "شهر"
+
+msgid "Update check interval"
+msgstr "الفاصل بين عمليات التحقق من التحديثات"
+
+msgid "Receive beta updates"
+msgstr "تلقي تحديثات الإصدارات التجريبية"
+
+msgid "Resume last position"
+msgstr "الاستئناف من آخر موضع"
+
+msgid "Record playback history"
+msgstr "حفظ سجل التشغيل"
+
+msgid "Add files in the same folder automatically"
+msgstr "إضافة ملفات المجلد نفسه تلقائيًا"
+
+msgid "Play next item automatically"
+msgstr "تشغيل العنصر التالي تلقائيًا"
+
+msgid "Show artist and track name for audio files when available"
+msgstr "إظهار اسم الفنان والمقطع الصوتي عند توفّرهما"
+
+msgid "Only in Music Mode"
+msgstr "في وضع الموسيقى فقط"
+
+msgid "Loop when a file is opened manually"
+msgstr "تكرار الملف عند فتحه يدويًا"
+
+msgid "Destination:"
+msgstr "الوجهة:"
+
+msgid "Options:"
+msgstr "الخيارات:"
+
+msgid "Save to"
+msgstr "الحفظ في"
+
+msgid "Format:"
+msgstr "التنسيق:"
+
+msgid "Format"
+msgstr "التنسيق"
+
+msgid "Copy to clipboard"
+msgstr "نسخ إلى الحافظة"
+
+msgid "Include subtitles"
+msgstr "تضمين الترجمة"
+
+msgid "Show previews after taking screenshots"
+msgstr "معاينة لقطات الشاشة"
+
+msgid "Enable \"Open Recent\" menu"
+msgstr "إظهار قائمة «فتح عنصر حديث»"
+
+msgid "Track all played files in \"Open Recent\" menu"
+msgstr "إضافة كل الملفات المشغّلة إلى قائمة العناصر الحديثة"
+
+msgid "Loop playlist"
+msgstr "تكرار قائمة التشغيل"
+
+msgid "Loop file"
+msgstr "تكرار الملف"
+
+msgid "Choose screenshot save path"
+msgstr "اختيار مجلد حفظ لقطات الشاشة"
+
+msgid "Decoding"
+msgstr "فك الترميز"
+
+msgid "Color and HDR"
+msgstr "الألوان وHDR"

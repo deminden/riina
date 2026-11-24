@@ -28,7 +28,7 @@ export component ControlPreferencesPage inherits ScrollView {
     horizontal-scrollbar-policy: always-off;
     Rectangle { width: parent.width; height: 760px;
         background: Theme.settings-content-surface(root.mica-backdrop-enabled);
-        Text { x: 28px; y: 16px; text: "Control"; font-size: 15px; font-weight: 600; color: Theme.settings-page-heading; }
+        Text { x: 28px; y: 16px; text: @tr("Control"); font-size: 15px; font-weight: 600; color: Theme.settings-page-heading; }
         Text { x: 28px; y: 52px; text: "Trackpad"; font-size: 13px; font-weight: 600; color: Theme.settings-section-heading; }
         Rectangle { x: 20px; y: 78px; width: parent.width - 40px; height: 82px;
             border-width: 1px; border-color: Theme.settings-input-card-border; border-radius: 10px; background: Theme.settings-card-surface(root.mica-backdrop-enabled);

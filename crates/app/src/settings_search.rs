@@ -1,7 +1,7 @@
 //! Search only controls currently represented in the Settings UI.
-use crate::{PreferencesSearchResult, PreferencesWindow, VideoSettingsState};
+use crate::{GeneralSettingsState, PreferencesSearchResult, PreferencesWindow, VideoSettingsState};
 use slint::{ComponentHandle, Image, Model, ModelRc, VecModel};
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 #[derive(Clone, Copy)]
 struct Entry {
@@ -12,128 +12,177 @@ struct Entry {
     terms: &'static str,
 }
 
+const fn general(section: &'static str, title: &'static str, terms: &'static str) -> Entry {
+    Entry {
+        page_index: 0,
+        page: "General",
+        section,
+        title,
+        terms,
+    }
+}
+
 // The index follows visible user-facing labels. Aliases make common queries
 // useful without advertising controls that the current page does not expose.
 const ENTRIES: &[Entry] = &[
-    Entry {
-        page_index: 0,
-        page: "General",
-        section: "",
-        title: "General",
-        terms: "preferences",
-    },
-    Entry {
-        page_index: 0,
-        page: "General",
-        section: "Behavior",
-        title: "At launch",
-        terms: "startup welcome window open file panel nothing",
-    },
-    Entry {
-        page_index: 0,
-        page: "General",
-        section: "Behavior",
-        title: "When media is opened",
-        terms: "pause fullscreen open",
-    },
-    Entry {
-        page_index: 0,
-        page: "General",
-        section: "Behavior",
-        title: "Pause",
-        terms: "pause when opened",
-    },
-    Entry {
-        page_index: 0,
-        page: "General",
-        section: "Behavior",
-        title: "Enter fullscreen",
-        terms: "full screen",
-    },
-    Entry {
-        page_index: 0,
-        page: "General",
-        section: "Behavior",
-        title: "Prevent screen saver",
-        terms: "prevent display sleep idle power during playback",
-    },
-    Entry {
-        page_index: 0,
-        page: "General",
-        section: "Behavior",
-        title: "Allow screen saver for audio playback",
-        terms: "display sleep audio music mode idle power",
-    },
-    Entry {
-        page_index: 0,
-        page: "General",
-        section: "Behavior",
-        title: "Check for updates automatically",
-        terms: "software update background interval hour day week month",
-    },
-    Entry {
-        page_index: 0,
-        page: "General",
-        section: "Behavior",
-        title: "Receive beta updates",
-        terms: "software update prerelease preview release channel",
-    },
-    Entry {
-        page_index: 0,
-        page: "General",
-        section: "Screenshots",
-        title: "Save to",
-        terms: "screenshot folder destination path",
-    },
-    Entry {
-        page_index: 0,
-        page: "General",
-        section: "Screenshots",
-        title: "Format",
-        terms: "screenshot png jpeg webp jxl",
-    },
-    Entry {
-        page_index: 0,
-        page: "General",
-        section: "Screenshots",
-        title: "Copy to clipboard",
-        terms: "screenshot copy",
-    },
-    Entry {
-        page_index: 0,
-        page: "General",
-        section: "Screenshots",
-        title: "Include subtitles",
-        terms: "subtitle captions screenshot",
-    },
-    Entry {
-        page_index: 0,
-        page: "General",
-        section: "Screenshots",
-        title: "Show previews after taking screenshots",
-        terms: "preview screenshot",
-    },
-    Entry {
-        page_index: 0,
-        page: "General",
-        section: "History",
-        title: "Resume last position",
-        terms: "resume playback history",
-    },
-    Entry {
-        page_index: 0,
-        page: "General",
-        section: "Playlist",
-        title: "Show artist and track name for audio files when available",
-        terms: "playlist artist title metadata audio tags music",
-    },
-    Entry {
-        page_index: 0,
-        page: "General",
-        section: "Playlist",
-        title: "Only in Music Mode",
-        terms: "playlist audio metadata artist track title music mode only",
-    },
+    general("", "General", "preferences"),
+    general(
+        "Behavior",
+        "At launch",
+        "startup welcome window open file panel nothing",
+    ),
+    general("Behavior", "When media is opened", "pause fullscreen open"),
+    general("Behavior", "Pause", "pause when opened"),
+    general("Behavior", "Enter fullscreen", "full screen"),
+    general(
+        "Behavior",
+        "Automatically switch to Music Mode",
+        "audio music mode auto open",
+    ),
+    general(
+        "Behavior",
+        "Show playlist in Music Mode",
+        "audio music mode queue",
+    ),
+    general(
+        "Behavior",
+        "Show album artwork in Music Mode",
+        "audio music mode cover art",
+    ),
+    general("Behavior", "Pause/resume when", "playback pause policy"),
+    general(
+        "Behavior",
+        "Play when entering fullscreen",
+        "resume full screen",
+    ),
+    general(
+        "Behavior",
+        "Pause when leaving fullscreen",
+        "exit fullscreen",
+    ),
+    general(
+        "Behavior",
+        "Window becomes inactive/active",
+        "pause window focus",
+    ),
+    general(
+        "Behavior",
+        "Minimized/un-minimized",
+        "pause minimize restore",
+    ),
+    general(
+        "Behavior",
+        "Pause when machine goes to sleep",
+        "sleep suspend power",
+    ),
+    general(
+        "Behavior",
+        "Always open media in new window",
+        "multiple player windows",
+    ),
+    general(
+        "Behavior",
+        "Group media in playlist when opening multiple files at once",
+        "multiple open group",
+    ),
+    general(
+        "Behavior",
+        "Allow opening the same file in multiple windows",
+        "duplicate players",
+    ),
+    general(
+        "Behavior",
+        "Quit after all windows are closed",
+        "exit quit on last window",
+    ),
+    general(
+        "Behavior",
+        "Keep window open after playback finishes",
+        "keep open at end of file",
+    ),
+    general(
+        "Behavior",
+        "Prevent screen saver",
+        "prevent display sleep idle power during playback",
+    ),
+    general(
+        "Behavior",
+        "Allow screen saver for audio playback",
+        "display sleep audio music mode idle power",
+    ),
+    general(
+        "Behavior",
+        "Check for updates automatically",
+        "software update background interval hour day week month",
+    ),
+    general(
+        "Behavior",
+        "Update check interval",
+        "check every software update schedule",
+    ),
+    general(
+        "Behavior",
+        "Receive beta updates",
+        "software update prerelease preview release channel",
+    ),
+    general("History", "Resume last position", "resume playback history"),
+    general(
+        "History",
+        "Record playback history",
+        "save playback history",
+    ),
+    general(
+        "History",
+        "Enable \"Open Recent\" menu",
+        "recent files documents",
+    ),
+    general(
+        "History",
+        "Track all played files in \"Open Recent\" menu",
+        "all recent files documents",
+    ),
+    general(
+        "Playlist",
+        "Add files in the same folder automatically",
+        "playlist autoload folder",
+    ),
+    general(
+        "Playlist",
+        "Play next item automatically",
+        "playlist advance",
+    ),
+    general(
+        "Playlist",
+        "Show artist and track name for audio files when available",
+        "playlist artist title metadata audio tags music",
+    ),
+    general(
+        "Playlist",
+        "Only in Music Mode",
+        "playlist audio metadata artist track title music mode only",
+    ),
+    general(
+        "Playlist",
+        "Loop when a file is opened manually",
+        "repeat file playlist",
+    ),
+    general(
+        "Screenshots",
+        "Save to",
+        "screenshot folder destination path",
+    ),
+    general("Screenshots", "Format", "screenshot png jpeg webp jxl"),
+    general("Screenshots", "Copy to clipboard", "screenshot copy"),
+    general(
+        "Screenshots",
+        "Include subtitles",
+        "subtitle captions screenshot",
+    ),
+    general(
+        "Screenshots",
+        "Show previews after taking screenshots",
+        "preview screenshot",
+    ),
     Entry {
         page_index: 1,
         page: "Interface",
@@ -758,68 +807,112 @@ fn normalized_query(query: &str) -> String {
         .to_lowercase()
 }
 
-fn results_for_query(query: &str) -> Vec<PreferencesSearchResult> {
+type SearchLabels = BTreeMap<String, slint::SharedString>;
+
+fn translated<'a>(labels: &'a SearchLabels, text: &'a str) -> &'a str {
+    labels.get(text).map_or(text, slint::SharedString::as_str)
+}
+
+struct IndexedEntry {
+    source: &'static Entry,
+    row: PreferencesSearchResult,
+    searchable: String,
+}
+
+fn build_index(labels: &SearchLabels) -> Vec<IndexedEntry> {
+    let mut index = ENTRIES
+        .iter()
+        .enumerate()
+        .filter(|(_, source)| {
+            cfg!(target_os = "macos")
+                || !matches!(
+                    source.title,
+                    "Window becomes inactive/active" | "Pause when machine goes to sleep"
+                )
+        })
+        .map(|(target, source)| {
+            let title = translated(labels, source.title);
+            IndexedEntry {
+                source,
+                row: PreferencesSearchResult {
+                    target: target as i32,
+                    page_index: source.page_index,
+                    page_name: translated(labels, source.page).into(),
+                    section_name: translated(labels, source.section).into(),
+                    title: title.into(),
+                    anchor_y: anchor_y(source),
+                    ..Default::default()
+                },
+                // Page and section labels organize results. Titles and aliases match queries.
+                searchable: format!("{} {title} {}", source.title, source.terms).to_lowercase(),
+            }
+        })
+        .collect::<Vec<_>>();
+    index.sort_by_cached_key(|item| {
+        (
+            item.row.page_index,
+            item.row.section_name.to_lowercase(),
+            item.row.title.to_lowercase(),
+        )
+    });
+    index
+}
+
+fn localized_results_for_query(
+    query: &str,
+    index: &[IndexedEntry],
+) -> Vec<PreferencesSearchResult> {
     let query = normalized_query(query);
     if query.is_empty() {
         return Vec::new();
     }
 
     let terms = query.split_whitespace().collect::<Vec<_>>();
-    let mut matches = ENTRIES
+    let matches = index
         .iter()
-        .filter(|entry| {
-            // IINA indexes an entry's own title and explicit aliases; page and
-            // section labels organize the results but are not query terms.
-            let searchable = format!("{} {}", entry.title, entry.terms).to_lowercase();
-            terms.iter().all(|term| searchable.contains(term))
-        })
-        .collect::<Vec<_>>();
-    // The reference groups results by page, then orders them by section/title.
-    matches.sort_by_key(|entry| {
-        (
-            entry.page_index,
-            entry.section.to_lowercase(),
-            entry.title.to_lowercase(),
-        )
-    });
+        .filter(|item| terms.iter().all(|term| item.searchable.contains(term)));
     let mut seen = BTreeSet::new();
-    matches.retain(|entry| seen.insert((entry.page_index, entry.section, entry.title)));
 
     let mut results = Vec::new();
     let mut active_page = None;
-    for entry in matches {
-        if active_page != Some(entry.page_index) {
-            active_page = Some(entry.page_index);
+    for item in matches {
+        let source = item.source;
+        if !seen.insert((source.page_index, source.section, source.title)) {
+            continue;
+        }
+        if active_page != Some(source.page_index) {
+            active_page = Some(source.page_index);
             results.push(PreferencesSearchResult {
-                page_index: entry.page_index,
-                page_name: entry.page.into(),
-                section_name: "".into(),
-                title: "".into(),
+                target: -1,
+                page_index: source.page_index,
+                page_name: item.row.page_name.clone(),
                 is_header: true,
-                icon: page_icon(entry.page_index),
+                icon: page_icon(source.page_index),
                 anchor_y: -1,
+                ..Default::default()
             });
         }
-        results.push(PreferencesSearchResult {
-            page_index: entry.page_index,
-            page_name: entry.page.into(),
-            section_name: entry.section.into(),
-            title: entry.title.into(),
-            is_header: false,
-            icon: Image::default(),
-            anchor_y: anchor_y(entry),
-        });
+        results.push(item.row.clone());
     }
     results
 }
 
 pub(crate) fn connect(window: &PreferencesWindow) {
     window.set_search_results(ModelRc::new(VecModel::from(Vec::new())));
+    let labels = window
+        .global::<riina_ui::SettingsSearchText>()
+        .get_captions()
+        .iter()
+        .map(|caption| (caption.source.to_string(), caption.localized))
+        .collect::<SearchLabels>();
+    let index = build_index(&labels);
     let weak = window.as_weak();
     window.on_search_query_changed(move |query| {
         if let Some(window) = weak.upgrade() {
             window.set_selected_search_index(-1);
-            window.set_search_results(ModelRc::new(VecModel::from(results_for_query(&query))));
+            window.set_search_results(ModelRc::new(VecModel::from(localized_results_for_query(
+                &query, &index,
+            ))));
         }
     });
 
@@ -840,21 +933,31 @@ pub(crate) fn connect(window: &PreferencesWindow) {
         else {
             return;
         };
-        activate_result(
-            &window,
-            result.page_index,
-            &result.section_name,
-            &result.title,
-            result.anchor_y,
-        );
+        activate_target(&window, result.target);
     });
 
     let weak = window.as_weak();
-    window.on_search_result_activated(move |page, section, title, anchor| {
+    window.on_search_result_activated(move |target| {
         if let Some(window) = weak.upgrade() {
-            activate_result(&window, page, &section, &title, anchor);
+            activate_target(&window, target);
         }
     });
+}
+
+fn activate_target(window: &PreferencesWindow, target: i32) {
+    let Some(entry) = usize::try_from(target)
+        .ok()
+        .and_then(|index| ENTRIES.get(index))
+    else {
+        return;
+    };
+    activate_result(
+        window,
+        entry.page_index,
+        entry.section,
+        entry.title,
+        anchor_y(entry),
+    );
 }
 
 fn result_rows(window: &PreferencesWindow) -> Vec<PreferencesSearchResult> {
@@ -890,30 +993,53 @@ fn next_selectable_index(
     Some(selectable[next_position])
 }
 
-fn activate_result(window: &PreferencesWindow, page: i32, section: &str, title: &str, anchor: i32) {
-    if page == 0 {
-        let target = match section {
-            "Behavior"
-                if matches!(
-                    title,
-                    "Prevent screen saver" | "Allow screen saver for audio playback"
-                ) =>
-            {
+fn general_target(window: &PreferencesWindow, section: &str, title: &str) -> f32 {
+    match section {
+        "Behavior" => match title {
+            "Pause"
+            | "Enter fullscreen"
+            | "Automatically switch to Music Mode"
+            | "Show playlist in Music Mode"
+            | "Show album artwork in Music Mode" => {
+                window
+                    .global::<GeneralSettingsState>()
+                    .set_when_media_opened_expanded(true);
+                window.get_general_media_opened_target()
+            }
+            "Play when entering fullscreen"
+            | "Pause when leaving fullscreen"
+            | "Window becomes inactive/active"
+            | "Minimized/un-minimized"
+            | "Pause when machine goes to sleep" => {
+                window
+                    .global::<GeneralSettingsState>()
+                    .set_pause_resume_when_expanded(true);
+                window.get_general_pause_policy_target()
+            }
+            "Pause/resume when" => window.get_general_pause_policy_target(),
+            "Always open media in new window"
+            | "Group media in playlist when opening multiple files at once"
+            | "Allow opening the same file in multiple windows"
+            | "Quit after all windows are closed"
+            | "Keep window open after playback finishes" => window.get_general_window_target(),
+            "Prevent screen saver" | "Allow screen saver for audio playback" => {
                 window.get_general_power_target()
             }
-            "Behavior"
-                if matches!(
-                    title,
-                    "Check for updates automatically" | "Receive beta updates"
-                ) =>
-            {
-                window.get_general_updates_target()
-            }
-            "History" => window.get_general_history_target(),
-            "Playlist" => window.get_general_playlist_target(),
-            "Screenshots" => window.get_general_screenshots_target(),
+            "Check for updates automatically"
+            | "Update check interval"
+            | "Receive beta updates" => window.get_general_updates_target(),
             _ => 0.0,
-        };
+        },
+        "History" => window.get_general_history_target(),
+        "Playlist" => window.get_general_playlist_target(),
+        "Screenshots" => window.get_general_screenshots_target(),
+        _ => 0.0,
+    }
+}
+
+fn activate_result(window: &PreferencesWindow, page: i32, section: &str, title: &str, anchor: i32) {
+    if page == 0 {
+        let target = general_target(window, section, title);
         window.set_general_scroll_position(target);
     }
     if page == 1 {
@@ -988,6 +1114,10 @@ fn activate_result(window: &PreferencesWindow, page: i32, section: &str, title: 
 mod tests {
     use super::*;
 
+    fn results_for_query(query: &str) -> Vec<PreferencesSearchResult> {
+        localized_results_for_query(query, &build_index(&SearchLabels::new()))
+    }
+
     fn item_results(query: &str) -> Vec<PreferencesSearchResult> {
         results_for_query(query)
             .into_iter()
@@ -1040,6 +1170,77 @@ mod tests {
         assert_eq!(results[0].page_name, "General");
         assert_eq!(results[0].section_name, "Behavior");
         assert_eq!(results[0].title, "At launch");
+    }
+
+    #[test]
+    fn localized_general_results_reveal_their_controls() -> Result<(), Box<dyn std::error::Error>> {
+        i_slint_backend_testing::init_no_event_loop();
+        let window = PreferencesWindow::new()?;
+        window
+            .window()
+            .set_size(slint::LogicalSize::new(600.0, 480.0));
+        window.show()?;
+        let general = window.global::<GeneralSettingsState>();
+        for (locale, query, page, section, title, artwork) in [
+            (
+                "ru",
+                "историю воспроизведения",
+                "Основные",
+                "История",
+                "Сохранять историю воспроизведения",
+                "Показывать обложку в режиме музыки",
+            ),
+            (
+                "ar",
+                "حفظ سجل التشغيل",
+                "عام",
+                "السجل",
+                "حفظ سجل التشغيل",
+                "إظهار غلاف الألبوم في وضع الموسيقى",
+            ),
+        ] {
+            slint::select_bundled_translation(locale)?;
+            connect(&window);
+            window.set_selected_pane(2);
+            window.invoke_search_query_changed(query.into());
+            let rows = window.get_search_results();
+            assert_eq!(
+                rows.row_data(0).ok_or("Missing search group")?.page_name,
+                page
+            );
+            let (index, row) = rows
+                .iter()
+                .enumerate()
+                .find(|(_, row)| row.title == title)
+                .ok_or("Missing localized history setting")?;
+            assert_eq!(row.section_name, section);
+            window.set_selected_search_index(i32::try_from(index)?);
+            window.invoke_search_selection_activated();
+            slint::platform::update_timers_and_animations();
+            assert_eq!(window.get_selected_pane(), 0);
+            assert!(
+                (window.get_general_scroll_position() - window.get_general_history_target()).abs()
+                    < 0.5
+            );
+
+            general.set_when_media_opened_expanded(false);
+            window.invoke_search_query_changed("album artwork".into());
+            let row = window
+                .get_search_results()
+                .iter()
+                .find(|row| row.title == artwork)
+                .ok_or("Missing localized artwork setting for English alias")?;
+            window.invoke_search_result_activated(row.target);
+            assert!(general.get_when_media_opened_expanded());
+            assert!(
+                (window.get_general_scroll_position() - window.get_general_media_opened_target())
+                    .abs()
+                    < 0.5
+            );
+        }
+        slint::select_bundled_translation("en")?;
+        window.hide()?;
+        Ok(())
     }
 
     #[test]

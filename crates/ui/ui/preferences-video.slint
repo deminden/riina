@@ -44,9 +44,9 @@ export component VideoPreferencesPage inherits ScrollView {
             : (VideoSettingsState.tone-mapping-expanded
                 ? (root.live-text-available ? 1030px : 920px)
                 : (root.live-text-available ? 770px : 660px));
-        Text { x: 22px; y: 16px; text: "Video";
+        Text { x: 22px; y: 16px; text: @tr("Video");
             font-size: 15px; font-weight: 600; color: Theme.settings-page-heading; }
-        Text { x: 20px; y: 52px; text: "Decoding";
+        Text { x: 20px; y: 52px; text: @tr("Decoding");
             font-size: 12px; font-weight: 600; color: Theme.settings-video-section-heading; }
         Rectangle {
             x: 20px; y: 76px; width: parent.width - 40px; height: 282px;
@@ -81,12 +81,12 @@ export component VideoPreferencesPage inherits ScrollView {
         }
         if root.live-text-available : Rectangle {
             x: 20px; y: 378px; width: parent.width - 40px; height: 88px;
-            Text { x: 8px; y: 0px; text: "Live Text";
+            Text { x: 8px; y: 0px; text: @tr("Live Text");
                 font-size: 12px; font-weight: 600; color: Theme.settings-video-section-heading; }
             Rectangle { x: 0px; y: 24px; width: parent.width; height: 64px;
                 border-width: 1px; border-color: Theme.settings-card-border; border-radius: 12px; background: Theme.settings-card-surface(root.mica-backdrop-enabled);
                 PreferenceSwitch { x: 16px; y: 7px; width: parent.width - 32px; height: 24px;
-                    label: "Live Text"; checked <=> VideoSettingsState.live-text-enabled;
+                    label: @tr("Live Text"); checked <=> VideoSettingsState.live-text-enabled;
                     toggled => { root.settings-changed(); }
                 }
                 Text { x: 16px; y: 32px; width: parent.width - 32px; height: 26px;
@@ -94,7 +94,7 @@ export component VideoPreferencesPage inherits ScrollView {
                     font-size: 9px; color: Theme.settings-section-heading; wrap: word-wrap; }
             }
         }
-        Text { x: 20px; y: root.live-text-available ? 492px : 378px; text: "Color and HDR";
+        Text { x: 20px; y: root.live-text-available ? 492px : 378px; text: @tr("Color and HDR");
             font-size: 12px; font-weight: 600; color: Theme.settings-video-section-heading; }
         if root.platform-macos : Rectangle {
             x: 20px; y: root.live-text-available ? 516px : 402px;

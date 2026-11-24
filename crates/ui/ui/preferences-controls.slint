@@ -14,7 +14,7 @@ export struct AdvancedMpvOptionRow {
 export component FolderChooser inherits FocusScope {
     callback activated();
     accessible-role: button;
-    accessible-label: "Choose screenshot save path";
+    accessible-label: @tr("Choose screenshot save path");
     accessible-action-default => { if root.enabled { root.activated(); } }
     key-pressed(event) => {
         if root.enabled && (event.text == Key.Return || event.text == " ") {

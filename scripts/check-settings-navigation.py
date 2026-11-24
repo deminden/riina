@@ -3,19 +3,23 @@ import re
 from pathlib import Path
 
 
+def source_labels(text):
+    return re.sub(r'@tr\(("(?:[^"\\]|\\.)*")\)', r'\1', text)
+
+
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = (ROOT / "crates/ui/ui/preferences.slint").read_text(encoding="utf-8")
-NAV_SOURCE = (ROOT / "crates/ui/ui/preferences-navigation.slint").read_text(encoding="utf-8")
+NAV_SOURCE = source_labels((ROOT / "crates/ui/ui/preferences-navigation.slint").read_text(encoding="utf-8"))
 CONTROLS_SOURCE = (ROOT / "crates/ui/ui/preferences-controls.slint").read_text(encoding="utf-8")
-UTILITIES_SOURCE = (ROOT / "crates/ui/ui/preferences-utilities.slint").read_text(encoding="utf-8")
+UTILITIES_SOURCE = source_labels((ROOT / "crates/ui/ui/preferences-utilities.slint").read_text(encoding="utf-8"))
 THEME_SOURCE = (ROOT / "crates/ui/ui/theme.slint").read_text(encoding="utf-8")
-AUDIO_SOURCE = (ROOT / "crates/ui/ui/preferences-audio.slint").read_text(encoding="utf-8")
-ADVANCED_SOURCE = (ROOT / "crates/ui/ui/preferences-advanced.slint").read_text(encoding="utf-8")
-VIDEO_SOURCE = (ROOT / "crates/ui/ui/preferences-video.slint").read_text(encoding="utf-8")
-GENERAL_SOURCE = (ROOT / "crates/ui/ui/preferences-general.slint").read_text(encoding="utf-8")
-INTERFACE_SOURCE = (ROOT / "crates/ui/ui/preferences-interface.slint").read_text(encoding="utf-8")
-SUBTITLES_SOURCE = (ROOT / "crates/ui/ui/preferences-subtitles.slint").read_text(encoding="utf-8")
-NETWORK_SOURCE = (ROOT / "crates/ui/ui/preferences-network.slint").read_text(encoding="utf-8")
+AUDIO_SOURCE = source_labels((ROOT / "crates/ui/ui/preferences-audio.slint").read_text(encoding="utf-8"))
+ADVANCED_SOURCE = source_labels((ROOT / "crates/ui/ui/preferences-advanced.slint").read_text(encoding="utf-8"))
+VIDEO_SOURCE = source_labels((ROOT / "crates/ui/ui/preferences-video.slint").read_text(encoding="utf-8"))
+GENERAL_SOURCE = source_labels((ROOT / "crates/ui/ui/preferences-general.slint").read_text(encoding="utf-8"))
+INTERFACE_SOURCE = source_labels((ROOT / "crates/ui/ui/preferences-interface.slint").read_text(encoding="utf-8"))
+SUBTITLES_SOURCE = source_labels((ROOT / "crates/ui/ui/preferences-subtitles.slint").read_text(encoding="utf-8"))
+NETWORK_SOURCE = source_labels((ROOT / "crates/ui/ui/preferences-network.slint").read_text(encoding="utf-8"))
 PLAYER_SOURCE = (ROOT / "crates/ui/ui/player.slint").read_text(encoding="utf-8")
 PLAYER_CHROME_SOURCE = (ROOT / "crates/ui/ui/player-chrome-controls.slint").read_text(encoding="utf-8")
 PLAYER_TITLE_SOURCE = (ROOT / "crates/ui/ui/player-title-bar.slint").read_text(encoding="utf-8")

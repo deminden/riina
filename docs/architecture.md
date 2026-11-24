@@ -559,6 +559,10 @@ use the same form projection when they refresh from a player. Screenshot edits
 preserve formats and templates outside the form and project to a player after
 the save succeeds. Update and playback power controls save through application
 services, with failures reported by the Settings owner.
+Settings search builds a localized index when the window connects. Each result
+carries an index into the original actions, so keyboard and pointer activation
+share the same disclosure and scroll targets. General reads the live layout
+after expanding a disclosure.
 The idle macOS AppKit menu opens an application-owned Settings form from the
 current profile. It saves validated edits under the same profile lock as
 player sessions. The store merges differences between successive form values,

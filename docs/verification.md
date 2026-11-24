@@ -4190,3 +4190,35 @@ All test players exited normally.
 
 - Linux application SHA-256 `9fee2299b686a9b0da21c400a1178620ac5dc37b761f18b2defc8bf57e9e6d11`
 - Linux libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`
+
+### Localized Settings navigation and General search 2026-11-24
+
+Russian and Arabic cover the Settings title, sidebar, page and section
+headings, search labels and the General controls. Search keeps a stable
+target for each displayed result and includes General titles alongside the
+existing English aliases. Selecting a control inside a General disclosure
+opens that disclosure and reads the live scroll target.
+
+The regression used a 600 × 480 Settings client. It selected the localized
+History result by keyboard, then activated the localized Music Mode artwork
+result found with an English phrase. Both languages reached the expected
+controls. The full Windows workspace gate passed, including the English
+player and Settings software pixel baselines. Apple Silicon cross-Clippy
+passed.
+
+The locked Windows build also passed a private desktop test. The native
+accessibility controls selected the History search result and changed
+recording off and back on. Both edits persisted, the physical player frame
+and pause state stayed stable, and the player exited normally.
+
+The Linux application suite passed 600 tests and the widget suite passed
+65. In private Sway Wayland sessions with a 600 × 480 Settings client,
+Russian and Arabic search reached History, the Music Mode artwork
+disclosure and the screenshot clipboard setting. History changes persisted
+in both languages, and the test players exited normally. Follow-up captures
+confirmed the shortened captions fit the visible controls.
+
+- Windows application SHA-256 `d20ac9c8e7c081d54608c5bd355133d433106422f681c86cbff71d3e8759ac72`
+- Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
+- Linux application SHA-256 `50f8015774dd9c8eac35213f68e4c4487af21280f08ca5370c722d6498e7ac16`
+- Linux libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`
