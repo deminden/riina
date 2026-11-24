@@ -48,9 +48,25 @@ impl Drop for TempDir {
 }
 
 pub fn workspace_root() -> io::Result<PathBuf> {
-    Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../..")
+    let current = std::env::current_dir()?;
+    // Cargo runs tests from their package directory. Reused binaries may
+    // have been compiled in a different checkout.
+    workspace_from(&current)
+        .or_else(|| workspace_from(Path::new(env!("CARGO_MANIFEST_DIR"))))
+        .ok_or_else(|| {
+            io::Error::new(
+                io::ErrorKind::NotFound,
+                "Run the test from the Riina workspace",
+            )
+        })?
         .canonicalize()
+}
+
+fn workspace_from(directory: &Path) -> Option<&Path> {
+    directory.ancestors().find(|candidate| {
+        candidate.join("crates/test-support/Cargo.toml").is_file()
+            && candidate.join("tests/fixtures/manifest.json").is_file()
+    })
 }
 
 pub fn fixture(name: &str) -> io::Result<PathBuf> {
@@ -93,6 +109,27 @@ pub fn wait_for<T: Debug>(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn finds_the_nearest_checkout_with_its_own_fixtures() -> io::Result<()> {
+        let directory = TempDir::new("worktree-fixtures")?;
+        let root = directory.path();
+        let checkout = root.join("other-checkout");
+        let package = checkout.join("crates/mpv");
+        for workspace in [root, checkout.as_path()] {
+            let support = workspace.join("crates/test-support");
+            let fixtures = workspace.join("tests/fixtures");
+            fs::create_dir_all(&support)?;
+            fs::create_dir_all(&fixtures)?;
+            fs::write(support.join("Cargo.toml"), "")?;
+            fs::write(fixtures.join("manifest.json"), "{}")?;
+        }
+        fs::create_dir_all(&package)?;
+
+        assert_eq!(workspace_from(&package), Some(checkout.as_path()));
+        assert_eq!(workspace_from(&root.join("crates/core")), Some(root));
+        Ok(())
+    }
 
     #[test]
     fn temp_dirs_are_isolated_and_remove_files_on_drop() -> io::Result<()> {

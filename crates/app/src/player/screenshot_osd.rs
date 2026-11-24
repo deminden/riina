@@ -86,8 +86,7 @@ mod tests {
 
     #[test]
     fn deep_rgb_png_loads_through_the_actual_preview_decoder() {
-        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../../tests/fixtures/preview-rgb16.png");
+        let path = riina_test_support::fixture("preview-rgb16.png").unwrap();
         let image = slint::Image::load_from_path(&path).unwrap();
         assert_eq!((image.size().width, image.size().height), (96, 64));
         let pixels = image.to_rgba8().unwrap();

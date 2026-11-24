@@ -184,8 +184,7 @@ mod tests {
     #[test]
     #[ignore = "writes the original preview fixture to the native clipboard; run explicitly"]
     fn native_clipboard_fixture_round_trip() {
-        let path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../../tests/fixtures/preview-rgb16.png");
+        let path = riina_test_support::fixture("preview-rgb16.png").unwrap();
         let image = slint::Image::load_from_path(&path).unwrap();
         super::copy_image(&image).unwrap();
         let expected = image.to_rgba8().unwrap();

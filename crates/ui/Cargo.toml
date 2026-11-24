@@ -22,3 +22,4 @@ slint-build.workspace = true
 [target.'cfg(target_os = "windows")'.dev-dependencies]
 image = { version = "=0.25.10", default-features = false, features = ["png"] }
 i-slint-renderer-software = "=1.18.1"
+riina-test-support = { path = "../test-support" }

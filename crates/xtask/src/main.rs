@@ -544,8 +544,8 @@ mod scope_tests {
 
     #[test]
     fn shared_source_selects_consumers_while_test_edits_stay_local() {
-        let task_crate = Path::new(env!("CARGO_MANIFEST_DIR"));
-        let workspace = find_workspace(task_crate).unwrap();
+        let task_crate = env::current_dir().unwrap();
+        let workspace = find_workspace(&task_crate).unwrap();
         assert_eq!(workspace.workspace_root.join("crates/xtask"), task_crate);
         for (path, expected) in [
             (

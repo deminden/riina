@@ -5254,6 +5254,7 @@ version = "4.2.1"
 dependencies = [
  "i-slint-renderer-software",
  "image",
+ "riina-test-support",
  "slint",
  "slint-build",
 ]

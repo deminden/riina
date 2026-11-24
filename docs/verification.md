@@ -3036,5 +3036,25 @@ test process with Software Update open. The full Windows workspace gate
 passed, including the pixel baselines and tests for available, current and
 failed results.
 
+The locked Linux application build passed. On an isolated X11 desktop, the
+shared menu opened Software Update. It showed the request timeout and offered
+Check Again. Escape dismissed the window, and closing the player exited the
+exact test process with the update window open. Strict Apple Silicon
+cross-Clippy passed. Native macOS activation and playback remain open.
+
 - Windows application SHA-256 `a2f86d45336797da3cb886d9d17f0bb9da8d5f834bf48d6eede1a6761b7ba41`
 - Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
+- Linux application SHA-256 `0c04ef702447707cf45296a71a556825d9a27d2bd2fc95ace29b87c2ec00d67f`
+- X11 libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`
+
+### Shared test cache and worktree fixtures 2026-11-24
+
+A reused native harness failed while looking for the checkout where its test
+helper was compiled. Media fixtures and Windows pixel baselines now resolve
+from the running test's workspace. The same native executable reported a
+missing clip from an alternate checkout directory, then passed once that
+directory contained the fixture. It used the same pinned DLL throughout.
+
+The grouped Windows check passed strict Clippy, 576 application tests,
+66 widget tests and the headless pixel comparison. The separate native
+engine suite passed all 59 tests.

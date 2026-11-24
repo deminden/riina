@@ -9,12 +9,7 @@ use slint::{
     ComponentHandle, Image, PhysicalSize, PlatformError, Rgb8Pixel, SharedPixelBuffer, Window,
     platform::{Platform, WindowAdapter},
 };
-use std::{
-    error::Error,
-    path::{Path, PathBuf},
-    rc::Rc,
-    time::Duration,
-};
+use std::{error::Error, path::PathBuf, rc::Rc, time::Duration};
 
 struct OffscreenPlatform;
 
@@ -35,8 +30,7 @@ struct Baselines {
 
 impl Baselines {
     fn windows() -> Result<Self, Box<dyn Error>> {
-        let directory =
-            Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tests/visual/headless/windows");
+        let directory = riina_test_support::workspace_root()?.join("tests/visual/headless/windows");
         let update =
             std::env::var_os("RIINA_UPDATE_HEADLESS_BASELINES").is_some_and(|value| value == "1");
         if update {
