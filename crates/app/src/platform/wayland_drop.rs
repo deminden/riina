@@ -1,4 +1,5 @@
-//! Receive drops on Winit's Wayland surfaces through a queue on the same display.
+//! Run desktop protocols through a guest queue on Winit's Wayland display.
+mod activation;
 mod payload;
 mod protocol;
 
@@ -20,6 +21,8 @@ use std::{
     rc::{Rc, Weak},
 };
 use wayland_client::{Connection, EventQueue, backend::Backend};
+
+pub(crate) use activation::request_focus;
 
 struct Target {
     surface: Box<dyn Fn() -> Option<(usize, f32)>>,
@@ -86,6 +89,7 @@ pub(crate) struct Handler(Option<Receiver>);
 struct Receiver {
     state: protocol::State,
     queue: EventQueue<protocol::State>,
+    connection: Connection,
     // Keep the owner alive until the borrowed queue and all its proxies are dropped.
     _display: OwnedDisplayHandle,
 }
@@ -103,6 +107,7 @@ impl Receiver {
         Some(Self {
             state: protocol::State::new(registry),
             queue,
+            connection,
             _display: display,
         })
     }
@@ -120,10 +125,15 @@ impl CustomApplicationHandler for Handler {
         if let Some(receiver) = self.0.as_mut() {
             // Winit reads the shared socket. The guest dispatches only its own queue.
             if let Err(error) = receiver.queue.dispatch_pending(&mut receiver.state) {
-                crate::diagnostics::warn!("Wayland drop queue closed: {error}");
+                crate::diagnostics::warn!("Wayland desktop queue closed: {error}");
+                activation::clear_request();
                 self.0 = None;
             } else {
                 receiver.state.deliver_payloads();
+                receiver
+                    .state
+                    .activation
+                    .activate_requested(&receiver.connection, &receiver.queue.handle());
                 let _ = receiver.queue.flush();
             }
         }
@@ -131,6 +141,7 @@ impl CustomApplicationHandler for Handler {
     }
 
     fn exiting(&mut self, _: &ActiveEventLoop) -> EventResult {
+        activation::clear_request();
         self.0 = None;
         EventResult::Propagate
     }

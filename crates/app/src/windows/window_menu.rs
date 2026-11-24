@@ -57,19 +57,17 @@ impl ApplicationWindowMenu {
         let source = app.as_weak();
         app.global::<PlayerMenuActions>()
             .on_select_player_window(move |token| {
-                let Some(owner) = owner.upgrade() else {
+                let (Some(owner), Some(app)) = (owner.upgrade(), source.upgrade()) else {
                     return;
                 };
                 if let Ok(destination) = token.parse()
                     && let Some(target) = owner.destination(destination)
                 {
-                    target.focus();
+                    target.focus_from_menu(&app);
                 }
                 // Native checkable items toggle on activation. The check
                 // identifies the owning player and stays in its original row.
-                if let Some(app) = source.upgrade() {
-                    publish(&app, id, &owner.projected.borrow());
-                }
+                publish(&app, id, &owner.projected.borrow());
             });
         // Window managers can hide or restore a surface independently of the
         // playback model. The low-frequency projection leaves unchanged menus alone.

@@ -37,10 +37,10 @@ Implementation does not imply every state or platform is verified.
 - **Log Viewer:** Window and Advanced Settings open the shared viewer for
   application and mpv logs. Filter by multiple subsystems, severity and message,
   copy selected rows or export the full or filtered view.
-- **Window switching:** the Window menu lists running player windows on Windows
-  and X11 and can restore a minimized player. The macOS port registers Window
-  and Help with AppKit for the system window list, standard window commands
-  and Help search.
+- **Window switching:** the Window menu lists and switches between players on
+  Windows and X11, including minimized players. On Wayland it requests
+  activation from the compositor. The macOS port registers Window and Help
+  with AppKit for the system window list, standard commands and Help search.
 - **Debug Info:** Help saves one report with playback snapshots from every
   open player in the application.
 - **Inspector** opens from the Window menu and shows the focused player's

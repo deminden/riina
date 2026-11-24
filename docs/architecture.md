@@ -552,9 +552,15 @@ session supplies the display it owns and retires its registration before native
 teardown. The catalog keeps minimized players and omits hidden playback frames
 that have no visible Welcome surface. It samples window-manager state while
 players exist and publishes menu rows only when titles or membership change.
-Bring All to Front on the shared renderer uses the visible surfaces and retains
-the initiating player in front. macOS registers Window and Help with AppKit.
-Minimize, Zoom and Bring All to Front use the native responder chain.
+Bring All to Front on X11 uses the visible surfaces and retains the initiating
+player in front. macOS registers Window and Help with AppKit. Minimize, Zoom and
+Bring All to Front use the native responder chain.
+
+Wayland window selection uses the guest queue on Winit's display connection.
+The selected player stays weak while the compositor returns an activation
+token. The request uses the latest input serial for the menu's surface and
+seat. The guest queue submits the request after dispatching those input events.
+A newer selection replaces a pending target.
 
 Release Highlights and About each have one application-owned window. Highlights
 reads notes bundled for the package version and opens the browser only through

@@ -5211,6 +5211,7 @@ dependencies = [
  "url",
  "uuid",
  "wayland-client",
+ "wayland-protocols",
  "webkit2gtk",
  "windows",
  "windows-core",

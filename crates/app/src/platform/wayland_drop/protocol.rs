@@ -1,5 +1,5 @@
 //! Own each seat's data device and separate a hover offer from a completed drop.
-use super::{Hover, OpenDrop, Target, find_target, payload};
+use super::{Hover, OpenDrop, Target, activation, find_target, payload};
 use slint::LogicalPosition;
 use std::{
     collections::HashMap,
@@ -17,11 +17,12 @@ use wayland_client::{
         wl_data_device_manager::{DndAction, WlDataDeviceManager},
         wl_data_offer::{self, WlDataOffer},
         wl_registry::{self, WlRegistry},
-        wl_seat::WlSeat,
+        wl_seat::{self, WlSeat},
     },
 };
 
 pub(super) struct State {
+    pub(super) activation: activation::State,
     _registry: WlRegistry,
     manager: Option<WlDataDeviceManager>,
     seats: HashMap<u32, Seat>,
@@ -36,6 +37,7 @@ impl State {
     pub(super) fn new(registry: WlRegistry) -> Self {
         let (send, results) = mpsc::channel();
         Self {
+            activation: activation::State::default(),
             _registry: registry,
             manager: None,
             seats: HashMap::new(),
@@ -149,6 +151,13 @@ impl Dispatch<WlRegistry, ()> for State {
                 name,
                 interface,
                 version,
+            } if interface == activation::interface() && version >= 1 => {
+                state.activation.bind(name, registry, queue);
+            }
+            wl_registry::Event::Global {
+                name,
+                interface,
+                version,
             } if interface == WlDataDeviceManager::interface().name
                 && version >= 3
                 && state.manager.is_none() =>
@@ -172,10 +181,12 @@ impl Dispatch<WlRegistry, ()> for State {
                 state.seats.insert(name, Seat { proxy, device });
             }
             wl_registry::Event::GlobalRemove { name } => {
-                if let Some(seat) = state.seats.remove(&name)
-                    && let Some(device) = seat.device.as_ref()
-                {
-                    state.leave(&device.id());
+                state.activation.remove_global(name);
+                if let Some(seat) = state.seats.remove(&name) {
+                    state.activation.remove_seat(&seat.proxy.id());
+                    if let Some(device) = seat.device.as_ref() {
+                        state.leave(&device.id());
+                    }
                 }
             }
             _ => {}
@@ -184,7 +195,24 @@ impl Dispatch<WlRegistry, ()> for State {
 }
 
 delegate_noop!(State: ignore WlDataDeviceManager);
-delegate_noop!(State: ignore WlSeat);
+
+impl Dispatch<WlSeat, ()> for State {
+    fn event(
+        state: &mut Self,
+        seat: &WlSeat,
+        event: wl_seat::Event,
+        _: &(),
+        _: &Connection,
+        queue: &QueueHandle<Self>,
+    ) {
+        if let wl_seat::Event::Capabilities {
+            capabilities: WEnum::Value(capabilities),
+        } = event
+        {
+            state.activation.track_input(seat, capabilities, queue);
+        }
+    }
+}
 
 #[derive(Default)]
 struct Offer {

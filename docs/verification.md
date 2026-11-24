@@ -3584,10 +3584,30 @@ remaining items in the same player. The second HTTP stream was first requested
 after navigation. Both sessions exited normally.
 
 The Windows workspace gate, all 61 pinned libmpv tests and strict Apple Silicon
-cross-Clippy passed. Native macOS interaction and startup selections where
-shuffle chooses a network item still need verification.
+cross-Clippy passed. Native macOS interaction remains open. Shuffled startup
+continues through the regular playlist path.
 
 - Windows application SHA-256 `69ea4c12840467736759a8b07bf34ddfe99663f3d0ee9197c4b0a9c87cbce1d3`
 - Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
 - Linux application SHA-256 `6c97ff773b546a6650cedc8d80e9eb11731460992e426e32c90e2b7dcbd33ed7`
 - X11 libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`
+
+### Wayland window switching 2026-11-24
+
+An isolated Sway desktop with XWayland disabled opened two tiled players.
+The 1280 × 800 desktop capture showed both video fixtures paused. Pointer
+selection in the first player's Window menu requested activation for the
+second. The protocol trace recorded the compositor's input serial, token
+reply and the activation request for the second surface. Sway reported the
+second player focused. Closing it removed its menu entry. Closing the final
+player exited normally.
+
+The same Linux build passed the isolated X11 checks for minimized-player
+restore, Bring All to Front, closed-entry removal and normal shutdown.
+The locked Linux application build, strict Linux application Clippy and full
+Windows workspace gate passed. The initial floating-window setup did not
+produce a stable playback capture. Floating-window transitions and other
+Wayland compositors remain open.
+
+- Linux application SHA-256 `6c537f88a3c36ca1989a0da1034933493d2cdd9b2657d1555d7d177a5fa33471`
+- Linux libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`
