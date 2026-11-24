@@ -10,6 +10,7 @@ export component UpdateWindow inherits Window {
     background: Theme.about-content-surface(root.dark-theme);
 
     in property <bool> dark-theme;
+    in property <bool> asking-permission;
     in property <bool> checking;
     in property <bool> release-available;
     in property <string> headline;
@@ -17,6 +18,7 @@ export component UpdateWindow inherits Window {
     callback retry();
     callback open-release();
     callback dismiss();
+    callback set-permission(bool);
     public function focus-dismiss() { close-button.focus(); }
 
     FocusScope {
@@ -43,17 +45,21 @@ export component UpdateWindow inherits Window {
             HorizontalLayout {
                 spacing: 8px;
                 alignment: end;
-                if !root.checking && !root.release-available : Button {
+                if !root.asking-permission && !root.checking && !root.release-available : Button {
                     text: "Check Again";
                     clicked => { root.retry(); }
                 }
-                if root.release-available : Button {
+                if !root.asking-permission && root.release-available : Button {
                     text: "View Release";
                     clicked => { root.open-release(); }
                 }
                 close-button := Button {
-                    text: "Close";
+                    text: root.asking-permission ? "Don’t Check" : "Close";
                     clicked => { root.dismiss(); }
+                }
+                if root.asking-permission : Button {
+                    text: "Check Automatically";
+                    clicked => { root.set-permission(true); }
                 }
             }
         }

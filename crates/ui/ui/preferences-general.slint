@@ -2,6 +2,8 @@ import { Theme } from "theme.slint";
 import { FolderChooser, GeneralDisclosureRow, GeneralSettingToggle } from "preferences-controls.slint";
 import { CheckBox, ComboBox, ScrollView } from "std-widgets.slint";
 
+export enum UpdatePreference { automatic, interval, prereleases }
+
 export global GeneralSettingsState {
     in-out property <bool> when-media-opened-expanded: false;
     in-out property <bool> pause-resume-when-expanded: false;
@@ -29,6 +31,10 @@ export global GeneralSettingsState {
     in-out property <bool> pause-policies-available: false;
     in-out property <bool> quit-when-no-opened-window: false;
     in-out property <bool> keep-open-on-file-end: true;
+    in-out property <bool> automatic-update-checks: false;
+    in-out property <int> update-interval-index: 1;
+    in-out property <bool> receive-prerelease-updates: false;
+    callback update-setting-changed(UpdatePreference);
     in-out property <bool> fullscreen-when-open: false;
     in-out property <bool> resume-last-position: true;
     in-out property <bool> record-playback-history: true;
@@ -50,6 +56,7 @@ export component GeneralPreferencesPage inherits ScrollView {
     in property <length> general-screenshots-target;
     in property <bool> mica-backdrop-enabled;
     callback settings-changed();
+    in property <length> general-updates-y;
     in property <length> general-history-y;
     in property <length> general-playlist-y;
     in property <length> general-screenshots-y;
@@ -183,6 +190,44 @@ export component GeneralPreferencesPage inherits ScrollView {
         GeneralSettingToggle { x: 12px; y: 170px; width: parent.width - 24px; height: 36px;
             label: "Keep window open after playback finishes";
             checked <=> GeneralSettingsState.keep-open-on-file-end; toggled => { root.settings-changed(); } }
+    }
+    Rectangle {
+        x: 12px; y: root.general-updates-y; width: parent.width - 24px; height: 124px;
+        border-width: 1px; border-color: Theme.settings-general-card-border; border-radius: 12px;
+        background: Theme.settings-card-surface(root.mica-backdrop-enabled);
+        GeneralSettingToggle {
+            x: 12px; y: 4px; width: parent.width - 24px; height: 36px;
+            label: "Check for updates automatically";
+            checked <=> GeneralSettingsState.automatic-update-checks;
+            toggled => { GeneralSettingsState.update-setting-changed(UpdatePreference.automatic); }
+        }
+        Rectangle {
+            x: 12px; y: 41px; width: parent.width - 24px; height: 1px;
+            background: Theme.settings-general-divider;
+        }
+        Text {
+            x: 38px; y: 43px; width: 120px; height: 37px; text: "Check every";
+            font-size: 13px; vertical-alignment: center;
+            color: Theme.settings-page-heading;
+        }
+        ComboBox {
+            x: 166px; y: 48px; width: parent.width - 182px; height: 27px;
+            model: ["Hour", "Day", "Week", "Month"];
+            accessible-label: "Update check interval";
+            current-index <=> GeneralSettingsState.update-interval-index;
+            enabled: GeneralSettingsState.automatic-update-checks;
+            selected => { GeneralSettingsState.update-setting-changed(UpdatePreference.interval); }
+        }
+        Rectangle {
+            x: 12px; y: 81px; width: parent.width - 24px; height: 1px;
+            background: Theme.settings-general-divider;
+        }
+        GeneralSettingToggle {
+            x: 12px; y: 83px; width: parent.width - 24px; height: 36px;
+            label: "Receive beta updates";
+            checked <=> GeneralSettingsState.receive-prerelease-updates;
+            toggled => { GeneralSettingsState.update-setting-changed(UpdatePreference.prereleases); }
+        }
     }
     Text { x: 20px; y: root.general-history-y;
         text: "History"; font-weight: 600; font-size: 13px; color: Theme.settings-general-section-heading; }

@@ -137,9 +137,11 @@ export component PreferencesWindow inherits Window {
     out property <length> interface-accessibility-target: 0px - (interface-accessibility-y - 13px);
     private property <length> general-expanded-height: (GeneralSettingsState.when-media-opened-expanded ? 166px : 0px)
         + (GeneralSettingsState.pause-resume-when-expanded ? (GeneralSettingsState.pause-policies-available ? 168px : 104px) : 0px);
-    private property <length> general-history-y: 459px + root.general-expanded-height;
-    private property <length> general-playlist-y: 680px + root.general-expanded-height;
-    private property <length> general-screenshots-y: 928px + root.general-expanded-height;
+    private property <length> general-updates-y: 447px + root.general-expanded-height;
+    private property <length> general-history-y: root.general-updates-y + 152px;
+    private property <length> general-playlist-y: root.general-history-y + 221px;
+    private property <length> general-screenshots-y: root.general-playlist-y + 248px;
+    out property <length> general-updates-target: 13px - root.general-updates-y;
     out property <length> general-history-target: 13px - root.general-history-y;
     out property <length> general-playlist-target: 13px - root.general-playlist-y;
     out property <length> general-screenshots-target: 13px - root.general-screenshots-y;
@@ -353,6 +355,7 @@ export component PreferencesWindow inherits Window {
         general-screenshots-target: root.general-screenshots-target;
         mica-backdrop-enabled: root.mica-backdrop-enabled;
         settings-changed => { root.settings-changed(); }
+        general-updates-y: root.general-updates-y;
         general-history-y: root.general-history-y;
         general-playlist-y: root.general-playlist-y;
         general-screenshots-y: root.general-screenshots-y;

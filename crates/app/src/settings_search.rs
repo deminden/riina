@@ -53,6 +53,20 @@ const ENTRIES: &[Entry] = &[
     Entry {
         page_index: 0,
         page: "General",
+        section: "Behavior",
+        title: "Check for updates automatically",
+        terms: "software update background interval hour day week month",
+    },
+    Entry {
+        page_index: 0,
+        page: "General",
+        section: "Behavior",
+        title: "Receive beta updates",
+        terms: "software update prerelease preview release channel",
+    },
+    Entry {
+        page_index: 0,
+        page: "General",
         section: "Screenshots",
         title: "Save to",
         terms: "screenshot folder destination path",
@@ -865,6 +879,14 @@ fn next_selectable_index(
 fn activate_result(window: &PreferencesWindow, page: i32, section: &str, title: &str, anchor: i32) {
     if page == 0 {
         let target = match section {
+            "Behavior"
+                if matches!(
+                    title,
+                    "Check for updates automatically" | "Receive beta updates"
+                ) =>
+            {
+                window.get_general_updates_target()
+            }
             "History" => window.get_general_history_target(),
             "Playlist" => window.get_general_playlist_target(),
             "Screenshots" => window.get_general_screenshots_target(),

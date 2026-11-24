@@ -3058,3 +3058,45 @@ directory contained the fixture. It used the same pinned DLL throughout.
 The grouped Windows check passed strict Clippy, 576 application tests,
 66 widget tests and the headless pixel comparison. The separate native
 engine suite passed all 59 tests.
+
+### Automatic update settings 2026-11-24
+
+General settings now store automatic update permission, an hourly, daily,
+weekly or monthly interval, and an optional prerelease channel. New profiles
+start with automatic checks off, a daily interval and stable releases. An
+undecided profile is asked from the second launch. The application records
+attempts per channel under the profile lock so a restart can resume the
+schedule and another process can detect a check already claimed.
+
+The private Windows desktop ran three launches on one isolated profile. The
+first launch stayed quiet. The second asked permission and saved the decline.
+General settings then enabled automatic checks, selected a weekly interval
+and enabled beta releases. A due check ran without opening Software Update.
+The manual menu compared the published release feed and reported version
+4.2.1. The third launch retained the settings and the last attempt. The
+fixture stayed paused and each exact test process exited normally.
+
+The locked Linux application build passed. On X11 a profile seeded with the
+first-launch record showed the permission prompt. Escape persisted the
+decline, and the manual menu remained available. An initial synthetic close
+left the player running. The repeat returned focus to the player, closed it
+during a check and confirmed that the exact process exited. The Wayland
+fixture failed during Winit initialization for both this candidate and the
+earlier verified History build. Strict Apple Silicon cross-Clippy passed.
+Native macOS verification remains open.
+
+The full Windows workspace gate passed. Headless tests exercised release
+selection, restart and interval calculation, synchronization between Settings
+windows, and silent scheduled failures and current-version results. The
+standalone software render matched the updated General and search popup
+baselines. All 59 pinned-engine tests passed separately.
+
+The published Windows 4.2.1 installer matched the release API's byte count
+and SHA-256. Windows reported the installer as unsigned. In-app package
+download and installation remain open.
+[Riina 4.2.1 release](https://github.com/deminden/riina/releases/tag/v4.2.1)
+
+- Windows application SHA-256 `1c1f4bb3d95802717493f20e0ef963c929bbc8da49ea47120df92a736640bb78`
+- Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
+- Linux application SHA-256 `cef017208017faef1c98ff506e34ed1b703f399fae99f5bc222136feee3e8780`
+- X11 libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`

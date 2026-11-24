@@ -1,14 +1,40 @@
-//! Own the release check and its single window for the application lifetime.
+//! Own one release checker and window for the application lifetime.
+mod check;
 mod releases;
+mod schedule;
+mod settings;
 
-use crate::{NativeVideoHost, PlayerWindow, UpdateWindow, platform::NativePresentation};
+use crate::{
+    NativeVideoHost, PlayerWindow, PreferencesWindow, UpdateWindow, platform::NativePresentation,
+};
 use riina_ui::{PlayerAppearance, PlayerMenuActions};
-use slint::{ComponentHandle, Weak, winit_030::WinitWindowAccessor};
-use std::{cell::RefCell, rc::Rc};
+use schedule::{Permission, State, Store};
+use slint::{ComponentHandle, Timer, TimerMode, Weak, winit_030::WinitWindowAccessor};
+use std::{
+    cell::{Cell, OnceCell, RefCell},
+    io,
+    path::Path,
+    rc::Rc,
+    time::Duration,
+};
+
+const STARTUP_DELAY: Duration = Duration::from_secs(3);
 
 #[derive(Default)]
 pub(crate) struct ApplicationUpdates {
     window: RefCell<Option<UpdateWindow>>,
+    settings: RefCell<Vec<Weak<PreferencesWindow>>>,
+    owners: RefCell<Vec<Owner>>,
+    store: OnceCell<Store>,
+    timer: Timer,
+    consent_due: Cell<bool>,
+    running: Cell<Option<check::Running>>,
+}
+
+#[derive(Clone)]
+struct Owner {
+    player: Weak<PlayerWindow>,
+    host: Option<Weak<NativeVideoHost>>,
 }
 
 impl ApplicationUpdates {
@@ -16,14 +42,32 @@ impl ApplicationUpdates {
         self: &Rc<Self>,
         app: &PlayerWindow,
         presentation: Option<&NativePresentation>,
+        preferences_path: &Path,
     ) {
+        let owner = Owner {
+            player: app.as_weak(),
+            host: presentation.map(NativePresentation::host),
+        };
+        self.owners
+            .borrow_mut()
+            .retain(|owner| owner.player.upgrade().is_some());
+        self.owners.borrow_mut().push(owner.clone());
+        if self
+            .store
+            .set(Store::for_preferences(preferences_path))
+            .is_ok()
+        {
+            match self.change(State::should_ask) {
+                Ok(ask) => self.consent_due.set(ask),
+                Err(error) => crate::diagnostics::warn!("Could not load update schedule: {error}"),
+            }
+            self.refresh_schedule();
+        }
         let updates = Rc::downgrade(self);
-        let player = app.as_weak();
-        let host = presentation.map(NativePresentation::host);
         app.global::<PlayerMenuActions>()
             .on_check_for_updates(move || {
-                if let (Some(updates), Some(app)) = (updates.upgrade(), player.upgrade())
-                    && let Err(error) = updates.show(&app, host.as_ref().and_then(Weak::upgrade))
+                if let (Some(updates), Some(app)) = (updates.upgrade(), owner.player.upgrade())
+                    && let Err(error) = updates.show_manual(&owner)
                 {
                     crate::diagnostics::report(
                         &app,
@@ -33,23 +77,14 @@ impl ApplicationUpdates {
             });
     }
 
-    fn show(
-        &self,
-        app: &PlayerWindow,
-        host: Option<NativeVideoHost>,
-    ) -> Result<(), slint::PlatformError> {
+    fn show_manual(self: &Rc<Self>, owner: &Owner) -> Result<(), slint::PlatformError> {
         let window = self.window()?;
-        let was_visible = window.window().is_visible();
-        window.set_dark_theme(app.global::<PlayerAppearance>().get_dark_theme());
-        if !was_visible {
-            if let Some(host) = host.as_ref() {
-                crate::platform::center_auxiliary_window(&window, host);
-            } else {
-                crate::platform::center_auxiliary_window(&window, app);
-            }
-            crate::platform::show_window(&window)?;
-            start_check(&window);
+        let start = !window.window().is_visible() || window.get_asking_permission();
+        self.consent_due.set(false);
+        if start {
+            self.request_manual(&window);
         }
+        reveal(&window, Some(owner))?;
         window
             .window()
             .with_winit_window(|native| native.focus_window());
@@ -57,7 +92,7 @@ impl ApplicationUpdates {
         Ok(())
     }
 
-    fn window(&self) -> Result<UpdateWindow, slint::PlatformError> {
+    fn window(self: &Rc<Self>) -> Result<UpdateWindow, slint::PlatformError> {
         let mut slot = self.window.borrow_mut();
         if let Some(window) = slot.as_ref() {
             return Ok(window.clone_strong());
@@ -65,40 +100,171 @@ impl ApplicationUpdates {
         let window = UpdateWindow::new()?;
         crate::appearance_preferences::install_system_typography(&window);
         let weak = window.as_weak();
+        let updates = Rc::downgrade(self);
         window.on_retry(move || {
-            if let Some(window) = weak.upgrade() {
-                start_check(&window);
+            if let (Some(window), Some(updates)) = (weak.upgrade(), updates.upgrade()) {
+                updates.request_manual(&window);
             }
         });
         let weak = window.as_weak();
+        let updates = Rc::downgrade(self);
         window.on_dismiss(move || {
-            if let Some(window) = weak.upgrade() {
+            if let (Some(window), Some(updates)) = (weak.upgrade(), updates.upgrade())
+                && updates.can_dismiss(&window)
+            {
                 let _ = window.hide();
+            }
+        });
+        let weak = window.as_weak();
+        let updates = Rc::downgrade(self);
+        window.on_set_permission(move |enabled| {
+            if let (Some(window), Some(updates)) = (weak.upgrade(), updates.upgrade())
+                && updates.answer_consent(&window, enabled)
+            {
+                let _ = window.hide();
+            }
+        });
+        let weak = window.as_weak();
+        let updates = Rc::downgrade(self);
+        window.window().on_close_requested(move || {
+            if let (Some(window), Some(updates)) = (weak.upgrade(), updates.upgrade())
+                && !updates.can_dismiss(&window)
+            {
+                slint::CloseRequestResponse::KeepWindowShown
+            } else {
+                slint::CloseRequestResponse::HideWindow
             }
         });
         *slot = Some(window.clone_strong());
         Ok(window)
     }
+
+    fn can_dismiss(self: &Rc<Self>, window: &UpdateWindow) -> bool {
+        !window.get_asking_permission() || self.answer_consent(window, false)
+    }
+
+    fn answer_consent(self: &Rc<Self>, window: &UpdateWindow, enabled: bool) -> bool {
+        if let Err(error) = self.set_permission(enabled) {
+            window.set_detail(format!("Could not save the update preference: {error}").into());
+            return false;
+        }
+        window.set_asking_permission(false);
+        true
+    }
+
+    fn refresh_schedule(self: &Rc<Self>) {
+        self.timer.stop();
+        if self.running.get().is_some() {
+            return;
+        }
+        let delay = if self.consent_due.get() {
+            Some(STARTUP_DELAY)
+        } else {
+            self.state()
+                .ok()
+                .and_then(|state| state.wait(schedule::now()))
+                .map(|wait| wait.clamp(STARTUP_DELAY, Duration::from_secs(3_600)))
+        };
+        if let Some(delay) = delay {
+            let weak = Rc::downgrade(self);
+            self.timer.start(TimerMode::SingleShot, delay, move || {
+                if let Some(updates) = weak.upgrade() {
+                    updates.run_scheduled();
+                }
+            });
+        }
+    }
+
+    fn run_scheduled(self: &Rc<Self>) {
+        if self.consent_due.replace(false)
+            && self
+                .state()
+                .is_ok_and(|state| state.permission == Permission::Undecided)
+        {
+            if let Err(error) = self.show_consent() {
+                crate::diagnostics::warn!("Could not open update consent window: {error}");
+            }
+        } else {
+            match self.change(|state| state.claim_due(schedule::now())) {
+                Ok(Some(channel)) => self.start(check::Running::automatic(channel)),
+                Ok(None) => self.refresh_schedule(),
+                Err(error) => {
+                    crate::diagnostics::warn!("Could not claim scheduled update: {error}")
+                }
+            }
+        }
+    }
+
+    fn show_consent(self: &Rc<Self>) -> Result<(), slint::PlatformError> {
+        let window = self.window()?;
+        window.set_asking_permission(true);
+        window.set_headline("Check for updates automatically?".into());
+        window.set_detail("Riina can check for new releases in the background.".into());
+        reveal(&window, self.owner().as_ref())?;
+        window.invoke_focus_dismiss();
+        Ok(())
+    }
+
+    fn owner(&self) -> Option<Owner> {
+        let owners = self.owners.borrow();
+        owners
+            .iter()
+            .rev()
+            .find(|owner| {
+                owner
+                    .player
+                    .upgrade()
+                    .is_some_and(|player| player.window().is_visible())
+                    || owner
+                        .host
+                        .as_ref()
+                        .and_then(Weak::upgrade)
+                        .is_some_and(|host| host.window().is_visible())
+            })
+            .or_else(|| {
+                owners
+                    .iter()
+                    .rev()
+                    .find(|owner| owner.player.upgrade().is_some())
+            })
+            .cloned()
+    }
+
+    fn state(&self) -> io::Result<State> {
+        self.store
+            .get()
+            .map_or_else(|| Ok(State::default()), Store::read)
+    }
+
+    fn change<T>(&self, edit: impl FnOnce(&mut State) -> T) -> io::Result<T> {
+        self.store
+            .get()
+            .ok_or_else(|| io::Error::other("Software Update was not initialized"))?
+            .change(edit)
+    }
 }
 
-fn start_check(window: &UpdateWindow) {
-    if window.get_checking() {
-        return;
+fn reveal(window: &UpdateWindow, owner: Option<&Owner>) -> Result<(), slint::PlatformError> {
+    if let Some(owner) = owner
+        && let Some(app) = owner.player.upgrade()
+    {
+        window.set_dark_theme(app.global::<PlayerAppearance>().get_dark_theme());
+        if !window.window().is_visible() {
+            if let Some(host) = owner.host.as_ref().and_then(Weak::upgrade) {
+                crate::platform::center_auxiliary_window(window, &host);
+            } else {
+                crate::platform::center_auxiliary_window(window, &app);
+            }
+        }
     }
-    window.set_checking(true);
-    window.set_release_available(false);
-    window.set_headline("Checking for updates…".into());
-    window.set_detail(format!("Installed version: {}", env!("CARGO_PKG_VERSION")).into());
-    let weak = window.as_weak();
-    if let Err(error) = crate::background::spawn_named("app-release-check", move || {
-        let result = releases::check();
-        let _ = crate::background::to_ui(weak, move |window| present(&window, result));
-    }) {
-        present(window, Err(error.to_string()));
+    if !window.window().is_visible() {
+        crate::platform::show_window(window)?;
     }
+    Ok(())
 }
 
 fn present(window: &UpdateWindow, result: Result<releases::Outcome, String>) {
+    window.set_asking_permission(false);
     window.set_checking(false);
     window.set_release_available(false);
     match result {
@@ -142,7 +308,8 @@ mod tests {
     #[test]
     fn update_window_reflects_each_result_and_escape_dismisses_it() {
         i_slint_backend_testing::init_no_event_loop();
-        let window = ApplicationUpdates::default().window().unwrap();
+        let updates = Rc::new(ApplicationUpdates::default());
+        let window = updates.window().unwrap();
         window.show().unwrap();
         window.invoke_focus_dismiss();
 

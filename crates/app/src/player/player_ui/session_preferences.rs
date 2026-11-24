@@ -11,6 +11,7 @@ use slint::ComponentHandle;
 use std::{
     io,
     path::PathBuf,
+    rc::Rc,
     sync::{Arc, Mutex, atomic::Ordering},
 };
 
@@ -18,14 +19,18 @@ pub(super) fn connect(
     app: &PlayerWindow,
     context: &PlayerContext,
     history: &history_session::Tracking,
+    updates: Rc<crate::updates::ApplicationUpdates>,
 ) {
     crate::preferences_window::connect(
         app,
-        context.commands().clone(),
-        context.preferences_path().to_path_buf(),
-        context.preferences().clone(),
-        context.playback().clone(),
-        context.plugin_host().cloned(),
+        crate::preferences_window::Session {
+            decoder_player: context.commands().clone(),
+            path: context.preferences_path().to_path_buf(),
+            model: context.preferences().clone(),
+            latest_playback: context.playback().clone(),
+            plugin_host: context.plugin_host().cloned(),
+            updates,
+        },
         history.clear_hook(
             context.preferences_path().to_path_buf(),
             context.plugin_host().cloned(),

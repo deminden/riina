@@ -14,13 +14,25 @@ use riina_ui::PlayerMenuActions;
 use slint::{ComponentHandle, winit_030::WinitWindowAccessor};
 use std::{cell::RefCell, path::PathBuf, rc::Rc};
 
+pub(crate) struct Session {
+    pub(crate) decoder_player: riina_mpv::CommandSender,
+    pub(crate) path: PathBuf,
+    pub(crate) model: PreferenceModel,
+    pub(crate) latest_playback: crate::PlaybackStore,
+    pub(crate) plugin_host: Option<crate::plugin_host::PluginHostHandle>,
+    pub(crate) updates: Rc<crate::updates::ApplicationUpdates>,
+}
+
 pub(crate) fn connect(
     app: &PlayerWindow,
-    decoder_player: riina_mpv::CommandSender,
-    path: PathBuf,
-    model: PreferenceModel,
-    latest_playback: crate::PlaybackStore,
-    plugin_host: Option<crate::plugin_host::PluginHostHandle>,
+    Session {
+        decoder_player,
+        path,
+        model,
+        latest_playback,
+        plugin_host,
+        updates,
+    }: Session,
     clear_history: impl Fn() -> Result<usize, String> + Clone + 'static,
 ) {
     let baseline = model.snapshot();
@@ -77,6 +89,7 @@ pub(crate) fn connect(
                 ) else {
                     return;
                 };
+                updates.connect_settings(&window, &app);
                 timers.install_close(&window);
                 crate::platform::center_auxiliary_window(&window, &app);
                 *current.borrow_mut() = Some(window.clone_strong());
@@ -98,6 +111,7 @@ pub(crate) fn connect(
                 .unwrap_or_default();
             crate::audio_preferences::install_window(&window, &stored_audio, &available_devices);
             refresh(&window, &app);
+            updates.refresh_settings(&window);
             if let Err(error) = crate::platform::show_window(&window) {
                 app.set_status(error.to_string().into());
                 return;

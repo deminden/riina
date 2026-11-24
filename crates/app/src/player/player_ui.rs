@@ -236,6 +236,20 @@ pub(crate) struct ApplicationServices {
     updates: Rc<crate::updates::ApplicationUpdates>,
 }
 
+impl ApplicationServices {
+    fn connect_preferences(
+        &self,
+        app: &PlayerWindow,
+        context: &PlayerContext,
+        history: &history_session::Tracking,
+        presentation: Option<&platform::NativePresentation>,
+    ) {
+        self.updates
+            .connect(app, presentation, context.preferences_path());
+        session_preferences::connect(app, context, history, self.updates.clone());
+    }
+}
+
 pub(crate) fn configure_player(
     app: &PlayerWindow,
     native: Option<platform::NativePresentation>,
@@ -348,7 +362,6 @@ fn configure_with_engine(
         session.plugin_host_handle.clone(),
         prefs_path.clone(),
     );
-    session_preferences::connect(app, &context, &session.history);
     media_actions::install_resume_preference(app, &command_sender, welcome, &session.recent.media);
     session.history.install_recording_action(app);
     media_actions::install_pause_on_open(app, &command_sender);
@@ -380,7 +393,6 @@ fn configure_with_engine(
         },
     );
     window_actions::install_lifecycle(app, welcome);
-    application.updates.connect(app, native.as_ref());
 
     startup::activate_output(
         app,
@@ -394,6 +406,7 @@ fn configure_with_engine(
         },
         &session.picture_in_picture,
     )?;
+    application.connect_preferences(app, &context, &session.history, native.as_ref());
     let (platform_extras, plugin_runtime) = session.plugin_ui.finish(
         session.plugin_host,
         session.projection.system_media,
