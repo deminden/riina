@@ -11,7 +11,7 @@ mod fullscreen;
 #[cfg(target_os = "linux")]
 pub(super) mod pip;
 #[cfg(target_os = "linux")]
-pub(crate) use fullscreen::{observed_fullscreen, request_fullscreen};
+pub(crate) use fullscreen::{FullscreenGeometry, observed_fullscreen, request_fullscreen};
 #[cfg(target_os = "linux")]
 pub(super) mod offscreen_webview;
 #[cfg(target_os = "linux")]

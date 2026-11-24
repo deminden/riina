@@ -130,6 +130,47 @@ fn native_fullscreen_notification_commits_playback_and_closes_pip_only_once() {
 }
 
 #[test]
+fn confirmed_fullscreen_exit_cancels_crop_before_applying_the_pause_policy() {
+    use riina_ui::{PlayerCropState, PlayerWindowMode};
+    i_slint_backend_testing::init_no_event_loop();
+    let app = player(true);
+    install_fullscreen(&app, None);
+    app.set_paused(true);
+    let crop = app.global::<PlayerCropState>();
+    crop.set_crop_editing(true);
+    let effects = Rc::new(RefCell::new(Vec::new()));
+    let canceled = effects.clone();
+    let weak = app.as_weak();
+    crop.on_finish_custom_crop(move |confirm| {
+        assert!(!confirm);
+        let app = weak.upgrade().unwrap();
+        assert!(app.get_fullscreen());
+        app.global::<PlayerCropState>().set_crop_editing(false);
+        canceled.borrow_mut().push("cancel crop");
+    });
+    let published = effects.clone();
+    app.on_window_mode_confirmed(move |mode, active| {
+        assert_eq!(mode, PlayerWindowMode::Fullscreen);
+        assert!(!active);
+        published.borrow_mut().push("windowed");
+    });
+    let paused = effects.clone();
+    app.global::<riina_ui::PlayerControlActions>()
+        .on_set_paused(move |pause| {
+            assert!(pause);
+            paused.borrow_mut().push("pause");
+        });
+    app.invoke_native_fullscreen_observed(false, false);
+    assert!(effects.borrow().is_empty());
+    app.invoke_native_fullscreen_observed(false, true);
+    app.invoke_native_fullscreen_observed(false, true);
+    assert_eq!(
+        effects.borrow().as_slice(),
+        ["cancel crop", "windowed", "pause"]
+    );
+}
+
+#[test]
 fn queued_music_mode_clears_after_cancellation_and_waits_for_a_real_exit() {
     use riina_ui::PlayerMusicModeState;
     i_slint_backend_testing::init_no_event_loop();

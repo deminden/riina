@@ -521,6 +521,10 @@ fn resize_filter(
             width: size.width,
             height: size.height,
         };
+        // Some hosts send an empty size during a visibility transition.
+        if requested.width == 0 || requested.height == 0 {
+            return EventResult::Propagate;
+        }
         if !window_sizing::USES_NATIVE_RESIZE_FILTER
             && let Some(app) = weak.upgrade()
             && requested != previous_size.get()

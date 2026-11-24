@@ -2,7 +2,7 @@
 use super::{
     PendingNavigation,
     catalog::playlist,
-    discovery,
+    discovery, fullscreen,
     history_session::Tracking,
     input, live_text,
     playlist_subtitles::{self, Assignments},
@@ -163,6 +163,13 @@ pub(super) fn install(app: &PlayerWindow, inputs: Inputs<'_>) -> Installed {
         folder_series,
     );
     picture_in_picture.bind(app, commands, playback);
+    let fullscreen = fullscreen::install(
+        app,
+        native.map(platform::NativePresentation::host),
+        music_mode,
+    );
+    #[cfg(not(target_os = "linux"))]
+    drop(fullscreen);
     let input::InstalledInput {
         file_drop_timer,
         player_window_focus,
@@ -172,6 +179,8 @@ pub(super) fn install(app: &PlayerWindow, inputs: Inputs<'_>) -> Installed {
         commands,
         playback.clone(),
         resize_filter,
+        #[cfg(target_os = "linux")]
+        fullscreen,
         #[cfg(target_os = "windows")]
         native.map(platform::NativePresentation::host),
     );

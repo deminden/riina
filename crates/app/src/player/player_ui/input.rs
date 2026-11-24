@@ -400,6 +400,7 @@ pub(super) fn install(
     player: &riina_mpv::CommandSender,
     latest_playback: crate::PlaybackStore,
     resize_filter: Option<crate::window_aspect::WindowEventFilter>,
+    #[cfg(target_os = "linux")] fullscreen: Rc<super::fullscreen::Controller>,
     #[cfg(target_os = "windows")] native_host: Option<slint::Weak<crate::NativeVideoHost>>,
 ) -> InstalledInput {
     let scroll_input = Rc::new(Cell::new(ScrollInputState::default()));
@@ -445,7 +446,7 @@ pub(super) fn install(
     let trackpad_pause_generation = Rc::new(Cell::new(None));
     let mut gestures = platform::player_gesture_handler(app, player, dispatch_control_mouse_action);
     #[cfg(target_os = "linux")]
-    let probe_fullscreen = super::fullscreen::probe_after_window_event(app);
+    let probe_fullscreen = super::fullscreen::probe_after_window_event(fullscreen);
     // Slint has one Winit callback per window. Keep native gestures and size
     // constraints on the same route as file drops, wheel input and focus.
     let (file_drop_timer, player_window_focus) = install_window_events(

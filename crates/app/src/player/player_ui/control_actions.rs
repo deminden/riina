@@ -2,7 +2,7 @@
 use super::{
     PendingNavigation, audio_controls, catalog,
     context::{PlayerContext, bind},
-    delays, dialogs, feedback, fullscreen, hdr_output, input, playlist_actions, playlist_subtitles,
+    delays, dialogs, feedback, hdr_output, input, playlist_actions, playlist_subtitles,
     subtitle_controls, transport, video_controls,
 };
 use crate::{
@@ -19,7 +19,6 @@ use std::{
 
 pub(super) struct Inputs<'a> {
     pub(super) context: &'a PlayerContext,
-    pub(super) music_mode_state: &'a Arc<Mutex<riina_core::music_mode::State>>,
     pub(super) native: Option<&'a platform::NativePresentation>,
     pub(super) crop_editor: &'a Editor,
     pub(super) screenshot_scratch: Arc<Scratch>,
@@ -33,7 +32,6 @@ pub(super) struct Inputs<'a> {
 pub(super) fn install(app: &PlayerWindow, inputs: Inputs<'_>) {
     let Inputs {
         context,
-        music_mode_state,
         native,
         crop_editor,
         screenshot_scratch,
@@ -118,9 +116,4 @@ pub(super) fn install(app: &PlayerWindow, inputs: Inputs<'_>) {
     audio_controls::install_volume(app, command_sender);
     transport::install_relative_speed(app, command_sender);
     audio_controls::install_volume_adjustment(app, command_sender);
-    fullscreen::install(
-        app,
-        native.map(platform::NativePresentation::host),
-        music_mode_state,
-    );
 }

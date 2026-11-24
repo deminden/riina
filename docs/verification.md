@@ -2904,3 +2904,40 @@ Linux strict workspace Clippy, 538 application tests and 63 widget tests passed.
 - Linux application SHA-256 `63b676b4d41506861b7a20abad3935200d118d046acb773d2b73b36f46bd0d10`
 - X11 libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`
 - Wayland libmpv SHA-256 `cdce854e1811942602587310026306d92d30c0f593f2be676f07659ae43061d8`
+
+### Paused fullscreen rendering and startup resize on Wayland 2026-11-24
+
+In the unmodified `dce6ff4` run, an external fullscreen request arrived
+during the first resize of a paused video. Sway announced a 1280 × 800
+fullscreen surface, then announced 320 × 180 while keeping it fullscreen.
+The captured video still occupied the small surface. Sway 1.11's floating
+toplevel handling uses committed client geometry, and another fullscreen
+request arranges the output again. [Sway surface handling](https://github.com/swaywm/sway/blob/1.11/sway/desktop/xdg_shell.c#L278-L374)
+
+The first recovery attempt requested fullscreen before the undersized frame
+reached the compositor. That frame arrived afterward and shrank the surface
+again. The final change waits for the redraw before requesting fullscreen once
+for the current output mode. A confirmed fullscreen transition also redraws a
+paused frame and closes an open crop or delogo editor before applying the
+configured play/pause preference. A shared test checks this ordering and
+ensures the confirmed-window event fires once.
+
+In a private Sway 1.11 session on Ubuntu 26.04.1 x64, a test-only compositor
+fixture replaced the first fullscreen configure with 320 × 180. It left the
+baseline at that size. The candidate committed the small frame first, then
+sent one additional fullscreen request. The next configure restored 1280 × 800,
+and a full-output capture showed the paused frame at the restored width. The
+fixture ran in the compositor process, and the app and engine were unmodified
+binaries. With and without the fixture, app and desktop fullscreen entry and
+exit preserved the same media and paused position. Each run reported four
+confirmed fullscreen events across two complete transitions and exited cleanly.
+The same binary also passed the entry, exit, paused frame and shutdown checks
+in a private X11 session. Separate X11 runs checked native folder and playlist
+drops, grouping several opens into one player, and reopening a multi-selection
+from Playback History in the current and a new player. All test processes
+exited. The locked Linux application build and strict workspace Clippy passed.
+The application harness passed 540 tests and the widget harness passed 63.
+
+- Linux application SHA-256 `19b0a509b917d152f582f2eb53c2a28eeab8a237ee80dd59be5ca5144b11fee1`
+- X11 libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`
+- Wayland libmpv SHA-256 `cdce854e1811942602587310026306d92d30c0f593f2be676f07659ae43061d8`

@@ -504,6 +504,13 @@ the window manager's EWMH state. The shared controller applies playback
 preferences and exits Picture in Picture on confirmed transitions. Music Mode
 waits for the fullscreen exit before resizing the window.
 
+A confirmed fullscreen change refreshes the paused frame and closes an active
+crop or delogo editor before applying the window's playback preference. On
+Wayland, the player can repeat the native fullscreen request when both axes
+remain substantially smaller than the output. It waits for the undersized frame
+to be presented, then retries once for the current output mode. The compositor
+still owns the geometry.
+
 Fullscreen, Music Mode, and Picture-in-Picture confirmations enter the player's
 plugin command queue in order. The periodic window snapshot tracks geometry,
 focus, minimization, and displays. During each mode callback and its Promise

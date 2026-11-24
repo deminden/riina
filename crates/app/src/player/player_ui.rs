@@ -355,7 +355,6 @@ fn configure_with_engine(
         app,
         control_actions::Inputs {
             context: &context,
-            music_mode_state: &music_mode_state,
             native: native.as_ref(),
             crop_editor: &crop_editor,
             screenshot_scratch,

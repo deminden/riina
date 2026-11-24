@@ -2,8 +2,10 @@
 use slint::winit_030::{
     WinitWindowAccessor,
     winit::{
+        dpi::PhysicalSize,
+        monitor::MonitorHandle,
         raw_window_handle::{HasWindowHandle, RawWindowHandle},
-        window::Fullscreen,
+        window::{Fullscreen, Window as NativeWindow},
     },
 };
 use std::cell::RefCell;
@@ -28,6 +30,69 @@ pub(crate) fn request_fullscreen(window: &slint::Window, fullscreen: bool) -> Op
             native.set_fullscreen(fullscreen.then_some(Fullscreen::Borderless(None)));
         }),
     }
+}
+
+#[derive(Default)]
+pub(crate) struct FullscreenGeometry {
+    retried: Option<(MonitorHandle, PhysicalSize<u32>)>,
+}
+
+impl FullscreenGeometry {
+    pub(crate) fn reset(&mut self) {
+        self.retried = None;
+    }
+
+    pub(crate) fn needs_repair(&self, window: &slint::Window) -> bool {
+        window
+            .with_winit_window(|native| self.undersized_output(native).is_some())
+            .unwrap_or(false)
+    }
+
+    pub(crate) fn repair(&mut self, window: &slint::Window) {
+        window.with_winit_window(|native| {
+            let Some((monitor, bounds)) = self.undersized_output(native) else {
+                return;
+            };
+            // A late windowed buffer can shrink a floating fullscreen container.
+            // Reapply the native request once per output mode, without leaving fullscreen.
+            self.retried = Some((monitor.clone(), bounds));
+            native.set_fullscreen(Some(Fullscreen::Borderless(Some(monitor))));
+            native.request_redraw();
+        });
+    }
+
+    fn undersized_output(
+        &self,
+        native: &NativeWindow,
+    ) -> Option<(MonitorHandle, PhysicalSize<u32>)> {
+        if !matches!(
+            native.window_handle().ok()?.as_raw(),
+            RawWindowHandle::Wayland(_)
+        ) || native.fullscreen().is_none()
+        {
+            return None;
+        }
+        let monitor = native.current_monitor()?;
+        let bounds = monitor.size();
+        if self
+            .retried
+            .as_ref()
+            .is_some_and(|(display, size)| *display == monitor && *size == bounds)
+            || !undersized_fullscreen(native.inner_size(), bounds)
+        {
+            return None;
+        }
+        Some((monitor, bounds))
+    }
+}
+
+fn undersized_fullscreen(surface: PhysicalSize<u32>, output: PhysicalSize<u32>) -> bool {
+    // Check both axes. Fractional scaling can change a pixel and rotated or
+    // otherwise constrained outputs need not report matching dimensions.
+    surface.width > 0
+        && surface.height > 0
+        && u64::from(surface.width) * 8 <= u64::from(output.width) * 7
+        && u64::from(surface.height) * 8 <= u64::from(output.height) * 7
 }
 
 enum Surface {
@@ -126,4 +191,18 @@ fn with_x11<T>(request: impl FnOnce(&X11) -> Option<T>) -> Option<T> {
         }
         result
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{PhysicalSize, undersized_fullscreen};
+
+    #[test]
+    fn only_a_substantially_smaller_fullscreen_surface_needs_recovery() {
+        let output = PhysicalSize::new(1280, 800);
+        assert!(undersized_fullscreen(PhysicalSize::new(320, 180), output));
+        assert!(!undersized_fullscreen(PhysicalSize::new(1279, 799), output));
+        assert!(!undersized_fullscreen(PhysicalSize::new(800, 1280), output));
+        assert!(!undersized_fullscreen(PhysicalSize::new(0, 0), output));
+    }
 }
