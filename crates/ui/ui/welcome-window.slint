@@ -128,6 +128,8 @@ export component WelcomeWindow inherits Window {
     callback open-file();
     callback open-url(string);
     callback open-recent(int);
+    callback show-playback-history();
+    init => { keys.focus(); }
 
     keys := FocusScope {
         width: root.width; height: root.height;
@@ -212,6 +214,10 @@ export component WelcomeWindow inherits Window {
         }
         }
         key-pressed(event) => {
+            if (event.modifiers.control || event.modifiers.meta) && event.modifiers.shift
+                && !event.modifiers.alt && (event.text == "h" || event.text == "H") {
+                root.show-playback-history(); return accept;
+            }
             if event.modifiers.alt || event.modifiers.control || event.modifiers.meta || event.modifiers.shift { return reject; }
             if event.text == Key.DownArrow {
                 if root.selection-index < root.recent-documents.length - 1 {

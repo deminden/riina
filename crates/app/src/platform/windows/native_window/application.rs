@@ -73,12 +73,13 @@ pub(super) fn run(initial: NativeLaunch) -> Result<(), Box<dyn std::error::Error
     let application = Rc::new(Application {
         backend: Backend::install()?,
         players: RefCell::default(),
-        plugins: Rc::default(),
+        services: Default::default(),
         initial_error: RefCell::default(),
         quitting: Cell::default(),
     });
     let owner = Rc::downgrade(&application);
     application
+        .services
         .plugins
         .bind_player_launcher(move |parent, ticket| {
             let app = owner.upgrade().ok_or("The application has closed")?;
@@ -90,7 +91,7 @@ pub(super) fn run(initial: NativeLaunch) -> Result<(), Box<dyn std::error::Error
                 loaded,
             };
             let player = app
-                .launch(launch, Some(parent.as_weak()))
+                .launch(launch, Some(Origin::Player(parent.as_weak())))
                 .map_err(|error| error.to_string())?;
             let player = Rc::downgrade(&player);
             let owner = owner.clone();
@@ -100,6 +101,32 @@ pub(super) fn run(initial: NativeLaunch) -> Result<(), Box<dyn std::error::Error
                 }
             }))
         });
+    let owner = Rc::downgrade(&application);
+    let closed = owner.clone();
+    application.services.history.bind(
+        move |window, mut media| {
+            let application = owner.upgrade().ok_or("Riina is closing")?;
+            let path = crate::platform::preferences_path().map_err(|error| error.to_string())?;
+            let loaded = preference_load::load(&path).map_err(|error| error.to_string())?;
+            if !loaded.preferences.resume_last_position {
+                media.resume_position = None;
+            }
+            let launch = NativeLaunch {
+                media,
+                loaded,
+                owner_center: crate::platform::player_window_center(window.window()),
+            };
+            application
+                .launch(launch, Some(Origin::History(window.as_weak())))
+                .map(|_| ())
+                .map_err(|error| error.to_string())
+        },
+        move || {
+            if let Some(application) = closed.upgrade() {
+                application.quit_if_no_windows();
+            }
+        },
+    );
     application.launch(initial, None)?;
     let result = slint::run_event_loop_until_quit();
     application.finish();
@@ -112,7 +139,7 @@ pub(super) fn run(initial: NativeLaunch) -> Result<(), Box<dyn std::error::Error
 struct Application {
     backend: Backend,
     players: RefCell<Vec<Rc<NativePlayer>>>,
-    plugins: Rc<crate::player_ui::ApplicationPlugins>,
+    services: crate::player_ui::ApplicationServices,
     initial_error: RefCell<Option<Box<dyn std::error::Error>>>,
     quitting: Cell<bool>,
 }
@@ -121,7 +148,7 @@ impl Application {
     fn launch(
         self: &Rc<Self>,
         launch: NativeLaunch,
-        origin: Option<slint::Weak<PlayerWindow>>,
+        origin: Option<Origin>,
     ) -> Result<Rc<NativePlayer>, Box<dyn std::error::Error>> {
         if self.quitting.get() {
             return Err("Riina is closing".into());
@@ -137,7 +164,7 @@ impl Application {
         // Keep the host owned while Slint is realizing its frame and controls.
         self.players.borrow_mut().push(player.clone());
         if let Err(error) =
-            player.start(launch, self.backend.clone(), actions, self.plugins.clone())
+            player.start(launch, self.backend.clone(), actions, self.services.clone())
         {
             self.close(&player);
             return Err(error);
@@ -175,7 +202,7 @@ impl Application {
                 owner_center: crate::platform::player_window_center(owner.window()),
                 loaded,
             },
-            Some(owner.as_weak()),
+            Some(Origin::Player(owner.as_weak())),
         )
         .map(|_| ())
     }
@@ -190,15 +217,13 @@ impl Application {
         };
         if let Some(player) = removed {
             player.finish();
-            if self.players.borrow().is_empty() {
-                // Windows has no application menu once the final player closes.
-                self.quit();
-            }
+            self.quit_if_no_windows();
         }
     }
 
     fn finish(&self) {
         self.quitting.set(true);
+        self.services.history.hide();
         let players = std::mem::take(&mut *self.players.borrow_mut());
         for player in players {
             player.finish();
@@ -210,6 +235,16 @@ impl Application {
             .borrow()
             .iter()
             .any(|player| Rc::ptr_eq(player, target))
+    }
+
+    fn quit_if_no_windows(&self) {
+        if !self.quitting.get()
+            && self.players.borrow().is_empty()
+            && !self.services.history.is_visible()
+        {
+            // Native Win32 has no application menu after its final window closes.
+            self.quit();
+        }
     }
 
     fn quit(&self) {
@@ -227,10 +262,16 @@ impl NativePlayer {
 }
 
 #[derive(Clone)]
+enum Origin {
+    Player(slint::Weak<PlayerWindow>),
+    History(slint::Weak<crate::PlaybackHistoryWindow>),
+}
+
+#[derive(Clone)]
 pub(super) struct WindowActions {
     application: Weak<Application>,
     player: Weak<NativePlayer>,
-    origin: Option<slint::Weak<PlayerWindow>>,
+    origin: Option<Origin>,
     managed: Option<Arc<Ticket>>,
 }
 
@@ -320,14 +361,24 @@ impl WindowActions {
         else {
             return;
         };
-        if let Some(origin) = &self.origin {
-            if let Some(app) = origin.upgrade() {
-                crate::diagnostics::report(&app, error.to_string());
-            } else {
-                crate::diagnostics::warn!("Could not open the new player: {error}");
+        match &self.origin {
+            Some(Origin::Player(origin)) => {
+                if let Some(app) = origin.upgrade() {
+                    crate::diagnostics::report(&app, error.to_string());
+                } else {
+                    crate::diagnostics::warn!("Could not open the new player: {error}");
+                }
             }
-        } else {
-            *application.initial_error.borrow_mut() = Some(error);
+            Some(Origin::History(origin)) => {
+                if let Some(window) = origin.upgrade() {
+                    crate::playback_history_window::report(&window, error.to_string());
+                } else {
+                    crate::diagnostics::warn!(
+                        "Could not open media from Playback History: {error}"
+                    );
+                }
+            }
+            None => *application.initial_error.borrow_mut() = Some(error),
         }
         application.close(&player);
     }

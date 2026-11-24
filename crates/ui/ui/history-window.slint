@@ -31,6 +31,7 @@ export component PlaybackHistoryWindow inherits Window {
 
     in property <[PlaybackHistoryRow]> rows: [];
     in-out property <string> search-text: "";
+    in property <string> status-text;
     in-out property <int> group-mode: 0;
     in-out property <int> search-mode: 1;
     in-out property <string> selected-path: "";
@@ -116,7 +117,8 @@ export component PlaybackHistoryWindow inherits Window {
     }
 
     outline := ScrollView {
-        x: 16px; y: 120px; width: parent.width - 32px; height: parent.height - 132px;
+        x: 16px; y: 120px; width: parent.width - 32px;
+        height: parent.height - (root.status-text == "" ? 132px : 156px);
         content-height: max(1px, root.rows.length * 46px);
         content-width: self.visible-width;
         horizontal-scrollbar-policy: always-off;
@@ -223,6 +225,12 @@ export component PlaybackHistoryWindow inherits Window {
                 color: Theme.history-secondary-text; font-size: 12px; horizontal-alignment: center; vertical-alignment: center;
             }
         }
+    }
+
+    if root.status-text != "" : Text {
+        x: 16px; y: root.height - 32px; width: root.width - 32px; height: 24px;
+        text: root.status-text; color: Theme.history-secondary-text;
+        font-size: 11px; vertical-alignment: center; overflow: elide;
     }
 
     key-pressed(event) => {

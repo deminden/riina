@@ -172,7 +172,7 @@ pub(crate) struct UiSession {
     player: Option<SessionResource<Player>>,
     platform_extras: platform::SessionExtras,
     _plugins: plugins::RuntimeSession,
-    _application_plugins: Rc<ApplicationPlugins>,
+    _application: ApplicationServices,
     _presentation: Option<SessionResource<platform::NativePresentation>>,
     _live_text_timer: Option<Rc<slint::Timer>>,
     _preference_recovery_notice: Option<Rc<slint::Timer>>,
@@ -218,11 +218,17 @@ impl Drop for UiSession {
 struct SessionStartup {
     engine: EngineStart,
     media_geometry: crate::window_aspect::MediaGeometry,
-    application_plugins: Rc<ApplicationPlugins>,
+    application: ApplicationServices,
 }
 
 pub(crate) use plugins::ApplicationPlugins;
 pub(crate) use startup::InitialMedia;
+
+#[derive(Clone, Default)]
+pub(crate) struct ApplicationServices {
+    pub(crate) plugins: Rc<ApplicationPlugins>,
+    pub(crate) history: Rc<crate::playback_history_window::ApplicationHistory>,
+}
 
 pub(crate) fn configure_player(
     app: &PlayerWindow,
@@ -231,7 +237,7 @@ pub(crate) fn configure_player(
     welcome: Option<&WelcomeWindow>,
     loaded: LoadedPreferences,
     media_geometry: crate::window_aspect::MediaGeometry,
-    application_plugins: Rc<ApplicationPlugins>,
+    application: ApplicationServices,
 ) -> Result<UiSession, Box<dyn std::error::Error>> {
     configure_with_engine(
         app,
@@ -242,7 +248,7 @@ pub(crate) fn configure_player(
         SessionStartup {
             engine: EngineStart::Native,
             media_geometry,
-            application_plugins,
+            application,
         },
     )
 }
@@ -256,7 +262,7 @@ fn configure_with_engine(
     SessionStartup {
         engine: engine_start,
         media_geometry,
-        application_plugins,
+        application,
     }: SessionStartup,
 ) -> Result<UiSession, Box<dyn std::error::Error>> {
     let startup::PreparedStartup {
@@ -270,7 +276,7 @@ fn configure_with_engine(
         &engine_start,
         loaded,
         media_geometry.clone(),
-        media.plugin_startup(&application_plugins),
+        media.plugin_startup(&application.plugins),
     )?;
     let prefs = &session.prefs;
     let prefs_path = &session.prefs_path;
@@ -308,10 +314,12 @@ fn configure_with_engine(
         app,
         features::Inputs {
             native: native.as_ref(),
+            welcome,
             commands: &command_sender,
             playback: latest_playback,
             prefs_path,
             history: &session.history,
+            history_window: &application.history,
             plugin_host: session.plugin_host_handle.as_ref(),
             plugin_commands: &session.plugin_ui.plugin_command_sender,
             saved_video_filters: &session.saved_video_filters,
@@ -325,8 +333,6 @@ fn configure_with_engine(
         },
     );
     observer_state.bind_timers(timers);
-    startup::install_toolbar_order(app);
-    live_text::install_actions(app, prefs_path);
     music_mode::install_actions(app, &music_mode_state);
     let preference_model = PreferenceModel::new(prefs_path.clone(), prefs.clone());
     let context = PlayerContext::new(
@@ -392,7 +398,7 @@ fn configure_with_engine(
         player: player.map(SessionResource::Live),
         platform_extras,
         _plugins: plugin_runtime,
-        _application_plugins: application_plugins,
+        _application: application,
         _presentation: native.map(SessionResource::Live),
         _live_text_timer: live_text_timer,
         _preference_recovery_notice: session.recovery.and_then(|recovery| recovery.announce(app)),

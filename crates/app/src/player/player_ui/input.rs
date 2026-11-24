@@ -183,6 +183,9 @@ fn install_window_events(
             && let Some(focused) = event_focused.upgrade()
         {
             focused.update(*now_focused);
+            if *now_focused && let Some(app) = event_app.upgrade() {
+                app.invoke_history_player_activated();
+            }
         }
         if matches!(event, winit::event::WindowEvent::CursorEntered { .. }) {
             let mut input = event_scroll_input.get();

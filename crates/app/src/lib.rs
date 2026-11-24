@@ -144,7 +144,7 @@ fn run_shared_player(
         welcome.as_ref(),
         loaded,
         media_geometry,
-        player_manager.plugins(),
+        player_manager.services(),
     )?;
     player_manager.attach(
         &app,

@@ -7,7 +7,6 @@ use crate::{
     plugin_host::PluginHostHandle,
 };
 use riina_core::{Preferences, RecentMedia, playback_history::Entry};
-use riina_mpv::CommandSender;
 use std::{
     path::{Path, PathBuf},
     sync::{
@@ -108,24 +107,25 @@ impl Tracking {
         });
     }
 
-    pub(super) fn install_window(
+    pub(super) fn window_context(
         &self,
-        app: &PlayerWindow,
-        player: &CommandSender,
         prefs_path: &Path,
         plugin: Option<PluginHostHandle>,
         latest_playback: PlaybackStore,
-    ) -> playback_history_window::Guard {
+    ) -> (
+        playback_history_window::Archive,
+        playback_history_window::HistorySync,
+    ) {
         let recent_media = self.plugin_recent_media.clone();
-        let sync = Arc::new(move |history: Vec<Entry>| {
-            sync_plugin(plugin.as_ref(), &latest_playback, &recent_media, &history)
+        let sync = Arc::new(move |history: &[Entry]| {
+            sync_plugin(plugin.as_ref(), &latest_playback, &recent_media, history)
         });
-        playback_history_window::install(
-            app,
-            self.state.clone(),
-            player.clone(),
-            prefs_path.to_path_buf(),
-            self.cleared.clone(),
+        (
+            playback_history_window::Archive {
+                history: self.state.clone(),
+                preferences_path: prefs_path.to_path_buf(),
+                cleared: self.cleared.clone(),
+            },
             sync,
         )
     }

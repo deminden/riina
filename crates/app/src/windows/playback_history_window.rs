@@ -1,148 +1,46 @@
+mod owner;
 mod selection;
 
-use crate::{
-    PlaybackHistoryRow, PlaybackHistoryWindow, PlayerWindow, media_open::HistoryDestination,
-};
+pub(crate) use owner::{ApplicationHistory, Archive, HistorySync, PlayerDisplay, Registration};
+
+use crate::{PlaybackHistoryRow, PlaybackHistoryWindow, media_open::HistoryDestination};
 use chrono::{Local, TimeZone};
 use rfd::{MessageButtons, MessageDialog, MessageDialogResult};
-use riina_core::{RecentMedia, playback_history::Entry};
-use riina_ui::PlayerMenuActions;
+use riina_core::playback_history::Entry;
 use slint::{ComponentHandle, Model, ModelRc, SharedString, VecModel};
 use std::{
-    cell::{Cell, RefCell},
     collections::{BTreeMap, BTreeSet, HashSet},
     path::PathBuf,
-    rc::Rc,
+    rc::Weak,
     sync::{Arc, Mutex},
-    time::Duration,
 };
 
 type HistoryState = Arc<Mutex<crate::playback_history::PlaybackHistoryState>>;
-type HistoryWindowSlot = Rc<RefCell<Option<PlaybackHistoryWindow>>>;
 type CollapsedGroups = Arc<Mutex<HashSet<String>>>;
-pub(crate) type HistorySync = Arc<dyn Fn(Vec<Entry>) -> Result<(), String> + Send + Sync>;
-
-pub(crate) struct Guard {
-    _window: HistoryWindowSlot,
-    _timer: Rc<slint::Timer>,
-}
 
 #[derive(Clone)]
 struct WindowConnection {
-    history: HistoryState,
-    player: riina_mpv::CommandSender,
-    preferences_path: PathBuf,
-    history_cleared: Arc<std::sync::atomic::AtomicBool>,
-    history_sync: HistorySync,
+    archive: Archive,
     collapsed_groups: CollapsedGroups,
+    owner: Weak<ApplicationHistory>,
 }
 
-pub(crate) fn install(
-    app: &PlayerWindow,
-    playback_history: HistoryState,
-    player: riina_mpv::CommandSender,
-    preferences_path: PathBuf,
-    history_cleared: Arc<std::sync::atomic::AtomicBool>,
-    history_sync: HistorySync,
-) -> Guard {
-    let slot = Rc::new(RefCell::new(None::<PlaybackHistoryWindow>));
-    let last_revision = Rc::new(Cell::new(None::<u64>));
-    let collapsed_groups = Arc::new(Mutex::new(HashSet::new()));
-    let timer = Rc::new(slint::Timer::default());
-    let show_timer = timer.clone();
-    let weak_app = app.as_weak();
-    let show_slot = slot.clone();
-    let show_history = playback_history.clone();
-    let show_last_revision = last_revision.clone();
-    let show_player = player.clone();
-    let show_preferences_path = preferences_path.clone();
-    let show_history_cleared = history_cleared.clone();
-    let show_history_sync = history_sync.clone();
-    let show_collapsed_groups = collapsed_groups.clone();
-
-    app.global::<PlayerMenuActions>()
-        .on_show_playback_history(move || {
-            let Some(app) = weak_app.upgrade() else {
-                return;
-            };
-            let window = if let Some(window) = show_slot.borrow().as_ref() {
-                window.clone_strong()
-            } else {
-                let window = match PlaybackHistoryWindow::new() {
-                    Ok(window) => window,
-                    Err(error) => {
-                        crate::diagnostics::report(
-                            &app,
-                            format!("Could not open Playback History: {error}"),
-                        );
-                        return;
-                    }
-                };
-                crate::appearance_preferences::install_system_typography(&window);
-                connect_window(
-                    &app,
-                    &window,
-                    WindowConnection {
-                        history: show_history.clone(),
-                        player: show_player.clone(),
-                        preferences_path: show_preferences_path.clone(),
-                        history_cleared: show_history_cleared.clone(),
-                        history_sync: show_history_sync.clone(),
-                        collapsed_groups: show_collapsed_groups.clone(),
-                    },
-                );
-                crate::platform::center_auxiliary_window(&window, &app);
-                *show_slot.borrow_mut() = Some(window.clone_strong());
-                window
-            };
-            refresh(&window, &show_history, &show_collapsed_groups);
-            show_last_revision.set(Some(revision(&show_history)));
-            if let Err(error) = crate::platform::show_window(&window) {
-                crate::diagnostics::report(
-                    &app,
-                    format!("Could not show Playback History: {error}"),
-                );
-            } else {
-                crate::platform::enable_history_acrylic(&window);
-                let history = show_history.clone();
-                let last_revision = show_last_revision.clone();
-                let collapsed_groups = show_collapsed_groups.clone();
-                super::visible_refresh::start(
-                    &window,
-                    &show_timer,
-                    Duration::from_millis(500),
-                    move |window| {
-                        let current_revision = revision(&history);
-                        if last_revision.get() != Some(current_revision) {
-                            refresh(window, &history, &collapsed_groups);
-                            last_revision.set(Some(current_revision));
-                        }
-                    },
-                );
-            }
-        });
-
-    Guard {
-        _window: slot,
-        _timer: timer,
-    }
+pub(crate) fn report(window: &PlaybackHistoryWindow, message: String) {
+    crate::diagnostics::warn!("{message}");
+    window.set_status_text(message.into());
 }
 
-fn connect_window(
-    app: &PlayerWindow,
-    window: &PlaybackHistoryWindow,
-    connection: WindowConnection,
-) {
-    let history = &connection.history;
+fn connect_window(window: &PlaybackHistoryWindow, connection: WindowConnection) {
+    let history = &connection.archive.history;
     let collapsed_groups = &connection.collapsed_groups;
     let selection_anchor = selection::Anchor::default();
     connect_search(window, history, collapsed_groups);
     selection::connect(window, &selection_anchor);
     connect_group_expansion(window, history, collapsed_groups);
-    connect_context_actions(app, window, selection_anchor.clone(), &connection);
+    connect_context_actions(window, selection_anchor.clone(), &connection);
     connect_group_collapse(window, history, collapsed_groups);
-    connect_open_entry(app, window, history, &connection.player);
-    connect_clear_history(app, window, &connection, selection_anchor);
+    connect_open_entry(window, &connection);
+    connect_clear_history(window, &connection, selection_anchor);
 }
 
 fn connect_search(
@@ -235,21 +133,15 @@ fn connect_group_collapse(
     });
 }
 
-fn connect_open_entry(
-    app: &PlayerWindow,
-    window: &PlaybackHistoryWindow,
-    history: &HistoryState,
-    player: &riina_mpv::CommandSender,
-) {
-    let weak_app = app.as_weak();
-    let history_for_open = history.clone();
-    let player_for_open = player.clone();
+fn connect_open_entry(window: &PlaybackHistoryWindow, connection: &WindowConnection) {
+    let weak_window = window.as_weak();
+    let context = connection.clone();
     window.on_open_entry(move |path| {
-        let Some(app) = weak_app.upgrade() else {
+        let (Some(window), Some(owner)) = (weak_window.upgrade(), context.owner.upgrade()) else {
             return;
         };
         let path = path.to_string();
-        let Some(position) = riina_core::sync::lock(&history_for_open)
+        let Some(position) = riina_core::sync::lock(&context.archive.history)
             .entries()
             .iter()
             .find(|entry| entry.path == path)
@@ -258,28 +150,20 @@ fn connect_open_entry(
             return;
         };
         if describe(&path).available() {
-            media_open_history_entry(&app, path, position, player_for_open.clone());
+            owner.open_single(&window, path, position);
         }
     });
 }
 
 fn connect_clear_history(
-    app: &PlayerWindow,
     window: &PlaybackHistoryWindow,
     connection: &WindowConnection,
     selection_anchor: selection::Anchor,
 ) {
-    let history = &connection.history;
-    let collapsed_groups = &connection.collapsed_groups;
-    let weak_app = app.as_weak();
     let weak_window = window.as_weak();
-    let history_for_clear = history.clone();
-    let groups_for_clear = collapsed_groups.clone();
-    let history_cleared_for_clear = connection.history_cleared.clone();
-    let history_sync_for_clear = connection.history_sync.clone();
-    let preferences_path = connection.preferences_path.clone();
+    let context = connection.clone();
     window.on_clear_history(move || {
-        let (Some(app), Some(window)) = (weak_app.upgrade(), weak_window.upgrade()) else {
+        let Some(window) = weak_window.upgrade() else {
             return;
         };
         let response = MessageDialog::new()
@@ -290,26 +174,33 @@ fn connect_clear_history(
         if response != MessageDialogResult::Yes {
             return;
         }
-        let cleared = history_for_clear
+        let cleared = context
+            .archive
+            .history
             .lock()
             .map_err(|_| "playback history lock poisoned".to_owned())
             .and_then(|mut history| {
-                let removed =
-                    crate::utilities_preferences::clear_playback_history(&preferences_path)?;
+                let removed = crate::utilities_preferences::clear_playback_history(
+                    &context.archive.preferences_path,
+                )?;
                 history.clear();
-                history_cleared_for_clear.store(true, std::sync::atomic::Ordering::Release);
+                context
+                    .archive
+                    .cleared
+                    .store(true, std::sync::atomic::Ordering::Release);
                 Ok((removed, history.entries().to_vec()))
             });
         match cleared {
             Ok((removed, entries)) => {
-                let sync_error = history_sync_for_clear(entries).err();
+                let sync_error = context.sync_plugins(&entries).err();
                 clear_history_selection(&window, &selection_anchor);
-                groups_for_clear
+                context
+                    .collapsed_groups
                     .lock()
                     .unwrap_or_else(std::sync::PoisonError::into_inner)
                     .clear();
-                refresh(&window, &history_for_clear, &groups_for_clear);
-                app.set_status(
+                refresh(&window, &context.archive.history, &context.collapsed_groups);
+                window.set_status_text(
                     match sync_error {
                         Some(error) => {
                             format!("History cleared, but plugins could not be updated: {error}")
@@ -320,13 +211,21 @@ fn connect_clear_history(
                 );
             }
             Err(error) => {
-                crate::diagnostics::report(
-                    &app,
+                report(
+                    &window,
                     format!("Could not clear playback history: {error}"),
                 );
             }
         }
     });
+}
+
+impl WindowConnection {
+    fn sync_plugins(&self, entries: &[Entry]) -> Result<(), String> {
+        self.owner
+            .upgrade()
+            .map_or(Ok(()), |owner| owner.sync_plugins(entries))
+    }
 }
 
 fn read_selected_paths(window: &PlaybackHistoryWindow) -> HashSet<String> {
@@ -392,16 +291,14 @@ fn context_selection_in_row_order(
 }
 
 fn connect_context_actions(
-    app: &PlayerWindow,
     window: &PlaybackHistoryWindow,
     selection_anchor: selection::Anchor,
     connection: &WindowConnection,
 ) {
-    let weak_app = app.as_weak();
     let weak_window = window.as_weak();
     let context = connection.clone();
     window.on_context_action(move |action, clicked_path| {
-        let (Some(app), Some(window)) = (weak_app.upgrade(), weak_window.upgrade()) else {
+        let Some(window) = weak_window.upgrade() else {
             return;
         };
         let paths = context_selected_paths(&window, clicked_path.as_str());
@@ -416,37 +313,40 @@ fn connect_context_actions(
                 } else {
                     HistoryDestination::NewPlayer
                 };
-                crate::media_open::history_selection(
-                    &app,
-                    playable,
-                    destination,
-                    context.player.clone(),
-                );
-            }
-            2 => {
-                let files = paths
-                    .iter()
-                    .filter_map(|reference| path_from_reference(reference))
-                    .filter(|path| path.is_file())
-                    .collect::<Vec<_>>();
-                if !files.is_empty()
-                    && let Err(error) = crate::platform::reveal_files(&files)
-                {
-                    crate::diagnostics::report(
-                        &app,
-                        format!("Could not reveal history files: {error}"),
-                    );
+                if let Some(owner) = context.owner.upgrade() {
+                    owner.open_selection(&window, playable, destination);
                 }
             }
-            3 => remove_history_entries(&app, &window, paths, &selection_anchor, &context),
-            4 => move_history_files_to_trash(&app, &window, paths, &context),
+            2 => reveal_history_files(&window, paths),
+            3 => remove_history_entries(&window, paths, &selection_anchor, &context),
+            4 => move_history_files_to_trash(&window, paths, &context),
             _ => {}
         }
     });
 }
 
+fn reveal_history_files(window: &PlaybackHistoryWindow, paths: Vec<String>) {
+    if paths.is_empty() {
+        return;
+    }
+    let weak = window.as_weak();
+    if let Err(error) = crate::background::spawn_named("riina-history-reveal", move || {
+        let files = paths
+            .iter()
+            .filter_map(|path| path_from_reference(path))
+            .filter(|path| path.is_file())
+            .collect::<Vec<_>>();
+        if let Err(error) = crate::platform::reveal_files(&files) {
+            let _ = crate::background::to_ui(weak, move |window| {
+                report(&window, format!("Could not reveal history files: {error}"));
+            });
+        }
+    }) {
+        report(window, format!("Could not show history files: {error}"));
+    }
+}
+
 fn remove_history_entries(
-    app: &PlayerWindow,
     window: &PlaybackHistoryWindow,
     paths: Vec<String>,
     selection_anchor: &selection::Anchor,
@@ -468,6 +368,7 @@ fn remove_history_entries(
         return;
     }
     let result = connection
+        .archive
         .history
         .lock()
         .map_err(|_| "playback history lock poisoned".to_owned())
@@ -475,11 +376,12 @@ fn remove_history_entries(
             let removed = history.remove_paths(paths.iter().map(String::as_str))?;
             let sync_error = if removed > 0 {
                 connection
-                    .history_cleared
+                    .archive
+                    .cleared
                     .store(true, std::sync::atomic::Ordering::Release);
                 let entries = history.entries().to_vec();
                 drop(history);
-                (connection.history_sync)(entries).err()
+                connection.sync_plugins(&entries).err()
             } else {
                 None
             };
@@ -488,23 +390,24 @@ fn remove_history_entries(
     match result {
         Ok((removed, sync_error)) if removed > 0 => {
             clear_history_selection(window, selection_anchor);
-            refresh(window, &connection.history, &connection.collapsed_groups);
+            refresh(
+                window,
+                &connection.archive.history,
+                &connection.collapsed_groups,
+            );
             if let Some(error) = sync_error {
-                crate::diagnostics::report(
-                    app,
+                report(
+                    window,
                     format!("History was removed, but plugins could not be updated: {error}"),
                 );
             }
         }
-        Ok((_, _)) => app.set_status("The history items were already removed".into()),
-        Err(error) => {
-            crate::diagnostics::report(app, format!("Could not remove history items: {error}"))
-        }
+        Ok((_, _)) => window.set_status_text("The history items were already removed".into()),
+        Err(error) => report(window, format!("Could not remove history items: {error}")),
     }
 }
 
 fn move_history_files_to_trash(
-    app: &PlayerWindow,
     window: &PlaybackHistoryWindow,
     paths: Vec<String>,
     connection: &WindowConnection,
@@ -515,7 +418,7 @@ fn move_history_files_to_trash(
         .filter(|path| path.is_file())
         .collect::<BTreeSet<_>>();
     if files.is_empty() {
-        app.set_status("Only available local files can be moved to the system bin".into());
+        window.set_status_text("Only available local files can be moved to the system bin".into());
         return;
     }
     let trash_name = crate::platform::system_trash_name();
@@ -532,9 +435,8 @@ fn move_history_files_to_trash(
     {
         return;
     }
-    let weak_app = app.as_weak();
     let weak_window = window.as_weak();
-    let trash_history = connection.history.clone();
+    let trash_history = connection.archive.history.clone();
     let trash_groups = connection.collapsed_groups.clone();
     let task = crate::background::spawn_named("riina-history-trash-selection", move || {
         let count = files.len();
@@ -545,20 +447,13 @@ fn move_history_files_to_trash(
         if moved > 0 {
             riina_core::sync::lock(&trash_history).files_changed();
         }
-        let _ = crate::background::to_ui(weak_app, move |app| {
-            if let Some(window) = weak_window.upgrade() {
-                refresh(&window, &trash_history, &trash_groups);
-            }
+        let _ = crate::background::to_ui(weak_window, move |window| {
+            refresh(&window, &trash_history, &trash_groups);
             if moved == count {
-                crate::diagnostics::report(
-                    &app,
-                    crate::diagnostics::UserMessage::info(format!(
-                        "Moved {moved} files to the {trash_name}"
-                    )),
-                );
+                window.set_status_text(format!("Moved {moved} files to the {trash_name}").into());
             } else {
-                crate::diagnostics::report(
-                    &app,
+                report(
+                    &window,
                     format!(
                         "Moved {moved} files to the {trash_name}. Could not move {} files.",
                         count - moved,
@@ -568,7 +463,10 @@ fn move_history_files_to_trash(
         });
     });
     if let Err(error) = task {
-        crate::diagnostics::warn!("Could not start the playback history trash worker: {error}");
+        report(
+            window,
+            format!("Could not start the playback history trash worker: {error}"),
+        );
     }
 }
 
@@ -576,26 +474,6 @@ fn clear_history_selection(window: &PlaybackHistoryWindow, anchor: &selection::A
     window.set_selected_path("".into());
     write_selected_paths(window, &HashSet::new());
     anchor.borrow_mut().take();
-}
-
-fn media_open_history_entry(
-    app: &PlayerWindow,
-    path: String,
-    position: f64,
-    player: riina_mpv::CommandSender,
-) {
-    let recent = RecentMedia {
-        path,
-        title: String::new(),
-        position,
-    };
-    crate::media_open::open_recent(
-        app,
-        recent,
-        app.global::<riina_ui::PlayerPreferences>()
-            .get_resume_last_position(),
-        player,
-    );
 }
 
 fn refresh(

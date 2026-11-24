@@ -2437,6 +2437,34 @@ Linux executable SHA-256 was
 `44865439c19b35a9af2de5147691b92cbe1346df3e2d265e77188995e448aefc`.
 Live Windows, Wayland and macOS History interaction remains open.
 
+### Application-owned Playback History 2026-11-24
+
+The Windows workspace gate and all 59 pinned libmpv null-output tests passed
+for the window-ownership change. The headless test covers one window with
+retained search state, focus routing, removing closed player routes, plugin
+history updates and starting playback without a registered player. The final
+Windows app and UI group passed strict Clippy, the application tests, the
+61 widget interaction checks and the player and Settings pixel comparison.
+
+On a private Windows desktop, the File menu from two native players opened
+the same History window. Play loaded the selected media into the second
+frame. After both frames closed, History opened a new player in the same
+process. Closing the replacement player and then History exited normally
+with the quit-on-last-window preference both enabled and disabled in separate
+candidate runs. Native Windows exits when its final window closes. The final
+executable SHA-256 was
+`bcd422d61411a19e0d997e50215863632e86a782e1d8583ecaa00154f77d49d9`.
+
+On isolated Linux X11, Ctrl+Shift+H opened History from Welcome. Play showed
+the startup player and loaded the selected clip. Two players shared the same
+History window and retained its search. Play followed a change of player
+focus, fell back to the remaining player after one closed, and created a
+fresh player after both closed. Closing the fresh player and then History
+exited normally with quit-on-last-window enabled. The Linux executable
+SHA-256 was
+`ccf8687ccfac0359772e319df03a88bb65a767f3f38e7253b5e1e70e9c04508e`.
+The Windows Welcome handoff and live Wayland and macOS behavior remain open.
+
 ### Playlist selection actions 2026-11-23
 
 The full Windows workspace gate and all 58 pinned libmpv null-output tests

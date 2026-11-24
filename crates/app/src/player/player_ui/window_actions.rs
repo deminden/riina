@@ -62,6 +62,13 @@ pub(super) fn install_lifecycle(app: &PlayerWindow, welcome: Option<&WelcomeWind
 
     if let Some(welcome) = welcome {
         let weak = app.as_weak();
+        welcome.on_show_playback_history(move || {
+            if let Some(app) = weak.upgrade() {
+                app.global::<PlayerMenuActions>()
+                    .invoke_show_playback_history();
+            }
+        });
+        let weak = app.as_weak();
         welcome.on_open_file(move || {
             if let Some(app) = weak.upgrade() {
                 app.global::<PlayerMenuActions>().invoke_open_file();

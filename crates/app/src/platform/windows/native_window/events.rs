@@ -36,6 +36,9 @@ pub(super) fn install_filter(host: &NativeVideoHost, inputs: FilterInputs) {
     let host_input = super::super::host_input::HostInput::default();
     host.window().on_winit_window_event(move |host, event| {
         if let Some(app) = event_chrome.borrow().as_ref() {
+            if matches!(event, winit::event::WindowEvent::Focused(true)) {
+                app.invoke_history_player_activated();
+            }
             crate::platform::track_plugin_pointer(app, host, event);
             if host_input.handle(app, event) == EventResult::PreventDefault {
                 return EventResult::PreventDefault;

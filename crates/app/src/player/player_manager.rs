@@ -2,7 +2,7 @@
 
 use crate::{
     PlayerWindow, WelcomeWindow,
-    player_ui::{ApplicationPlugins, InitialMedia, UiSession},
+    player_ui::{ApplicationServices, InitialMedia, UiSession},
     preference_load::LoadedPreferences,
 };
 use riina_ui::PlayerMenuActions;
@@ -46,7 +46,7 @@ impl ManagedPlayer {
 struct ManagerState {
     next_id: u64,
     players: Vec<ManagedPlayer>,
-    plugins: Rc<ApplicationPlugins>,
+    services: ApplicationServices,
 }
 
 pub(crate) const fn should_quit_after_last_window_closed(
@@ -66,7 +66,8 @@ impl PlayerManager {
         let manager = Self::default();
         let state = Rc::downgrade(&manager.state);
         manager
-            .plugins()
+            .services()
+            .plugins
             .bind_player_launcher(move |owner, ticket| {
                 let application = state.upgrade().ok_or("The application has closed")?;
                 let preferences =
@@ -86,11 +87,39 @@ impl PlayerManager {
                     }
                 }))
             });
+        let launcher = Rc::downgrade(&manager.state);
+        let on_close = launcher.clone();
+        manager.services().history.bind(
+            move |window, mut media| {
+                let state = launcher.upgrade().ok_or("Riina is closing")?;
+                let prefs =
+                    crate::platform::preferences_path().map_err(|error| error.to_string())?;
+                let loaded =
+                    crate::preference_load::load(&prefs).map_err(|error| error.to_string())?;
+                if !loaded.preferences.resume_last_position {
+                    media.resume_position = None;
+                }
+                open_new_player(&state, window, media, loaded).map(|_| ())
+            },
+            move || {
+                let Some(state) = on_close.upgrade() else {
+                    return;
+                };
+                let empty = state.borrow().players.is_empty();
+                if empty {
+                    let quit = crate::platform::preferences_path()
+                        .ok()
+                        .and_then(|path| crate::preference_load::load(&path).ok())
+                        .is_none_or(|loaded| loaded.preferences.quit_when_no_opened_window);
+                    finish_empty_application(&state, quit, false);
+                }
+            },
+        );
         manager
     }
 
-    pub(crate) fn plugins(&self) -> Rc<ApplicationPlugins> {
-        self.state.borrow().plugins.clone()
+    pub(crate) fn services(&self) -> ApplicationServices {
+        self.state.borrow().services.clone()
     }
 
     pub(crate) fn attach(
@@ -237,7 +266,7 @@ fn open_player(
 
 fn open_new_player(
     state: &Rc<RefCell<ManagerState>>,
-    owner: &PlayerWindow,
+    owner: &(impl ComponentHandle + 'static),
     media: InitialMedia,
     loaded: LoadedPreferences,
 ) -> Result<u64, String> {
@@ -249,7 +278,7 @@ fn open_new_player(
     let app = PlayerWindow::new().map_err(|error| error.to_string())?;
     app.set_native_video(false);
     let media_geometry = crate::window_aspect::MediaGeometry::default();
-    let plugins = state.borrow().plugins.clone();
+    let services = state.borrow().services.clone();
     let session = crate::player_ui::configure_player(
         &app,
         None,
@@ -257,7 +286,7 @@ fn open_new_player(
         None,
         loaded,
         media_geometry,
-        plugins,
+        services,
     )
     .map_err(|error| error.to_string())?;
     let manager = PlayerManager {
@@ -273,7 +302,7 @@ fn open_new_player(
 
 fn show_opened_player(
     app: &PlayerWindow,
-    owner: &PlayerWindow,
+    owner: &(impl ComponentHandle + 'static),
     disable_animation: bool,
 ) -> Result<(), String> {
     crate::platform::show_window(app).map_err(|error| error.to_string())?;
@@ -303,6 +332,8 @@ fn schedule_close(state: Weak<RefCell<ManagerState>>, id: u64, from_welcome: boo
 fn schedule_quit(state: Weak<RefCell<ManagerState>>) {
     let scheduled = slint::spawn_local(async move {
         let Some(state) = state.upgrade() else { return };
+        let history = state.borrow().services.history.clone();
+        history.hide();
         let players = std::mem::take(&mut state.borrow_mut().players);
         for player in players {
             if let Err(error) = player.session.save(&player.app) {
@@ -341,15 +372,17 @@ fn close_player(state: &Rc<RefCell<ManagerState>>, id: u64, from_welcome: bool) 
         state.borrow().players.len(),
     );
     drop(player);
-    if empty {
-        if quit_when_empty {
-            // Shutdown may already have ended the event loop.
-            let _ = slint::quit_event_loop();
-        } else if !from_welcome && let Err(error) = show_welcome(state) {
-            crate::diagnostics::warn!("Could not reopen the welcome window: {error}");
-            // Shutdown may already have ended the event loop.
-            let _ = slint::quit_event_loop();
-        }
+    if empty && !state.borrow().services.history.is_visible() {
+        finish_empty_application(state, quit_when_empty, from_welcome);
+    }
+}
+
+fn finish_empty_application(state: &Rc<RefCell<ManagerState>>, quit: bool, from_welcome: bool) {
+    if quit {
+        let _ = slint::quit_event_loop();
+    } else if !from_welcome && let Err(error) = show_welcome(state) {
+        crate::diagnostics::warn!("Could not reopen the welcome window: {error}");
+        let _ = slint::quit_event_loop();
     }
 }
 
@@ -360,7 +393,7 @@ fn show_welcome(state: &Rc<RefCell<ManagerState>>) -> Result<(), Box<dyn std::er
     crate::appearance_preferences::install_system_typography(&welcome);
     let loaded = crate::preference_load::load(&crate::platform::preferences_path()?)?;
     let media_geometry = crate::window_aspect::MediaGeometry::default();
-    let plugins = state.borrow().plugins.clone();
+    let services = state.borrow().services.clone();
     let session = crate::player_ui::configure_player(
         &app,
         None,
@@ -368,7 +401,7 @@ fn show_welcome(state: &Rc<RefCell<ManagerState>>) -> Result<(), Box<dyn std::er
         Some(&welcome),
         loaded,
         media_geometry,
-        plugins,
+        services,
     )?;
     let manager = PlayerManager {
         state: state.clone(),

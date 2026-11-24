@@ -136,8 +136,13 @@ the freedesktop file-manager service.
 Playback History stores an optional decoder title beside the media reference.
 Late title and duration observations update the same visit. The outline uses
 media references as selection anchors across group changes and refreshes.
-Moving a file to Trash refreshes availability across History windows and keeps
-its record available for separate removal.
+Moving a file to Trash refreshes availability and keeps its record available
+for separate removal. The application owns one History window. Each live
+player registers a weak window reference and its command sender. Focus changes
+update the playback destination, and player teardown removes its registration.
+The visible History window can outlive the players and asks the application to
+start a player when there is no live destination. Closing it then applies the
+application's last-window policy.
 
 Playlist subtitle associations belong to the player session and use media
 filenames. The subtitle picker verifies the playlist entry before saving its

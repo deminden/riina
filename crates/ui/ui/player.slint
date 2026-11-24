@@ -200,6 +200,7 @@ export component PlayerWindow inherits PlayerMenuWindow {
     private property <bool> music-mode-show-album-art: PlayerMusicModeState.music-mode-show-album-art;
     private property <float> music-mode-artwork-aspect-ratio: PlayerMusicModeState.music-mode-artwork-aspect-ratio;
     callback window-will-close();
+    callback history-player-activated();
     in-out property <bool> in-process-player-manager: false;
     callback open-player-requested([string], string, float, bool);
     callback music-mode-changed();

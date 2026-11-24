@@ -9,7 +9,7 @@ mod surfaces;
 mod visibility;
 use crate::{
     NativeVideoHost, PlayerWindow,
-    player_ui::{ApplicationPlugins, InitialMedia, UiSession, configure_player},
+    player_ui::{ApplicationServices, InitialMedia, UiSession, configure_player},
     preference_load::LoadedPreferences,
 };
 use application::{Backend, WindowActions};
@@ -101,7 +101,7 @@ impl NativePlayer {
         launch: NativeLaunch,
         backend: Backend,
         actions: WindowActions,
-        application_plugins: Rc<ApplicationPlugins>,
+        application_services: ApplicationServices,
     ) -> Result<(), Box<dyn std::error::Error>> {
         let NativeLaunch {
             media,
@@ -208,7 +208,7 @@ impl NativePlayer {
                     welcome.as_ref(),
                     loaded,
                     media_geometry,
-                    application_plugins,
+                    application_services,
                 )?;
                 placement.refresh_position_policy(&app);
                 let commands = configured

@@ -19,7 +19,7 @@ use std::{
 
 pub(super) struct PlaybackFeatures {
     _online_subtitles_window: crate::open_subtitles::SearchWindowGuard,
-    _playback_history_window: crate::playback_history_window::Guard,
+    _playback_history_window: crate::playback_history_window::Registration,
     _filter_windows: crate::video_filter_window::Guard,
     _automatic_music_mode_timer: Rc<slint::Timer>,
     _file_drop_timer: Rc<slint::Timer>,
@@ -71,10 +71,12 @@ pub(super) struct Installed {
 
 pub(super) struct Inputs<'a> {
     pub(super) native: Option<&'a platform::NativePresentation>,
+    pub(super) welcome: Option<&'a crate::WelcomeWindow>,
     pub(super) commands: &'a CommandSender,
     pub(super) playback: &'a PlaybackStore,
     pub(super) prefs_path: &'a Path,
     pub(super) history: &'a Tracking,
+    pub(super) history_window: &'a Rc<crate::playback_history_window::ApplicationHistory>,
     pub(super) plugin_host: Option<&'a PluginHostHandle>,
     pub(super) plugin_commands: &'a Mutex<Option<CommandSender>>,
     pub(super) saved_video_filters: &'a Arc<Mutex<video_filters::Settings>>,
@@ -90,10 +92,12 @@ pub(super) struct Inputs<'a> {
 pub(super) fn install(app: &PlayerWindow, inputs: Inputs<'_>) -> Installed {
     let Inputs {
         native,
+        welcome,
         commands,
         playback,
         prefs_path,
         history,
+        history_window,
         plugin_host,
         plugin_commands,
         saved_video_filters,
@@ -105,12 +109,17 @@ pub(super) fn install(app: &PlayerWindow, inputs: Inputs<'_>) -> Installed {
         capture_transition_first,
         resize_filter,
     } = inputs;
-    let playback_history_window = history.install_window(
+    let (history_archive, history_sync) =
+        history.window_context(prefs_path, plugin_host.cloned(), playback.clone());
+    let playback_history_window = history_window.install(
         app,
-        commands,
-        prefs_path,
-        plugin_host.cloned(),
-        playback.clone(),
+        commands.clone(),
+        history_archive,
+        history_sync,
+        crate::playback_history_window::PlayerDisplay {
+            welcome: welcome.map(slint::ComponentHandle::as_weak),
+            host: native.map(platform::NativePresentation::host),
+        },
     );
     let filter_windows = crate::video_filter_window::install(
         app,
@@ -177,6 +186,8 @@ pub(super) fn install(app: &PlayerWindow, inputs: Inputs<'_>) -> Installed {
     let video_materials =
         platform::video_materials::Monitor::install(app, native, commands, playback);
     system_media.bind(commands);
+    live_text::install_actions(app, prefs_path);
+    super::startup::install_toolbar_order(app);
     let live_text_timer = live_text::install(app, commands.clone(), playback.clone());
     Installed {
         guards: PlaybackFeatures {
