@@ -36,6 +36,11 @@ impl Writer {
         self.observed.borrow_mut().control_bar.controller = options;
     }
 
+    #[cfg(target_os = "macos")]
+    pub(crate) fn adopt_touch_bar_mode(&self, mode: riina_core::touch_bar::Settings) {
+        self.observed.borrow_mut().touch_bar = mode;
+    }
+
     fn save_with_policy(&self, candidate: &Preferences, user_edit: bool) -> Result<(), String> {
         let previous = serde_json::to_value(&*self.observed.borrow()).map_err(|e| e.to_string())?;
         let next = serde_json::to_value(candidate).map_err(|e| e.to_string())?;

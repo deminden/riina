@@ -4377,3 +4377,27 @@ and runtime messages still appear in English.
 - Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
 - Linux application SHA-256 `6275bca273aa11d0c9cde6345f61f4dafa4c6665e98a5d2a69ad171e07ba5924`
 - Linux libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`
+
+### macOS Touch Bar playback controls 2026-11-24
+
+Each player window owns its own AppKit bar, with playback and time displays,
+a timeline using the player's sampled thumbnails, and optional transport and
+volume controls. The second clock defaults to remaining time and shares its
+saved mode across windows using the same profile. The existing clock precision
+and speed scaling apply to both places. The fullscreen Escape replacement
+follows the active keyboard profile.
+
+The full Windows workspace gate passed strict Clippy, 643 application tests,
+51 software-rendered comparisons, and 79 Python checks. The locked Windows
+workspace and Linux x64 application builds passed. The full Apple Silicon
+application source passed strict Clippy across all targets in the app crate.
+
+The Windows native engine suite passed all 63 cases. The new null-output
+playback test accepted an exact seek on the current file, then retained the
+replacement file's position and paused state when the previous file's seek and
+resume commands arrived.
+
+Physical Touch Bar layout, customization, gesture delivery, and the handoff
+between active macOS windows still need a native desktop session. Rewind and
+Fast Forward currently use the app's existing speed controls. The configurable
+IINA on-screen arrow actions remain open.

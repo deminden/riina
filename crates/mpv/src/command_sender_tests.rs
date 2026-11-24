@@ -4,7 +4,7 @@ use std::sync::{atomic::Ordering, mpsc};
 
 #[derive(Debug, PartialEq)]
 enum Expected {
-    Intent(Command),
+    Intent(Option<u64>, Command),
     Wake,
 }
 
@@ -43,15 +43,19 @@ fn mixed_intents_and_wakes_match_bounded_fifo_model() {
                                     absolute: true,
                                 },
                             };
+                            let generation = (action == 3).then_some(random);
                             let sent = match command {
                                 Command::TogglePause => commands.toggle_pause(),
                                 Command::SetPaused(value) => commands.set_paused(value),
+                                _ if let Some(generation) = generation => {
+                                    commands.send_for_media(generation, command.clone())
+                                }
                                 _ => commands.send(command.clone()),
                             };
                             let should_accept = model.len() < capacity;
                             assert_eq!(sent.is_ok(), should_accept, "{context}: admission");
                             if should_accept {
-                                model.push_back(Expected::Intent(command));
+                                model.push_back(Expected::Intent(generation, command));
                                 accepted += 1;
                             } else {
                                 rejected += 1;
@@ -67,8 +71,24 @@ fn mixed_intents_and_wakes_match_bounded_fifo_model() {
                             }
                         }
                         _ => match (receiver.try_recv(), model.pop_front()) {
-                            (Ok(Message::Intent(actual)), Some(Expected::Intent(expected))) => {
+                            (
+                                Ok(Message::Intent(actual)),
+                                Some(Expected::Intent(None, expected)),
+                            ) => {
                                 assert_eq!(actual, expected, "{context}: FIFO")
+                            }
+                            (
+                                Ok(Message::MediaIntent {
+                                    generation,
+                                    command,
+                                }),
+                                Some(Expected::Intent(Some(expected_generation), expected)),
+                            ) => {
+                                assert_eq!(
+                                    (generation, command),
+                                    (expected_generation, expected),
+                                    "{context}: FIFO"
+                                );
                             }
                             (Ok(Message::Wake), Some(Expected::Wake)) => {
                                 wakeup.queued.store(false, Ordering::Release);
@@ -95,7 +115,11 @@ fn mixed_intents_and_wakes_match_bounded_fifo_model() {
                         .recv_timeout(std::time::Duration::from_secs(1))
                         .unwrap()
                     {
-                        Message::Intent(command) => Expected::Intent(command),
+                        Message::Intent(command) => Expected::Intent(None, command),
+                        Message::MediaIntent {
+                            generation,
+                            command,
+                        } => Expected::Intent(Some(generation), command),
                         Message::Wake => Expected::Wake,
                         Message::Client(_) | Message::OpenStream(..) => {
                             panic!("Unexpected request")
@@ -160,7 +184,9 @@ fn full_queue_rejects_pause_promptly_and_preserves_accepted_order() {
         {
             Message::Intent(actual) => assert_eq!(actual, expected),
             Message::Wake => panic!("Unexpected wake in intent queue"),
-            Message::Client(_) | Message::OpenStream(..) => panic!("Unexpected request"),
+            Message::Client(_) | Message::OpenStream(..) | Message::MediaIntent { .. } => {
+                panic!("Unexpected request")
+            }
             Message::Shutdown => panic!("Command senders cannot shut down the owner"),
         }
     }

@@ -287,6 +287,13 @@ impl WindowDelivery {
                 app.global::<PlayerMenuActions>()
                     .invoke_request_fullscreen(true);
             }
+            #[cfg(target_os = "macos")]
+            {
+                let touch_bar = observer.borrow().touch_bar.clone();
+                if let Some(touch_bar) = touch_bar {
+                    touch_bar.observe(&app, &state);
+                }
+            }
             if let Some(error) = clipboard_error {
                 crate::diagnostics::report(&app, format!("Could not copy screenshot: {error}"));
             }

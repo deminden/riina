@@ -103,6 +103,8 @@ pub(crate) struct Controller {
     frames: Vec<Option<(f64, Vec<u8>)>>,
     hover_time: Option<f64>,
     displayed_index: Option<usize>,
+    #[cfg(target_os = "macos")]
+    preview_revision: u64,
 }
 
 impl Controller {
@@ -124,6 +126,10 @@ impl Controller {
             self.cancel_current();
             self.identity = next.clone();
             self.frames.clear();
+            #[cfg(target_os = "macos")]
+            {
+                self.preview_revision = self.preview_revision.wrapping_add(1);
+            }
             self.displayed_index = None;
             app.global::<riina_ui::PlaybackTimelineState>()
                 .set_timeline_thumbnail_image(Image::default());
@@ -184,6 +190,10 @@ impl Controller {
                 } => {
                     if let Some(slot) = self.frames.get_mut(index) {
                         *slot = Some((timestamp, jpeg));
+                        #[cfg(target_os = "macos")]
+                        {
+                            self.preview_revision = self.preview_revision.wrapping_add(1);
+                        }
                     }
                 }
                 PreviewEvent::Finished(result) => {
@@ -202,6 +212,25 @@ impl Controller {
         }
         self.refresh_preview(app);
         thumbnails_ready
+    }
+
+    #[cfg(target_os = "macos")]
+    pub(crate) fn preview_revision(&self) -> u64 {
+        self.preview_revision
+    }
+
+    #[cfg(target_os = "macos")]
+    pub(crate) fn touch_bar_sample(
+        &self,
+        playback: &Playback,
+        seconds: f64,
+    ) -> Option<(usize, &[u8])> {
+        let identity = self.identity.as_ref()?;
+        if identity.generation != playback.generation || !sampling_media_ready(playback) {
+            return None;
+        }
+        let index = nearest_sample_index(&self.frames, seconds)?;
+        Some((index, self.frames.get(index)?.as_ref()?.1.as_slice()))
     }
 
     pub(crate) fn hover(&mut self, app: &PlayerWindow, seconds: f64) {

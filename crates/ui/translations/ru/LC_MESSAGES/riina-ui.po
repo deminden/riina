@@ -2423,3 +2423,45 @@ msgstr "Проверка обновлений ещё не запускалась
 
 msgid "No Description"
 msgstr "Описание отсутствует"
+
+msgid "Play / Pause"
+msgstr "Воспроизведение / пауза"
+
+msgid "Volume Up"
+msgstr "Увеличить громкость"
+
+msgid "Volume Down"
+msgstr "Уменьшить громкость"
+
+msgid "Rewind"
+msgstr "Назад"
+
+msgid "Fast Forward"
+msgstr "Вперёд"
+
+msgid "Forward 15 Seconds"
+msgstr "На 15 секунд вперёд"
+
+msgid "Forward 30 Seconds"
+msgstr "На 30 секунд вперёд"
+
+msgid "Back 15 Seconds"
+msgstr "На 15 секунд назад"
+
+msgid "Back 30 Seconds"
+msgstr "На 30 секунд назад"
+
+msgid "Next"
+msgstr "Следующий файл"
+
+msgid "Previous"
+msgstr "Предыдущий файл"
+
+msgid "Show Remaining Time or Total Duration"
+msgstr "Оставшееся время или длительность"
+
+msgid "Elapsed Time"
+msgstr "Прошедшее время"
+
+msgid "Playback Position"
+msgstr "Позиция воспроизведения"

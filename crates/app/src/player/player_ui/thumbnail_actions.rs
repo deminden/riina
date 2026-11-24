@@ -5,14 +5,37 @@ use riina_ui::PlayerPreferences;
 use slint::ComponentHandle;
 use std::{cell::RefCell, rc::Rc, time::Duration};
 
+pub(super) struct Installed {
+    pub(super) timer: Rc<slint::Timer>,
+    #[cfg(target_os = "macos")]
+    pub(super) native: NativeThumbnails,
+}
+
+#[cfg(target_os = "macos")]
+type PreviewRedraw = Box<dyn Fn()>;
+
+#[cfg(target_os = "macos")]
+#[derive(Clone)]
+pub(super) struct NativeThumbnails {
+    pub(super) controller: Rc<RefCell<crate::thumbnail_preview::Controller>>,
+    pub(super) redraw: Rc<RefCell<Option<PreviewRedraw>>>,
+}
+
 pub(super) fn install(
     app: &PlayerWindow,
     latest_playback: &crate::PlaybackStore,
     plugin_host: Option<PluginHostHandle>,
-) -> Rc<slint::Timer> {
+) -> Installed {
     let thumbnail_preview_timer = Rc::new(slint::Timer::default());
     let thumbnail_controller =
         Rc::new(RefCell::new(crate::thumbnail_preview::Controller::default()));
+    #[cfg(target_os = "macos")]
+    let native = NativeThumbnails {
+        controller: thumbnail_controller.clone(),
+        redraw: Rc::default(),
+    };
+    #[cfg(target_os = "macos")]
+    let redraw = native.redraw.clone();
     let thumbnail_hover = thumbnail_controller.clone();
     let thumbnail_weak = app.as_weak();
     app.global::<riina_ui::PlayerControlActions>()
@@ -42,6 +65,8 @@ pub(super) fn install(
                 return;
             };
             let mut controller = thumbnail_tick.borrow_mut();
+            #[cfg(target_os = "macos")]
+            let previous = controller.preview_revision();
             let ready = crate::thumbnail_preferences::current_player(&app).is_ok_and(|settings| {
                 let state = lock(&thumbnail_playback).clone();
                 controller.observe(&app, &state, &settings, &thumbnail_library)
@@ -51,7 +76,13 @@ pub(super) fn install(
             {
                 timer.stop();
             }
+            #[cfg(target_os = "macos")]
+            let changed = previous != controller.preview_revision();
             drop(controller);
+            #[cfg(target_os = "macos")]
+            if changed && let Some(redraw) = redraw.borrow().as_ref() {
+                redraw();
+            }
             if ready
                 && let Some(host) = &thumbnail_plugin_host
                 && let Err(error) = host.notify_thumbnails_ready()
@@ -62,7 +93,11 @@ pub(super) fn install(
             }
         },
     );
-    thumbnail_preview_timer
+    Installed {
+        timer: thumbnail_preview_timer,
+        #[cfg(target_os = "macos")]
+        native,
+    }
 }
 
 #[cfg(test)]
@@ -75,7 +110,7 @@ mod tests {
     fn idle_thumbnails_only_wake_for_a_settings_update() -> Result<(), slint::PlatformError> {
         i_slint_backend_testing::init_no_event_loop();
         let app = PlayerWindow::new()?;
-        let timer = install(&app, &crate::PlaybackStore::default(), None);
+        let timer = install(&app, &crate::PlaybackStore::default(), None).timer;
         let interval = Duration::from_millis(80);
         i_slint_backend_testing::mock_elapsed_time(interval);
         assert!(!timer.running());

@@ -75,6 +75,55 @@ fn navigation_completions_follow_explicit_seek_and_same_position_reseek() {
 }
 
 #[test]
+#[ignore = "requires provisioned libmpv; verifies scrub commands remain on the original media"]
+fn media_scoped_scrub_seeks_and_cannot_resume_replacement_media() {
+    let root = fixture_root();
+    let harness = Harness::start(&root).unwrap();
+    let commands = harness.player.command_sender();
+    let load = |fixture| Command::Load(root.join(fixture).to_string_lossy().into_owned());
+    let seek = Command::Seek {
+        seconds: 2.0,
+        absolute: true,
+    };
+    harness.send(Command::SetPauseWhenOpen(true)).unwrap();
+    harness.send(load("tests/fixtures/catalog.mkv")).unwrap();
+    let original = harness.wait(|state| state.phase == Phase::Paused && state.seekable);
+    commands
+        .send_for_media(original.generation, seek.clone())
+        .unwrap();
+    harness.wait(|state| {
+        !state.seeking
+            && state
+                .position
+                .is_some_and(|clock| (clock - 2.0).abs() < 0.1)
+    });
+
+    harness
+        .send(load("tests/fixtures/moving-square.avi"))
+        .unwrap();
+    let replacement = harness.wait(|state| {
+        state.generation != original.generation
+            && state.phase == Phase::Paused
+            && state.seekable
+            && !state.seeking
+            && state.position.is_some()
+    });
+    commands.send_for_media(original.generation, seek).unwrap();
+    commands
+        .send_for_media(original.generation, Command::SetPaused(false))
+        .unwrap();
+    harness.send(Command::Volume(37.0)).unwrap();
+    let observed = harness.wait(|state| (state.volume - 37.0).abs() < 0.01);
+    assert_eq!(observed.generation, replacement.generation);
+    assert_eq!(observed.position, replacement.position);
+    assert!(observed.paused);
+    assert_eq!(
+        observed.completed_navigation_seeks,
+        replacement.completed_navigation_seeks
+    );
+}
+
+#[test]
 #[ignore = "requires provisioned libmpv; verifies ten-minute relative seeks away from endpoints"]
 fn long_relative_seeks_preserve_pause_and_volume() {
     let root = fixture_root();

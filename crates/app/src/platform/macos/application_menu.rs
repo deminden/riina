@@ -18,6 +18,10 @@ pub(crate) struct MacApplicationMenuObserver {
 
 impl MacApplicationMenuObserver {
     pub(crate) fn new() -> Self {
+        if let Some(main) = MainThreadMarker::new() {
+            NSApplication::sharedApplication(main)
+                .setAutomaticCustomizeTouchBarMenuItemEnabled(true);
+        }
         let notification_center = NSNotificationCenter::defaultCenter();
         let labels = Rc::new(MenuLabels::new());
         let tracking_labels = labels.clone();

@@ -19,6 +19,7 @@ mod plugin_menu;
 mod scroll_events;
 mod system_media;
 pub(crate) mod text_recognition;
+pub(crate) mod touch_bar;
 pub(super) mod view;
 mod window_document;
 pub(crate) use appearance::{system_font_family_name, system_reduce_motion_enabled};

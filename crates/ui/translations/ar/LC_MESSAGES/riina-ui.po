@@ -2426,3 +2426,45 @@ msgstr "لم يتم التحقق من تحديثات الإضافات بعد."
 
 msgid "No Description"
 msgstr "لا يوجد وصف"
+
+msgid "Play / Pause"
+msgstr "تشغيل / إيقاف مؤقت"
+
+msgid "Volume Up"
+msgstr "رفع الصوت"
+
+msgid "Volume Down"
+msgstr "خفض الصوت"
+
+msgid "Rewind"
+msgstr "ترجيع"
+
+msgid "Fast Forward"
+msgstr "تقديم سريع"
+
+msgid "Forward 15 Seconds"
+msgstr "تقديم 15 ثانية"
+
+msgid "Forward 30 Seconds"
+msgstr "تقديم 30 ثانية"
+
+msgid "Back 15 Seconds"
+msgstr "رجوع 15 ثانية"
+
+msgid "Back 30 Seconds"
+msgstr "رجوع 30 ثانية"
+
+msgid "Next"
+msgstr "الملف التالي"
+
+msgid "Previous"
+msgstr "الملف السابق"
+
+msgid "Show Remaining Time or Total Duration"
+msgstr "الوقت المتبقي أو المدة الإجمالية"
+
+msgid "Elapsed Time"
+msgstr "الوقت المنقضي"
+
+msgid "Playback Position"
+msgstr "موضع التشغيل"

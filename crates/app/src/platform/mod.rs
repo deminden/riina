@@ -1132,6 +1132,8 @@ mod macos;
 #[cfg(target_os = "macos")]
 pub(crate) use macos::file_panel::choose_media as choose_application_media;
 #[cfg(target_os = "macos")]
+pub(crate) use macos::touch_bar;
+#[cfg(target_os = "macos")]
 pub(crate) use macos::{
     ControlGesture, GesturePhase, MacPictureInPicture, MacPluginMenuObserver,
     MacSubtitleColorPanel, RemoteMediaAction, SystemMediaControls, control_gesture,

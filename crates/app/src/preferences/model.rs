@@ -74,6 +74,12 @@ impl PreferenceModel {
         self.0.current.borrow_mut().control_bar.controller = options;
     }
 
+    #[cfg(target_os = "macos")]
+    pub(crate) fn adopt_touch_bar_mode(&self, mode: riina_core::touch_bar::Settings) {
+        self.0.writer.adopt_touch_bar_mode(mode);
+        self.0.current.borrow_mut().touch_bar = mode;
+    }
+
     pub(crate) fn retain_subtitle_credentials(&self, app: &PlayerWindow) {
         let api_key = app
             .global::<riina_ui::PlayerPreferences>()

@@ -67,6 +67,8 @@ pub(super) struct Installed {
     pub(super) pending_navigation: PendingNavigation,
     pub(super) scroll_monitor: platform::PlayerScrollMonitor,
     pub(super) subtitle_assignments: Assignments,
+    #[cfg(target_os = "macos")]
+    pub(super) native_thumbnails: thumbnail_actions::NativeThumbnails,
 }
 
 pub(super) struct Inputs<'a> {
@@ -178,7 +180,7 @@ pub(super) fn install(app: &PlayerWindow, inputs: Inputs<'_>) -> Installed {
         #[cfg(target_os = "windows")]
         native.map(platform::NativePresentation::host),
     );
-    let thumbnail_preview_timer = thumbnail_actions::install(app, playback, plugin_host.cloned());
+    let thumbnail_preview = thumbnail_actions::install(app, playback, plugin_host.cloned());
     let (transition_frame_timer, pending_navigation) = transitions::install(
         capture_transition_first,
         native,
@@ -205,7 +207,7 @@ pub(super) fn install(app: &PlayerWindow, inputs: Inputs<'_>) -> Installed {
             _player_window_focus: player_window_focus,
         },
         timers: PlaybackTimers {
-            thumbnail: thumbnail_preview_timer,
+            thumbnail: thumbnail_preview.timer,
             discovery: subtitle_priority_timer,
             transition: transition_frame_timer,
             video_materials,
@@ -216,6 +218,8 @@ pub(super) fn install(app: &PlayerWindow, inputs: Inputs<'_>) -> Installed {
         pending_navigation,
         scroll_monitor,
         subtitle_assignments,
+        #[cfg(target_os = "macos")]
+        native_thumbnails: thumbnail_preview.native,
     }
 }
 

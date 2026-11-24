@@ -37,6 +37,7 @@ pub mod sync;
 pub mod thumbnail_preferences;
 pub mod time_input;
 pub mod timing_controls;
+pub mod touch_bar;
 mod track_labels;
 pub mod video_controls;
 pub mod video_filters;

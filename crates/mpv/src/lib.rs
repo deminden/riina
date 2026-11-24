@@ -66,6 +66,7 @@ pub use worker::{EngineVersions, read_engine_versions, read_local_duration};
 
 enum Message {
     Intent(Command),
+    MediaIntent { generation: u64, command: Command },
     OpenStream(Command, StreamSource, StreamAttempt),
     Client(client_request::Request),
     Wake,
@@ -139,6 +140,15 @@ pub struct CommandSender {
 
 impl CommandSender {
     pub fn send(&self, command: Command) -> Result<(), EngineError> {
+        self.enqueue(command, None)
+    }
+
+    /// Discard this intent if native playback has moved to a different media.
+    pub fn send_for_media(&self, generation: u64, command: Command) -> Result<(), EngineError> {
+        self.enqueue(command, Some(generation))
+    }
+
+    fn enqueue(&self, command: Command, generation: Option<u64>) -> Result<(), EngineError> {
         if command == Command::Shutdown {
             return Err(EngineError::ReservedShutdown);
         }
@@ -146,9 +156,16 @@ impl CommandSender {
             return Err(EngineError::Stopped);
         }
         match &self.sender {
-            CommandQueue::Native(sender) => sender
-                .try_send(Message::Intent(command))
-                .map_err(send_error),
+            CommandQueue::Native(sender) => {
+                let intent = match generation {
+                    Some(generation) => Message::MediaIntent {
+                        generation,
+                        command,
+                    },
+                    None => Message::Intent(command),
+                };
+                sender.try_send(intent).map_err(send_error)
+            }
             #[cfg(feature = "test-support")]
             CommandQueue::Recording(sender) => sender.try_send(command).map_err(send_error),
         }

@@ -28,6 +28,8 @@ pub(super) struct UiObserverState {
     pub(super) timers: Option<PlaybackTimers>,
     pub(super) startup_presentation: Option<(i32, crate::startup_arguments::Presentation)>,
     pub(super) open_url: Weak<ApplicationOpenUrl>,
+    #[cfg(target_os = "macos")]
+    pub(super) touch_bar: Option<Rc<super::touch_bar::Session>>,
     power: Option<crate::playback_power::Registration>,
 }
 
@@ -46,6 +48,8 @@ impl UiObserverState {
             timers: None,
             startup_presentation: None,
             open_url: Weak::new(),
+            #[cfg(target_os = "macos")]
+            touch_bar: None,
             power: None,
         }
     }
@@ -135,6 +139,17 @@ impl ObserverRegistration {
 
     pub(super) fn release_power(&self) {
         self.state.borrow_mut().power.take();
+    }
+
+    #[cfg(target_os = "macos")]
+    pub(super) fn bind_touch_bar(&self, session: Rc<super::touch_bar::Session>) {
+        self.state.borrow_mut().touch_bar = Some(session);
+    }
+
+    #[cfg(target_os = "macos")]
+    pub(super) fn release_touch_bar(&self) {
+        let touch_bar = self.state.borrow_mut().touch_bar.take();
+        drop(touch_bar);
     }
 
     pub(super) fn queue_startup_presentation(

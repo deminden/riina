@@ -110,6 +110,15 @@ impl<N: Fn(Arc<Playback>)> Start<N> {
                         state.observe_dynamic(&handle, &command, &notify);
                     }
                     Message::Intent(command) => state.handle_intent(&handle, command),
+                    Message::MediaIntent {
+                        generation,
+                        command,
+                    } => {
+                        state.drain_events(&mut handle, &callback_sender);
+                        if state.accepts_media_intent(generation) {
+                            state.handle_intent(&handle, command);
+                        }
+                    }
                     Message::OpenStream(command, source, attempt) => {
                         state.open_stream(&handle, command, source, attempt);
                     }
@@ -325,6 +334,18 @@ impl WorkerState {
         self.handle_intent_with_stream(handle, command, None);
     }
 
+    fn accepts_media_intent(&self, generation: u64) -> bool {
+        self.playback.generation == generation
+            && !matches!(
+                self.playback.phase,
+                Phase::Loading | Phase::Stopped | Phase::Failed
+            )
+            && !self
+                .pending
+                .values()
+                .any(|pending| pending.generation == generation && pending.changes_media)
+    }
+
     fn handle_intent_with_stream(
         &mut self,
         handle: &Handle,
@@ -470,6 +491,7 @@ impl WorkerState {
     }
 
     fn issue(&mut self, handle: &Handle, args: &[String], kind: ReplyKind) -> Result<(), String> {
+        let changes_media = changes_media(args);
         let args: Vec<_> = args
             .iter()
             .map(|arg| CString::new(arg.as_str()))
@@ -493,6 +515,7 @@ impl WorkerState {
                 generation: self.playback.generation,
                 label,
                 kind,
+                changes_media,
             },
         );
         Ok(())
@@ -857,6 +880,23 @@ impl WorkerState {
 }
 
 // Keep diagnostics actionable without exposing media paths or arbitrary option values.
+fn changes_media(args: &[String]) -> bool {
+    let mut names = args.iter().map(String::as_str);
+    match names.next() {
+        Some("loadfile") => names.nth(1).is_none_or(|mode| mode != "append"),
+        Some(
+            "stop"
+            | "playlist-next"
+            | "playlist-prev"
+            | "playlist-play-index"
+            | "playlist-next-playlist"
+            | "playlist-prev-playlist",
+        ) => true,
+        Some("set") => names.next() == Some("playlist-pos"),
+        _ => false,
+    }
+}
+
 fn command_label(args: &[CString]) -> String {
     let command = args
         .first()
@@ -874,6 +914,40 @@ fn command_label(args: &[CString]) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn scoped_transport_ignores_an_old_or_replacing_media_generation() {
+        let mut worker = WorkerState {
+            playback: Playback {
+                generation: 4,
+                phase: Phase::Playing,
+                ..Playback::default()
+            },
+            ..WorkerState::default()
+        };
+        assert!(!worker.accepts_media_intent(3));
+        assert!(worker.accepts_media_intent(4));
+        for (mode, accepts) in [("append", true), ("replace", false)] {
+            let args = [
+                "loadfile".to_owned(),
+                "media.mkv".to_owned(),
+                mode.to_owned(),
+            ];
+            worker.pending.insert(
+                1,
+                PendingCommand {
+                    generation: 4,
+                    label: "loadfile".into(),
+                    kind: ReplyKind::Plain,
+                    changes_media: changes_media(&args),
+                },
+            );
+            assert_eq!(worker.accepts_media_intent(4), accepts);
+        }
+        worker.pending.clear();
+        worker.playback.phase = Phase::Loading;
+        assert!(!worker.accepts_media_intent(4));
+    }
 
     #[test]
     fn an_empty_drain_keeps_the_current_publication() {

@@ -1,3 +1,4 @@
+export { TouchBarText } from "touch-bar-text.slint";
 export { MediaSettingsText } from "media-settings-text.slint";
 export { SettingsSearchText } from "settings-search-text.slint";
 export { PluginReviewText } from "plugin-review-text.slint";
@@ -707,7 +708,18 @@ export component PlayerWindow inherits PlayerMenuWindow {
         root.refresh-fullscreen-info();
         root.controls-visibility-changed(PlayerControlsState.controls-visible);
     }
-    changed fullscreen => { root.refresh-fullscreen-info(); PlayerMenuActions.video-menu-changed(); }
+    in property <bool> escape-exits-fullscreen: false;
+    private property <int> touch-bar-time-precision: PlayerPreferences.control-time-precision;
+    private property <bool> touch-bar-scale-remaining-time: PlayerPreferences.control-scale-remaining-time;
+    callback touch-bar-presentation-changed();
+    changed escape-exits-fullscreen => { root.touch-bar-presentation-changed(); }
+    changed touch-bar-time-precision => { root.touch-bar-presentation-changed(); }
+    changed touch-bar-scale-remaining-time => { root.touch-bar-presentation-changed(); }
+    changed fullscreen => {
+        root.refresh-fullscreen-info();
+        PlayerMenuActions.video-menu-changed();
+        root.touch-bar-presentation-changed();
+    }
     changed display-time-and-battery-in-fullscreen => { root.refresh-fullscreen-info(); }
     private property <bool> dark-theme: PlayerAppearance.dark-theme;
     changed dark-theme => { Palette.color-scheme = PlayerAppearance.dark-theme ? ColorScheme.dark : ColorScheme.light; }

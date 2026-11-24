@@ -1,0 +1,24 @@
+export struct TouchBarCaption { identifier: string, caption: string }
+
+export global TouchBarText {
+    out property <[TouchBarCaption]> captions: [
+        { identifier: "play", caption: @tr("Play") },
+        { identifier: "pause", caption: @tr("Pause") },
+        { identifier: "play-pause", caption: @tr("Play / Pause") },
+        { identifier: "volume-up", caption: @tr("Volume Up") },
+        { identifier: "volume-down", caption: @tr("Volume Down") },
+        { identifier: "rewind", caption: @tr("Rewind") },
+        { identifier: "fast-forward", caption: @tr("Fast Forward") },
+        { identifier: "forward-15", caption: @tr("Forward 15 Seconds") },
+        { identifier: "forward-30", caption: @tr("Forward 30 Seconds") },
+        { identifier: "back-15", caption: @tr("Back 15 Seconds") },
+        { identifier: "back-30", caption: @tr("Back 30 Seconds") },
+        { identifier: "next", caption: @tr("Next") },
+        { identifier: "previous", caption: @tr("Previous") },
+        { identifier: "pip", caption: @tr("Picture-in-Picture") },
+        { identifier: "exit-fullscreen", caption: @tr("Exit Full Screen") },
+        { identifier: "other-time", caption: @tr("Show Remaining Time or Total Duration") },
+        { identifier: "elapsed", caption: @tr("Elapsed Time") },
+        { identifier: "scrubber", caption: @tr("Playback Position") },
+    ];
+}

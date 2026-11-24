@@ -44,6 +44,8 @@ pub struct Preferences {
     /// Gap below the floating control bar as a fraction of video height.
     pub control_bar_position_vertical: f64,
     pub control_bar: osc_preferences::Settings,
+    #[serde(skip_serializing_if = "crate::touch_bar::Settings::is_default")]
+    pub touch_bar: crate::touch_bar::Settings,
     pub always_float_on_top: bool,
     pub always_show_on_top_icon: bool,
     pub action_after_launch: ActionAfterLaunch,
@@ -278,6 +280,7 @@ impl Default for Preferences {
             control_bar_position_horizontal: 0.5,
             control_bar_position_vertical: 0.1,
             control_bar: osc_preferences::Settings::default(),
+            touch_bar: crate::touch_bar::Settings::default(),
             always_float_on_top: false,
             always_show_on_top_icon: false,
             action_after_launch: ActionAfterLaunch::default(),
