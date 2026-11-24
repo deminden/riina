@@ -112,7 +112,7 @@ fn fast_check(root: &Path, base: &OsStr) -> Result<(), String> {
     if workspace_wide {
         selected.push("--workspace");
     } else {
-        let mut changed = changed_packages(root, &files)?;
+        let mut changed = affected_packages(root, &files)?;
         if include_ui_consumers(&mut changed, &files) {
             return check_ui(root);
         }
@@ -267,9 +267,67 @@ struct Package {
     id: String,
     name: String,
     manifest_path: PathBuf,
+    dependencies: Vec<Dependency>,
 }
 
-fn changed_packages(root: &Path, files: &BTreeSet<PathBuf>) -> Result<BTreeSet<String>, String> {
+#[derive(Deserialize)]
+struct Dependency {
+    path: Option<PathBuf>,
+}
+
+impl Workspace {
+    fn affected_packages(&self, files: &BTreeSet<PathBuf>) -> BTreeSet<String> {
+        let members: Vec<_> = self
+            .packages
+            .iter()
+            .filter(|package| self.workspace_members.contains(&package.id))
+            .filter_map(|package| {
+                let directory = package.manifest_path.parent()?;
+                let relative = directory.strip_prefix(&self.workspace_root).ok()?;
+                Some((package, directory, relative))
+            })
+            .collect();
+        let mut selected = BTreeSet::new();
+        let mut changed_dependencies = BTreeSet::new();
+        for (package, directory, relative) in &members {
+            for file in files {
+                if let Ok(member_path) = file.strip_prefix(relative) {
+                    selected.insert(package.name.clone());
+                    if member_path.starts_with("src")
+                        || member_path == Path::new("Cargo.toml")
+                        || member_path == Path::new("build.rs")
+                    {
+                        changed_dependencies.insert(*directory);
+                    }
+                }
+            }
+        }
+        // Slint inputs live outside src and use the focused widget/visual route.
+        // Other crate API changes also compile and exercise workspace consumers.
+        loop {
+            let previous_count = changed_dependencies.len();
+            for (package, directory, _) in &members {
+                if !changed_dependencies.contains(directory)
+                    && package.dependencies.iter().any(|dependency| {
+                        dependency
+                            .path
+                            .as_deref()
+                            .is_some_and(|path| changed_dependencies.contains(path))
+                    })
+                {
+                    selected.insert(package.name.clone());
+                    changed_dependencies.insert(*directory);
+                }
+            }
+            if changed_dependencies.len() == previous_count {
+                break;
+            }
+        }
+        selected
+    }
+}
+
+fn affected_packages(root: &Path, files: &BTreeSet<PathBuf>) -> Result<BTreeSet<String>, String> {
     if files.is_empty() {
         return Ok(BTreeSet::new());
     }
@@ -282,19 +340,7 @@ fn changed_packages(root: &Path, files: &BTreeSet<PathBuf>) -> Result<BTreeSet<S
     ]))?;
     let workspace: Workspace = serde_json::from_slice(&output)
         .map_err(|error| format!("Could not read Cargo workspace metadata: {error}"))?;
-    Ok(workspace
-        .packages
-        .into_iter()
-        .filter(|package| workspace.workspace_members.contains(&package.id))
-        .filter(|package| {
-            package
-                .manifest_path
-                .parent()
-                .and_then(|directory| directory.strip_prefix(&workspace.workspace_root).ok())
-                .is_some_and(|directory| files.iter().any(|file| file.starts_with(directory)))
-        })
-        .map(|package| package.name)
-        .collect())
+    Ok(workspace.affected_packages(files))
 }
 
 fn native(root: &Path, filter: Option<&OsStr>) -> Result<(), String> {
@@ -481,6 +527,28 @@ mod scope_tests {
         ]);
         assert!(!include_ui_consumers(&mut packages, &files));
         assert_eq!(packages, BTreeSet::from(["riina-ui".to_owned()]));
+    }
+
+    #[test]
+    fn shared_source_selects_consumers_while_test_edits_stay_local() {
+        let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+        for (path, expected) in [
+            (
+                "crates/core/src/command.rs",
+                &["riina", "riina-core", "riina-mpv"][..],
+            ),
+            ("crates/mpv/src/worker.rs", &["riina", "riina-mpv"][..]),
+            ("crates/mpv/tests/native/main.rs", &["riina-mpv"][..]),
+        ] {
+            let packages = affected_packages(&root, &BTreeSet::from([path.into()])).unwrap();
+            assert!(
+                packages
+                    .iter()
+                    .map(String::as_str)
+                    .eq(expected.iter().copied()),
+                "{path}: {packages:?}"
+            );
+        }
     }
 
     #[test]

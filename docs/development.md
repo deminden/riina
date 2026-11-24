@@ -121,7 +121,9 @@ persists one batch before changing the in-memory rows and revision.
 
 Group related edits before running `cargo xtask check --fast`. It checks
 formatting and source line lengths, then lints and tests the crates with staged,
-unstaged or untracked changes. Slint and Settings search changes check navigation. Edits to
+unstaged or untracked changes. Source changes in the core or playback engine
+also check the workspace crates that use them. Test-only edits stay scoped to
+their crate. Slint and Settings search changes check navigation. Edits to
 UI source, headless widget tests, or both run the interaction and visual tests
 together. Linting includes the libraries and both test targets. Batches that
 also change application source run the app unit tests. Edits limited to visual
