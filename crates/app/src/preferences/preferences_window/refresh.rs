@@ -1,4 +1,5 @@
 //! Refresh controls from the owning player.
+use super::general_policy::Policy;
 use crate::{PlayerWindow, preferences::model::PreferenceSection};
 use slint::ComponentHandle;
 
@@ -54,33 +55,11 @@ pub(super) fn refresh(window: &crate::PreferencesWindow, app: &PlayerWindow) {
     if let Ok(style) = crate::subtitle_preferences::current_style(app) {
         crate::subtitle_preferences::install_window_style(window, style);
     }
-    general.set_pause_when_open(player_preferences.get_pause_when_open());
-    general
-        .set_play_when_entering_fullscreen(player_preferences.get_play_when_entering_fullscreen());
-    general
-        .set_pause_when_leaving_fullscreen(player_preferences.get_pause_when_leaving_fullscreen());
-    general.set_pause_when_inactive(player_preferences.get_pause_when_inactive());
-    general.set_pause_when_minimized(player_preferences.get_pause_when_minimized());
-    general.set_pause_when_goes_to_sleep(player_preferences.get_pause_when_goes_to_sleep());
-    general.set_pause_policies_available(cfg!(target_os = "macos"));
-    general.set_quit_when_no_opened_window(player_preferences.get_quit_when_no_opened_window());
-    general.set_keep_open_on_file_end(player_preferences.get_keep_open_on_file_end());
-    general.set_playlist_auto_play_next(player_preferences.get_playlist_auto_play_next());
-    general.set_playlist_auto_add(player_preferences.get_playlist_auto_add());
-    general.set_playlist_show_metadata(player_preferences.get_playlist_show_metadata());
-    general.set_playlist_show_metadata_in_music_mode(
-        player_preferences.get_playlist_show_metadata_in_music_mode(),
-    );
-    general.set_auto_repeat(player_preferences.get_auto_repeat());
-    general.set_default_repeat_mode_index(player_preferences.get_default_repeat_mode_index());
-    general.set_fullscreen_when_open(player_preferences.get_fullscreen_when_open());
-    general.set_resume_last_position(player_preferences.get_resume_last_position());
-    general.set_record_playback_history(player_preferences.get_record_playback_history());
+    Policy::from_player(app).install_window(window);
     general.set_record_recent_files(player_preferences.get_record_recent_files());
     general.set_track_all_files_in_recent_open_menu(
         player_preferences.get_track_all_files_in_recent_open_menu(),
     );
-    general.set_launch_action_index(player_preferences.get_launch_action_index());
     general.set_auto_switch_to_music_mode(music_mode.get_auto_switch_to_music_mode());
     general.set_music_mode_show_playlist(music_mode.get_music_mode_show_playlist());
     general.set_music_mode_show_album_art(music_mode.get_music_mode_show_album_art());
@@ -115,22 +94,7 @@ pub(super) fn refresh(window: &crate::PreferencesWindow, app: &PlayerWindow) {
     window.set_compact_ui(appearance.get_compact_ui());
     window.set_docked_controls(layout.get_docked_controls());
     window.set_edge_to_edge_video(layout.get_edge_to_edge_video());
-    let index = ["png", "jpg", "jpeg", "webp", "jxl"]
-        .iter()
-        .position(|format| *format == player_preferences.get_screenshot_format().as_str())
-        .map_or(-1, |index| index as i32);
-    general.set_format_index(index);
-    general.set_include_subtitles(player_preferences.get_screenshot_include_subtitles());
-    general.set_show_preview(player_preferences.get_screenshot_show_preview());
-    general.set_save_to_file(player_preferences.get_screenshot_save_to_file());
-    general.set_copy_to_clipboard(player_preferences.get_screenshot_copy_to_clipboard());
-    window.set_custom_directory(player_preferences.get_screenshot_custom_directory());
-    general.set_directory(if player_preferences.get_screenshot_custom_directory() {
-        player_preferences.get_screenshot_directory()
-    } else {
-        dirs::picture_dir()
-            .map(|path| path.join("Screenshots").to_string_lossy().into_owned())
-            .unwrap_or_default()
-            .into()
-    });
+    if let Ok(settings) = crate::screenshot_preferences::current(app) {
+        crate::screenshot_preferences::install_window(window, &settings);
+    }
 }

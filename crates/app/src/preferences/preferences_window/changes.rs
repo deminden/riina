@@ -1,10 +1,10 @@
 //! Validate and commit a preferences edit, restoring live state on failure.
 mod committed;
 mod display;
-mod general;
 mod playback_settings;
 mod subtitles;
 
+use super::general_policy as general;
 use super::{
     live::{AppliedDecoderSettings, DecoderState},
     refresh::refresh,
@@ -122,7 +122,6 @@ fn connect_with_credentials(
         ) else {
             return;
         };
-        crate::screenshot_preferences::project_window_edit(&app, &window);
         general.selected.project_open_policy(&app);
         display.project_before_save(&app, &window);
         let restart_notice = playback.restart_notice();
@@ -132,7 +131,7 @@ fn connect_with_credentials(
             .and_then(|()| playback.apply(&app, &decoder_player, &general, &mut playback_changes))
             .and_then(|()| {
                 subtitles.project_tracks(&app);
-                crate::screenshot_preferences::current(&app)
+                crate::screenshot_preferences::read_window(&window, &previous)
             })
             .and_then(|screenshot| {
                 let mut preferences = capture_preferences(
@@ -144,7 +143,7 @@ fn connect_with_credentials(
                     &selected_online_subtitles,
                     &applied_subtitles,
                 );
-                general.put(&mut preferences)?;
+                general.put(&mut preferences);
                 display.put(&mut preferences);
                 playback.put(&mut preferences);
                 subtitles.put_tracks(&mut preferences);
@@ -166,7 +165,7 @@ fn connect_with_credentials(
                 restart_notice,
             ),
             Err(error) => {
-                restore_window_open_policy(&window, &saved);
+                general::install_open_policy(&window, &saved);
                 playback.restore(&app, &window, &decoder_player, &general, &playback_changes);
                 subtitles.restore_tracks(&app, &decoder_player);
                 applied_subtitles.restore(&app, &decoder_player, &subtitles);
@@ -177,7 +176,6 @@ fn connect_with_credentials(
                     &window,
                     &playback.previous_tone_mapping,
                 );
-                crate::screenshot_preferences::install(&app, &previous);
                 refresh(&window, &app);
                 app.set_status(error.into());
             }
@@ -209,13 +207,6 @@ fn apply_decoder_edit(
         decoder,
     )?;
     Ok((decoder, applied))
-}
-
-fn restore_window_open_policy(window: &PreferencesWindow, saved: &riina_core::Preferences) {
-    let general = window.global::<riina_ui::GeneralSettingsState>();
-    general.set_allow_multiple_windows(saved.allow_multiple_windows);
-    general.set_group_simultaneous_opens_in_playlist(saved.group_simultaneous_opens_in_playlist);
-    general.set_allow_duplicate_players(saved.allow_duplicate_players);
 }
 
 fn capture_preferences(

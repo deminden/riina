@@ -3785,3 +3785,32 @@ with these windows open still need native macOS verification.
 - Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
 - Linux application SHA-256 `adab5ac9c2cda6b41414f31ddf392c2648f63e0cb3281baca133c41606df5fa6`
 - Linux libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`
+
+### Profile-backed Settings initialization 2026-11-24
+
+Settings now projects fields from the saved profile before installing
+player-specific actions. The application updater and playback power services
+can attach to the form with no player. The main Settings regression tests use
+the same form factory as the application. Headless coverage includes a saved
+profile and Utilities callback without a player, update and power edits
+across two forms, an invalid launch choice alongside a decoder edit, and
+screenshot edits that preserve a saved AVIF format and custom filename
+template outside the form.
+
+A private Windows desktop opened and reopened the same Settings window during
+paused playback. Changing the opening policy updated the native File menu
+and persisted across restart. Both test processes exited normally. On isolated
+Linux X11, the Utilities workflow exercised defaults, progress, history and
+thumbnail actions, cancellation and reopening. The test process exited normally.
+
+The Windows workspace gate, including the software-rendered player and
+Settings comparison, passed. All 61 pinned Windows libmpv tests, locked Windows
+and Linux application builds, 583 Linux application unit tests and strict
+Apple Silicon cross-Clippy passed.
+The app-owned Settings window and its AppKit menu entry remain to be connected
+and need native macOS verification.
+
+- Windows application SHA-256 `2a2647ddc1413cbe2ff407984179d1748334f3da7bd9494aed131952242560c4`
+- Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
+- Linux application SHA-256 `5f36224470649363a8e8bd1007b1fb04f1ff12d1cc5992f9ec87ba7b5cd7baaa`
+- Linux libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`

@@ -525,6 +525,12 @@ copy of invalid input and loads recoverable fields. `PreferenceModel` holds the
 committed settings on the UI thread and delegates persistence to
 `preference_store::Writer`. Section bindings read and validate their controls and
 project the saved settings into the Settings form and `PlayerPreferences`.
+The Settings form initializes from the saved profile before the player attaches
+its live state and actions. General playback preferences and screenshot controls
+use the same form projection when they refresh from a player. Screenshot edits
+preserve formats and templates outside the form and project to a player after
+the save succeeds. Update and playback power controls save through application
+services, with failures reported by the Settings owner.
 At shutdown, `session_preferences::SessionState` saves runtime settings over
 the model's committed settings. Its resume write checks the profile's current
 resume revision under the preference lock. Clearing history advances the

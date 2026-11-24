@@ -25,22 +25,11 @@ impl Transaction {
             .save(&initial)
             .unwrap();
         let player = Harness::start(profile.file.clone(), false).unwrap();
-        let window = PreferencesWindow::new().unwrap();
-
-        crate::advanced_preferences::install_window(&window, &initial.advanced);
-        crate::audio_preferences::install_window(&window, &initial.audio, &[]);
-        crate::tone_mapping_preferences::install_window(&window, &initial.hdr_tone_mapping);
-        window.set_video_threads_text(initial.video_threads.to_string().into());
-        crate::network_connection_preferences::install_window(&window, &initial.network);
-        window
-            .global::<riina_ui::GeneralSettingsState>()
-            .set_allow_multiple_windows(initial.allow_multiple_windows);
-        window
-            .global::<riina_ui::GeneralSettingsState>()
-            .set_group_simultaneous_opens_in_playlist(initial.group_simultaneous_opens_in_playlist);
-        window
-            .global::<riina_ui::GeneralSettingsState>()
-            .set_allow_duplicate_players(initial.allow_duplicate_players);
+        let window =
+            crate::preferences_window::profile_window::create(&profile.file, &initial, &[], || {
+                Ok(0)
+            })
+            .unwrap();
         refresh(&window, &player.app);
         connect_with_credentials(
             &player.app,
@@ -659,6 +648,54 @@ fn mixed_invalid_edit_reverses_the_live_volume_command_before_returning() {
             .get_volume_boost()
     );
     assert!(!transaction.window.get_volume_boost());
+}
+
+#[test]
+fn an_invalid_launch_action_cannot_trigger_a_live_decoder_edit() {
+    let transaction = Transaction::new();
+    let before = transaction.bytes();
+    transaction.window.set_volume_boost(true);
+    let general = transaction
+        .window
+        .global::<riina_ui::GeneralSettingsState>();
+    general.set_launch_action_index(-1);
+
+    assert!(transaction.apply().is_empty());
+    assert_eq!(transaction.bytes(), before);
+    assert_eq!(
+        general.get_launch_action_index(),
+        Preferences::default().action_after_launch.index()
+    );
+    assert!(!transaction.window.get_volume_boost());
+}
+
+#[test]
+fn screenshot_edits_preserve_the_configured_format_and_template_outside_the_form() {
+    use riina_core::screenshot::Format;
+
+    let transaction = Transaction::new();
+    let app = &transaction.player.app;
+    let mut screenshot = crate::screenshot_preferences::current(app).unwrap();
+    screenshot.encoding.format = Format::Avif;
+    screenshot.encoding.template = "%F-%P".into();
+    crate::screenshot_preferences::install(app, &screenshot);
+    refresh(&transaction.window, app);
+    let general = transaction
+        .window
+        .global::<riina_ui::GeneralSettingsState>();
+    assert_eq!(general.get_format_index(), -1);
+    general.set_show_preview(false);
+
+    assert_eq!(
+        transaction.apply(),
+        [transaction.expected_subtitle_reload()]
+    );
+    screenshot.show_preview = false;
+    assert_eq!(transaction.profile.read().screenshot, screenshot);
+    assert_eq!(
+        crate::screenshot_preferences::current(app).unwrap(),
+        screenshot
+    );
 }
 
 #[test]

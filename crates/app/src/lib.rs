@@ -44,11 +44,11 @@ use preferences::{
     advanced_preferences, appearance_preferences, audio_preferences, codec_preferences,
     control_preferences, key_binding_preferences, key_binding_profiles, language_token_preferences,
     layout_preferences, liquid_glass_preferences, network_cache_preferences,
-    network_connection_preferences, network_ytdl_preferences, online_subtitles_preferences,
-    osc_preferences, osd_preferences, pip_preferences, plugin_preferences, preference_load,
-    preference_store, preferences_window, screenshot_preferences, sidebar_preferences,
-    subtitle_auto_load_preferences, subtitle_other_preferences, subtitle_position_preferences,
-    subtitle_preferences, thumbnail_preferences, tone_mapping_preferences, utilities_preferences,
+    network_ytdl_preferences, online_subtitles_preferences, osc_preferences, osd_preferences,
+    pip_preferences, plugin_preferences, preference_load, preference_store, preferences_window,
+    screenshot_preferences, sidebar_preferences, subtitle_auto_load_preferences,
+    subtitle_other_preferences, subtitle_position_preferences, subtitle_preferences,
+    thumbnail_preferences, tone_mapping_preferences, utilities_preferences,
     window_resize_preferences,
 };
 use riina_ui::*;

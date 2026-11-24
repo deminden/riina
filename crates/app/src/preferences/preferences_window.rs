@@ -2,8 +2,10 @@
 mod changes;
 mod construction;
 mod folder;
+mod general_policy;
 mod key_bindings;
 mod live;
+mod profile_window;
 mod refresh;
 mod timers;
 
@@ -91,8 +93,14 @@ pub(crate) fn connect(
                 ) else {
                     return;
                 };
-                updates.connect_settings(&window, &app);
-                power.connect_settings(&window, &app, &path, &baseline);
+                let owner = app.as_weak();
+                let report = move |message| {
+                    if let Some(app) = owner.upgrade() {
+                        crate::diagnostics::report(&app, message);
+                    }
+                };
+                updates.connect_settings(&window, report.clone());
+                power.connect_settings(&window, &path, &baseline, report);
                 timers.install_close(&window);
                 crate::platform::center_auxiliary_window(&window, &app);
                 *current.borrow_mut() = Some(window.clone_strong());

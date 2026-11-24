@@ -1,5 +1,5 @@
 use super::ApplicationPower;
-use crate::{PlayerWindow, PreferencesWindow};
+use crate::PreferencesWindow;
 use riina_core::{Preferences, playback_power::Settings};
 use riina_ui::{GeneralSettingsState, PlaybackPowerPreference};
 use slint::ComponentHandle;
@@ -12,14 +12,13 @@ impl ApplicationPower {
     pub(crate) fn connect_settings(
         self: &Rc<Self>,
         window: &PreferencesWindow,
-        owner: &PlayerWindow,
         path: &Path,
         baseline: &Preferences,
+        report: impl Fn(String) + 'static,
     ) {
         self.windows.borrow_mut().push(window.as_weak());
         let power = Rc::downgrade(self);
         let window_weak = window.as_weak();
-        let owner_weak = owner.as_weak();
         let path: PathBuf = path.to_owned();
         let baseline = baseline.clone();
         window
@@ -30,12 +29,7 @@ impl ApplicationPower {
                 };
                 if let Err(error) = power.save_setting(&window, &path, &baseline, field) {
                     power.refresh_settings(&window);
-                    if let Some(owner) = owner_weak.upgrade() {
-                        crate::diagnostics::report(
-                            &owner,
-                            format!("Could not save playback power preference: {error}"),
-                        );
-                    }
+                    report(format!("Could not save playback power preference: {error}"));
                 }
             });
     }
@@ -99,12 +93,11 @@ mod tests {
             volume: 42.0,
             ..Preferences::default()
         };
-        let app = PlayerWindow::new().unwrap();
         let first = PreferencesWindow::new().unwrap();
         let other = PreferencesWindow::new().unwrap();
         let service = Rc::new(ApplicationPower::default());
-        service.connect_settings(&first, &app, &path, &baseline);
-        service.connect_settings(&other, &app, &path, &baseline);
+        service.connect_settings(&first, &path, &baseline, |error| panic!("{error}"));
+        service.connect_settings(&other, &path, &baseline, |error| panic!("{error}"));
         let first = first.global::<GeneralSettingsState>();
         let other = other.global::<GeneralSettingsState>();
 

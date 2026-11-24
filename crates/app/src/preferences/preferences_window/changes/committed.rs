@@ -30,6 +30,7 @@ pub(super) fn project(
 ) {
     let player_preferences = app.global::<riina_ui::PlayerPreferences>();
     let saved = model.snapshot();
+    crate::screenshot_preferences::install(app, &saved.screenshot);
     player_preferences.set_show_chapter_pos(saved.show_chapter_pos);
     player_preferences.set_play_when_entering_fullscreen(saved.play_when_entering_fullscreen);
     player_preferences.set_pause_when_leaving_fullscreen(saved.pause_when_leaving_fullscreen);

@@ -1,7 +1,15 @@
 //! Screenshot intent shared by capture and session persistence.
-use crate::PlayerWindow;
+use crate::{PlayerWindow, PreferencesWindow};
 use riina_core::screenshot::{Format, Settings};
 use slint::ComponentHandle;
+
+const WINDOW_FORMATS: [Format; 5] = [
+    Format::Png,
+    Format::Jpg,
+    Format::Jpeg,
+    Format::Webp,
+    Format::Jxl,
+];
 
 pub(crate) fn install(app: &PlayerWindow, settings: &Settings) {
     let player_preferences = app.global::<riina_ui::PlayerPreferences>();
@@ -16,45 +24,46 @@ pub(crate) fn install(app: &PlayerWindow, settings: &Settings) {
     player_preferences.set_screenshot_show_preview(settings.show_preview);
 }
 
-pub(crate) fn project_window_edit(app: &PlayerWindow, window: &crate::PreferencesWindow) {
-    let player_preferences = app.global::<riina_ui::PlayerPreferences>();
-    let formats = ["png", "jpg", "jpeg", "webp", "jxl"];
+pub(crate) fn install_window(window: &PreferencesWindow, settings: &Settings) {
+    let general = window.global::<riina_ui::GeneralSettingsState>();
+    let index = WINDOW_FORMATS
+        .iter()
+        .position(|format| *format == settings.encoding.format)
+        .map_or(-1, |index| index as i32);
+    general.set_format_index(index);
+    general.set_include_subtitles(settings.include_subtitles);
+    general.set_show_preview(settings.show_preview);
+    general.set_save_to_file(settings.destinations.save_to_file);
+    general.set_copy_to_clipboard(settings.destinations.copy_to_clipboard);
+    window.set_custom_directory(settings.directory.is_some());
+    let directory = settings.directory.clone().or_else(|| {
+        dirs::picture_dir().map(|path| path.join("Screenshots").to_string_lossy().into_owned())
+    });
+    general.set_directory(directory.unwrap_or_default().into());
+}
+
+pub(crate) fn read_window(
+    window: &PreferencesWindow,
+    previous: &Settings,
+) -> Result<Settings, String> {
+    let general = window.global::<riina_ui::GeneralSettingsState>();
+    let mut settings = previous.clone();
     // AVIF can be configured externally but has no item in the pinned
     // General pane. Editing another control must preserve that choice.
-    if let Ok(index) = usize::try_from(
-        window
-            .global::<riina_ui::GeneralSettingsState>()
-            .get_format_index(),
-    ) && let Some(format) = formats.get(index)
+    if let Ok(index) = usize::try_from(general.get_format_index())
+        && let Some(format) = WINDOW_FORMATS.get(index)
     {
-        player_preferences.set_screenshot_format((*format).into());
+        settings.encoding.format = *format;
     }
-    player_preferences.set_screenshot_include_subtitles(
-        window
-            .global::<riina_ui::GeneralSettingsState>()
-            .get_include_subtitles(),
-    );
-    player_preferences.set_screenshot_show_preview(
-        window
-            .global::<riina_ui::GeneralSettingsState>()
-            .get_show_preview(),
-    );
-    player_preferences.set_screenshot_save_to_file(
-        window
-            .global::<riina_ui::GeneralSettingsState>()
-            .get_save_to_file(),
-    );
-    player_preferences.set_screenshot_copy_to_clipboard(
-        window
-            .global::<riina_ui::GeneralSettingsState>()
-            .get_copy_to_clipboard(),
-    );
-    player_preferences.set_screenshot_custom_directory(window.get_custom_directory());
-    player_preferences.set_screenshot_directory(
-        window
-            .global::<riina_ui::GeneralSettingsState>()
-            .get_directory(),
-    );
+    settings.include_subtitles = general.get_include_subtitles();
+    settings.show_preview = general.get_show_preview();
+    settings.destinations.save_to_file = general.get_save_to_file();
+    settings.destinations.copy_to_clipboard = general.get_copy_to_clipboard();
+    settings.directory = window
+        .get_custom_directory()
+        .then(|| general.get_directory().to_string());
+    settings.validate()?;
+    Ok(settings)
 }
 
 pub(crate) fn current(app: &PlayerWindow) -> Result<Settings, String> {

@@ -3,7 +3,7 @@ use super::{
     ApplicationUpdates,
     schedule::{Interval, Permission, State},
 };
-use crate::{PlayerWindow, PreferencesWindow};
+use crate::PreferencesWindow;
 use riina_ui::{GeneralSettingsState, UpdatePreference};
 use slint::{ComponentHandle, Weak};
 use std::{io, rc::Rc};
@@ -12,10 +12,9 @@ impl ApplicationUpdates {
     pub(crate) fn connect_settings(
         self: &Rc<Self>,
         window: &PreferencesWindow,
-        app: &PlayerWindow,
+        report: impl Fn(String) + 'static,
     ) {
         self.settings.borrow_mut().push(window.as_weak());
-        let owner = app.as_weak();
         let weak = window.as_weak();
         let updates = Rc::downgrade(self);
         window
@@ -25,12 +24,7 @@ impl ApplicationUpdates {
                     && let Err(error) = updates.save_setting(&window, field)
                 {
                     updates.refresh_settings(&window);
-                    if let Some(app) = owner.upgrade() {
-                        crate::diagnostics::report(
-                            &app,
-                            format!("Could not save the update preference: {error}"),
-                        );
-                    }
+                    report(format!("Could not save the update preference: {error}"));
                 }
             });
     }
@@ -119,11 +113,10 @@ mod tests {
         let path = profile.path().join("preferences.json");
         let updates = Rc::new(ApplicationUpdates::default());
         assert!(updates.store.set(Store::for_preferences(&path)).is_ok());
-        let player = PlayerWindow::new().unwrap();
         let first = PreferencesWindow::new().unwrap();
         let second = PreferencesWindow::new().unwrap();
-        updates.connect_settings(&first, &player);
-        updates.connect_settings(&second, &player);
+        updates.connect_settings(&first, |error| panic!("{error}"));
+        updates.connect_settings(&second, |error| panic!("{error}"));
         updates.refresh_settings(&first);
         updates.refresh_settings(&second);
 
