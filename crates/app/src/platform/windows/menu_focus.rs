@@ -4,7 +4,10 @@ use slint::{
     ComponentHandle,
     winit_030::{
         WinitWindowAccessor,
-        winit::raw_window_handle::{HasWindowHandle, RawWindowHandle},
+        winit::{
+            raw_window_handle::{HasWindowHandle, RawWindowHandle},
+            window::Window,
+        },
     },
 };
 use std::{cell::Cell, rc::Rc};
@@ -19,15 +22,16 @@ use windows::{
         },
         UI::{
             Input::KeyboardAndMouse::{
-                GetAsyncKeyState, SetActiveWindow, SetFocus, VK_F10, VK_MENU,
+                GetAsyncKeyState, IsWindowEnabled, SetActiveWindow, SetFocus, VK_F10, VK_MENU,
             },
             Shell::{DefSubclassProc, RemoveWindowSubclass, SetWindowSubclass},
             WindowsAndMessaging::{
                 DrawMenuBar, GetForegroundWindow, GetMenu, GetMenuItemCount, GetMenuStringW,
-                GetSubMenu, HMENU, IsWindow, MENUITEMINFOW, MF_BYPOSITION, MIIM_STRING,
-                PostMessageW, RegisterWindowMessageW, SC_KEYMENU, SetMenu, SetMenuItemInfoW,
-                WM_APPCOMMAND, WM_ENTERMENULOOP, WM_EXITMENULOOP, WM_INITMENU, WM_INITMENUPOPUP,
-                WM_KEYDOWN, WM_KEYUP, WM_SETREDRAW, WM_SYSCOMMAND, WM_SYSKEYDOWN, WM_SYSKEYUP,
+                GetSubMenu, HMENU, IsIconic, IsWindow, IsWindowVisible, MENUITEMINFOW,
+                MF_BYPOSITION, MIIM_STRING, PostMessageW, RegisterWindowMessageW, SC_KEYMENU,
+                SetMenu, SetMenuItemInfoW, WM_APPCOMMAND, WM_ENTERMENULOOP, WM_EXITMENULOOP,
+                WM_INITMENU, WM_INITMENUPOPUP, WM_KEYDOWN, WM_KEYUP, WM_SETREDRAW, WM_SYSCOMMAND,
+                WM_SYSKEYDOWN, WM_SYSKEYUP,
             },
         },
     },
@@ -225,6 +229,27 @@ pub(super) fn focus_chrome(window: &slint::Window) {
             let _ = unsafe { SetFocus(Some(HWND(handle.hwnd.get() as *mut _))) };
         }
     });
+}
+
+pub(super) fn activate_without_menu_key(window: &Window) {
+    let Ok(handle) = window.window_handle() else {
+        return;
+    };
+    let RawWindowHandle::Win32(handle) = handle.as_raw() else {
+        return;
+    };
+    let hwnd = HWND(handle.hwnd.get() as *mut _);
+    // SAFETY: the live HWND belongs to this UI thread. Local Win32 activation
+    // respects the foreground window instead of injecting Winit's Alt press.
+    unsafe {
+        if IsWindowVisible(hwnd).as_bool()
+            && IsWindowEnabled(hwnd).as_bool()
+            && !IsIconic(hwnd).as_bool()
+        {
+            let _ = SetActiveWindow(hwnd);
+            let _ = SetFocus(Some(hwnd));
+        }
+    }
 }
 
 fn refresh_popup(app: &PlayerWindow, hwnd: HWND, wparam: WPARAM) {

@@ -3,7 +3,10 @@
 mod tests;
 
 use slint::{Timer, winit_030::winit};
-use std::rc::{Rc, Weak};
+use std::{
+    cell::{Cell, RefCell},
+    rc::{Rc, Weak},
+};
 use windows::Win32::{
     Foundation::{HWND, LPARAM, LRESULT, WPARAM},
     UI::{
@@ -29,39 +32,60 @@ impl SurfaceTimers {
 
 pub(super) struct VisibilityMonitor {
     hwnd: HWND,
-    timers: Option<Box<SurfaceTimers>>,
+    signals: Option<Box<WindowSignals>>,
+}
+
+type MinimizeHandler = Box<dyn Fn(bool)>;
+
+struct WindowSignals {
+    timers: SurfaceTimers,
+    minimized: Cell<bool>,
+    on_minimized: RefCell<Option<MinimizeHandler>>,
 }
 
 impl VisibilityMonitor {
     pub(super) fn install(owner: isize, timers: [&Rc<Timer>; 3]) -> Result<Self, &'static str> {
         let hwnd = HWND(owner as *mut _);
-        let timers = Box::new(SurfaceTimers(timers.map(Rc::downgrade)));
-        let pointer = (&*timers as *const SurfaceTimers) as usize;
-        // SAFETY: the UI thread owns the stable timer references through subclass removal.
+        // SAFETY: the caller supplies the live framed HWND on its owner thread.
+        let minimized = unsafe { IsIconic(hwnd) }.as_bool();
+        let signals = Box::new(WindowSignals {
+            timers: SurfaceTimers(timers.map(Rc::downgrade)),
+            minimized: Cell::new(minimized),
+            on_minimized: RefCell::new(None),
+        });
+        let pointer = (&*signals as *const WindowSignals) as usize;
+        // SAFETY: the UI thread owns these signals through subclass removal.
         if !unsafe { SetWindowSubclass(hwnd, Some(visibility_proc), pointer, pointer) }.as_bool() {
             return Err("Could not observe native player visibility");
         }
-        timers.set_drawable(is_drawable(hwnd));
+        signals.timers.set_drawable(is_drawable(hwnd));
         Ok(Self {
             hwnd,
-            timers: Some(timers),
+            signals: Some(signals),
         })
+    }
+
+    pub(super) fn on_minimized(&self, handler: impl Fn(bool) + 'static) {
+        if let Some(signals) = &self.signals {
+            signals.on_minimized.replace(Some(Box::new(handler)));
+        }
     }
 }
 
 impl Drop for VisibilityMonitor {
     fn drop(&mut self) {
-        let Some(timers) = self.timers.take() else {
+        let Some(signals) = self.signals.take() else {
             return;
         };
-        timers.set_drawable(false);
-        let pointer = (&*timers as *const SurfaceTimers) as usize;
+        signals.timers.set_drawable(false);
+        signals.on_minimized.replace(None);
+        let pointer = (&*signals as *const WindowSignals) as usize;
         // SAFETY: refdata remains live while the subclass is detached on its owner thread.
         let removed = unsafe { RemoveWindowSubclass(self.hwnd, Some(visibility_proc), pointer) };
         // SAFETY: the handle value can be queried after the native window closes.
         if !removed.as_bool() && unsafe { IsWindow(Some(self.hwnd)) }.as_bool() {
             // An attached subclass must retain valid refdata. Empty its timer references.
-            Box::leak(timers).0 = Default::default();
+            Box::leak(signals).timers.0 = Default::default();
         }
     }
 }
@@ -91,8 +115,15 @@ unsafe extern "system" fn visibility_proc(
 ) -> LRESULT {
     if message == WM_WINDOWPOSCHANGED {
         // SAFETY: VisibilityMonitor retains this box until subclass removal.
-        let timers = unsafe { &*(refdata as *const SurfaceTimers) };
-        timers.set_drawable(is_drawable(hwnd));
+        let signals = unsafe { &*(refdata as *const WindowSignals) };
+        signals.timers.set_drawable(is_drawable(hwnd));
+        // SAFETY: the subclass receives the HWND whose placement just changed.
+        let minimized = unsafe { IsIconic(hwnd) }.as_bool();
+        if signals.minimized.replace(minimized) != minimized
+            && let Some(handler) = signals.on_minimized.borrow().as_ref()
+        {
+            handler(minimized);
+        }
     }
     // SAFETY: preserve the subclass chain and Winit's move and size notifications.
     unsafe { DefSubclassProc(hwnd, message, wparam, lparam) }

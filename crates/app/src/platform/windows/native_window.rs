@@ -215,10 +215,12 @@ impl NativePlayer {
                     .player()
                     .ok_or("The player engine was not initialized")?
                     .command_sender();
-                *startup_pip.borrow_mut() = Some(
-                    super::pip::Controller::install(&app, &host, video_hwnd, commands)
-                        .map_err(std::io::Error::other)?,
-                );
+                let pip = super::pip::Controller::install(&app, &host, video_hwnd, commands)
+                    .map_err(std::io::Error::other)?;
+                if let Some(monitor) = startup_visibility_monitor.borrow().as_ref() {
+                    monitor.on_minimized(super::pip::Controller::owner_minimize_handler(&pip));
+                }
+                *startup_pip.borrow_mut() = Some(pip);
                 menu_actions::install_playback(&host, &app);
                 *startup_session.borrow_mut() = Some(configured);
                 actions.bind(&app);

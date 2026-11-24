@@ -60,6 +60,9 @@ fn native_visibility_pauses_and_restores_presentation_timers()
     });
     let timers = [&alignment, &materials, &hdr_display];
     let monitor = VisibilityMonitor::install(window.0.0 as isize, timers)?;
+    let minimized_changes = Rc::new(RefCell::new(Vec::new()));
+    let observed = minimized_changes.clone();
+    monitor.on_minimized(move |minimized| observed.borrow_mut().push(minimized));
     let running = || timers.map(|timer| timer.running());
     assert_eq!(running(), [false; 3]);
 
@@ -96,5 +99,6 @@ fn native_visibility_pauses_and_restores_presentation_timers()
     assert_eq!(running(), [false; 3]);
     i_slint_backend_testing::mock_elapsed_time(hdr_interval);
     assert_eq!(hdr_samples.get(), 1);
+    assert_eq!(*minimized_changes.borrow(), [true, false]);
     Ok(())
 }

@@ -42,6 +42,22 @@ impl DialogOwner {
     }
 }
 
+pub(super) fn window_enabled(window: &Window) -> bool {
+    let Ok(handle) = window.window_handle() else {
+        return false;
+    };
+    let RawWindowHandle::Win32(handle) = handle.as_raw() else {
+        return false;
+    };
+    // SAFETY: the retained window lends a live HWND on its event thread.
+    unsafe {
+        windows::Win32::UI::Input::KeyboardAndMouse::IsWindowEnabled(HWND(
+            handle.hwnd.get() as *mut _
+        ))
+        .as_bool()
+    }
+}
+
 pub fn open_files(owner: &DialogOwner, multiple: bool, title: &str) -> Result<Vec<String>, String> {
     open_selection(owner, multiple, false, title)
 }

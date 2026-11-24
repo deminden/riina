@@ -502,6 +502,13 @@ plugin command queue in order. The periodic window snapshot tracks geometry,
 focus, minimization, and displays. During each mode callback and its Promise
 jobs, the plugin sees the presentation state from that transition.
 
+The Windows framed player owns native file pickers. Both player surfaces are
+blocked until the picker result reaches its caller, then the controls regain
+input through local Win32 activation. Picture-in-Picture observes minimize and
+restore changes on that same framed owner. Closing the preview restores the
+placement it took over when entering and preserves moves made while the main
+window remained open.
+
 Test playback can use null native output or a recording engine to exercise UI
 callbacks without a native window. Windows software-rendered pixel
 baselines cover the Slint surfaces. The platform service recipe shows how to

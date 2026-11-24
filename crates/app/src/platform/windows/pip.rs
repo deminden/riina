@@ -111,11 +111,16 @@ struct Geometry {
 }
 
 struct ActiveSession {
-    _thumbnail: DwmThumbnail,
-    host_geometry: Geometry,
-    player_geometry: Geometry,
+    thumbnail: DwmThumbnail,
+    restore: Option<(Geometry, Geometry)>,
     policy: WindowBehavior,
-    lifecycle: pip_lifecycle::Session,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum PendingEntry {
+    Manual,
+    Minimize,
+    Cancelled,
 }
 
 pub(crate) struct Controller {
@@ -125,7 +130,7 @@ pub(crate) struct Controller {
     source: HWND,
     commands: CommandSender,
     active: Rc<RefCell<Option<ActiveSession>>>,
-    entering: Rc<Cell<bool>>,
+    entering: Rc<Cell<Option<PendingEntry>>>,
     closed: Rc<Cell<bool>>,
     acrylic_monitor_started: Rc<Cell<bool>>,
     playback_timer: Timer,
@@ -140,7 +145,7 @@ impl Controller {
     ) -> Result<Rc<RefCell<Self>>, String> {
         let pip = PictureInPictureWindow::new().map_err(|error| error.to_string())?;
         let active = Rc::new(RefCell::new(None));
-        let entering = Rc::new(Cell::new(false));
+        let entering = Rc::new(Cell::new(None));
         let closed = Rc::new(Cell::new(false));
         let acrylic_monitor_started = Rc::new(Cell::new(false));
         let player_weak = player.as_weak();
@@ -227,47 +232,16 @@ impl Controller {
             let Some(controller) = weak_controller.upgrade() else {
                 return;
             };
-            let (player_weak, is_active, is_entering, is_closed) = {
+            let (player_weak, is_active) = {
                 let controller = controller.borrow();
                 (
                     controller.player.clone(),
                     controller.active.borrow().is_some(),
-                    controller.entering.get(),
-                    controller.closed.get(),
                 )
             };
-            if is_closed {
-                return;
-            }
             let Some(player) = player_weak.upgrade() else {
                 return;
             };
-            let minimized = player
-                .window()
-                .with_winit_window(|window| window.is_minimized().unwrap_or(false))
-                .unwrap_or(false);
-            let phase = if is_entering {
-                pip_lifecycle::Phase::Entering
-            } else if is_active {
-                pip_lifecycle::Phase::Active
-            } else {
-                pip_lifecycle::Phase::Off
-            };
-            if let Ok(settings) = crate::pip_preferences::current_player(&player)
-                && let Some(target) = pip_lifecycle::minimize_toggle_target(
-                    settings,
-                    player.get_video_width() > 0.0,
-                    minimized,
-                    phase,
-                )
-            {
-                if target {
-                    toggle(controller);
-                } else {
-                    exit(controller);
-                }
-                return;
-            }
             if is_active && let Some(pip) = weak_pip.upgrade() {
                 pip.set_media_title(player.get_media_title());
                 pip.set_paused(player.get_paused());
@@ -279,7 +253,7 @@ impl Controller {
                     let mut active = controller.active.borrow_mut();
                     active.as_mut().and_then(|session| {
                         session
-                            ._thumbnail
+                            .thumbnail
                             .refresh_layout(size.width, size.height, scale_factor)
                             .err()
                     })
@@ -296,13 +270,30 @@ impl Controller {
         controller.borrow_mut().playback_timer = playback_timer;
         controller
             .borrow()
-            .update_playback_timer(player.get_monitor_picture_in_picture());
+            .update_playback_timer(player.get_picture_in_picture_active());
         let weak_controller = Rc::downgrade(controller);
         player.on_picture_in_picture_monitor_changed(move |needed| {
             if let Some(controller) = weak_controller.upgrade() {
                 controller.borrow().update_playback_timer(needed);
             }
         });
+    }
+
+    pub(super) fn owner_minimize_handler(
+        controller: &Rc<RefCell<Self>>,
+    ) -> impl Fn(bool) + 'static {
+        let weak = Rc::downgrade(controller);
+        move |minimized| {
+            let weak = weak.clone();
+            // Placement notifications run inside Win32's window procedure.
+            if let Err(error) = slint::spawn_local(async move {
+                if let Some(controller) = weak.upgrade() {
+                    owner_minimized(controller, minimized);
+                }
+            }) {
+                crate::diagnostics::warn!("Could not handle player minimization: {error}");
+            }
+        }
     }
 
     fn update_playback_timer(&self, needed: bool) {
@@ -328,9 +319,65 @@ fn toggle(controller: Rc<RefCell<Controller>>) {
         exit(controller);
         return;
     }
-    if controller.borrow().closed.get() || controller.borrow().entering.replace(true) {
+    if controller.borrow().entering.get().is_some() {
+        controller
+            .borrow()
+            .entering
+            .set(Some(PendingEntry::Cancelled));
         return;
     }
+    enter(controller, PendingEntry::Manual);
+}
+
+fn owner_minimized(controller: Rc<RefCell<Controller>>, minimized: bool) {
+    let target = {
+        let controller = controller.borrow();
+        let (Some(player), Some(host)) = (controller.player.upgrade(), controller.host.upgrade())
+        else {
+            return;
+        };
+        if controller.closed.get() || owner_is_minimized(&host) != minimized {
+            return;
+        }
+        if !minimized && controller.entering.get() == Some(PendingEntry::Minimize) {
+            controller.entering.set(Some(PendingEntry::Cancelled));
+            return;
+        }
+        let phase = if controller.entering.get().is_some() {
+            pip_lifecycle::Phase::Entering
+        } else if controller.active.borrow().is_some() {
+            pip_lifecycle::Phase::Active
+        } else {
+            pip_lifecycle::Phase::Off
+        };
+        let Ok(settings) = crate::pip_preferences::current_player(&player) else {
+            return;
+        };
+        pip_lifecycle::minimize_toggle_target(
+            settings,
+            player.get_video_width() > 0.0,
+            minimized,
+            phase,
+        )
+    };
+    match target {
+        Some(true) => enter(controller, PendingEntry::Minimize),
+        Some(false) => exit(controller),
+        None => {}
+    }
+}
+
+fn owner_is_minimized(host: &NativeVideoHost) -> bool {
+    host.window()
+        .with_winit_window(|window| window.is_minimized().unwrap_or(false))
+        .unwrap_or(false)
+}
+
+fn enter(controller: Rc<RefCell<Controller>>, origin: PendingEntry) {
+    if controller.borrow().closed.get() || controller.borrow().entering.get().is_some() {
+        return;
+    }
+    controller.borrow().entering.set(Some(origin));
 
     let (
         player_weak,
@@ -358,6 +405,10 @@ fn toggle(controller: Rc<RefCell<Controller>>) {
     };
     let scheduled = slint::spawn_local(async move {
         let result = async {
+            let cancelled = || closed.get() || entering.get() == Some(PendingEntry::Cancelled);
+            if cancelled() {
+                return Ok(None);
+            }
             let player = player_weak
                 .upgrade()
                 .ok_or_else(|| "The player window has closed".to_owned())?;
@@ -367,20 +418,25 @@ fn toggle(controller: Rc<RefCell<Controller>>) {
             if !player.get_loaded() || player.get_video_width() <= 0.0 {
                 return Err("Picture in Picture requires a loaded video".to_owned());
             }
+            if player
+                .global::<riina_ui::PlayerDialogState>()
+                .get_dialog_open()
+            {
+                return Ok(None);
+            }
             let settings = crate::pip_preferences::current_player(&player)?;
-            let (host_geometry, player_geometry) = capture_geometry(&host, &player)?;
-            let minimized = player
-                .window()
-                .with_winit_window(|window| window.is_minimized().unwrap_or(false))
-                .unwrap_or(false);
             let (lifecycle, effects) = pip_lifecycle::Session::enter(
                 settings,
                 pip_lifecycle::MainWindowState {
-                    fullscreen: player.get_fullscreen(),
-                    minimized,
+                    fullscreen: player.get_fullscreen() || player.get_entering_fullscreen(),
+                    minimized: owner_is_minimized(&host),
                 },
             );
             let behavior = effects.window_behavior;
+            let restore = lifecycle
+                .should_restore_main_window()
+                .then(|| capture_geometry(&host, &player))
+                .transpose()?;
             let pip = pip_weak
                 .upgrade()
                 .ok_or_else(|| "The PiP window has closed".to_owned())?;
@@ -395,8 +451,13 @@ fn toggle(controller: Rc<RefCell<Controller>>) {
                 .winit_window()
                 .await
                 .map_err(|error| error.to_string())?;
-            if closed.get() {
-                return Err("The player is closing".to_owned());
+            if cancelled()
+                || player
+                    .global::<riina_ui::PlayerDialogState>()
+                    .get_dialog_open()
+                || (origin == PendingEntry::Minimize && !owner_is_minimized(&host))
+            {
+                return Ok(None);
             }
             destination.set_window_level(WindowLevel::AlwaysOnTop);
             let destination_hwnd = raw_hwnd(&destination)?;
@@ -414,18 +475,16 @@ fn toggle(controller: Rc<RefCell<Controller>>) {
             thumbnail.destination_rect = Some(destination_rect);
 
             apply_entry_policy(&player, &host, &commands, behavior, effects.pause_playback)?;
-            Ok(ActiveSession {
-                _thumbnail: thumbnail,
-                host_geometry,
-                player_geometry,
+            Ok(Some(ActiveSession {
+                thumbnail,
+                restore,
                 policy: behavior,
-                lifecycle,
-            })
+            }))
         }
         .await;
-        entering.set(false);
+        entering.set(None);
         match result {
-            Ok(session) => {
+            Ok(Some(session)) => {
                 if let Some(host) = host_weak.upgrade() {
                     host.set_picture_in_picture_active(true);
                 }
@@ -434,8 +493,11 @@ fn toggle(controller: Rc<RefCell<Controller>>) {
                     crate::player::presentation::set_picture_in_picture(&player, true);
                 }
             }
-            Err(error) => {
-                if let Some(player) = player_weak.upgrade() {
+            result => {
+                if let Err(error) = result
+                    && !closed.get()
+                    && let Some(player) = player_weak.upgrade()
+                {
                     crate::diagnostics::report(&player, error);
                 }
                 if let Some(pip) = pip_weak.upgrade() {
@@ -446,7 +508,7 @@ fn toggle(controller: Rc<RefCell<Controller>>) {
         }
     });
     if let Err(error) = scheduled {
-        controller.borrow().entering.set(false);
+        controller.borrow().entering.set(None);
         crate::diagnostics::warn!("Could not schedule Picture-in-Picture entry: {error}");
     }
 }
@@ -503,54 +565,65 @@ fn apply_entry_policy(
 }
 
 fn exit(controller: Rc<RefCell<Controller>>) {
-    let (pip, player_weak, host_weak, active) = {
+    let (pip, player_weak, host_weak, active, closing) = {
         let controller = controller.borrow();
         (
             controller.pip.as_weak(),
             controller.player.clone(),
             controller.host.clone(),
             controller.active.clone(),
+            controller.closed.get(),
         )
     };
     let Some(session) = active.borrow_mut().take() else {
         return;
     };
-    let effects = session.lifecycle.exit();
+    let ActiveSession {
+        thumbnail,
+        restore,
+        policy,
+    } = session;
+    drop(thumbnail);
     if let Some(pip) = pip.upgrade() {
         // Continue releasing session resources if the window is closing.
         let _ = pip.hide();
     }
     if let Some(host) = host_weak.upgrade() {
         host.set_picture_in_picture_active(false);
-        host.window().with_winit_window(|window| {
-            // Native geometry notifications confirm the restored size.
-            let _ = window.request_inner_size(session.host_geometry.size);
-            window.set_outer_position(session.host_geometry.position);
-        });
+        if !closing && let Some((geometry, _)) = restore {
+            host.window()
+                .with_winit_window(|window| restore_geometry(window, geometry));
+        }
     }
     if let Some(player) = player_weak.upgrade() {
+        if !closing {
+            if let Some((_, geometry)) = restore {
+                player.window().with_winit_window(|window| {
+                    restore_geometry(window, geometry);
+                    if policy == WindowBehavior::Minimize {
+                        window.set_minimized(false);
+                    }
+                });
+                if policy == WindowBehavior::Hide
+                    && let Err(error) = player.window().show()
+                {
+                    crate::diagnostics::warn!(
+                        "Could not restore the player after closing Picture-in-Picture: {error}"
+                    );
+                }
+            }
+            player
+                .window()
+                .with_winit_window(super::menu_focus::activate_without_menu_key);
+        }
         crate::player::presentation::set_picture_in_picture(&player, false);
     }
-    if let Some(player) = player_weak.upgrade() {
-        player.window().with_winit_window(|window| {
-            // Native geometry notifications confirm the restored size.
-            let _ = window.request_inner_size(session.player_geometry.size);
-            window.set_outer_position(session.player_geometry.position);
-            if session.policy == WindowBehavior::Minimize {
-                window.set_minimized(false);
-            }
-        });
-        if effects.restore_main_window
-            && let Err(error) = player.window().show()
-        {
-            crate::diagnostics::warn!(
-                "Could not restore the player after closing Picture-in-Picture: {error}"
-            );
-        }
-        player
-            .window()
-            .with_winit_window(|window| window.focus_window());
-    }
+}
+
+fn restore_geometry(window: &Window, geometry: Geometry) {
+    // Native geometry notifications confirm the restored size.
+    let _ = window.request_inner_size(geometry.size);
+    window.set_outer_position(geometry.position);
 }
 
 fn capture_geometry(
@@ -615,7 +688,7 @@ mod tests {
     use windows::Win32::Foundation::{RECT, SIZE};
 
     #[test]
-    fn picture_in_picture_watch_runs_only_for_preview_or_automatic_window_policy()
+    fn picture_in_picture_watch_runs_only_for_an_active_preview()
     -> Result<(), Box<dyn std::error::Error>> {
         use slint::ComponentHandle;
         use std::time::Duration;
@@ -630,7 +703,7 @@ mod tests {
         let preferences = player.global::<riina_ui::PlayerPreferences>();
         preferences.set_pip_toggle_by_minimizing(true);
         i_slint_backend_testing::mock_elapsed_time(Duration::ZERO);
-        assert!(controller.borrow().playback_timer.running());
+        assert!(!controller.borrow().playback_timer.running());
 
         preferences.set_pip_toggle_by_minimizing(false);
         i_slint_backend_testing::mock_elapsed_time(Duration::ZERO);
@@ -656,7 +729,7 @@ mod tests {
 
         toggle(controller.clone());
 
-        assert!(!controller.borrow().entering.get());
+        assert!(controller.borrow().entering.get().is_none());
         assert!(controller.borrow().active.borrow().is_none());
         Ok(())
     }

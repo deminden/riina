@@ -14,67 +14,65 @@ use crate::ui_dialogs::{Purpose, dispatch_selection};
 struct ModalWindows {
     app: slint::Weak<PlayerWindow>,
     welcome: Option<slint::Weak<WelcomeWindow>>,
-    // The first HWND is the dialog owner (chrome); the optional second is its VO host.
-    windows: Vec<Arc<Window>>,
+    framed_owner: Option<Arc<Window>>,
+    // Only windows disabled by this picker are reenabled at completion.
+    disabled: Option<Vec<Arc<Window>>>,
 }
 
 impl ModalWindows {
     fn restore(&mut self, return_to_welcome: bool) {
-        if let Some(app) = self.app.upgrade() {
-            app.global::<riina_ui::PlayerDialogState>()
-                .set_dialog_open(false);
-            app.global::<riina_ui::PlayerControlActions>()
-                .invoke_activity();
-        }
-        for window in &self.windows {
+        let Some(disabled) = self.disabled.take() else {
+            return;
+        };
+        for window in &disabled {
             window.set_enable(true);
         }
+        let app = self.app.upgrade();
         if return_to_welcome && let Some(welcome) = self.welcome.as_ref().and_then(|w| w.upgrade())
         {
-            // The optional second surface is the native video owner. It must
-            // leave the z-order before the separate welcome window is restored.
-            if let Some(video_host) = self.windows.get(1) {
-                video_host.set_visible(false);
+            if let Some(owner) = &self.framed_owner {
+                owner.set_visible(false);
             }
-            if let Some(app) = self.app.upgrade() {
+            if let Some(app) = &app {
                 // Continue releasing session resources if the window is closing.
                 let _ = app.hide();
             }
             if let Err(error) = welcome.show() {
                 crate::diagnostics::warn!("Could not restore the welcome window: {error}");
             }
-        } else if let Some(owner) = self.windows.first() {
-            owner.focus_window();
+        } else if let Some(app) = &app {
+            app.window()
+                .with_winit_window(super::menu_focus::activate_without_menu_key);
         }
-        self.windows.clear();
+        if let Some(app) = app {
+            app.global::<riina_ui::PlayerDialogState>()
+                .set_dialog_open(false);
+            app.global::<riina_ui::PlayerControlActions>()
+                .invoke_activity();
+        }
     }
 }
 
 impl Drop for ModalWindows {
     fn drop(&mut self) {
-        if self.windows.is_empty() {
+        let Some(disabled) = self.disabled.take() else {
             return;
-        }
+        };
         // Startup/thread failures still restore modality on the GUI thread. No raw
         // HWND is captured without the Arc that owns it, and no fake Send is needed.
         let app = self.app.clone();
-        let windows = std::mem::take(&mut self.windows);
+        let framed_owner = self.framed_owner.take();
         // Capture plain fields: a rejected dispatch must not recursively drop
         // another guard and try to enqueue itself on a stopped event loop.
         // The window may close before deferred UI work can be delivered.
         let _ = slint::invoke_from_event_loop(move || {
-            if let Some(app) = app.upgrade() {
-                app.global::<riina_ui::PlayerDialogState>()
-                    .set_dialog_open(false);
-                app.global::<riina_ui::PlayerControlActions>()
-                    .invoke_activity();
+            ModalWindows {
+                app,
+                welcome: None,
+                framed_owner,
+                disabled: Some(disabled),
             }
-            for window in &windows {
-                window.set_enable(true);
-            }
-            if let Some(owner) = windows.first() {
-                owner.focus_window();
-            }
+            .restore(false);
         });
     }
 }
@@ -136,54 +134,30 @@ fn start<T: Send + 'static>(
     let failure = weak.clone();
     let started = slint::spawn_local(async move {
         let Some(app) = weak.upgrade() else { return };
-        let result = async {
-            let owner = app
-                .window()
-                .winit_window()
-                .await
-                .map_err(|e| e.to_string())?;
-            let mut windows = vec![owner.clone()];
-            if let Some(host) = host {
-                let host = host.upgrade().ok_or("Native video host closed")?;
-                windows.push(
-                    host.window()
-                        .winit_window()
-                        .await
-                        .map_err(|e| e.to_string())?,
-                );
+        let (owner, mut modality) = match prepare(&app, host, welcome).await {
+            Ok(prepared) => prepared,
+            Err(error) => {
+                app.global::<riina_ui::PlayerDialogState>()
+                    .set_dialog_open(false);
+                complete(&app, Err(error));
+                return;
             }
-            let mut modality = ModalWindows {
-                app: weak.clone(),
-                welcome,
-                windows,
-            };
-            // The Shell dialog runs on a separate STA. Explicitly disable every
-            // player HWND; cross-thread Show alone did not reliably block its owner.
-            // Restore only after Show returns, then focus the live chrome again.
-            for window in &modality.windows {
-                window.set_enable(false);
-            }
-            let owner = file_dialog::DialogOwner::new(owner)?;
-            crate::background::spawn_named("file-picker", move || {
-                let result = pick(&owner);
-                // The window may close before deferred UI work can be delivered.
-                let _ = slint::invoke_from_event_loop(move || {
-                    modality.restore(
-                        modality.welcome.is_some() && result.as_ref().is_ok_and(Option::is_none),
-                    );
-                    if let Some(app) = weak.upgrade() {
-                        complete(&app, result);
-                    }
-                });
-            })
-            .map_err(|e| e.to_string())?;
-            Ok::<(), String>(())
-        }
-        .await;
-        if let Err(error) = result {
-            app.global::<riina_ui::PlayerDialogState>()
-                .set_dialog_open(false);
-            app.set_status(error.into());
+        };
+        if let Err(error) = crate::background::spawn_named("file-picker", move || {
+            let result = pick(&owner);
+            // The window may close before deferred UI work can be delivered.
+            let _ = slint::invoke_from_event_loop(move || {
+                let return_to_welcome =
+                    modality.welcome.is_some() && result.as_ref().is_ok_and(Option::is_none);
+                if let Some(app) = weak.upgrade() {
+                    // Finish the caller's reservation before native input is reenabled.
+                    complete(&app, result);
+                }
+                modality.restore(return_to_welcome);
+            });
+        }) {
+            // The guard's cleanup releases the window and the gate together.
+            crate::diagnostics::report(&app, format!("Could not start file chooser: {error}"));
         }
     });
     if let Err(error) = started
@@ -193,4 +167,46 @@ fn start<T: Send + 'static>(
             .set_dialog_open(false);
         app.set_status(error.to_string().into());
     }
+}
+
+async fn prepare(
+    app: &PlayerWindow,
+    host: Option<slint::Weak<NativeVideoHost>>,
+    welcome: Option<slint::Weak<WelcomeWindow>>,
+) -> Result<(file_dialog::DialogOwner, ModalWindows), String> {
+    let controls = app
+        .window()
+        .winit_window()
+        .await
+        .map_err(|e| e.to_string())?;
+    let framed_owner = if let Some(host) = host {
+        let host = host.upgrade().ok_or("Native video host closed")?;
+        Some(
+            host.window()
+                .winit_window()
+                .await
+                .map_err(|e| e.to_string())?,
+        )
+    } else {
+        None
+    };
+    // The framed HWND survives changes to the transparent controls during playback.
+    let owner = file_dialog::DialogOwner::new(framed_owner.as_ref().unwrap_or(&controls).clone())?;
+    let disabled = std::iter::once(controls)
+        .chain(framed_owner.iter().cloned())
+        .filter(|window| file_dialog::window_enabled(window))
+        .collect::<Vec<_>>();
+    // Cross-thread IFileDialog::Show alone does not block both player surfaces.
+    for window in &disabled {
+        window.set_enable(false);
+    }
+    Ok((
+        owner,
+        ModalWindows {
+            app: app.as_weak(),
+            welcome,
+            framed_owner,
+            disabled: Some(disabled),
+        },
+    ))
 }

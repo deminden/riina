@@ -259,9 +259,8 @@ export component PlayerWindow inherits PlayerMenuWindow {
     in property <bool> entering-fullscreen: false;
     callback native-fullscreen-observed(bool, bool);
     in-out property <bool> picture-in-picture-active: false;
-    out property <bool> monitor-picture-in-picture: picture-in-picture-active || (PlayerPreferences.pip-toggle-by-minimizing && (!PlayerPreferences.pip-minimize-toggle-video-only || video-width > 0px));
     callback picture-in-picture-monitor-changed(bool);
-    changed monitor-picture-in-picture => { root.picture-in-picture-monitor-changed(root.monitor-picture-in-picture); }
+    changed picture-in-picture-active => { root.picture-in-picture-monitor-changed(root.picture-in-picture-active); }
     private property <bool> picture-in-picture-available: loaded && !crop-editing;
     in property <string> media-title: "riina";
     callback show-screenshot-preview();

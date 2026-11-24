@@ -2808,3 +2808,29 @@ completed Unicode playlist export. Immediate dialog availability remains open.
 
 - Windows application SHA-256 `cb38029878851b0836334d51349c9ecb728c5445dc86c31d968d26538dde1175`
 - Linux application SHA-256 `b7cf8f3b1dc8eff0d14c9bf5232a2b487608ad7154da47843ba8147d32164af8`
+
+### Windows Picture-in-Picture and native picker ownership 2026-11-24
+
+A private-desktop baseline intermittently failed on the first Save As action
+after Picture-in-Picture. The candidate used the framed player as the native
+owner of both Save As and Open File. With the default Hide policy and with
+the main window left open, the driver opened Save As immediately after
+returning from PiP, cancelled and reopened the picker, exported a Unicode
+playlist, cancelled Open File, and repeated four Save As cancellations.
+
+The player kept new window bounds when moved during Picture-in-Picture and
+restored entry bounds under the Hide policy. A native minimize opened PiP.
+Closing the preview while the player stayed minimized left it closed.
+Another minimize after restore opened a new preview, and restoring the
+player closed it. These checks covered the window lifecycle and plugin
+events. Video motion in the minimized preview remains open. The test
+also closed the exact application process while the default Hide policy
+had the player parked and the preview open.
+
+The Windows workspace gate passed 955 tests and the 78 Python tests.
+All 59 pinned engine tests passed. The locked Linux application built and
+passed the private Sway playback, fullscreen, and Music Mode sweep.
+Apple Silicon workspace cross-Clippy passed.
+
+- Windows application SHA-256 `a25a9e1b5de0dd3f883ac4742d26cf6d2f856a1c56c73b3a4fc5f6e4f83d41fc`
+- Linux application SHA-256 `a17d7b50b2a9db59e2163be874453a063b3628186238f72c1369bfe9d74465c1`
