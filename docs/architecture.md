@@ -106,6 +106,13 @@ output to finish the first frame before that event. Audio-only entries reach
 the same event. An explicit pause or play command retires the temporary pause's
 automatic resume.
 
+Single-file folder discovery belongs to the native entry returned by the open
+command. Its result carries the playback generation back to the worker, where
+existing filenames are excluded before the insertion is planned. Clipboard
+paste and desktop drops use stable destination row IDs so unrelated inserts
+or reorders do not shift the intended destination. Insertions and removals
+keep the widgets for surviving rows, preserving focus and selections.
+
 Callbacks and `playback_mailbox` share `Arc<Playback>` snapshots. Tracks, chapters,
 playlists, audio devices and retained plugin events are shared across snapshots
 until the worker replaces or updates them. `playback_mailbox` coalesces pending

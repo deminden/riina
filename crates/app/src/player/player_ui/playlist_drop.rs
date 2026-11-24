@@ -95,10 +95,42 @@ pub(super) fn handle(
             return;
         }
     };
+    insert_prepared(app, sender, before_id, generation, move || {
+        files
+            .into_iter()
+            .map(OsString::into_string)
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|_| "A media path contains invalid Unicode".to_owned())
+            .and_then(prepare)
+    });
+}
+
+pub(super) fn paste(
+    app: &PlayerWindow,
+    sender: &CommandSender,
+    before_id: Option<i64>,
+    paths: Vec<String>,
+) {
+    insert_prepared(
+        app,
+        sender,
+        before_id,
+        app.get_media_request_generation(),
+        move || prepare(platform::clipboard::resolve_playlist_paste_paths(paths)),
+    );
+}
+
+fn insert_prepared(
+    app: &PlayerWindow,
+    sender: &CommandSender,
+    before_id: Option<i64>,
+    generation: i32,
+    prepare_paths: impl FnOnce() -> Result<Vec<String>, String> + Send + 'static,
+) {
     let window = app.as_weak();
     let sender = sender.clone();
-    let started = background::spawn_named("playlist-drop", move || {
-        let result = prepare(files);
+    let started = background::spawn_named("riina-playlist-insertion", move || {
+        let result = prepare_paths();
         let _ = background::to_ui(window, move |app| {
             if app.get_media_request_generation() != generation {
                 return;
@@ -123,12 +155,7 @@ pub(super) fn handle(
     }
 }
 
-fn prepare(files: Vec<OsString>) -> Result<Vec<String>, String> {
-    let paths = files
-        .into_iter()
-        .map(OsString::into_string)
-        .collect::<Result<Vec<_>, _>>()
-        .map_err(|_| "A media path contains invalid Unicode".to_owned())?;
+fn prepare(paths: Vec<String>) -> Result<Vec<String>, String> {
     let paths = file_selection::prepare(media_open::resolve_dropped_url_shortcuts(paths)?, false)?;
     if paths.is_empty() {
         return Err("No playable files were found for the playlist".into());

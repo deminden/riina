@@ -4520,3 +4520,19 @@ The exact test process exited normally.
 
 - Windows application SHA-256 `7e40ca5ccf92a3e18cad580116f76448e86fb1eb8f8a7f3eef23aee97ecf954a`
 - Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
+
+### Playlist keyboard and clipboard 2026-11-24
+
+The main sidebar and Music Mode expose focused Cut, Copy, Paste, Select All
+and Delete actions. Paste resolves a destination from the observed playlist,
+expands local folder references off the UI thread and inserts before the
+selected row. Inserts retain the focused row as its index changes. After Cut
+or Delete, keyboard focus can move to an adjacent surviving row. AppKit's
+Edit menu checks for a focused text input before routing an edit to the playlist.
+
+The Windows workspace gate passed. Its 69 widget checks include editing keys
+in both playlist surfaces and Up Arrow after an insertion shifts the focused
+row's index. The headless player and Settings pixel comparisons passed.
+Apple Silicon and Intel Mac application source checks passed for the Edit menu
+integration before the final shared row-index adjustment. Native AppKit
+clipboard and menu validation still need a macOS session.

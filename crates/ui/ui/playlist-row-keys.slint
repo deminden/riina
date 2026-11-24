@@ -1,9 +1,13 @@
 import { PlayerCatalogState } from "player-catalog-state.slint";
-import { PlaylistInteraction } from "playlist-interaction.slint";
+import { PlaylistEdit, PlaylistInteraction } from "playlist-interaction.slint";
+import { PlayerAppearance } from "player-appearance.slint";
+import { PlayerMusicModeState } from "player-music-mode-state.slint";
 
 export component PlaylistRowKeys inherits FocusScope {
     in property <bool> playlist: true;
     in property <int> index;
+    in property <string> token;
+    in property <bool> music-mode: false;
     in property <int> requested-index;
     in property <int> page-size: 1;
     callback cancel-drag() -> bool;
@@ -11,6 +15,7 @@ export component PlaylistRowKeys inherits FocusScope {
     callback play-row();
     callback focus-entered();
     callback move-focus(int);
+    private property <string> edit-focus-target: PlaylistInteraction.edit-focus-target;
 
     width: 0px;
     focus-on-click: false;
@@ -20,12 +25,38 @@ export component PlaylistRowKeys inherits FocusScope {
     changed requested-index => {
         if root.playlist && root.requested-index == root.index && !root.has-focus { root.focus(); }
     }
+    changed index => {
+        if root.playlist && root.has-focus { root.focus-entered(); }
+    }
+    changed edit-focus-target => {
+        if root.playlist && root.music-mode == PlayerMusicModeState.music-mode
+            && root.edit-focus-target != "" && root.edit-focus-target == root.token {
+            root.focus();
+            PlaylistInteraction.edit-focus-target = "";
+        }
+    }
     focus-changed-event => {
+        if root.playlist && root.has-focus { PlaylistInteraction.focused-playlist-token = root.token; }
+        if !root.has-focus && PlaylistInteraction.focused-playlist-token == root.token {
+            PlaylistInteraction.focused-playlist-token = "";
+        }
         if root.has-focus { root.focus-entered(); }
     }
     key-pressed(event) => {
         if event.text == Key.Escape && root.cancel-drag() { return accept; }
+        let primary = PlayerAppearance.platform-macos
+            ? event.modifiers.meta && !event.modifiers.control
+            : event.modifiers.control && !event.modifiers.meta;
+        if root.playlist && primary && !event.modifiers.alt && !event.modifiers.shift {
+            let edit = event.text == "x" || event.text == "X" ? PlaylistEdit.cut
+                : event.text == "c" || event.text == "C" ? PlaylistEdit.copy
+                : event.text == "v" || event.text == "V" ? PlaylistEdit.paste
+                : event.text == "a" || event.text == "A" ? PlaylistEdit.select-all : PlaylistEdit.none;
+            if edit != PlaylistEdit.none && PlaylistInteraction.edit(edit, true) { return accept; }
+        }
         if event.modifiers.alt || event.modifiers.control || event.modifiers.meta { return reject; }
+        if root.playlist && !event.modifiers.shift && (event.text == Key.Backspace || event.text == Key.Delete)
+            && PlaylistInteraction.edit(PlaylistEdit.remove, true) { return accept; }
         if root.playlist && event.modifiers.shift && event.text == Key.F10 {
             root.open-context-menu();
             return accept;

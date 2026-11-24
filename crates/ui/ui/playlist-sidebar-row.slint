@@ -105,6 +105,7 @@ export component CatalogSidebarRow inherits Rectangle {
     row-focus := PlaylistRowKeys {
         playlist: root.pane-kind == 4;
         index: root.index;
+        token: root.entry.token;
         requested-index: root.requested-index;
         page-size: max(1, floor(root.viewport-height / (root.height + 1px)));
         cancel-drag => { return row-input.cancel-drag(); }

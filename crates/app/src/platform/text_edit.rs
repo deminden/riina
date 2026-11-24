@@ -32,6 +32,13 @@ impl Editor {
         self.0.strong_count() != 0
     }
 
+    #[cfg(target_os = "macos")]
+    pub(super) fn has_text_focus(&self) -> bool {
+        self.0
+            .upgrade()
+            .is_some_and(|adapter| WindowInner::from_pub(adapter.window()).text_input_focused())
+    }
+
     pub(super) fn perform(&self, edit: Edit, apply: bool) -> bool {
         let Some(adapter) = self.0.upgrade() else {
             return false;

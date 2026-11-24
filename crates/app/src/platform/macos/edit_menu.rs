@@ -2,6 +2,7 @@
 //! their own clipboard and undo stack through the same menu.
 use super::menu_labels::MenuLabels;
 use super::view::content_view;
+use crate::PlayerWindow;
 use crate::platform::text_edit::{Edit, Editor};
 use objc2::{
     MainThreadMarker, MainThreadOnly, define_class, msg_send,
@@ -13,8 +14,10 @@ use objc2_app_kit::{
     NSApplication, NSEventModifierFlags as Modifiers, NSMenu, NSMenuItem, NSMenuItemValidation,
 };
 use objc2_foundation::{NSObjectProtocol, NSString};
-use slint::{ComponentHandle, winit_030::WinitWindowAccessor};
+use riina_ui::{PlaylistEdit, PlaylistInteraction};
+use slint::{ComponentHandle, Weak, winit_030::WinitWindowAccessor};
 use std::{
+    any::Any,
     cell::{OnceCell, RefCell},
     collections::HashMap,
 };
@@ -23,7 +26,13 @@ const EDIT_MENU_TAG: isize = 114082;
 
 thread_local! {
     static TARGET: OnceCell<Retained<EditTarget>> = const { OnceCell::new() };
-    static EDITORS: RefCell<HashMap<usize, Editor>> = RefCell::default();
+    static EDITORS: RefCell<HashMap<usize, TrackedEditor>> = RefCell::default();
+}
+
+#[derive(Clone)]
+struct TrackedEditor {
+    text: Editor,
+    player: Option<Weak<PlayerWindow>>,
 }
 
 define_class!(
@@ -54,8 +63,11 @@ define_class!(
 
 pub(in crate::platform) fn track<T: ComponentHandle + 'static>(component: &T) {
     let window = component.window();
+    let player = (component as &dyn Any)
+        .downcast_ref::<PlayerWindow>()
+        .map(ComponentHandle::as_weak);
     if window
-        .with_winit_window(|native| register(native, window))
+        .with_winit_window(|native| register(native, window, player.clone()))
         .is_some()
     {
         return;
@@ -65,16 +77,26 @@ pub(in crate::platform) fn track<T: ComponentHandle + 'static>(component: &T) {
         if let Some(component) = weak.upgrade()
             && let Ok(native) = component.window().winit_window().await
         {
-            register(&native, component.window());
+            register(&native, component.window(), player);
         }
     });
 }
 
-fn register(native: &slint::winit_030::winit::window::Window, window: &slint::Window) {
+fn register(
+    native: &slint::winit_030::winit::window::Window,
+    window: &slint::Window,
+    player: Option<Weak<PlayerWindow>>,
+) {
     if let Some(view) = content_view(native) {
         EDITORS.with_borrow_mut(|editors| {
-            editors.retain(|_, editor| editor.is_live());
-            editors.insert(std::ptr::from_ref(view) as usize, Editor::new(window));
+            editors.retain(|_, editor| editor.text.is_live());
+            editors.insert(
+                std::ptr::from_ref(view) as usize,
+                TrackedEditor {
+                    text: Editor::new(window),
+                    player,
+                },
+            );
         });
     }
 }
@@ -253,11 +275,29 @@ fn with_edit(main: MainThreadMarker, row: &NSMenuItem, apply: bool) -> bool {
     let editor = EDITORS.with_borrow(|editors| {
         editors
             .get(&(Retained::as_ptr(&responder) as usize))
-            .filter(|editor| editor.is_live())
+            .filter(|editor| editor.text.is_live())
             .cloned()
     });
     if let Some(editor) = editor {
-        return editor.perform(command.edit, apply);
+        if editor.text.has_text_focus() {
+            return editor.text.perform(command.edit, apply);
+        }
+        let edit = match command.edit {
+            Edit::Cut => PlaylistEdit::Cut,
+            Edit::Copy => PlaylistEdit::Copy,
+            Edit::Paste => PlaylistEdit::Paste,
+            Edit::Delete => PlaylistEdit::Remove,
+            Edit::SelectAll => PlaylistEdit::SelectAll,
+            Edit::Undo | Edit::Redo => return false,
+        };
+        return editor
+            .player
+            .and_then(|player| player.upgrade())
+            .is_some_and(|player| {
+                player
+                    .global::<PlaylistInteraction>()
+                    .invoke_edit(edit, apply)
+            });
     }
     forward(main, &app, command, row, apply)
 }

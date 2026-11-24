@@ -2,6 +2,7 @@ import { PlayerSidebarActions } from "player-sidebar-actions.slint";
 
 export enum PlaylistMenuOrigin { sidebar, music-mode }
 export enum PlaylistSubtitleAction { add, clear }
+export enum PlaylistEdit { none, cut, copy, paste, remove, select-all }
 
 export struct PlaylistSubtitleTargets {
     single: bool,
@@ -21,9 +22,12 @@ export global PlaylistInteraction {
     callback subtitle-targets(string) -> PlaylistSubtitleTargets;
     callback subtitle-action(PlaylistSubtitleAction, string);
     callback toggle-series-prefix(string);
+    callback edit(PlaylistEdit, bool) -> bool;
     in property <string> reveal-action-label: "Show in File Manager";
     in-out property <string> selected-playlist-token: "";
     in-out property <[string]> selected-playlist-tokens: [];
+    in-out property <string> focused-playlist-token: "";
+    in-out property <string> edit-focus-target: "";
     in-out property <string> playlist-drag-token: "";
     in-out property <bool> playlist-drag-active: false;
     in-out property <length> playlist-drag-x;

@@ -144,25 +144,22 @@ pub(super) fn selected_playlist_ids(
         .collect()
 }
 
-pub(super) fn playlist_paste_index(app: &PlayerWindow, clicked_token: &str) -> usize {
+pub(super) fn playlist_paste_anchor(app: &PlayerWindow) -> Result<Option<i64>, String> {
     let selected = app
         .global::<riina_ui::PlaylistInteraction>()
         .get_selected_playlist_tokens()
         .iter()
         .collect::<HashSet<_>>();
     let rows = app.global::<riina_ui::PlayerCatalogState>().get_playlist();
-    (0..rows.row_count())
-        .find(|index| {
-            rows.row_data(*index)
-                .is_some_and(|row| selected.contains(&row.token))
+    rows.iter()
+        .find(|row| selected.contains(&row.token))
+        .or_else(|| rows.row_data(0))
+        .map(|row| {
+            row.token
+                .parse()
+                .map_err(|_| "The playlist item is no longer available".into())
         })
-        .or_else(|| {
-            (0..rows.row_count()).find(|index| {
-                rows.row_data(*index)
-                    .is_some_and(|row| row.token.as_str() == clicked_token)
-            })
-        })
-        .unwrap_or(0)
+        .transpose()
 }
 
 fn audio_device_menu_rows(state: &Playback) -> Vec<MenuCatalogRow> {

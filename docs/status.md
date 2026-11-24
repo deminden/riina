@@ -37,6 +37,10 @@ Implementation does not imply every state or platform is verified.
   selected action. The Music Mode arrows navigate the playlist.
 - **File opens:** the primary File commands follow the new-window preference,
   and their modifier shortcuts invert it. Active menus show the actual destination.
+- **Playlist editing:** a single-file open can discover siblings around the
+  current item. Navigating the resulting playlist keeps rows the user removed
+  out of the queue. The sidebar and Music Mode accept focused edit shortcuts.
+  Paste expands folders and inserts before the first selected row.
 - **Open URL:** one dialog serves the File menu, Welcome and the windowless
   macOS application menu. It previews the default HTTP scheme, offers HTTP
   authentication, and can stop a pending load.

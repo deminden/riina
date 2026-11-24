@@ -2,7 +2,7 @@
 use super::{
     PendingNavigation,
     catalog::{
-        install_playlist_selection, playlist_paste_index, selected_playlist_ids,
+        install_playlist_selection, playlist_paste_anchor, selected_playlist_ids,
         selected_playlist_paths, selected_playlist_rows,
     },
     show_osd_message,
@@ -33,6 +33,7 @@ pub(super) fn install(
         capture_transition_first,
     );
     install_selection(app, command_sender);
+    install_keyboard_editing(app, command_sender);
 }
 
 fn install_actions(
@@ -150,22 +151,8 @@ fn handle_playlist_external_action(
                 })
             }
         }
-        8 => crate::platform::clipboard::read_playlist_references().and_then(|paths| {
-            if paths.is_empty() {
-                return Err("Clipboard contains no playlist references".into());
-            }
-            let index = playlist_paste_index(window, token);
-            let count = paths.len();
-            playlist_player
-                .send(Command::InsertPlaylistFiles { paths, index })
-                .map_err(String::from)
-                .map(|()| {
-                    let message = crate::video_osd::action_message(
-                        crate::video_osd::ActionFeedback::PlaylistAdded(count),
-                    );
-                    show_osd_message(window, message.text, false);
-                })
-        }),
+        8 => crate::platform::clipboard::read_playlist_references()
+            .and_then(|paths| paste_playlist(window, playlist_player, paths)),
         9 => {
             let paths = selected_playlist_paths(window, token);
             if paths.is_empty() {
@@ -212,6 +199,117 @@ fn handle_playlist_external_action(
             .set_selected_playlist_tokens(slint::ModelRc::default());
         install_playlist_selection(window, &[]);
     }
+}
+
+fn paste_playlist(
+    app: &PlayerWindow,
+    sender: &CommandSender,
+    paths: Vec<String>,
+) -> Result<(), String> {
+    if paths.is_empty() {
+        return Err("Clipboard contains no playlist references".into());
+    }
+    super::playlist_drop::paste(app, sender, playlist_paste_anchor(app)?, paths);
+    Ok(())
+}
+
+fn install_keyboard_editing(app: &PlayerWindow, commands: &CommandSender) {
+    let window = app.as_weak();
+    let commands = commands.clone();
+    app.global::<PlaylistInteraction>()
+        .on_edit(move |edit, apply| {
+            window
+                .upgrade()
+                .is_some_and(|window| edit_focused_playlist(&window, &commands, edit, apply))
+        });
+}
+
+fn edit_focused_playlist(
+    app: &PlayerWindow,
+    commands: &CommandSender,
+    edit: riina_ui::PlaylistEdit,
+    apply: bool,
+) -> bool {
+    use riina_ui::PlaylistEdit::{Copy, Cut, None as NoEdit, Paste, Remove, SelectAll};
+    let interaction = app.global::<PlaylistInteraction>();
+    let focused = interaction.get_focused_playlist_token();
+    let rows = app.global::<riina_ui::PlayerCatalogState>().get_playlist();
+    if focused.is_empty() || !rows.iter().any(|row| row.token == focused) {
+        return false;
+    }
+    let selected = interaction.get_selected_playlist_tokens();
+    let action = app.global::<PlayerMenuActions>();
+    match edit {
+        NoEdit => return false,
+        Paste if !apply => return crate::platform::clipboard::playlist_paste_available(),
+        Paste => {
+            let Ok(paths) = crate::platform::clipboard::read_playlist_references() else {
+                return false;
+            };
+            if paths.is_empty() {
+                return false;
+            }
+            if let Err(error) = paste_playlist(app, commands, paths) {
+                crate::diagnostics::report(app, error);
+            }
+        }
+        SelectAll => {
+            if apply {
+                let tokens = rows.iter().map(|row| row.token).collect::<Vec<_>>();
+                install_playlist_selection(
+                    app,
+                    &tokens.iter().map(ToString::to_string).collect::<Vec<_>>(),
+                );
+                interaction.set_selected_playlist_token(focused);
+                interaction.set_selected_playlist_tokens(slint::ModelRc::new(
+                    slint::VecModel::from(tokens),
+                ));
+            }
+        }
+        Cut | Copy | Remove => {
+            let Some(token) = selected.row_data(0) else {
+                return false;
+            };
+            if apply {
+                if matches!(edit, Cut | Remove)
+                    && let Some(target) = focus_after_removal(&rows, &selected, &focused)
+                {
+                    interaction.set_edit_focus_target(target);
+                }
+                let code = match edit {
+                    Cut => 7,
+                    Copy => 6,
+                    _ => 1,
+                };
+                action.invoke_playlist_action(code, token);
+            }
+        }
+    }
+    true
+}
+
+fn focus_after_removal(
+    rows: &slint::ModelRc<crate::CatalogRow>,
+    selected: &slint::ModelRc<slint::SharedString>,
+    focused: &slint::SharedString,
+) -> Option<slint::SharedString> {
+    let selected = selected.iter().collect::<HashSet<_>>();
+    if !selected.contains(focused) {
+        return None;
+    }
+    let mut preceding = None;
+    let mut found_focus = false;
+    for row in rows.iter() {
+        if row.token == *focused {
+            found_focus = true;
+        } else if !selected.contains(&row.token) {
+            if found_focus {
+                return Some(row.token);
+            }
+            preceding = Some(row.token);
+        }
+    }
+    preceding
 }
 
 pub(super) fn playlist_network_url(row: &crate::CatalogRow) -> Option<&str> {

@@ -1,5 +1,5 @@
 use super::*;
-use slint::ComponentHandle;
+use slint::{ComponentHandle, Model};
 use std::{
     cell::Cell,
     sync::{Arc, Mutex},
@@ -301,6 +301,32 @@ fn playlist_keyboard_selection_moves_focus_and_opens_the_selected_token() {
 }
 
 #[test]
+fn playlist_focus_tracks_its_row_index_after_an_insertion() {
+    let app = player(4);
+    let rows = Rc::new(slint::VecModel::from(model().iter().collect::<Vec<_>>()));
+    app.global::<PlayerCatalogState>()
+        .set_playlist(rows.clone().into());
+    switch(&app, 4);
+    focus(&app, &button(&app, "Clip 1"));
+    let interaction = app.global::<riina_ui::PlaylistInteraction>();
+    assert_eq!(interaction.get_focused_playlist_token(), "2");
+    rows.insert(
+        0,
+        CatalogRow {
+            token: "99".into(),
+            label: "Inserted clip".into(),
+            ..Default::default()
+        },
+    );
+    flush();
+    button(&app, "Inserted clip");
+    flush();
+    key(&app, Key::UpArrow);
+    assert_eq!(interaction.get_selected_playlist_token(), "1");
+    assert_eq!(interaction.get_focused_playlist_token(), "1");
+}
+
+#[test]
 fn playlist_keyboard_reveals_rows_and_extends_selection_in_both_surfaces() {
     let app = player(4);
     app.window().set_size(LogicalSize::new(1000.0, 460.0));
@@ -317,6 +343,13 @@ fn playlist_keyboard_reveals_rows_and_extends_selection_in_both_surfaces() {
     let observed = opened.clone();
     app.global::<PlayerMenuActions>()
         .on_select_item(move |_, token| observed.borrow_mut().push(token.to_string()));
+    let edits = Rc::new(RefCell::new(Vec::new()));
+    let observed = edits.clone();
+    let interaction = app.global::<riina_ui::PlaylistInteraction>();
+    interaction.on_edit(move |action, apply| {
+        observed.borrow_mut().push((action, apply));
+        true
+    });
     switch(&app, 4);
     for music_mode in [false, true] {
         if music_mode {
@@ -329,6 +362,18 @@ fn playlist_keyboard_reveals_rows_and_extends_selection_in_both_surfaces() {
         let first = button(&app, "Clip 0");
         let initial_y = first.absolute_position().y;
         focus(&app, &first);
+        assert_eq!(interaction.get_focused_playlist_token(), "1");
+        app.window().dispatch_event(WindowEvent::KeyPressed {
+            text: Key::Control.into(),
+        });
+        key(&app, "a");
+        key(&app, "c");
+        key(&app, "x");
+        key(&app, "v");
+        app.window().dispatch_event(WindowEvent::KeyReleased {
+            text: Key::Control.into(),
+        });
+        key(&app, Key::Delete);
         app.window().dispatch_event(WindowEvent::KeyPressed {
             text: Key::Shift.into(),
         });
@@ -351,6 +396,19 @@ fn playlist_keyboard_reveals_rows_and_extends_selection_in_both_surfaces() {
         key(&app, Key::Return);
     }
     assert_eq!(opened.borrow().as_slice(), ["30", "30"]);
+    let expected = [
+        riina_ui::PlaylistEdit::SelectAll,
+        riina_ui::PlaylistEdit::Copy,
+        riina_ui::PlaylistEdit::Cut,
+        riina_ui::PlaylistEdit::Paste,
+        riina_ui::PlaylistEdit::Remove,
+    ];
+    assert!(
+        edits.borrow().iter().copied().eq(expected
+            .into_iter()
+            .chain(expected)
+            .map(|action| (action, true)))
+    );
 }
 
 #[test]

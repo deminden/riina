@@ -6,9 +6,9 @@ use crate::{
 };
 use riina_core::{Phase, Playback, sync::lock, time_label};
 use riina_ui::{PlayerMenuActions, PlaylistInteraction};
-use slint::{ComponentHandle, Model};
+use slint::{ComponentHandle, Model, ModelRc, VecModel};
 use std::{
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     path::{Path, PathBuf},
     rc::Rc,
     sync::Arc,
@@ -117,7 +117,7 @@ pub(in super::super) fn update(app: &PlayerWindow, state: &Playback, metadata: &
                 current.set_row_data(index, new);
             }
         }
-    } else {
+    } else if !update_playlist_structure(&current, &rows) {
         catalog.set_playlist(slint::ModelRc::new(slint::VecModel::from(rows)));
     }
     if !state.playlist.iter().any(|entry| {
@@ -147,6 +147,38 @@ pub(in super::super) fn update(app: &PlayerWindow, state: &Playback, metadata: &
             .set_selected_playlist_tokens(slint::ModelRc::new(slint::VecModel::from(retained)));
     }
     refresh_duration_summary(app);
+}
+
+fn update_playlist_structure(current: &ModelRc<CatalogRow>, rows: &[CatalogRow]) -> bool {
+    let Some(model) = current.as_any().downcast_ref::<VecModel<CatalogRow>>() else {
+        return false;
+    };
+    let old_tokens = current.iter().map(|row| row.token).collect::<Vec<_>>();
+    let old_ids = old_tokens.iter().collect::<HashSet<_>>();
+    let new_ids = rows.iter().map(|row| &row.token).collect::<HashSet<_>>();
+    let retained_old = old_tokens.iter().filter(|token| new_ids.contains(*token));
+    let retained_new = rows
+        .iter()
+        .map(|row| &row.token)
+        .filter(|token| old_ids.contains(*token));
+    if !retained_old.eq(retained_new) {
+        return false;
+    }
+    // Keep the repeater instances of surviving rows alive, including the row
+    // that owns keyboard focus during Paste and folder discovery.
+    for (index, token) in old_tokens.iter().enumerate().rev() {
+        if !new_ids.contains(token) {
+            model.remove(index);
+        }
+    }
+    for (index, row) in rows.iter().enumerate() {
+        if !old_ids.contains(&row.token) {
+            model.insert(index, row.clone());
+        } else if model.row_data(index).is_some_and(|old| old != *row) {
+            model.set_row_data(index, row.clone());
+        }
+    }
+    true
 }
 
 fn resume_fraction(position: Option<f64>, duration: Option<f64>) -> f32 {

@@ -104,6 +104,8 @@ export component MusicModePlaylist inherits Rectangle {
                 }
                 music-row-focus := PlaylistRowKeys {
                     index: index;
+                    token: row.token;
+                    music-mode: true;
                     requested-index: root.focus-index;
                     page-size: max(1, floor(playlist-scroll.visible-height / (row-item.height + 1px)));
                     cancel-drag => { return music-row-touch.cancel-drag(); }

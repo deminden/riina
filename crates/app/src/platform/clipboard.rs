@@ -38,7 +38,8 @@ pub(crate) fn copy_text(text: &str) -> Result<(), String> {
     })
 }
 
-pub(crate) fn read_text() -> Result<String, String> {
+#[cfg(target_os = "macos")]
+fn read_text() -> Result<String, String> {
     CLIPBOARD.with(|provider| {
         let mut provider = provider.borrow_mut();
         if provider.is_none() {
@@ -175,12 +176,98 @@ pub(crate) fn read_playlist_references() -> Result<Vec<String>, String> {
     }
     #[cfg(not(target_os = "macos"))]
     {
-        read_text().map(|text| riina_core::playlist::clipboard_references(&text))
+        let mut clipboard = arboard::Clipboard::new().map_err(|error| error.to_string())?;
+        if let Ok(files) = clipboard.get().file_list()
+            && !files.is_empty()
+        {
+            return files
+                .into_iter()
+                .map(|path| {
+                    path.into_os_string()
+                        .into_string()
+                        .map_err(|_| "A clipboard path contains invalid Unicode".into())
+                })
+                .collect();
+        }
+        clipboard
+            .get_text()
+            .map(|text| riina_core::playlist::clipboard_references(&text))
+            .map_err(|error| error.to_string())
     }
+}
+
+#[cfg_attr(target_os = "macos", allow(deprecated))]
+pub(crate) fn playlist_paste_available() -> bool {
+    #[cfg(target_os = "macos")]
+    {
+        use objc2_app_kit::{
+            NSFilenamesPboardType, NSPasteboard, NSPasteboardTypeFileURL, NSPasteboardTypeString,
+            NSPasteboardTypeURL,
+        };
+        use objc2_foundation::NSArray;
+
+        // SAFETY: AppKit exports these immutable pasteboard type names.
+        let types = unsafe {
+            [
+                NSFilenamesPboardType,
+                NSPasteboardTypeFileURL,
+                NSPasteboardTypeURL,
+                NSPasteboardTypeString,
+            ]
+        };
+        NSPasteboard::generalPasteboard()
+            .availableTypeFromArray(&NSArray::from_slice(&types))
+            .is_some()
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        read_playlist_references().is_ok_and(|paths| !paths.is_empty())
+    }
+}
+
+pub(crate) fn resolve_playlist_paste_paths(paths: Vec<String>) -> Vec<String> {
+    #[cfg(target_os = "linux")]
+    {
+        use std::path::Path;
+        paths
+            .into_iter()
+            .map(|path| {
+                // arboard 3.6.1 decodes URI-list lines without removing the CR
+                // from a CRLF separator. Preserve an exact filename when it exists.
+                let repaired = path.strip_suffix('\r').filter(|candidate| {
+                    !Path::new(&path).exists() && Path::new(candidate).exists()
+                });
+                repaired.map(str::to_owned).unwrap_or(path)
+            })
+            .collect()
+    }
+    #[cfg(not(target_os = "linux"))]
+    paths
 }
 
 #[cfg(test)]
 mod tests {
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn uri_list_repair_preserves_a_real_carriage_return_in_a_linux_filename() {
+        let folder = riina_test_support::TempDir::new("clipboard-uri-list").unwrap();
+        let ordinary = folder.path().join("ordinary");
+        let literal = folder.path().join("literal\r");
+        std::fs::write(&ordinary, []).unwrap();
+        std::fs::write(&literal, []).unwrap();
+        let ordinary = ordinary.to_str().unwrap();
+        let literal = literal.to_str().unwrap();
+        let paths = vec![
+            format!("{ordinary}\r"),
+            format!("{literal}\r"),
+            literal.into(),
+        ];
+        assert_eq!(
+            super::resolve_playlist_paste_paths(paths),
+            [ordinary, literal, literal]
+        );
+    }
+
     #[test]
     #[ignore = "writes the original preview fixture to the native clipboard; run explicitly"]
     fn native_clipboard_fixture_round_trip() {
