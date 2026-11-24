@@ -68,6 +68,16 @@ impl Hub {
     pub(crate) fn revision(&self) -> u64 {
         self.revision.load(Ordering::Acquire)
     }
+
+    #[cfg(any(target_os = "macos", test))]
+    pub(crate) fn has_open_window(&self) -> bool {
+        self.live_entries().iter().any(|endpoint| {
+            endpoint
+                .state
+                .try_lock()
+                .map_or(true, |state| state.presentation().visible)
+        })
+    }
 }
 
 pub(crate) struct Endpoint {
@@ -107,6 +117,8 @@ impl Endpoint {
         let mut state = riina_core::sync::lock(&self.state);
         if state.presentation().revision == revision {
             let _ = state.apply(Intent::Close);
+            #[cfg(any(target_os = "macos", test))]
+            self.revision.fetch_add(1, Ordering::Release);
         }
     }
 

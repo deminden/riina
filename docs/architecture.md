@@ -467,11 +467,18 @@ even when the pointer moves outside the element.
 
 Each player or global entry owns one standalone window state and a distinct
 browser origin. The UI reads that state and creates a native window on the
-first open. Close hides the WebView so reopening retains the document. When an
-entry retires, the UI drops its WebView and native window. The application owns
-the global standalone and developer windows. Each player owns its own plugin
-windows. A player queues presenter work on the UI event loop so native WebViews
-can dispatch window events outside the plugin timer callback. Global utility
+first open. Close hides the WebView so reopening retains the document. Each
+open request can raise the native window even when a close and a reopen arrive
+before the same UI update. Frame requests record each supplied axis so repeated
+values can restore a manually moved or resized window while preserving other
+axes. AppKit applies those changes to the live window frame in screen points.
+
+When an entry retires, the UI drops its WebView and native window. The
+application owns the global standalone and developer windows. On macOS, a
+pending global window open participates in application lifetime while the
+native shell is being created. Each player owns its own plugin windows and
+queues presenter work separately from the plugin timer. The Linux global WebView
+resolves application shortcuts through the current player. Global utility
 dialogs use the focused player when one is available.
 
 Package assets use a confined custom protocol. Simple-mode markup and style

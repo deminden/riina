@@ -98,6 +98,14 @@ impl PlayerManager {
                 }))
             });
         let launcher = Rc::downgrade(&manager.state);
+        #[cfg(target_os = "linux")]
+        {
+            let history = Rc::downgrade(&manager.services().history);
+            manager.services().plugins.bind_shortcut_owner(move || {
+                let (app, _) = history.upgrade()?.browser_destination()?;
+                Some(app.as_weak())
+            });
+        }
         let open_url = launcher.clone();
         manager.services().open_url.bind(move |owner, stream| {
             let state = open_url.upgrade().ok_or("Riina is closing")?;

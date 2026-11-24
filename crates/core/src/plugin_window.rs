@@ -57,9 +57,23 @@ pub struct Presentation {
     pub revision: u64,
     pub document_id: u64,
     pub visible: bool,
+    pub open_revision: u64,
     pub document: Document,
     pub properties: Properties,
     pub frame: Frame,
+    frame_revisions: [u64; 4],
+}
+
+impl Presentation {
+    pub fn frame_changes_since(&self, earlier: &Self) -> Frame {
+        let changed = |axis: usize| self.frame_revisions[axis] != earlier.frame_revisions[axis];
+        Frame {
+            width: self.frame.width.filter(|_| changed(0)),
+            height: self.frame.height.filter(|_| changed(1)),
+            x: self.frame.x.filter(|_| changed(2)),
+            y: self.frame.y.filter(|_| changed(3)),
+        }
+    }
 }
 
 #[derive(Default)]
@@ -76,10 +90,14 @@ impl State {
     }
 
     pub fn apply(&mut self, intent: Intent) -> Result<(), String> {
+        let revision = self.presentation.revision.wrapping_add(1);
         match intent {
             Intent::Open | Intent::Close => {
                 self.created = true;
                 self.presentation.visible = matches!(intent, Intent::Open);
+                if self.presentation.visible {
+                    self.presentation.open_revision = revision;
+                }
             }
             Intent::LoadFile(path) => {
                 validate_plugin_relative_path(&path)
@@ -98,6 +116,18 @@ impl State {
             Intent::SetProperties(_) => return Ok(()),
             Intent::SetFrame(frame) => {
                 self.presentation.frame.merge(frame)?;
+                // A plugin can restore a size or position after a manual move,
+                // including by repeating its last value for that axis.
+                for (stamp, value) in self.presentation.frame_revisions.iter_mut().zip([
+                    frame.width,
+                    frame.height,
+                    frame.x,
+                    frame.y,
+                ]) {
+                    if value.is_some() {
+                        *stamp = revision;
+                    }
+                }
                 self.created = true;
             }
             Intent::PostMessage(name, data) => {
@@ -107,7 +137,7 @@ impl State {
                 return Ok(());
             }
         }
-        self.presentation.revision = self.presentation.revision.wrapping_add(1);
+        self.presentation.revision = revision;
         Ok(())
     }
 
@@ -197,4 +227,53 @@ impl Frame {
 pub fn validate_message(name: &str, data: &Value) -> Result<(), String> {
     validate_message_name(name).map_err(|_| "Expected a message name of 1–256 UTF-8 bytes")?;
     validate_message_data(data).map_err(|error| error.to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn coalesced_frame_changes_keep_repeated_and_independent_axes() {
+        let mut state = State::default();
+        let initial = Frame {
+            width: Some(400.0),
+            height: Some(250.0),
+            x: Some(80.0),
+            y: Some(90.0),
+        };
+        state.apply(Intent::SetFrame(initial)).unwrap();
+        let prior = state.presentation().clone();
+        let repeated = Frame {
+            width: initial.width,
+            ..Frame::default()
+        };
+        let move_x = Frame {
+            x: Some(-20.0),
+            ..Frame::default()
+        };
+        state.apply(Intent::SetFrame(repeated)).unwrap();
+        state.apply(Intent::SetFrame(move_x)).unwrap();
+        state.apply(Intent::SetFrame(Frame::default())).unwrap();
+        let invalid = Frame {
+            height: Some(-1.0),
+            ..Frame::default()
+        };
+        assert!(state.apply(Intent::SetFrame(invalid)).is_err());
+        assert_eq!(
+            state.presentation().frame_changes_since(&prior),
+            Frame {
+                width: repeated.width,
+                x: move_x.x,
+                ..Frame::default()
+            }
+        );
+        assert_eq!(
+            state.presentation().frame,
+            Frame {
+                x: move_x.x,
+                ..initial
+            }
+        );
+    }
 }

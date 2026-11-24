@@ -107,7 +107,7 @@ impl MenuShortcut {
 
 pub(crate) fn bind(
     webview: &WebView,
-    owner: slint::Weak<PlayerWindow>,
+    owner: impl Fn() -> Option<slint::Weak<PlayerWindow>> + 'static,
     standalone: Option<Weak<Endpoint>>,
 ) {
     let accelerator_modifiers = gtk::accelerator_get_default_mod_mask();
@@ -129,12 +129,15 @@ pub(crate) fn bind(
             }
             return Propagation::Stop;
         }
+        let Some(owner) = owner() else {
+            return Propagation::Proceed;
+        };
         if !owner.upgrade().is_some_and(|app| shortcut.enabled(&app)) {
             return Propagation::Proceed;
         }
         // A callback can unmap the child or close the entire player. Invoke it
         // after the native key handler has finished.
-        let queued = crate::background::to_ui(owner.clone(), move |app| {
+        let queued = crate::background::to_ui(owner, move |app| {
             if shortcut.enabled(&app) {
                 shortcut.invoke(&app);
             }

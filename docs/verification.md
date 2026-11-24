@@ -3942,3 +3942,33 @@ need a Mac desktop run.
 - Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
 - Linux application SHA-256 `581bb56b6016a0fbf7c9681daedf17aef694a6757d6ef8382fcf4d708e9ee7ec`
 - Linux libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`
+
+### Standalone plugin close, reopen and resize 2026-11-24
+
+Standalone window updates retain explicit open requests and the frame axes
+supplied by the plugin. The core test covers coalesced updates, repeated
+values and invalid frame edits. The host test covers the same document across
+close and reopen, pending visibility, and rejected failure notifications
+from an older presentation.
+
+On a private Windows desktop, the plugin restored a previously requested
+width after a native move and resize, preserving the current X, Y and height.
+The global window reopened six times immediately after the native close.
+It retained the same window handle. The developer consoles remained
+independent, playback stayed paused, and the exact process exited normally.
+
+The Windows workspace gate and locked build passed. The pinned Windows
+libmpv suite passed all 61 cases with two test threads after four timeouts
+during the run that overlapped the desktop test and Linux compilation.
+
+On isolated Linux X11 and native Sway Wayland with XWayland disabled, the
+global WebView kept the same window while the first player closed. Its Settings
+and Quit shortcuts routed through the surviving player, and the exact process
+exited normally. The locked Linux build and 593 application tests passed.
+Apple Silicon cross-Clippy passed. Native AppKit activation, frame geometry
+across displays and the pending-window quit policy still need a Mac run.
+
+- Windows application SHA-256 `0611a8f8dabca303b11766ce5b6f25d2bc8ef7ade774b217084863702f86c379`
+- Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
+- Linux application SHA-256 `84ca70f2738e510d4fb3a701a0a2aa68795d25b36c0ada2ff4ae714952e829f2`
+- Linux libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`

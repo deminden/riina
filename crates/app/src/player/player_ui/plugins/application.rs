@@ -14,6 +14,8 @@ use std::{cell::RefCell, path::Path, rc::Rc, sync::Arc};
 pub(crate) struct ApplicationPlugins {
     pub(super) services: RefCell<Option<Services>>,
     pub(super) managed: Rc<RefCell<ManagedWindows>>,
+    #[cfg(target_os = "linux")]
+    owner: std::cell::OnceCell<plugin_standalone::ShortcutOwner>,
     #[cfg(target_os = "macos")]
     windowless: RefCell<Option<Rc<Driver>>>,
     #[cfg(target_os = "macos")]
@@ -28,6 +30,14 @@ pub(super) struct Services {
 }
 
 impl ApplicationPlugins {
+    #[cfg(target_os = "linux")]
+    pub(crate) fn bind_shortcut_owner(
+        &self,
+        owner: impl Fn() -> Option<slint::Weak<PlayerWindow>> + 'static,
+    ) {
+        let _ = self.owner.set(Rc::new(owner));
+    }
+
     pub(crate) fn bind_player_launcher(
         &self,
         launcher: impl Fn(Option<&PlayerWindow>, Arc<Ticket>) -> Result<ClosePlayer, String> + 'static,
@@ -45,6 +55,14 @@ impl ApplicationPlugins {
         let dialogs = plugin_dialogs::ApplicationOwners::default();
         dialogs.install(&handle.ui.dialogs);
         let standalone = plugin_standalone::Presenter::new(handle.ui.windows.clone());
+        #[cfg(target_os = "linux")]
+        let standalone = {
+            let mut standalone = standalone;
+            if let Some(owner) = self.owner.get() {
+                standalone.bind_application_owner(owner.clone());
+            }
+            standalone
+        };
         let developer = developer::Scope::new(handle.ui.developer.clone());
         #[cfg(target_os = "macos")]
         let (standalone, developer) = {
@@ -108,7 +126,7 @@ impl ApplicationPlugins {
             return true;
         };
         standalone.update_from_application();
-        standalone.is_visible() || console_visible
+        standalone.has_window_activity() || console_visible
     }
 
     #[cfg(target_os = "macos")]
@@ -140,7 +158,7 @@ impl ApplicationPlugins {
                 || services
                     .standalone
                     .try_borrow()
-                    .map_or(true, |presenter| presenter.is_visible())
+                    .map_or(true, |presenter| presenter.has_window_activity())
         })
     }
 

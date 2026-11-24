@@ -1,11 +1,12 @@
+#[cfg(target_os = "macos")]
+#[path = "appkit.rs"]
+mod appkit;
+
 use crate::platform;
 use riina_core::plugin_window::{Frame, Properties};
 use riina_ui::PluginStandaloneWindow;
 use slint::{CloseRequestResponse, ComponentHandle, winit_030::WinitWindowAccessor};
-use wry::{
-    WebView, WebViewBuilder,
-    dpi::{LogicalPosition, LogicalSize},
-};
+use wry::{WebView, WebViewBuilder};
 
 pub(in crate::platform) struct Shell {
     window: PluginStandaloneWindow,
@@ -37,7 +38,6 @@ impl Shell {
         self.window.window().has_winit_window()
     }
 
-    #[cfg(target_os = "macos")]
     pub(super) fn is_visible(&self) -> bool {
         self.window.window().is_visible()
     }
@@ -53,7 +53,7 @@ impl Shell {
                 {
                     // Keep Slint's NSView attached so Winit retains its native
                     // window handle and titlebar properties after WKWebView attaches.
-                    let bounds = mac_bounds(window);
+                    let bounds = appkit::content_bounds(window);
                     self.browser_bounds.set(Some(bounds));
                     builder.with_bounds(bounds).build_as_child(window)
                 }
@@ -86,44 +86,19 @@ impl Shell {
                     && !properties.full_size_content_view.unwrap_or(false),
             );
             #[cfg(target_os = "macos")]
-            mac_properties(window, properties);
+            appkit::set_properties(window, properties);
         });
     }
 
-    pub(in crate::platform) fn set_frame(&self, frame: Frame, previous: Frame) {
+    pub(in crate::platform) fn set_frame(&self, frame: Frame) {
+        if frame == Frame::default() {
+            return;
+        }
         self.window.window().with_winit_window(|window| {
-            let scale = window.scale_factor();
-            let current = window.inner_size().to_logical::<f64>(scale);
-            let width = changed(frame.width, previous.width);
-            let height = changed(frame.height, previous.height);
-            if width.is_some() || height.is_some() {
-                let _ = window.request_inner_size(LogicalSize::new(
-                    width.unwrap_or(current.width),
-                    height.unwrap_or(current.height),
-                ));
-            }
-            let x = changed(frame.x, previous.x);
-            let y = changed(frame.y, previous.y);
-            if (x.is_some() || y.is_some())
-                && let Ok(position) = window.outer_position()
-            {
-                let position = position.to_logical::<f64>(scale);
-                let top = y.and_then(|y| {
-                    window.primary_monitor().map(|monitor| {
-                        let bottom =
-                            f64::from(monitor.position().y) + f64::from(monitor.size().height);
-                        let border = window
-                            .outer_size()
-                            .height
-                            .saturating_sub(window.inner_size().height);
-                        (bottom - f64::from(border)) / scale - y - height.unwrap_or(current.height)
-                    })
-                });
-                window.set_outer_position(LogicalPosition::new(
-                    x.unwrap_or(position.x),
-                    top.unwrap_or(position.y),
-                ));
-            }
+            #[cfg(target_os = "macos")]
+            appkit::set_frame(window, frame);
+            #[cfg(not(target_os = "macos"))]
+            set_frame(window, frame);
         });
     }
 }
@@ -140,7 +115,10 @@ impl Shell {
         &self,
         browser: &WebView,
     ) -> Result<(), String> {
-        if let Some(bounds) = self.window.window().with_winit_window(mac_bounds)
+        if let Some(bounds) = self
+            .window
+            .window()
+            .with_winit_window(appkit::content_bounds)
             && Some(bounds) != self.browser_bounds.get()
         {
             browser
@@ -152,46 +130,40 @@ impl Shell {
     }
 }
 
-#[cfg(target_os = "macos")]
-fn mac_bounds(window: &slint::winit_030::winit::window::Window) -> wry::Rect {
-    wry::Rect {
-        position: LogicalPosition::new(0.0, 0.0).into(),
-        size: window
-            .inner_size()
-            .to_logical::<f64>(window.scale_factor())
-            .into(),
-    }
-}
+#[cfg(not(target_os = "macos"))]
+fn set_frame(window: &slint::winit_030::winit::window::Window, frame: Frame) {
+    use wry::dpi::{LogicalPosition, LogicalSize};
 
-fn changed(current: Option<f64>, previous: Option<f64>) -> Option<f64> {
-    current.filter(|value| Some(*value) != previous)
-}
-
-#[cfg(target_os = "macos")]
-fn mac_properties(window: &slint::winit_030::winit::window::Window, properties: &Properties) {
-    use objc2_app_kit::{NSView, NSWindowStyleMask, NSWindowTitleVisibility};
-    use slint::winit_030::winit::raw_window_handle::{HasWindowHandle, RawWindowHandle};
-    let Ok(handle) = window.window_handle() else {
-        return;
-    };
-    let RawWindowHandle::AppKit(handle) = handle.as_raw() else {
-        return;
-    };
-    // SAFETY: Winit owns this NSView on the calling AppKit thread for the duration of the borrow.
-    let view = unsafe { handle.ns_view.cast::<NSView>().as_ref() };
-    let Some(window) = view.window() else { return };
-    let mut mask = window.styleMask();
-    mask.set(
-        NSWindowStyleMask::FullSizeContentView,
-        properties.full_size_content_view.unwrap_or(false),
-    );
-    window.setStyleMask(mask);
-    let hidden = properties.hide_title_bar.unwrap_or(false);
-    window.setTitlebarAppearsTransparent(hidden);
-    window.setTitleVisibility(if hidden {
-        NSWindowTitleVisibility::Hidden
-    } else {
-        NSWindowTitleVisibility::Visible
+    let scale = window.scale_factor();
+    let outer = window.outer_size().to_logical::<f64>(scale);
+    let inner = window.inner_size().to_logical::<f64>(scale);
+    let width = frame.width.unwrap_or(outer.width);
+    let height = frame.height.unwrap_or(outer.height);
+    let monitor_bottom = window.primary_monitor().map(|monitor| {
+        (f64::from(monitor.position().y) + f64::from(monitor.size().height)) / scale
     });
-    window.setMovableByWindowBackground(hidden);
+    let position = window
+        .outer_position()
+        .ok()
+        .map(|value| value.to_logical::<f64>(scale));
+    if frame.width.is_some() || frame.height.is_some() {
+        let _ = window.request_inner_size(LogicalSize::new(
+            (width - (outer.width - inner.width)).max(1.0),
+            (height - (outer.height - inner.height)).max(1.0),
+        ));
+    }
+    if let Some(position) = position {
+        // Plugin coordinates start at the primary display's bottom edge, while
+        // Winit positions the frame from its top edge. A height-only edit must
+        // keep the lower edge in place as AppKit does.
+        let top = frame
+            .y
+            .zip(monitor_bottom)
+            .map_or(position.y + outer.height - height, |(y, bottom)| {
+                bottom - y - height
+            });
+        if frame.x.is_some() || frame.y.is_some() || frame.height.is_some() {
+            window.set_outer_position(LogicalPosition::new(frame.x.unwrap_or(position.x), top));
+        }
+    }
 }

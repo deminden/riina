@@ -36,6 +36,10 @@ impl Shell {
         true
     }
 
+    pub(super) fn is_visible(&self) -> bool {
+        self.window.is_visible()
+    }
+
     pub(in crate::platform) fn build_webview(
         &self,
         builder: WebViewBuilder<'_>,
@@ -65,31 +69,43 @@ impl Shell {
         );
     }
 
-    pub(in crate::platform) fn set_frame(&self, frame: Frame, previous: Frame) {
-        let (width, height) = if self.window.is_visible() {
+    pub(in crate::platform) fn set_frame(&self, frame: Frame) {
+        if frame == Frame::default() {
+            return;
+        }
+        let surface = self.window.window();
+        let (client_width, client_height) = if surface.is_some() {
             self.window.size()
         } else {
             self.window.default_size()
         };
-        let width = frame.width.map_or(width, |width| width.round() as i32);
-        let height = frame.height.map_or(height, |height| height.round() as i32);
-        if frame.width != previous.width || frame.height != previous.height {
-            self.window.resize(width, height);
+        let (outer_width, outer_height) =
+            surface.map_or((client_width, client_height), |surface| {
+                let outer = surface.frame_extents();
+                (outer.width(), outer.height())
+            });
+        let width = frame
+            .width
+            .map_or(outer_width, |width| width.round() as i32);
+        let height = frame
+            .height
+            .map_or(outer_height, |height| height.round() as i32);
+        let (x, y) = self.window.position();
+        if frame.width.is_some() || frame.height.is_some() {
+            self.window.resize(
+                (width - (outer_width - client_width).max(0)).max(1),
+                (height - (outer_height - client_height).max(0)).max(1),
+            );
         }
-        if frame.x != previous.x || frame.y != previous.y {
-            let (x, y) = self.window.position();
-            let x = frame
-                .x
-                .filter(|x| Some(*x) != previous.x)
-                .map_or(x, |x| x.round() as i32);
+        if frame.x.is_some() || frame.y.is_some() || (self.is_visible() && frame.height.is_some()) {
+            let x = frame.x.map_or(x, |x| x.round() as i32);
             let y = frame
                 .y
-                .filter(|y| Some(*y) != previous.y)
                 .and_then(|position| {
                     let monitor = gtk::gdk::Display::default()?.primary_monitor()?.geometry();
                     Some(monitor.y() + monitor.height() - height - position.round() as i32)
                 })
-                .unwrap_or(y);
+                .unwrap_or(y + outer_height - height);
             self.window.move_(x, y);
         }
     }

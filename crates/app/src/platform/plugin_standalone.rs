@@ -4,17 +4,24 @@
 pub(super) mod shell;
 
 use super::plugin_page::{self as page, Page};
+#[cfg(target_os = "linux")]
+use super::unix::plugin_shortcuts;
 use crate::{
     PlayerWindow,
     plugin_runtime::standalone::{Endpoint, Hub},
 };
 use riina_core::plugin_window::{Document, Presentation, Properties};
 use shell::Shell;
+#[cfg(target_os = "macos")]
+use std::cell::Cell;
 use std::{
     collections::BTreeMap,
     sync::{Arc, Weak},
 };
 use wry::WebView;
+
+#[cfg(target_os = "linux")]
+pub(crate) type ShortcutOwner = std::rc::Rc<dyn Fn() -> Option<slint::Weak<PlayerWindow>>>;
 
 fn title(name: &str, properties: &Properties) -> String {
     let title = properties.title.as_deref().unwrap_or("Window");
@@ -24,8 +31,12 @@ fn title(name: &str, properties: &Properties) -> String {
 pub(crate) struct Presenter {
     hub: Hub,
     entries: BTreeMap<u64, Entry>,
+    #[cfg(target_os = "linux")]
+    application_owner: Option<ShortcutOwner>,
     #[cfg(target_os = "macos")]
     closed: Option<std::rc::Rc<crate::windows::close_observer::CloseObserver>>,
+    #[cfg(target_os = "macos")]
+    retaining_application: Cell<bool>,
 }
 
 impl Presenter {
@@ -33,13 +44,22 @@ impl Presenter {
         Self {
             hub,
             entries: BTreeMap::new(),
+            #[cfg(target_os = "linux")]
+            application_owner: None,
             #[cfg(target_os = "macos")]
             closed: None,
+            #[cfg(target_os = "macos")]
+            retaining_application: Cell::new(false),
         }
     }
 
     pub(crate) fn update(&mut self, app: &PlayerWindow) {
         self.present(Some(app));
+    }
+
+    #[cfg(target_os = "linux")]
+    pub(crate) fn bind_application_owner(&mut self, owner: ShortcutOwner) {
+        self.application_owner = Some(owner);
     }
 
     #[cfg(target_os = "macos")]
@@ -56,8 +76,12 @@ impl Presenter {
     }
 
     #[cfg(target_os = "macos")]
-    pub(crate) fn is_visible(&self) -> bool {
-        self.entries.values().any(Entry::is_visible)
+    pub(crate) fn has_window_activity(&self) -> bool {
+        let active = self.entries.values().any(Entry::is_visible) || self.hub.has_open_window();
+        if active {
+            self.retaining_application.set(true);
+        }
+        active
     }
 
     #[cfg(target_os = "macos")]
@@ -66,8 +90,6 @@ impl Presenter {
     }
 
     fn present(&mut self, app: Option<&PlayerWindow>) {
-        #[cfg(target_os = "macos")]
-        let was_visible = self.is_visible();
         self.entries
             .retain(|_, entry| entry.owner.upgrade().is_some_and(|owner| owner.is_live()));
         for endpoint in self.hub.live_entries() {
@@ -81,6 +103,8 @@ impl Presenter {
             if let Err(error) = entry.update(
                 app,
                 &endpoint,
+                #[cfg(target_os = "linux")]
+                self.application_owner.as_ref(),
                 #[cfg(target_os = "macos")]
                 self.closed.as_ref(),
             ) {
@@ -96,8 +120,8 @@ impl Presenter {
             }
         }
         #[cfg(target_os = "macos")]
-        if was_visible
-            && !self.is_visible()
+        if !self.has_window_activity()
+            && self.retaining_application.replace(false)
             && let Some(closed) = &self.closed
         {
             closed.notify();
@@ -127,6 +151,7 @@ impl Entry {
         &mut self,
         app: Option<&PlayerWindow>,
         endpoint: &Arc<Endpoint>,
+        #[cfg(target_os = "linux")] application_owner: Option<&ShortcutOwner>,
         #[cfg(target_os = "macos")] closed: Option<
             &std::rc::Rc<crate::windows::close_observer::CloseObserver>,
         >,
@@ -166,7 +191,23 @@ impl Entry {
             if self.shell.as_ref().is_some_and(Shell::can_build)
                 && let (Some(shell), Some(view)) = (self.shell.take(), self.pending.take())
             {
-                self.window = Some(BrowserWindow::new(shell, app, endpoint, view)?);
+                let window = BrowserWindow::new(shell, endpoint, view)?;
+                #[cfg(target_os = "linux")]
+                {
+                    use slint::ComponentHandle;
+                    let application_owner = application_owner.cloned();
+                    let player = app.map(ComponentHandle::as_weak);
+                    plugin_shortcuts::bind(
+                        &window.browser,
+                        move || {
+                            application_owner
+                                .as_ref()
+                                .map_or_else(|| player.clone(), |owner| owner())
+                        },
+                        Some(Arc::downgrade(endpoint)),
+                    );
+                }
+                self.window = Some(window);
             }
         }
         if let Some(window) = &mut self.window {
@@ -187,16 +228,11 @@ struct BrowserWindow {
 }
 
 impl BrowserWindow {
-    fn new(
-        shell: Shell,
-        app: Option<&PlayerWindow>,
-        endpoint: &Arc<Endpoint>,
-        view: Presentation,
-    ) -> Result<Self, String> {
+    fn new(shell: Shell, endpoint: &Arc<Endpoint>, view: Presentation) -> Result<Self, String> {
         let page = Page::standalone(view.document_id, endpoint.origin);
         let url = page.url(view.document_id, &view.document)?;
         shell.set_properties(&title(&endpoint.name, &view.properties), &view.properties);
-        shell.set_frame(view.frame, Default::default());
+        shell.set_frame(view.frame);
         let owner = Arc::downgrade(endpoint);
         let browser = shell.build_webview(page.builder(
             endpoint.package_root().map(std::path::Path::to_path_buf),
@@ -208,17 +244,6 @@ impl BrowserWindow {
             },
             || {},
         ))?;
-        #[cfg(target_os = "linux")]
-        if let Some(app) = app {
-            use slint::ComponentHandle;
-            super::unix::plugin_shortcuts::bind(
-                &browser,
-                app.as_weak(),
-                Some(Arc::downgrade(endpoint)),
-            );
-        }
-        #[cfg(not(target_os = "linux"))]
-        let _ = app;
         shell.set_visible(view.visible)?;
         #[cfg(target_os = "macos")]
         let _ = browser.focus();
@@ -244,10 +269,11 @@ impl BrowserWindow {
             self.shell
                 .set_properties(&title(name, &next.properties), &next.properties);
         }
-        if next.frame != self.view.frame {
-            self.shell.set_frame(next.frame, self.view.frame);
-        }
-        if next.visible != self.view.visible {
+        self.shell.set_frame(next.frame_changes_since(&self.view));
+        // A native close and a script reopen can land in one snapshot. Use
+        // the shell's visibility and honor an explicit request to raise it.
+        let raise = next.visible && next.open_revision != self.view.open_revision;
+        if next.visible != self.shell.is_visible() || raise {
             self.shell.set_visible(next.visible)?;
             #[cfg(target_os = "macos")]
             if next.visible {

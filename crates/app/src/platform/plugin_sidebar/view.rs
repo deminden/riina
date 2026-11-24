@@ -92,7 +92,7 @@ impl View {
 
     #[cfg(target_os = "linux")]
     pub(super) fn bind_shortcuts(&self, owner: slint::Weak<crate::PlayerWindow>) {
-        plugin_shortcuts::bind(self.browser(), owner, None);
+        plugin_shortcuts::bind(self.browser(), move || Some(owner.clone()), None);
     }
 }
 

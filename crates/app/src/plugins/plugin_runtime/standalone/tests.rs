@@ -37,6 +37,7 @@ fn player_and_global_windows_have_independent_documents_and_retirement() {
             view.onMessage('echo', data => iina.log(data.text));
         });
         iina.event.on('iina.window-resized', () => iina.log(String(view.isOpen())));
+        iina.event.on('iina.menu-update', () => view.open());
         ",
     )
     .unwrap();
@@ -95,11 +96,28 @@ fn player_and_global_windows_have_independent_documents_and_retirement() {
     controller.receive(1, "echo".into(), serde_json::json!({"text": "Global"}));
     assert_eq!(logs(&player), ["Child"]);
     assert_eq!(logs(&global), ["Global"]);
+    assert!(ui.windows.has_open_window());
+    controller.user_closed();
     child.user_closed();
+    assert!(!ui.windows.has_open_window());
     player
         .deliver_player_event("iina.window-resized".into(), serde_json::Value::Null)
         .unwrap();
     assert_eq!(logs(&player), ["false"]);
+    player
+        .deliver_player_event("iina.menu-update".into(), serde_json::Value::Null)
+        .unwrap();
+    player.flush_events(Duration::from_secs(2)).unwrap();
+    let reopened = child.snapshot(Some(current.revision)).unwrap();
+    assert!(reopened.visible && ui.windows.has_open_window());
+    assert_ne!(reopened.open_revision, current.open_revision);
+    assert_eq!(reopened.document_id, current.document_id);
+    child.presentation_failed(current.revision);
+    assert!(ui.windows.has_open_window());
+    let revision = ui.windows.revision();
+    child.presentation_failed(reopened.revision);
+    assert_ne!(ui.windows.revision(), revision);
+    assert!(!ui.windows.has_open_window());
     drop(player);
     assert_eq!(ui.windows.live_entries().len(), 1);
     assert!(!child.is_live());
