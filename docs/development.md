@@ -136,7 +136,9 @@ after the source checks.
 Use `cargo xtask check --fast --base <revision>` to include a batch of local
 commits in the same check. Pass the commit immediately before the batch. The
 line-length exceptions are checked against that revision, and test selection
-also includes staged, unstaged and untracked changes.
+also includes staged, unstaged and untracked changes. The runner resolves the
+workspace where it was invoked, so a shared Cargo target can serve multiple
+worktrees without reusing an earlier checkout's test scope.
 Use `cargo xtask check` at integration points for the full local gate, including
 the Python, parity, fixture and asset checks. Run `cargo xtask native` for the native
 engine suite with null audio output. It selects the native test target and reuses

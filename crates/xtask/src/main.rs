@@ -20,32 +20,39 @@ const UI_TEST_TARGETS: &[&str] = &[
 ];
 
 fn main() -> ExitCode {
-    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
     let arguments: Vec<_> = env::args_os().skip(1).collect();
-    let result = match arguments.as_slice() {
-        [command] if command == "check" => check(&root),
-        [command, flag] if command == "check" && flag == "--fast" => {
-            fast_check(&root, OsStr::new("HEAD"))
-        }
-        [command, flag, option, base]
-            if command == "check" && flag == "--fast" && option == "--base" =>
-        {
-            fast_check(&root, base)
-        }
-        [command] if command == "ui" => ui(&root),
-        [command] if command == "native" => native(&root, None),
-        [command, filter] if command == "native" => native(&root, Some(filter)),
-        [command] if command == "coverage" => coverage(&root),
-        _ => Err(
-            "Usage: cargo xtask {check [--fast [--base <revision>]]|ui|native [filter]|coverage}"
-                .into(),
-        ),
-    };
-    if let Err(error) = result {
+    if let Err(error) = run_task(&arguments) {
         let _ = writeln!(io::stderr().lock(), "{error}");
         return ExitCode::FAILURE;
     }
     ExitCode::SUCCESS
+}
+
+fn run_task(arguments: &[OsString]) -> Result<(), String> {
+    // A shared Cargo target can reuse an xtask executable built in a different
+    // worktree. Resolve the workspace from the invocation directory.
+    let invocation = env::current_dir().map_err(|error| error.to_string())?;
+    let workspace = find_workspace(&invocation)?;
+    let root = &workspace.workspace_root;
+    match arguments {
+        [command] if command == "check" => check(root),
+        [command, flag] if command == "check" && flag == "--fast" => {
+            fast_check(&workspace, OsStr::new("HEAD"))
+        }
+        [command, flag, option, base]
+            if command == "check" && flag == "--fast" && option == "--base" =>
+        {
+            fast_check(&workspace, base)
+        }
+        [command] if command == "ui" => ui(root),
+        [command] if command == "native" => native(root, None),
+        [command, filter] if command == "native" => native(root, Some(filter)),
+        [command] if command == "coverage" => coverage(root),
+        _ => Err(
+            "Usage: cargo xtask {check [--fast [--base <revision>]]|ui|native [filter]|coverage}"
+                .into(),
+        ),
+    }
 }
 
 fn check(root: &Path) -> Result<(), String> {
@@ -76,7 +83,8 @@ fn check(root: &Path) -> Result<(), String> {
     Ok(())
 }
 
-fn fast_check(root: &Path, base: &OsStr) -> Result<(), String> {
+fn fast_check(workspace: &Workspace, base: &OsStr) -> Result<(), String> {
+    let root = &workspace.workspace_root;
     let files = changed_files(root, base)?;
     cargo(root, &["fmt", "--all", "--", "--check"])?;
     python(
@@ -112,7 +120,7 @@ fn fast_check(root: &Path, base: &OsStr) -> Result<(), String> {
     if workspace_wide {
         selected.push("--workspace");
     } else {
-        let mut changed = affected_packages(root, &files)?;
+        let mut changed = workspace.affected_packages(&files);
         if include_ui_consumers(&mut changed, &files) {
             return check_ui(root);
         }
@@ -327,11 +335,8 @@ impl Workspace {
     }
 }
 
-fn affected_packages(root: &Path, files: &BTreeSet<PathBuf>) -> Result<BTreeSet<String>, String> {
-    if files.is_empty() {
-        return Ok(BTreeSet::new());
-    }
-    let output = captured(Command::new(cargo_program()).current_dir(root).args([
+fn find_workspace(invocation: &Path) -> Result<Workspace, String> {
+    let output = captured(Command::new(cargo_program()).current_dir(invocation).args([
         "metadata",
         "--no-deps",
         "--format-version",
@@ -340,7 +345,15 @@ fn affected_packages(root: &Path, files: &BTreeSet<PathBuf>) -> Result<BTreeSet<
     ]))?;
     let workspace: Workspace = serde_json::from_slice(&output)
         .map_err(|error| format!("Could not read Cargo workspace metadata: {error}"))?;
-    Ok(workspace.affected_packages(files))
+    let task_manifest = workspace.workspace_root.join("crates/xtask/Cargo.toml");
+    if !workspace
+        .packages
+        .iter()
+        .any(|package| package.name == "xtask" && package.manifest_path == task_manifest)
+    {
+        return Err("Run this command from the Riina workspace".into());
+    }
+    Ok(workspace)
 }
 
 fn native(root: &Path, filter: Option<&OsStr>) -> Result<(), String> {
@@ -531,7 +544,9 @@ mod scope_tests {
 
     #[test]
     fn shared_source_selects_consumers_while_test_edits_stay_local() {
-        let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+        let task_crate = Path::new(env!("CARGO_MANIFEST_DIR"));
+        let workspace = find_workspace(task_crate).unwrap();
+        assert_eq!(workspace.workspace_root.join("crates/xtask"), task_crate);
         for (path, expected) in [
             (
                 "crates/core/src/command.rs",
@@ -540,7 +555,7 @@ mod scope_tests {
             ("crates/mpv/src/worker.rs", &["riina", "riina-mpv"][..]),
             ("crates/mpv/tests/native/main.rs", &["riina-mpv"][..]),
         ] {
-            let packages = affected_packages(&root, &BTreeSet::from([path.into()])).unwrap();
+            let packages = workspace.affected_packages(&BTreeSet::from([path.into()]));
             assert!(
                 packages
                     .iter()
