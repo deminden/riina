@@ -9,21 +9,31 @@ use objc2_av_foundation::{
 };
 use objc2_av_kit::{
     AVPictureInPictureController, AVPictureInPictureControllerContentSource,
-    AVPictureInPictureSampleBufferPlaybackDelegate,
+    AVPictureInPictureControllerDelegate, AVPictureInPictureSampleBufferPlaybackDelegate,
 };
 use objc2_core_media::{
     CMClock, CMTime, CMTimeRange, CMTimebase, CMVideoDimensions, kCMTimePositiveInfinity,
 };
-use objc2_foundation::{NSObject, NSObjectProtocol};
+use objc2_foundation::{NSError, NSObject, NSObjectProtocol};
 use riina_core::{Command, Playback, VideoParameters};
 use riina_mpv::CommandSender;
-use std::{ffi::CStr, ptr::NonNull};
+use std::{cell::Cell, ffi::CStr, ptr::NonNull};
 
 use super::pip_frame::PipFrameSource;
 
 struct PlaybackDelegateIvars {
+    player: slint::Weak<crate::PlayerWindow>,
     commands: CommandSender,
     playback: crate::PlaybackStore,
+    transition: Cell<Transition>,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum Transition {
+    Idle,
+    WaitingForSource,
+    Starting,
+    Stopping,
 }
 
 define_class!(
@@ -34,6 +44,44 @@ define_class!(
 
     // SAFETY: the class inherits NSObject and uses its protocol implementation.
     unsafe impl NSObjectProtocol for PlaybackDelegate {}
+
+    #[allow(non_snake_case)]
+    // SAFETY: these selectors match AVKit's main-thread lifecycle protocol.
+    unsafe impl AVPictureInPictureControllerDelegate for PlaybackDelegate {
+        #[unsafe(method(pictureInPictureControllerDidStartPictureInPicture:))]
+        unsafe fn pictureInPictureControllerDidStartPictureInPicture(
+            &self,
+            _controller: &AVPictureInPictureController,
+        ) {
+            self.confirm(true);
+        }
+
+        #[unsafe(method(pictureInPictureControllerDidStopPictureInPicture:))]
+        unsafe fn pictureInPictureControllerDidStopPictureInPicture(
+            &self,
+            _controller: &AVPictureInPictureController,
+        ) {
+            self.confirm(false);
+        }
+
+        #[unsafe(method(pictureInPictureController:failedToStartPictureInPictureWithError:))]
+        unsafe fn pictureInPictureController_failedToStartPictureInPictureWithError(
+            &self,
+            _controller: &AVPictureInPictureController,
+            error: &NSError,
+        ) {
+            self.confirm(false);
+            if let Some(player) = self.ivars().player.upgrade() {
+                crate::diagnostics::report(
+                    &player,
+                    format!(
+                        "Could not start Picture-in-Picture: {}",
+                        error.localizedDescription()
+                    ),
+                );
+            }
+        }
+    }
 
     #[allow(non_snake_case)]
     // SAFETY: the selectors below implement the AVKit protocol with its declared ABI.
@@ -121,12 +169,25 @@ define_class!(
 impl PlaybackDelegate {
     fn new(
         mtm: MainThreadMarker,
+        player: slint::Weak<crate::PlayerWindow>,
         commands: CommandSender,
         playback: crate::PlaybackStore,
     ) -> Retained<Self> {
-        let this = Self::alloc(mtm).set_ivars(PlaybackDelegateIvars { commands, playback });
+        let this = Self::alloc(mtm).set_ivars(PlaybackDelegateIvars {
+            player,
+            commands,
+            playback,
+            transition: Cell::new(Transition::Idle),
+        });
         // SAFETY: NSObject initializes the allocated, ivar-initialized object on the main thread.
         unsafe { msg_send![super(this), init] }
+    }
+
+    fn confirm(&self, active: bool) {
+        self.ivars().transition.set(Transition::Idle);
+        if let Some(player) = self.ivars().player.upgrade() {
+            crate::player::presentation::set_picture_in_picture(&player, active);
+        }
     }
 }
 
@@ -137,13 +198,12 @@ pub(crate) struct MacPictureInPicture {
     _layer: Retained<AVSampleBufferDisplayLayer>,
     renderer: Retained<AVSampleBufferVideoRenderer>,
     controller: Retained<AVPictureInPictureController>,
-    _delegate: Retained<PlaybackDelegate>,
+    delegate: Retained<PlaybackDelegate>,
     playback: crate::PlaybackStore,
     clock: objc2_core_foundation::CFRetained<CMClock>,
     timebase: objc2_core_foundation::CFRetained<CMTimebase>,
     frame_source: Option<PipFrameSource>,
     last_seek_generation: u64,
-    pending_start: bool,
     has_sample: bool,
 }
 
@@ -153,6 +213,7 @@ impl MacPictureInPicture {
         reason = "The Core Media clock output is checked for null after creation"
     )]
     pub(crate) fn new(
+        player: slint::Weak<crate::PlayerWindow>,
         commands: CommandSender,
         playback: crate::PlaybackStore,
         mtm: MainThreadMarker,
@@ -165,7 +226,7 @@ impl MacPictureInPicture {
         let layer = unsafe { AVSampleBufferDisplayLayer::new() };
         // SAFETY: the macOS 14+ renderer accessor receives a live sample-buffer layer.
         let renderer = unsafe { layer.sampleBufferRenderer() };
-        let delegate = PlaybackDelegate::new(mtm, commands, playback.clone());
+        let delegate = PlaybackDelegate::new(mtm, player, commands, playback.clone());
         let protocol = ProtocolObject::from_ref(&*delegate);
         // SAFETY: the main-thread owner retains the layer and typed delegate for the
         // lifetime of the AVKit controller.
@@ -216,19 +277,19 @@ impl MacPictureInPicture {
         // SAFETY: the main-thread owner retains all AVKit objects and the control timebase.
         unsafe {
             layer.setControlTimebase(Some(&timebase));
+            controller.setDelegate(Some(ProtocolObject::from_ref(&*delegate)));
             controller.setCanStartPictureInPictureAutomaticallyFromInline(false);
         }
         Ok(Self {
             _layer: layer,
             renderer,
             controller,
-            _delegate: delegate,
+            delegate,
             playback,
             clock,
             timebase,
             frame_source: None,
             last_seek_generation: 0,
-            pending_start: false,
             has_sample: false,
         })
     }
@@ -244,31 +305,39 @@ impl MacPictureInPicture {
         Ok(())
     }
 
-    pub(crate) fn toggle(&mut self) -> Result<(), String> {
-        // SAFETY: the session retains the main-thread AVKit controller.
-        if unsafe { self.controller.isPictureInPictureActive() } {
-            self.pending_start = false;
-            // SAFETY: the live controller is stopped on its owning thread.
-            unsafe { self.controller.stopPictureInPicture() };
-            return Ok(());
+    pub(crate) fn toggle(&self) {
+        let transition = &self.delegate.ivars().transition;
+        match transition.get() {
+            Transition::Starting | Transition::Stopping => return,
+            Transition::WaitingForSource => {
+                transition.set(Transition::Idle);
+                return;
+            }
+            Transition::Idle => {}
         }
-        if !self.has_sample {
-            self.pending_start = true;
-            return Ok(());
+        // SAFETY: the retained controller is queried and stopped on its owning thread.
+        unsafe {
+            if self.controller.isPictureInPictureActive() {
+                transition.set(Transition::Stopping);
+                self.controller.stopPictureInPicture();
+                return;
+            }
         }
-        // SAFETY: the retained controller belongs to this UI session.
-        if !unsafe { self.controller.isPictureInPicturePossible() } {
-            self.pending_start = true;
-            return Ok(());
-        }
-        // SAFETY: this live main-thread controller has a sample and reports availability.
-        unsafe { self.controller.startPictureInPicture() };
-        Ok(())
+        transition.set(Transition::WaitingForSource);
+        self.advance_start();
     }
 
-    pub(crate) fn is_active(&self) -> bool {
-        // SAFETY: the session keeps the controller alive on its owning thread.
-        unsafe { self.controller.isPictureInPictureActive() }
+    pub(crate) fn advance_start(&self) {
+        let transition = &self.delegate.ivars().transition;
+        if transition.get() == Transition::WaitingForSource && self.has_sample {
+            // SAFETY: the controller owns a sample source and remains on its owning thread.
+            unsafe {
+                if self.controller.isPictureInPicturePossible() {
+                    transition.set(Transition::Starting);
+                    self.controller.startPictureInPicture();
+                }
+            }
+        }
     }
 
     pub(crate) fn synchronize_playback(&mut self) {
@@ -351,16 +420,7 @@ impl MacPictureInPicture {
                 self.enqueue_sample(&sample);
             }
         }
-        if self.pending_start && self.has_sample {
-            // SAFETY: the main-thread render notifier retains this controller
-            // and its ready media source throughout the availability check.
-            unsafe {
-                if self.controller.isPictureInPicturePossible() {
-                    self.pending_start = false;
-                    self.controller.startPictureInPicture();
-                }
-            }
-        }
+        self.advance_start();
         Ok(())
     }
 

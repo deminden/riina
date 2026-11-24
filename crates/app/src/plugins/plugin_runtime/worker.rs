@@ -423,11 +423,15 @@ fn run_callbacks(
                 | RuntimeCommand::DeliverStandaloneMessage(..)
                 | RuntimeCommand::DeliverMpvHook(..)
                 | RuntimeCommand::DeliverWebSocket(_)
+                | RuntimeCommand::DeliverWindowModeEvent(..)
                 | RuntimeCommand::RunSubtitleProvider(_)),
             ) => {
                 execution.begin();
                 let (label, evaluated) = dispatch_typed_callback(context, services, command);
-                if finish_turn(runtime, execution, events, developer, label, evaluated) {
+                let interrupted =
+                    finish_turn(runtime, execution, events, developer, label, evaluated);
+                super::core_api::EVENT_WINDOW_MODES.set(None);
+                if interrupted {
                     break;
                 }
                 continue;
@@ -447,6 +451,11 @@ fn dispatch_typed_callback(
     command: RuntimeCommand,
 ) -> (&'static str, Result<(), String>) {
     match command {
+        RuntimeCommand::DeliverWindowModeEvent(name, active, modes) => {
+            super::core_api::EVENT_WINDOW_MODES.set(Some(modes));
+            let script = message_script("iina.event.__dispatch", name, &active.into());
+            ("window mode callback", evaluate_callback(context, script))
+        }
         RuntimeCommand::DeliverUtility(delivery) => {
             ("utility callback", delivery.dispatch(context))
         }

@@ -106,6 +106,7 @@ enum RuntimeCommand {
     ActivatePlaylistMenuItem(u64, String),
     DeliverPluginMessage(String, serde_json::Value, Option<String>),
     DeliverPlayerEvent(String, serde_json::Value),
+    DeliverWindowModeEvent(&'static str, bool, crate::plugin_files::WindowModes),
     DeliverStandaloneMessage(u64, String, serde_json::Value),
     DeliverInput(input::Request),
     DeliverMpvHook(u32, riina_mpv::MpvHookContinuation),
@@ -513,10 +514,18 @@ impl PluginRuntimeSession {
         }
         self.commands
             .try_send(RuntimeCommand::DeliverPlayerEvent(name, data))
-            .map_err(|error| match error {
-                mpsc::TrySendError::Full(_) => "Plugin event queue is busy".into(),
-                mpsc::TrySendError::Disconnected(_) => "Plugin session has stopped".into(),
-            })
+            .map_err(player_event_queue_error)
+    }
+
+    pub(crate) fn deliver_window_mode_event(
+        &self,
+        event: &'static str,
+        active: bool,
+        modes: crate::plugin_files::WindowModes,
+    ) -> Result<(), String> {
+        self.commands
+            .try_send(RuntimeCommand::DeliverWindowModeEvent(event, active, modes))
+            .map_err(player_event_queue_error)
     }
 
     pub(crate) fn flush_events(&self, timeout: Duration) -> Result<(), String> {
@@ -538,6 +547,13 @@ impl PluginRuntimeSession {
             .lock()
             .map_err(|_| "Plugin event queue was poisoned".to_owned())?;
         Ok(std::mem::take(&mut *events))
+    }
+}
+
+fn player_event_queue_error(error: mpsc::TrySendError<RuntimeCommand>) -> String {
+    match error {
+        mpsc::TrySendError::Full(_) => "Plugin event queue is busy".into(),
+        mpsc::TrySendError::Disconnected(_) => "Plugin session has stopped".into(),
     }
 }
 

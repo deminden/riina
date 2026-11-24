@@ -149,16 +149,13 @@ fn player_context_reports_file_loaded_and_changed_mpv_properties() {
 }
 
 #[test]
-fn player_context_reports_window_geometry_and_mode_changes() {
+fn player_context_reports_observed_window_geometry_and_focus_changes() {
     let previous = PluginPlayerFileContext::default();
     let initial = BTreeMap::from([
         (
             "frame".into(),
             serde_json::json!({"x": 10, "y": 20, "width": 640, "height": 360}),
         ),
-        ("fullscreen".into(), serde_json::json!(false)),
-        ("pip".into(), serde_json::json!(false)),
-        ("music-mode".into(), serde_json::json!(false)),
         ("miniaturized".into(), serde_json::Value::Null),
         ("main".into(), serde_json::json!(false)),
         ("window-size-adjusted-event".into(), serde_json::json!(0)),
@@ -173,9 +170,6 @@ fn player_context_reports_window_geometry_and_mode_changes() {
             "frame".into(),
             serde_json::json!({"x": 35, "y": 42, "width": 800, "height": 450}),
         ),
-        ("fullscreen".into(), serde_json::json!(true)),
-        ("pip".into(), serde_json::json!(true)),
-        ("music-mode".into(), serde_json::json!(true)),
         ("miniaturized".into(), serde_json::json!(false)),
         ("main".into(), serde_json::json!(true)),
         ("window-size-adjusted-event".into(), serde_json::json!(1)),
@@ -200,9 +194,6 @@ fn player_context_reports_window_geometry_and_mode_changes() {
                 "iina.window-size-adjusted".into(),
                 serde_json::json!({"x":35,"y":42,"width":800,"height":450}),
             ),
-            ("iina.window-fs.changed".into(), serde_json::json!(true)),
-            ("iina.pip.changed".into(), serde_json::json!(true)),
-            ("iina.music-mode.changed".into(), serde_json::json!(true)),
             ("iina.window-main.changed".into(), serde_json::json!(true)),
         ]
     );
@@ -229,9 +220,6 @@ fn player_context_reports_window_geometry_and_mode_changes() {
             "frame".into(),
             serde_json::json!({"x": 35, "y": 42, "width": 800, "height": 450}),
         ),
-        ("fullscreen".into(), serde_json::json!(true)),
-        ("pip".into(), serde_json::json!(true)),
-        ("music-mode".into(), serde_json::json!(true)),
         ("miniaturized".into(), serde_json::json!(true)),
         ("main".into(), serde_json::json!(true)),
         (

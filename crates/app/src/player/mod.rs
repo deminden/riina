@@ -8,6 +8,7 @@ pub(crate) mod player_manager;
 pub(crate) mod player_ui;
 pub(crate) mod playlist_export;
 pub(crate) mod playlist_metadata;
+pub(crate) mod presentation;
 pub(crate) mod screenshot_osd;
 pub(crate) mod screenshot_output;
 pub(crate) mod seek_osd;

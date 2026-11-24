@@ -83,8 +83,13 @@ mod macos {
             let manager = objc2::MainThreadMarker::new()
                 .ok_or_else(|| std::io::Error::other("PiP setup must run on the macOS main thread"))
                 .and_then(|main_thread| {
-                    MacPictureInPicture::new(player.clone(), playback.clone(), main_thread)
-                        .map_err(std::io::Error::other)
+                    MacPictureInPicture::new(
+                        app.as_weak(),
+                        player.clone(),
+                        playback.clone(),
+                        main_thread,
+                    )
+                    .map_err(std::io::Error::other)
                 });
             *self.manager.borrow_mut() = match manager {
                 Ok(manager) => Some(manager),
@@ -98,10 +103,10 @@ mod macos {
             app.global::<riina_ui::PlayerMenuActions>()
                 .on_toggle_picture_in_picture(move || {
                     let result = toggle_manager
-                        .borrow_mut()
-                        .as_mut()
+                        .borrow()
+                        .as_ref()
                         .ok_or_else(|| "macOS PiP is unavailable on this system".to_owned())
-                        .and_then(MacPictureInPicture::toggle);
+                        .map(MacPictureInPicture::toggle);
                     if let Err(error) = result
                         && let Some(app) = weak_app.upgrade()
                     {
@@ -111,26 +116,19 @@ mod macos {
 
             if self.manager.borrow().is_none() {
                 self.timer.stop();
-                app.set_picture_in_picture_active(false);
                 return;
             }
 
             let manager = self.manager.clone();
             let dirty = self.dirty.clone();
-            let weak_app = app.as_weak();
             self.timer
                 .start(TimerMode::Repeated, Duration::from_millis(100), move || {
-                    let mut active = false;
                     if let Some(manager) = manager.borrow_mut().as_mut() {
-                        active = manager.is_active();
                         if dirty.swap(false, Ordering::AcqRel) {
                             manager.synchronize_playback();
                         }
-                    }
-                    if let Some(app) = weak_app.upgrade()
-                        && app.get_picture_in_picture_active() != active
-                    {
-                        app.set_picture_in_picture_active(active);
+                        // AVKit availability can change while playback has no new frames.
+                        manager.advance_start();
                     }
                 });
         }

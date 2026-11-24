@@ -429,10 +429,10 @@ fn toggle(controller: Rc<RefCell<Controller>>) {
                 if let Some(host) = host_weak.upgrade() {
                     host.set_picture_in_picture_active(true);
                 }
-                if let Some(player) = player_weak.upgrade() {
-                    player.set_picture_in_picture_active(true);
-                }
                 *active.borrow_mut() = Some(session);
+                if let Some(player) = player_weak.upgrade() {
+                    crate::player::presentation::set_picture_in_picture(&player, true);
+                }
             }
             Err(error) => {
                 if let Some(player) = player_weak.upgrade() {
@@ -529,7 +529,7 @@ fn exit(controller: Rc<RefCell<Controller>>) {
         });
     }
     if let Some(player) = player_weak.upgrade() {
-        player.set_picture_in_picture_active(false);
+        crate::player::presentation::set_picture_in_picture(&player, false);
     }
     if let Some(player) = player_weak.upgrade() {
         player.window().with_winit_window(|window| {

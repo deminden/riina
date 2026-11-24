@@ -31,9 +31,12 @@ owner that remains alive for the player session. The delegate routes play, pause
 and skip requests into the existing player, reports duration and paused state,
 and refreshes AVKit playback controls when player state changes. Unknown duration
 is reported as live playback. Starting PiP is gated on a real sample having been
-enqueued. `pip_frame.rs` now creates a three-buffer IOSurface-backed Core Video
-pool, binds each surface to a temporary rectangle texture in the existing CGL
-context, renders through the same libmpv surface, and wraps it in a timed
+enqueued. The session waits for AVKit's start and stop callbacks before
+publishing the corresponding player state. Its controller waits for a source
+sample, accepts cancellation while waiting, and rechecks AVKit availability
+when playback is paused. `pip_frame.rs` creates a three-buffer IOSurface-backed
+Core Video pool, binds each surface to a temporary rectangle texture in the
+existing CGL context, renders through the same libmpv surface, and wraps it in a timed
 `CMSampleBuffer`. The player rendering notifier feeds this producer, limits
 active samples to about 30 fps and inactive refreshes to one per second, and
 resets the source after completed seeks. Frames are capped at 640 pixels on the

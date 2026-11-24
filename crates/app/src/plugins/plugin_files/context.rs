@@ -1,9 +1,46 @@
 //! Owned player snapshot and event diffs exposed to plugin APIs.
+use riina_ui::PlayerWindowMode;
 use std::{
     collections::{BTreeMap, VecDeque},
     path::PathBuf,
     sync::Arc,
 };
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) struct WindowModes {
+    fullscreen: Option<bool>,
+    pip: Option<bool>,
+    music_mode: bool,
+}
+
+impl WindowModes {
+    pub(crate) fn property(self, name: &str) -> Option<serde_json::Value> {
+        match name {
+            "fullscreen" => Some(serde_json::json!(self.fullscreen)),
+            "pip" => Some(serde_json::json!(self.pip)),
+            "music-mode" => Some(serde_json::json!(self.music_mode)),
+            _ => None,
+        }
+    }
+
+    fn confirm(&mut self, mode: PlayerWindowMode, active: bool) -> Option<&'static str> {
+        let (previous, event) = match mode {
+            PlayerWindowMode::Fullscreen => (
+                self.fullscreen.replace(active).unwrap_or_default(),
+                "iina.window-fs.changed",
+            ),
+            PlayerWindowMode::PictureInPicture => (
+                self.pip.replace(active).unwrap_or_default(),
+                "iina.pip.changed",
+            ),
+            PlayerWindowMode::MusicMode => (
+                std::mem::replace(&mut self.music_mode, active),
+                "iina.music-mode.changed",
+            ),
+        };
+        (previous != active).then_some(event)
+    }
+}
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub(crate) struct PluginPlaylist {
@@ -24,6 +61,7 @@ pub(crate) struct PluginPlayerFileContext {
     pub(super) playlist: PluginPlaylist,
     pub(super) core_version: serde_json::Value,
     pub(super) core_window_properties: BTreeMap<String, serde_json::Value>,
+    pub(super) window_modes: WindowModes,
     pub(super) recent_documents: Vec<serde_json::Value>,
     pub(super) playback_history: Vec<serde_json::Value>,
 }
@@ -52,10 +90,7 @@ impl PluginPlayerFileContext {
             core_version: serde_json::Value::Null,
             core_window_properties: BTreeMap::from([
                 ("loaded".into(), serde_json::Value::Bool(false)),
-                ("music-mode".into(), serde_json::json!(false)),
                 ("frame".into(), serde_json::Value::Null),
-                ("fullscreen".into(), serde_json::Value::Null),
-                ("pip".into(), serde_json::Value::Null),
                 ("ontop".into(), serde_json::Value::Null),
                 ("visible".into(), serde_json::Value::Null),
                 ("main".into(), serde_json::json!(false)),
@@ -63,6 +98,11 @@ impl PluginPlayerFileContext {
                 ("screens".into(), serde_json::Value::Null),
                 ("miniaturized".into(), serde_json::Value::Null),
             ]),
+            window_modes: WindowModes {
+                fullscreen: None,
+                pip: None,
+                music_mode: false,
+            },
             recent_documents: Vec::new(),
             playback_history: Vec::new(),
         }
@@ -102,6 +142,7 @@ impl PluginPlayerFileContext {
     pub(crate) fn replace_playback_snapshot(&mut self, mut playback: Self) {
         // Window observations arrive independently of playback and media changes.
         playback.core_window_properties = std::mem::take(&mut self.core_window_properties);
+        playback.window_modes = self.window_modes;
         *self = playback;
     }
 
@@ -199,21 +240,17 @@ impl PluginPlayerFileContext {
         {
             events.push(("iina.window-size-adjusted".into(), frame.clone()));
         }
-        for (property, event) in [
-            ("fullscreen", "iina.window-fs.changed"),
-            ("pip", "iina.pip.changed"),
-            ("music-mode", "iina.music-mode.changed"),
-            ("main", "iina.window-main.changed"),
-        ] {
-            if let (Some(previous), Some(current)) = (
-                self.core_window_properties
-                    .get(property)
-                    .and_then(serde_json::Value::as_bool),
-                next.get(property).and_then(serde_json::Value::as_bool),
-            ) && previous != current
-            {
-                events.push((event.into(), serde_json::json!(current)));
-            }
+        if let (Some(previous), Some(current)) = (
+            self.core_window_properties
+                .get("main")
+                .and_then(serde_json::Value::as_bool),
+            next.get("main").and_then(serde_json::Value::as_bool),
+        ) && previous != current
+        {
+            events.push((
+                "iina.window-main.changed".into(),
+                serde_json::json!(current),
+            ));
         }
         if let (Some(previous), Some(current)) = (
             self.core_window_properties
@@ -308,7 +345,25 @@ impl PluginPlayerFileContext {
         &mut self,
         properties: BTreeMap<String, serde_json::Value>,
     ) {
+        if properties
+            .get("loaded")
+            .and_then(serde_json::Value::as_bool)
+            == Some(true)
+        {
+            self.window_modes.fullscreen.get_or_insert(false);
+            self.window_modes.pip.get_or_insert(false);
+        }
         self.core_window_properties = properties;
+    }
+
+    pub(crate) fn confirm_window_mode(
+        &mut self,
+        mode: PlayerWindowMode,
+        active: bool,
+    ) -> Option<(&'static str, WindowModes)> {
+        self.window_modes
+            .confirm(mode, active)
+            .map(|event| (event, self.window_modes))
     }
 }
 

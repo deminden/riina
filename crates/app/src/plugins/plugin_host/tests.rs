@@ -3,7 +3,7 @@ use riina_test_support::TempDir;
 use std::time::Instant;
 
 #[test]
-fn playback_updates_keep_the_plugin_window_context() {
+fn playback_updates_keep_the_plugin_window_context_and_confirmed_mode_order() {
     let scratch = TempDir::new("plugin-window-context").unwrap();
     let directory = scratch
         .path()
@@ -19,7 +19,18 @@ fn playback_updates_keep_the_plugin_window_context() {
         r"const report = label => iina.log(label + ': ' + iina.core.window.loaded + ','
             + iina.core.window.frame?.width);
         report('activation');
-        iina.event.on('iina.window-will-close', () => report('closing'));",
+        iina.event.on('iina.window-will-close', () => report('closing'));
+        for (const [name, property] of [
+            ['window-fs', 'fullscreen'], ['music-mode', 'music-mode'], ['pip', 'pip']
+        ]) {
+            iina.event.on('iina.' + name + '.changed', active => {
+                Promise.resolve().then(() => {
+                    const window = iina.core.window;
+                    iina.log('mode ' + property + ': ' + active + ',' + window[property] + ','
+                        + window.fullscreen + ',' + window['music-mode'] + ',' + window.pip);
+                });
+            });
+        }",
     )
     .unwrap();
     let host = PluginHost::start(&scratch.path().join("preferences.json"), &[], &[]).unwrap();
@@ -45,7 +56,19 @@ fn playback_updates_keep_the_plugin_window_context() {
     handle
         .update_player_file_context(PluginPlayerFileContext::default().with_media_generation(2))
         .unwrap();
-    handle.notify_window_will_close().unwrap();
+    let mut changes = vec![
+        (PlayerWindowMode::Fullscreen, true),
+        (PlayerWindowMode::Fullscreen, true),
+        (PlayerWindowMode::Fullscreen, false),
+        (PlayerWindowMode::MusicMode, true),
+        (PlayerWindowMode::MusicMode, false),
+        (PlayerWindowMode::PictureInPicture, true),
+    ];
+    handle.flush_window_modes(&mut changes);
+    assert!(changes.is_empty());
+    handle
+        .notify_window_will_close(vec![(PlayerWindowMode::PictureInPicture, false)])
+        .unwrap();
     drop(host);
     let messages = handle.drain_messages().unwrap();
     for expected in ["activation: true,1040", "closing: true,1040"] {
@@ -56,6 +79,24 @@ fn playback_updates_keep_the_plugin_window_context() {
             "Missing {expected:?} in {messages:?}"
         );
     }
+    let mode_logs = messages
+        .iter()
+        .filter_map(|message| match message {
+            PluginHostMessage::Log(text) => text.split_once("mode ").map(|(_, log)| log),
+            _ => None,
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(
+        mode_logs,
+        [
+            "fullscreen: true,true,true,false,false",
+            "fullscreen: false,false,false,false,false",
+            "music-mode: true,true,false,true,false",
+            "music-mode: false,false,false,false,false",
+            "pip: true,true,false,false,true",
+            "pip: false,false,false,false,false",
+        ],
+    );
 }
 
 #[test]
@@ -217,7 +258,7 @@ fn plugins_enabled_after_window_and_mpv_initialization_receive_events_once() {
         messages.extend(handle.drain_messages().unwrap());
         std::thread::sleep(Duration::from_millis(10));
     }
-    handle.notify_window_will_close().unwrap();
+    handle.notify_window_will_close(Vec::new()).unwrap();
     drop(host);
     messages.extend(handle.drain_messages().unwrap());
     assert!(received(&messages, "late-window-loaded"));
@@ -526,7 +567,7 @@ fn verify_playlist_menu_actions(handle: &PluginHostHandle) {
             .activate_playlist_menu_item(request, "org.example.menu".into(), id.clone())
             .unwrap();
     }
-    handle.notify_window_will_close().unwrap();
+    handle.notify_window_will_close(Vec::new()).unwrap();
 }
 
 #[test]

@@ -48,6 +48,5 @@ pub(super) fn install_window_resize(app: &PlayerWindow) {
 
 pub(super) fn toggle_manually(app: &PlayerWindow, state: &Mutex<State>) {
     let active = lock(state).toggle_manually();
-    app.global::<riina_ui::PlayerMusicModeState>()
-        .set_music_mode(active);
+    crate::player::presentation::set_music_mode(app, active);
 }

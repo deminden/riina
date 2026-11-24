@@ -1,9 +1,18 @@
 //! Typed playback and window API bindings.
 use super::{AvailablePermissions, HostEvent, UiEffect, output::record};
-use crate::plugin_files::PluginFiles;
+use crate::plugin_files::{PluginFiles, WindowModes};
 use riina_core::{Command, control_preferences::SeekType, plugin::WindowAction};
 use rquickjs::{Ctx, Object, function::Func};
-use std::sync::{Arc, Mutex};
+use std::{
+    cell::Cell,
+    sync::{Arc, Mutex},
+};
+
+thread_local! {
+    // Each realm has its own worker. The callback and its microtasks read the
+    // modes at the confirmed transition even if the host has since moved on.
+    pub(super) static EVENT_WINDOW_MODES: Cell<Option<WindowModes>> = const { Cell::new(None) };
+}
 
 pub(super) fn install_plugin_core_api<'js>(
     ctx: Ctx<'js>,
@@ -305,8 +314,14 @@ fn install_window_actions(
     core_api.set(
         "__readWindowProperty",
         Func::from(move |name: String| -> rquickjs::Result<Option<String>> {
-            window_files
-                .core_window_property(&name)
+            let event_value = EVENT_WINDOW_MODES
+                .get()
+                .and_then(|modes| modes.property(&name));
+            event_value
+                .map_or_else(
+                    || window_files.core_window_property(&name),
+                    |value| Ok(Some(value)),
+                )
                 .and_then(|value| {
                     value
                         .map(|value| {

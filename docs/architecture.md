@@ -497,6 +497,11 @@ the window manager's EWMH state. The shared controller applies playback
 preferences and exits Picture in Picture on confirmed transitions. Music Mode
 waits for the fullscreen exit before resizing the window.
 
+Fullscreen, Music Mode, and Picture-in-Picture confirmations enter the player's
+plugin command queue in order. The periodic window snapshot tracks geometry,
+focus, minimization, and displays. During each mode callback and its Promise
+jobs, the plugin sees the presentation state from that transition.
+
 Test playback can use null native output or a recording engine to exercise UI
 callbacks without a native window. Windows software-rendered pixel
 baselines cover the Slint surfaces. The platform service recipe shows how to

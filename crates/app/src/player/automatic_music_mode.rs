@@ -60,8 +60,7 @@ pub(crate) fn observe(app: &PlayerWindow, playback: &Playback, mode: &Mutex<Stat
         mode.observe(status, fullscreen)
     };
     if let Some(active) = transition {
-        app.global::<riina_ui::PlayerMusicModeState>()
-            .set_music_mode(active);
+        super::presentation::set_music_mode(app, active);
     }
 }
 

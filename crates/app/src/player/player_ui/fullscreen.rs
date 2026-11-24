@@ -247,6 +247,7 @@ impl Controller {
 
 fn publish(app: &PlayerWindow, fullscreen: bool) {
     app.set_fullscreen(fullscreen);
+    app.invoke_window_mode_confirmed(riina_ui::PlayerWindowMode::Fullscreen, fullscreen);
     let preferences = app.global::<PlayerPreferences>();
     let playback_policy = if fullscreen {
         preferences.get_play_when_entering_fullscreen()

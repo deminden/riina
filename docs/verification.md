@@ -2751,3 +2751,34 @@ Native macOS fullscreen and the full application remain unverified.
 - Linux application SHA-256 `225b58817a071391654aa0555cd277ccd612775c0ce7ffb911fe4b7190ee9254`
 - X11 libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`
 - Wayland libmpv SHA-256 `cdce854e1811942602587310026306d92d30c0f593f2be676f07659ae43061d8`
+
+### Plugin presentation events and Wayland Music Mode 2026-11-24
+
+The Windows workspace gate passed 955 tests, including the player and Settings
+pixel comparison, and all 78 Python tests. The 59 pinned native-engine tests
+passed. The plugin host regression exercises repeated and rapid mode changes,
+the matching state read from each callback's Promise jobs, and pending event
+delivery before window close.
+
+The Windows private desktop verified the ordered fullscreen, Music Mode and
+Picture-in-Picture entry and exit events against a real player plugin. The
+player returned to its paused video and original bounds after Music Mode.
+The test closed the separate PiP window and observed the exit event. After
+the player menu returned, it cancelled and completed a Unicode playlist
+export before closing the exact process. PiP video pixels were outside this
+check.
+
+An isolated 1280 × 800 Sway session on Ubuntu 26.04.1 verified fullscreen
+playback preferences, the default Ctrl+Alt+M shortcut, the fullscreen Music
+Mode toolbar action, and the compact Return to player control. Both routes
+restored the same paused media and player bounds. Full-output fixtures
+confirmed video pixels, and a plugin recorded all ten expected transitions
+with matching state. Compositor close exited the tested process.
+
+Strict Apple Silicon workspace cross-Clippy passed. The AVKit delegate's
+started, stopped, and failed-start paths still require native macOS execution.
+
+- Windows application SHA-256 `14a37312bf8d1d259f3a3f880d81155312ae330ac493319980c64ed66bf11c29`
+- Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
+- Linux application SHA-256 `1a285aed3aed5db8645eb0b37b9b3fa6cc237c0ce10f578ceb66ab340e9e3453`
+- Wayland libmpv SHA-256 `cdce854e1811942602587310026306d92d30c0f593f2be676f07659ae43061d8`

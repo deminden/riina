@@ -19,6 +19,7 @@ use riina_core::{
     plugin_menu::PluginMenuItem,
     plugin_sidebar::PluginSidebarEffect,
 };
+use riina_ui::PlayerWindowMode;
 use std::{
     collections::{BTreeMap, BTreeSet},
     fs,
@@ -28,6 +29,8 @@ use std::{
     time::Duration,
 };
 use ui_activity::UiActivity;
+
+pub(crate) type WindowModeChange = (PlayerWindowMode, bool);
 
 const MAX_PENDING_MESSAGES: usize = 256;
 // Timers and cross-context callbacks produce events while no host command arrives.
@@ -137,6 +140,16 @@ impl PluginHostHandle {
             .map_err(command_error)
     }
 
+    pub(crate) fn flush_window_modes(&self, pending: &mut Vec<WindowModeChange>) {
+        if !pending.is_empty()
+            && let Err(mpsc::TrySendError::Full(PluginCommand::WindowModes(changes))) = self
+                .commands
+                .try_send(PluginCommand::WindowModes(std::mem::take(pending)))
+        {
+            *pending = changes;
+        }
+    }
+
     pub(crate) fn notify_window_loaded(&self) -> Result<(), String> {
         self.commands
             .try_send(PluginCommand::WindowLoaded)
@@ -173,10 +186,13 @@ impl PluginHostHandle {
         self.global.change(PackageChange::Reload(BTreeSet::new()))
     }
 
-    pub(crate) fn notify_window_will_close(&self) -> Result<(), String> {
+    pub(crate) fn notify_window_will_close(
+        &self,
+        pending: Vec<WindowModeChange>,
+    ) -> Result<(), String> {
         let (response, result) = mpsc::sync_channel(1);
         self.commands
-            .try_send(PluginCommand::WindowWillClose(response))
+            .try_send(PluginCommand::WindowWillClose(pending, response))
             .map_err(command_error)?;
         result
             .recv_timeout(Duration::from_secs(2))
@@ -427,11 +443,12 @@ enum PluginCommand {
     GlobalMenu(PluginHostMessage),
     UpdatePlayerFileContext(PluginPlayerFileContext),
     UpdateWindowProperties(BTreeMap<String, serde_json::Value>),
+    WindowModes(Vec<WindowModeChange>),
     WindowLoaded,
     PluginOverlayLoaded(Option<PlayerPluginRoute>),
     ThumbnailsReady,
     MenuUpdate,
-    WindowWillClose(mpsc::SyncSender<()>),
+    WindowWillClose(Vec<WindowModeChange>, mpsc::SyncSender<()>),
     #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
     DeliverOverlayMessage {
         route: PlayerPluginRoute,
@@ -655,6 +672,9 @@ fn handle_command(
             player_context.set_core_window_properties(properties);
             update_player_sessions(player_context, &events, messages, sessions);
         }
+        PluginCommand::WindowModes(changes) => {
+            deliver_window_modes(changes, player_context, messages, sessions);
+        }
         PluginCommand::WindowLoaded => {
             if !std::mem::replace(window_loaded, true) {
                 for key in sessions.keys() {
@@ -676,7 +696,8 @@ fn handle_command(
         PluginCommand::MenuUpdate => {
             broadcast_player_event("iina.menu-update", messages, sessions);
         }
-        PluginCommand::WindowWillClose(response) => {
+        PluginCommand::WindowWillClose(pending, response) => {
+            deliver_window_modes(pending, player_context, messages, sessions);
             flush_closing_sessions(messages, sessions);
             // The caller can finish closing before the acknowledgement arrives.
             let _ = response.send(());
@@ -798,6 +819,27 @@ fn update_player_sessions(
         for (name, data) in events {
             if session.is_subscribed_to_player_event(name)
                 && let Err(error) = session.deliver_player_event(name.clone(), data.clone())
+            {
+                record(messages, PluginHostMessage::Status(error));
+            }
+        }
+    }
+}
+
+fn deliver_window_modes(
+    changes: Vec<WindowModeChange>,
+    player_context: &mut PluginPlayerFileContext,
+    messages: &Mutex<Vec<PluginHostMessage>>,
+    sessions: &BTreeMap<PluginInstanceKey, PluginRuntimeSession>,
+) {
+    for (mode, active) in changes {
+        let Some((event, modes)) = player_context.confirm_window_mode(mode, active) else {
+            continue;
+        };
+        for session in sessions.values() {
+            session.update_player_file_context(player_context.clone());
+            if session.is_subscribed_to_player_event(event)
+                && let Err(error) = session.deliver_window_mode_event(event, active, modes)
             {
                 record(messages, PluginHostMessage::Status(error));
             }

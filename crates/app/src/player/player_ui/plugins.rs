@@ -5,7 +5,9 @@ mod effects;
 mod input;
 use super::playlist_menu;
 
-use crate::{PlayerWindow, background::CoalescedUiCallback, platform};
+use crate::{
+    PlayerWindow, background::CoalescedUiCallback, platform, plugin_host::WindowModeChange,
+};
 pub(crate) use application::ApplicationPlugins;
 use effects::PluginEffects;
 use riina_ui::PlayerMenuActions;
@@ -91,11 +93,13 @@ pub(super) fn install(
     let dialog_owner = services
         .as_ref()
         .map(|services| services.dialogs.register(app, plugin_window_host.clone()));
+    let pending_modes = bind_window_modes(app, plugin_host_handle.clone());
     bind_lifecycle(
         app,
         plugin_host_handle.as_ref(),
         presenters.sidebar.clone(),
         developer_tools.as_ref(),
+        pending_modes.clone(),
     );
     playlist_menu::install(app, plugin_host_handle.as_ref());
     if let Some(handle) = &plugin_host_handle {
@@ -197,6 +201,7 @@ pub(super) fn install(
                     }
                 }
             });
+            messages.flush_window_modes(&mut pending_modes.borrow_mut());
             window_events.observe(&app, timer.interval() == WINDOW_PROPERTIES_INTERVAL);
             let Ok(batch) = messages.drain_messages() else {
                 return;
@@ -223,6 +228,22 @@ pub(super) fn install(
         plugin_osd_timer,
         plugin_command_sender,
     }
+}
+
+fn bind_window_modes(
+    app: &PlayerWindow,
+    host: Option<crate::plugin_host::PluginHostHandle>,
+) -> Rc<RefCell<Vec<WindowModeChange>>> {
+    let pending_modes = Rc::new(RefCell::new(Vec::new()));
+    if let Some(host) = host {
+        let pending = pending_modes.clone();
+        app.on_window_mode_confirmed(move |mode, active| {
+            let mut pending = pending.borrow_mut();
+            pending.push((mode, active));
+            host.flush_window_modes(&mut pending);
+        });
+    }
+    pending_modes
 }
 
 fn bind_host_wake(
@@ -268,6 +289,7 @@ fn bind_lifecycle(
     plugin_host_handle: Option<&crate::plugin_host::PluginHostHandle>,
     sidebar: Rc<RefCell<platform::PluginSidebarPresenter>>,
     developer_tools: Option<&Rc<RefCell<developer::Presenter>>>,
+    pending_modes: Rc<RefCell<Vec<WindowModeChange>>>,
 ) {
     let menu_action_host = plugin_host_handle.cloned();
     let menu_action_app = app.as_weak();
@@ -346,8 +368,9 @@ fn bind_lifecycle(
         {
             presenter.close_all();
         }
+        let pending = std::mem::take(&mut *pending_modes.borrow_mut());
         if let Some(host) = &close_event_host
-            && let Err(error) = host.notify_window_will_close()
+            && let Err(error) = host.notify_window_will_close(pending)
             && let Some(app) = weak.upgrade()
         {
             crate::diagnostics::report(
@@ -579,18 +602,6 @@ fn plugin_window_properties(
 ) -> BTreeMap<String, serde_json::Value> {
     let mut properties = BTreeMap::from([
         ("loaded".into(), serde_json::Value::Bool(false)),
-        (
-            "music-mode".into(),
-            serde_json::json!(
-                app.global::<riina_ui::PlayerMusicModeState>()
-                    .get_music_mode()
-            ),
-        ),
-        ("fullscreen".into(), serde_json::json!(app.get_fullscreen())),
-        (
-            "pip".into(),
-            serde_json::json!(app.get_picture_in_picture_active()),
-        ),
         (
             "ontop".into(),
             serde_json::json!(
