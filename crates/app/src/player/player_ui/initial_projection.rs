@@ -19,7 +19,6 @@ pub(super) fn install_session(
 ) -> SessionProjection {
     install_platform(app, prefs);
     let latest_playback = crate::PlaybackStore::default();
-    crate::about_window::connect(app, latest_playback.clone());
     super::lifecycle::install_pause_on_minimize(
         app,
         native.map(|presentation| presentation.host()),

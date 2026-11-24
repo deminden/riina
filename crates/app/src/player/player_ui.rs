@@ -60,7 +60,6 @@ use std::rc::Rc;
 pub(crate) fn help_menu_url(destination: &str) -> Option<&'static str> {
     match destination {
         "help" => Some("https://github.com/deminden/riina#status"),
-        "release-highlights" => Some("https://github.com/deminden/riina/releases/latest"),
         "github" => Some("https://github.com/deminden/riina"),
         // The repository README is the project's user-facing homepage.
         "website" => Some("https://github.com/deminden/riina#readme"),
@@ -77,10 +76,6 @@ mod help_menu_tests {
         assert_eq!(
             help_menu_url("help"),
             Some("https://github.com/deminden/riina#status")
-        );
-        assert_eq!(
-            help_menu_url("release-highlights"),
-            Some("https://github.com/deminden/riina/releases/latest")
         );
         assert_eq!(
             help_menu_url("github"),
@@ -268,12 +263,22 @@ pub(crate) struct ApplicationServices {
     pub(crate) history: Rc<crate::playback_history_window::ApplicationHistory>,
     inspector: Rc<crate::windows::media_inspector::ApplicationInspector>,
     logs: Rc<crate::log_viewer::ApplicationLogViewer>,
+    highlights: Rc<crate::windows::release_highlights::ReleaseHighlights>,
+    about: Rc<crate::about_window::ApplicationAbout>,
     recents: Rc<recent_activity::ApplicationRecents>,
     updates: Rc<crate::updates::ApplicationUpdates>,
     power: Rc<crate::playback_power::ApplicationPower>,
 }
 
 impl ApplicationServices {
+    pub(crate) fn present_release_highlights(
+        &self,
+        app: &PlayerWindow,
+        welcome: Option<&WelcomeWindow>,
+    ) {
+        self.highlights.show_first_launch(app, welcome);
+    }
+
     fn connect_preferences(
         &self,
         app: &PlayerWindow,
@@ -296,6 +301,8 @@ impl ApplicationServices {
             context.commands().clone(),
             context.preferences_path(),
         );
+        self.highlights.connect(app);
+        self.about.connect(app, context.playback().clone());
         session_preferences::connect(
             app,
             context,

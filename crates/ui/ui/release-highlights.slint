@@ -1,0 +1,90 @@
+import { Button, ScrollView } from "std-widgets.slint";
+import { NativeTypography } from "shared-controls.slint";
+import { Theme } from "theme.slint";
+
+export enum ReleaseNoteKind { heading, paragraph, bullet }
+export struct ReleaseNoteRow {
+    kind: ReleaseNoteKind,
+    text: string,
+}
+
+export component ReleaseHighlightsWindow inherits Window {
+    title: "Release Highlights";
+    icon: @image-url("../../../assets/branding/svg/riina-app-icon-dark.svg");
+    preferred-width: 740px;
+    preferred-height: 588px;
+    min-width: 380px;
+    min-height: 320px;
+    default-font-family: NativeTypography.system-font-family;
+    background: Theme.about-content-surface(root.dark-theme);
+
+    in property <bool> dark-theme;
+    in property <string> release-name;
+    in property <[ReleaseNoteRow]> notes;
+    in property <string> message;
+    callback browse-release();
+    callback dismiss();
+    public function focus-continue() { continue-button.focus(); }
+
+    FocusScope {
+        key-pressed(event) => {
+            if event.text == Key.Escape {
+                root.dismiss();
+                return accept;
+            }
+            return reject;
+        }
+        VerticalLayout {
+            padding: 20px;
+            spacing: 12px;
+            Text {
+                text: root.release-name;
+                font-size: 24px;
+                font-weight: 600;
+                color: Theme.about-title(root.dark-theme);
+            }
+            ScrollView {
+                vertical-stretch: 1;
+                horizontal-scrollbar-policy: always-off;
+                content-width: self.visible-width;
+                content-height: notes-body.preferred-height;
+                notes-body := VerticalLayout {
+                    width: parent.width;
+                    height: self.preferred-height;
+                    spacing: 8px;
+                    for row in root.notes : HorizontalLayout {
+                        spacing: 10px;
+                        if row.kind == ReleaseNoteKind.bullet : Text {
+                            text: "•";
+                            color: Theme.about-summary-detail(root.dark-theme);
+                        }
+                        Text {
+                            text: row.text;
+                            font-size: row.kind == ReleaseNoteKind.heading ? 16px : 13px;
+                            font-weight: row.kind == ReleaseNoteKind.heading ? 600 : 400;
+                            wrap: word-wrap;
+                            color: Theme.about-summary-detail(root.dark-theme);
+                        }
+                    }
+                }
+            }
+            if !root.message.is-empty : Text {
+                text: root.message;
+                wrap: word-wrap;
+                color: Theme.about-summary-detail(root.dark-theme);
+            }
+            HorizontalLayout {
+                spacing: 8px;
+                Button {
+                    text: "View Release Online";
+                    clicked => { root.browse-release(); }
+                }
+                Rectangle { horizontal-stretch: 1; }
+                continue-button := Button {
+                    text: "Continue";
+                    clicked => { root.dismiss(); }
+                }
+            }
+        }
+    }
+}

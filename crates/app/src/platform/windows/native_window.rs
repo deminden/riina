@@ -106,7 +106,6 @@ impl NativePlayer {
         } = launch;
         let action_after_launch = loaded.preferences.action_after_launch;
         let supplied_media_argument = !media.files.is_empty();
-        let managed = media.managed.is_some();
         let managed_ticket = media.managed.clone();
         let disable_animation = media
             .managed
@@ -169,12 +168,10 @@ impl NativePlayer {
                 placement.watch_initial_media(&host, &app, owner_center);
                 install_music_mode_window(&host, &app, &startup_menu_lifecycle);
                 restore_recreated_chrome(&host, &app)?;
-                let welcome =
-                    if !managed && action_after_launch.show_welcome(supplied_media_argument) {
-                        Some(crate::WelcomeWindow::new()?)
-                    } else {
-                        None
-                    };
+                let welcome = (managed_ticket.is_none()
+                    && action_after_launch.show_welcome(supplied_media_argument))
+                .then(crate::WelcomeWindow::new)
+                .transpose()?;
                 if let Some(welcome) = &welcome {
                     keep_player_after_welcome_close(
                         welcome,
@@ -204,7 +201,7 @@ impl NativePlayer {
                     welcome.as_ref(),
                     loaded,
                     media_geometry,
-                    application_services,
+                    application_services.clone(),
                 )?;
                 placement.refresh_position_policy(&app);
                 let commands = configured
@@ -226,7 +223,9 @@ impl NativePlayer {
                 // playback loads. That leaves idle launches and cancelled open
                 // dialogs stranded at the OS-selected (often top-left) position.
                 placement.schedule(host.as_weak(), app.as_weak(), owner_center);
-                if !managed && action_after_launch.open_file_panel(supplied_media_argument) {
+                if managed_ticket.is_none()
+                    && action_after_launch.open_file_panel(supplied_media_argument)
+                {
                     app.global::<PlayerMenuActions>().invoke_open_file();
                 }
                 // Its initial DPI and frameless client geometry are not settled until
@@ -248,11 +247,12 @@ impl NativePlayer {
                     host.window()
                         .with_winit_window(|window| window.set_visible(false));
                 }
-                *startup_welcome.borrow_mut() = welcome;
-                app.window().request_redraw();
                 if actions.is_initial_window() {
+                    application_services.present_release_highlights(&app, welcome.as_ref());
                     *startup_smoke.borrow_mut() = super::package_smoke::start(&app, &host);
                 }
+                *startup_welcome.borrow_mut() = welcome;
+                app.window().request_redraw();
                 Ok::<(), Box<dyn std::error::Error>>(())
             }
             .await;

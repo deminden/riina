@@ -17,6 +17,7 @@ export component AboutWindow inherits Window {
     in property <string> ffmpeg-label: "Checking FFmpeg version…";
     in property <bool> dark-theme: false;
     in-out property <int> selected-tab: 0;
+    in property <string> link-status;
     callback open-license();
     callback open-project();
     callback open-contributors();
@@ -93,6 +94,12 @@ export component AboutWindow inherits Window {
                             font-size: 13px; color: Theme.about-body(root.dark-theme); wrap: word-wrap;
                         }
                         Button { text: "Project Website"; clicked => { root.open-project(); } }
+                    }
+                    if !root.link-status.is-empty : Text {
+                        text: root.link-status;
+                        font-size: 12px;
+                        wrap: word-wrap;
+                        color: Theme.about-body(root.dark-theme);
                     }
                 }
             }

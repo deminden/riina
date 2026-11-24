@@ -1,6 +1,6 @@
 # Current status
 
-Updated 2026-11-09. Published release: **4.2.1**. Reference: **IINA v1.5.0**
+Updated 2026-11-24. Published release: **4.2.1**. Reference: **IINA v1.5.0**
 at `fbcff4df7183b335880396af0655f6bb89d46442`.
 
 Riina is a functioning media player. Full feature, behavior and visual parity
@@ -35,6 +35,9 @@ Implementation does not imply every state or platform is verified.
 - **Inspector** opens from the Window menu and shows the focused player's
   general media details, tracks, file metadata and playback status. Watched
   mpv properties are saved in the profile and update while the window is visible.
+- **Release Highlights:** Help opens the current release notes. Released builds
+  show the bundled guide on the first launch of each version. The application
+  also shares one About window across all players.
 - **Command line:** `riina-cli` starts playback from files, URLs or standard
   input. It can return immediately or wait for the player it started.
 - **Video/audio/subtitles:** track selection and external tracks, geometry and

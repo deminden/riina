@@ -547,6 +547,12 @@ open. Each file keeps its original order and records from the two clocks are
 combined in read order. Unchanged polls keep the current list and selection.
 Export captures the chosen records before opening the viewer's save dialog.
 
+Release Highlights and About each have one application-owned window. Highlights
+reads notes bundled for the package version and opens the browser only through
+its release link. A profile lock coordinates automatic launch across processes.
+The version marker is created after the guide opens. About follows the appearance
+of the player that opened it and stays usable when that player closes.
+
 The Inspector uses the player focus events already dispatched by each window's
 platform adapter. Its shared window follows the newest live player and uses
 cached playback and track observations plus read-only libmpv requests. Only a

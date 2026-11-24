@@ -3440,3 +3440,35 @@ IINA appearance and keyboard interaction within watch rows remain open.
 - Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
 - Linux application SHA-256 `7f236bd39d9d7cbb5aafa222ba64e9b08e0bb19773bd2c31f0f4454a73d826d8`
 - X11 libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`
+
+### Release Highlights and About 2026-11-24
+
+Help opens one Release Highlights window with the bundled notes for the build's
+version. On the first release launch the app records that version after the
+window opens. The profile regression covers concurrent claims, a dropped claim
+and opening the guide for a newer version. About also has one window for the
+application and keeps its tab when reopened from another player.
+
+The full Windows workspace gate, the 60 pinned libmpv integration tests and
+strict Apple Silicon cross-Clippy passed. An isolated Linux X11 development
+build showed the paused moving-square fixture and confirmed the guide stayed
+closed at startup. Both player menus reopened the same Release Highlights and
+About windows. The guide displayed the bundled 4.2.1 notes, Escape dismissed it,
+and About displayed the running libmpv and FFmpeg versions. Quit exited the
+test process normally.
+
+A private Windows desktop used a workspace build with debug assertions disabled
+for Riina to exercise the release startup policy. On a fresh profile the guide
+opened and recorded version 4.2.1. Relaunching with the same profile kept the
+guide closed until the Help action. Both players reused the guide and About.
+About stayed open when its originating player closed. Both application launches
+exited normally.
+
+The bundled notes render inline link labels as text and provide a separate
+button for the release page. Matched IINA pixels, native macOS window interaction
+and the final Windows release package remain open.
+
+- Windows application SHA-256 `a0cb8cea7e89942fe189d0a71b16711ff301b0850030fe830edd46a82df4228f`
+- Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
+- Linux application SHA-256 `d93393c0747a72ccdab4c379a4e7dd3c3ae2209aff9c2ddd28eb6e591b8da09b`
+- X11 libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`

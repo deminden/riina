@@ -53,6 +53,7 @@ export component NativeVideoHost inherits Window {
     callback show-playback-history();
     callback show-inspector();
     callback show-log-viewer();
+    callback show-release-highlights();
     callback close-player();
     callback quit-riina();
     callback hide-riina();
@@ -669,7 +670,7 @@ export component NativeVideoHost inherits Window {
             MenuItem { title: "Use New Settings Window"; checkable: true; checked: true;
                 activated => { root.open-preferences(); } }
             MenuSeparator {}
-            MenuItem { title: "Release Highlights"; activated => { root.open-help-link("release-highlights"); } }
+            MenuItem { title: "Release Highlights"; activated => { root.show-release-highlights(); } }
             MenuSeparator {}
             MenuItem { title: "GitHub"; activated => { root.open-help-link("github"); } }
             MenuItem { title: "Website"; activated => { root.open-help-link("website"); } }

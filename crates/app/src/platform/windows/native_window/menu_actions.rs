@@ -50,6 +50,10 @@ fn install_application_actions(host: &NativeVideoHost, app: &PlayerWindow) {
     forward!(host, app, on_show_inspector, || {
         app.global::<PlayerMenuActions>().invoke_show_inspector();
     });
+    forward!(host, app, on_show_release_highlights, || {
+        app.global::<PlayerMenuActions>()
+            .invoke_show_release_highlights();
+    });
     forward!(host, app, on_save_current_playlist, || {
         app.global::<PlayerMenuActions>()
             .invoke_save_current_playlist();

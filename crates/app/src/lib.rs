@@ -170,6 +170,9 @@ fn run_shared_player(
         );
     }
     player_manager.open_startup_players(&app, players, &loaded)?;
+    player_manager
+        .services()
+        .present_release_highlights(&app, welcome.as_ref());
     let _browser = player_manager.register_browser_links(browser);
     #[cfg(target_os = "macos")]
     let _browser_events = platform::browser_activation::BrowserEvents::new(browser.clone());
