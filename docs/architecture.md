@@ -605,8 +605,12 @@ teardown. The catalog keeps minimized players and omits hidden playback frames
 that have no visible Welcome surface. It samples window-manager state while
 players exist and publishes menu rows only when titles or membership change.
 Bring All to Front on X11 uses the visible surfaces and retains the initiating
-player in front. macOS registers Window and Help with AppKit. Minimize, Zoom and
-Bring All to Front use the native responder chain.
+player in front. macOS registers Window, Help and Services with AppKit as the
+application switches between menu bars. Close, Minimize, Zoom and Bring All to
+Front follow the native responder chain. Both menu bars use the same Edit menu.
+Native responders, including browser editors, handle their own edits. The
+adapter for Slint resolves the focused text item in the key window and uses that
+item's clipboard, selection and undo history. It keeps only weak window handles.
 
 Wayland window selection uses the guest queue on Winit's display connection.
 The selected player stays weak while the compositor returns an activation

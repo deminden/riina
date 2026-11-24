@@ -1,8 +1,9 @@
 mod session;
 pub(crate) use session::SessionExtras;
 mod appearance;
-mod application_menu;
+pub(super) mod application_menu;
 mod color_panel;
+pub(super) mod edit_menu;
 pub(super) mod file_drop;
 pub(super) mod file_panel;
 mod fullscreen;

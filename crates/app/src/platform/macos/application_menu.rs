@@ -4,37 +4,54 @@ use block2::RcBlock;
 use objc2::{MainThreadMarker, rc::Retained, runtime::ProtocolObject, sel};
 use objc2_app_kit::{
     NSApplication, NSEventModifierFlags, NSImage, NSImageNamePreferencesGeneral, NSMenu,
-    NSMenuDidBeginTrackingNotification, NSMenuItem,
+    NSMenuDidBeginTrackingNotification, NSMenuItem, NSWindowDidBecomeKeyNotification,
 };
 use objc2_foundation::{NSNotificationCenter, NSObjectProtocol, NSOperationQueue, NSString};
+use std::time::Duration;
 
 pub(crate) struct MacApplicationMenuObserver {
     notification_center: Retained<NSNotificationCenter>,
-    observer: Retained<ProtocolObject<dyn NSObjectProtocol>>,
+    observers: [Retained<ProtocolObject<dyn NSObjectProtocol>>; 2],
 }
 
 impl MacApplicationMenuObserver {
     pub(crate) fn new() -> Self {
         let notification_center = NSNotificationCenter::defaultCenter();
-        let block = RcBlock::new(move |_| {
+        let tracking = RcBlock::new(move |_| {
             let Some(main_thread) = MainThreadMarker::new() else {
                 return;
             };
             normalize_application_menu(main_thread);
         });
-        // SAFETY: AppKit posts menu tracking on its main queue; the callback
-        // verifies that it is running on the main thread before touching AppKit.
-        let observer = unsafe {
-            notification_center.addObserverForName_object_queue_usingBlock(
-                Some(NSMenuDidBeginTrackingNotification),
-                None,
-                Some(&NSOperationQueue::mainQueue()),
-                &block,
-            )
+        let key_window = RcBlock::new(move |_| {
+            // Let the window backend finish installing the key window's menu.
+            slint::Timer::single_shot(Duration::ZERO, || {
+                if let Some(main) = MainThreadMarker::new() {
+                    normalize_application_menu(main);
+                }
+            });
+        });
+        // SAFETY: both blocks run on the main queue. The returned tokens own
+        // the registrations until this observer shuts down.
+        let observers = unsafe {
+            [
+                notification_center.addObserverForName_object_queue_usingBlock(
+                    Some(NSMenuDidBeginTrackingNotification),
+                    None,
+                    Some(&NSOperationQueue::mainQueue()),
+                    &tracking,
+                ),
+                notification_center.addObserverForName_object_queue_usingBlock(
+                    Some(NSWindowDidBecomeKeyNotification),
+                    None,
+                    Some(&NSOperationQueue::mainQueue()),
+                    &key_window,
+                ),
+            ]
         };
         Self {
             notification_center,
-            observer,
+            observers,
         }
     }
 
@@ -47,10 +64,9 @@ impl MacApplicationMenuObserver {
 
 impl Drop for MacApplicationMenuObserver {
     fn drop(&mut self) {
-        // SAFETY: the retained token came from this notification center.
-        unsafe {
-            self.notification_center
-                .removeObserver(self.observer.as_ref());
+        for observer in &self.observers {
+            // SAFETY: each retained token came from this notification center.
+            unsafe { self.notification_center.removeObserver(observer.as_ref()) };
         }
     }
 }
@@ -62,6 +78,10 @@ fn normalize_application_menu(main_thread: MainThreadMarker) {
     };
 
     install_system_menus(&application, &main_menu);
+    if let Some(edit) = main_menu.itemWithTitle(&NSString::from_str("Edit")) {
+        super::edit_menu::install(main_thread, &edit);
+    }
+    register_services_menu(&application, &main_menu);
 
     let riina_title = NSString::from_str("riina");
     let riina_index = (0..main_menu.numberOfItems()).find(|index| {
@@ -145,6 +165,9 @@ fn install_system_menus(application: &NSApplication, main_menu: &NSMenu) {
     // Help search. Slint retains the application's Inspector and Log Viewer.
     if let Some(menu) = named_submenu(main_menu, "File") {
         install_file_open_alternates(&menu);
+        if let Some(close) = menu.itemWithTitle(&NSString::from_str("Close")) {
+            use_first_responder(&close, sel!(performClose:));
+        }
     }
     if let Some(menu) = named_submenu(main_menu, "Window") {
         install_window_actions(&menu);
@@ -163,6 +186,22 @@ fn install_system_menus(application: &NSApplication, main_menu: &NSMenu) {
             .is_some_and(|active| std::ptr::eq(active, &*menu))
     {
         application.setHelpMenu(Some(&menu));
+    }
+}
+
+pub(in crate::platform) fn services_menu(bar: &NSMenu) -> Option<Retained<NSMenu>> {
+    let application = bar.itemAtIndex(0)?.submenu()?;
+    named_submenu(&application, "Services")
+}
+
+pub(in crate::platform) fn register_services_menu(application: &NSApplication, bar: &NSMenu) {
+    if let Some(menu) = services_menu(bar)
+        && !application
+            .servicesMenu()
+            .as_deref()
+            .is_some_and(|active| std::ptr::eq(active, &*menu))
+    {
+        application.setServicesMenu(Some(&menu));
     }
 }
 
@@ -193,15 +232,19 @@ fn install_window_actions(menu: &NSMenu) {
         ("Zoom", sel!(performZoom:)),
         ("Bring All to Front", sel!(arrangeInFront:)),
     ] {
-        if let Some(item) = menu.itemWithTitle(&NSString::from_str(title))
-            && item.action() != Some(action)
-        {
-            // SAFETY: these AppKit actions take the menu item as their sender.
-            // A nil target asks AppKit to resolve the current responder.
-            unsafe {
-                item.setTarget(None);
-                item.setAction(Some(action));
-            }
+        if let Some(item) = menu.itemWithTitle(&NSString::from_str(title)) {
+            use_first_responder(&item, action);
+        }
+    }
+}
+
+fn use_first_responder(item: &NSMenuItem, action: objc2::runtime::Sel) {
+    if item.action() != Some(action) {
+        // SAFETY: these standard AppKit selectors take the menu item as sender.
+        // A nil target asks AppKit to resolve the current responder.
+        unsafe {
+            item.setTarget(None);
+            item.setAction(Some(action));
         }
     }
 }

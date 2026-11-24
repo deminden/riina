@@ -50,6 +50,9 @@ fn collect(menu: &NSMenu, plugins: &NSMenu, keys: &mut HashSet<(String, usize)>)
         return;
     }
     for item in menu.itemArray().iter() {
+        if item.isHidden() {
+            continue;
+        }
         let key = item.keyEquivalent().to_string();
         if !key.is_empty() {
             keys.insert((key, item.keyEquivalentModifierMask().bits()));

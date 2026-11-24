@@ -1,5 +1,9 @@
 //! Keep application commands available when there is no Slint player menu.
 use super::{LaunchTarget, plugin_menu};
+use crate::platform::macos::{
+    application_menu::{register_services_menu, services_menu},
+    edit_menu,
+};
 use objc2::{
     MainThreadMarker, MainThreadOnly,
     rc::Retained,
@@ -17,6 +21,7 @@ thread_local! {
 const FILE_TITLES: [&str; 2] = ["Open…", "Open in New Window…"];
 const URL_TITLES: [&str; 2] = ["Open URL…", "Open URL in New Window…"];
 const OPEN_RECENT: &str = "Open Recent";
+const NEW_WINDOW_SEPARATOR_TAG: isize = 114083;
 
 pub(super) fn prepare(
     main: MainThreadMarker,
@@ -24,18 +29,27 @@ pub(super) fn prepare(
     enable_new_window_shortcut: bool,
 ) {
     let menu = NSMenu::new(main);
+    add_submenu(main, &menu, &application_menu(main, target));
+    add_submenu(
+        main,
+        &menu,
+        &file_menu(main, target, enable_new_window_shortcut),
+    );
+    menu.addItem(&edit_menu::parent(main));
     for submenu in [
-        application_menu(main, target),
-        file_menu(main, target, enable_new_window_shortcut),
         plugin_menu::new(main, target),
         window_menu(main, target),
         help_menu(main, target),
     ] {
-        let parent = item(main, &submenu.title().to_string(), None, "", None);
-        parent.setSubmenu(Some(&submenu));
-        menu.addItem(&parent);
+        add_submenu(main, &menu, &submenu);
     }
     IDLE_MENU.replace(Some(menu));
+}
+
+fn add_submenu(main: MainThreadMarker, menu: &NSMenu, submenu: &NSMenu) {
+    let parent = item(main, &submenu.title().to_string(), None, "", None);
+    parent.setSubmenu(Some(submenu));
+    menu.addItem(&parent);
 }
 
 fn application_menu(main: MainThreadMarker, target: &LaunchTarget) -> Retained<NSMenu> {
@@ -68,7 +82,30 @@ fn application_menu(main: MainThreadMarker, target: &LaunchTarget) -> Retained<N
     settings.setImage(image.as_deref());
     app.addItem(&settings);
     app.addItem(&NSMenuItem::separatorItem(main));
+    let services = item(main, "Services", None, "", None);
+    let submenu = NSMenu::initWithTitle(NSMenu::alloc(main), &NSString::from_str("Services"));
+    services.setSubmenu(Some(&submenu));
+    app.addItem(&services);
+    app.addItem(&NSMenuItem::separatorItem(main));
     app.addItem(&item(main, "Hide Riina", Some(sel!(hide:)), "h", None));
+    let others = item(
+        main,
+        "Hide Others",
+        Some(sel!(hideOtherApplications:)),
+        "h",
+        None,
+    );
+    others
+        .setKeyEquivalentModifierMask(NSEventModifierFlags::Command | NSEventModifierFlags::Option);
+    app.addItem(&others);
+    app.addItem(&item(
+        main,
+        "Show All",
+        Some(sel!(unhideAllApplications:)),
+        "",
+        None,
+    ));
+    app.addItem(&NSMenuItem::separatorItem(main));
     app.addItem(&item(
         main,
         "Quit Riina",
@@ -112,16 +149,19 @@ fn file_menu(
     documents.setAutoenablesItems(false);
     recent.setSubmenu(Some(&documents));
     file.addItem(&recent);
-    if enable_new_window_shortcut {
-        file.addItem(&NSMenuItem::separatorItem(main));
-        file.addItem(&item(
-            main,
-            "New Window",
-            Some(sel!(riinaIdleNewWindow:)),
-            "n",
-            Some(target),
-        ));
-    }
+    let separator = NSMenuItem::separatorItem(main);
+    separator.setTag(NEW_WINDOW_SEPARATOR_TAG);
+    separator.setHidden(!enable_new_window_shortcut);
+    file.addItem(&separator);
+    let new_window = item(
+        main,
+        "New Window",
+        Some(sel!(riinaIdleNewWindow:)),
+        "n",
+        Some(target),
+    );
+    new_window.setHidden(!enable_new_window_shortcut);
+    file.addItem(&new_window);
     let history = item(
         main,
         "Playback History",
@@ -133,6 +173,8 @@ fn file_menu(
         .setKeyEquivalentModifierMask(NSEventModifierFlags::Command | NSEventModifierFlags::Shift);
     file.addItem(&NSMenuItem::separatorItem(main));
     file.addItem(&history);
+    file.addItem(&NSMenuItem::separatorItem(main));
+    file.addItem(&item(main, "Close", Some(sel!(performClose:)), "w", None));
     file
 }
 
@@ -229,6 +271,7 @@ pub(crate) fn show_idle_menu() {
             refresh_file_menu(main, menu);
             refresh_plugins_in(menu, false);
             app.setMainMenu(Some(menu));
+            register_services_menu(&app, menu);
             if let Some(window) = menu
                 .itemWithTitle(&NSString::from_str("Window"))
                 .and_then(|item| item.submenu())
@@ -288,6 +331,13 @@ fn refresh_file_menu(main: MainThreadMarker, menu: &NSMenu) {
         .unwrap_or_default();
     let opens_new = preferences.allow_multiple_windows;
     rebuild_recent_documents(main, &file, &preferences);
+    let hide_new_window = !preferences.enable_new_window_shortcut;
+    if let Some(new_window) = file.itemWithTitle(&NSString::from_str("New Window")) {
+        new_window.setHidden(hide_new_window);
+    }
+    if let Some(separator) = file.itemWithTag(NEW_WINDOW_SEPARATOR_TAG) {
+        separator.setHidden(hide_new_window);
+    }
     for (first, titles) in [(0, FILE_TITLES), (2, URL_TITLES)] {
         let Some(primary) = file.itemAtIndex(first) else {
             continue;
@@ -346,6 +396,14 @@ pub(super) fn clear() {
     let Some(menu) = IDLE_MENU.take() else { return };
     if let Some(main) = MainThreadMarker::new() {
         let app = NSApplication::sharedApplication(main);
+        if let Some(services) = services_menu(&menu)
+            && app
+                .servicesMenu()
+                .as_deref()
+                .is_some_and(|active| std::ptr::eq(active, &*services))
+        {
+            app.setServicesMenu(None);
+        }
         if let Some(window) = menu
             .itemWithTitle(&NSString::from_str("Window"))
             .and_then(|item| item.submenu())

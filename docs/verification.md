@@ -3972,3 +3972,18 @@ across displays and the pending-window quit policy still need a Mac run.
 - Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
 - Linux application SHA-256 `84ca70f2738e510d4fb3a701a0a2aa68795d25b36c0ada2ff4ae714952e829f2`
 - Linux libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`
+
+### macOS application Edit and Services menus 2026-11-24
+
+The idle and playback menu bars share Edit, route Close to the key window and
+register their Services submenu with AppKit. The idle application menu adds
+Hide Others and Show All. The New Window row and shortcut follow changes to the
+saved preference while the application is idle.
+
+The headless editor check exercises two real Slint text items. It confirms that
+edits require focus, read-only text can be selected and copied, Unicode clipboard
+text survives paste and undo/redo, and a retired window cannot accept a command.
+The Windows workspace gate and locked build passed, as did 594 Linux application
+tests and Apple Silicon cross-Clippy. Native macOS checks still need to cover
+shortcut and click delivery to Slint and WebKit, Services across menu changes,
+the selected window for Close, and menu enablement when no edit is available.

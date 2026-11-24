@@ -41,6 +41,8 @@ pub(crate) mod settings_file;
 mod shared_video;
 pub(crate) mod startup;
 pub(crate) mod startup_input;
+#[cfg(any(target_os = "macos", test))]
+mod text_edit;
 pub(crate) mod text_recognition;
 pub(crate) use shared_video::SharedVideoExtras;
 mod system_media_session;
@@ -571,6 +573,8 @@ pub(crate) fn show_window(
     window: &(impl ComponentHandle + 'static),
 ) -> Result<(), slint::PlatformError> {
     window.show()?;
+    #[cfg(target_os = "macos")]
+    macos::edit_menu::track(window);
     #[cfg(target_os = "linux")]
     {
         unix::visibility::track(window);

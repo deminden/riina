@@ -305,7 +305,9 @@ define_class!(
 
         #[unsafe(method(riinaIdleNewWindow:))]
         fn idle_new_window(&self, _sender: Option<&AnyObject>) {
-            self.ivars().manager.request_welcome();
+            let launch = self.ivars();
+            launch.default_action.take();
+            launch.manager.request_welcome();
         }
 
         #[unsafe(method(riinaIdleQuit:))]
