@@ -208,7 +208,7 @@ pub(super) fn runtime_action(mapping: &Mapping) -> Option<RuntimeAction> {
     }
 }
 
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", target_os = "windows"))]
 pub(crate) fn dispatch_system_media_key(
     app: &PlayerWindow,
     key: &str,
@@ -234,7 +234,7 @@ pub(crate) fn dispatch_system_media_key(
     true
 }
 
-#[cfg(any(target_os = "macos", test))]
+#[cfg(any(target_os = "macos", target_os = "windows", test))]
 pub(crate) fn preferred_system_skip_interval(mapping: Option<&Mapping>) -> Option<f64> {
     let Some(mapping) = mapping else {
         return Some(15.0);
@@ -261,7 +261,7 @@ pub(crate) fn preferred_system_skip_interval(mapping: Option<&Mapping>) -> Optio
     Some(target.abs())
 }
 
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", target_os = "windows"))]
 pub(crate) fn system_skip_intervals_for_profile(profile: &str) -> (Option<f64>, Option<f64>) {
     let Ok(mappings) = mappings_for(profile) else {
         return (None, None);

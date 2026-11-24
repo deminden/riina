@@ -60,6 +60,13 @@ validates each intent against the observed `Playback` state before submitting th
 plan. Its `Handle` ties each borrowed native event to the wait that returned it.
 The worker copies payloads before advancing the event queue.
 
+Windows system media controls belong to the player's native toplevel. The
+session publishes observed titles, playback state and seek bounds. Native
+callbacks return to the UI thread and use the player's active key profile.
+The callback's published media generation must still match when it runs.
+Disabling system media controls or closing the player withdraws the session
+and removes its callbacks before the native window goes away.
+
 Manual playlist navigation applies a temporary pause. The worker associates it
 with the native command reply and the media generation that starts next. It
 checks the current pause-on-open preference when mpv reports playback ready

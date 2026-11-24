@@ -15,7 +15,7 @@ pub(crate) use builtins::mappings_for;
 pub(crate) use dispatch::{
     CurrentMediaLocation, current_media_location, install_player, reveal_current_media,
 };
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "macos", target_os = "windows"))]
 pub(crate) use dispatch::{dispatch_system_media_key, system_skip_intervals_for_profile};
 pub(crate) use editor::{
     activate_profile, current_player, current_window, install_window, mapping_for_row, refresh,

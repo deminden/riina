@@ -2978,3 +2978,22 @@ buttons stayed inside the panel.
 - Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
 - Linux application SHA-256 for the X11 run `d9c56747d7a063f23cbeaef07406c7ec354fa7454a7ee78a4f2e5717edeeaec3`
 - Linux application SHA-256 for the final Wayland run `3023b1b96fea6b3a1eadd5ffea39d8048c47c3f1a850894a7186763d19d3cf86`
+
+### Windows system media session 2026-11-24
+
+Windows uses the player's top-level window to register a system media
+session. The session sends title and timeline state and routes play, pause,
+stop, playlist navigation, skip and position requests through the player.
+Button requests use the active input profile when it provides a mapping.
+[Microsoft's top-level ownership contract](https://learn.microsoft.com/en-us/windows/win32/api/systemmediatransportcontrolsinterop/nf-systemmediatransportcontrolsinterop-isystemmediatransportcontrolsinterop-getforwindow)
+
+On a private Windows desktop, the native registration test used the
+application's Windows adapter with an owned HWND. WinRT returned the expected
+title and paused state, then disabled and cleared the registration on drop.
+The Riina session and an independently registered WinRT fixture were both
+absent from the private desktop's global media-session list. Shell and
+hardware media-key interaction remain open. The combined Windows workspace
+gate and private-desktop playback, controls and shutdown smoke test passed.
+
+- Windows application SHA-256 `7c49f5de7a226ef291d1f5ffabe65d03f8d5bf10799cc34348d10eb70f8696bd`
+- Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`

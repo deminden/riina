@@ -2,10 +2,10 @@
 use crate::{PlaybackStore, PlayerWindow};
 use riina_mpv::CommandSender;
 
-#[cfg(not(target_os = "macos"))]
+#[cfg(not(any(target_os = "macos", target_os = "windows")))]
 pub(crate) struct SystemMediaSession;
 
-#[cfg(not(target_os = "macos"))]
+#[cfg(not(any(target_os = "macos", target_os = "windows")))]
 impl SystemMediaSession {
     pub(crate) fn new(_: &PlayerWindow, _: PlaybackStore) -> Self {
         Self
@@ -313,3 +313,8 @@ mod macos {
 
 #[cfg(target_os = "macos")]
 pub(crate) use macos::SystemMediaSession;
+
+#[cfg(windows)]
+mod windows;
+#[cfg(windows)]
+pub(crate) use windows::SystemMediaSession;

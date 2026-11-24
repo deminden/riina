@@ -194,6 +194,9 @@ pub(super) fn install(app: &PlayerWindow, inputs: Inputs<'_>) -> Installed {
     );
     let video_materials =
         platform::video_materials::Monitor::install(app, native, commands, playback);
+    #[cfg(windows)]
+    system_media.bind(commands, native.map(platform::NativePresentation::host));
+    #[cfg(not(windows))]
     system_media.bind(commands);
     live_text::install_actions(app, prefs_path);
     super::startup::install_toolbar_order(app);
