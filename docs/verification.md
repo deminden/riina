@@ -2938,6 +2938,13 @@ from Playback History in the current and a new player. All test processes
 exited. The locked Linux application build and strict workspace Clippy passed.
 The application harness passed 540 tests and the widget harness passed 63.
 
+The Windows workspace gate and its 78 Python tests passed. The pinned
+Windows engine suite passed 59 tests against the same engine used for a
+private-desktop smoke test of playback, controls and shutdown. Strict Apple
+Silicon cross-Clippy passed. Native macOS playback remains unverified.
+
+- Windows application SHA-256 `3c9639fc04f93e08ccf73866057f258b32c26796908cd1bf6e6887971b6136e9`
+- Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
 - Linux application SHA-256 `19b0a509b917d152f582f2eb53c2a28eeab8a237ee80dd59be5ca5144b11fee1`
 - X11 libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`
 - Wayland libmpv SHA-256 `cdce854e1811942602587310026306d92d30c0f593f2be676f07659ae43061d8`
