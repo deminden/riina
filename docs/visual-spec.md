@@ -99,6 +99,12 @@ Close/Return belong at the window content's top-left (8-point leading, 6-point
 upper inset), rather than inside the bottom transport row. Their frame sizes are
 13 points with artwork and 12 without it; vertical gaps are 5/4 points.
 
+In the supplied REF-22 capture, the visible player is 600 pixels wide. At its
+center, the pattern occupies rows 76–412 and the controller occupies rows
+413–593, giving a 181-pixel strip. The capture's display scale is unrecorded.
+The pinned XIB sets a 72-point minimum content height. Keep that constraint
+separate from the height comparison of the complete captured surface.
+
 Quick Settings keeps scroll memory per pane and per sidebar, including while
 Layout replaces the scrolling body. A different pane must not inherit the old
 pane's offset. Playlist rows take their full available width. The compact footer
