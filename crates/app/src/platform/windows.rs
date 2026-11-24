@@ -26,4 +26,4 @@ pub(crate) use presentation::NativePresentation;
 pub(crate) mod services;
 pub(crate) mod text_recognition;
 mod ui_dialogs;
-pub(crate) use ui_dialogs::open as open_dialog;
+pub(crate) use ui_dialogs::{open as open_dialog, save_playlist_dialog};

@@ -5,7 +5,7 @@ use riina_core::{
     music_mode::{AudioStatus, State},
     sync::lock,
 };
-use slint::ComponentHandle;
+use slint::{ComponentHandle, winit_030::WinitWindowAccessor};
 use std::{
     rc::Rc,
     sync::{Arc, Mutex},
@@ -56,7 +56,12 @@ pub(crate) fn observe(app: &PlayerWindow, playback: &Playback, mode: &Mutex<Stat
         } else {
             AudioStatus::Unknown
         };
-        mode.observe(status, app.get_fullscreen())
+        let fullscreen = app.get_fullscreen()
+            || app
+                .window()
+                .with_winit_window(|window| window.fullscreen().is_some())
+                .unwrap_or(false);
+        mode.observe(status, fullscreen)
     };
     if let Some(active) = transition {
         app.global::<riina_ui::PlayerMusicModeState>()

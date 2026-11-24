@@ -2703,3 +2703,29 @@ X11 session submitted and saved searches, recalled a recent search, opened an
 accented filename, cleared recents and closed the exact application process.
 The complete workspace passed strict Apple Silicon cross-Clippy. Native macOS
 execution and matched reference pixels for the updated History toolbar remain open.
+
+### Native playlist export and Music Mode handoff 2026-11-24
+
+Windows Save Current Playlist uses the same window owner and modal lifecycle as
+Open File. The export worker reads one ordered playlist snapshot after the
+destination is confirmed. It writes the UTF-8 file atomically and serializes
+exports from the same player. The Windows private desktop verified cancellation,
+reopening and export of a local Unicode media path. A workspace test exercised
+replacement of an existing file and rejection of an invalid entry.
+
+A manual Music Mode request checks whether the native owner can leave fullscreen.
+It waits for an asynchronous fullscreen exit before resizing the compact player.
+The compact window records the normal player's placement and reads the live
+window size after exiting fullscreen. The open-in-fullscreen preference accounts
+for the current Music Mode state. Headless tests cover rejected and accepted
+fullscreen transitions and subsequent automatic switching.
+
+The final Windows private-desktop session switched a paused video from an
+880 × 500 frame into 1280 × 720 fullscreen, entered Music Mode with the player
+shortcut and returned to its original bounds and paused state. It then
+cancelled and completed playlist export and closed the tested process.
+
+The Windows workspace gate passed 954 tests and all 78 Python tests. The pinned
+native engine suite passed 59 tests. An isolated Linux X11 session returned from
+Music Mode to the same player, media and window size, then exited cleanly.
+Apple Silicon workspace cross-Clippy passed. Native macOS testing is still open.

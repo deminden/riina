@@ -1,5 +1,5 @@
 //! Native services are isolated here; core state and the shared UI own behavior.
-use crate::{NativeVideoHost, PlayerWindow};
+use crate::PlayerWindow;
 #[cfg(target_os = "windows")]
 use slint::winit_030::winit::window::Theme as WinitTheme;
 use slint::{ComponentHandle, winit_030::WinitWindowAccessor};
@@ -1066,73 +1066,6 @@ pub(crate) fn reveal_files(paths: &[std::path::PathBuf]) -> std::io::Result<()> 
     file_reveal::reveal_files(paths)
 }
 
-pub(crate) fn save_playlist_file(
-    app: &PlayerWindow,
-    host: Option<slint::Weak<NativeVideoHost>>,
-    content: String,
-) {
-    if app
-        .global::<riina_ui::PlayerDialogState>()
-        .get_dialog_open()
-    {
-        return;
-    }
-    app.global::<riina_ui::PlayerDialogState>()
-        .set_dialog_open(true);
-    app.global::<riina_ui::PlayerControlActions>()
-        .invoke_activity();
-    let weak = app.as_weak();
-    let failure = weak.clone();
-    let started = slint::spawn_local(async move {
-        let Some(app) = weak.upgrade() else { return };
-        let saved = async {
-            let owner = if let Some(host) = host.and_then(|host| host.upgrade()) {
-                host.window()
-                    .winit_window()
-                    .await
-                    .map_err(|error| error.to_string())?
-            } else {
-                app.window()
-                    .winit_window()
-                    .await
-                    .map_err(|error| error.to_string())?
-            };
-            let file = rfd::AsyncFileDialog::new()
-                .set_title("Save to Playlist")
-                .set_file_name("playlist.m3u8")
-                .add_filter("M3U8 playlist", &["m3u8"])
-                .set_parent(owner.as_ref())
-                .save_file()
-                .await;
-            if let Some(file) = file {
-                settings_file::save(file.path(), &content).map_err(|error| error.to_string())?;
-                Ok::<bool, String>(true)
-            } else {
-                Ok(false)
-            }
-        }
-        .await;
-        app.global::<riina_ui::PlayerDialogState>()
-            .set_dialog_open(false);
-        app.global::<riina_ui::PlayerControlActions>()
-            .invoke_activity();
-        match saved {
-            Ok(true) => app.set_status("Playlist saved".into()),
-            Ok(false) => {}
-            Err(error) => {
-                crate::diagnostics::report(&app, format!("Could not save playlist: {error}"))
-            }
-        }
-    });
-    if let Err(error) = started
-        && let Some(app) = failure.upgrade()
-    {
-        app.global::<riina_ui::PlayerDialogState>()
-            .set_dialog_open(false);
-        app.set_status(error.to_string().into());
-    }
-}
-
 #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
 mod plugin_sidebar;
 #[cfg(target_os = "windows")]
@@ -1173,8 +1106,8 @@ pub(crate) use unix::SessionExtras;
 pub(crate) use windows::SessionExtras;
 #[cfg(target_os = "windows")]
 pub(crate) use windows::{
-    NativePresentation, NativeVideoMaterialCapture, file_dialog, open_dialog, services::*,
-    window_sizing::WindowSizing,
+    NativePresentation, NativeVideoMaterialCapture, file_dialog, open_dialog, save_playlist_dialog,
+    services::*, window_sizing::WindowSizing,
 };
 
 #[cfg(target_os = "macos")]
@@ -1197,4 +1130,4 @@ pub(crate) fn system_font_family_name() -> String {
 #[cfg(any(target_os = "macos", target_os = "linux"))]
 mod unix;
 #[cfg(any(target_os = "macos", target_os = "linux"))]
-pub(crate) use unix::{NativePresentation, open_dialog, services::*};
+pub(crate) use unix::{NativePresentation, open_dialog, save_playlist_dialog, services::*};

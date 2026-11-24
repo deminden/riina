@@ -1,6 +1,74 @@
+use slint::winit_030::WinitWindowAccessor;
+
 pub(crate) const WINDOW_WIDTH: f64 = 300.0;
 pub(crate) const COMPACT_CONTROL_HEIGHT: f64 = 90.0;
 pub(crate) const PLAYLIST_HEIGHT: f64 = 300.0;
+
+#[derive(Clone, Copy)]
+pub(crate) struct MainWindowFrame {
+    pub(crate) size: slint::PhysicalSize,
+    position: slint::PhysicalPosition,
+    maximized: bool,
+}
+
+impl MainWindowFrame {
+    pub(crate) fn leave(window: &slint::Window) -> Self {
+        let maximized = window.is_maximized();
+        if maximized {
+            window.set_maximized(false);
+        }
+        Self {
+            size: client_size(window),
+            position: window.position(),
+            maximized,
+        }
+    }
+
+    pub(crate) fn restore_placement(self, window: &slint::Window) {
+        let origin_is_visible = window
+            .with_winit_window(|native| {
+                native.available_monitors().any(|monitor| {
+                    let origin = monitor.position();
+                    let size = monitor.size();
+                    let x = i64::from(self.position.x) - i64::from(origin.x);
+                    let y = i64::from(self.position.y) - i64::from(origin.y);
+                    (0..i64::from(size.width)).contains(&x)
+                        && (0..i64::from(size.height)).contains(&y)
+                })
+            })
+            .unwrap_or(true);
+        if origin_is_visible {
+            window.set_position(self.position);
+        }
+        if self.maximized {
+            window.set_maximized(true);
+        }
+    }
+}
+
+pub(crate) fn client_size(window: &slint::Window) -> slint::PhysicalSize {
+    // The fullscreen exit can complete before Slint consumes its resize event.
+    window
+        .with_winit_window(|native| {
+            let size = native.inner_size();
+            slint::PhysicalSize::new(size.width, size.height)
+        })
+        .unwrap_or_else(|| window.size())
+}
+
+pub(crate) fn compact_size(app: &crate::PlayerWindow, scale: f64) -> slint::PhysicalSize {
+    use slint::ComponentHandle;
+    let mode = app.global::<riina_ui::PlayerMusicModeState>();
+    let height = window_height(
+        mode.get_music_mode_show_album_art(),
+        mode.get_music_mode_show_playlist(),
+        f64::from(mode.get_music_mode_artwork_aspect_ratio()),
+    );
+    slint::PhysicalSize::new(
+        (WINDOW_WIDTH * scale).round() as u32,
+        (height * scale).round() as u32,
+    )
+}
 
 pub(crate) fn window_height(show_artwork: bool, show_playlist: bool, aspect_ratio: f64) -> f64 {
     COMPACT_CONTROL_HEIGHT

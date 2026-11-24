@@ -13,7 +13,7 @@ pub(crate) mod plugin_shortcuts;
 pub(crate) mod services;
 #[cfg(target_os = "linux")]
 pub(crate) mod visibility;
-pub(crate) use dialogs::open as open_dialog;
+pub(crate) use dialogs::{open as open_dialog, save_playlist_dialog};
 
 // Unix currently uses the shared GL renderer. A real presentation value keeps
 // shared setup closures reachable to rustc while reserving native window APIs

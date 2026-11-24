@@ -248,19 +248,7 @@ fn install_external_file_actions(
                 crate::key_binding_preferences::reveal_current_media(&app, &reveal_media_playback);
             }
         });
-    let save_playlist_app = app.as_weak();
-    let save_playlist_host = open_host.clone();
-    let save_playlist_playback = latest_playback.clone();
-    app.global::<PlayerMenuActions>()
-        .on_save_current_playlist(move || {
-            if let Some(app) = save_playlist_app.upgrade() {
-                crate::playlist_export::save_current_playlist(
-                    &app,
-                    save_playlist_host.clone(),
-                    &save_playlist_playback,
-                );
-            }
-        });
+    crate::playlist_export::install(app, open_host.clone(), latest_playback);
     let save_subtitle_app = app.as_weak();
     let save_subtitle_host = open_host.clone();
     let save_subtitle_playback = latest_playback.clone();

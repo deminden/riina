@@ -6,7 +6,7 @@ use slint::{
     ComponentHandle,
     winit_030::{WinitWindowAccessor, winit},
 };
-use std::sync::Arc;
+use std::{path::PathBuf, sync::Arc};
 use winit::{platform::windows::WindowExtWindows, window::Window};
 
 use crate::ui_dialogs::{Purpose, dispatch_selection};
@@ -86,6 +86,40 @@ pub fn open(
     sender: CommandSender,
     welcome: Option<slint::Weak<WelcomeWindow>>,
 ) {
+    start(
+        app,
+        host,
+        welcome,
+        move |owner| {
+            let paths = file_dialog::open_files(owner, purpose.allows_multiple(), purpose.title())?;
+            Ok((!paths.is_empty()).then_some(paths))
+        },
+        move |app, result| {
+            let result = result.and_then(|paths| {
+                dispatch_selection(app, purpose, paths.unwrap_or_default(), sender)
+            });
+            if let Err(error) = result {
+                app.set_status(error.into());
+            }
+        },
+    );
+}
+
+pub(crate) fn save_playlist_dialog(
+    app: &PlayerWindow,
+    host: Option<slint::Weak<NativeVideoHost>>,
+    complete: impl FnOnce(&PlayerWindow, Result<Option<PathBuf>, String>) + Send + 'static,
+) {
+    start(app, host, None, file_dialog::playlist_destination, complete);
+}
+
+fn start<T: Send + 'static>(
+    app: &PlayerWindow,
+    host: Option<slint::Weak<NativeVideoHost>>,
+    welcome: Option<slint::Weak<WelcomeWindow>>,
+    pick: impl FnOnce(&file_dialog::DialogOwner) -> Result<Option<T>, String> + Send + 'static,
+    complete: impl FnOnce(&PlayerWindow, Result<Option<T>, String>) + Send + 'static,
+) {
     // The gate closes before the async HWND lookup: queued shortcuts cannot open
     // a second picker while the first is still being constructed.
     if app
@@ -131,17 +165,14 @@ pub fn open(
             }
             let owner = file_dialog::DialogOwner::new(owner)?;
             crate::background::spawn_named("file-picker", move || {
-                let result =
-                    file_dialog::open_files(&owner, purpose.allows_multiple(), purpose.title());
+                let result = pick(&owner);
                 // The window may close before deferred UI work can be delivered.
                 let _ = slint::invoke_from_event_loop(move || {
-                    modality.restore(result.as_ref().is_ok_and(Vec::is_empty));
+                    modality.restore(
+                        modality.welcome.is_some() && result.as_ref().is_ok_and(Option::is_none),
+                    );
                     if let Some(app) = weak.upgrade() {
-                        let result = result
-                            .and_then(|paths| dispatch_selection(&app, purpose, paths, sender));
-                        if let Err(error) = result {
-                            app.set_status(error.into());
-                        }
+                        complete(&app, result);
                     }
                 });
             })

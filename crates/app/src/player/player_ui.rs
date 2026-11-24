@@ -333,7 +333,6 @@ fn configure_with_engine(
         },
     );
     observer_state.bind_timers(timers);
-    music_mode::install_actions(app, &music_mode_state);
     let preference_model = PreferenceModel::new(prefs_path.clone(), prefs.clone());
     let context = PlayerContext::new(
         app,
@@ -351,6 +350,7 @@ fn configure_with_engine(
         app,
         control_actions::Inputs {
             context: &context,
+            music_mode_state: &music_mode_state,
             native: native.as_ref(),
             crop_editor: &crop_editor,
             screenshot_scratch,

@@ -321,7 +321,7 @@ fn install_music_mode_window(
     app: &PlayerWindow,
     menu: &Slot<super::menu_focus::MenuFocus>,
 ) {
-    let saved_music_size = Cell::new(None);
+    let saved_frame = Cell::new(None::<crate::music_mode_layout::MainWindowFrame>);
     let music_host = host.as_weak();
     let music_app = app.as_weak();
     let music_menu = menu.clone();
@@ -329,64 +329,61 @@ fn install_music_mode_window(
         let (Some(host), Some(app)) = (music_host.upgrade(), music_app.upgrade()) else {
             return;
         };
+        let window = host.window();
+        let active = app
+            .global::<riina_ui::PlayerMusicModeState>()
+            .get_music_mode();
+        // Detaching the menu enlarges the client without resizing the frame.
+        // Remember the normal client before the menu changes its height.
+        let entering = (active && saved_frame.get().is_none())
+            .then(|| crate::music_mode_layout::MainWindowFrame::leave(window));
         if let Some(menu) = music_menu.borrow().as_ref()
-            && let Err(error) = menu.set_visible(
-                !app.global::<riina_ui::PlayerMusicModeState>()
-                    .get_music_mode()
-                    && !app.get_fullscreen(),
-            )
+            && let Err(error) = menu.set_visible(!active && !app.get_fullscreen())
         {
+            if let Some(frame) = entering {
+                frame.restore_placement(window);
+            }
             app.set_status(error.into());
             return;
         }
-        let mut resized = None;
-        host.window().with_winit_window(|window| {
-            let scale = window.scale_factor();
-            let target = if app
-                .global::<riina_ui::PlayerMusicModeState>()
-                .get_music_mode()
-            {
-                if saved_music_size.get().is_none() {
-                    saved_music_size.set(Some(window.inner_size()));
-                }
-                let height = crate::music_mode_layout::window_height(
-                    app.global::<riina_ui::PlayerMusicModeState>()
-                        .get_music_mode_show_album_art(),
-                    app.global::<riina_ui::PlayerMusicModeState>()
-                        .get_music_mode_show_playlist(),
-                    f64::from(
-                        app.global::<riina_ui::PlayerMusicModeState>()
-                            .get_music_mode_artwork_aspect_ratio(),
-                    ),
-                );
-                window.set_min_inner_size(Some(winit::dpi::LogicalSize::new(260.0, 90.0)));
-                winit::dpi::PhysicalSize::new(
-                    (crate::music_mode_layout::WINDOW_WIDTH * scale).round() as u32,
-                    (height * scale).round() as u32,
-                )
-            } else if let Some(size) = saved_music_size.take() {
-                window.set_min_inner_size(Some(winit::dpi::LogicalSize::new(285.0, 120.0)));
-                size
+        let (target, restore) = if active {
+            if let Some(frame) = entering {
+                saved_frame.set(Some(frame));
+            }
+            (
+                crate::music_mode_layout::compact_size(&app, f64::from(window.scale_factor())),
+                None,
+            )
+        } else if let Some(frame) = saved_frame.take() {
+            (frame.size, Some(frame))
+        } else {
+            return;
+        };
+        window.with_winit_window(|native| {
+            let (width, height) = if active {
+                (260.0, 90.0)
             } else {
-                return;
+                (285.0, 120.0)
             };
-            resized = Some((window.inner_size(), target));
+            native.set_min_inner_size(Some(winit::dpi::LogicalSize::new(width, height)));
         });
-        if let Some((current, target)) = resized {
-            crate::window_aspect::resize_centered(
-                host.window(),
-                riina_core::window_aspect::PixelSize {
-                    width: current.width,
-                    height: current.height,
-                },
-                riina_core::window_aspect::PixelSize {
-                    width: target.width,
-                    height: target.height,
-                },
-                Some(app.window()),
-            );
-            align(host.window(), &app);
+        let current = crate::music_mode_layout::client_size(window);
+        crate::window_aspect::resize_centered(
+            window,
+            riina_core::window_aspect::PixelSize {
+                width: current.width,
+                height: current.height,
+            },
+            riina_core::window_aspect::PixelSize {
+                width: target.width,
+                height: target.height,
+            },
+            Some(app.window()),
+        );
+        if let Some(frame) = restore {
+            frame.restore_placement(window);
         }
+        align(window, &app);
     });
 }
 

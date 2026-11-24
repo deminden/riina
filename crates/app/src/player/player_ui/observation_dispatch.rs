@@ -243,17 +243,18 @@ impl WindowDelivery {
                     state.phase,
                     Phase::Playing | Phase::Paused | Phase::Buffering | Phase::Ended
                 );
+            let clipboard_error = crate::screenshot_output::copy(&app, &captures);
+            self.crop_editor.observe(&app, &state);
+            let audio_device_sender = lock(&self.audio_device_sender).clone();
+            crate::automatic_music_mode::observe(&app, &state, &self.music_mode_state);
             let enter_fullscreen = lock(&self.opening_fullscreen).observe(
                 &state,
                 app.global::<riina_ui::PlayerPreferences>()
                     .get_fullscreen_when_open(),
                 app.get_fullscreen(),
-                false,
+                app.global::<riina_ui::PlayerMusicModeState>()
+                    .get_music_mode(),
             );
-            let clipboard_error = crate::screenshot_output::copy(&app, &captures);
-            self.crop_editor.observe(&app, &state);
-            let audio_device_sender = lock(&self.audio_device_sender).clone();
-            crate::automatic_music_mode::observe(&app, &state, &self.music_mode_state);
             let resize_for_media = update_ui(
                 &app,
                 &state,

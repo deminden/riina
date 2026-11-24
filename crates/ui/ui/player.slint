@@ -209,6 +209,7 @@ export component PlayerWindow inherits PlayerMenuWindow {
         PlaylistInteraction.cancel-playlist-drag();
         if PlayerMusicModeState.music-mode {
             // IINA's compact audio surface is independent of main-window sidebars.
+            keys.focus();
             PlayerSidebarState.leading-sidebar = 0;
             PlayerSidebarState.sidebar = 0;
         }
