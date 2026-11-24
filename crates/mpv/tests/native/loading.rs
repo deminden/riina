@@ -108,6 +108,86 @@ fn pause_when_open_applies_to_replacement_and_batch_without_changing_current_pla
 }
 
 #[test]
+#[ignore = "requires provisioned libmpv; checks folder discovery ownership and playlist edits"]
+fn folder_discovery_only_edits_the_entry_created_by_a_single_file_open() {
+    let root = fixture_root();
+    let harness = Harness::start(&root).unwrap();
+    let commands = harness.player.command_sender();
+    let path = |name| {
+        root.join("tests/fixtures")
+            .join(name)
+            .to_str()
+            .unwrap()
+            .to_owned()
+    };
+    let current = path("catalog.mkv");
+    let before = path("moving-square.avi");
+    let audio = path("external-tone.wav");
+    let after = path("hdr-hlg.mkv");
+    harness.send(Command::SetPauseWhenOpen(true)).unwrap();
+    harness
+        .send(Command::OpenFiles(vec![current.clone()]))
+        .unwrap();
+    let initial =
+        harness.wait(|state| state.phase == Phase::Paused && state.folder_discovery_allowed);
+    harness
+        .send(Command::AppendFiles(vec![audio.clone()]))
+        .unwrap();
+    harness.wait(|state| state.playlist.len() == 2);
+    let scan_result = Command::InsertPlaylistFilesAroundCurrent {
+        before: vec![audio.clone(), before.clone()],
+        after: vec![before.clone(), after.clone()],
+    };
+    commands
+        .send_for_media(initial.generation, scan_result.clone())
+        .unwrap();
+    let expanded = harness.wait(|state| state.playlist.len() == 4);
+    assert!(
+        expanded
+            .playlist
+            .iter()
+            .map(|entry| std::path::Path::new(&entry.filename).file_name().unwrap())
+            .eq([
+                "moving-square.avi",
+                "catalog.mkv",
+                "external-tone.wav",
+                "hdr-hlg.mkv"
+            ])
+    );
+    assert!(expanded.playlist[1].current && expanded.paused);
+
+    harness
+        .send(Command::RemovePlaylistId(expanded.playlist[0].id))
+        .unwrap();
+    let adjusted = harness.wait(|state| state.playlist.len() == 3);
+    harness
+        .send(Command::SelectPlaylistId(adjusted.playlist[1].id))
+        .unwrap();
+    let navigated =
+        harness.wait(|state| state.generation > initial.generation && state.phase == Phase::Paused);
+    assert!(!navigated.folder_discovery_allowed);
+    commands
+        .send_for_media(initial.generation, scan_result.clone())
+        .unwrap();
+    commands
+        .send_for_media(navigated.generation, scan_result)
+        .unwrap();
+    harness.send(Command::Volume(59.0)).unwrap();
+    let settled = harness.wait(|state| state.volume == 59.0);
+    assert_eq!(settled.playlist.len(), 3);
+    assert!(settled.playlist[1].current);
+    assert_eq!(settled.error(), None);
+
+    harness
+        .send(Command::OpenFiles(vec![current, audio]))
+        .unwrap();
+    let batch = harness
+        .wait(|state| state.generation > navigated.generation && state.phase == Phase::Paused);
+    assert!(!batch.folder_discovery_allowed);
+    assert_eq!(batch.playlist.len(), 2);
+}
+
+#[test]
 #[ignore = "requires provisioned libmpv; verifies native watch-later save and restore policy"]
 fn resume_last_position_saves_on_stop_and_restores_only_when_enabled() {
     let root = fixture_root();

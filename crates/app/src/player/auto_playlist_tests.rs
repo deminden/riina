@@ -23,6 +23,7 @@ impl Folder {
 
 fn state(path: &str) -> Playback {
     Playback {
+        folder_discovery_allowed: true,
         generation: 7,
         phase: Phase::Paused,
         playlist: vec![PlaylistEntry {
@@ -108,6 +109,29 @@ fn worker_results_cannot_attach_to_a_new_media_or_generation() {
     std::sync::Arc::make_mut(&mut state.playlist)[0].filename =
         folder.0.path().join("next.mp4").to_str().unwrap().into();
     assert!(prepare(&request, &state).is_none());
+}
+
+#[test]
+fn navigating_a_playlist_preserves_series_without_readding_removed_siblings() {
+    let folder = Folder::new();
+    let mut state = state(&folder.file("clip.mp4"));
+    folder.file("removed.mp4");
+    let mut adder = FolderDiscovery::default();
+    let old = adder.observe(&state, APPEND).unwrap();
+    assert!(prepare(&old, &state).unwrap().insert.is_some());
+
+    state.generation += 1;
+    state.folder_discovery_allowed = false;
+    assert!(adder.observe(&state, APPEND).is_none());
+    assert!(prepare(&old, &state).is_none());
+    let with_series = Options {
+        series: true,
+        ..APPEND
+    };
+    let request = adder.observe(&state, with_series).unwrap();
+    let result = prepare(&request, &state).unwrap();
+    assert!(result.insert.is_none());
+    assert!(result.series.is_some());
 }
 
 #[test]

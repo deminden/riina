@@ -1,5 +1,6 @@
 //! Native commands and events are serialized on the event thread.
 mod duration_probe;
+mod folder_discovery;
 mod handle;
 mod hooks;
 mod playlist_resume;
@@ -258,6 +259,7 @@ struct WorkerState {
     hooks: hooks::Hooks,
     volume_boost: bool,
     pending_drop_subtitles: Vec<String>,
+    folder_discovery: folder_discovery::FolderDiscovery,
     playlist_resume: PlaylistResume,
     seek_pending: bool,
     event_names: HashMap<c_int, Option<Arc<str>>>,
@@ -461,11 +463,17 @@ impl WorkerState {
                 if let Some(stream) = stream.take() {
                     self.stream = Some(stream.for_reply(self.next_id));
                 }
+                self.folder_discovery.submitted(self.next_id, command);
+                self.playback.folder_discovery_allowed = false;
                 let explicit = matches!(command, Command::OpenPlaylist(_));
                 if self.playback.explicit_playlist != explicit {
                     self.playback.explicit_playlist = explicit;
                     self.mark_changed();
                 }
+            }
+            if args.first().is_some_and(|name| name == "stop") {
+                self.folder_discovery = folder_discovery::FolderDiscovery::default();
+                self.playback.folder_discovery_allowed = false;
             }
             if matches!(command, Command::OpenShuffledPlaylist(_))
                 && args.first().is_some_and(|name| name == "playlist-shuffle")
@@ -660,6 +668,8 @@ impl WorkerState {
                 self.seek_feedback.clear();
                 self.auto_seek = AutoSeek::default();
                 self.playback.begin_load();
+                self.playback.folder_discovery_allowed =
+                    self.folder_discovery.take_for(self.active_entry);
                 self.playlist_resume.file_started(self.playback.generation);
             }
             event_id::END_FILE => self.on_end_file(event),
@@ -682,6 +692,8 @@ impl WorkerState {
             }
             event_id::QUEUE_OVERFLOW => {
                 self.stream = None;
+                self.folder_discovery = folder_discovery::FolderDiscovery::default();
+                self.playback.folder_discovery_allowed = false;
                 self.client_requests.clear();
                 self.playlist_resume = PlaylistResume::Idle;
                 record_notice(
@@ -703,6 +715,7 @@ impl WorkerState {
         }
         if self.active_entry == Some(end.playlist_entry_id) {
             self.active_entry = None;
+            self.playback.folder_discovery_allowed = false;
         }
         self.seek_pending = false;
         self.seek_feedback.clear();
@@ -764,6 +777,13 @@ impl WorkerState {
 
     fn on_command_reply(&mut self, event: &EventRef<'_>) {
         let failed = event.failed();
+        if self.folder_discovery.awaits(event.userdata()) {
+            self.folder_discovery
+                .replied((!failed).then(|| event.loaded_entry()).flatten());
+            if self.folder_discovery.take_for(self.active_entry) {
+                self.playback.folder_discovery_allowed = true;
+            }
+        }
         self.playlist_resume
             .command_replied(event.userdata(), failed);
         self.seek_feedback.replied(event.userdata(), failed);

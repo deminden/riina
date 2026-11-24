@@ -240,8 +240,9 @@ fn discover_playlist_files(
             return;
         };
         let _ = crate::background::to_ui(weak_app, move |app| {
-            if folder_options(&app) != request.options
-                || !crate::auto_playlist::request_is_current(&request, &lock(&playback))
+            let state = lock(&playback).clone();
+            if folder_options(&app).for_playback(&state) != request.options
+                || !crate::auto_playlist::request_is_current(&request, &state)
             {
                 return;
             }
@@ -250,7 +251,7 @@ fn discover_playlist_files(
                 app.invoke_refresh_playlist_metadata();
             }
             if let Some(command) = prepared.insert
-                && let Err(error) = sender.send(command)
+                && let Err(error) = sender.send_for_media(request.generation, command)
             {
                 crate::diagnostics::report(&app, error);
             }

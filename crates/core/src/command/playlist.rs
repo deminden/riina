@@ -3,7 +3,7 @@ use super::{CommandPlan, flag, set};
 use crate::{
     Playback, PlaylistEntry, PlaylistFileReference, hdr_preferences, playlist, valid_path,
 };
-use std::collections::HashSet;
+use std::{collections::HashSet, path::Path};
 
 impl Command {
     pub(super) fn playlist_args(&self) -> Result<Vec<String>, CommandError> {
@@ -318,9 +318,20 @@ pub(super) fn insert_files_around_current(
         .ok_or(CommandError::Unavailable {
             what: "The current playlist item is no longer available",
         })?;
+    // Background discovery may overlap a manual append. Resolve duplicates
+    // against the worker's latest playlist before calculating native indices.
+    let mut existing = state
+        .playlist
+        .iter()
+        .map(|entry| playlist_path_key(&entry.filename))
+        .collect::<HashSet<_>>();
     let first_new = state.playlist.len();
     let mut commands = Vec::with_capacity(before.len() * 2 + after.len());
-    for (offset, path) in before.iter().enumerate() {
+    for (offset, path) in before
+        .iter()
+        .filter(|&path| existing.insert(playlist_path_key(path)))
+        .enumerate()
+    {
         commands.push(vec!["loadfile".into(), path.clone(), "append".into()]);
         let appended_index = first_new + offset;
         let destination = current_index + offset;
@@ -335,9 +346,15 @@ pub(super) fn insert_files_around_current(
     commands.extend(
         after
             .iter()
+            .filter(|&path| existing.insert(playlist_path_key(path)))
             .map(|path| vec!["loadfile".into(), path.clone(), "append".into()]),
     );
     Ok(commands)
+}
+
+fn playlist_path_key(path: &str) -> (bool, &Path) {
+    let (network_share, path) = crate::media_reference::native_path_spelling(path);
+    (network_share, Path::new(path))
 }
 
 impl Command {

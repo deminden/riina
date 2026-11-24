@@ -127,7 +127,11 @@ impl Command {
                 playlist::insert_files_before(state, paths, *before_id)?
             }
             // A discovery result already queued during replacement still reaches the worker.
-            Self::InsertPlaylistFilesAroundCurrent { .. } if state.explicit_playlist => Vec::new(),
+            Self::InsertPlaylistFilesAroundCurrent { .. }
+                if state.explicit_playlist || !state.folder_discovery_allowed =>
+            {
+                Vec::new()
+            }
             Self::InsertPlaylistFilesAroundCurrent { before, after } => {
                 playlist::insert_files_around_current(state, before, after)?
             }

@@ -2,6 +2,23 @@
 
 use url::Url;
 
+/// Compare mpv's ordinary spelling with paths returned by Windows canonicalization.
+pub(crate) fn native_path_spelling(path: &str) -> (bool, &str) {
+    #[cfg(target_os = "windows")]
+    {
+        if let Some(path) = path.strip_prefix(r"\\?\UNC\") {
+            return (true, path);
+        }
+        if let Some(path) = path.strip_prefix(r"\\?\") {
+            return (false, path);
+        }
+        if let Some(path) = path.strip_prefix(r"\\") {
+            return (true, path);
+        }
+    }
+    (false, path)
+}
+
 const STREAM_SCHEMES: &[&str] = &[
     "ftp", "ftps", "http", "https", "mms", "mmsh", "mmst", "rtmp", "rtmpe", "rtmps", "rtmpt",
     "rtmpte", "rtmpts", "rtp", "rtsp", "rtsps", "smb", "srt", "srtp", "tcp", "udp", "ytdl",

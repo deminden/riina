@@ -19,9 +19,16 @@ pub(crate) struct Options {
     pub(crate) series: bool,
 }
 
+impl Options {
+    pub(crate) fn for_playback(mut self, state: &Playback) -> Self {
+        self.append &= state.folder_discovery_allowed;
+        self
+    }
+}
+
 #[derive(Clone)]
 pub(crate) struct Request {
-    generation: u64,
+    pub(crate) generation: u64,
     media_path: PathBuf,
     current_path: String,
     pub(crate) options: Options,
@@ -34,6 +41,7 @@ pub(crate) struct Prepared {
 
 impl FolderDiscovery {
     pub(crate) fn observe(&mut self, state: &Playback, options: Options) -> Option<Request> {
+        let options = options.for_playback(state);
         if options == Options::default() || state.explicit_playlist || state.playlist.is_empty() {
             self.last_media = None;
             return None;
@@ -67,6 +75,7 @@ impl FolderDiscovery {
 
 pub(crate) fn request_is_current(request: &Request, state: &Playback) -> bool {
     !state.explicit_playlist
+        && (!request.options.append || state.folder_discovery_allowed)
         && state.generation == request.generation
         && state
             .playlist
@@ -131,41 +140,37 @@ fn read_media_files(folder: &Path) -> Option<Vec<String>> {
 }
 
 fn insertion(request: &Request, state: &Playback, files: &[String]) -> Option<Command> {
-    let current = files
-        .iter()
-        .position(|path| crate::media_open::same_media(path, &request.current_path))?;
-    let existing = state
+    let current_path = local_identity(&request.media_path);
+    let mut existing = state
         .playlist
         .iter()
-        .map(|entry| entry.filename.as_str())
+        .filter_map(|entry| crate::file_actions::local_media_path(&entry.filename))
+        .map(|path| local_identity(&path))
         .collect::<HashSet<_>>();
-    let before = files[..current]
-        .iter()
-        .filter(|path| {
-            !existing.contains(path.as_str())
-                && !state
-                    .playlist
-                    .iter()
-                    .any(|entry| crate::media_open::same_media(&entry.filename, path))
-        })
-        .cloned()
-        .collect::<Vec<_>>();
-    let after = files[current + 1..]
-        .iter()
-        .filter(|path| {
-            !existing.contains(path.as_str())
-                && !state
-                    .playlist
-                    .iter()
-                    .any(|entry| crate::media_open::same_media(&entry.filename, path))
-        })
-        .cloned()
-        .collect::<Vec<_>>();
-    if before.is_empty() && after.is_empty() {
+    let mut current_seen = false;
+    let mut before = Vec::new();
+    let mut after = Vec::new();
+    for path in files {
+        let identity = local_identity(Path::new(path));
+        if identity == current_path {
+            current_seen = true;
+        } else if existing.insert(identity) {
+            if current_seen {
+                after.push(path.clone());
+            } else {
+                before.push(path.clone());
+            }
+        }
+    }
+    if !current_seen || (before.is_empty() && after.is_empty()) {
         None
     } else {
         Some(Command::InsertPlaylistFilesAroundCurrent { before, after })
     }
+}
+
+fn local_identity(path: &Path) -> PathBuf {
+    path.canonicalize().unwrap_or_else(|_| path.to_path_buf())
 }
 
 fn sort_media(paths: &mut [String]) {

@@ -224,6 +224,7 @@ fn sample_color() -> subtitle_color::SubtitleColor {
 
 fn snapshot_state() -> Playback {
     Playback {
+        folder_discovery_allowed: true,
         phase: Phase::Paused,
         paused: true,
         save_position_on_quit: Some(true),

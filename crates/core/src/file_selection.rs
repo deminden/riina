@@ -73,11 +73,7 @@ pub fn prepare(
     // regular blacklist. Playlist additions deliberately use the regular rules.
     if open_media
         && paths.len() == 1
-        && (is_bluray_folder(Path::new(&paths[0]))
-            || matches!(
-                extension(&paths[0]).as_str(),
-                "cue" | "m3u" | "m3u8" | "pls"
-            ))
+        && (is_bluray_folder(Path::new(&paths[0])) || is_playlist_file(&paths[0]))
     {
         return Ok(paths);
     }
@@ -147,6 +143,11 @@ pub fn is_supported_media(path: &str) -> bool {
 
 pub fn is_supported_video(path: &str) -> bool {
     SUPPORTED_VIDEO_EXTENSIONS.contains(&extension(path).as_str())
+}
+
+pub fn is_playlist_file(path: &str) -> bool {
+    let extension = extension(path);
+    extension == "cue" || MULTI_FILE_PLAYLIST_EXTENSIONS.contains(&extension.as_str())
 }
 
 fn flush_local_files(

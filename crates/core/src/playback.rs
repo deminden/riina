@@ -29,6 +29,8 @@ pub struct Playback {
     pub pause_when_open: bool,
     /// Playback History and other explicit playlists own their complete selection.
     pub explicit_playlist: bool,
+    /// The current entry is the initial result of opening one local media file.
+    pub folder_discovery_allowed: bool,
     pub generation: u64,
     pub phase: Phase,
     /// Version string from the loaded libmpv runtime, when that property is available.

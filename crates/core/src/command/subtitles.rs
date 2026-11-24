@@ -250,26 +250,6 @@ pub(super) fn add_without_selection(
 }
 
 fn same_external_path(left: &str, right: &str) -> bool {
-    #[cfg(target_os = "windows")]
-    {
-        fn identity(path: &str) -> (bool, &str) {
-            if let Some(path) = path.strip_prefix(r"\\?\UNC\") {
-                (true, path)
-            } else if let Some(path) = path.strip_prefix(r"\\?\") {
-                (false, path)
-            } else if let Some(path) = path.strip_prefix(r"\\") {
-                (true, path)
-            } else {
-                (false, path)
-            }
-        }
-        // mpv may omit the verbatim prefix returned by Windows canonicalize.
-        // Compare that spelling equivalently without filesystem I/O or treating
-        // case-sensitive names, aliases or different volumes as the same file.
-        identity(left) == identity(right)
-    }
-    #[cfg(not(target_os = "windows"))]
-    {
-        left == right
-    }
+    crate::media_reference::native_path_spelling(left)
+        == crate::media_reference::native_path_spelling(right)
 }

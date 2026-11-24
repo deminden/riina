@@ -4504,3 +4504,19 @@ passed for Apple Silicon and Intel Mac from Windows.
 Native macOS verification still needs two players playing different files,
 media keys and Control Center controls during a focus switch and file change,
 owner shutdown, app deactivation and reactivation, and a sleep/wake cycle.
+
+### Single-file folder discovery 2026-11-24
+
+The 64 pinned Windows engine tests passed. The folder regression covers one
+open versus a grouped open, a manual append that overlaps discovery, a stale
+scan after navigation, and an item removed from the same folder. The worker
+compares ordinary and verbatim Windows path spellings when excluding duplicates.
+
+An isolated Windows desktop launched the middle of three clips. The native
+playlist showed both neighbors in natural order. The test opened the sidebar,
+selected the first clip, removed it with Delete, and played the last clip
+with Return. The playlist retained the removal and playback remained paused.
+The exact test process exited normally.
+
+- Windows application SHA-256 `7e40ca5ccf92a3e18cad580116f76448e86fb1eb8f8a7f3eef23aee97ecf954a`
+- Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`

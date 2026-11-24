@@ -45,6 +45,7 @@ impl PlaybackTimers {
         }
         if self.previous.phase != state.phase
             || self.previous.generation != state.generation
+            || self.previous.folder_discovery_allowed != state.folder_discovery_allowed
             || !Arc::ptr_eq(&self.previous.playlist, &state.playlist)
             || !Arc::ptr_eq(&self.previous.tracks, &state.tracks)
         {
