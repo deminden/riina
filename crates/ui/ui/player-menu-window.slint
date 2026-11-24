@@ -5,6 +5,7 @@ import { PlayerLayoutState } from "player-layout-state.slint";
 import { PlayerSidebarState } from "player-sidebar-state.slint";
 import { PlayerCatalogState } from "player-catalog-state.slint";
 import { PlayerMusicModeState } from "player-music-mode-state.slint";
+import { PlaylistInteraction } from "playlist-interaction.slint";
 import { PlaylistPluginPopupState } from "playlist-plugin-popup.slint";
 import { PlayerPluginSidebarState } from "player-plugin-sidebar.slint";
 import { PlaybackTimelineState } from "playback-timeline-state.slint";
@@ -69,8 +70,11 @@ export component PlayerMenuWindow inherits Window {
 
     // Slint dispatches menu-bar shortcuts before visiting the focused item.
     function player-shortcut(shortcut: keys) -> keys {
+        let playlist-visible = PlayerMusicModeState.music-mode ? PlayerMusicModeState.music-mode-show-playlist
+            : PlayerSidebarState.sidebar == 4 || PlayerSidebarState.leading-sidebar == 4;
         return PlaylistPluginPopupState.shown ||
-            (PlayerPluginSidebarState.composited && PlayerPluginSidebarState.keyboard-focused)
+            (PlayerPluginSidebarState.composited && PlayerPluginSidebarState.keyboard-focused) ||
+            (playlist-visible && PlaylistInteraction.owns-navigation-shortcut(shortcut))
             ? @keys() : shortcut;
     }
 

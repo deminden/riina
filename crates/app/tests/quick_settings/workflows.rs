@@ -327,6 +327,33 @@ fn playlist_focus_tracks_its_row_index_after_an_insertion() {
 }
 
 #[test]
+fn playlist_navigation_takes_precedence_over_the_same_player_menu_shortcut() {
+    let app = player(4);
+    app.global::<PlayerCatalogState>().set_playlist(model());
+    let mut shortcuts = vec![MenuShortcutRow::default(); 35];
+    shortcuts[34].shortcut = slint::Keys::from_parts(["DownArrow"]).unwrap();
+    app.set_menu_shortcuts(slint::ModelRc::new(slint::VecModel::from(shortcuts)));
+    let adjustments = Rc::new(Cell::new(0.0));
+    let recorded = adjustments.clone();
+    app.global::<PlayerMenuActions>()
+        .on_adjust_volume(move |delta| recorded.set(recorded.get() + delta));
+    switch(&app, 4);
+    focus(&app, &button(&app, "Clip 0"));
+    key(&app, Key::DownArrow);
+    assert_eq!(adjustments.get(), 0.0);
+    assert_eq!(
+        app.global::<riina_ui::PlaylistInteraction>()
+            .get_focused_playlist_token(),
+        "2"
+    );
+    app.global::<PlayerSidebarState>().set_sidebar(0);
+    app.invoke_focus_player();
+    flush();
+    key(&app, Key::DownArrow);
+    assert_eq!(adjustments.get(), -5.0);
+}
+
+#[test]
 fn playlist_keyboard_reveals_rows_and_extends_selection_in_both_surfaces() {
     let app = player(4);
     app.window().set_size(LogicalSize::new(1000.0, 460.0));

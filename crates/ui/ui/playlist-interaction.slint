@@ -33,6 +33,17 @@ export global PlaylistInteraction {
     in-out property <length> playlist-drag-x;
     in-out property <length> playlist-drag-y;
     in-out property <PlaylistDropHover> external-drop-hover;
+    public pure function owns-navigation-shortcut(shortcut: keys) -> bool {
+        if root.focused-playlist-token == "" { return false; }
+        return shortcut == @keys(UpArrow) || shortcut == @keys(Shift + UpArrow)
+            || shortcut == @keys(DownArrow) || shortcut == @keys(Shift + DownArrow)
+            || shortcut == @keys(Home) || shortcut == @keys(Shift + Home)
+            || shortcut == @keys(End) || shortcut == @keys(Shift + End)
+            || shortcut == @keys(PageUp) || shortcut == @keys(Shift + PageUp)
+            || shortcut == @keys(PageDown) || shortcut == @keys(Shift + PageDown)
+            || shortcut == @keys(Delete) || shortcut == @keys(Backspace) || shortcut == @keys(Return);
+    }
+
     public function cancel-playlist-drag() {
         root.playlist-drag-token = "";
         root.playlist-drag-active = false;

@@ -4534,5 +4534,18 @@ The Windows workspace gate passed. Its 69 widget checks include editing keys
 in both playlist surfaces and Up Arrow after an insertion shifts the focused
 row's index. The headless player and Settings pixel comparisons passed.
 Apple Silicon and Intel Mac application source checks passed for the Edit menu
-integration before the final shared row-index adjustment. Native AppKit
-clipboard and menu validation still need a macOS session.
+integration before the final shared focus and menu shortcut changes. Native
+AppKit clipboard and menu validation still need a macOS session.
+
+The final shared-menu change passed strict Clippy, all 70 widget checks,
+and the headless pixel comparisons in the scoped Windows gate. The new
+widget check covers a menu accelerator that also serves as a playlist key.
+In an isolated Linux X11 desktop, a paused player copied and pasted a row,
+inserted a native file-list folder in natural order, cut and restored a row,
+and removed the two occurrences of a sibling before advancing. Keyboard focus
+stayed usable between edits. Playback stayed paused at the original volume.
+The removed sibling stayed out of the playlist and the process exited normally.
+Live Wayland clipboard editing remains open.
+
+- Linux application SHA-256 `4acfc31f3f6ffde736fa4f8f7e502d16653574a128fcd4bf3a5d0077a377fc89`
+- Linux libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`
