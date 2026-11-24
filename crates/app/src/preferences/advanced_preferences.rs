@@ -1,10 +1,14 @@
 //! Advanced mpv options stay opt-in and are applied before the next engine starts.
 use super::model::{PreferenceSection, SectionError};
-use crate::{AdvancedMpvOptionRow, PlayerWindow, PreferencesWindow};
+use crate::{AdvancedMpvOptionRow, PreferencesWindow};
 use riina_core::Preferences;
 use riina_core::advanced_preferences::{LogLevel, MpvOption, Settings};
-use slint::{ComponentHandle, Model, ModelRc, VecModel, winit_030::WinitWindowAccessor};
-use std::{cell::RefCell, path::Path, path::PathBuf, rc::Rc};
+use slint::{ComponentHandle, Model, ModelRc, VecModel};
+use std::{
+    cell::RefCell,
+    path::{Path, PathBuf},
+    rc::Rc,
+};
 
 impl PreferenceSection for Settings {
     fn get(all: &Preferences) -> Self {
@@ -123,114 +127,21 @@ fn split_pasted_option(name: &str, value: &str) -> (String, String) {
 }
 
 pub(crate) fn connect_actions(
-    app: &PlayerWindow,
     window: &PreferencesWindow,
-    preferences_path: PathBuf,
+    preferences_path: &Path,
+    open_log_viewer: impl Fn() + 'static,
+    report: impl Fn(String) + 'static,
 ) {
-    let app_weak = app.as_weak();
-    let weak_window = window.as_weak();
     let log_directory = preferences_path
         .parent()
         .map(Path::to_path_buf)
         .unwrap_or_default();
     window.on_advanced_open_log_folder(move || {
-        if let Err(error) = crate::platform::open_directory(&log_directory)
-            && let Some(app) = app_weak.upgrade()
-        {
-            crate::diagnostics::report(&app, format!("Could not open the log directory: {error}"));
+        if let Err(error) = crate::platform::open_directory(&log_directory) {
+            report(format!("Could not open the log directory: {error}"));
         }
     });
-
-    let log_app = app.as_weak();
-    window.on_advanced_open_log_viewer(move || {
-        if let Some(app) = log_app.upgrade() {
-            app.global::<riina_ui::PlayerMenuActions>()
-                .invoke_show_log_viewer();
-        }
-    });
-
-    let chooser_app = app.as_weak();
-    window.on_advanced_choose_config_directory(move || {
-        let (Some(app), Some(window)) = (chooser_app.upgrade(), weak_window.upgrade()) else {
-            return;
-        };
-        if app
-            .global::<riina_ui::PlayerDialogState>()
-            .get_dialog_open()
-            || window
-                .global::<riina_ui::GeneralSettingsState>()
-                .get_folder_dialog_open()
-        {
-            return;
-        }
-        app.global::<riina_ui::PlayerDialogState>()
-            .set_dialog_open(true);
-        window
-            .global::<riina_ui::GeneralSettingsState>()
-            .set_folder_dialog_open(true);
-        let app = app.as_weak();
-        let window = window.as_weak();
-        let failure_app = app.clone();
-        let failure_window = window.clone();
-        let started = slint::spawn_local(async move {
-            let (Some(app), Some(window)) = (app.upgrade(), window.upgrade()) else {
-                return;
-            };
-            let result = async {
-                let owner = window
-                    .window()
-                    .winit_window()
-                    .await
-                    .map_err(|error| error.to_string())?;
-                let parent = app.as_weak();
-                let weak = window.as_weak();
-                crate::platform::folder_dialog::pick(owner, move |result| {
-                    let (Some(app), Some(window)) = (parent.upgrade(), weak.upgrade()) else {
-                        return;
-                    };
-                    app.global::<riina_ui::PlayerDialogState>()
-                        .set_dialog_open(false);
-                    window
-                        .global::<riina_ui::GeneralSettingsState>()
-                        .set_folder_dialog_open(false);
-                    match result {
-                        Ok(Some(directory)) => {
-                            window
-                                .global::<crate::AdvancedSettingsState>()
-                                .set_advanced_config_directory_text(directory.into());
-                            window
-                                .global::<crate::AdvancedSettingsState>()
-                                .set_advanced_use_config_directory(true);
-                            window.invoke_settings_changed();
-                        }
-                        Ok(None) => {}
-                        Err(error) => app.set_status(error.into()),
-                    }
-                })
-            }
-            .await;
-            if let Err(error) = result {
-                app.global::<riina_ui::PlayerDialogState>()
-                    .set_dialog_open(false);
-                window
-                    .global::<riina_ui::GeneralSettingsState>()
-                    .set_folder_dialog_open(false);
-                app.set_status(error.into());
-            }
-        });
-        if let Err(error) = started {
-            if let Some(app) = failure_app.upgrade() {
-                app.global::<riina_ui::PlayerDialogState>()
-                    .set_dialog_open(false);
-                app.set_status(error.to_string().into());
-            }
-            if let Some(window) = failure_window.upgrade() {
-                window
-                    .global::<riina_ui::GeneralSettingsState>()
-                    .set_folder_dialog_open(false);
-            }
-        }
-    });
+    window.on_advanced_open_log_viewer(open_log_viewer);
 }
 
 pub(crate) fn current_window(window: &PreferencesWindow) -> Result<Settings, String> {

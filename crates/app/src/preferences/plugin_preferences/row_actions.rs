@@ -4,12 +4,11 @@
 mod settings_page_test;
 
 use super::{
-    PluginSettings,
+    Playback, PluginSettings,
     inventory::{load_enabled, load_plugin_order, refresh, save_plugin_order, set_enabled},
     permissions::{confirm_permissions, read_plugin_grants, save_granted_permissions},
 };
-use crate::{PlayerWindow, PreferencesWindow, plugin_host::PluginHostHandle};
-use riina_mpv::CommandSender;
+use crate::{PreferencesWindow, plugin_host::GlobalHandle};
 use slint::ComponentHandle;
 
 pub(super) fn register_settings_page(
@@ -96,10 +95,9 @@ pub(super) fn register_reorder(window: &PreferencesWindow, settings: &PluginSett
 
 pub(super) fn register_enabled(
     window: &PreferencesWindow,
-    app: &PlayerWindow,
     settings: &PluginSettings,
-    host: Option<&PluginHostHandle>,
-    player: CommandSender,
+    host: Option<&GlobalHandle>,
+    playback: Option<Playback>,
 ) {
     let runtime_available = settings.runtime_available;
     let weak = window.as_weak();
@@ -109,7 +107,6 @@ pub(super) fn register_enabled(
     let enabled_file = settings.enabled_path.clone();
     let preferences = settings.preferences_path.clone();
     let plugins = settings.plugins.clone();
-    let plugin_state_parent = app.as_weak();
     window.on_plugin_enabled_changed(move |index, should_enable| {
         let Some(window) = weak.upgrade() else { return };
         let Ok(index) = usize::try_from(index) else {
@@ -200,15 +197,9 @@ pub(super) fn register_enabled(
             }
         }
         if plugin.manifest.identifier == "io.iina.ytdl"
-            && let Some(app) = plugin_state_parent.upgrade()
+            && let Some(playback) = &playback
         {
-            app.global::<riina_ui::PlayerPreferences>()
-                .set_network_ytdl_plugin_active(should_enable);
-            if let Err(error) =
-                crate::network_ytdl_preferences::apply_plugin_override(&player, &app, should_enable)
-            {
-                app.set_status(error.into());
-            }
+            playback.ytdl_changed(should_enable);
         }
     });
 }

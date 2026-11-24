@@ -24,6 +24,9 @@ use std::{
 };
 
 pub(crate) use idle_menu::show_idle_menu;
+pub(crate) fn refresh_idle_menu() {
+    idle_menu::refresh();
+}
 
 const CORE_EVENT: u32 = u32::from_be_bytes(*b"aevt");
 const OPEN_DOCUMENTS: u32 = u32::from_be_bytes(*b"odoc");
@@ -202,6 +205,13 @@ define_class!(
             let launch = self.ivars();
             launch.default_action.take();
             launch.manager.show_application_highlights();
+        }
+
+        #[unsafe(method(riinaIdleSettings:))]
+        fn idle_settings(&self, _sender: Option<&AnyObject>) {
+            let launch = self.ivars();
+            launch.default_action.take();
+            launch.manager.show_application_settings();
         }
 
         #[unsafe(method(riinaIdleHelpLink:))]

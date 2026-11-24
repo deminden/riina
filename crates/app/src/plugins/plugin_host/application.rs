@@ -111,6 +111,26 @@ impl Drop for GlobalHost {
 }
 
 impl GlobalHandle {
+    pub(crate) fn enable(&self, manifest: Manifest, directory: PathBuf) -> Result<(), String> {
+        self.change(PackageChange::Enable(Arc::new(manifest), directory))
+    }
+
+    pub(crate) fn disable(&self, identifier: String) -> Result<(), String> {
+        self.change(PackageChange::Disable(identifier))
+    }
+
+    pub(crate) fn suspend_for_update(&self, identifier: String) -> Result<(), String> {
+        self.change_and_wait(PackageChange::Suspend(identifier))
+    }
+
+    pub(crate) fn activate_after_update(
+        &self,
+        manifest: Manifest,
+        directory: PathBuf,
+    ) -> Result<(), String> {
+        self.change_and_wait(PackageChange::Enable(Arc::new(manifest), directory))
+    }
+
     pub(crate) fn take_player_launches(&self) -> Vec<Arc<Ticket>> {
         std::mem::take(&mut *lock(&self.launches))
     }

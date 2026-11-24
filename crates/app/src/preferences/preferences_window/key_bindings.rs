@@ -1,29 +1,28 @@
 //! Profile and mapping actions for the Key Bindings pane.
-use crate::{PlayerWindow, PreferencesWindow};
+use super::owner::Owner;
+use crate::PreferencesWindow;
 use slint::{ComponentHandle, winit_030::WinitWindowAccessor};
 
-pub(super) fn connect(app: &PlayerWindow, window: &PreferencesWindow) {
-    install_selection(app, window);
-    install_profile_editor(app, window);
-    install_profile_files(app, window);
-    install_mapping_actions(app, window);
+pub(super) fn connect(window: &PreferencesWindow, owner: &Owner) {
+    install_selection(window, owner);
+    install_profile_editor(window, owner);
+    install_profile_files(window, owner);
+    install_mapping_actions(window, owner);
 }
 
-fn install_selection(app: &PlayerWindow, window: &PreferencesWindow) {
+fn install_selection(window: &PreferencesWindow, owner: &Owner) {
     let selected_profile_window = window.as_weak();
-    let selected_profile_parent = app.as_weak();
+    let selected_profile_owner = owner.clone();
     window.on_key_binding_profile_selected(move |name| {
         let Some(window) = selected_profile_window.upgrade() else {
             return;
         };
-        if let Err(error) = crate::key_binding_preferences::select_profile(&window, name.as_str())
-            && let Some(app) = selected_profile_parent.upgrade()
-        {
-            app.set_status(error.into());
+        if let Err(error) = crate::key_binding_preferences::select_profile(&window, name.as_str()) {
+            selected_profile_owner.report(error);
         }
     });
     let settings_refresh_window = window.as_weak();
-    let settings_refresh_parent = app.as_weak();
+    let settings_refresh_owner = owner.clone();
     window.on_key_binding_settings_changed(move || {
         let Some(window) = settings_refresh_window.upgrade() else {
             return;
@@ -32,29 +31,25 @@ fn install_selection(app: &PlayerWindow, window: &PreferencesWindow) {
             .global::<riina_ui::KeyBindingSettingsState>()
             .get_key_binding_current_profile()
             .to_string();
-        if let Err(error) = crate::key_binding_preferences::select_profile(&window, &profile)
-            && let Some(app) = settings_refresh_parent.upgrade()
-        {
-            app.set_status(error.into());
+        if let Err(error) = crate::key_binding_preferences::select_profile(&window, &profile) {
+            settings_refresh_owner.report(error);
         }
     });
     let search_window = window.as_weak();
-    let search_parent = app.as_weak();
+    let search_owner = owner.clone();
     window.on_key_binding_search_changed(move |query| {
         let Some(window) = search_window.upgrade() else {
             return;
         };
-        if let Err(error) = crate::key_binding_preferences::search(&window, query.as_str())
-            && let Some(app) = search_parent.upgrade()
-        {
-            app.set_status(error.into());
+        if let Err(error) = crate::key_binding_preferences::search(&window, query.as_str()) {
+            search_owner.report(error);
         }
     });
 }
 
-fn install_profile_editor(app: &PlayerWindow, window: &PreferencesWindow) {
+fn install_profile_editor(window: &PreferencesWindow, owner: &Owner) {
     let profile_action_window = window.as_weak();
-    let profile_action_parent = app.as_weak();
+    let profile_action_owner = owner.clone();
     window.on_key_binding_profile_created(move |name, mode| {
         let Some(window) = profile_action_window.upgrade() else {
             return;
@@ -87,9 +82,7 @@ fn install_profile_editor(app: &PlayerWindow, window: &PreferencesWindow) {
                 .global::<riina_ui::KeyBindingSettingsState>()
                 .set_key_binding_profile_editor_open(false),
             Err(error) => {
-                if let Some(app) = profile_action_parent.upgrade() {
-                    app.set_status(error.into());
-                }
+                profile_action_owner.report(error);
             }
         }
     });
@@ -103,80 +96,38 @@ fn install_profile_editor(app: &PlayerWindow, window: &PreferencesWindow) {
     });
 }
 
-fn install_profile_files(app: &PlayerWindow, window: &PreferencesWindow) {
+fn install_profile_files(window: &PreferencesWindow, owner: &Owner) {
     let import_window = window.as_weak();
-    let import_parent = app.as_weak();
+    let import_owner = owner.clone();
     window.on_key_binding_import_profile_requested(move || {
-        let (Some(window), Some(app)) = (import_window.upgrade(), import_parent.upgrade()) else {
+        let Some(window) = import_window.upgrade() else {
             return;
         };
-        if app
-            .global::<riina_ui::PlayerDialogState>()
-            .get_dialog_open()
-        {
+        let Some(dialog) = import_owner.begin_dialog(&window) else {
             return;
-        }
-        app.global::<riina_ui::PlayerDialogState>()
-            .set_dialog_open(true);
-        app.global::<riina_ui::PlayerControlActions>()
-            .invoke_activity();
-        let weak_window = window.as_weak();
-        let weak_app = app.as_weak();
+        };
+        let report = import_owner.clone();
         let started = slint::spawn_local(async move {
-            let result = async {
-                let Some(window) = weak_window.upgrade() else {
-                    return Ok(None);
-                };
-                let owner = window
-                    .window()
-                    .winit_window()
-                    .await
-                    .map_err(|error| error.to_string())?;
-                let file = rfd::AsyncFileDialog::new()
-                    .set_title("Import key binding configuration")
-                    .add_filter("mpv input.conf", &["conf"])
-                    .set_parent(owner.as_ref())
-                    .pick_file()
-                    .await;
-                let Some(file) = file else {
-                    return Ok(None);
-                };
-                crate::key_binding_profiles::ProfileStore::for_current_user()
-                    .and_then(|store| store.import(file.path()))
-                    .map(Some)
-                    .map_err(|error| error.to_string())
-            }
-            .await;
-            let Some(app) = weak_app.upgrade() else {
-                return;
-            };
-            app.global::<riina_ui::PlayerDialogState>()
-                .set_dialog_open(false);
-            app.global::<riina_ui::PlayerControlActions>()
-                .invoke_activity();
+            let result = import_profile(&window).await;
+            drop(dialog);
             match result {
                 Ok(Some(name)) => {
-                    if let Some(window) = weak_window.upgrade()
-                        && let Err(error) =
-                            crate::key_binding_preferences::activate_profile(&window, &name)
+                    if let Err(error) =
+                        crate::key_binding_preferences::activate_profile(&window, &name)
                     {
-                        app.set_status(error.into());
+                        report.report(error);
                     }
                 }
                 Ok(None) => {}
-                Err(error) => app.set_status(error.into()),
+                Err(error) => report.report(error),
             }
         });
         if let Err(error) = started {
-            app.global::<riina_ui::PlayerDialogState>()
-                .set_dialog_open(false);
-            app.global::<riina_ui::PlayerControlActions>()
-                .invoke_activity();
-            app.set_status(error.to_string().into());
+            import_owner.report(error.to_string());
         }
     });
     let delete_window = window.as_weak();
-    let delete_parent = app.as_weak();
+    let delete_owner = owner.clone();
     window.on_key_binding_delete_profile(move || {
         let Some(window) = delete_window.upgrade() else {
             return;
@@ -189,17 +140,13 @@ fn install_profile_files(app: &PlayerWindow, window: &PreferencesWindow) {
             .and_then(|store| store.delete(&profile))
             .map_err(|error| error.to_string());
         if let Err(error) = result {
-            if let Some(app) = delete_parent.upgrade() {
-                app.set_status(error.into());
-            }
+            delete_owner.report(error);
             return;
         }
         let mut settings = match crate::key_binding_preferences::current_window(&window) {
             Ok(settings) => settings,
             Err(error) => {
-                if let Some(app) = delete_parent.upgrade() {
-                    app.set_status(error.into());
-                }
+                delete_owner.report(error);
                 return;
             }
         };
@@ -207,14 +154,12 @@ fn install_profile_files(app: &PlayerWindow, window: &PreferencesWindow) {
         match crate::key_binding_preferences::refresh(&window, &settings) {
             Ok(()) => window.invoke_settings_changed(),
             Err(error) => {
-                if let Some(app) = delete_parent.upgrade() {
-                    app.set_status(error.into());
-                }
+                delete_owner.report(error);
             }
         }
     });
     let reveal_window = window.as_weak();
-    let reveal_parent = app.as_weak();
+    let reveal_owner = owner.clone();
     window.on_key_binding_reveal_profile(move || {
         let Some(window) = reveal_window.upgrade() else {
             return;
@@ -235,15 +180,34 @@ fn install_profile_files(app: &PlayerWindow, window: &PreferencesWindow) {
                 crate::platform::open_directory(store.directory())
                     .map_err(|error| error.to_string())
             });
-        if let Err(error) = result
-            && let Some(app) = reveal_parent.upgrade()
-        {
-            app.set_status(error.into());
+        if let Err(error) = result {
+            reveal_owner.report(error);
         }
     });
 }
 
-fn install_mapping_actions(app: &PlayerWindow, window: &PreferencesWindow) {
+async fn import_profile(window: &PreferencesWindow) -> Result<Option<String>, String> {
+    let owner = window
+        .window()
+        .winit_window()
+        .await
+        .map_err(|error| error.to_string())?;
+    let file = rfd::AsyncFileDialog::new()
+        .set_title("Import key binding configuration")
+        .add_filter("mpv input.conf", &["conf"])
+        .set_parent(owner.as_ref())
+        .pick_file()
+        .await;
+    let Some(file) = file else {
+        return Ok(None);
+    };
+    crate::key_binding_profiles::ProfileStore::for_current_user()
+        .and_then(|store| store.import(file.path()))
+        .map(Some)
+        .map_err(|error| error.to_string())
+}
+
+fn install_mapping_actions(window: &PreferencesWindow, owner: &Owner) {
     let add_window = window.as_weak();
     window.on_key_binding_add_requested(move || {
         let Some(window) = add_window.upgrade() else {
@@ -276,7 +240,7 @@ fn install_mapping_actions(app: &PlayerWindow, window: &PreferencesWindow) {
             .set_key_binding_editor_open(true);
     });
     let edit_window = window.as_weak();
-    let edit_parent = app.as_weak();
+    let edit_owner = owner.clone();
     window.on_key_binding_edit_requested(move |row| {
         let Some(window) = edit_window.upgrade() else {
             return;
@@ -309,9 +273,7 @@ fn install_mapping_actions(app: &PlayerWindow, window: &PreferencesWindow) {
                     .set_key_binding_editor_open(true);
             }
             Err(error) => {
-                if let Some(app) = edit_parent.upgrade() {
-                    app.set_status(error.into());
-                }
+                edit_owner.report(error);
             }
         }
     });
@@ -332,7 +294,7 @@ fn install_mapping_actions(app: &PlayerWindow, window: &PreferencesWindow) {
         }
     });
     let remove_window = window.as_weak();
-    let remove_parent = app.as_weak();
+    let remove_owner = owner.clone();
     window.on_key_binding_remove_requested(move |row| {
         let Some(window) = remove_window.upgrade() else {
             return;
@@ -340,14 +302,12 @@ fn install_mapping_actions(app: &PlayerWindow, window: &PreferencesWindow) {
         match crate::key_binding_preferences::remove_mapping(&window, row) {
             Ok(()) => window.invoke_settings_changed(),
             Err(error) => {
-                if let Some(app) = remove_parent.upgrade() {
-                    app.set_status(error.into());
-                }
+                remove_owner.report(error);
             }
         }
     });
     let submit_window = window.as_weak();
-    let submit_parent = app.as_weak();
+    let submit_owner = owner.clone();
     window.on_key_binding_mapping_submitted(move |key, action, comment, kind, row| {
         let Some(window) = submit_window.upgrade() else {
             return;
@@ -368,9 +328,7 @@ fn install_mapping_actions(app: &PlayerWindow, window: &PreferencesWindow) {
                 window.invoke_settings_changed();
             }
             Err(error) => {
-                if let Some(app) = submit_parent.upgrade() {
-                    app.set_status(error.into());
-                }
+                submit_owner.report(error);
             }
         }
     });

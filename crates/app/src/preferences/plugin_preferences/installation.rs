@@ -16,10 +16,14 @@ use std::{
     },
 };
 
-pub(super) fn local(window: &PreferencesWindow, app: &PlayerWindow, settings: &PluginSettings) {
+pub(super) fn local(
+    window: &PreferencesWindow,
+    app: Option<&PlayerWindow>,
+    settings: &PluginSettings,
+) {
     let runtime_available = settings.runtime_available;
     let weak = window.as_weak();
-    let parent = app.as_weak();
+    let parent = app.map(ComponentHandle::as_weak);
     let plugins = settings.plugins.clone();
     let entries = settings.inventory.clone();
     let enabled_plugins = settings.enabled.clone();
@@ -74,7 +78,7 @@ pub(super) fn local(window: &PreferencesWindow, app: &PlayerWindow, settings: &P
                     )
                     .into(),
                 );
-                if let Some(app) = parent.upgrade() {
+                if let Some(app) = parent.as_ref().and_then(slint::Weak::upgrade) {
                     crate::diagnostics::report(
                         &app,
                         crate::diagnostics::UserMessage::info(format!(
@@ -89,7 +93,11 @@ pub(super) fn local(window: &PreferencesWindow, app: &PlayerWindow, settings: &P
     });
 }
 
-pub(super) fn github(window: &PreferencesWindow, app: &PlayerWindow, settings: &PluginSettings) {
+pub(super) fn github(
+    window: &PreferencesWindow,
+    app: Option<&PlayerWindow>,
+    settings: &PluginSettings,
+) {
     let runtime_available = settings.runtime_available;
     let weak = window.as_weak();
     window.on_plugin_request_github_install(move || {
@@ -138,7 +146,7 @@ pub(super) fn github(window: &PreferencesWindow, app: &PlayerWindow, settings: &
     let entries = settings.inventory.clone();
     let enabled_plugins = settings.enabled.clone();
     let preferences_path_for_github = settings.preferences_path.clone();
-    let github_parent = app.as_weak();
+    let github_parent = app.map(ComponentHandle::as_weak);
     let results = github_results;
     window.on_plugin_github_install_completed(move |id| {
         let Some(window) = weak.upgrade() else { return };
@@ -196,7 +204,7 @@ pub(super) fn github(window: &PreferencesWindow, app: &PlayerWindow, settings: &
                     )
                     .into(),
                 );
-                if let Some(app) = github_parent.upgrade() {
+                if let Some(app) = github_parent.as_ref().and_then(slint::Weak::upgrade) {
                     crate::diagnostics::report(
                         &app,
                         crate::diagnostics::UserMessage::info(format!(

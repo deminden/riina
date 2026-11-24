@@ -9,11 +9,12 @@ mod update_actions;
 mod updates;
 
 use crate::{
-    PlayerWindow, PreferencesWindow, plugin_host::PluginHostHandle,
-    plugin_packages::InstalledPlugin,
+    PlayerWindow, PreferencesWindow, plugin_host::GlobalHandle, plugin_packages::InstalledPlugin,
 };
 pub(crate) use inventory::current_runtime_supports;
 use inventory::{load_enabled, refresh};
+use riina_mpv::CommandSender;
+use slint::ComponentHandle;
 use std::{
     cell::RefCell,
     collections::BTreeSet,
@@ -30,12 +31,33 @@ struct PluginSettings {
     runtime_available: bool,
 }
 
+#[derive(Clone)]
+struct Playback {
+    window: slint::Weak<PlayerWindow>,
+    commands: CommandSender,
+}
+
+impl Playback {
+    fn ytdl_changed(&self, enabled: bool) {
+        if let Some(app) = self.window.upgrade() {
+            app.global::<riina_ui::PlayerPreferences>()
+                .set_network_ytdl_plugin_active(enabled);
+            if let Err(error) = crate::network_ytdl_preferences::apply_plugin_override(
+                &self.commands,
+                &app,
+                enabled,
+            ) {
+                app.set_status(error.into());
+            }
+        }
+    }
+}
+
 pub(crate) fn connect(
     window: &PreferencesWindow,
-    app: &PlayerWindow,
     preferences_path: &Path,
-    host: Option<PluginHostHandle>,
-    player: riina_mpv::CommandSender,
+    host: Option<GlobalHandle>,
+    playback: Option<(&PlayerWindow, CommandSender)>,
 ) {
     let enabled_path = preferences_path.with_file_name("plugin-enabled.json");
     let settings = PluginSettings {
@@ -57,15 +79,20 @@ pub(crate) fn connect(
     window.on_plugin_id_from_transfer(|transfer| {
         transfer.plain_text().unwrap_or_default().to_string().into()
     });
+    let app = playback.as_ref().map(|(app, _)| *app);
     installation::local(window, app, &settings);
     installation::github(window, app, &settings);
+    let playback = playback.map(|(app, commands)| Playback {
+        window: app.as_weak(),
+        commands,
+    });
     let requests = update_actions::Requests::new();
     update_actions::register_refresh(window, &settings, &requests);
     row_actions::register_reorder(window, &settings);
     update_actions::register_staged(window, &settings, &requests, host.as_ref());
     update_actions::register_completion(window, &settings, &requests);
-    row_actions::register_enabled(window, app, &settings, host.as_ref(), player.clone());
-    removal::register(window, app, &settings, host.as_ref(), player);
+    row_actions::register_enabled(window, &settings, host.as_ref(), playback.clone());
+    removal::register(window, &settings, host.as_ref(), playback);
     update_actions::register_information_update(window, &settings, &requests);
     row_actions::register_open_folder(window, &settings);
     let pages = row_actions::register_settings_page(window, &settings);

@@ -86,6 +86,21 @@ impl Drop for Registration {
 }
 
 impl ApplicationHistory {
+    #[cfg(target_os = "macos")]
+    pub(crate) fn clear_from_settings(&self, path: &std::path::Path) -> Result<usize, String> {
+        let archive = Archive::load(path.to_owned())?;
+        let mut history = archive
+            .history
+            .lock()
+            .map_err(|_| "Playback History is unavailable")?;
+        let removed = crate::utilities_preferences::clear_playback_history(path)?;
+        history.clear();
+        archive
+            .cleared
+            .store(true, std::sync::atomic::Ordering::Release);
+        Ok(removed)
+    }
+
     pub(crate) fn bind(
         &self,
         launch: impl Fn(&PlaybackHistoryWindow, InitialMedia) -> Result<(), String> + 'static,

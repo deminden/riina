@@ -1,10 +1,45 @@
 //! Construct the Settings view from the persisted profile before binding a player.
 
-use super::general_policy::Policy;
-use crate::{PreferencesWindow, preferences::model::PreferenceSection};
+use super::{general_policy::Policy, owner::Owner};
+use crate::{PlayerWindow, PreferencesWindow, preferences::model::PreferenceSection};
 use riina_core::{Preferences, audio_preferences::OutputDevice};
 use slint::ComponentHandle;
 use std::path::Path;
+
+pub(super) fn video_threads(window: &PreferencesWindow) -> Result<u32, &'static str> {
+    window
+        .get_video_threads_text()
+        .trim()
+        .parse::<u32>()
+        .ok()
+        .filter(|threads| *threads <= i32::MAX as u32)
+        .ok_or("Video decoder threads must be between 0 and 2,147,483,647")
+}
+
+pub(super) fn connect_actions(
+    window: &PreferencesWindow,
+    app: Option<&PlayerWindow>,
+    path: &Path,
+    open_log_viewer: impl Fn() + 'static,
+) {
+    let owner = Owner::new(window, app);
+    let assrt = owner.clone();
+    window.on_open_assrt_token_page(move || {
+        if let Err(error) = crate::platform::open_http_url_in_browser("https://2.assrt.net/api/doc")
+        {
+            assrt.report(format!("Could not open Assrt API instructions: {error}"));
+        }
+    });
+    super::key_bindings::connect(window, &owner);
+    super::folder::register(window, &owner);
+    let color = owner.clone();
+    crate::platform::preferences::install_subtitle_color_panel(window, move |error| {
+        color.report(error);
+    });
+    crate::advanced_preferences::connect_actions(window, path, open_log_viewer, move |error| {
+        owner.report(error);
+    });
+}
 
 pub(super) fn create(
     path: &Path,
@@ -29,7 +64,7 @@ pub(super) fn create(
     Ok(window)
 }
 
-fn install_profile_controls(
+pub(super) fn install_profile_controls(
     window: &PreferencesWindow,
     baseline: &Preferences,
     available_devices: &[OutputDevice],

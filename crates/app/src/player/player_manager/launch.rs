@@ -162,6 +162,26 @@ impl PlayerManager {
         }
     }
 
+    pub(crate) fn show_application_settings(&self) {
+        if self.is_quitting() {
+            return;
+        }
+        if let Some((app, _)) = self.services().history.browser_destination() {
+            // Welcome can own a configured player even before the first file.
+            app.global::<riina_ui::PlayerMenuActions>()
+                .invoke_open_preferences();
+            return;
+        }
+        let result = (|| -> Result<(), String> {
+            let path = crate::platform::preferences_path().map_err(|error| error.to_string())?;
+            let loaded = preference_load::load(&path).map_err(|error| error.to_string())?;
+            self.services().show_application_settings(&path, loaded)
+        })();
+        if let Err(error) = result {
+            crate::diagnostics::warn!("Could not open Settings: {error}");
+        }
+    }
+
     pub(crate) fn clear_application_recents(&self) {
         if self.is_quitting() {
             return;

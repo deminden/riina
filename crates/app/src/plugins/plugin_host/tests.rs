@@ -48,6 +48,7 @@ fn playback_updates_keep_the_plugin_window_context_and_confirmed_mode_order() {
         .update_player_file_context(PluginPlayerFileContext::default().with_media_generation(1))
         .unwrap();
     handle
+        .global
         .activate_after_update(
             Manifest::load_from_directory(&directory).unwrap(),
             directory,
@@ -220,6 +221,7 @@ fn plugins_enabled_after_window_and_mpv_initialization_receive_events_once() {
     handle.notify_window_loaded().unwrap();
     handle.notify_window_loaded().unwrap();
     handle
+        .global
         .enable(
             Manifest::load_from_directory(&directory).unwrap(),
             directory.clone(),
@@ -677,10 +679,14 @@ fn global_entry_owns_managed_players_and_routes_each_kind_of_message() {
     assert!(!right.is_open());
     drop(right_player);
 
-    second_handle.suspend_for_update(identifier.into()).unwrap();
+    second_handle
+        .global
+        .suspend_for_update(identifier.into())
+        .unwrap();
     assert!(global.handle().ui.developer.list(0).unwrap().1.is_empty());
     assert_eq!(second_handle.ui.developer.list(0).unwrap().1.len(), 1);
     second_handle
+        .global
         .activate_after_update(Manifest::load_from_directory(&package).unwrap(), package)
         .unwrap();
     wait_for_global_item(&second_handle, "After reload");
@@ -792,8 +798,9 @@ fn an_old_overlay_cannot_deliver_messages_to_a_reloaded_plugin() {
         )
         .unwrap();
     wait_for_log(&handle, "first reply");
-    handle.suspend_for_update(identifier.into()).unwrap();
+    handle.global.suspend_for_update(identifier.into()).unwrap();
     handle
+        .global
         .activate_after_update(Manifest::load_from_directory(&package).unwrap(), package)
         .unwrap();
     let updated = wait_for_route();
@@ -861,8 +868,9 @@ fn an_old_sidebar_cannot_deliver_messages_to_a_reloaded_plugin() {
     let old = wait_for_route();
     send_reply(old.clone(), "first reply");
     wait_for_log(&handle, "first reply");
-    handle.suspend_for_update(identifier.into()).unwrap();
+    handle.global.suspend_for_update(identifier.into()).unwrap();
     handle
+        .global
         .activate_after_update(Manifest::load_from_directory(&package).unwrap(), package)
         .unwrap();
     let updated = wait_for_route();

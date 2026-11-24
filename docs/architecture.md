@@ -531,6 +531,15 @@ use the same form projection when they refresh from a player. Screenshot edits
 preserve formats and templates outside the form and project to a player after
 the save succeeds. Update and playback power controls save through application
 services, with failures reported by the Settings owner.
+The idle macOS AppKit menu opens an application-owned Settings form from the
+current profile. It saves validated edits under the same profile lock as
+player sessions. The store merges differences between successive form values,
+which preserves concurrent changes to other fields and values rounded for
+display. The form uses the application plugin host for package changes and the
+shared recent-file and history services for Utilities actions. The app menu
+routes to the current player when one is configured, including behind Welcome.
+The idle form can remain visible when playback starts. Ordinary edits in that
+form change the profile used by subsequent players.
 At shutdown, `session_preferences::SessionState` saves runtime settings over
 the model's committed settings. Its resume write checks the profile's current
 resume revision under the preference lock. Clearing history advances the

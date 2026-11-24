@@ -1,13 +1,11 @@
 //! Stop plugin realms before retiring their installed package.
 use super::{
-    InstalledPlugin, PluginSettings,
+    InstalledPlugin, Playback, PluginSettings,
     inventory::{load_enabled, read_enabled, refresh, set_enabled},
     permissions::{read_plugin_grants, restore_plugin_grants},
     updates::append_recovery,
 };
-use crate::{
-    PlayerWindow, PreferencesWindow, plugin_host::PluginHostHandle, plugin_packages::PackageRemoval,
-};
+use crate::{PreferencesWindow, plugin_host::GlobalHandle, plugin_packages::PackageRemoval};
 use rfd::{MessageButtons, MessageDialog, MessageDialogResult};
 use slint::{ComponentHandle, winit_030::WinitWindowAccessor};
 use std::{
@@ -23,10 +21,9 @@ struct Completion {
 
 pub(super) fn register(
     window: &PreferencesWindow,
-    app: &PlayerWindow,
     settings: &PluginSettings,
-    host: Option<&PluginHostHandle>,
-    player: riina_mpv::CommandSender,
+    host: Option<&GlobalHandle>,
+    playback: Option<Playback>,
 ) {
     let completed = Arc::new(Mutex::new(None::<Completion>));
     let weak = window.as_weak();
@@ -82,7 +79,6 @@ pub(super) fn register(
     });
 
     let owner = window.as_weak();
-    let player_window = app.as_weak();
     let entries = settings.inventory.clone();
     let enabled = settings.enabled.clone();
     let plugins = settings.plugins.clone();
@@ -107,15 +103,9 @@ pub(super) fn register(
         let status = match completion.result {
             Ok(cleanup) => {
                 if completion.identifier == "io.iina.ytdl"
-                    && let Some(app) = player_window.upgrade()
+                    && let Some(playback) = &playback
                 {
-                    app.global::<riina_ui::PlayerPreferences>()
-                        .set_network_ytdl_plugin_active(false);
-                    if let Err(error) =
-                        crate::network_ytdl_preferences::apply_plugin_override(&player, &app, false)
-                    {
-                        app.set_status(error.into());
-                    }
+                    playback.ytdl_changed(false);
                 }
                 let name = completion.name;
                 cleanup.map_or_else(
@@ -133,7 +123,7 @@ fn uninstall(
     plugins: &Path,
     preferences: &Path,
     plugin: &InstalledPlugin,
-    host: Option<&PluginHostHandle>,
+    host: Option<&GlobalHandle>,
 ) -> Result<Option<String>, String> {
     if plugin.is_development() {
         return Err("Development plugins are managed in their project folders.".into());
@@ -276,9 +266,9 @@ mod tests {
             std::thread::sleep(Duration::from_millis(5));
         }
 
-        assert!(uninstall(&plugins, &profile, development_plugin, Some(&handle)).is_err());
+        assert!(uninstall(&plugins, &profile, development_plugin, Some(&handle.global)).is_err());
         assert!(
-            uninstall(&plugins, &profile, managed_plugin, Some(&handle))
+            uninstall(&plugins, &profile, managed_plugin, Some(&handle.global))
                 .unwrap()
                 .is_none()
         );

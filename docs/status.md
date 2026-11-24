@@ -61,6 +61,10 @@ Implementation does not imply every state or platform is verified.
   Welcome window. The idle macOS Help menu can open the guide on demand.
 - **Software Update:** the idle macOS application menu can check on demand,
   and the opt-in schedule starts with the application.
+- **macOS Settings:** the app menu can open the saved profile without a
+  player. Edits apply to subsequent playback, and a Welcome window with an
+  initialized player can use its live Settings form. AppKit verification
+  remains pending.
 - **About:** player menus and the idle macOS menu share one window. About can
   check the installed libmpv and FFmpeg versions before the first player opens.
 - **Command line:** `riina-cli` starts playback from files, URLs or standard

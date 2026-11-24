@@ -2,7 +2,7 @@
 #[cfg(target_os = "macos")]
 mod macos;
 #[cfg(target_os = "macos")]
-pub(crate) use macos::{ApplicationEvents, show_idle_menu};
+pub(crate) use macos::{ApplicationEvents, refresh_idle_menu, show_idle_menu};
 #[cfg(unix)]
 #[path = "browser_activation/unix.rs"]
 mod transport;

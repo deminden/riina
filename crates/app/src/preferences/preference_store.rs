@@ -37,12 +37,7 @@ impl Writer {
             &self.path,
             &self.observed.borrow(),
             allow_repair,
-            |latest| {
-                let mut value = serde_json::to_value(&*latest).map_err(|e| e.to_string())?;
-                merge_changes(&mut value, &previous, &next);
-                *latest = serde_json::from_value(value).map_err(|e| e.to_string())?;
-                Ok(())
-            },
+            |latest| merge_profile_edit(latest, &previous, &next),
         )?;
         // Advance only after a successful commit, so failed writes remain retryable.
         if written {
@@ -50,6 +45,34 @@ impl Writer {
         }
         Ok(())
     }
+}
+
+#[cfg(any(target_os = "macos", test))]
+pub(crate) fn save_form_edit(
+    path: &Path,
+    saved: &Preferences,
+    previous_form: &Preferences,
+    edited_form: &Preferences,
+) -> Result<(), String> {
+    let previous = serde_json::to_value(previous_form).map_err(|error| error.to_string())?;
+    let next = serde_json::to_value(edited_form).map_err(|error| error.to_string())?;
+    if previous == next {
+        return Ok(());
+    }
+    update(path, saved, |latest| {
+        merge_profile_edit(latest, &previous, &next)
+    })
+}
+
+fn merge_profile_edit(
+    latest: &mut Preferences,
+    previous: &Value,
+    next: &Value,
+) -> Result<(), String> {
+    let mut value = serde_json::to_value(&*latest).map_err(|error| error.to_string())?;
+    merge_changes(&mut value, previous, next);
+    *latest = serde_json::from_value(value).map_err(|error| error.to_string())?;
+    Ok(())
 }
 
 pub(crate) fn update(

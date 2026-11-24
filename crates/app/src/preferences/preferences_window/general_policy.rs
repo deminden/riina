@@ -42,19 +42,29 @@ pub(super) struct Draft {
 
 impl Draft {
     pub(super) fn read(app: &PlayerWindow, window: &PreferencesWindow) -> Option<Self> {
-        let previous = Policy::from_player(app);
+        Self::parse(Policy::from_player(app), window)
+            .inspect_err(|message| {
+                app.set_status((*message).into());
+                refresh(window, app);
+            })
+            .ok()
+    }
+
+    #[cfg(any(target_os = "macos", test))]
+    pub(super) fn read_profile(
+        window: &PreferencesWindow,
+        saved: &Preferences,
+    ) -> Result<Self, &'static str> {
+        Self::parse(Policy::from_profile(saved), window)
+    }
+
+    fn parse(previous: Policy, window: &PreferencesWindow) -> Result<Self, &'static str> {
         let selected = Policy::from_window(window);
-        let Some(repeat_mode) = DefaultRepeatMode::from_index(selected.default_repeat_mode) else {
-            app.set_status("Choose a valid default repeat mode".into());
-            refresh(window, app);
-            return None;
-        };
-        let Some(launch_action) = ActionAfterLaunch::from_index(selected.launch_action) else {
-            app.set_status("Choose a valid launch action".into());
-            refresh(window, app);
-            return None;
-        };
-        Some(Self {
+        let repeat_mode = DefaultRepeatMode::from_index(selected.default_repeat_mode)
+            .ok_or("Choose a valid default repeat mode")?;
+        let launch_action = ActionAfterLaunch::from_index(selected.launch_action)
+            .ok_or("Choose a valid launch action")?;
+        Ok(Self {
             previous,
             selected,
             repeat_mode,

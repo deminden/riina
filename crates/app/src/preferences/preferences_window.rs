@@ -1,10 +1,17 @@
 //! Own the preferences window and its platform dialogs and refresh timers.
+#[cfg(any(target_os = "macos", test))]
+mod application;
+#[cfg(target_os = "macos")]
+pub(crate) use application::{
+    ApplicationSettings, application_status, configure_application_actions,
+};
 mod changes;
 mod construction;
 mod folder;
 mod general_policy;
 mod key_bindings;
 mod live;
+mod owner;
 mod profile_window;
 mod refresh;
 mod timers;
@@ -24,6 +31,8 @@ pub(crate) struct Session {
     pub(crate) plugin_host: Option<crate::plugin_host::PluginHostHandle>,
     pub(crate) updates: Rc<crate::updates::ApplicationUpdates>,
     pub(crate) power: Rc<crate::playback_power::ApplicationPower>,
+    #[cfg(target_os = "macos")]
+    pub(crate) application_settings: Rc<ApplicationSettings>,
 }
 
 pub(crate) fn connect(
@@ -36,6 +45,8 @@ pub(crate) fn connect(
         plugin_host,
         updates,
         power,
+        #[cfg(target_os = "macos")]
+        application_settings,
     }: Session,
     clear_history: impl Fn() -> Result<usize, String> + Clone + 'static,
 ) {
@@ -74,6 +85,21 @@ pub(crate) fn connect(
                     .get_dialog_open()
             {
                 return;
+            }
+            #[cfg(target_os = "macos")]
+            {
+                let pane = app.get_preferences_target_pane();
+                match application_settings.show_visible((pane >= 0).then_some(pane)) {
+                    Ok(false) => {}
+                    Ok(true) => {
+                        app.set_preferences_target_pane(-1);
+                        return;
+                    }
+                    Err(error) => {
+                        app.set_status(error.to_string().into());
+                        return;
+                    }
+                }
             }
             let existing = current.borrow().as_ref().map(ComponentHandle::clone_strong);
             let window = if let Some(window) = existing {

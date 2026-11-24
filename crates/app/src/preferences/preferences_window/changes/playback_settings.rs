@@ -72,11 +72,11 @@ impl Draft {
         };
         let previous_tone_mapping = saved.hdr_tone_mapping.clone();
         let tone_mapping_changed = tone_mapping != previous_tone_mapping;
-        let video_threads = match window.get_video_threads_text().trim().parse::<u32>() {
-            Ok(threads) if threads <= i32::MAX as u32 => threads,
-            _ => {
+        let video_threads = match super::super::profile_window::video_threads(window) {
+            Ok(threads) => threads,
+            Err(message) => {
                 window.set_video_threads_text(saved.video_threads.to_string().into());
-                app.set_status("Video decoder threads must be between 0 and 2,147,483,647".into());
+                app.set_status(message.into());
                 return None;
             }
         };

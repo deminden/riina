@@ -3814,3 +3814,38 @@ and need native macOS verification.
 - Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
 - Linux application SHA-256 `5f36224470649363a8e8bd1007b1fb04f1ff12d1cc5992f9ec87ba7b5cd7baaa`
 - Linux libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`
+
+### macOS Settings before playback 2026-11-24
+
+The idle macOS application menu registers Settings with Command-comma. The
+application-owned form loads and edits the profile without a player. It uses
+the application updater, on-disk history and plugin host, along with the
+folder, key binding and subtitle controls shared with player Settings.
+Closing the form releases its tools and notifies the application's window
+lifecycle. When Welcome already has a configured player, the menu can use
+that player's Settings actions.
+
+Headless tests open and reuse the form, edit settings across sections, and
+verify that a concurrent save keeps unrelated nested fields. Other cases
+cover validation before a profile is written, visible error feedback,
+preserving a credential when its keyring write fails, and keeping
+credentials out of the profile.
+
+A private Windows desktop opened Settings during paused playback. It
+cancelled the screenshot folder picker, reopened it, selected a folder and
+verified the saved path. A General setting changed the native File menu,
+survived restart and left playback paused. Both processes exited normally.
+The isolated Linux X11 Utilities run covered confirmations, cancellation,
+history, saved progress and thumbnails, then quit normally. The Windows
+workspace gate and software-rendered player and Settings comparisons passed.
+Locked Windows and Linux application builds, 586 Linux application tests,
+all 61 pinned Windows libmpv tests and strict Apple Silicon cross-Clippy passed.
+
+Native macOS verification still needs to cover the menu shortcut, folder and
+subtitle pickers, focus and windowless shutdown. An idle form left open when
+playback starts continues to edit defaults for subsequent players.
+
+- Windows application SHA-256 `02c65b8cca07a9acade491635cc94804a7ec86b9e6be7f22b04b4bcd30378655`
+- Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
+- Linux application SHA-256 `d614aadcb5ddb148d33247ce9597c440246753f554846efcd9e4987582b06d11`
+- Linux libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`

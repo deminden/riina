@@ -113,15 +113,6 @@ impl PluginHostHandle {
         }
     }
 
-    pub(crate) fn enable(&self, manifest: Manifest, directory: PathBuf) -> Result<(), String> {
-        self.global
-            .change(PackageChange::Enable(Arc::new(manifest), directory))
-    }
-
-    pub(crate) fn disable(&self, identifier: String) -> Result<(), String> {
-        self.global.change(PackageChange::Disable(identifier))
-    }
-
     pub(crate) fn update_player_file_context(
         &self,
         context: PluginPlayerFileContext,
@@ -197,20 +188,6 @@ impl PluginHostHandle {
         result
             .recv_timeout(Duration::from_secs(2))
             .map_err(|error| format!("Plugin host did not prepare window shutdown: {error}"))
-    }
-
-    pub(crate) fn suspend_for_update(&self, identifier: String) -> Result<(), String> {
-        self.global
-            .change_and_wait(PackageChange::Suspend(identifier))
-    }
-
-    pub(crate) fn activate_after_update(
-        &self,
-        manifest: Manifest,
-        directory: PathBuf,
-    ) -> Result<(), String> {
-        self.global
-            .change_and_wait(PackageChange::Enable(Arc::new(manifest), directory))
     }
 
     #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]

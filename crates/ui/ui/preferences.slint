@@ -44,6 +44,7 @@ export component PreferencesWindow inherits Window {
     // when the desktop or player uses dark appearance.
     init => { Palette.color-scheme = ColorScheme.light; }
     in-out property <bool> mica-backdrop-enabled: false;
+    in property <string> profile-status;
     // Layer the Settings surfaces over Windows Mica and preserve their solid
     // colors when the native backdrop is unavailable.
     background: mica-backdrop-enabled ? transparent : Theme.settings-content-surface(false);
@@ -278,6 +279,7 @@ export component PreferencesWindow inherits Window {
     }
     callback choose-folder();
     callback choose-subtitle-font();
+    callback close-profile-font-picker();
     callback utilities-open-default-apps();
     callback utilities-default-apps-requested(bool, bool, bool);
     callback utilities-refresh-sizes();
@@ -604,6 +606,19 @@ export component PreferencesWindow inherits Window {
         key-binding-editor-cancelled => { root.key-binding-editor-cancelled(); }
         key-binding-key-recorded(key, control, alt, shift, meta) => { root.key-binding-key-recorded(key, control, alt, shift, meta); }
         key-binding-mapping-submitted(key, action, comment, kind, row) => { root.key-binding-mapping-submitted(key, action, comment, kind, row); }
+    }
+
+    if root.profile-status != "" : Rectangle {
+        x: 212px; y: parent.height - self.height - 12px;
+        width: parent.width - self.x - 12px;
+        height: profile-message.preferred-height + 16px;
+        background: Theme.settings-modal-surface;
+        border-width: 1px; border-color: Theme.settings-modal-border; border-radius: 6px;
+        profile-message := Text {
+            x: 8px; y: 8px; width: parent.width - 16px;
+            text: root.profile-status; color: Theme.settings-modal-title;
+            font-size: 12px; wrap: word-wrap;
+        }
     }
 
     if root.plugin-information-open : PluginInformationDialog {

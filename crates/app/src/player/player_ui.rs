@@ -303,6 +303,8 @@ pub(crate) struct ApplicationServices {
     recents: Rc<recent_activity::ApplicationRecents>,
     updates: Rc<crate::updates::ApplicationUpdates>,
     power: Rc<crate::playback_power::ApplicationPower>,
+    #[cfg(target_os = "macos")]
+    settings: Rc<crate::preferences_window::ApplicationSettings>,
 }
 
 impl ApplicationServices {
@@ -312,6 +314,7 @@ impl ApplicationServices {
         self.logs.closed.bind(callback.clone());
         self.open_url.closed.bind(callback.clone());
         self.updates.closed.bind(callback.clone());
+        self.settings.closed.bind(callback.clone());
         self.highlights.closed.bind(callback);
     }
 
@@ -323,6 +326,7 @@ impl ApplicationServices {
             || self.open_url.is_visible()
             || self.updates.is_visible()
             || self.highlights.is_visible()
+            || self.settings.is_visible()
     }
 
     #[cfg(target_os = "macos")]
@@ -332,6 +336,79 @@ impl ApplicationServices {
         self.open_url.hide_for_quit();
         self.updates.hide_for_quit();
         self.highlights.hide();
+        self.settings.hide();
+    }
+
+    #[cfg(target_os = "macos")]
+    pub(crate) fn show_application_settings(
+        &self,
+        path: &std::path::Path,
+        loaded: crate::preference_load::LoadedPreferences,
+    ) -> Result<(), String> {
+        if self
+            .settings
+            .show_visible(None)
+            .map_err(|error| error.to_string())?
+        {
+            return Ok(());
+        }
+        let mut saved = loaded.preferences;
+        let subtitle_credentials = crate::online_subtitles_credentials::restore_preferences(
+            &mut saved,
+            loaded.source_text.as_deref(),
+            path,
+            loaded.recovery.is_none(),
+        );
+        let status = loaded
+            .recovery
+            .map(|recovery| recovery.notice())
+            .or_else(|| subtitle_credentials.err());
+        let history = Rc::downgrade(&self.history);
+        let recent = self.recents.for_profile(path, &saved, true);
+        let history_path = path.to_owned();
+        let clear = move || {
+            let history = history.upgrade().ok_or("Playback History is unavailable")?;
+            let removed = history.clear_from_settings(&history_path)?;
+            let cleared = recent.clear_for_history();
+            let synced = history.sync_plugins(&[]);
+            crate::platform::browser_activation::refresh_idle_menu();
+            cleared.and(synced)?;
+            Ok(removed)
+        };
+        self.configure_application_updates(path, &saved);
+        self.power.initialize(saved.playback_power);
+        let baseline = saved.clone();
+        self.settings.show(path, saved, clear, |window| {
+            let report = crate::preferences_window::application_status(window);
+            self.updates.connect_settings(window, report.clone());
+            self.updates.refresh_settings(window);
+            self.power
+                .connect_settings(window, path, &baseline, report.clone());
+            self.power.refresh_settings(window);
+            if let Some(status) = status {
+                report(status);
+            }
+            let plugin_host = self
+                .plugins
+                .host(path)
+                .inspect_err(|error| report(error.clone()))
+                .ok();
+            crate::plugin_preferences::connect(window, path, plugin_host, None);
+            let logs = Rc::downgrade(&self.logs);
+            let path_for_logs = path.to_owned();
+            crate::preferences_window::configure_application_actions(window, path, move || {
+                let Some(logs) = logs.upgrade() else { return };
+                let level = crate::preference_load::read_valid(&path_for_logs)
+                    .ok()
+                    .flatten()
+                    .map_or(baseline.advanced.log_level, |saved| {
+                        saved.advanced.log_level
+                    });
+                if let Err(error) = logs.show(None, &path_for_logs, level) {
+                    report(error.to_string());
+                }
+            });
+        })
     }
 
     #[cfg(target_os = "macos")]

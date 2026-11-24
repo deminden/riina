@@ -4,7 +4,7 @@ use super::{
     inventory::refresh,
     updates::{apply_plugin_update, check_update_status, confirm_update_permissions},
 };
-use crate::{PreferencesWindow, plugin_host::PluginHostHandle, plugin_packages::StagedPackage};
+use crate::{PreferencesWindow, plugin_host::GlobalHandle, plugin_packages::StagedPackage};
 use rfd::{MessageButtons, MessageDialog, MessageDialogResult};
 use slint::{ComponentHandle, winit_030::WinitWindowAccessor};
 use std::{
@@ -92,7 +92,7 @@ pub(super) fn register_staged(
     window: &PreferencesWindow,
     settings: &PluginSettings,
     requests: &Requests,
-    host: Option<&PluginHostHandle>,
+    host: Option<&GlobalHandle>,
 ) {
     let weak = window.as_weak();
     let staged_updates_for_stage = requests.staged.clone();

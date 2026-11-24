@@ -54,6 +54,19 @@ fn application_menu(main: MainThreadMarker, target: &LaunchTarget) -> Retained<N
         Some(target),
     ));
     app.addItem(&NSMenuItem::separatorItem(main));
+    let settings = item(
+        main,
+        "Settings…",
+        Some(sel!(riinaIdleSettings:)),
+        ",",
+        Some(target),
+    );
+    // SAFETY: This immutable AppKit symbol is provided by the linked framework.
+    let image =
+        unsafe { objc2_app_kit::NSImage::imageNamed(objc2_app_kit::NSImageNamePreferencesGeneral) };
+    settings.setImage(image.as_deref());
+    app.addItem(&settings);
+    app.addItem(&NSMenuItem::separatorItem(main));
     app.addItem(&item(main, "Hide Riina", Some(sel!(hide:)), "h", None));
     app.addItem(&item(
         main,

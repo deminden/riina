@@ -1,5 +1,5 @@
 //! Initialize the Settings window and register its page controllers.
-use super::{changes, key_bindings};
+use super::{changes, profile_window};
 use crate::preferences::model::PreferenceModel;
 use crate::{PlaybackStore, PlayerWindow, PreferencesWindow, plugin_host::PluginHostHandle};
 use riina_core::Preferences;
@@ -34,26 +34,26 @@ pub(super) fn create(
         .lock()
         .map(|playback| playback.audio_devices.clone())
         .unwrap_or_default();
-    let window =
-        match super::profile_window::create(path, baseline, &available_devices, clear_history) {
-            Ok(window) => window,
-            Err(error) => {
-                app.set_status(error.into());
-                return None;
-            }
-        };
-    connect_assrt_instructions(app, &window);
+    let window = match profile_window::create(path, baseline, &available_devices, clear_history) {
+        Ok(window) => window,
+        Err(error) => {
+            app.set_status(error.into());
+            return None;
+        }
+    };
     crate::plugin_preferences::connect(
         &window,
-        app,
         path,
-        plugin_host.cloned(),
-        decoder_player.clone(),
+        plugin_host.map(|host| host.global.clone()),
+        Some((app, decoder_player.clone())),
     );
-    crate::advanced_preferences::connect_actions(app, &window, path.to_path_buf());
+    let log_owner = app.as_weak();
+    profile_window::connect_actions(&window, Some(app), path, move || {
+        if let Some(app) = log_owner.upgrade() {
+            app.global::<PlayerMenuActions>().invoke_show_log_viewer();
+        }
+    });
     crate::online_subtitles_preferences::install_window_catalog(&window, app);
-    crate::platform::preferences::install_subtitle_color_panel(app, &window);
-    key_bindings::connect(app, &window);
     connect_subtitle_font(app, &window);
     changes::connect(
         app,
@@ -62,22 +62,7 @@ pub(super) fn create(
         model.clone(),
         latest_playback.clone(),
     );
-    super::folder::register(app, &window);
     Some(window)
-}
-
-fn connect_assrt_instructions(app: &PlayerWindow, window: &PreferencesWindow) {
-    let assrt_token_page_parent = app.as_weak();
-    window.on_open_assrt_token_page(move || {
-        if let Err(error) = crate::platform::open_http_url_in_browser("https://2.assrt.net/api/doc")
-            && let Some(app) = assrt_token_page_parent.upgrade()
-        {
-            crate::diagnostics::report(
-                &app,
-                format!("Could not open Assrt API instructions: {error}"),
-            );
-        }
-    });
 }
 
 fn connect_subtitle_font(app: &PlayerWindow, window: &PreferencesWindow) {

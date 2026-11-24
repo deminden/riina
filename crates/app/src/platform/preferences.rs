@@ -1,18 +1,20 @@
 //! Platform-specific Settings controls, including the AppKit color panel.
-use crate::{PlayerWindow, PreferencesWindow};
+use crate::PreferencesWindow;
 
 #[cfg(not(target_os = "macos"))]
-pub(crate) fn install_subtitle_color_panel(_: &PlayerWindow, _: &PreferencesWindow) {}
+pub(crate) fn install_subtitle_color_panel(_: &PreferencesWindow, _: impl Fn(String) + 'static) {}
 
 #[cfg(target_os = "macos")]
-pub(crate) fn install_subtitle_color_panel(app: &PlayerWindow, window: &PreferencesWindow) {
+pub(crate) fn install_subtitle_color_panel(
+    window: &PreferencesWindow,
+    report: impl Fn(String) + 'static,
+) {
     use slint::ComponentHandle;
     use std::{cell::RefCell, rc::Rc};
 
     let active_color_panel = Rc::new(RefCell::new(None));
     let active_panel_slot = active_color_panel.clone();
     let color_panel_window = window.as_weak();
-    let color_panel_parent = app.as_weak();
     window.on_native_subtitle_color_requested(move |target, color| {
         let Some(window) = color_panel_window.upgrade() else {
             return;
@@ -54,11 +56,7 @@ pub(crate) fn install_subtitle_color_panel(app: &PlayerWindow, window: &Preferen
         });
         match panel {
             Ok(panel) => *active_panel_slot.borrow_mut() = Some(panel),
-            Err(error) => {
-                if let Some(app) = color_panel_parent.upgrade() {
-                    app.set_status(error.into());
-                }
-            }
+            Err(error) => report(error),
         }
     });
 }

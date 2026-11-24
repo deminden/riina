@@ -86,7 +86,7 @@ pub(super) fn apply_plugin_update(
     previous: InstalledPlugin,
     plugins_directory: &Path,
     preferences_path: &Path,
-    host: Option<&crate::plugin_host::PluginHostHandle>,
+    host: Option<&crate::plugin_host::GlobalHandle>,
     should_activate: bool,
 ) -> Result<(), String> {
     if !previous.can_update() {
