@@ -40,7 +40,7 @@ impl NativePresentation {
 
     pub(crate) fn start_engine(
         &self,
-        _options: Vec<(String, String)>,
+        _options: riina_mpv::StartupOptions,
         _notify: impl Fn(std::sync::Arc<riina_core::Playback>) + Send + 'static,
     ) -> Result<riina_mpv::Player, riina_mpv::EngineError> {
         Err(riina_mpv::EngineError::InvalidArgument {

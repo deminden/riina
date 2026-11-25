@@ -12,7 +12,6 @@ use crate::{
     video_osd::VideoOsd, window_aspect::MediaGeometry,
 };
 use riina_core::{Phase, Playback, Preferences, RecentMedia, sync::lock, video_filters};
-use riina_mpv::CommandSender;
 use riina_ui::PlayerMenuActions;
 use slint::{ComponentHandle, winit_030::WinitWindowAccessor};
 use std::{
@@ -32,7 +31,6 @@ pub(super) struct Inputs<'a> {
     pub(super) history: HistoryObservation,
     pub(super) saved_video_filters: Arc<Mutex<video_filters::Settings>>,
     pub(super) saved_audio_filters: Arc<Mutex<video_filters::Settings>>,
-    pub(super) audio_device_sender: Arc<Mutex<Option<CommandSender>>>,
     pub(super) picture_in_picture_state_dirty: Option<Arc<AtomicBool>>,
     pub(super) managed_visibility: Option<ManagedVisibility>,
 }
@@ -56,7 +54,6 @@ pub(super) fn prepare_observation(app: &PlayerWindow, inputs: Inputs<'_>) -> Pre
         history,
         saved_video_filters,
         saved_audio_filters,
-        audio_device_sender,
         picture_in_picture_state_dirty,
         managed_visibility,
     } = inputs;
@@ -96,7 +93,6 @@ pub(super) fn prepare_observation(app: &PlayerWindow, inputs: Inputs<'_>) -> Pre
             crop_editor: observed_crop_editor,
             saved_video_filters,
             saved_audio_filters,
-            audio_device_sender,
             opening_fullscreen,
             transition_overlay: notify_transition_overlay,
             transition_release_generation: notify_transition_release_generation,
@@ -198,7 +194,6 @@ pub(super) struct WindowDelivery {
     pub(super) crop_editor: Editor,
     pub(super) saved_video_filters: Arc<Mutex<video_filters::Settings>>,
     pub(super) saved_audio_filters: Arc<Mutex<video_filters::Settings>>,
-    pub(super) audio_device_sender: Arc<Mutex<Option<CommandSender>>>,
     pub(super) opening_fullscreen: Arc<Mutex<OpeningFullscreen>>,
     pub(super) transition_overlay: Arc<AtomicU64>,
     pub(super) transition_release_generation: Arc<AtomicU64>,
@@ -252,7 +247,6 @@ impl WindowDelivery {
             let startup_presentation = observer.borrow_mut().startup_presentation(&app, &state);
             let clipboard_error = crate::screenshot_output::copy(&app, &captures);
             self.crop_editor.observe(&app, &state);
-            let audio_device_sender = lock(&self.audio_device_sender).clone();
             let enter_fullscreen = lock(&self.opening_fullscreen).observe(
                 &state,
                 app.global::<riina_ui::PlayerPreferences>()
@@ -265,7 +259,6 @@ impl WindowDelivery {
                 &app,
                 &state,
                 UiUpdateResources {
-                    audio_device_player: audio_device_sender.as_ref(),
                     saved_video_filters: &self.saved_video_filters,
                     saved_audio_filters: &self.saved_audio_filters,
                     transition_overlay: self.transition_overlay.as_ref(),

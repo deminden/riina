@@ -66,6 +66,15 @@ separately from temporary volume restoration. The profile keeps the newest
 acknowledgement and saves it after a short idle interval or when a player
 closes. Individual window saves leave this field under profile ownership.
 
+The playback worker checks a saved preferred audio device against libmpv's
+device list before the first file. The discovery wait is bounded and an
+unavailable preference leaves the engine on Automatic. An explicit mpv
+option or config retains its own device selection. During playback, the
+worker repairs a disappearing known device once per observed change.
+It uses the matching Apple endpoint when changing between Core Audio and
+AVFoundation and submits recovery on the same native queue as explicit
+device selections. Recovery updates the session without saving a preference.
+
 Windows system media controls belong to the player's native toplevel. The
 session publishes observed titles, playback state and seek bounds. Native
 callbacks return to the UI thread and use the player's active key profile.

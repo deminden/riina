@@ -1,9 +1,9 @@
 //! Characterise the real player callbacks without opening a native window or libmpv.
 
-use super::{engine_start::EngineOptions, *};
+use super::*;
 use crate::CatalogSelection;
 use riina_core::{Command, Preferences, TrackKind};
-use riina_mpv::{CommandSender, RecordingEngine};
+use riina_mpv::{CommandSender, RecordingEngine, StartupOptions};
 use riina_test_support::TempDir;
 use riina_ui::PlayerMenuActions;
 use slint::{ComponentHandle, Model};
@@ -21,7 +21,7 @@ pub(crate) struct Harness {
     pub(crate) session: UiSession,
     pub(crate) engine: Rc<RecordingEngine>,
     pub(crate) sender: CommandSender,
-    startup_options: Rc<RefCell<EngineOptions>>,
+    startup_options: Rc<RefCell<StartupOptions>>,
     startup_commands: Vec<Command>,
 }
 
@@ -59,7 +59,7 @@ impl Harness {
         app.set_native_video(capture_before_navigation);
         let (commands, engine) = CommandSender::recording(64);
         let engine = Rc::new(engine);
-        let startup_options = Rc::new(RefCell::new(Vec::new()));
+        let startup_options = Rc::new(RefCell::new(StartupOptions::default()));
         let session = configure_with_engine(
             &app,
             None,
@@ -448,6 +448,10 @@ fn exercise_startup(profile: &std::path::Path) -> Result<(), Box<dyn std::error:
         video_threads: 4,
         volume_boost: true,
         hdr_enabled: false,
+        audio: riina_core::audio_preferences::Settings {
+            device: "wasapi/detached".into(),
+            ..Default::default()
+        },
         advanced: riina_core::advanced_preferences::Settings {
             enabled: true,
             use_mpv_osd: true,
@@ -461,7 +465,13 @@ fn exercise_startup(profile: &std::path::Path) -> Result<(), Box<dyn std::error:
     };
     crate::preference_store::Writer::new(path.clone(), Preferences::default()).save(&prefs)?;
     let harness = Harness::start(path.clone(), false)?;
-    let options = harness.startup_options.borrow();
+    let startup = harness.startup_options.borrow();
+    assert_eq!(
+        startup.preferred_audio_device.as_deref(),
+        Some("wasapi/detached")
+    );
+    let options = &startup.mpv;
+    assert!(options.iter().all(|(name, _)| name != "audio-device"));
     assert_eq!(
         &options[..3],
         &[

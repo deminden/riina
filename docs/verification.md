@@ -5673,3 +5673,27 @@ Native macOS History interaction remains unverified.
 - Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
 - Linux application SHA-256 `63b8a78a55fc2ba25a1efbcf311ec2b035b960b6f9736473bd3735c8435c8bb8`
 - Linux libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`
+
+### Audio device recovery (2026-11-25)
+
+The locked Windows workspace and Linux application builds passed. The Windows
+workspace gate passed strict Clippy and the player and Settings pixel
+comparisons. The separate Windows native suite passed all 68 playback tests.
+The focused Linux native suite passed all five audio tests. Apple Silicon and
+Intel application and test targets passed cross-Clippy.
+
+A private Windows desktop opened a paused video with an unavailable WASAPI
+device saved in the profile. The engine selected the audio track and reported
+Automatic. The exact test process exited normally with the saved device and
+description intact. This used the null output driver.
+
+On isolated Linux Wayland, a PulseAudio-enabled test engine opened the video
+on a saved software endpoint. Removing that endpoint switched the engine to
+Automatic and kept the media, audio track, pause, position and volume. The
+exact test process exited normally and retained the saved endpoint. Physical
+audio output and native macOS driver switching remain unverified.
+
+- Windows application SHA-256 `2258aa7c6aaeaf50c2d57778efc1208cba788c1c2f716ebf4343250f5b03fa2e`
+- Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
+- Linux application SHA-256 `aa2367bfc95e64d21ace260269f2296b90ebc87d56c1ac569a0f4f5f9953f53b`
+- Linux PulseAudio test libmpv SHA-256 `9194ebd43e8bb0ecb3c1fbffd1838496e1471676552c2188163830825453411e`

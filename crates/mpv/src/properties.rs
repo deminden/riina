@@ -5,7 +5,7 @@ use std::ffi::CStr;
 #[cfg(test)]
 use std::ffi::CString;
 
-fn decode_audio_devices(
+pub(super) fn decode_audio_devices(
     value: serde_json::Value,
 ) -> Result<Vec<riina_core::audio_preferences::OutputDevice>, String> {
     let devices: Vec<riina_core::audio_preferences::OutputDevice> =

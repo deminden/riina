@@ -166,6 +166,17 @@ pub struct OutputDevice {
     pub description: String,
 }
 
+/// Both Apple outputs expose the same native endpoint identifiers.
+pub fn device_alias(device: &str, driver: &str) -> Option<String> {
+    let (previous, endpoint) = device.split_once('/')?;
+    (!endpoint.is_empty()
+        && matches!(
+            (previous, driver),
+            ("coreaudio", "avfoundation") | ("avfoundation", "coreaudio")
+        ))
+    .then(|| format!("{driver}/{endpoint}"))
+}
+
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum Driver {

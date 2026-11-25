@@ -1,6 +1,6 @@
 //! Apply one playback snapshot to the window and its transient controls.
 use super::{
-    catalog::{current_chapter, should_fallback_removed_audio_device, update_catalog},
+    catalog::{current_chapter, update_catalog},
     clear_screenshot_preview, media_geometry_requires_resize,
     observer_state::UiObserverState,
     window_video_geometry,
@@ -10,7 +10,7 @@ use crate::{
     player::presentation::playback_osd_allowed,
     seek_osd::{self, Change},
 };
-use riina_core::{Command, LoopMode, Phase, Playback, TrackKind};
+use riina_core::{LoopMode, Phase, Playback, TrackKind};
 use slint::ComponentHandle;
 use std::{
     path::PathBuf,
@@ -21,7 +21,6 @@ use std::{
 };
 
 pub(super) struct UiUpdateResources<'a> {
-    pub(super) audio_device_player: Option<&'a riina_mpv::CommandSender>,
     pub(super) saved_video_filters: &'a Arc<std::sync::Mutex<riina_core::video_filters::Settings>>,
     pub(super) saved_audio_filters: &'a Arc<std::sync::Mutex<riina_core::video_filters::Settings>>,
     pub(super) transition_overlay: &'a AtomicU64,
@@ -63,15 +62,6 @@ pub(super) fn update_ui(
     timeline.set_seek_duration_label(seek_osd::clock(state.duration).into());
     app.global::<riina_ui::PlayerCatalogState>()
         .set_playlist_shuffled(state.playlist_shuffled);
-    if should_fallback_removed_audio_device(displayed.as_deref(), state)
-        && let Some(audio_device_player) = resources.audio_device_player
-        && let Err(error) = audio_device_player.send(Command::AudioDevice("auto".into()))
-    {
-        crate::diagnostics::report(
-            app,
-            format!("Could not restore automatic audio output: {error}"),
-        );
-    }
     // Preserve row identity across clock ticks so focus and accessibility indexes
     // are not destroyed by unrelated time-pos notifications.
     if displayed.as_ref().is_none_or(|old| {

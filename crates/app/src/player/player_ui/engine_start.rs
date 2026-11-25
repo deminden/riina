@@ -1,9 +1,7 @@
 use crate::platform;
 use riina_core::Playback;
-use riina_mpv::{CommandSender, Player};
+use riina_mpv::{CommandSender, Player, StartupOptions};
 use std::{path::PathBuf, sync::Arc};
-
-pub(super) type EngineOptions = Vec<(String, String)>;
 
 pub(super) enum EngineStart {
     Native,
@@ -13,7 +11,7 @@ pub(super) enum EngineStart {
         commands: CommandSender,
         profile: PathBuf,
         capture_before_navigation: bool,
-        startup_options: std::rc::Rc<std::cell::RefCell<EngineOptions>>,
+        startup_options: std::rc::Rc<std::cell::RefCell<StartupOptions>>,
     },
 }
 
@@ -49,7 +47,7 @@ impl EngineStart {
     pub(super) fn start(
         self,
         native: Option<&platform::NativePresentation>,
-        options: EngineOptions,
+        options: StartupOptions,
         notify: impl Fn(Arc<Playback>) + Send + 'static,
     ) -> Result<(Option<Player>, CommandSender), String> {
         match self {

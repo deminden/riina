@@ -1,7 +1,7 @@
 //! Build initial engine options and issue the saved player commands in startup order.
 use super::{
     audio_controls::set_audio_equalizer_controls,
-    engine_start::{EngineOptions, EngineStart},
+    engine_start::EngineStart,
     hdr_output,
     history_session::{LoadedHistory, Tracking},
     initial_projection, live_text, observation_dispatch, plugins,
@@ -14,7 +14,7 @@ use crate::{
     window_aspect::MediaGeometry,
 };
 use riina_core::{Command, Preferences, audio_equalizer, sync::lock};
-use riina_mpv::{CommandSender, Player};
+use riina_mpv::{CommandSender, Player, StartupOptions};
 use slint::ComponentHandle;
 use std::{
     cell::Cell,
@@ -22,6 +22,8 @@ use std::{
     rc::Rc,
     sync::{Arc, Mutex},
 };
+
+type EngineOptions = Vec<(String, String)>;
 
 pub(super) struct PreparedSettings {
     pub(super) prefs: Preferences,
@@ -77,7 +79,7 @@ pub(super) fn options_for_session(
     prefs: &Preferences,
     prefs_path: &Path,
     launch_options: EngineOptions,
-) -> std::io::Result<EngineOptions> {
+) -> std::io::Result<StartupOptions> {
     let watch_later_directory = prefs_path.with_file_name("watch-later");
     std::fs::create_dir_all(&watch_later_directory)?;
     let ytdl_plugin_active = crate::plugin_host::is_enabled_plugin(prefs_path, "io.iina.ytdl");
@@ -88,7 +90,12 @@ pub(super) fn options_for_session(
             options.extend(launch_options);
             options
         });
-    engine_options(
+    let configured_device = advanced_options.as_ref().is_ok_and(|options| {
+        options
+            .iter()
+            .any(|(name, value)| name == "audio-device" || (name == "config" && value == "yes"))
+    });
+    let mut mpv = engine_options(
         prefs,
         &watch_later_directory,
         OptionsFlags {
@@ -97,7 +104,20 @@ pub(super) fn options_for_session(
         },
         advanced_options,
     )
-    .map_err(std::io::Error::other)
+    .map_err(std::io::Error::other)?;
+    let preferred_audio_device = (!configured_device && prefs.audio.device != "auto").then(|| {
+        mpv.retain(|(name, _)| name != "audio-device");
+        let driver = mpv.iter().rev().find(|(name, _)| name == "ao");
+        driver
+            .and_then(|(_, driver)| {
+                riina_core::audio_preferences::device_alias(&prefs.audio.device, driver)
+            })
+            .unwrap_or_else(|| prefs.audio.device.clone())
+    });
+    Ok(StartupOptions {
+        mpv,
+        preferred_audio_device,
+    })
 }
 
 pub(super) struct OptionsFlags {
@@ -422,7 +442,7 @@ pub(super) struct SessionRecents {
 
 pub(super) struct PreparedStartup {
     pub(super) observation: observation_dispatch::PreparedObservation,
-    pub(super) engine_options: EngineOptions,
+    pub(super) engine_options: StartupOptions,
     pub(super) session: PreparedSession,
 }
 
@@ -530,7 +550,6 @@ pub(super) fn prepare(
             history: history.observe(plugin_host_handle.clone()),
             saved_video_filters: filters.settings(crate::video_filter_window::Kind::Video),
             saved_audio_filters: filters.settings(crate::video_filter_window::Kind::Audio),
-            audio_device_sender: plugin_ui.plugin_command_sender.clone(),
             picture_in_picture_state_dirty: picture_in_picture.notification_flag(),
             managed_visibility: startup
                 .managed

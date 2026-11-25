@@ -4,6 +4,7 @@ use super::model::{PreferenceSection, SectionError};
 use crate::{AudioSettingsState, PreferencesWindow};
 use riina_core::audio_preferences::{
     Driver, Gapless, OutputDevice, ReplayGain, ReplayGainOptions, Settings, SpdifCodec,
+    device_alias,
 };
 use slint::{ComponentHandle, Model};
 
@@ -113,14 +114,20 @@ pub(crate) fn current_window(window: &crate::PreferencesWindow) -> Result<Settin
         )?,
         preferred_languages: audio.get_audio_preferred_languages().to_string(),
     };
-    // A device ID is tied to its output driver. If the selected driver changed
-    // while Settings was open, don't persist a stale ID that can prevent audio
-    // initialization on the next launch; the user can choose its device after
-    // the newly selected driver has started.
+    // Preserve an Apple endpoint across the two drivers only when its alias is listed.
     if !device_matches_driver(driver, &preferences.device) {
-        preferences.device = "auto".into();
-        preferences.device_description = "Autoselect device".into();
-        audio.set_audio_device_index(0);
+        let names = audio.get_audio_device_names();
+        let descriptions = audio.get_audio_device_descriptions();
+        let replacement = device_alias(&preferences.device, driver.native_value())
+            .and_then(|alias| names.iter().position(|name| name.as_str() == alias));
+        let index = replacement.unwrap_or(0);
+        preferences.device = names
+            .row_data(index)
+            .map_or_else(|| "auto".into(), |value| value.to_string());
+        preferences.device_description = descriptions
+            .row_data(index)
+            .map_or_else(|| "Autoselect device".into(), |value| value.to_string());
+        audio.set_audio_device_index(index as i32);
     }
     preferences.validate().map_err(|error| error.to_string())?;
     Ok(preferences)

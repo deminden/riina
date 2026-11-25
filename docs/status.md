@@ -42,6 +42,10 @@ Implementation does not imply every state or platform is verified.
   volume change is available to new players while the current one remains
   open. ReplayGain mode, preamp, clipping and fallback edits apply to all
   open players using the saved profile.
+- **Audio devices:** an unavailable saved device opens with automatic device
+  selection and remains saved for a future launch. During playback, device
+  removal falls back to Automatic. Core Audio and AVFoundation use the same
+  endpoint after a driver change when libmpv lists both names.
 - **Music Mode catalog:** the compact player opens Playlist and Chapters in
   the same panel. The toolbar remembers the active tab, and both lists keep
   their scroll positions when switching between the main and compact player.

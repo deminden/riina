@@ -1,4 +1,5 @@
 //! Native commands and events are serialized on the event thread.
+mod audio_route;
 mod duration_probe;
 mod folder_discovery;
 mod handle;
@@ -14,7 +15,7 @@ use self::handle::{EventRef, Handle};
 use self::playlist_resume::PlaylistResume;
 use super::{Message, WakeupContext, diag, record_notice, trace_shutdown};
 use crate::{
-    EngineError, MpvPropertyFormat,
+    EngineError, MpvPropertyFormat, StartupOptions,
     auto_seek::AutoSeek,
     client_request::{Operation, Pending, Request},
     ffi::{Api, end_reason, event_id, format},
@@ -41,7 +42,7 @@ use std::{
 pub(super) struct Start<N> {
     pub(super) api: Api,
     pub(super) headless: bool,
-    pub(super) options: Vec<(String, String)>,
+    pub(super) options: StartupOptions,
     pub(super) notify: N,
     pub(super) receiver: Receiver<Message>,
     pub(super) callback_sender: SyncSender<Message>,
@@ -78,9 +79,10 @@ impl<N: Fn(Arc<Playback>)> Start<N> {
         };
         let mut enable_audio_subtitle_surface = !headless
             && !options
+                .mpv
                 .iter()
                 .any(|(name, _)| matches!(name.as_str(), "force-window" | "wid"));
-        let error = match configure(&handle, headless, options) {
+        let error = match configure(&mut handle, headless, options) {
             Ok(ignored) => (!ignored.is_empty())
                 .then(|| format!("Some mpv options were ignored: {}", ignored.join("; "))),
             Err(error) => {
@@ -158,6 +160,7 @@ impl<N: Fn(Arc<Playback>)> Start<N> {
                     Message::Shutdown => return,
                 }
                 state.drain_events(&mut handle, &callback_sender);
+                state.repair_audio_output(&handle);
                 state.stop_cancelled_stream(&handle);
                 state.hooks.continue_ready(&handle);
                 state.publish(&notify);
@@ -209,9 +212,9 @@ fn accept_shutdown(message: &Message) -> bool {
     reason = "Fixed startup option strings contain no interior NULs"
 )]
 fn configure(
-    handle: &Handle,
+    handle: &mut Handle,
     headless: bool,
-    options: Vec<(String, String)>,
+    options: StartupOptions,
 ) -> Result<Vec<String>, EngineError> {
     for (name, value) in [
         ("config", "no"),
@@ -261,7 +264,8 @@ fn configure(
             })?;
     }
     let mut ignored = Vec::new();
-    for (key, value) in options {
+    let explicit_device = options.mpv.iter().any(|(key, _)| key == "audio-device");
+    for (key, value) in options.mpv {
         let key = CString::new(key).map_err(EngineError::StartupOption)?;
         let value = CString::new(value).map_err(EngineError::StartupOption)?;
         if let Err(error) = handle.set_option(&key, &value) {
@@ -270,6 +274,12 @@ fn configure(
         }
     }
     handle.initialize()?;
+    if !explicit_device
+        && let Some(device) = options.preferred_audio_device
+        && let Err(error) = audio_route::apply_preferred_device(handle, &device)
+    {
+        ignored.push(format!("audio-device: {error}"));
+    }
     for property in OBSERVED {
         handle.observe(0, property.name, property.format)?;
     }
@@ -279,6 +289,8 @@ fn configure(
 #[derive(Default)]
 struct WorkerState {
     playback: Playback,
+    audio_route: audio_route::Watch,
+    pending_audio_change: Option<(u64, String)>,
     next_id: u64,
     observers: BTreeMap<u64, String>,
     next_observer: u64,
@@ -306,6 +318,24 @@ struct WorkerState {
 impl WorkerState {
     fn mark_changed(&mut self) {
         self.revision = self.revision.wrapping_add(1);
+    }
+
+    fn repair_audio_output(&mut self, handle: &Handle) {
+        if self
+            .pending_audio_change
+            .as_ref()
+            .is_some_and(|(_, device)| {
+                self.playback.audio_device.as_deref() == Some(device.as_str())
+            })
+        {
+            self.pending_audio_change = None;
+        }
+        if let Some(device) = self
+            .audio_route
+            .observe(&self.playback, self.pending_audio_change.is_some())
+        {
+            self.handle_intent(handle, Command::AudioDevice(device));
+        }
     }
 
     fn publish(&mut self, notify: &impl Fn(Arc<Playback>)) {
@@ -511,6 +541,10 @@ impl WorkerState {
                 };
             }
             self.issue(handle, &args, reply)?;
+            if let Command::AudioDevice(device) = command {
+                // A reply can arrive before the new audio-device observation.
+                self.pending_audio_change = Some((self.next_id, device.clone()));
+            }
             let changes_media = changes_media(&args);
             if changes_media || args.first().is_some_and(|verb| verb == "playlist-clear") {
                 self.playlist_edits.retire_open();
@@ -728,6 +762,14 @@ impl WorkerState {
             } else {
                 let command_reply =
                     (event.id() == event_id::COMMAND_REPLY).then(|| event.userdata());
+                if event.failed()
+                    && self
+                        .pending_audio_change
+                        .as_ref()
+                        .is_some_and(|(id, _)| Some(*id) == command_reply)
+                {
+                    self.pending_audio_change = None;
+                }
                 let adjusted_volume = self.on_event(&event);
                 if let Some(revision) = adjusted_volume {
                     self.read_adjusted_volume(handle, revision);
@@ -790,6 +832,7 @@ impl WorkerState {
                 self.pending
                     .retain(|_, reply| !matches!(reply.kind, ReplyKind::PlaylistEdit { .. }));
                 self.adjusted_volume_read = None;
+                self.pending_audio_change = None;
                 self.playlist_resume = PlaylistResume::Idle;
                 record_notice(
                     &mut self.playback,

@@ -3,9 +3,7 @@ use super::{PlayerContext, bind};
 use crate::{
     CatalogRow, CatalogSelection, MenuCatalogRow, PlayerWindow, video_osd::ActionFeedback,
 };
-use riina_core::{
-    Command, Phase, Playback, TrackKind, osc_preferences::ControllerOptions, sync::lock,
-};
+use riina_core::{Command, Playback, TrackKind, osc_preferences::ControllerOptions, sync::lock};
 use riina_ui::PlayerMenuActions;
 use slint::{ComponentHandle, Model};
 use std::collections::HashSet;
@@ -187,29 +185,6 @@ fn audio_device_menu_rows(state: &Playback) -> Vec<MenuCatalogRow> {
             selected: state.audio_device.as_deref() == Some(device.name.as_str()),
         })
         .collect()
-}
-
-pub(super) fn should_fallback_removed_audio_device(
-    previous: Option<&Playback>,
-    state: &Playback,
-) -> bool {
-    let active = matches!(
-        state.phase,
-        Phase::Playing | Phase::Paused | Phase::Buffering | Phase::Ended
-    );
-    let selection_changed = previous.is_none_or(|previous| {
-        previous.audio_device != state.audio_device || previous.audio_devices != state.audio_devices
-    });
-    active
-        && selection_changed
-        && !state.audio_devices.is_empty()
-        && state.audio_device.as_deref().is_some_and(|selected| {
-            selected != "auto"
-                && !state
-                    .audio_devices
-                    .iter()
-                    .any(|device| device.name == selected)
-        })
 }
 
 pub(super) fn update_catalog(
@@ -407,8 +382,8 @@ pub(super) fn install_track_cycles(app: &PlayerWindow, context: &PlayerContext) 
 
 #[cfg(test)]
 mod audio_device_menu_tests {
-    use super::{audio_device_menu_rows, should_fallback_removed_audio_device};
-    use riina_core::{Phase, Playback, audio_preferences::OutputDevice};
+    use super::audio_device_menu_rows;
+    use riina_core::{Playback, audio_preferences::OutputDevice};
 
     #[test]
     fn device_menu_uses_native_ids_and_marks_the_observed_selection() {
@@ -454,54 +429,5 @@ mod audio_device_menu_tests {
         let rows = audio_device_menu_rows(&state);
         assert_eq!(rows.len(), 1);
         assert_eq!(rows[0].label.as_str(), "wasapi/{speaker-id}");
-    }
-
-    #[test]
-    fn removed_device_falls_back_once_only_for_active_playback() {
-        let previous = Playback {
-            phase: Phase::Playing,
-            audio_device: Some("wasapi/{speaker-id}".into()),
-            audio_devices: vec![OutputDevice {
-                name: "wasapi/{speaker-id}".into(),
-                description: "Speakers".into(),
-            }]
-            .into(),
-            ..Playback::default()
-        };
-        let removed = Playback {
-            phase: Phase::Playing,
-            audio_device: previous.audio_device.clone(),
-            audio_devices: vec![OutputDevice {
-                name: "wasapi/{headphones-id}".into(),
-                description: "Headphones".into(),
-            }]
-            .into(),
-            ..Playback::default()
-        };
-        assert!(should_fallback_removed_audio_device(
-            Some(&previous),
-            &removed
-        ));
-        assert!(!should_fallback_removed_audio_device(
-            Some(&removed),
-            &removed
-        ));
-
-        let stopped = Playback {
-            phase: Phase::Stopped,
-            ..removed.clone()
-        };
-        assert!(!should_fallback_removed_audio_device(
-            Some(&previous),
-            &stopped
-        ));
-        let no_devices = Playback {
-            audio_devices: Default::default(),
-            ..removed
-        };
-        assert!(!should_fallback_removed_audio_device(
-            Some(&previous),
-            &no_devices
-        ));
     }
 }

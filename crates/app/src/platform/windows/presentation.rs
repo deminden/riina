@@ -88,7 +88,7 @@ impl NativePresentation {
 
     pub(crate) fn start_engine(
         &self,
-        options: Vec<(String, String)>,
+        options: riina_mpv::StartupOptions,
         notify: impl Fn(Arc<Playback>) + Send + 'static,
     ) -> Result<Player, riina_mpv::EngineError> {
         Player::start_native_window(

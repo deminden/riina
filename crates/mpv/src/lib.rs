@@ -216,6 +216,22 @@ unsafe extern "C" fn wakeup(context: *mut c_void) {
     wakeup.signal();
 }
 
+/// Native options and the Riina setting that must be checked against discovery.
+#[derive(Default)]
+pub struct StartupOptions {
+    pub mpv: Vec<(String, String)>,
+    pub preferred_audio_device: Option<String>,
+}
+
+impl From<Vec<(String, String)>> for StartupOptions {
+    fn from(mpv: Vec<(String, String)>) -> Self {
+        Self {
+            mpv,
+            preferred_audio_device: None,
+        }
+    }
+}
+
 impl Player {
     pub fn start(
         path: &Path,
@@ -228,10 +244,10 @@ impl Player {
     pub fn start_with_options(
         path: &Path,
         headless: bool,
-        options: Vec<(String, String)>,
+        options: impl Into<StartupOptions>,
         notify: impl Fn(Arc<Playback>) + Send + 'static,
     ) -> Result<Self, EngineError> {
-        Self::start_options(path, headless, options, notify)
+        Self::start_options(path, headless, options.into(), notify)
     }
 
     /// Experimental native VO. The caller must retain the HWND until Player drops.
@@ -240,7 +256,7 @@ impl Player {
     pub fn start_native_window(
         path: &Path,
         window: u32,
-        mut options: Vec<(String, String)>,
+        options: impl Into<StartupOptions>,
         notify: impl Fn(Arc<Playback>) + Send + 'static,
     ) -> Result<Self, EngineError> {
         if window == 0 {
@@ -250,10 +266,11 @@ impl Player {
         }
         // Once a file opens, the embedded VO can display subtitles even
         // when there is no video track. An explicit user option takes precedence.
-        if !options.iter().any(|(name, _)| name == "force-window") {
-            options.push(("force-window".into(), "yes".into()));
+        let mut options = options.into();
+        if !options.mpv.iter().any(|(name, _)| name == "force-window") {
+            options.mpv.push(("force-window".into(), "yes".into()));
         }
-        options.extend([
+        options.mpv.extend([
             ("vo".into(), "gpu-next".into()),
             ("wid".into(), window.to_string()),
             ("gpu-api".into(), "d3d11".into()),
@@ -272,7 +289,7 @@ impl Player {
     fn start_options(
         path: &Path,
         headless: bool,
-        options: Vec<(String, String)>,
+        options: StartupOptions,
         notify: impl Fn(Arc<Playback>) + Send + 'static,
     ) -> Result<Self, EngineError> {
         let api = Api::load(path)?;

@@ -1,5 +1,5 @@
 use super::*;
-use riina_mpv::EngineError;
+use riina_mpv::{EngineError, StartupOptions};
 use riina_test_support::TempDir;
 
 pub(super) enum CaptureOutput {
@@ -45,14 +45,14 @@ impl Harness {
 
     pub(super) fn with_options(
         root: &std::path::Path,
-        options: Vec<(String, String)>,
+        options: impl Into<StartupOptions>,
     ) -> Result<Self, EngineError> {
         Self::at(&test_library(root), options)
     }
 
     pub(super) fn at(
         library: &std::path::Path,
-        options: Vec<(String, String)>,
+        options: impl Into<StartupOptions>,
     ) -> Result<Self, EngineError> {
         let (sender, receiver) = mpsc::channel();
         let player = start_test_player_with_options(library, true, options, move |state| {
@@ -122,17 +122,18 @@ pub(super) fn start_test_player(
 pub(super) fn start_test_player_with_options(
     path: &std::path::Path,
     headless: bool,
-    mut options: Vec<(String, String)>,
+    options: impl Into<StartupOptions>,
     notify: impl Fn(Playback) + Send + 'static,
 ) -> Result<Player, EngineError> {
     // Hosted runners have no physical endpoint. An explicit test AO preserves
     // decoding and clocked transport without changing the application's AO.
+    let mut options = options.into();
     if let Some(output) = std::env::var_os("RIINA_TEST_MPV_AUDIO_OUTPUT") {
         let output = output.to_string_lossy().into_owned();
-        if let Some((_, configured_output)) = options.iter_mut().find(|(key, _)| key == "ao") {
+        if let Some((_, configured_output)) = options.mpv.iter_mut().find(|(key, _)| key == "ao") {
             *configured_output = output;
         } else {
-            options.push(("ao".into(), output));
+            options.mpv.push(("ao".into(), output));
         }
     }
     Player::start_with_options(path, headless, options, move |state| {

@@ -1,6 +1,46 @@
 use super::*;
 
 #[test]
+#[ignore = "requires provisioned libmpv; verifies disconnected preferred audio device at startup"]
+fn missing_preferred_device_keeps_automatic_audio_before_first_playback() {
+    let root = fixture_root();
+    let harness = Harness::with_options(
+        &root,
+        riina_mpv::StartupOptions {
+            mpv: vec![("ao".into(), "null".into())],
+            preferred_audio_device: Some("unavailable/riina-test-endpoint".into()),
+        },
+    )
+    .unwrap();
+    harness.send(Command::SetPauseWhenOpen(true)).unwrap();
+    harness
+        .send(Command::Load(
+            root.join("tests/fixtures/moving-square.avi")
+                .to_string_lossy()
+                .into_owned(),
+        ))
+        .unwrap();
+    let loaded = harness.wait(|state| {
+        state.phase == Phase::Failed
+            || (state.paused
+                && state.position.is_some()
+                && state.audio_output.is_some()
+                && state
+                    .tracks
+                    .iter()
+                    .any(|track| track.kind == TrackKind::Audio && track.selected))
+    });
+    assert_eq!(loaded.error(), None);
+    assert_eq!(loaded.audio_device.as_deref(), Some("auto"));
+    assert!(
+        loaded
+            .tracks
+            .iter()
+            .any(|track| track.kind == TrackKind::Audio && track.selected)
+    );
+}
+
+#[test]
 #[ignore = "requires provisioned libmpv; verifies live ReplayGain values during paused playback"]
 fn replay_gain_changes_all_options_without_reloading_playback() {
     use riina_core::audio_preferences::{ReplayGain, ReplayGainOptions};
@@ -98,6 +138,22 @@ fn audio_device_selection_updates_the_live_engine() {
         assert_eq!(changed.error(), None);
     }
     drop(harness);
+    if let Some(alternative) = alternative {
+        let preferred = Harness::with_options(
+            &root,
+            riina_mpv::StartupOptions {
+                mpv: vec![("ao".into(), "null".into())],
+                preferred_audio_device: Some(alternative.name.clone()),
+            },
+        )
+        .unwrap();
+        let observed = preferred.wait(|state| state.audio_device.is_some());
+        assert_eq!(
+            observed.audio_device.as_deref(),
+            Some(alternative.name.as_str())
+        );
+        assert_eq!(observed.error(), None);
+    }
 }
 
 #[test]
