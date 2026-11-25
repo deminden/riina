@@ -1,5 +1,6 @@
 //! Size the native client, including menu wrapping, without a resize feedback loop.
 
+use crate::platform::window_sizing::ResizeAnchor;
 use riina_core::{
     window_aspect::PixelSize,
     window_resize::{ScreenRect, clamp_position_with_margin},
@@ -23,7 +24,7 @@ use windows::core::BOOL;
 pub(crate) fn resize_content(
     window: &Window,
     target: PixelSize,
-    center_on_screen: bool,
+    anchor: ResizeAnchor,
     overlay: Option<&Window>,
 ) -> Result<(), String> {
     let handle = window.window_handle().map_err(|error| error.to_string())?;
@@ -43,28 +44,33 @@ pub(crate) fn resize_content(
     let area =
         super::window_position::work_area(window).ok_or("Could not read the window's work area")?;
     let (outer, _) = rectangles(hwnd)?;
-    let center = if center_on_screen {
-        (
+    let origin = match anchor {
+        ResizeAnchor::ScreenCenter => (
             i64::from(area.x) * 2 + i64::from(area.size.width),
             i64::from(area.y) * 2 + i64::from(area.size.height),
-        )
-    } else {
-        (
+        ),
+        ResizeAnchor::WindowCenter => (
             i64::from(outer.left) + i64::from(outer.right),
             i64::from(outer.top) + i64::from(outer.bottom),
-        )
+        ),
+        ResizeAnchor::TopLeft => (i64::from(outer.left), i64::from(outer.top)),
     };
     let margin = (24.0 * window.scale_factor()).round().max(0.0) as u32;
     // AdjustWindowRectEx does not account for menus wrapping into more rows.
     // One native resize establishes the new row count; a second bounded pass
-    // uses its measured frame. Both move and size atomically around one center.
+    // uses its measured frame. Both passes retain the original anchor.
     for _ in 0..2 {
         let (outer, client) = rectangles(hwnd)?;
         let frame = target_frame(size(outer), size(client), target, area, margin);
-        let x = ((center.0 - i64::from(frame.width)) / 2)
-            .clamp(i64::from(i32::MIN), i64::from(i32::MAX)) as i32;
-        let y = ((center.1 - i64::from(frame.height)) / 2)
-            .clamp(i64::from(i32::MIN), i64::from(i32::MAX)) as i32;
+        let (x, y) = match anchor {
+            ResizeAnchor::TopLeft => origin,
+            ResizeAnchor::WindowCenter | ResizeAnchor::ScreenCenter => (
+                (origin.0 - i64::from(frame.width)) / 2,
+                (origin.1 - i64::from(frame.height)) / 2,
+            ),
+        };
+        let x = x.clamp(i64::from(i32::MIN), i64::from(i32::MAX)) as i32;
+        let y = y.clamp(i64::from(i32::MIN), i64::from(i32::MAX)) as i32;
         let (x, y) = clamp_position_with_margin(x, y, frame, area, margin);
         if outer.left == x && outer.top == y && size(outer) == frame {
             break;

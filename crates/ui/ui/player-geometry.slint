@@ -51,7 +51,7 @@ export component PlayerGeometry inherits Rectangle {
     out property <length> title-row-height: root.show-player-title-row ? (root.compact-ui ? 30px : 34px) : 0px;
     out property <length> video-inset-top: PlayerLayoutState.edge-to-edge-video || !PlayerLayoutState.docked-controls ? 0px : title-row-height;
     out property <length> video-inset-bottom: PlayerMusicModeState.music-mode
-        ? root.osc-height + (PlayerMusicModeState.music-mode-show-playlist ? 300px : 0px)
+        ? root.osc-height + PlayerMusicModeState.displayed-catalog-height
         : PlayerLayoutState.edge-to-edge-video || !PlayerLayoutState.docked-controls ? 0px : root.osc-height;
     out property <length> window-width: root.width;
     out property <length> window-height: root.height;

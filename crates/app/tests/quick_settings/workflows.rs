@@ -522,6 +522,36 @@ fn chapter_rows_keep_their_cursor_between_modes_and_seek_on_activation() {
 }
 
 #[test]
+fn compact_catalog_expands_below_the_controls_during_and_after_resize() {
+    let app = player(0);
+    let music = app.global::<PlayerMusicModeState>();
+    music.set_music_mode(true);
+    music.set_music_mode_show_album_art(false);
+    app.set_paused(true);
+    app.window().set_size(LogicalSize::new(300.0, 90.0));
+    flush();
+    let control_top = button(&app, "Play").absolute_position().y;
+
+    // The native gesture can reveal the body before it changes the selected tab's
+    // visibility. The transport stays at the same height while the panel grows.
+    music.set_music_mode_live_catalog_height(245.0);
+    app.window().set_size(LogicalSize::new(300.0, 335.0));
+    flush();
+    assert_eq!(button(&app, "Play").absolute_position().y, control_top);
+    let tab = button(&app, "Chapters");
+    assert!(tab.absolute_position().y >= 90.0);
+    assert!(!music.get_music_mode_show_playlist());
+
+    music.set_music_mode_catalog_height(245.0);
+    music.set_music_mode_show_playlist(true);
+    music.set_music_mode_live_catalog_height(-1.0);
+    flush();
+    assert_eq!(button(&app, "Play").absolute_position().y, control_top);
+    assert_eq!(music.get_displayed_catalog_height(), 245.0);
+    assert!(button(&app, "Chapters").absolute_position().y >= 90.0);
+}
+
+#[test]
 fn quick_settings_tab_reveals_equalizer_and_restores_its_scroll_position() {
     let app = player(1);
     app.window().set_size(LogicalSize::new(1000.0, 290.0));

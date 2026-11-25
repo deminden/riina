@@ -325,8 +325,13 @@ fn save_preferences(
     model.save(preferences)?;
     app.global::<riina_ui::PlayerMusicModeState>()
         .set_auto_switch_to_music_mode(auto_switch);
-    app.global::<riina_ui::PlayerMusicModeState>()
-        .set_music_mode_show_playlist(show_playlist);
+    if show_playlist
+        != app
+            .global::<riina_ui::PlayerMusicModeState>()
+            .get_music_mode_playlist_preference()
+    {
+        super::music_mode::set_catalog_preference(app, show_playlist);
+    }
     app.global::<riina_ui::PlayerMusicModeState>()
         .set_music_mode_show_album_art(show_album_art);
     Ok(())

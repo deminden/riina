@@ -11,6 +11,7 @@ mod folder;
 mod general_policy;
 mod key_bindings;
 mod live;
+mod music_mode;
 mod owner;
 mod profile_window;
 mod refresh;
@@ -55,6 +56,7 @@ pub(crate) fn connect(
 ) {
     let baseline = model.snapshot();
     let current = Rc::new(RefCell::new(None::<crate::PreferencesWindow>));
+    music_mode::connect(app, current.clone(), path.clone(), model.clone());
     #[cfg(target_os = "macos")]
     {
         let settings = current.clone();
@@ -85,29 +87,8 @@ pub(crate) fn connect(
         });
     }
     let timers = timers::VisibleSettings::default();
-    let preferences_window = current.clone();
-    let subtitle_catalog_window = current.clone();
     connect_controller_options(app, current.clone());
-    let owner = app.as_weak();
-    app.on_plugin_subtitle_catalog_changed(move || {
-        if let Some(app) = owner.upgrade()
-            && let Some(window) = subtitle_catalog_window.borrow().as_ref()
-        {
-            crate::online_subtitles_preferences::refresh_catalog(window, &app);
-        }
-    });
-    app.on_subtitle_font_selected(move |font| {
-        if let Some(window) = preferences_window
-            .borrow()
-            .as_ref()
-            .map(ComponentHandle::clone_strong)
-        {
-            window
-                .global::<crate::SubtitleSettingsState>()
-                .set_subtitle_font(font);
-            window.invoke_settings_changed();
-        }
-    });
+    connect_subtitle_actions(app, current.clone());
     let parent = app.as_weak();
     app.global::<PlayerMenuActions>()
         .on_open_preferences(move || {
@@ -204,6 +185,33 @@ pub(crate) fn connect(
                 }
             });
         });
+}
+
+fn connect_subtitle_actions(
+    app: &PlayerWindow,
+    preferences_window: Rc<RefCell<Option<crate::PreferencesWindow>>>,
+) {
+    let subtitle_catalog_window = preferences_window.clone();
+    let owner = app.as_weak();
+    app.on_plugin_subtitle_catalog_changed(move || {
+        if let Some(app) = owner.upgrade()
+            && let Some(window) = subtitle_catalog_window.borrow().as_ref()
+        {
+            crate::online_subtitles_preferences::refresh_catalog(window, &app);
+        }
+    });
+    app.on_subtitle_font_selected(move |font| {
+        if let Some(window) = preferences_window
+            .borrow()
+            .as_ref()
+            .map(ComponentHandle::clone_strong)
+        {
+            window
+                .global::<crate::SubtitleSettingsState>()
+                .set_subtitle_font(font);
+            window.invoke_settings_changed();
+        }
+    });
 }
 
 fn connect_controller_options(

@@ -8,7 +8,7 @@ use crate::{PlaybackStore, PlayerWindow};
 use riina_core::{Phase, Preferences, audio_equalizer};
 use riina_ui::{
     PlaybackAudioState, PlaybackSubtitleState, PlayerAppearance, PlayerLayoutState,
-    PlayerMusicModeState, PlayerPreferences, PlayerSidebarState,
+    PlayerPreferences, PlayerSidebarState,
 };
 use slint::ComponentHandle;
 use std::{
@@ -130,7 +130,6 @@ fn capture_window_state(app: &PlayerWindow, preferences: Preferences) -> io::Res
     let layout = app.global::<PlayerLayoutState>();
     let appearance = app.global::<PlayerAppearance>();
     let sidebar = app.global::<PlayerSidebarState>();
-    let music_mode = app.global::<PlayerMusicModeState>();
     let volume_boost = player_preferences.get_volume_boost();
     // These values can change through the player, its native menus, or engine
     // observations. Settings-only controls are already in the model.
@@ -161,8 +160,6 @@ fn capture_window_state(app: &PlayerWindow, preferences: Preferences) -> io::Res
         osc_position: layout.get_osc_position() as u8,
         control_bar_position_horizontal: f64::from(layout.get_control_bar_position_horizontal()),
         control_bar_position_vertical: f64::from(layout.get_control_bar_position_vertical()),
-        music_mode_show_playlist: music_mode.get_music_mode_show_playlist(),
-        music_mode_show_album_art: music_mode.get_music_mode_show_album_art(),
         record_recent_files: player_preferences.get_record_recent_files(),
         track_all_files_in_recent_open_menu: player_preferences
             .get_track_all_files_in_recent_open_menu(),

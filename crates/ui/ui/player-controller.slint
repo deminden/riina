@@ -127,7 +127,7 @@ export component PlayerController inherits Rectangle {
     // edge to 25 points; convert that bottom-origin rule to Slint's
     // top-origin coordinates before positioning the full visible bar.
     y: PlayerMusicModeState.music-mode ? root.geometry.available-height -
-            (PlayerMusicModeState.music-mode-show-playlist ? 300px : 0px) - self.height :
+            PlayerMusicModeState.displayed-catalog-height - self.height :
         PlayerLayoutState.osc-position == 1 ? min(max(0px, root.geometry.available-height - self.height), PlayerAppearance.compact-ui ? 30px : 34px) :
         PlayerLayoutState.osc-position == 2 ? max(0px, root.geometry.available-height - self.height) :
             max(0px, root.geometry.available-height -
@@ -227,8 +227,8 @@ export component PlayerController inherits Rectangle {
                     if !PlayerMusicModeState.music-mode-volume-open { PlayerMusicModeState.music-mode-volume-open = true; }
                     else { PlayerMenuActions.toggle-mute(); }
                 }
-                playlist-requested => { PlayerMusicModeState.music-mode-show-playlist = !PlayerMusicModeState.music-mode-show-playlist; }
-                artwork-requested => { PlayerMusicModeState.music-mode-show-album-art = !PlayerMusicModeState.music-mode-show-album-art; }
+                playlist-requested => { PlayerMusicModeState.set-catalog-visible(!PlayerMusicModeState.music-mode-show-playlist); }
+                artwork-requested => { PlayerMusicModeState.set-artwork-visible(!PlayerMusicModeState.music-mode-show-album-art); }
             }
             if !PlayerMusicModeState.music-mode : HorizontalLayout {
             x: 0px; y: 0px;

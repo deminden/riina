@@ -183,7 +183,7 @@ export component PlayerWindow inherits PlayerMenuWindow {
     title: root.window-title;
     changed window-title => { root.window-title-changed(root.window-title); }
     preferred-width: 960px; preferred-height: 600px;
-    min-width: music-mode ? 260px : 285px;
+    min-width: music-mode ? 300px : 285px;
     min-height: music-mode ? 90px : 120px;
     // The native VO lives in the owner window; this surface supplies only chrome.
     // Native mode must begin frameless so Winit creates its transparent surface
@@ -234,6 +234,7 @@ export component PlayerWindow inherits PlayerMenuWindow {
     in-out property <bool> in-process-player-manager: false;
     callback open-player-requested([string], string, float, bool);
     callback music-mode-changed();
+    callback music-mode-resize-finished();
     callback auto-switch-music-mode-changed(bool);
     changed music-mode => {
         PlaylistInteraction.cancel-playlist-drag();
@@ -243,7 +244,10 @@ export component PlayerWindow inherits PlayerMenuWindow {
             PlayerSidebarState.leading-sidebar = 0;
             PlayerSidebarState.sidebar = 0;
         }
-        if !PlayerMusicModeState.music-mode { PlayerMusicModeState.music-mode-volume-open = false; }
+        if !PlayerMusicModeState.music-mode {
+            PlayerMusicModeState.music-mode-volume-open = false;
+            PlayerMusicModeState.music-mode-live-catalog-height = -1px;
+        }
         root.music-mode-changed(); PlayerMenuActions.video-menu-changed();
     }
     changed auto-switch-to-music-mode => { root.auto-switch-music-mode-changed(PlayerMusicModeState.auto-switch-to-music-mode); }
@@ -655,8 +659,10 @@ export component PlayerWindow inherits PlayerMenuWindow {
             render-width: root.render-width;
             render-height: root.render-height;
             screenshot-preview-action(action) => { root.screenshot-preview-action(action); }
-            if music-mode && PlayerMusicModeState.music-mode-show-playlist : MusicModeCatalog {
-                x: 0px; y: parent.height - 300px; width: parent.width; height: 300px;
+            if music-mode && PlayerMusicModeState.displayed-catalog-height > 0px : MusicModeCatalog {
+                x: 0px; y: parent.height - self.height; width: parent.width;
+                height: PlayerMusicModeState.displayed-catalog-height;
+                clip: true;
                 play-row(token) => {
                     PlaylistInteraction.clear-selection();
                     PlayerMenuActions.select-item(CatalogSelection.playlist, token);

@@ -37,7 +37,10 @@ fn choose_catalog_pane(app: &PlayerWindow, pane: i32, toggle: bool) {
     let close = toggle && sidebar.get_visible_catalog_pane() == pane;
     sidebar.set_remembered_playlist_pane(pane);
     if music.get_music_mode() {
-        music.set_music_mode_show_playlist(!close);
+        let visible = !close;
+        if visible != music.get_music_mode_show_playlist() {
+            music.invoke_set_catalog_visible(visible);
+        }
     } else if sidebar.get_playlist_at_leading() {
         sidebar.set_leading_sidebar(if close { 0 } else { pane });
     } else {
@@ -191,6 +194,13 @@ mod tests {
         let tabs = app.global::<PlayerSidebarActions>();
         let sidebar = app.global::<PlayerSidebarState>();
         let music = app.global::<PlayerMusicModeState>();
+        let weak = app.as_weak();
+        music.on_set_catalog_visible(move |visible| {
+            if let Some(app) = weak.upgrade() {
+                app.global::<PlayerMusicModeState>()
+                    .set_music_mode_show_playlist(visible);
+            }
+        });
         music.set_music_mode_show_playlist(false);
         sidebar.set_playlist_at_leading(false);
 

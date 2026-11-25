@@ -89,18 +89,18 @@ fn belongs_to(notification: &NSNotification, app: &PlayerWindow) -> bool {
     let Some(source) = notification.object() else {
         return false;
     };
-    app.window()
-        .with_winit_window(|native| {
-            let Ok(handle) = native.window_handle() else {
-                return false;
-            };
-            let RawWindowHandle::AppKit(handle) = handle.as_raw() else {
-                return false;
-            };
-            // SAFETY: Winit's borrowed NSView is live for this window callback.
-            let view = unsafe { &*handle.ns_view.as_ptr().cast::<NSView>() };
-            view.window()
-                .is_some_and(|window| Retained::as_ptr(&window).cast() == Retained::as_ptr(&source))
-        })
-        .unwrap_or(false)
+    native_window(app.window())
+        .is_some_and(|window| Retained::as_ptr(&window).cast() == Retained::as_ptr(&source))
+}
+
+pub(super) fn native_window(window: &slint::Window) -> Option<Retained<objc2_app_kit::NSWindow>> {
+    window.with_winit_window(|native| {
+        let handle = native.window_handle().ok()?;
+        let RawWindowHandle::AppKit(handle) = handle.as_raw() else {
+            return None;
+        };
+        // SAFETY: Winit lends the live NSView for the duration of the callback.
+        let view = unsafe { &*handle.ns_view.as_ptr().cast::<NSView>() };
+        view.window()
+    })?
 }

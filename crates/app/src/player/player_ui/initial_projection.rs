@@ -52,6 +52,8 @@ fn install_platform(app: &PlayerWindow, prefs: &Preferences) {
     app.global::<riina_ui::PlayerMusicModeState>()
         .set_music_mode_show_playlist(prefs.music_mode_show_playlist);
     app.global::<riina_ui::PlayerMusicModeState>()
+        .set_music_mode_playlist_preference(prefs.music_mode_show_playlist);
+    app.global::<riina_ui::PlayerMusicModeState>()
         .set_music_mode_show_album_art(prefs.music_mode_show_album_art);
 }
 

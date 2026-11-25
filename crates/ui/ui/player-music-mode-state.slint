@@ -3,6 +3,12 @@ export global PlayerMusicModeState {
     in-out property <bool> music-mode: false;
     in-out property <bool> auto-switch-to-music-mode: true;
     in-out property <bool> music-mode-show-playlist: false;
+    in-out property <bool> music-mode-playlist-preference: false;
+    in-out property <length> music-mode-catalog-height: 300px;
+    in-out property <length> music-mode-live-catalog-height: -1px;
+    out property <length> displayed-catalog-height: root.music-mode-live-catalog-height >= 0px
+        ? root.music-mode-live-catalog-height
+        : root.music-mode-show-playlist ? root.music-mode-catalog-height : 0px;
     in-out property <bool> music-mode-show-album-art: true;
     in-out property <float> music-mode-artwork-aspect-ratio: 0;
     in-out property <bool> music-mode-is-audio: false;
@@ -11,4 +17,6 @@ export global PlayerMusicModeState {
     in-out property <bool> music-mode-volume-open: false;
     in-out property <string> music-artist: "";
     in-out property <string> music-album: "";
+    callback set-catalog-visible(bool);
+    callback set-artwork-visible(bool);
 }

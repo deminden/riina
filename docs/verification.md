@@ -4907,3 +4907,55 @@ Native macOS playback and matched IINA visuals remain open.
 - Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
 - Linux application SHA-256 `674410f854581c9776b9bd9de9ab210b6b231df5b45facc84dbdf502483ac631`
 - Linux libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`
+
+### Compact player resizing and profile choices 2026-11-25
+
+A resize shows the Playlist or Chapters panel in the space below Music
+Mode's artwork and controls. On release, less than 200 points of available
+space rolls up the panel. At or above the threshold the panel keeps the
+dragged height. Toggling artwork retains that height, and an explicit
+reopen uses the 300-point default. The Windows adapter fixes the client
+width during the native gesture. The shared adapter restores that width
+when settling the window.
+
+Toolbar and Playback menu choices save their visibility preference
+immediately. A resize changes the current window's visibility and leaves
+that profile value available for the next player.
+
+The full Windows gate passed formatting, strict Clippy, 1,076 Rust tests,
+79 Python tests and four browser-extension tests. The grouped widget and
+pixel checks passed, and the pinned null-output libmpv suite passed all
+65 tests.
+
+On a private Windows 11 desktop the native sizing messages kept the
+client 300 points wide, rendered the tabs during the resize and accepted
+the panel at exactly 200 points. The panel retained its custom height
+when switching tabs or hiding artwork. Showing the video artwork added
+169 points. The toolbar saved the choices immediately, and a drag closed
+the panel without rewriting the saved value. Returning to the main player
+restored the measured 720 × 499 client and retained the paused media.
+
+The locked Linux x64 application passed the isolated X11 workflow. The
+configured 289-point client rolled up to 90 points. At 290 points the
+panel stayed open, and a larger 440-point client survived a return to
+the main window and reentry into Music Mode. An explicit reopen used the
+390-point client. The saved visibility survived a subsequent resize, and
+the original 850 × 580 main client and paused media returned.
+
+In a private Sway session the same application used native xdg-shell
+surfaces. The test kept the floating window on the output and used a
+mapped F8 shortcut to switch modes. It confirmed the same threshold, a
+300 × 410 custom client and restoration of the 850 × 580 main client.
+A full-output capture showed the restored paused video. The compact
+capture showed an empty area between the in-client menu and the tabs.
+Compact controls and metadata still need a matched Wayland layout check.
+The isolated Windows, X11 and Wayland processes exited normally.
+
+Strict Apple Silicon cross-Clippy passed for the application and test
+targets. Native macOS behavior remains open.
+
+- Windows application SHA-256 `7e828ed8e8fe75f6d1ce60df458b1da96cf6e7858b25e8796615e3e4e01823d9`
+- Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
+- Linux application SHA-256 `0c6fb77ea21d2e454200dee74e41a1bde310767c86386366ce502ae1a5237c30`
+- X11 libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`
+- Wayland libmpv SHA-256 `cdce854e1811942602587310026306d92d30c0f593f2be676f07659ae43061d8`

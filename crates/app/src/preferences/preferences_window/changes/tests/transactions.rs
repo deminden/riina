@@ -766,8 +766,9 @@ fn session_save_captures_controls_edited_directly_in_the_player() {
         .set_subtitle_font_size_preference(38.0);
     transaction.player.session.save(app).unwrap();
     let saved = transaction.profile.read();
-    assert!(!saved.music_mode_show_album_art);
-    assert!(saved.music_mode_show_playlist);
+    // Session saves must leave explicit Music Mode profile choices alone.
+    assert!(saved.music_mode_show_album_art);
+    assert!(!saved.music_mode_show_playlist);
     assert_eq!(saved.control_bar_position_horizontal, 0.25);
     assert_eq!(saved.trailing_sidebar_width, 320);
     assert_eq!(saved.subtitle_font_size, 38.0);

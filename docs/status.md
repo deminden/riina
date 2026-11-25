@@ -41,6 +41,10 @@ Implementation does not imply every state or platform is verified.
   their scroll positions when switching between the main and compact player.
   Chapter rows show the time range. Navigation moves the row selection and
   activation seeks to the chapter.
+  Resize the compact window to reveal or hide the panel. It stays open
+  with at least 200 points of space below the controls and artwork, and
+  keeps the dragged height at or above that threshold. Explicit panel and
+  artwork choices save to the profile. Dragging changes the current player.
 - **File opens:** the primary File commands follow the new-window preference,
   and their modifier shortcuts invert it. Active menus show the actual destination.
   The native Windows picker has verified grouped and separate opens and reuse

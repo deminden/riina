@@ -315,6 +315,13 @@ fn install_music_mode_window(
     app: &PlayerWindow,
     menu: &Slot<super::menu_focus::MenuFocus>,
 ) {
+    let resize_app = app.as_weak();
+    let resize_host = host.as_weak();
+    app.on_music_mode_resize_finished(move || {
+        if let (Some(app), Some(host)) = (resize_app.upgrade(), resize_host.upgrade()) {
+            crate::music_mode_layout::finish_resize(&app, host.window());
+        }
+    });
     let saved_frame = Cell::new(None::<crate::music_mode_layout::MainWindowFrame>);
     let music_host = host.as_weak();
     let music_app = app.as_weak();
@@ -331,7 +338,9 @@ fn install_music_mode_window(
         // Remember the normal client before the menu changes its height.
         let entering = (active && saved_frame.get().is_none())
             .then(|| crate::music_mode_layout::MainWindowFrame::leave(window));
-        if let Some(menu) = music_menu.borrow().as_ref()
+        let leaving = !active && saved_frame.get().is_some();
+        if (entering.is_some() || leaving)
+            && let Some(menu) = music_menu.borrow().as_ref()
             && let Err(error) = menu.set_visible(!active && !app.get_fullscreen())
         {
             if let Some(frame) = entering {
@@ -340,27 +349,23 @@ fn install_music_mode_window(
             app.set_status(error.into());
             return;
         }
-        let (target, restore) = if active {
+        if active {
             if let Some(frame) = entering {
                 saved_frame.set(Some(frame));
             }
-            (
-                crate::music_mode_layout::compact_size(&app, f64::from(window.scale_factor())),
-                None,
-            )
-        } else if let Some(frame) = saved_frame.take() {
-            (frame.size, Some(frame))
-        } else {
+            crate::music_mode_layout::apply_compact_size(
+                &app,
+                window,
+                Some(app.window()),
+                entering.is_some(),
+            );
+            align(window, &app);
+            return;
+        }
+        let Some(frame) = saved_frame.take() else {
             return;
         };
-        window.with_winit_window(|native| {
-            let (width, height) = if active {
-                (260.0, 90.0)
-            } else {
-                (285.0, 120.0)
-            };
-            native.set_min_inner_size(Some(winit::dpi::LogicalSize::new(width, height)));
-        });
+        crate::music_mode_layout::restore_window_minimum(window);
         let current = crate::music_mode_layout::client_size(window);
         crate::window_aspect::resize_centered(
             window,
@@ -369,14 +374,12 @@ fn install_music_mode_window(
                 height: current.height,
             },
             riina_core::window_aspect::PixelSize {
-                width: target.width,
-                height: target.height,
+                width: frame.size.width,
+                height: frame.size.height,
             },
             Some(app.window()),
         );
-        if let Some(frame) = restore {
-            frame.restore_placement(window);
-        }
+        frame.restore_placement(window);
         align(window, &app);
     });
 }

@@ -179,6 +179,13 @@ views restore those values when mounted. The playback observation supplies
 the playing-chapter marker independently of selection, so moving the
 keyboard cursor leaves the engine position alone.
 
+The Music Mode window owner supplies the panel height to the controls and
+artwork during resize. Windows settles it after the sizing loop, and
+AppKit reports the end of live resize. On Linux the shared presenter uses
+the last changed client size after configure events settle. The resize
+updates the current window. Explicit show and hide actions update the
+profile through its existing preference transaction.
+
 Playlist drags send the selected entry IDs and destination entry ID to the
 engine as one request. Play Next resolves the current entry and moves the
 selected entries immediately after it in playlist order. The engine plans the

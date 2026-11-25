@@ -5,6 +5,13 @@ use slint::winit_030::WinitWindowAccessor;
 
 pub(crate) const USES_NATIVE_RESIZE_FILTER: bool = cfg!(target_os = "windows");
 
+#[derive(Clone, Copy)]
+pub(crate) enum ResizeAnchor {
+    WindowCenter,
+    ScreenCenter,
+    TopLeft,
+}
+
 pub(crate) fn disable_plugin_window_animation(window: &slint::Window) {
     #[cfg(any(target_os = "windows", target_os = "macos"))]
     window.with_winit_window(|window| {
@@ -58,7 +65,7 @@ pub(crate) fn media_resize_allowed(_: bool, _: bool) -> bool {
 pub(crate) fn resize_native_content(
     window: &slint::Window,
     target: PixelSize,
-    center: bool,
+    anchor: ResizeAnchor,
     overlay: Option<&slint::Window>,
 ) -> Option<Result<(), String>> {
     let resize_content = super::windows::window_geometry::resize_content;
@@ -67,10 +74,10 @@ pub(crate) fn resize_native_content(
             .with_winit_window(|native| {
                 if let Some(overlay) = overlay {
                     overlay.with_winit_window(|overlay| {
-                        resize_content(native, target, center, Some(overlay))
+                        resize_content(native, target, anchor, Some(overlay))
                     })
                 } else {
-                    Some(resize_content(native, target, center, None))
+                    Some(resize_content(native, target, anchor, None))
                 }
             })
             .flatten()
@@ -82,7 +89,7 @@ pub(crate) fn resize_native_content(
 pub(crate) fn resize_native_content(
     _: &slint::Window,
     _: PixelSize,
-    _: bool,
+    _: ResizeAnchor,
     _: Option<&slint::Window>,
 ) -> Option<Result<(), String>> {
     None
@@ -155,12 +162,24 @@ pub(crate) fn resized_frame_size(_: &slint::Window, estimate: PixelSize) -> Pixe
 pub(crate) struct Guard {
     #[cfg(target_os = "windows")]
     _handler: std::rc::Rc<std::cell::RefCell<Option<super::WindowSizing>>>,
+    #[cfg(target_os = "macos")]
+    _notifications: super::macos::live_resize::Notifications,
 }
 
-#[cfg(not(target_os = "windows"))]
+#[cfg(not(any(target_os = "windows", target_os = "macos")))]
 pub(crate) fn install(_: &PlayerWindow, _: Option<slint::Weak<NativeVideoHost>>) -> Guard {
     Guard {}
 }
+
+#[cfg(target_os = "macos")]
+pub(crate) fn install(app: &PlayerWindow, _: Option<slint::Weak<NativeVideoHost>>) -> Guard {
+    Guard {
+        _notifications: super::macos::live_resize::Notifications::new(app),
+    }
+}
+
+#[cfg(target_os = "macos")]
+pub(crate) use super::macos::live_resize::in_progress as in_live_resize;
 
 #[cfg(target_os = "windows")]
 pub(crate) fn install(app: &PlayerWindow, host: Option<slint::Weak<NativeVideoHost>>) -> Guard {

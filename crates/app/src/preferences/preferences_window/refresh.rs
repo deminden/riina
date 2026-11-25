@@ -60,7 +60,7 @@ pub(super) fn refresh(window: &crate::PreferencesWindow, app: &PlayerWindow) {
         player_preferences.get_track_all_files_in_recent_open_menu(),
     );
     general.set_auto_switch_to_music_mode(music_mode.get_auto_switch_to_music_mode());
-    general.set_music_mode_show_playlist(music_mode.get_music_mode_show_playlist());
+    general.set_music_mode_show_playlist(music_mode.get_music_mode_playlist_preference());
     general.set_music_mode_show_album_art(music_mode.get_music_mode_show_album_art());
     window.set_osc_position(layout.get_osc_position());
     window.set_show_chapter_pos(player_preferences.get_show_chapter_pos());

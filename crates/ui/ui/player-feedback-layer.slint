@@ -48,7 +48,7 @@ export component PlayerFeedbackLayer inherits Rectangle {
     if !PlayerOsdState.plugin-osd-message.is-empty && !PlayerCropState.crop-editing : PluginOsd {
         x: (parent.width - self.width) / 2;
         y: max(8px,
-            parent.height - (PlayerMusicModeState.music-mode && PlayerMusicModeState.music-mode-show-playlist ? 300px : 0px) - 112px);
+            parent.height - (PlayerMusicModeState.music-mode ? PlayerMusicModeState.displayed-catalog-height : 0px) - 112px);
         width: min(420px, parent.width - 32px);
         material: root.osd-material;
         native-video: root.native-video;

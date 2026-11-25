@@ -207,15 +207,12 @@ pub(super) fn align(host: &slint::Window, chrome: &PlayerWindow) -> bool {
                 }
             });
             let layout = if chrome.global::<riina_ui::PlayerMusicModeState>().get_music_mode() {
+                let music = chrome.global::<riina_ui::PlayerMusicModeState>();
                 let bottom_inset = crate::music_mode_layout::COMPACT_CONTROL_HEIGHT
-                    + if chrome.global::<riina_ui::PlayerMusicModeState>().get_music_mode_show_playlist() {
-                        crate::music_mode_layout::PLAYLIST_HEIGHT
-                    } else {
-                        0.0
-                    };
+                    + f64::from(music.get_displayed_catalog_height());
                 window_geometry::VideoLayout::Artwork {
                     bottom_inset: (bottom_inset * window.scale_factor()).round() as u32,
-                    visible: chrome.global::<riina_ui::PlayerMusicModeState>().get_music_mode_show_album_art(),
+                    visible: music.get_music_mode_show_album_art(),
                 }
             } else {
                 window_geometry::VideoLayout::FullClient

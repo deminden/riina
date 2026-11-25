@@ -7,6 +7,7 @@ pub(super) mod edit_menu;
 pub(super) mod file_drop;
 pub(super) mod file_panel;
 mod fullscreen;
+pub(super) mod live_resize;
 pub(crate) mod menu_labels;
 pub(crate) use fullscreen::{FullscreenNotifications, request_fullscreen};
 mod gesture_events;

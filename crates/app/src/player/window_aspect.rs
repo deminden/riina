@@ -1,6 +1,9 @@
 //! Apply the shared aspect policy to the winit window without coupling it to a host OS.
 
-use crate::{NativeVideoHost, PlayerWindow, platform::window_sizing};
+use crate::{
+    NativeVideoHost, PlayerWindow,
+    platform::window_sizing::{self, ResizeAnchor},
+};
 use riina_core::{
     window_aspect::{self as policy, PixelSize},
     window_resize::{ManualSizeCommand, ManualSizeContext, ResizeTiming, manual_size_target},
@@ -197,7 +200,7 @@ fn place_initial_media(
         && window_sizing::resize_native_content(
             window,
             placement.size,
-            true,
+            ResizeAnchor::ScreenCenter,
             resize_overlay(target, app),
         )
         .is_some_and(|result| result.is_ok());
@@ -404,7 +407,7 @@ fn register_resize_command(
                     if let Some(result) = window_sizing::resize_native_content(
                         window,
                         size,
-                        true,
+                        ResizeAnchor::ScreenCenter,
                         resize_overlay(&menu_size_target, &app),
                     ) {
                         if let Err(error) = result {
@@ -512,6 +515,8 @@ fn resize_filter(
 ) -> WindowEventFilter {
     let native_sizing = window_sizing::install(app, target.0);
     let weak = app.as_weak();
+    #[cfg(target_os = "linux")]
+    let compact_resize = slint::Timer::default();
     Box::new(move |window, event| {
         let _native_sizing = &native_sizing;
         let winit::event::WindowEvent::Resized(size) = event else {
@@ -524,6 +529,23 @@ fn resize_filter(
         // Some hosts send an empty size during a visibility transition.
         if requested.width == 0 || requested.height == 0 {
             return EventResult::Propagate;
+        }
+        #[cfg(target_os = "macos")]
+        if let Some(app) = weak.upgrade()
+            && crate::music_mode_layout::can_resize(&app)
+            && window_sizing::in_live_resize(window)
+        {
+            crate::music_mode_layout::preview_resize(
+                &app,
+                requested.height,
+                f64::from(window.scale_factor()),
+            );
+        }
+        #[cfg(target_os = "linux")]
+        if let Some(app) = weak.upgrade()
+            && requested != previous_size.get()
+        {
+            observe_linux_compact_resize(&app, window, *size, &compact_resize);
         }
         if !window_sizing::USES_NATIVE_RESIZE_FILTER
             && let Some(app) = weak.upgrade()
@@ -546,6 +568,40 @@ fn resize_filter(
         previous_size.set(requested);
         EventResult::Propagate
     })
+}
+
+#[cfg(target_os = "linux")]
+fn observe_linux_compact_resize(
+    app: &PlayerWindow,
+    window: &slint::Window,
+    requested: winit::dpi::PhysicalSize<u32>,
+    timer: &slint::Timer,
+) {
+    use crate::music_mode_layout;
+    let scale = f64::from(window.scale_factor());
+    let settled = music_mode_layout::compact_size(app, scale);
+    if !music_mode_layout::can_resize(app)
+        || window.is_maximized()
+        || (requested.width, requested.height) == (settled.width, settled.height)
+    {
+        timer.stop();
+        app.global::<riina_ui::PlayerMusicModeState>()
+            .set_music_mode_live_catalog_height(-1.0);
+        return;
+    }
+    // Winit exposes configure events on X11 and Wayland without a drag-end
+    // notification. Settle the last changed client size after the stream pauses.
+    music_mode_layout::preview_resize(app, requested.height, scale);
+    let weak = app.as_weak();
+    timer.start(
+        slint::TimerMode::SingleShot,
+        Duration::from_millis(200),
+        move || {
+            if let Some(app) = weak.upgrade() {
+                app.invoke_music_mode_resize_finished();
+            }
+        },
+    );
 }
 
 fn minimum_content_size(window: &slint::Window) -> PixelSize {
@@ -644,7 +700,7 @@ pub(crate) fn resize_centered(
     if target == current || target.width == 0 || target.height == 0 {
         return;
     }
-    if window_sizing::resize_native_content(window, target, false, overlay)
+    if window_sizing::resize_native_content(window, target, ResizeAnchor::WindowCenter, overlay)
         .is_some_and(|result| result.is_ok())
     {
         window.request_redraw();
