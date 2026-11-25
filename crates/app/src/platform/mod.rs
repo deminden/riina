@@ -10,6 +10,7 @@ use std::{
 };
 #[cfg(any(target_os = "macos", test))]
 mod active_poll;
+pub(crate) mod application_lifecycle;
 pub(crate) mod browser_activation;
 pub(crate) mod clipboard;
 #[cfg(any(target_os = "linux", target_os = "macos", target_os = "windows"))]

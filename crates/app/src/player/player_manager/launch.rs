@@ -1,9 +1,43 @@
 //! Route AppKit document opens and idle launch actions into the player manager.
-use super::{PlayerManager, open_new_player, schedule_quit, schedule_welcome, show_welcome};
+use super::{
+    ManagerState, PlayerManager, finish_after_auxiliary_close, lifecycle::OpenWork,
+    open_new_player, schedule_quit, schedule_welcome, show_welcome,
+};
 use crate::{PlayerWindow, media_open, preference_load};
 use riina_core::ActionAfterLaunch;
 use slint::ComponentHandle;
-use std::rc::Rc;
+use std::{
+    cell::RefCell,
+    rc::{Rc, Weak},
+};
+
+pub(crate) struct OpenGuard {
+    state: Weak<RefCell<ManagerState>>,
+    work: OpenWork,
+}
+
+impl Drop for OpenGuard {
+    fn drop(&mut self) {
+        let Some(owner) = self.state.upgrade() else {
+            return;
+        };
+        let reconsider = {
+            let mut owner = owner.borrow_mut();
+            owner.lifecycle.finish_open(self.work) && !owner.quitting
+        };
+        if reconsider {
+            let state = self.state.clone();
+            // Finish after AppKit callbacks and the picker have released their native windows.
+            if let Err(error) = slint::spawn_local(async move {
+                if let Some(state) = state.upgrade() {
+                    finish_after_auxiliary_close(&state);
+                }
+            }) {
+                crate::diagnostics::warn!("Could not reconsider closing the application: {error}");
+            }
+        }
+    }
+}
 
 #[derive(Clone, Copy)]
 enum ApplicationOpen {
@@ -25,6 +59,31 @@ impl ApplicationOpen {
 }
 
 impl PlayerManager {
+    pub(crate) fn prepare_application_plugins(&self, path: &std::path::Path) -> Result<(), String> {
+        let plugins = self.services().plugins;
+        let global = plugins.host(path)?;
+        let state = Rc::downgrade(&self.state);
+        plugins.bind_windowless(global.clone(), move || {
+            state.upgrade().is_some_and(|state| {
+                let state = state.borrow();
+                !state.quitting && state.players.is_empty()
+            })
+        });
+        global.load_enabled_globals()
+    }
+
+    pub(crate) fn hold_document_open(&self) -> Option<OpenGuard> {
+        self.begin_open(OpenWork::Documents)
+    }
+
+    fn begin_open(&self, work: OpenWork) -> Option<OpenGuard> {
+        let mut owner = self.state.borrow_mut();
+        (!owner.quitting && owner.lifecycle.begin_open(work)).then(|| OpenGuard {
+            state: Rc::downgrade(&self.state),
+            work,
+        })
+    }
+
     pub(crate) fn is_quitting(&self) -> bool {
         self.state.borrow().quitting
     }
@@ -57,7 +116,7 @@ impl PlayerManager {
     }
 
     pub(crate) fn reopen(&self) {
-        if self.state.borrow().opening_documents != 0 {
+        if self.state.borrow().lifecycle.opening() {
             return;
         }
         if let Ok(path) = crate::platform::preferences_path() {
@@ -205,20 +264,16 @@ impl PlayerManager {
     }
 
     pub(crate) fn open_application_panel(&self, alternative: bool) {
-        {
-            let mut state = self.state.borrow_mut();
-            if state.quitting || state.open_panel_visible {
-                return;
-            }
-            state.open_panel_visible = true;
-        }
+        let Some(pending) = self.begin_open(OpenWork::FilePicker) else {
+            return;
+        };
         let manager = self.clone();
         let started = slint::spawn_local(async move {
+            let _pending = pending;
             if manager.is_quitting() {
                 return;
             }
             let files = crate::platform::choose_application_media("Open File", None).await;
-            manager.state.borrow_mut().open_panel_visible = false;
             match files {
                 Ok(Some(paths)) => {
                     manager
@@ -229,7 +284,6 @@ impl PlayerManager {
             }
         });
         if let Err(error) = started {
-            self.state.borrow_mut().open_panel_visible = false;
             crate::diagnostics::warn!("Could not schedule Open File: {error}");
         }
     }
@@ -268,15 +322,15 @@ impl PlayerManager {
             return;
         }
         let manager = self.clone();
-        self.state.borrow_mut().opening_documents += 1;
+        let Some(pending) = self.hold_document_open() else {
+            return;
+        };
         if let Err(error) = slint::spawn_local(async move {
-            let result = manager.open_without_player(paths, origin).await;
-            manager.state.borrow_mut().opening_documents -= 1;
-            if let Err(error) = result {
+            let _pending = pending;
+            if let Err(error) = manager.open_without_player(paths, origin).await {
                 crate::diagnostics::warn!("Could not open the selected media: {error}");
             }
         }) {
-            self.state.borrow_mut().opening_documents -= 1;
             crate::diagnostics::warn!("Could not schedule the selected media: {error}");
         }
     }

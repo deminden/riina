@@ -794,10 +794,21 @@ can choose files and folders in one selection, as a sheet for an existing
 player or as an application panel while idle. Playback History shares its
 archive and window with the idle application menu. About, Log Viewer, History,
 Open URL, Software Update, Release Highlights and the audio and video filter
-editors can outlive the last player.
-The idle Window menu is registered
-with AppKit, and the quit decision is deferred until the final tool closes.
-Closing a tool before any player opened leaves the application available.
+editors can outlive the last player. The platform startup registration owns
+the idle AppKit menu and event loop. The shared player manager restores that
+menu while the application has no visible player.
+
+An accepted Finder event holds the application open through grouping and file
+preparation. The Open panel holds it until the selection is handed off or the
+picker is dismissed. Closing the last visible player defers the automatic quit
+decision until these requests and any remaining tools have finished. A new
+player replaces the deferred close. Closing an idle tool or a hidden plugin
+player leaves the native application available.
+
+The shared renderer keeps its event loop running while the window manager
+resolves the last close. On Linux and the Windows shared renderer, closing
+the final player can reopen Welcome when automatic quit is disabled. Closing
+Welcome itself ends the session when no other player or tool remains.
 The idle Playback, Video, Audio and Subtitles sections read the generated
 player menu catalog without showing a player or starting a decoder. Their
 profile shortcuts, static choices and saved filter names use the same models

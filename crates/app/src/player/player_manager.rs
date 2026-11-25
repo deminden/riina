@@ -1,9 +1,12 @@
 //! Own independent shared-renderer player windows for the application lifetime.
 #[cfg(target_os = "macos")]
-mod launch;
+pub(crate) mod launch;
+mod lifecycle;
 
+use self::lifecycle::{EmptyAction, WindowLifecycle};
 use crate::{
     PlayerWindow, WelcomeWindow,
+    platform::application_lifecycle,
     player_ui::{ApplicationServices, InitialMedia, UiSession},
     preference_load::LoadedPreferences,
 };
@@ -20,6 +23,13 @@ struct ManagedPlayer {
     session: UiSession,
     welcome: Option<WelcomeWindow>,
     app: PlayerWindow,
+}
+
+#[derive(Clone, Copy)]
+enum PlayerClose {
+    Player { was_visible: bool },
+    Welcome,
+    FailedWelcome,
 }
 
 impl ManagedPlayer {
@@ -54,12 +64,7 @@ struct ManagerState {
     players: Vec<ManagedPlayer>,
     services: ApplicationServices,
     quitting: bool,
-    #[cfg(target_os = "macos")]
-    opening_documents: usize,
-    #[cfg(target_os = "macos")]
-    open_panel_visible: bool,
-    #[cfg(target_os = "macos")]
-    last_player_closed_with_tools: bool,
+    lifecycle: WindowLifecycle,
 }
 
 pub(crate) const fn should_quit_after_last_window_closed(
@@ -96,7 +101,7 @@ impl PlayerManager {
                 let state = state.clone();
                 Ok(Box::new(move || {
                     if let Some(state) = state.upgrade() {
-                        close_player(&state, id, false);
+                        close_player(&state, id, PlayerClose::Player { was_visible: false });
                     }
                 }))
             });
@@ -138,24 +143,15 @@ impl PlayerManager {
                 }
             },
         );
-        #[cfg(not(target_os = "macos"))]
-        {
-            let state = Rc::downgrade(&manager.state);
-            manager.services().filters.closed.bind(Rc::new(move || {
+        let state = Rc::downgrade(&manager.state);
+        application_lifecycle::bind_auxiliary_close(
+            &manager.services(),
+            Rc::new(move || {
                 if let Some(state) = state.upgrade() {
                     finish_after_auxiliary_close(&state);
                 }
-            }));
-        }
-        #[cfg(target_os = "macos")]
-        {
-            let state = Rc::downgrade(&manager.state);
-            manager.services().bind_auxiliary_close(Rc::new(move || {
-                if let Some(state) = state.upgrade() {
-                    finish_after_auxiliary_close(&state);
-                }
-            }));
-        }
+            }),
+        );
         manager
     }
 
@@ -200,6 +196,7 @@ impl PlayerManager {
             let mut state = self.state.borrow_mut();
             state.next_id = state.next_id.wrapping_add(1).max(1);
             let id = state.next_id;
+            state.lifecycle.player_attached();
             state.players.push(ManagedPlayer {
                 id,
                 session,
@@ -233,8 +230,13 @@ impl PlayerManager {
         });
 
         let state = Rc::downgrade(&self.state);
-        app.global::<PlayerMenuActions>()
-            .on_close_player(move || schedule_close(state.clone(), id, false));
+        let closing_player = app.as_weak();
+        app.global::<PlayerMenuActions>().on_close_player(move || {
+            let was_visible = closing_player
+                .upgrade()
+                .is_some_and(|app| app.window().is_visible());
+            schedule_close(state.clone(), id, PlayerClose::Player { was_visible });
+        });
         let state = Rc::downgrade(&self.state);
         app.global::<PlayerMenuActions>()
             .on_quit_riina(move || schedule_quit(state.clone()));
@@ -254,7 +256,7 @@ impl PlayerManager {
         if let Some(welcome) = welcome {
             let state = Rc::downgrade(&self.state);
             welcome.window().on_close_requested(move || {
-                schedule_close(state.clone(), id, true);
+                schedule_close(state.clone(), id, PlayerClose::Welcome);
                 CloseRequestResponse::HideWindow
             });
         }
@@ -266,20 +268,6 @@ impl PlayerManager {
             player.session.save(&player.app)?;
         }
         Ok(())
-    }
-
-    #[cfg(target_os = "macos")]
-    pub(crate) fn prepare_application_plugins(&self, path: &std::path::Path) -> Result<(), String> {
-        let plugins = self.services().plugins;
-        let global = plugins.host(path)?;
-        let state = Rc::downgrade(&self.state);
-        plugins.bind_windowless(global.clone(), move || {
-            state.upgrade().is_some_and(|state| {
-                let state = state.borrow();
-                !state.quitting && state.players.is_empty()
-            })
-        });
-        global.load_enabled_globals()
     }
 }
 
@@ -412,7 +400,7 @@ fn open_new_player<Owner: ComponentHandle + 'static>(
     };
     let id = manager.attach(&app, None, session);
     if !hidden && let Err(error) = show_opened_player(&app, owner, disable_animation) {
-        close_player(state, id, false);
+        close_player(state, id, PlayerClose::Player { was_visible: false });
         return Err(error);
     }
     Ok(id)
@@ -438,10 +426,10 @@ fn show_opened_player(
     Ok(())
 }
 
-fn schedule_close(state: Weak<RefCell<ManagerState>>, id: u64, from_welcome: bool) {
+fn schedule_close(state: Weak<RefCell<ManagerState>>, id: u64, source: PlayerClose) {
     let scheduled = slint::spawn_local(async move {
         if let Some(state) = state.upgrade() {
-            close_player(&state, id, from_welcome);
+            close_player(&state, id, source);
         }
     });
     if let Err(error) = scheduled {
@@ -473,10 +461,7 @@ fn schedule_quit(state: Weak<RefCell<ManagerState>>) {
     let scheduled = slint::spawn_local(async move {
         let Some(state) = state.upgrade() else { return };
         let services = state.borrow().services.clone();
-        services.history.hide();
-        services.filters.hide();
-        #[cfg(target_os = "macos")]
-        services.hide_auxiliary_tools();
+        application_lifecycle::hide_auxiliary_tools(&services);
         let players = std::mem::take(&mut state.borrow_mut().players);
         for player in players {
             if let Err(error) = player.session.save(&player.app) {
@@ -493,7 +478,7 @@ fn schedule_quit(state: Weak<RefCell<ManagerState>>) {
     }
 }
 
-fn close_player(state: &Rc<RefCell<ManagerState>>, id: u64, from_welcome: bool) {
+fn close_player(state: &Rc<RefCell<ManagerState>>, id: u64, source: PlayerClose) {
     let removed = {
         let mut state = state.borrow_mut();
         state
@@ -503,8 +488,11 @@ fn close_player(state: &Rc<RefCell<ManagerState>>, id: u64, from_welcome: bool) 
             .map(|index| state.players.remove(index))
     };
     let Some(player) = removed else { return };
-    #[cfg(target_os = "macos")]
-    let player_was_visible = player.app.window().is_visible()
+    // Slint may hide the window before the deferred close runs.
+    let player_was_visible = matches!(
+        source,
+        PlayerClose::Welcome | PlayerClose::Player { was_visible: true }
+    ) || player.app.window().is_visible()
         || player
             .welcome
             .as_ref()
@@ -525,61 +513,38 @@ fn close_player(state: &Rc<RefCell<ManagerState>>, id: u64, from_welcome: bool) 
     if !empty {
         return;
     }
-    #[cfg(target_os = "macos")]
-    state.borrow().services.plugins.request_windowless();
-    #[cfg(target_os = "macos")]
-    if state.borrow().services.auxiliary_is_visible() {
-        state.borrow_mut().last_player_closed_with_tools |= player_was_visible;
-        crate::platform::browser_activation::show_idle_menu();
-        return;
+    let services = state.borrow().services.clone();
+    application_lifecycle::after_last_player_closed(&services);
+    let action = state.borrow_mut().lifecycle.after_last_player_close(
+        application_lifecycle::auxiliary_is_visible(&services),
+        player_was_visible,
+        application_lifecycle::HAS_IDLE_MENU,
+    );
+    match action {
+        EmptyAction::Wait | EmptyAction::IdleMenu => application_lifecycle::show_idle_menu(),
+        EmptyAction::FinishClose => finish_empty_application(
+            state,
+            quit_when_empty,
+            !matches!(source, PlayerClose::Player { .. }),
+        ),
     }
-    #[cfg(not(target_os = "macos"))]
-    {
-        let state = state.borrow();
-        if state.services.history.is_visible() || state.services.filters.is_visible() {
-            return;
-        }
-    }
-    finish_empty_application(state, quit_when_empty, from_welcome);
 }
 
-#[cfg(target_os = "macos")]
 fn finish_after_auxiliary_close(state: &Rc<RefCell<ManagerState>>) {
-    let should_check_quit = {
+    let action = {
         let mut state = state.borrow_mut();
-        if state.quitting {
+        if state.quitting || !state.players.is_empty() {
             return;
         }
-        if !state.players.is_empty() {
-            state.last_player_closed_with_tools = false;
-            return;
-        }
-        if state.services.auxiliary_is_visible() {
-            return;
-        }
-        std::mem::take(&mut state.last_player_closed_with_tools)
-            && state.opening_documents == 0
-            && !state.open_panel_visible
+        let tools_visible = application_lifecycle::auxiliary_is_visible(&state.services);
+        state
+            .lifecycle
+            .after_barrier(tools_visible, application_lifecycle::HAS_IDLE_MENU)
     };
-    // An application tool opened before playback does not imply a player was closed.
-    if !should_check_quit {
-        crate::platform::browser_activation::show_idle_menu();
-        return;
-    }
-    finish_after_last_player(state);
-}
-
-#[cfg(not(target_os = "macos"))]
-fn finish_after_auxiliary_close(state: &Rc<RefCell<ManagerState>>) {
-    let finished = {
-        let state = state.borrow();
-        !state.quitting
-            && state.players.is_empty()
-            && !state.services.history.is_visible()
-            && !state.services.filters.is_visible()
-    };
-    if finished {
-        finish_after_last_player(state);
+    match action {
+        EmptyAction::Wait => {}
+        EmptyAction::IdleMenu => application_lifecycle::show_idle_menu(),
+        EmptyAction::FinishClose => finish_after_last_player(state),
     }
 }
 
@@ -592,20 +557,18 @@ fn finish_after_last_player(state: &Rc<RefCell<ManagerState>>) {
 }
 
 fn finish_empty_application(state: &Rc<RefCell<ManagerState>>, quit: bool, from_welcome: bool) {
-    if quit {
+    if quit || (from_welcome && !application_lifecycle::HAS_IDLE_MENU) {
         state.borrow_mut().quitting = true;
         let _ = slint::quit_event_loop();
         return;
     }
-    #[cfg(target_os = "macos")]
-    crate::platform::browser_activation::show_idle_menu();
-    #[cfg(not(target_os = "macos"))]
-    if !from_welcome && let Err(error) = show_welcome(state, None) {
+    if application_lifecycle::HAS_IDLE_MENU {
+        application_lifecycle::show_idle_menu();
+    } else if let Err(error) = show_welcome(state, None) {
         crate::diagnostics::warn!("Could not reopen the welcome window: {error}");
+        state.borrow_mut().quitting = true;
         let _ = slint::quit_event_loop();
     }
-    #[cfg(target_os = "macos")]
-    let _ = from_welcome;
 }
 
 fn show_welcome(
@@ -636,7 +599,7 @@ fn show_welcome(
     let id = manager.attach(&app, Some(welcome.clone_strong()), session);
     crate::platform::center_auxiliary_window(&welcome, owner.unwrap_or(&app));
     if let Err(error) = crate::platform::show_window(&welcome) {
-        close_player(state, id, true);
+        close_player(state, id, PlayerClose::FailedWelcome);
         return Err(error.into());
     }
     crate::platform::enable_welcome_mica(&welcome);

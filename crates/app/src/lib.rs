@@ -123,34 +123,21 @@ fn run_shared_player(
     let media = players.next().ok_or("Missing initial player")?;
     platform::startup::select_shared_backend(&loaded.preferences)?;
     let player_manager = player_manager::PlayerManager::new();
-    #[cfg(target_os = "macos")]
-    match platform::preferences_path() {
-        Ok(path) => {
-            let services = player_manager.services();
-            services.configure_application_updates(&path, &loaded.preferences);
-            if let Err(error) = player_manager.prepare_application_plugins(&path) {
-                diagnostics::warn!("Could not load application plugins: {error}");
-            }
-        }
-        Err(error) => diagnostics::warn!("Could not load the application update schedule: {error}"),
-    }
+    platform::startup::prepare_application(&player_manager, &loaded.preferences);
     let application_menu = platform::startup::ApplicationMenu::new();
     let _browser = player_manager.register_browser_links(browser);
-    #[cfg(target_os = "macos")]
-    let _native_events = platform::browser_activation::ApplicationEvents::new(
-        browser.clone(),
-        player_manager.clone(),
-        (!media.requests_playback()).then_some(loaded.preferences.action_after_launch),
+    let requests_playback = media.requests_playback();
+    let application = platform::startup::ApplicationRegistration::new(
+        &player_manager,
+        &application_menu,
+        browser,
+        (!requests_playback).then_some(loaded.preferences.action_after_launch),
         loaded.preferences.enable_new_window_shortcut,
-        application_menu.labels(),
     );
-    if !cfg!(target_os = "macos") || media.requests_playback() {
+    if platform::startup::ApplicationRegistration::needs_initial_player(requests_playback) {
         start_shared_player(&player_manager, &application_menu, media, players, loaded)?;
     }
-    #[cfg(target_os = "macos")]
-    slint::run_event_loop_until_quit()?;
-    #[cfg(not(target_os = "macos"))]
-    slint::run_event_loop()?;
+    application.run()?;
     player_manager.save_all()
 }
 

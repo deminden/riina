@@ -7,7 +7,7 @@ mod plugin_shortcuts;
 use crate::platform::macos::menu_labels::MenuLabels;
 use crate::{
     browser_links::{Inbox, Link},
-    player_manager::PlayerManager,
+    player_manager::{PlayerManager, launch::OpenGuard},
 };
 use block2::RcBlock;
 use objc2::{
@@ -50,6 +50,7 @@ struct Launch {
     browser: Inbox,
     default_action: Cell<Option<ActionAfterLaunch>>,
     documents: RefCell<Vec<String>>,
+    pending_documents: RefCell<Option<OpenGuard>>,
     document_timer: slint::Timer,
     plugins: plugin_menu::IdlePlugins,
     menu_labels: Rc<MenuLabels>,
@@ -61,6 +62,12 @@ impl Launch {
             return;
         }
         self.default_action.take();
+        if self.pending_documents.borrow().is_none() {
+            let Some(pending) = self.manager.hold_document_open() else {
+                return;
+            };
+            self.pending_documents.replace(Some(pending));
+        }
         self.documents.borrow_mut().extend(paths);
         let launch = Rc::downgrade(self);
         // Finder may split a single multiple-file action across nearby events.
@@ -69,6 +76,7 @@ impl Launch {
             Duration::from_millis(160),
             move || {
                 if let Some(launch) = launch.upgrade() {
+                    let _pending = launch.pending_documents.take();
                     launch
                         .manager
                         .open_application_documents(launch.documents.take());
@@ -387,6 +395,7 @@ impl ApplicationEvents {
             browser,
             default_action: Cell::new(default_action),
             documents: RefCell::default(),
+            pending_documents: RefCell::default(),
             document_timer: slint::Timer::default(),
             plugins: plugin_menu::IdlePlugins::default(),
             menu_labels,

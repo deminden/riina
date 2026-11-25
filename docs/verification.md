@@ -5187,3 +5187,38 @@ and quit through the surviving player. Both Linux test processes exited.
 - Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
 - Linux application SHA-256 `85ffbf60799cc978b70496c678c49b0dca9337abad0cc999869d64c35d08482d`
 - Linux libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`
+
+### Application open and last-window lifecycle 2026-11-25
+
+The platform registration owns AppKit launch events and the native idle
+event loop. The shared player manager now defers automatic quit while a
+Finder batch, application picker or background file preparation is pending.
+Opening a replacement player clears the deferred close. The macOS policy
+preserves the idle menu when a hidden plugin player or a tool closes without
+a prior visible player close.
+
+The preceding X11 application briefly mapped a replacement Welcome window
+with automatic quit disabled, then retired it before it could receive focus.
+The shared event loop now waits for the window manager to resolve the close.
+The manager explicitly quits after the last Welcome closes and retains the
+native idle menu on macOS.
+
+The Windows gate passed strict Clippy, 1,088 Rust tests including the headless
+pixel comparison, 79 Python tests and four browser tests. The portable state
+tests cover multiple pending opens, picker cancellation, idle tools, hidden
+players and late replacement players. The locked Windows and Linux builds
+passed. All 65 pinned Windows null-output engine tests passed separately.
+The isolated Windows binary passed playback, fullscreen, minimize, restore and
+shutdown checks. Apple Silicon cross-Clippy passed. Finder delivery, the
+native application picker and quit integration still need a Mac desktop run.
+
+On X11 and native Wayland, the last player closed while Playback History
+stayed visible. Closing History then exited with automatic quit enabled.
+With automatic quit disabled, the same fixture reopened Welcome and stayed
+open until Welcome was closed. On Wayland the probe opened History through
+the File menu. All four isolated Linux player processes exited normally.
+
+- Windows application SHA-256 `68a98100618cc9727a7799ce7d51b6c472742b4a09c929fd8ee81bba69c80644`
+- Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
+- Linux application SHA-256 `e40cf4b3657444a41d443431e7a893f90d2e255e7947949c0e118759310ec68e`
+- Linux libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`

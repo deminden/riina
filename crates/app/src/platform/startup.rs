@@ -1,10 +1,12 @@
 //! Arrange native presentation and menu ownership before the shared player runs.
 
 use crate::{
+    browser_links::Inbox,
+    player_manager::PlayerManager,
     preference_load::LoadedPreferences,
     startup_arguments::{RendererRequest, StartupArguments},
 };
-use riina_core::Preferences;
+use riina_core::{ActionAfterLaunch, Preferences};
 use slint::{BackendSelector, PlatformError};
 
 pub(crate) fn new_shared_player() -> Result<crate::PlayerWindow, PlatformError> {
@@ -95,12 +97,75 @@ impl ApplicationMenu {
     }
 
     #[cfg(target_os = "macos")]
-    pub(crate) fn labels(&self) -> std::rc::Rc<super::macos::menu_labels::MenuLabels> {
+    fn labels(&self) -> std::rc::Rc<super::macos::menu_labels::MenuLabels> {
         self.observer.labels()
     }
 
     pub(crate) fn normalize(&self) {
         #[cfg(target_os = "macos")]
         self.observer.normalize();
+    }
+}
+
+pub(crate) fn prepare_application(manager: &PlayerManager, preferences: &Preferences) {
+    #[cfg(target_os = "macos")]
+    match super::preferences_path() {
+        Ok(path) => {
+            manager
+                .services()
+                .configure_application_updates(&path, preferences);
+            if let Err(error) = manager.prepare_application_plugins(&path) {
+                crate::diagnostics::warn!("Could not load application plugins: {error}");
+            }
+        }
+        Err(error) => {
+            crate::diagnostics::warn!("Could not load the application update schedule: {error}")
+        }
+    }
+    #[cfg(not(target_os = "macos"))]
+    let _ = (manager, preferences);
+}
+
+pub(crate) struct ApplicationRegistration {
+    #[cfg(target_os = "macos")]
+    _events: Option<super::browser_activation::ApplicationEvents>,
+}
+
+impl ApplicationRegistration {
+    pub(crate) fn new(
+        manager: &PlayerManager,
+        menu: &ApplicationMenu,
+        browser: &Inbox,
+        idle_launch: Option<ActionAfterLaunch>,
+        enable_new_window_shortcut: bool,
+    ) -> Self {
+        #[cfg(not(target_os = "macos"))]
+        let _ = (
+            manager,
+            menu,
+            browser,
+            idle_launch,
+            enable_new_window_shortcut,
+        );
+        Self {
+            #[cfg(target_os = "macos")]
+            _events: super::browser_activation::ApplicationEvents::new(
+                browser.clone(),
+                manager.clone(),
+                idle_launch,
+                enable_new_window_shortcut,
+                menu.labels(),
+            ),
+        }
+    }
+
+    pub(crate) fn needs_initial_player(requests_playback: bool) -> bool {
+        !super::application_lifecycle::HAS_IDLE_MENU || requests_playback
+    }
+
+    pub(crate) fn run(&self) -> Result<(), PlatformError> {
+        // Closing the last visible window can queue a replacement Welcome window.
+        // The manager ends the loop once it has resolved that transition.
+        slint::run_event_loop_until_quit()
     }
 }
