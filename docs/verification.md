@@ -5222,3 +5222,46 @@ the File menu. All four isolated Linux player processes exited normally.
 - Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
 - Linux application SHA-256 `e40cf4b3657444a41d443431e7a893f90d2e255e7947949c0e118759310ec68e`
 - Linux libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`
+
+### Fullscreen and compact window platform boundary 2026-11-25
+
+The platform adapters now own fullscreen requests, desktop acknowledgements,
+Wayland geometry repair and native Music Mode resize observation. The shared
+controller still waits for confirmation before changing playback or entering
+Music Mode. The existing Winit filter delivers observations for both Linux
+window systems.
+
+The fast check now retains the UI pixel suite when a widget edit shares a
+batch with another crate. Edits to the parity ledgers select ledger validation
+directly. The workspace check passed strict Clippy, 1,090 Rust tests, 79
+Python tests and four browser tests. All 65 Windows null-output engine tests
+passed during the batch.
+
+The locked Windows build passed the isolated playback and fullscreen smoke
+test. That run checked native surface retention, keyboard enter and exit,
+minimize, restore and shutdown. Apple Silicon cross-Clippy passed. Native
+AppKit fullscreen and Music Mode interactions still need a Mac desktop run.
+
+In the first Wayland run, a second windowed configure arrived after Music
+Mode requested its compact size. The 320 × 180 client stayed windowed-sized
+while the mode was active. The Linux resize adapter now checks each configure
+against the compact target even if the previous event carried the same size.
+
+The locked Linux build passed desktop- and app-initiated fullscreen changes
+in private X11 and native Wayland sessions. Both restored the paused video
+through a fullscreen-to-Music Mode handoff, expanded and collapsed the
+catalog, and returned to the original client dimensions with the same media
+and position. The mode events confirmed fullscreen exit before Music Mode
+entry. Both processes exited normally.
+
+A separate Sway probe that deliberately replaced the first fullscreen
+configure with 320 × 180 left the video small despite one native retry. It
+also reproduced on the prior application build. The 1280 × 800 desktop
+capture confirmed a small centered surface. Recovery in that case remains
+open.
+
+- Windows application SHA-256 `4b36eff79709734108fce1dac650cd13fa1a52a4015334da31da6f918a868cd6`
+- Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
+- Linux application SHA-256 `0b15425f6d66a6eee9a073f06676f74844bf1c892db4c044def4e45c47cd4db2`
+- X11 libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`
+- Wayland libmpv SHA-256 `cdce854e1811942602587310026306d92d30c0f593f2be676f07659ae43061d8`

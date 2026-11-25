@@ -18,6 +18,7 @@ pub(crate) mod desktop_drop;
 pub(crate) mod file_associations;
 mod file_reveal;
 pub(crate) mod folder_dialog;
+pub(crate) mod fullscreen_window;
 pub(crate) mod language;
 mod pip_session;
 pub(crate) mod plugin_application;
@@ -1146,8 +1147,6 @@ use macos::{MediaEvent, SystemActivity};
 
 #[cfg(target_os = "macos")]
 pub(crate) use macos::system_font_family_name;
-#[cfg(target_os = "macos")]
-pub(crate) use macos::{FullscreenNotifications, request_fullscreen};
 
 #[cfg(not(target_os = "macos"))]
 pub(crate) fn system_font_family_name() -> String {
@@ -1156,7 +1155,5 @@ pub(crate) fn system_font_family_name() -> String {
 
 #[cfg(any(target_os = "macos", target_os = "linux"))]
 mod unix;
-#[cfg(target_os = "linux")]
-pub(crate) use unix::{FullscreenGeometry, observed_fullscreen, request_fullscreen};
 #[cfg(any(target_os = "macos", target_os = "linux"))]
 pub(crate) use unix::{NativePresentation, open_dialog, save_playlist_dialog, services::*};

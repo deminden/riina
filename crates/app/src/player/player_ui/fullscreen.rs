@@ -1,5 +1,6 @@
 //! Confirm window mode changes before applying playback or compact-window effects.
 use crate::automatic_music_mode;
+use crate::platform::fullscreen_window::{self, FullscreenWindow};
 use crate::{NativeVideoHost, PlayerWindow};
 use riina_ui::{
     PlayerControlActions, PlayerCropState, PlayerMenuActions, PlayerMusicModeState,
@@ -47,17 +48,11 @@ struct Pending {
 
 pub(super) struct Controller {
     app: slint::Weak<PlayerWindow>,
-    host: Option<slint::Weak<NativeVideoHost>>,
+    window: FullscreenWindow,
     music: Rc<automatic_music_mode::Controller>,
     pending: Cell<Option<Pending>>,
     desired: Cell<Option<Mode>>,
     timer: slint::Timer,
-    #[cfg(target_os = "linux")]
-    geometry: std::cell::RefCell<crate::platform::FullscreenGeometry>,
-    #[cfg(target_os = "linux")]
-    repair_on_redraw: Cell<bool>,
-    #[cfg(target_os = "macos")]
-    _notifications: crate::platform::FullscreenNotifications,
 }
 
 pub(super) fn install(
@@ -67,17 +62,11 @@ pub(super) fn install(
 ) -> Rc<Controller> {
     let controller = Rc::new(Controller {
         app: app.as_weak(),
-        host,
+        window: FullscreenWindow::new(app, host),
         music: music.clone(),
         pending: Cell::new(None),
         desired: Cell::new(None),
         timer: slint::Timer::default(),
-        #[cfg(target_os = "linux")]
-        geometry: Default::default(),
-        #[cfg(target_os = "linux")]
-        repair_on_redraw: Cell::new(false),
-        #[cfg(target_os = "macos")]
-        _notifications: crate::platform::FullscreenNotifications::new(app),
     });
     let target = controller.clone();
     let menu = app.global::<PlayerMenuActions>();
@@ -161,24 +150,18 @@ impl Controller {
     }
 
     fn begin(self: &Rc<Self>, app: &PlayerWindow, fullscreen: bool) {
-        if let Some(host) = &self.host {
-            if host
-                .upgrade()
-                .is_some_and(|host| host.invoke_set_fullscreen_window(fullscreen))
-            {
-                self.observe(app, fullscreen, true);
-            } else {
-                self.desired.set(None);
-            }
-        } else if cfg!(target_os = "windows") {
-            app.window().set_fullscreen(fullscreen);
-            self.observe(app, fullscreen, true);
-        } else {
+        let awaits_confirmation = self.window.awaits_confirmation();
+        if awaits_confirmation {
             self.expect(app, fullscreen);
-            #[cfg(any(target_os = "linux", target_os = "macos"))]
-            if crate::platform::request_fullscreen(app.window(), fullscreen).is_none() {
-                self.abandon(app);
+        }
+        if self.window.request(app.window(), fullscreen) {
+            if !awaits_confirmation {
+                self.observe(app, fullscreen, true);
             }
+        } else if awaits_confirmation {
+            self.abandon(app);
+        } else {
+            self.desired.set(None);
         }
     }
 
@@ -190,16 +173,15 @@ impl Controller {
         app.set_entering_fullscreen(fullscreen);
         if !self.timer.running() {
             let weak = Rc::downgrade(self);
-            #[cfg(target_os = "linux")]
-            let interval = Duration::from_millis(50);
-            #[cfg(not(target_os = "linux"))]
-            let interval = Duration::from_millis(100);
-            self.timer
-                .start(slint::TimerMode::Repeated, interval, move || {
+            self.timer.start(
+                slint::TimerMode::Repeated,
+                fullscreen_window::CONFIRMATION_INTERVAL,
+                move || {
                     if let Some(controller) = weak.upgrade() {
                         controller.tick();
                     }
-                });
+                },
+            );
         }
     }
 
@@ -208,8 +190,7 @@ impl Controller {
             self.timer.stop();
             return;
         };
-        #[cfg(target_os = "linux")]
-        if let Some(fullscreen) = crate::platform::observed_fullscreen(app.window()) {
+        if let Some(fullscreen) = fullscreen_window::observed_fullscreen(app.window()) {
             self.observe(&app, fullscreen, true);
         }
         if self
@@ -237,42 +218,12 @@ impl Controller {
             publish(app, fullscreen);
         }
         self.drive(app);
-        #[cfg(target_os = "linux")]
-        self.watch_geometry(app, fullscreen);
+        self.window
+            .geometry_observed(app.window(), fullscreen, self.allows_repair(app));
     }
 
-    #[cfg(target_os = "linux")]
-    fn watch_geometry(&self, app: &PlayerWindow, fullscreen: bool) {
-        if !fullscreen {
-            self.geometry.borrow_mut().reset();
-        }
-        let needs_repair =
-            self.allows_repair(app) && self.geometry.borrow().needs_repair(app.window());
-        if !self.repair_on_redraw.replace(needs_repair) && needs_repair {
-            app.window().request_redraw();
-        }
-    }
-
-    #[cfg(target_os = "linux")]
     fn allows_repair(&self, app: &PlayerWindow) -> bool {
         app.get_fullscreen() && self.pending.get().is_none_or(|pending| pending.fullscreen)
-    }
-
-    #[cfg(target_os = "linux")]
-    fn redrawing(self: &Rc<Self>) {
-        if self.repair_on_redraw.replace(false) {
-            // Slint draws inline after the Winit filter returns. Let it present
-            // the undersized frame before asking the compositor to arrange again.
-            let weak = Rc::downgrade(self);
-            slint::Timer::single_shot(Duration::ZERO, move || {
-                if let Some(controller) = weak.upgrade()
-                    && let Some(app) = controller.app.upgrade()
-                    && controller.allows_repair(&app)
-                {
-                    controller.geometry.borrow_mut().repair(app.window());
-                }
-            });
-        }
     }
 
     fn clear_pending(&self, app: &PlayerWindow) {
@@ -318,41 +269,17 @@ fn publish(app: &PlayerWindow, fullscreen: bool) {
     }
 }
 
-#[cfg(target_os = "linux")]
 pub(super) fn probe_after_window_event(
     controller: Rc<Controller>,
 ) -> impl Fn(&slint::winit_030::winit::event::WindowEvent) + 'static {
-    use slint::winit_030::winit::event::WindowEvent;
-    let deliver = crate::background::CoalescedUiCallback::default();
+    let weak = Rc::downgrade(&controller);
+    let may_repair = move |app: &PlayerWindow| {
+        weak.upgrade()
+            .is_some_and(|controller| controller.allows_repair(app))
+    };
     move |event| {
-        if matches!(event, WindowEvent::RedrawRequested) {
-            controller.redrawing();
-        }
-        if matches!(
-            event,
-            WindowEvent::Resized(_)
-                | WindowEvent::ScaleFactorChanged { .. }
-                | WindowEvent::Occluded(false)
-                | WindowEvent::Moved(_)
-                | WindowEvent::Focused(_)
-        ) {
-            deliver.post(|| {
-                let weak = controller.app.clone();
-                move || {
-                    if let Some(app) = weak.upgrade()
-                        && let Some(active) = crate::platform::observed_fullscreen(app.window())
-                    {
-                        app.invoke_native_fullscreen_observed(active, true);
-                    }
-                }
-            });
-        }
+        controller
+            .window
+            .window_event(event, &controller.app, &may_repair);
     }
-}
-
-#[cfg(not(target_os = "linux"))]
-pub(super) fn probe_after_window_event(
-    _: Rc<Controller>,
-) -> impl Fn(&slint::winit_030::winit::event::WindowEvent) + 'static {
-    |_| {}
 }

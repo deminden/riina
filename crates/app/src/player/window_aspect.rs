@@ -2,7 +2,10 @@
 
 use crate::{
     NativeVideoHost, PlayerWindow,
-    platform::window_sizing::{self, ResizeAnchor},
+    platform::{
+        fullscreen_window,
+        window_sizing::{self, ResizeAnchor},
+    },
 };
 use riina_core::{
     window_aspect::{self as policy, PixelSize},
@@ -522,10 +525,7 @@ fn resize_filter(
 ) -> WindowEventFilter {
     let native_sizing = window_sizing::install(app, target.0);
     let weak = app.as_weak();
-    #[cfg(target_os = "linux")]
-    let compact_resize = slint::Timer::default();
     Box::new(move |window, event| {
-        let _native_sizing = &native_sizing;
         let winit::event::WindowEvent::Resized(size) = event else {
             return EventResult::Propagate;
         };
@@ -537,26 +537,13 @@ fn resize_filter(
         if requested.width == 0 || requested.height == 0 {
             return EventResult::Propagate;
         }
-        #[cfg(target_os = "macos")]
-        if let Some(app) = weak.upgrade()
-            && crate::music_mode_layout::can_resize(&app)
-            && window_sizing::in_live_resize(window)
-        {
-            crate::music_mode_layout::preview_resize(
-                &app,
-                requested.height,
-                f64::from(window.scale_factor()),
-            );
-        }
-        #[cfg(target_os = "linux")]
-        if let Some(app) = weak.upgrade()
-            && requested != previous_size.get()
-        {
-            observe_linux_compact_resize(&app, window, *size, &compact_resize);
-        }
+        let Some(app) = weak.upgrade() else {
+            return EventResult::Propagate;
+        };
+        let changed = requested != previous_size.get();
+        native_sizing.observe_resize(&app, window, requested);
         if !window_sizing::USES_NATIVE_RESIZE_FILTER
-            && let Some(app) = weak.upgrade()
-            && requested != previous_size.get()
+            && changed
             && aspect_lock_enabled(&app)
             && let Some((maximum, true)) = window_limits(&app, window)
             && let Some(target) = policy::constrain_resize(
@@ -575,40 +562,6 @@ fn resize_filter(
         previous_size.set(requested);
         EventResult::Propagate
     })
-}
-
-#[cfg(target_os = "linux")]
-fn observe_linux_compact_resize(
-    app: &PlayerWindow,
-    window: &slint::Window,
-    requested: winit::dpi::PhysicalSize<u32>,
-    timer: &slint::Timer,
-) {
-    use crate::music_mode_layout;
-    let scale = f64::from(window.scale_factor());
-    let settled = music_mode_layout::compact_size(app, scale);
-    if !music_mode_layout::can_resize(app)
-        || window.is_maximized()
-        || (requested.width, requested.height) == (settled.width, settled.height)
-    {
-        timer.stop();
-        app.global::<riina_ui::PlayerMusicModeState>()
-            .set_music_mode_live_catalog_height(-1.0);
-        return;
-    }
-    // Winit exposes configure events on X11 and Wayland without a drag-end
-    // notification. Settle the last changed client size after the stream pauses.
-    music_mode_layout::preview_resize(app, requested.height, scale);
-    let weak = app.as_weak();
-    timer.start(
-        slint::TimerMode::SingleShot,
-        Duration::from_millis(200),
-        move || {
-            if let Some(app) = weak.upgrade() {
-                app.invoke_music_mode_resize_finished();
-            }
-        },
-    );
 }
 
 fn minimum_content_size(window: &slint::Window) -> PixelSize {
@@ -639,8 +592,7 @@ fn window_limits(app: &PlayerWindow, window: &slint::Window) -> Option<(Option<P
     if app.get_fullscreen() || app.get_entering_fullscreen() {
         return None;
     }
-    #[cfg(target_os = "linux")]
-    if crate::platform::observed_fullscreen(window) == Some(true) {
+    if fullscreen_window::observed_fullscreen(window) == Some(true) {
         // The resize can reach the player before its deferred fullscreen observation.
         return None;
     }
@@ -832,15 +784,5 @@ mod tests {
                 }
             }
         }
-    }
-
-    #[cfg(target_os = "windows")]
-    #[test]
-    fn windows_automatic_playlist_changes_keep_the_current_native_video_surface() {
-        use crate::platform::window_sizing::media_resize_allowed as windows_media_resize_applies;
-
-        assert!(windows_media_resize_applies(true, false));
-        assert!(windows_media_resize_applies(false, true));
-        assert!(!windows_media_resize_applies(false, false));
     }
 }

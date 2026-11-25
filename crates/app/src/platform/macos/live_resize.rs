@@ -8,8 +8,12 @@ use objc2_foundation::{NSNotification, NSNotificationCenter, NSObjectProtocol, N
 use slint::ComponentHandle;
 use std::ptr::NonNull;
 
-pub(crate) fn in_progress(window: &slint::Window) -> bool {
-    native_window(window).is_some_and(|window| window.inLiveResize())
+pub(in crate::platform) fn preview(app: &PlayerWindow, window: &slint::Window, height: u32) {
+    if music_mode_layout::can_resize(app)
+        && native_window(window).is_some_and(|window| window.inLiveResize())
+    {
+        music_mode_layout::preview_resize(app, height, f64::from(window.scale_factor()));
+    }
 }
 
 pub(crate) struct Notifications {

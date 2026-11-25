@@ -850,9 +850,12 @@ editor is visible.
 The player keeps pending fullscreen intent separate from the observed
 presentation. Windows confirms through its native owner. macOS uses AppKit
 window notifications, Wayland uses compositor configure state, and X11 uses
-the window manager's EWMH state. The shared controller applies playback
-preferences and exits Picture in Picture on confirmed transitions. Music Mode
-waits for the fullscreen exit before resizing the window.
+the window manager's EWMH state. The platform fullscreen adapter owns these
+observations and uses the player's existing Winit event filter. The shared
+controller applies playback preferences and exits Picture in Picture on
+confirmed transitions. Music Mode waits for the fullscreen exit before
+resizing the window. Its resize adapter uses drag completion on Windows and
+macOS, and settles after the configure stream goes quiet on Linux.
 
 A confirmed fullscreen change refreshes the paused frame and closes an active
 crop or delogo editor before applying the window's playback preference. On

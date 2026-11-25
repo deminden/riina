@@ -110,6 +110,9 @@ fn fast_check(workspace: &Workspace, base: &OsStr) -> Result<(), String> {
     if files.iter().any(|path| script_test_input(path)) {
         script_tests(root)?;
     }
+    if files.iter().any(|path| parity_test_input(path)) {
+        python(root, &["scripts/check-parity.py"])?;
+    }
     if files.iter().any(|path| path.starts_with("assets")) {
         python(root, &["scripts/check-assets.py"])?;
     }
@@ -177,6 +180,14 @@ fn script_test_input(path: &Path) -> bool {
         || path.starts_with(".github/workflows")
 }
 
+fn parity_test_input(path: &Path) -> bool {
+    path == Path::new("docs/parity.csv")
+        || path == Path::new("docs/visual-reference-audit.csv")
+        || path == Path::new("docs/history/visual-reference-audit-through-994f14c.csv")
+        || path == Path::new("scripts/check-parity.py")
+        || path.starts_with("reference/iina-upstream")
+}
+
 fn ui(root: &Path) -> Result<(), String> {
     python(root, &["scripts/check-settings-navigation.py"])?;
     test_ui(root)
@@ -227,6 +238,9 @@ fn include_ui_consumers(packages: &mut BTreeSet<String>, files: &BTreeSet<PathBu
     }
     if ui_source_changed {
         packages.insert("riina".to_owned());
+    }
+    if widget_tests_changed {
+        packages.insert("riina-ui".to_owned());
     }
     false
 }
@@ -551,6 +565,24 @@ mod scope_tests {
     }
 
     #[test]
+    fn mixed_widget_edits_still_select_the_ui_pixel_tests() {
+        let mut packages = BTreeSet::from(["riina".to_owned(), "xtask".to_owned()]);
+        let files = BTreeSet::from([
+            PathBuf::from("crates/app/tests/quick_settings/workflows.rs"),
+            PathBuf::from("crates/xtask/src/main.rs"),
+        ]);
+        assert!(!include_ui_consumers(&mut packages, &files));
+        assert_eq!(
+            packages,
+            BTreeSet::from([
+                "riina".to_owned(),
+                "riina-ui".to_owned(),
+                "xtask".to_owned()
+            ])
+        );
+    }
+
+    #[test]
     fn visual_test_and_baseline_edits_stay_in_the_ui_crate() {
         let mut packages = BTreeSet::new();
         let files = BTreeSet::from([
@@ -589,6 +621,21 @@ mod scope_tests {
     fn asset_manifest_edits_only_need_asset_validation() {
         assert!(!shared_build_input(Path::new("assets/provenance.json")));
         assert!(shared_build_input(Path::new("assets/icons/chapters.svg")));
+    }
+
+    #[test]
+    fn parity_inputs_select_ledger_validation_without_a_workspace_build() {
+        for name in [
+            "docs/parity.csv",
+            "docs/visual-reference-audit.csv",
+            "reference/iina-upstream",
+            "scripts/check-parity.py",
+        ] {
+            let path = Path::new(name);
+            assert!(parity_test_input(path));
+            assert!(!shared_build_input(path));
+        }
+        assert!(!parity_test_input(Path::new("docs/status.md")));
     }
 
     #[test]

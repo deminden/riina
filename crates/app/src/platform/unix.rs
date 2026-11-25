@@ -5,15 +5,15 @@ mod session;
 pub(crate) use session::SessionExtras;
 #[cfg(target_os = "linux")]
 pub(crate) mod accessibility;
+#[cfg(target_os = "linux")]
+pub(super) mod compact_resize;
 mod dialogs;
 #[cfg(target_os = "linux")]
-mod fullscreen;
-#[cfg(target_os = "linux")]
-pub(super) mod pip;
-#[cfg(target_os = "linux")]
-pub(crate) use fullscreen::{FullscreenGeometry, observed_fullscreen, request_fullscreen};
+pub(super) mod fullscreen;
 #[cfg(target_os = "linux")]
 pub(super) mod offscreen_webview;
+#[cfg(target_os = "linux")]
+pub(super) mod pip;
 #[cfg(target_os = "linux")]
 pub(crate) mod plugin_shortcuts;
 pub(crate) mod services;

@@ -231,8 +231,10 @@ changes select the JavaScript suite. Packaging scripts and workflow changes
 select the Python suite. Shared build inputs, test helpers and media fixtures
 select workspace-wide linting and tests. Asset provenance edits run asset
 validation, and edits to the assets themselves also select the workspace.
+Changes to a parity ledger, the pinned reference, or the parity checker run
+ledger validation.
 A clean checkout runs the portable core tests. Documentation-only batches stop
-after the source checks.
+after the applicable source and ledger checks.
 Use `cargo xtask check --fast --base <revision>` to include a batch of local
 commits in the same check. Pass the commit immediately before the batch. The
 line-length exceptions are checked against that revision, and test selection

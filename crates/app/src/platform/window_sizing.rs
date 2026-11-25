@@ -164,11 +164,30 @@ pub(crate) struct Guard {
     _handler: std::rc::Rc<std::cell::RefCell<Option<super::WindowSizing>>>,
     #[cfg(target_os = "macos")]
     _notifications: super::macos::live_resize::Notifications,
+    #[cfg(target_os = "linux")]
+    compact_resize: slint::Timer,
+}
+
+impl Guard {
+    pub(crate) fn observe_resize(
+        &self,
+        _app: &PlayerWindow,
+        _window: &slint::Window,
+        _size: PixelSize,
+    ) {
+        #[cfg(target_os = "macos")]
+        super::macos::live_resize::preview(_app, _window, _size.height);
+        #[cfg(target_os = "linux")]
+        super::unix::compact_resize::observe(_app, _window, _size, &self.compact_resize);
+    }
 }
 
 #[cfg(not(any(target_os = "windows", target_os = "macos")))]
 pub(crate) fn install(_: &PlayerWindow, _: Option<slint::Weak<NativeVideoHost>>) -> Guard {
-    Guard {}
+    Guard {
+        #[cfg(target_os = "linux")]
+        compact_resize: slint::Timer::default(),
+    }
 }
 
 #[cfg(target_os = "macos")]
@@ -177,9 +196,6 @@ pub(crate) fn install(app: &PlayerWindow, _: Option<slint::Weak<NativeVideoHost>
         _notifications: super::macos::live_resize::Notifications::new(app),
     }
 }
-
-#[cfg(target_os = "macos")]
-pub(crate) use super::macos::live_resize::in_progress as in_live_resize;
 
 #[cfg(target_os = "windows")]
 pub(crate) fn install(app: &PlayerWindow, host: Option<slint::Weak<NativeVideoHost>>) -> Guard {
@@ -209,4 +225,12 @@ pub(crate) fn install(app: &PlayerWindow, host: Option<slint::Weak<NativeVideoHo
         crate::diagnostics::warn!("Could not schedule window sizing setup: {error}");
     }
     Guard { _handler: handler }
+}
+
+#[cfg(all(test, target_os = "windows"))]
+#[test]
+fn automatic_playlist_changes_keep_the_current_native_video_surface() {
+    assert!(media_resize_allowed(true, false));
+    assert!(media_resize_allowed(false, true));
+    assert!(!media_resize_allowed(false, false));
 }

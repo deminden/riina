@@ -1,14 +1,23 @@
 //! Read acknowledgement from the desktop managing the actual player window.
-use slint::winit_030::{
-    WinitWindowAccessor,
-    winit::{
-        dpi::PhysicalSize,
-        monitor::MonitorHandle,
-        raw_window_handle::{HasWindowHandle, RawWindowHandle},
-        window::{Fullscreen, Window as NativeWindow},
+use crate::{PlayerWindow, background::CoalescedUiCallback};
+use slint::{
+    ComponentHandle,
+    winit_030::{
+        WinitWindowAccessor,
+        winit::{
+            dpi::PhysicalSize,
+            event::WindowEvent,
+            monitor::MonitorHandle,
+            raw_window_handle::{HasWindowHandle, RawWindowHandle},
+            window::{Fullscreen, Window as NativeWindow},
+        },
     },
 };
-use std::cell::RefCell;
+use std::{
+    cell::{Cell, RefCell},
+    rc::Rc,
+    time::Duration,
+};
 use x11rb::{
     protocol::xproto::{Atom, AtomEnum, ClientMessageEvent, ConnectionExt, EventMask, Window},
     rust_connection::RustConnection,
@@ -33,22 +42,82 @@ pub(crate) fn request_fullscreen(window: &slint::Window, fullscreen: bool) -> Op
 }
 
 #[derive(Default)]
-pub(crate) struct FullscreenGeometry {
+pub(in crate::platform) struct Observation {
+    geometry: Rc<RefCell<FullscreenGeometry>>,
+    repair_on_redraw: Cell<bool>,
+    deliver: CoalescedUiCallback,
+}
+
+impl Observation {
+    pub(in crate::platform) fn geometry_observed(
+        &self,
+        window: &slint::Window,
+        fullscreen: bool,
+        allow_repair: bool,
+    ) {
+        if !fullscreen {
+            self.geometry.borrow_mut().retried = None;
+        }
+        let needs_repair = allow_repair && self.geometry.borrow().needs_repair(window);
+        if !self.repair_on_redraw.replace(needs_repair) && needs_repair {
+            window.request_redraw();
+        }
+    }
+
+    pub(in crate::platform) fn window_event(
+        &self,
+        event: &WindowEvent,
+        app: &slint::Weak<PlayerWindow>,
+        may_repair: &(impl Fn(&PlayerWindow) -> bool + Clone + 'static),
+    ) {
+        if matches!(event, WindowEvent::RedrawRequested) && self.repair_on_redraw.replace(false) {
+            let geometry = Rc::downgrade(&self.geometry);
+            let app = app.clone();
+            let may_repair = may_repair.clone();
+            // Slint still has to present this frame after the Winit filter returns.
+            slint::Timer::single_shot(Duration::ZERO, move || {
+                if let (Some(app), Some(geometry)) = (app.upgrade(), geometry.upgrade())
+                    && may_repair(&app)
+                {
+                    geometry.borrow_mut().repair(app.window());
+                }
+            });
+        }
+        if matches!(
+            event,
+            WindowEvent::Resized(_)
+                | WindowEvent::ScaleFactorChanged { .. }
+                | WindowEvent::Occluded(false)
+                | WindowEvent::Moved(_)
+                | WindowEvent::Focused(_)
+        ) {
+            self.deliver.post(|| {
+                let app = app.clone();
+                move || {
+                    if let Some(app) = app.upgrade()
+                        && let Some(active) = observed_fullscreen(app.window())
+                    {
+                        app.invoke_native_fullscreen_observed(active, true);
+                    }
+                }
+            });
+        }
+    }
+}
+
+#[derive(Default)]
+struct FullscreenGeometry {
     retried: Option<(MonitorHandle, PhysicalSize<u32>)>,
 }
 
 impl FullscreenGeometry {
-    pub(crate) fn reset(&mut self) {
-        self.retried = None;
-    }
-
-    pub(crate) fn needs_repair(&self, window: &slint::Window) -> bool {
+    fn needs_repair(&self, window: &slint::Window) -> bool {
         window
             .with_winit_window(|native| self.undersized_output(native).is_some())
             .unwrap_or(false)
     }
 
-    pub(crate) fn repair(&mut self, window: &slint::Window) {
+    fn repair(&mut self, window: &slint::Window) {
         window.with_winit_window(|native| {
             let Some((monitor, bounds)) = self.undersized_output(native) else {
                 return;
