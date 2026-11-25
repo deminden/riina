@@ -3,6 +3,7 @@ mod duration_probe;
 mod folder_discovery;
 mod handle;
 mod hooks;
+mod playlist_end_pause;
 mod playlist_resume;
 mod stream;
 mod version_probe;
@@ -149,6 +150,7 @@ impl<N: Fn(Arc<Playback>)> Start<N> {
                 // The shared OpenGL surface can still use the core until its owner releases it.
                 state.hooks.continue_all(&handle);
                 state.continue_stream_auth(&handle);
+                state.release_end_pause_hook(&handle);
                 handle.stop_after_panic();
                 let _ = catch_unwind(AssertUnwindSafe(|| {
                     notify(Arc::new(state.playback.clone()))
@@ -163,6 +165,7 @@ impl<N: Fn(Arc<Playback>)> Start<N> {
         }
         state.hooks.continue_all(&handle);
         state.continue_stream_auth(&handle);
+        state.release_end_pause_hook(&handle);
     }
 }
 
@@ -260,6 +263,7 @@ struct WorkerState {
     volume_boost: bool,
     pending_drop_subtitles: Vec<String>,
     folder_discovery: folder_discovery::FolderDiscovery,
+    playlist_end_pause: playlist_end_pause::EndPause,
     playlist_resume: PlaylistResume,
     seek_pending: bool,
     event_names: HashMap<c_int, Option<Arc<str>>>,
@@ -376,6 +380,9 @@ impl WorkerState {
         {
             // Changing the policy must leave the current playback state alone.
             self.playback.pause_when_open = *pause;
+            if *pause {
+                self.install_end_pause_hook(handle);
+            }
             self.mark_changed();
         }
         if let Command::VideoAspect(aspect) = &command {
@@ -456,6 +463,11 @@ impl WorkerState {
             }
             let reply = ReplyKind::for_command(command, args.first().map(String::as_str));
             self.issue(handle, &args, reply)?;
+            if changes_media(&args)
+                || matches!(command, Command::SetPaused(_) | Command::TogglePause)
+            {
+                self.playlist_end_pause.disarm();
+            }
             if command.replaces_media()
                 && args.first().is_some_and(|name| name == "loadfile")
                 && args.get(2).is_some_and(|mode| mode == "replace")
@@ -633,6 +645,8 @@ impl WorkerState {
                 let slot = event.userdata();
                 if slot == stream::AUTH_HOOK_SLOT {
                     self.authenticate_stream(handle, id);
+                } else if slot == playlist_end_pause::HOOK_SLOT {
+                    self.pause_after_end(handle, id);
                 } else {
                     self.hooks.receive(handle, id, slot, wake);
                 }
@@ -643,8 +657,14 @@ impl WorkerState {
             } else if event.id() == event_id::QUEUE_OVERFLOW {
                 self.on_event(&event);
                 self.continue_stream_auth(handle);
+                self.release_end_pause_hook(handle);
             } else {
+                let command_reply =
+                    (event.id() == event_id::COMMAND_REPLY).then(|| event.userdata());
                 self.on_event(&event);
+                if let Some(id) = command_reply {
+                    self.finish_end_pause(handle, id);
+                }
             }
         }
     }
@@ -713,10 +733,12 @@ impl WorkerState {
         if self.stream.as_mut().is_some_and(|load| load.end(end)) {
             self.stream = None;
         }
-        if self.active_entry == Some(end.playlist_entry_id) {
-            self.active_entry = None;
-            self.playback.folder_discovery_allowed = false;
+        if self.active_entry != Some(end.playlist_entry_id) {
+            return;
         }
+        self.arm_end_pause(end.reason);
+        self.active_entry = None;
+        self.playback.folder_discovery_allowed = false;
         self.seek_pending = false;
         self.seek_feedback.clear();
         self.auto_seek.interrupt_measurement();

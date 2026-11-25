@@ -24,6 +24,7 @@ Implementation does not imply every state or platform is verified.
 
 - **Playback:** files, folders and URLs; play/pause, seeking, volume/mute, speed,
   frame stepping, loops, chapters, playlist editing, history and resume.
+  Pause When Open also applies when the playlist automatically advances.
 - **macOS Touch Bar:** the player defines customizable native playback controls,
   time displays, and a scrubber with cached thumbnails. The second clock has
   its own saved mode. AppKit supplies the customization menu on supported Macs.

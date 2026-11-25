@@ -108,6 +108,61 @@ fn pause_when_open_applies_to_replacement_and_batch_without_changing_current_pla
 }
 
 #[test]
+#[ignore = "requires provisioned libmpv; checks pause policy across automatic playlist transitions"]
+fn pause_when_open_also_applies_to_automatic_advancement() {
+    let root = fixture_root();
+    let harness = Harness::start(&root).unwrap();
+    let paths = ["moving-square.avi", "external-tone.wav", "catalog.mkv"].map(|name| {
+        root.join("tests/fixtures")
+            .join(name)
+            .to_string_lossy()
+            .into_owned()
+    });
+    harness.send(Command::SetPauseWhenOpen(true)).unwrap();
+    harness.send(Command::OpenPlaylist(paths.into())).unwrap();
+    let first = harness
+        .wait(|state| state.phase == Phase::Paused && state.seekable && state.duration.is_some());
+    let advance = |current: &Playback| {
+        harness
+            .send(Command::Seek {
+                seconds: current.duration.unwrap() - 0.25,
+                absolute: true,
+            })
+            .unwrap();
+        harness.wait(|state| state.completed_seeks > current.completed_seeks && !state.seeking);
+        harness.send(Command::SetPaused(false)).unwrap();
+    };
+    advance(&first);
+    let audio = harness.wait(|state| {
+        state.generation > first.generation
+            && state.seekable
+            && state.duration.is_some()
+            && state.playlist.get(1).is_some_and(|row| row.current)
+            && state
+                .mpv_events
+                .iter()
+                .rev()
+                .take_while(|event| event.name.as_ref() != "start-file")
+                .any(|event| event.name.as_ref() == "playback-restart")
+    });
+    assert!(audio.paused);
+    assert!(audio.position.is_some_and(|position| position < 0.15));
+    assert!(audio.video.is_none());
+
+    harness.send(Command::SetPauseWhenOpen(false)).unwrap();
+    assert!(harness.wait(|state| !state.pause_when_open).paused);
+    advance(&audio);
+    let third = harness.wait(|state| {
+        state.generation > audio.generation
+            && state.playlist.get(2).is_some_and(|row| row.current)
+            && state.position.is_some_and(|position| position > 0.12)
+    });
+    assert_eq!(third.phase, Phase::Playing);
+    assert!(!third.paused);
+    assert_eq!(third.error(), None);
+}
+
+#[test]
 #[ignore = "requires provisioned libmpv; checks folder discovery ownership and playlist edits"]
 fn folder_discovery_only_edits_the_entry_created_by_a_single_file_open() {
     let root = fixture_root();

@@ -4713,3 +4713,28 @@ normal exit.
 - Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
 - Linux application SHA-256 `2d7fd8f2aa8bd2b4c6ba4fc419a4bacb1e964ea1d41cb441c561f155cb5e861e`
 - Linux libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`
+
+### Pause When Open during automatic playlist advancement 2026-11-25
+
+The playback worker applies Pause When Open after a file ends naturally or
+fails. It waits for libmpv to acknowledge the pause before releasing the
+end-of-file hook. Explicit opens, redirects and manual navigation retain
+the pause policy of their own commands.
+
+The affected Windows source gate passed strict Clippy, 652 application
+unit tests, 39 engine unit tests and 70 widget checks. All 65 tests in the
+pinned Windows libmpv suite passed. The new regression advances from video
+to audio, verifies the audio starts paused, then disables the preference
+and verifies automatic advancement to video resumes playback. The Apple
+Silicon application passed a source cross-check.
+
+Separate Windows and Linux X11 desktop sessions exercised automatic
+advancement with the setting enabled and disabled. With it enabled, the
+next clip appeared in the same player and stayed paused at 0 seconds.
+With it disabled, the next clip continued playing. Each exact test
+process exited normally. Native macOS playback remains unverified.
+
+- Windows application SHA-256 `82213355b444362945f46799c8918c75142f252598c2b0ea43f580fc6c52f843`
+- Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
+- Linux application SHA-256 `0fdd5b4227601bfdc2f62e3afd197591b133c94309f569d98642594f3cb654df`
+- Linux libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`
