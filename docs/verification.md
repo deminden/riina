@@ -4738,3 +4738,41 @@ process exited normally. Native macOS playback remains unverified.
 - Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
 - Linux application SHA-256 `0fdd5b4227601bfdc2f62e3afd197591b133c94309f569d98642594f3cb654df`
 - Linux libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`
+
+### Playback History regional dates and times 2026-11-25
+
+Date mode groups visits by local day, shows a medium-format heading, and
+displays only the time on each media row. Folder & Website mode shows a
+localized short date and time. Stable group keys keep collapse and ordering
+independent of the displayed labels. macOS uses Foundation date formatters.
+Windows and Linux use ICU4X, with the Windows clock preference and Linux
+`LC_TIME` selection applied. The operating system and locale data can
+produce different separators and year widths.
+[ICU4X date and time formatting](https://docs.rs/icu_datetime/2.3.0/icu_datetime/),
+[Windows clock preference](https://learn.microsoft.com/en-us/windows/win32/intl/locale-itime).
+
+The grouped Windows gate passed strict workspace Clippy, the workspace
+tests including 654 application unit tests and 70 widget checks, and the
+headless player and Settings pixel comparison. Deterministic tests cover
+12- and 24-hour formatting and grouping independently of row labels.
+
+An isolated Windows desktop using the Irish regional format and a 24-hour
+clock showed `6 Nov 2025` and `04:09` in Date mode, and
+`06/11/2025, 04:09` in Folder & Website mode. The test exercised
+individual collapse, Collapse All, Expand All and changing the grouping.
+The exact test process exited normally.
+
+An isolated X11 session used French date formatting and the
+`Pacific/Auckland` time zone. Captures showed `6 nov. 2025` and
+`5 nov. 2025` as separate local days, including a visit whose UTC date
+was the previous day. They showed the expected rows after individual
+collapse, Expand All, Collapse All and switching to Folder & Website.
+The exact Linux test process exited normally.
+
+The Apple Silicon application and test targets passed source cross-checks.
+Native macOS date formatting and matched reference pixels remain open.
+
+- Windows application SHA-256 `6fdc94b007725f0648ec7b98816b67a8ca762430a47707cb01dbe793876af80e`
+- Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
+- Linux application SHA-256 `272cb652d9bd3db9fe6f443b22702937bff0e0b49addf366ee1f19ca666def08`
+- Linux libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`

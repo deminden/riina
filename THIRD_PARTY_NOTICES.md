@@ -72,6 +72,11 @@ records additional ICU4X formatting/provider/data crates. These are Unicode
 locale data, not copied IINA strings or Apple assets. The experimental formatter
 is pinned; its locale patterns and macOS name equivalence remain unverified.
 
+ICU4X icu_datetime 2.3.0 and its locked ICU4X calendar, clock and locale data
+format Playback History dates on Windows and Linux. The ICU4X packages are
+Unicode-3.0 and use the retained notice above. The dependency lock records
+their full source versions and checksums.
+
 sys-locale 0.3.2 (https://github.com/1Password/sys-locale): selected MIT option
 from MIT OR Apache-2.0. Already resolved through Slint, now used directly for
 Linux display-locale discovery. Windows uses GetUserDefaultLocaleName and macOS

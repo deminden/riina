@@ -44,7 +44,7 @@ and GPLv3 application package terms.
 | Original synthetic fixture bytes | CC0-1.0, fixture README and manifest |
 | Excluded IINA reference | Existing GPL terms, outside the MIT grant |
 | Slint 1.18.1 and slint-build | Royalty-free 2.0, public README badge, section 2(b) |
-| ICU4X locale/display-name code and compiled Unicode data | Unicode-3.0, notice in third-party-licenses/Unicode-3.0.txt |
+| ICU4X locale, display-name and date-time code and compiled Unicode data | Unicode-3.0, notice in third-party-licenses/Unicode-3.0.txt |
 | Native `subrandr` Rust dependency `unicode-ident` 1.0.13 | Unicode-DFS-2016; retain its package notice in the native license inventory |
 | Chrono 0.4.45 and battery 0.7.8 | MIT OR Apache-2.0; Rust dependency notices are generated from Cargo.lock |
 | `webpki-roots` 1.0.9 certificate data | CDLA-Permissive-2.0; retain its crate `LICENSE` and generated `CCADB-ATTRIBUTION.txt` with the Rust license inventory |

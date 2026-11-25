@@ -5,6 +5,7 @@ import { NativeTypography, AuxiliaryPalette } from "shared-controls.slint";
 
 export struct PlaybackHistoryRow {
     is-group: bool,
+    group-key: string,
     collapsed: bool,
     label: string,
     detail: string,
@@ -198,7 +199,7 @@ export component PlaybackHistoryWindow inherits Window {
                 }
                 if row.is-group : TouchArea {
                     width: parent.width; height: parent.height;
-                    clicked => { keys.focus(); root.toggle-group(row.label); }
+                    clicked => { keys.focus(); root.toggle-group(row.group-key); }
                 }
                 if !row.is-group : Rectangle {
                     x: 10px; y: 11px; width: 22px; height: 22px;

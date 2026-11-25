@@ -1,5 +1,6 @@
 //! System locale services; metadata formatting stays outside the playback core.
 
+pub(crate) mod history_time;
 mod names;
 pub(crate) use names::LanguageNames;
 

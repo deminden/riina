@@ -66,6 +66,8 @@ Implementation does not imply every state or platform is verified.
   Saved positions come from mpv's files and refresh when History opens.
   Clearing saved progress in Utilities updates the open History window and
   preserves its entries.
+  Date headings and played-at timestamps use the system locale and local
+  time zone. Collapse and chronological ordering use local calendar days.
 - **Utilities:** Settings owns the confirmations for alerts, saved progress,
   history and thumbnails. Cache sizes refresh when the page opens or data is cleared.
 - **Russian and Arabic labels** are bundled for Welcome, Open URL, Playback

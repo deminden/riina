@@ -64,6 +64,9 @@ winresource = "=0.1.31"
 [target.'cfg(unix)'.dependencies]
 libc = "=0.2.190"
 
+[target.'cfg(not(target_os = "macos"))'.dependencies]
+icu_datetime = "=2.3.0"
+
 [target.'cfg(target_os = "windows")'.dependencies]
 clipboard-win = "=5.4.1"
 tempfile = "=3.27.0"
@@ -87,7 +90,7 @@ x11rb = "=0.13.2"
 
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2 = "=0.6.5"
-objc2-foundation = { version = "=0.3.2", default-features = false, features = ["std", "NSAppleEventDescriptor", "NSAppleEventManager", "NSArray", "NSDictionary", "NSData", "NSError", "NSFileManager", "NSObject", "NSString", "NSURL", "NSUserDefaults", "NSValue", "NSGeometry", "NSObjCRuntime", "NSLocale", "NSProcessInfo", "NSNotification", "NSOperation", "block2"] }
+objc2-foundation = { version = "=0.3.2", default-features = false, features = ["std", "NSAppleEventDescriptor", "NSAppleEventManager", "NSArray", "NSDictionary", "NSData", "NSDate", "NSDateFormatter", "NSError", "NSFileManager", "NSFormatter", "NSObject", "NSString", "NSURL", "NSUserDefaults", "NSValue", "NSGeometry", "NSObjCRuntime", "NSLocale", "NSProcessInfo", "NSNotification", "NSOperation", "block2"] }
 objc2-app-kit = { version = "=0.3.2", default-features = false, features = ["NSWorkspace", "NSApplication", "NSResponder", "NSAccessibility", "NSFont", "NSFontDescriptor", "NSImage", "NSImageRep", "NSEvent", "NSHapticFeedback", "NSMenu", "NSView", "NSWindow", "NSPanel", "NSControl", "NSColor", "NSColorPanel", "NSScreen", "NSColorSpace", "NSPasteboard", "NSPasteboardItem", "NSDragging", "NSDocumentController", "NSOpenPanel", "NSSavePanel", "NSTouch", "NSTouchBar", "NSTouchBarItem", "NSSliderTouchBarItem", "NSCustomTouchBarItem", "NSButton", "NSSlider", "NSSliderCell", "NSCell", "NSActionCell", "NSTextField", "NSGraphics", "NSGraphicsContext", "NSBezierPath", "NSUserInterfaceLayout", "block2", "objc2-core-graphics"] }
 objc2-core-graphics = { version = "=0.3.2", default-features = false, features = ["CGColorSpace", "CGDataProvider", "CGGeometry", "CGImage"] }
 objc2-core-foundation = { version = "=0.3.2", default-features = false, features = ["CFArray", "CFData", "CFDictionary", "CFNumber", "CFString", "CFURL", "std"] }
