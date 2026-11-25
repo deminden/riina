@@ -48,6 +48,7 @@ export component PlayerSlider inherits Rectangle {
     in property <bool> commit-on-release: false;
     in property <float> drag-step: step;
     out property <bool> is-dragging: false;
+    out property <bool> keyboard-focused: focus.has-focus && !root.pointer-focused;
     out property <bool> previewing: drag-value-active;
     callback changed(float);
     callback focus-entered(length, length);
@@ -75,6 +76,7 @@ export component PlayerSlider inherits Rectangle {
     accessible-action-increment => { if enabled { changed(min(maximum, value + step)); } }
     accessible-action-decrement => { if enabled { changed(max(minimum, value - step)); } }
     private property <float> drag-value: 0;
+    private property <bool> pointer-focused;
     private property <bool> drag-value-active: false;
     private property <bool> awaiting-native-commit: false;
     private property <float> display-value: drag-value-active ? drag-value : value;
@@ -178,6 +180,7 @@ export component PlayerSlider inherits Rectangle {
     if focus.has-focus : Rectangle { border-width: 1px; border-color: Theme.player-focus-accent; border-radius: 3px; background: transparent; }
     focus := FocusScope {
         focus-changed-event => { if self.has-focus { root.focus-entered(root.absolute-position.y, root.height); } }
+        changed has-focus => { if !self.has-focus { root.pointer-focused = false; } }
         enabled: root.enabled;
         key-pressed(event) => {
             if event.modifiers.alt || event.modifiers.control || event.modifiers.meta || event.modifiers.shift { return reject; }
@@ -195,6 +198,7 @@ export component PlayerSlider inherits Rectangle {
         pointer-event(event) => {
             if event.kind == PointerEventKind.cancel && root.is-dragging { root.cancel-gesture(); }
             else if event.button == PointerEventButton.left && event.kind == PointerEventKind.down {
+                root.pointer-focused = true;
                 root.is-dragging = true;
                 root.awaiting-native-commit = false;
                 focus.focus();

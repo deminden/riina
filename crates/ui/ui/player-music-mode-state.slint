@@ -1,3 +1,5 @@
+export enum MusicModeVolumePanel { closed, manual, wheel, trackpad }
+
 // The MiniPlayer shares its layout and metadata with the full player.
 export global PlayerMusicModeState {
     in-out property <bool> music-mode: false;
@@ -14,9 +16,14 @@ export global PlayerMusicModeState {
     in-out property <bool> music-mode-is-audio: false;
     in-out property <bool> music-mode-has-album-art: false;
     in-out property <bool> music-mode-has-visible-subtitles: false;
-    in-out property <bool> music-mode-volume-open: false;
+    in-out property <MusicModeVolumePanel> music-mode-volume-panel: MusicModeVolumePanel.closed;
+    in-out property <int> music-mode-wheel-volume-revision;
     in-out property <string> music-artist: "";
     in-out property <string> music-album: "";
     callback set-catalog-visible(bool);
     callback set-artwork-visible(bool);
+
+    public function close-volume-panel() {
+        root.music-mode-volume-panel = MusicModeVolumePanel.closed;
+    }
 }

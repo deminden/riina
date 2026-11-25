@@ -5,7 +5,7 @@ import { Tool } from "player-tool.slint";
 // participate in transport centering as they do in a packed toolbar row.
 export component MusicModeControls inherits Rectangle {
     in property <bool> paused;
-    in property <bool> muted;
+    in property <bool> volume-open;
     in property <bool> dark-theme: true;
     in property <bool> playlist-visible;
     in property <bool> artwork-visible;
@@ -13,27 +13,22 @@ export component MusicModeControls inherits Rectangle {
     callback pause-requested();
     callback previous-requested();
     callback next-requested();
-    callback volume-requested();
     callback playlist-requested();
     callback artwork-requested();
-    out property <bool> keyboard-focused: volume.keyboard-focused || previous.keyboard-focused
-        || transport.keyboard-focused || next.keyboard-focused || catalog.keyboard-focused || artwork.keyboard-focused;
+    out property <bool> keyboard-focused: previous.keyboard-focused || transport.keyboard-focused
+        || next.keyboard-focused || catalog.keyboard-focused || artwork.keyboard-focused;
     height: 28px;
     private property <length> play-left: (root.width - 28px) / 2 + 2px;
-    volume := Tool {
-        x: root.play-left - 90px; y: 5px; width: 18px; height: 18px;
-        icon-size: 18px; dark-theme: root.dark-theme; accent-color: root.accent-color;
-        icon: root.muted ? @image-url("../../../assets/icons/muted.svg") : @image-url("../../../assets/icons/volume.svg");
-        hint: "Volume"; activated => { root.volume-requested(); }
-    }
     previous := Tool {
         x: root.play-left - 52px; width: 28px; height: 28px;
+        visible: !root.volume-open; enabled: !root.volume-open;
         icon-size: 28px; dark-theme: root.dark-theme; accent-color: root.accent-color;
         icon: @image-url("../../../assets/icons/skip-previous.svg");
         hint: "Previous media"; activated => { root.previous-requested(); }
     }
     transport := Tool {
         x: root.play-left; width: 28px; height: 28px;
+        visible: !root.volume-open; enabled: !root.volume-open;
         icon-size: 28px; icon-optical-offset-x: root.paused ? 2.916667px : 0px;
         dark-theme: root.dark-theme; accent-color: root.accent-color;
         icon: root.paused ? @image-url("../../../assets/icons/osc-play.svg") : @image-url("../../../assets/icons/osc-pause.svg");
@@ -41,6 +36,7 @@ export component MusicModeControls inherits Rectangle {
     }
     next := Tool {
         x: root.play-left + 48px; width: 28px; height: 28px;
+        visible: !root.volume-open; enabled: !root.volume-open;
         icon-size: 28px; dark-theme: root.dark-theme; accent-color: root.accent-color;
         icon: @image-url("../../../assets/icons/skip-next.svg");
         hint: "Next media"; activated => { root.next-requested(); }

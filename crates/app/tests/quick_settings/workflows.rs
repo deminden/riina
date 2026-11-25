@@ -615,6 +615,65 @@ fn compact_timeline_survives_idle_and_keeps_wheel_input_with_its_surface() {
 }
 
 #[test]
+fn compact_volume_keeps_the_mute_button_in_place_and_expires_wheel_feedback() {
+    use riina_ui::MusicModeVolumePanel;
+
+    let app = player(0);
+    let music = app.global::<PlayerMusicModeState>();
+    music.set_music_mode(true);
+    music.set_music_mode_show_album_art(false);
+    app.window().set_size(LogicalSize::new(300.0, 90.0));
+    app.global::<PlayerPreferences>().set_osd_timeout_secs(0.2);
+    flush();
+
+    let mutes = Rc::new(Cell::new(0));
+    let observe = mutes.clone();
+    app.global::<PlayerMenuActions>()
+        .on_toggle_mute(move || observe.set(observe.get() + 1));
+    let volume = button(&app, "Volume");
+    let x = volume.absolute_position().x;
+    volume.mock_single_click(PointerEventButton::Left);
+    flush();
+    assert_eq!(
+        music.get_music_mode_volume_panel(),
+        MusicModeVolumePanel::Manual
+    );
+    assert_eq!(mutes.get(), 0);
+    let mute = button(&app, "Mute");
+    assert_eq!(mute.absolute_position().x, x);
+    let slider = field(&app, "Volume");
+    assert_eq!(slider.size().width, 100.0);
+    mute.mock_single_click(PointerEventButton::Left);
+    flush();
+    assert_eq!(mutes.get(), 1);
+    app.window().dispatch_event(WindowEvent::PointerMoved {
+        position: LogicalPosition::new(280.0, 60.0),
+    });
+    flush();
+    assert_eq!(
+        music.get_music_mode_volume_panel(),
+        MusicModeVolumePanel::Closed
+    );
+
+    music.set_music_mode_volume_panel(MusicModeVolumePanel::Wheel);
+    music.set_music_mode_wheel_volume_revision(1);
+    flush();
+    i_slint_backend_testing::mock_elapsed_time(Duration::from_millis(150));
+    music.set_music_mode_wheel_volume_revision(2);
+    flush();
+    i_slint_backend_testing::mock_elapsed_time(Duration::from_millis(150));
+    assert_eq!(
+        music.get_music_mode_volume_panel(),
+        MusicModeVolumePanel::Wheel
+    );
+    i_slint_backend_testing::mock_elapsed_time(Duration::from_millis(51));
+    assert_eq!(
+        music.get_music_mode_volume_panel(),
+        MusicModeVolumePanel::Closed
+    );
+}
+
+#[test]
 fn quick_settings_tab_reveals_equalizer_and_restores_its_scroll_position() {
     let app = player(1);
     app.window().set_size(LogicalSize::new(1000.0, 290.0));

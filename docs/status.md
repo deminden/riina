@@ -48,7 +48,11 @@ Implementation does not imply every state or platform is verified.
 - **Music Mode controls:** the title and timeline remain visible when the
   player is idle, including with the catalog open. Hovering over artwork or
   controls reveals transport. Keyboard focus reveals the focused group of
-  actions. Linux exposes the player menu through a compact button and F10.
+  actions. Volume expands from the same button with a slider and numeric
+  readout. Scrolling the artwork shows that readout when the gesture changes
+  volume. Linux exposes the player menu through a compact button and F10.
+  A media session can render subtitles on an audio-only canvas without
+  adding a video track. The canvas stays with the player when artwork rolls up.
 - **File opens:** the primary File commands follow the new-window preference,
   and their modifier shortcuts invert it. Active menus show the actual destination.
   The native Windows picker has verified grouped and separate opens and reuse

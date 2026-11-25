@@ -1,16 +1,13 @@
 import { ControllerTimeline } from "controller-timeline.slint";
 import { MusicModeControls } from "music-mode-controls.slint";
 import { MusicModeMetadata } from "music-mode-metadata.slint";
-import { PlaybackAudioState } from "playback-audio-state.slint";
+import { MusicModeVolumeControl } from "music-mode-volume-control.slint";
 import { PlayerAppearance } from "player-appearance.slint";
-import { PlayerControlActions } from "player-control-actions.slint";
 import { PlayerControlsState } from "player-controls-state.slint";
 import { PlayerMenuActions } from "player-menu-actions.slint";
-import { PlayerMusicModeState } from "player-music-mode-state.slint";
+import { MusicModeVolumePanel, PlayerMusicModeState } from "player-music-mode-state.slint";
 import { PlayerPreferences } from "player-preferences.slint";
-import { PlayerSlider } from "shared-controls.slint";
 import { Theme } from "theme.slint";
-import { Tool } from "player-tool.slint";
 
 export component MusicModeControlBar inherits Rectangle {
     in property <bool> hovered;
@@ -23,7 +20,33 @@ export component MusicModeControlBar inherits Rectangle {
     in property <length> sample-width;
     in property <length> sample-height;
     private property <bool> transport-visible: root.hovered || transport.keyboard-focused
-        || PlayerMusicModeState.music-mode-volume-open;
+        || volume.keyboard-focused || volume.expanded;
+    private property <int> wheel-volume-revision: PlayerMusicModeState.music-mode-wheel-volume-revision;
+    private property <bool> keep-manual-volume: volume.keyboard-focused || PlayerControlsState.control-bar-dragging
+        || (strip.has-hover && strip.mouse-x >= volume.x && strip.mouse-x < volume.x + volume.width
+            && strip.mouse-y >= volume.y && strip.mouse-y < volume.y + volume.height);
+
+    changed keep-manual-volume => {
+        if !root.keep-manual-volume && PlayerMusicModeState.music-mode-volume-panel == MusicModeVolumePanel.manual {
+            PlayerMusicModeState.close-volume-panel();
+        }
+    }
+    changed wheel-volume-revision => {
+        if PlayerMusicModeState.music-mode-volume-panel == MusicModeVolumePanel.wheel {
+            if volume-timeout.running { volume-timeout.restart(); }
+            else { volume-timeout.start(); }
+        }
+    }
+    volume-timeout := Timer {
+        interval: PlayerPreferences.osd-timeout-secs * 1s;
+        running: false;
+        triggered => {
+            if PlayerMusicModeState.music-mode-volume-panel == MusicModeVolumePanel.wheel {
+                PlayerMusicModeState.close-volume-panel();
+            }
+            self.stop();
+        }
+    }
 
     background: Theme.controller-surface(PlayerAppearance.dark-theme,
         PlayerAppearance.active-liquid-glass-osc, PlayerAppearance.platform-windows, root.native-video);
@@ -43,19 +66,21 @@ export component MusicModeControlBar inherits Rectangle {
         // The seek and volume sliders get first use of the wheel. The rest of
         // the strip keeps wheel gestures away from the artwork's shortcuts.
         scroll-event(_) => { return accept; }
-        changed has-hover => {
-            if !self.has-hover && !PlayerControlsState.control-bar-dragging {
-                PlayerMusicModeState.music-mode-volume-open = false;
-            }
-        }
         MusicModeMetadata {
             width: parent.width; height: parent.height;
             title: root.title;
             controls-visible: root.transport-visible;
         }
+        volume := MusicModeVolumeControl {
+            x: (parent.width - 28px) / 2 - 98px;
+            y: transport.y - 4px;
+            volume-limit: root.volume-limit;
+            opacity: root.transport-visible ? 1 : 0;
+            animate opacity { duration: PlayerAppearance.animations-disabled ? 0ms : Theme.controller-content-fade-duration; }
+        }
         transport := MusicModeControls {
             y: PlayerAppearance.compact-ui ? 12px : 16px; width: parent.width;
-            paused: root.paused; muted: PlaybackAudioState.muted; dark-theme: PlayerAppearance.dark-theme;
+            paused: root.paused; volume-open: volume.expanded; dark-theme: PlayerAppearance.dark-theme;
             accent-color: PlayerAppearance.interactive-accent-color;
             playlist-visible: PlayerMusicModeState.music-mode-show-playlist;
             artwork-visible: PlayerMusicModeState.music-mode-show-album-art;
@@ -64,10 +89,6 @@ export component MusicModeControlBar inherits Rectangle {
             pause-requested => { PlayerMenuActions.toggle-pause(); }
             previous-requested => { PlayerMenuActions.playlist-previous(); }
             next-requested => { PlayerMenuActions.playlist-next(); }
-            volume-requested => {
-                if !PlayerMusicModeState.music-mode-volume-open { PlayerMusicModeState.music-mode-volume-open = true; }
-                else { PlayerMenuActions.toggle-mute(); }
-            }
             playlist-requested => { PlayerMusicModeState.set-catalog-visible(!PlayerMusicModeState.music-mode-show-playlist); }
             artwork-requested => { PlayerMusicModeState.set-artwork-visible(!PlayerMusicModeState.music-mode-show-album-art); }
         }
@@ -77,30 +98,6 @@ export component MusicModeControlBar inherits Rectangle {
             inline-inset: 6px;
             item-gap: 6px;
             aspect-ratio: root.aspect-ratio;
-        }
-        if PlayerMusicModeState.music-mode-volume-open : Rectangle {
-            x: parent.width - 156px; y: 5px; width: 148px; height: 36px;
-            border-radius: 18px;
-            background: Theme.music-mode-volume-surface(PlayerAppearance.dark-theme, PlayerAppearance.active-liquid-glass-osc);
-            border-width: 1px; border-color: Theme.music-mode-volume-border;
-            HorizontalLayout {
-                x: 8px; y: 4px; width: parent.width - 16px; height: parent.height - 8px; spacing: 6px;
-                Tool {
-                    accent-color: PlayerAppearance.interactive-accent-color;
-                    dark-theme: PlayerAppearance.dark-theme; width: 24px; height: 24px;
-                    icon: PlaybackAudioState.muted ? @image-url("../../../assets/icons/muted.svg") : @image-url("../../../assets/icons/volume.svg");
-                    hint: "Mute"; activated => { PlayerMenuActions.toggle-mute(); }
-                }
-                PlayerSlider {
-                    dark-theme: PlayerAppearance.dark-theme; horizontal-stretch: 1; height: 17px;
-                    minimum: 0; maximum: root.volume-limit; value: PlaybackAudioState.volume; hint: "Volume";
-                    scroll-override-enabled: !PlayerPreferences.control-disable-volume-slider-scrolling;
-                    scroll-disabled: PlayerPreferences.control-disable-volume-slider-scrolling;
-                    scroll-request(dx, dy) => { return PlayerControlActions.volume-scroll-action-request(dx, dy); }
-                    changed is-dragging => { PlayerControlsState.control-bar-dragging = self.is-dragging; }
-                    changed(value) => { PlayerControlActions.set-volume(value); }
-                }
-            }
         }
     }
 }

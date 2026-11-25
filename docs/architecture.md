@@ -192,6 +192,20 @@ Pointer tracking covers the artwork and control strip and stops at the catalog.
 Keyboard focus can reveal compact actions independently. Linux projects the
 same live player menu through a compact button and F10.
 
+The compact volume button keeps its place when the slider and level expand.
+The regular scroll dispatcher opens the inline readout only when an artwork
+gesture resolves to volume. A mouse wheel refreshes the OSD timeout. A
+phased trackpad gesture dismisses its readout when the gesture ends. The
+slider continues to use the player's volume limit and wheel preference.
+Entering Music Mode clears the main player's queued on-screen messages.
+The saved on-screen display preference still applies to the main player.
+
+Audio-only subtitle rendering uses the player's existing libmpv output.
+The shared OpenGL presenter signals readiness after creating the render
+context, and the event worker then permits subtitle-only frames. The
+embedded Windows presenter starts its video output at media open. An
+explicit mpv force-window choice takes precedence on both paths.
+
 Playlist drags send the selected entry IDs and destination entry ID to the
 engine as one request. Play Next resolves the current entry and moves the
 selected entries immediately after it in playlist order. The engine plans the

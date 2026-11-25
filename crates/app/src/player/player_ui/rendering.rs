@@ -114,6 +114,9 @@ impl RenderSession {
                 }
                 self.surface.replace(Some(video));
                 if let Some(app) = self.app.upgrade() {
+                    if let Err(error) = self.player.rendering_ready() {
+                        crate::diagnostics::report(&app, error);
+                    }
                     app.set_engine_ready(true);
                 }
             }

@@ -1,5 +1,5 @@
 //! Player feedback and controller visibility share the current UI policy.
-use crate::{PlayerWindow, platform};
+use crate::{PlayerWindow, platform, player::presentation::playback_osd_allowed};
 use riina_core::Command;
 use riina_ui::PlayerMenuActions;
 use slint::{ComponentHandle, winit_030::WinitWindowAccessor};
@@ -283,9 +283,7 @@ fn install_seek_osd(app: &PlayerWindow, seek_timer: Rc<slint::Timer>) {
     app.global::<riina_ui::PlayerControlActions>()
         .on_show_seek_osd(move || {
             let Some(app) = weak.upgrade() else { return };
-            if !app
-                .global::<riina_ui::PlayerPreferences>()
-                .get_osd_enabled()
+            if !playback_osd_allowed(&app)
                 || app
                     .global::<riina_ui::PlayerPreferences>()
                     .get_disable_osd_seek()
@@ -315,9 +313,7 @@ fn install_screenshot_preview(app: &PlayerWindow, screenshot_timer: Rc<slint::Ti
     let weak = app.as_weak();
     app.on_show_screenshot_preview(move || {
         let Some(app) = weak.upgrade() else { return };
-        if !app
-            .global::<riina_ui::PlayerPreferences>()
-            .get_osd_enabled()
+        if !playback_osd_allowed(&app)
             || app.global::<riina_ui::PlayerCropState>().get_crop_editing()
         {
             return;
@@ -388,10 +384,7 @@ fn install_video_osd(
     app.global::<riina_ui::PlayerControlActions>()
         .on_show_video_osd(move || {
             let Some(app) = weak.upgrade() else { return };
-            if !app
-                .global::<riina_ui::PlayerPreferences>()
-                .get_osd_enabled()
-            {
+            if !playback_osd_allowed(&app) {
                 return;
             }
             app.global::<riina_ui::PlayerOsdState>()
@@ -406,10 +399,7 @@ fn install_video_osd(
                 configured_osd_timeout(&app),
                 move || {
                     let Some(app) = weak.upgrade() else { return };
-                    if !app
-                        .global::<riina_ui::PlayerPreferences>()
-                        .get_osd_enabled()
-                    {
+                    if !playback_osd_allowed(&app) {
                         pending_video_osd.borrow_mut().clear_pending();
                         app.global::<riina_ui::PlayerOsdState>()
                             .set_video_osd_visible(false);

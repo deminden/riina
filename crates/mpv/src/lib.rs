@@ -69,6 +69,7 @@ enum Message {
     MediaIntent { generation: u64, command: Command },
     OpenStream(Command, StreamSource, StreamAttempt),
     Client(client_request::Request),
+    RenderingReady,
     Wake,
     Shutdown,
 }
@@ -228,6 +229,11 @@ impl Player {
                 reason: "Native output requires a live HWND",
             });
         }
+        // Once a file opens, the embedded VO can display subtitles even
+        // when there is no video track. An explicit user option takes precedence.
+        if !options.iter().any(|(name, _)| name == "force-window") {
+            options.push(("force-window".into(), "yes".into()));
+        }
         options.extend([
             ("vo".into(), "gpu-next".into()),
             ("wid".into(), window.to_string()),
@@ -282,6 +288,14 @@ impl Player {
 
     pub fn send(&self, command: Command) -> Result<(), EngineError> {
         self.command_sender().send(command)
+    }
+
+    /// The libmpv render context is live and can receive subtitle-only frames.
+    pub fn rendering_ready(&self) -> Result<(), EngineError> {
+        self.owner
+            .sender
+            .try_send(Message::RenderingReady)
+            .map_err(send_error)
     }
 
     pub fn command_sender(&self) -> CommandSender {

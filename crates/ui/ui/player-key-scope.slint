@@ -4,7 +4,7 @@ import { PlayerCropState } from "player-crop-state.slint";
 import { PlayerControlsState } from "player-controls-state.slint";
 import { PlayerSidebarState } from "player-sidebar-state.slint";
 import { PlayerMenuActions } from "player-menu-actions.slint";
-import { PlayerMusicModeState } from "player-music-mode-state.slint";
+import { MusicModeVolumePanel, PlayerMusicModeState } from "player-music-mode-state.slint";
 import { PlaylistPluginPopupState } from "playlist-plugin-popup.slint";
 
 // The same focus scope owns the child controls and the remaining player shortcuts.
@@ -63,6 +63,10 @@ export component PlayerKeyScope inherits FocusScope {
         }
         if PlayerDialogState.url-dialog-visible {
             if event.text == Key.Escape { PlayerDialogState.url-dialog-visible = false; return accept; }
+            return accept;
+        }
+        if event.text == Key.Escape && PlayerMusicModeState.music-mode-volume-panel != MusicModeVolumePanel.closed {
+            PlayerMusicModeState.close-volume-panel();
             return accept;
         }
         if native-video && event.text == Key.F10 { return accept; }

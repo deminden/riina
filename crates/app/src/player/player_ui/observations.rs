@@ -7,6 +7,7 @@ use super::{
 };
 use crate::{
     PlayerWindow, platform,
+    player::presentation::playback_osd_allowed,
     seek_osd::{self, Change},
 };
 use riina_core::{Command, LoopMode, Phase, Playback, TrackKind};
@@ -308,7 +309,7 @@ fn update_feedback(
         video.set_disable_speed(player_preferences.get_disable_osd_speed());
         video.set_disable_pause_resume(player_preferences.get_disable_osd_pause_resume());
         let message = video.observe(state);
-        if player_preferences.get_osd_enabled() {
+        if playback_osd_allowed(app) {
             message
         } else {
             video.clear_pending();
@@ -327,7 +328,7 @@ fn update_feedback(
             clear_screenshot_preview(app);
         }
         crate::screenshot_osd::Change::Show(path)
-            if player_preferences.get_osd_enabled()
+            if playback_osd_allowed(app)
                 && !app.global::<riina_ui::PlayerCropState>().get_crop_editing() =>
         {
             if !player_preferences.get_screenshot_show_preview() {
@@ -455,8 +456,7 @@ fn notify_media_loaded(app: &PlayerWindow, state: &Playback) {
         .invoke_activity();
     if let Some(message) = crate::video_osd::file_start_message(
         &state.title,
-        app.global::<riina_ui::PlayerPreferences>()
-            .get_osd_enabled(),
+        playback_osd_allowed(app),
         app.global::<riina_ui::PlayerPreferences>()
             .get_disable_osd_file_start(),
     ) {

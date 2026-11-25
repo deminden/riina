@@ -121,7 +121,7 @@ fn mixed_intents_and_wakes_match_bounded_fifo_model() {
                             command,
                         } => Expected::Intent(Some(generation), command),
                         Message::Wake => Expected::Wake,
-                        Message::Client(_) | Message::OpenStream(..) => {
+                        Message::Client(_) | Message::OpenStream(..) | Message::RenderingReady => {
                             panic!("Unexpected request")
                         }
                         Message::Shutdown => panic!("Command senders cannot shut down the owner"),
@@ -184,7 +184,10 @@ fn full_queue_rejects_pause_promptly_and_preserves_accepted_order() {
         {
             Message::Intent(actual) => assert_eq!(actual, expected),
             Message::Wake => panic!("Unexpected wake in intent queue"),
-            Message::Client(_) | Message::OpenStream(..) | Message::MediaIntent { .. } => {
+            Message::Client(_)
+            | Message::OpenStream(..)
+            | Message::MediaIntent { .. }
+            | Message::RenderingReady => {
                 panic!("Unexpected request")
             }
             Message::Shutdown => panic!("Command senders cannot shut down the owner"),

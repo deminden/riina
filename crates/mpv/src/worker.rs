@@ -73,6 +73,10 @@ impl<N: Fn(Arc<Playback>)> Start<N> {
                 return;
             }
         };
+        let mut enable_audio_subtitle_surface = !headless
+            && !options
+                .iter()
+                .any(|(name, _)| matches!(name.as_str(), "force-window" | "wid"));
         let error = match configure(&handle, headless, options) {
             Ok(ignored) => (!ignored.is_empty())
                 .then(|| format!("Some mpv options were ignored: {}", ignored.join("; "))),
@@ -129,6 +133,20 @@ impl<N: Fn(Arc<Playback>)> Start<N> {
                             state.drain_events(&mut handle, &callback_sender);
                         }
                         state.request_client(&handle, request);
+                    }
+                    Message::RenderingReady => {
+                        if std::mem::take(&mut enable_audio_subtitle_surface)
+                            && let Err(error) = handle.set_option(c"force-window", c"immediate")
+                        {
+                            state.mark_changed();
+                            record_notice(
+                                &mut state.playback,
+                                NoticeSeverity::Warning,
+                                format!(
+                                    "Could not prepare video output for audio-only subtitles: {error}"
+                                ),
+                            );
+                        }
                     }
                     Message::Shutdown => return,
                 }

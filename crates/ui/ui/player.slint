@@ -239,6 +239,7 @@ export component PlayerWindow inherits PlayerMenuWindow {
     callback auto-switch-music-mode-changed(bool);
     changed music-mode => {
         PlaylistInteraction.cancel-playlist-drag();
+        PlayerControlsState.control-bar-dragging = false;
         if PlayerMusicModeState.music-mode {
             // IINA's compact audio surface is independent of main-window sidebars.
             keys.focus();
@@ -246,7 +247,7 @@ export component PlayerWindow inherits PlayerMenuWindow {
             PlayerSidebarState.sidebar = 0;
         }
         if !PlayerMusicModeState.music-mode {
-            PlayerMusicModeState.music-mode-volume-open = false;
+            PlayerMusicModeState.close-volume-panel();
             PlayerMusicModeState.music-mode-live-catalog-height = -1px;
         }
         root.music-mode-changed(); PlayerMenuActions.video-menu-changed();
@@ -719,6 +720,8 @@ export component PlayerWindow inherits PlayerMenuWindow {
         }
         PlayerMenuActions.video-menu-changed();
         if !root.loaded {
+            PlayerMusicModeState.close-volume-panel();
+            PlayerControlsState.control-bar-dragging = false;
             PlayerControlActions.reset-controller-arrow();
             PlayerSidebarActions.dismiss-native-subtitle-color();
             keys.focus();

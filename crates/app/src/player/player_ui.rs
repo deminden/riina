@@ -130,9 +130,7 @@ pub(crate) fn show_osd_message(
     text: impl Into<slint::SharedString>,
     keep_stopped: bool,
 ) {
-    if !app
-        .global::<riina_ui::PlayerPreferences>()
-        .get_osd_enabled()
+    if !super::presentation::playback_osd_allowed(app)
         || app.global::<riina_ui::PlayerCropState>().get_crop_editing()
     {
         return;

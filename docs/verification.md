@@ -5015,3 +5015,55 @@ targets. Native macOS behavior remains open.
 - Linux application SHA-256 `0c6fb77ea21d2e454200dee74e41a1bde310767c86386366ce502ae1a5237c30`
 - X11 libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`
 - Wayland libmpv SHA-256 `cdce854e1811942602587310026306d92d30c0f593f2be676f07659ae43061d8`
+
+### Compact volume and audio-only subtitles 2026-11-25
+
+The pinned MiniPlayer expands a slider and numeric readout from the mute
+button. Scrolling the artwork opens that control when the configured axis
+changes volume. Coarse wheel input uses the OSD timeout, and AppKit supplies
+trackpad begin and end phases. Riina keeps these paths in the player's wheel
+dispatcher and also uses a timeout when a Linux or Windows input stream
+has no distinct gesture phases.
+
+The pinned player sends its on-screen messages through the main window.
+Music Mode dismisses active messages and clears queued feedback while
+retaining the profile's on-screen display setting.
+
+The pinned player permits subtitle-only frames after its libmpv render
+context exists. Riina's shared presenter sends the readiness signal through
+the playback queue. D3D11 uses the embedded Windows output at media open.
+Audio remains classified by its real tracks, and both paths honor an
+explicit force-window option.
+
+The full Windows gate passed formatting, strict Clippy, 1,081 Rust tests,
+79 Python tests and four browser-extension tests. The two new software
+rendering frames cover the open volume panel in light and dark themes.
+All 65 pinned null-output engine tests passed separately. Apple Silicon
+cross-Clippy passed for the application and test targets. Native macOS
+desktop verification remains open.
+
+The isolated Windows 11 application used the embedded D3D11 output with
+no video track and observed both selected cues on the paused audio item.
+The artwork control rolled the 300 × 390 client down to 300 × 90 and
+restored it with both captions still selected. Next Media returned to
+paused video without inheriting the audio item's subtitle tracks. The
+first posted pointer click expanded the volume panel. The second posted
+click did not mute on the private desktop, so the test verified mute and
+unmute through the button's accessibility action. The full Windows
+desktop capture returned an invalid handle. Physical Windows pointer
+input and rendered caption pixels remain open.
+
+The full-output X11 and native Wayland captures show both caption lanes
+on the same paused audio fixture. On X11, hiding both lanes restored the
+placeholder. A wheel step raised volume from 72 to 76 and showed the
+numeric readout without a separate on-screen message. The readout closed
+after the configured timeout. The same pointer button muted after opening
+the panel. Artwork toggles kept the caption assignments, and advancing
+restored the normal 960 × 600 main client with paused video. The isolated
+Windows, X11 and Wayland processes all exited.
+
+- Windows application SHA-256 `2db965cce9b3053e142b80583da0e3ee5d417d63ce379d5205d9813d43938e99`
+- Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
+- Linux application SHA-256 `ea536e2e2ef9de504a358f9a970a502b58938c61fa53d8ece0b0eb6647fbefae`
+- X11 libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`
+- Wayland libmpv SHA-256 `cdce854e1811942602587310026306d92d30c0f593f2be676f07659ae43061d8`

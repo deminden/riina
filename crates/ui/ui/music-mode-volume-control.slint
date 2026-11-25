@@ -1,0 +1,67 @@
+import { PlaybackAudioState } from "playback-audio-state.slint";
+import { PlayerAppearance } from "player-appearance.slint";
+import { PlayerControlActions } from "player-control-actions.slint";
+import { PlayerControlsState } from "player-controls-state.slint";
+import { PlayerMenuActions } from "player-menu-actions.slint";
+import { MusicModeVolumePanel, PlayerMusicModeState } from "player-music-mode-state.slint";
+import { PlayerPreferences } from "player-preferences.slint";
+import { Tool } from "player-tool.slint";
+import { PlayerSlider } from "shared-controls.slint";
+import { Theme } from "theme.slint";
+
+export component MusicModeVolumeControl inherits Rectangle {
+    in property <float> volume-limit;
+    out property <bool> expanded: PlayerMusicModeState.music-mode-volume-panel != MusicModeVolumePanel.closed;
+    out property <bool> keyboard-focused: button.keyboard-focused || slider.keyboard-focused;
+    width: root.expanded ? 178px : 38px;
+    height: 36px;
+
+    border-radius: 18px;
+    border-width: root.expanded ? 1px : 0px;
+    border-color: Theme.music-mode-volume-border;
+    background: root.expanded
+        ? Theme.music-mode-volume-surface(PlayerAppearance.dark-theme, PlayerAppearance.active-liquid-glass-osc)
+        : transparent;
+    TouchArea {
+        enabled: root.expanded;
+        scroll-event(event) => {
+            if !PlayerPreferences.control-disable-volume-slider-scrolling {
+                PlayerControlActions.volume-scroll-action-request(event.delta-x / 1px, event.delta-y / 1px);
+            }
+            return accept;
+        }
+    }
+    button := Tool {
+        x: 10px; y: 9px; width: 18px; height: 18px;
+        icon-size: 18px;
+        dark-theme: PlayerAppearance.dark-theme;
+        accent-color: PlayerAppearance.interactive-accent-color;
+        icon: PlaybackAudioState.muted ? @image-url("../../../assets/icons/muted.svg")
+            : @image-url("../../../assets/icons/volume.svg");
+        hint: !root.expanded ? @tr("Volume") : PlaybackAudioState.muted ? @tr("Unmute") : @tr("Mute");
+        activated => {
+            let already-visible = root.expanded;
+            PlayerMusicModeState.music-mode-volume-panel = MusicModeVolumePanel.manual;
+            if already-visible { PlayerMenuActions.toggle-mute(); }
+        }
+    }
+    slider := PlayerSlider {
+        visible: root.expanded; enabled: root.expanded;
+        x: 45px; y: 8px; width: 100px; height: 20px;
+        dark-theme: PlayerAppearance.dark-theme;
+        minimum: 0; maximum: root.volume-limit; value: PlaybackAudioState.volume;
+        hint: @tr("Volume");
+        changed is-dragging => {
+            if self.is-dragging { PlayerMusicModeState.music-mode-volume-panel = MusicModeVolumePanel.manual; }
+            PlayerControlsState.control-bar-dragging = self.is-dragging;
+        }
+        changed(value) => { PlayerControlActions.set-volume(value); }
+    }
+    if root.expanded : Text {
+        x: 149px; width: 23px; height: parent.height;
+        text: "" + floor(PlaybackAudioState.volume);
+        color: Theme.controller-time-text(PlayerAppearance.dark-theme);
+        font-size: 11px;
+        horizontal-alignment: center; vertical-alignment: center;
+    }
+}

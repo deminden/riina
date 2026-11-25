@@ -249,6 +249,12 @@ center about 73 points below the artwork at the inferred scale. Hovering over
 the artwork or controls reveals transport over the metadata. The catalog sits
 outside the hover region. Keyboard focus also reveals the focused controls.
 
+The volume readout expands from the volume icon over the transport row.
+The icon stays in place and becomes the mute control. A 100-point slider
+and its numeric level occupy the expanded surface. When an artwork scroll
+changes volume, the same readout follows the wheel timeout or trackpad phase.
+The main player's on-screen messages stay out of Music Mode.
+
 Windows hides its in-window menu in Music Mode and restores it on return.
 macOS retains its external application menu. Linux offers a compact menu button
 and F10. Compare the transitions between title, artwork, transport and catalog,

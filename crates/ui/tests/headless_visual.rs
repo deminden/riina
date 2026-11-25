@@ -142,6 +142,7 @@ enum Layout {
     Docked,
     Music { chapters: bool },
     MusicResting,
+    MusicVolume,
 }
 
 fn player(
@@ -192,13 +193,20 @@ fn player(
                 .set_remembered_playlist_pane(3);
         }
     }
-    if matches!(layout, Layout::MusicResting) {
+    if matches!(layout, Layout::MusicResting | Layout::MusicVolume) {
         let music = window.global::<riina_ui::PlayerMusicModeState>();
         music.set_music_mode(true);
         music.set_music_mode_is_audio(true);
         let controls = window.global::<riina_ui::PlayerControlsState>();
         controls.set_controls_visible(false);
         controls.set_controls_rendered(false);
+        if matches!(layout, Layout::MusicVolume) {
+            music.set_music_mode_show_album_art(false);
+            music.set_music_mode_volume_panel(riina_ui::MusicModeVolumePanel::Manual);
+            window
+                .global::<riina_ui::PlaybackAudioState>()
+                .set_volume(75.0);
+        }
     }
     window
         .global::<riina_ui::PlayerSidebarState>()
@@ -307,7 +315,7 @@ fn player_and_settings_match_their_pixels() -> Result<(), Box<dyn Error>> {
 }
 
 fn player_frames(baselines: &mut Baselines) -> Result<(), Box<dyn Error>> {
-    use Layout::{Compact, Docked, Music, MusicResting, Standard};
+    use Layout::{Compact, Docked, Music, MusicResting, MusicVolume, Standard};
     use PlaybackState::{Paused, Playing, Stopped};
     let cases = [
         ("stopped", Stopped, (0, 0), Standard),
@@ -326,6 +334,7 @@ fn player_frames(baselines: &mut Baselines) -> Result<(), Box<dyn Error>> {
         ("music", Playing, (0, 0), Music { chapters: false }),
         ("music-chapters", Paused, (0, 0), Music { chapters: true }),
         ("music-resting", Paused, (0, 0), MusicResting),
+        ("music-volume", Paused, (0, 0), MusicVolume),
     ];
     for (theme, dark) in [("dark", true), ("light", false)] {
         for (name, state, sidebars, layout) in cases {
@@ -340,6 +349,7 @@ fn player_frames(baselines: &mut Baselines) -> Result<(), Box<dyn Error>> {
                     size
                 }
                 MusicResting => PhysicalSize::new(300, 259),
+                MusicVolume => PhysicalSize::new(300, 90),
                 _ => PhysicalSize::new(1000, 640),
             };
             baselines.verify(&format!("player-{theme}-{name}"), window.window(), size)?;

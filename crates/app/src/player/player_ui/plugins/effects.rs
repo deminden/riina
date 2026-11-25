@@ -111,6 +111,12 @@ impl PluginEffects {
     }
 
     fn show_osd(&self, app: &PlayerWindow, text: String) {
+        if app
+            .global::<riina_ui::PlayerMusicModeState>()
+            .get_music_mode()
+        {
+            return;
+        }
         let generation = self.osd_generation.get().wrapping_add(1);
         self.osd_generation.set(generation);
         app.global::<riina_ui::PlayerOsdState>()
