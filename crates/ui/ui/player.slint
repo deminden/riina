@@ -779,6 +779,9 @@ export component PlayerWindow inherits PlayerMenuWindow {
         root.touch-bar-presentation-changed();
     }
     changed display-time-and-battery-in-fullscreen => { root.refresh-fullscreen-info(); }
+    private property <bool> legacy-fullscreen-selected: PlayerPreferences.use-legacy-fullscreen;
+    callback legacy-fullscreen-selection-changed(bool);
+    changed legacy-fullscreen-selected => { root.legacy-fullscreen-selection-changed(self.legacy-fullscreen-selected); }
     private property <bool> darken-secondary-displays: root.fullscreen && PlayerPreferences.black-out-other-monitors;
     callback darken-secondary-displays-changed(bool);
     changed darken-secondary-displays => { root.darken-secondary-displays-changed(self.darken-secondary-displays); }

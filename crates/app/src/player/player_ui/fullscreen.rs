@@ -1,6 +1,6 @@
 //! Confirm window mode changes before applying playback or compact-window effects.
 use crate::automatic_music_mode;
-use crate::platform::fullscreen_window::{self, FullscreenWindow};
+use crate::platform::fullscreen_window::{self, Completion, FullscreenWindow};
 use crate::{NativeVideoHost, PlayerWindow};
 use riina_ui::{
     PlayerControlActions, PlayerCropState, PlayerMenuActions, PlayerMusicModeState,
@@ -53,6 +53,7 @@ pub(super) struct Controller {
     pending: Cell<Option<Pending>>,
     desired: Cell<Option<Mode>>,
     timer: slint::Timer,
+    retired: Cell<bool>,
 }
 
 pub(super) fn install(
@@ -67,6 +68,7 @@ pub(super) fn install(
         pending: Cell::new(None),
         desired: Cell::new(None),
         timer: slint::Timer::default(),
+        retired: Cell::new(false),
     });
     let target = controller.clone();
     let menu = app.global::<PlayerMenuActions>();
@@ -103,6 +105,16 @@ pub(super) fn install(
 }
 
 impl Controller {
+    pub(super) fn retire(&self) {
+        if self.retired.replace(true) {
+            return;
+        }
+        self.timer.stop();
+        self.pending.set(None);
+        self.desired.set(None);
+        self.window.retire();
+    }
+
     fn next_mode(&self, app: &PlayerWindow) -> Mode {
         self.desired
             .get()
@@ -121,6 +133,9 @@ impl Controller {
     }
 
     fn request(self: &Rc<Self>, app: &PlayerWindow, mode: Mode) {
+        if self.retired.get() {
+            return;
+        }
         app.global::<PlayerControlActions>().invoke_activity();
         self.desired.set(Some(mode));
         self.drive(app);
@@ -154,14 +169,11 @@ impl Controller {
         if awaits_confirmation {
             self.expect(app, fullscreen);
         }
-        if self.window.request(app.window(), fullscreen) {
-            if !awaits_confirmation {
-                self.observe(app, fullscreen, true);
-            }
-        } else if awaits_confirmation {
-            self.abandon(app);
-        } else {
-            self.desired.set(None);
+        match self.window.request(app, fullscreen) {
+            Some(Completion::Immediate) => self.observe(app, fullscreen, true),
+            Some(Completion::Desktop) => {}
+            None if awaits_confirmation => self.abandon(app),
+            None => self.desired.set(None),
         }
     }
 
@@ -203,6 +215,9 @@ impl Controller {
     }
 
     fn observe(self: &Rc<Self>, app: &PlayerWindow, fullscreen: bool, finished: bool) {
+        if self.retired.get() {
+            return;
+        }
         if !finished {
             self.expect(app, fullscreen);
             return;
@@ -223,7 +238,9 @@ impl Controller {
     }
 
     fn allows_repair(&self, app: &PlayerWindow) -> bool {
-        app.get_fullscreen() && self.pending.get().is_none_or(|pending| pending.fullscreen)
+        !self.retired.get()
+            && app.get_fullscreen()
+            && self.pending.get().is_none_or(|pending| pending.fullscreen)
     }
 
     fn clear_pending(&self, app: &PlayerWindow) {

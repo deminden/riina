@@ -496,7 +496,11 @@ fn apply_window_level(app: &PlayerWindow, target: &WindowTarget) {
         winit::window::WindowLevel::Normal
     };
     with_target_window(target, app, |window| {
-        window.with_winit_window(|native| native.set_window_level(level));
+        window.with_winit_window(|native| {
+            if !fullscreen_window::owns_window_level(native) {
+                native.set_window_level(level);
+            }
+        });
     });
 }
 

@@ -5348,3 +5348,36 @@ unverified.
 - Linux application SHA-256 `fd6ce5fe3f41f7fea0ca494ac6d555c40553aac37735a995dada09de1ae17e63`
 - X11 libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`
 - Wayland libmpv SHA-256 `cdce854e1811942602587310026306d92d30c0f593f2be676f07659ae43061d8`
+
+### Legacy fullscreen and player close 2026-11-25
+
+The macOS General preference enables fullscreen in the current Space. The
+window owner records the normal frame and appearance, preserves clearance
+for the camera housing, and restores its prior state on exit. A shared
+presentation owner keeps the Dock and menu bar policy until the last legacy
+window exits. Closing a player releases both fullscreen and display covers
+before the renderer shuts down. The stored preference defaults off and the
+mode in use determines how the player exits fullscreen.
+
+The Windows workspace gate passed strict Clippy, 1,094 Rust tests including
+the software-rendered player and Settings comparisons, 79 Python tests and
+four browser tests. The new tests covered preference persistence and live
+projection, platform selection in Settings search, and a queued fullscreen
+completion arriving after close. All 65 pinned null-output engine tests passed.
+The locked Windows build passed playback, controls and shutdown in a private
+desktop in 9,047 ms. Its player process exited. Apple Silicon cross-Clippy
+passed for the application and tests. Current Space behavior, camera-housing
+clearance, menu bar and Dock restoration still require a native macOS session.
+
+The locked Linux build passed fullscreen entry from the desktop and player,
+Escape, the Music Mode handoff, and close on X11 and Wayland, with the legacy
+preference carried in the profile. Wayland also recovered the full screen
+frame from an injected 320 × 180 configure while playback stayed paused.
+The two-display blackout checks passed on X11 and Wayland, including
+restoration of the companion window after the exact player process exited.
+
+- Windows application SHA-256 `dbe4b7ce982d0dee45baa492b962648f95cd9458ba2a4796685a8ed8814fc11b`
+- Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
+- Linux application SHA-256 `e1d12c578fee672e5c7c0be01ae5e845c13cfe24e302b4359f03a7f94a1a5560`
+- X11 libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`
+- Wayland libmpv SHA-256 `cdce854e1811942602587310026306d92d30c0f593f2be676f07659ae43061d8`

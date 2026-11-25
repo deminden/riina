@@ -203,13 +203,15 @@ pub(crate) struct UiSession {
     observer_state: observer_state::ObserverRegistration,
     // The repeated sampler is held for the same lifetime as the player window.
     _appearance_timer: Rc<slint::Timer>,
-    _features: features::PlaybackFeatures,
+    features: features::PlaybackFeatures,
     pub(crate) preference_model: PreferenceModel,
     preference_state: session_preferences::SessionState,
 }
 
 impl UiSession {
     pub(super) fn prepare_to_close(&self) {
+        self.features.display_blackout.retire();
+        self.features.fullscreen.retire();
         self.debug_information.retire();
         #[cfg(not(target_os = "macos"))]
         self.window_menu.retire();
@@ -553,7 +555,7 @@ fn configure_with_engine(
         _preference_recovery_notice: session.recovery.and_then(|recovery| recovery.announce(app)),
         observer_state,
         _appearance_timer: session.projection.appearance_timer,
-        _features: guards,
+        features: guards,
         preference_model,
         preference_state: session_preferences::SessionState {
             audio_equalizer: session.audio_equalizer,

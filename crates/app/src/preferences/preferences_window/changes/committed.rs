@@ -34,6 +34,7 @@ pub(super) fn project(
     player_preferences.set_show_chapter_pos(saved.show_chapter_pos);
     player_preferences.set_play_when_entering_fullscreen(saved.play_when_entering_fullscreen);
     player_preferences.set_pause_when_leaving_fullscreen(saved.pause_when_leaving_fullscreen);
+    player_preferences.set_use_legacy_fullscreen(saved.use_legacy_fullscreen);
     player_preferences.set_black_out_other_monitors(saved.black_out_other_monitors);
     player_preferences.set_pause_when_inactive(saved.pause_when_inactive);
     player_preferences.set_pause_when_minimized(saved.pause_when_minimized);

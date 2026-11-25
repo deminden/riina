@@ -128,6 +128,11 @@ Implementation does not imply every state or platform is verified.
   Windows and X11, including minimized players. On Wayland it requests
   activation from the compositor. The macOS port registers Window and Help
   with AppKit for the system window list, standard commands and Help search.
+- **macOS legacy fullscreen:** General Settings can keep fullscreen playback
+  in the current Space. The default uses standard macOS fullscreen. The legacy
+  path restores the previous window frame and Dock and menu-bar presentation,
+  and keeps playback below the camera housing on equipped displays. Native
+  macOS verification remains open.
 - **Fullscreen display blackout:** the optional General setting blackens other
   displays while the fullscreen player owns focus. The default is off. Two-display
   X11 and Wayland sessions verified video visibility, click-through and cleanup.

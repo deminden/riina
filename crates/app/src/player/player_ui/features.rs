@@ -18,6 +18,8 @@ use std::{
 };
 
 pub(super) struct PlaybackFeatures {
+    pub(super) fullscreen: Rc<fullscreen::Controller>,
+    pub(super) display_blackout: Rc<platform::display_blackout::Session>,
     _online_subtitles_window: crate::open_subtitles::SearchWindowGuard,
     _playback_history_window: crate::playback_history_window::Registration,
     _filter_target: crate::video_filter_window::Registration,
@@ -156,7 +158,8 @@ pub(super) fn install(app: &PlayerWindow, inputs: Inputs<'_>) -> Installed {
         folder_series,
     );
     picture_in_picture.bind(app, commands, playback);
-    platform::display_blackout::install(app, native.map(platform::NativePresentation::host));
+    let display_blackout =
+        platform::display_blackout::install(app, native.map(platform::NativePresentation::host));
     let fullscreen = fullscreen::install(
         app,
         native.map(platform::NativePresentation::host),
@@ -171,7 +174,7 @@ pub(super) fn install(app: &PlayerWindow, inputs: Inputs<'_>) -> Installed {
         commands,
         playback.clone(),
         resize_filter,
-        fullscreen,
+        fullscreen.clone(),
         native.map(platform::NativePresentation::host),
     );
     let thumbnail_preview = thumbnail_actions::install(app, playback, plugin_host.cloned());
@@ -191,6 +194,8 @@ pub(super) fn install(app: &PlayerWindow, inputs: Inputs<'_>) -> Installed {
     let live_text_timer = live_text::install(app, commands.clone(), playback.clone());
     Installed {
         guards: PlaybackFeatures {
+            fullscreen,
+            display_blackout,
             _online_subtitles_window: online_subtitles_window,
             _playback_history_window: playback_history_window,
             _filter_target: filter_target,

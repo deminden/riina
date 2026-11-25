@@ -858,6 +858,16 @@ confirmed transitions. Music Mode waits for the fullscreen exit before
 resizing the window. Its resize adapter uses drag completion on Windows and
 macOS, and settles after the configure stream goes quiet on Linux.
 
+macOS also offers legacy fullscreen as a default-off preference. Winit's
+simple fullscreen keeps the same AppKit window in its current Space. The
+adapter restores the original frame and window attributes and keeps video
+below a camera housing when the display reports one. The preferred mode
+applies on the next entry. The mode already entered determines how it exits.
+An application-wide count preserves Dock and menu-bar settings while any
+legacy fullscreen window remains. Closing a player releases its fullscreen
+and blackout resources before renderer teardown.
+[Winit simple fullscreen](https://docs.rs/winit/0.30.13/winit/platform/macos/trait.WindowExtMacOS.html#tymethod.set_simple_fullscreen)
+
 A confirmed fullscreen change refreshes the paused frame and closes an active
 crop or delogo editor before applying the window's playback preference. On
 Wayland, the player can repeat the native fullscreen request when both axes

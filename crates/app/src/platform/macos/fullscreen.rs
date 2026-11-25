@@ -1,6 +1,9 @@
 //! AppKit owns fullscreen spaces and reports their actual transition lifecycle.
+mod legacy;
+
 use crate::PlayerWindow;
 use block2::RcBlock;
+pub(in crate::platform) use legacy::Legacy;
 use objc2::{MainThreadMarker, rc::Retained, runtime::ProtocolObject};
 use objc2_app_kit::{
     NSView, NSWindowDidEnterFullScreenNotification, NSWindowDidExitFullScreenNotification,
@@ -94,13 +97,17 @@ fn belongs_to(notification: &NSNotification, app: &PlayerWindow) -> bool {
 }
 
 pub(super) fn native_window(window: &slint::Window) -> Option<Retained<objc2_app_kit::NSWindow>> {
-    window.with_winit_window(|native| {
-        let handle = native.window_handle().ok()?;
-        let RawWindowHandle::AppKit(handle) = handle.as_raw() else {
-            return None;
-        };
-        // SAFETY: Winit lends the live NSView for the duration of the callback.
-        let view = unsafe { &*handle.ns_view.as_ptr().cast::<NSView>() };
-        view.window()
-    })?
+    window.with_winit_window(appkit_window)?
+}
+
+fn appkit_window(
+    window: &slint::winit_030::winit::window::Window,
+) -> Option<Retained<objc2_app_kit::NSWindow>> {
+    let handle = window.window_handle().ok()?;
+    let RawWindowHandle::AppKit(handle) = handle.as_raw() else {
+        return None;
+    };
+    // SAFETY: Winit lends the live NSView for the duration of the borrow.
+    let view = unsafe { &*handle.ns_view.as_ptr().cast::<NSView>() };
+    view.window()
 }

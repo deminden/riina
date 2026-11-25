@@ -1,7 +1,11 @@
 //! Blackout surfaces follow one confirmed, focused fullscreen player.
 use crate::{NativeVideoHost, PlayerWindow};
 use slint::ComponentHandle;
-use std::{cell::RefCell, rc::Rc, time::Duration};
+use std::{
+    cell::{Cell, RefCell},
+    rc::Rc,
+    time::Duration,
+};
 
 #[cfg(target_os = "macos")]
 use super::macos::display_blackout::Covers;
@@ -17,25 +21,41 @@ pub(crate) fn available() -> bool {
     true
 }
 
-pub(crate) fn install(app: &PlayerWindow, host: Option<slint::Weak<NativeVideoHost>>) {
+pub(crate) fn install(
+    app: &PlayerWindow,
+    host: Option<slint::Weak<NativeVideoHost>>,
+) -> Rc<Session> {
     let session = Rc::new(Session {
         app: app.as_weak(),
         host,
         timer: slint::Timer::default(),
         covers: RefCell::default(),
+        retired: Cell::new(false),
     });
-    app.on_darken_secondary_displays_changed(move |active| session.sync(active));
+    let target = session.clone();
+    app.on_darken_secondary_displays_changed(move |active| target.sync(active));
+    session
 }
 
-struct Session {
+pub(crate) struct Session {
     app: slint::Weak<PlayerWindow>,
     host: Option<slint::Weak<NativeVideoHost>>,
     timer: slint::Timer,
     covers: RefCell<Covers>,
+    retired: Cell<bool>,
 }
 
 impl Session {
+    pub(crate) fn retire(&self) {
+        self.retired.set(true);
+        self.timer.stop();
+        self.covers.borrow_mut().clear();
+    }
+
     fn sync(self: &Rc<Self>, active: bool) {
+        if self.retired.get() {
+            return;
+        }
         if active && available() {
             self.refresh();
             if !self.timer.running() {

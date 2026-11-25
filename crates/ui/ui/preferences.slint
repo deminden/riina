@@ -150,7 +150,7 @@ export component PreferencesWindow inherits Window {
     private property <length> general-expanded-height: root.general-media-opened-height
         + (GeneralSettingsState.pause-resume-when-expanded ? (GeneralSettingsState.pause-policies-available ? 168px : 104px) : 0px);
     private property <length> general-window-y: 219px + root.general-expanded-height;
-    private property <length> general-power-y: root.general-window-y + 266px;
+    private property <length> general-power-y: root.general-window-y + 266px + (root.platform-macos ? 38px : 0px);
     private property <length> general-updates-y: root.general-power-y + 98px;
     private property <length> general-history-y: root.general-updates-y + 152px;
     private property <length> general-playlist-y: root.general-history-y + 221px;
@@ -419,6 +419,7 @@ export component PreferencesWindow inherits Window {
         reveal-network-section(section) => { root.reveal-network-section(section); }
     }
     if root.selected-pane == 0 : GeneralPreferencesPage {
+        platform-macos: root.platform-macos;
         x: 200px; y: 0; width: parent.width - 200px; height: parent.height;
         general-content-height: root.general-content-height;
         general-scroll-position <=> root.general-scroll-position;

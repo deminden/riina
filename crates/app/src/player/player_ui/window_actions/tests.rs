@@ -130,6 +130,26 @@ fn native_fullscreen_notification_commits_playback_and_closes_pip_only_once() {
 }
 
 #[test]
+fn closing_player_ignores_queued_fullscreen_completions() {
+    i_slint_backend_testing::init_no_event_loop();
+    let app = player(false);
+    let music = automatic_music_mode::Controller::install(&app, true);
+    let controller = fullscreen::install(&app, None, &music);
+    app.on_window_mode_confirmed(|_, _| panic!("A closing player changed modes"));
+
+    app.invoke_native_fullscreen_observed(true, false);
+    assert!(app.get_entering_fullscreen());
+    controller.retire();
+    app.invoke_native_fullscreen_observed(true, true);
+    app.global::<PlayerMenuActions>().invoke_toggle_music_mode();
+    assert!(!app.get_fullscreen());
+    assert!(
+        !app.global::<riina_ui::PlayerMusicModeState>()
+            .get_music_mode()
+    );
+}
+
+#[test]
 fn confirmed_fullscreen_exit_cancels_crop_before_applying_the_pause_policy() {
     use riina_ui::{PlayerCropState, PlayerWindowMode};
     i_slint_backend_testing::init_no_event_loop();

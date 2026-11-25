@@ -64,6 +64,16 @@ plain-text references on the player. Close the window during a drag and verify
 that the next window receives its own drops. Record the binary and OS with the
 [macOS drop checks](verification.md#macos-file-and-url-drops-2026-11-23).
 
+Legacy fullscreen needs a native macOS check. On an isolated profile, verify
+normal fullscreen opens a separate Space and the General preference keeps
+legacy fullscreen in the current Space. Test Escape and Music Mode exits,
+playback preferences, the green window control and restored frame geometry.
+Change the preference while fullscreen and verify the next entry uses it.
+On a notched display, check that video stays below the camera housing and the
+menu bar can still appear. Close legacy fullscreen players in both orders
+with two displays and verify the Dock and menu bar restore after the last
+legacy window exits.
+
 On Ubuntu 24.04, install the WebView development packages before building:
 
 ```sh

@@ -112,6 +112,11 @@ const ENTRIES: &[Entry] = &[
     ),
     general(
         "Behavior",
+        "Use legacy full screen",
+        "fullscreen current space pre lion",
+    ),
+    general(
+        "Behavior",
         "Black out other monitors while in full screen",
         "fullscreen darken secondary displays",
     ),
@@ -1144,7 +1149,8 @@ fn localized_results_for_query(
         let available = match item.source.title {
             "Window becomes inactive/active"
             | "Pause when machine goes to sleep"
-            | "Load ICC profile" => platform_macos,
+            | "Load ICC profile"
+            | "Use legacy full screen" => platform_macos,
             "Live Text" => live_text_available,
             _ => true,
         };
@@ -1298,6 +1304,7 @@ fn general_target(window: &PreferencesWindow, section: &str, title: &str) -> f32
             | "Allow opening the same file in multiple windows"
             | "Quit after all windows are closed"
             | "Keep window open after playback finishes"
+            | "Use legacy full screen"
             | "Black out other monitors while in full screen" => window.get_general_window_target(),
             "Prevent screen saver" | "Allow screen saver for audio playback" => {
                 window.get_general_power_target()
@@ -1510,6 +1517,16 @@ mod tests {
         assert_eq!(results[0].page_name, "General");
         assert_eq!(results[0].section_name, "Behavior");
         assert_eq!(results[0].title, "At launch");
+    }
+
+    #[test]
+    fn legacy_fullscreen_search_entry_follows_platform_availability() {
+        let index = build_index(&SearchLabels::new());
+        let rows = localized_results_for_query("legacy full screen", &index, true, false);
+        assert_eq!(rows.len(), 2);
+        assert_eq!(rows[1].title, "Use legacy full screen");
+        assert_eq!(rows[1].section_name, "Behavior");
+        assert!(localized_results_for_query("legacy full screen", &index, false, false).is_empty());
     }
 
     #[test]

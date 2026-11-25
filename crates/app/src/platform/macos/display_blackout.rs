@@ -33,7 +33,13 @@ impl Covers {
         self.0.retain(|cover| frames.contains(&cover.frame));
         for frame in frames {
             if self.0.iter().all(|cover| cover.frame != frame) {
-                self.0.push(Cover::new(main, frame));
+                self.0.push(Cover::new(
+                    main,
+                    frame,
+                    NSMainMenuWindowLevel + 1,
+                    NSWindowCollectionBehavior::CanJoinAllSpaces
+                        | NSWindowCollectionBehavior::FullScreenAuxiliary,
+                ));
             }
         }
     }
@@ -43,13 +49,18 @@ impl Covers {
     }
 }
 
-struct Cover {
-    frame: NSRect,
+pub(super) struct Cover {
+    pub(super) frame: NSRect,
     window: Retained<NSWindow>,
 }
 
 impl Cover {
-    fn new(main: MainThreadMarker, frame: NSRect) -> Self {
+    pub(super) fn new(
+        main: MainThreadMarker,
+        frame: NSRect,
+        level: isize,
+        collection: NSWindowCollectionBehavior,
+    ) -> Self {
         // SAFETY: AppKit runs on the main thread and accepts this display frame.
         let window = unsafe {
             NSWindow::initWithContentRect_styleMask_backing_defer(
@@ -63,11 +74,8 @@ impl Cover {
         window.setBackgroundColor(Some(&NSColor::blackColor()));
         window.setIgnoresMouseEvents(true);
         window.setHidesOnDeactivate(true);
-        window.setCollectionBehavior(
-            NSWindowCollectionBehavior::CanJoinAllSpaces
-                | NSWindowCollectionBehavior::FullScreenAuxiliary,
-        );
-        window.setLevel(NSMainMenuWindowLevel + 1);
+        window.setCollectionBehavior(collection);
+        window.setLevel(level);
         window.setFrame_display(frame, true);
         window.orderFront(None);
         Self { frame, window }

@@ -112,6 +112,10 @@ checkbox_cases! {
         [riina_ui::GeneralSettingsState]
         get_black_out_other_monitors, set_black_out_other_monitors,
         [PlayerPreferences] get_black_out_other_monitors, |p: &Preferences| p.black_out_other_monitors;
+    legacy_fullscreen_selection_persists_and_projects =>
+        [riina_ui::GeneralSettingsState]
+        get_use_legacy_fullscreen, set_use_legacy_fullscreen,
+        [PlayerPreferences] get_use_legacy_fullscreen, |p: &Preferences| p.use_legacy_fullscreen;
     inactive_pause_policy_persists_and_projects =>
         [riina_ui::GeneralSettingsState]
         get_pause_when_inactive, set_pause_when_inactive,
