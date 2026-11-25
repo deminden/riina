@@ -4,7 +4,7 @@ mod broker;
 mod interface;
 mod projection;
 
-use super::{CommandSender, PlaybackStore, PlayerWindow};
+use super::{CommandSender, NativeVideoHost, PlaybackStore, PlayerWindow};
 use interface::Request;
 use projection::Snapshot;
 use riina_core::sync::lock;
@@ -180,7 +180,7 @@ impl SystemMediaSession {
         Self { application, route }
     }
 
-    pub(crate) fn bind(&self, sender: &CommandSender) {
+    pub(crate) fn bind(&self, sender: &CommandSender, _: Option<Weak<NativeVideoHost>>) {
         if let Some(route) = self
             .application
             .routes

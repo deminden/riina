@@ -76,6 +76,7 @@ impl PlayerFocus {
                     count.get().saturating_sub(1)
                 });
             });
+            super::system_media_session::wake_application();
         }
         #[cfg(not(target_os = "macos"))]
         let _ = changed;

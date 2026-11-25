@@ -83,6 +83,7 @@ pub(in crate::platform) enum MediaEvent {
 struct RemoteQueue {
     sender: SyncSender<MediaEvent>,
     target: Arc<Mutex<Option<PlaybackTarget>>>,
+    delivery: crate::background::CoalescedUiCallback,
 }
 
 impl RemoteQueue {
@@ -90,11 +91,21 @@ impl RemoteQueue {
         let Some(target) = *lock(&self.target) else {
             return MPRemoteCommandHandlerStatus::NoActionableNowPlayingItem;
         };
-        match self.sender.try_send(MediaEvent::Remote(target, action)) {
-            Ok(()) => MPRemoteCommandHandlerStatus::Success,
-            Err(TrySendError::Full(_) | TrySendError::Disconnected(_)) => {
-                MPRemoteCommandHandlerStatus::CommandFailed
+        if self.send(MediaEvent::Remote(target, action)) {
+            MPRemoteCommandHandlerStatus::Success
+        } else {
+            MPRemoteCommandHandlerStatus::CommandFailed
+        }
+    }
+
+    fn send(&self, event: MediaEvent) -> bool {
+        match self.sender.try_send(event) {
+            Ok(()) => {
+                self.delivery
+                    .post(|| crate::platform::system_media_session::wake_application);
+                true
             }
+            Err(TrySendError::Full(_) | TrySendError::Disconnected(_)) => false,
         }
     }
 }
@@ -184,7 +195,7 @@ impl Drop for LifecycleObserver {
     }
 }
 
-fn subscribe_to_activity(sender: &SyncSender<MediaEvent>) -> [LifecycleObserver; 3] {
+fn subscribe_to_activity(queue: &RemoteQueue) -> [LifecycleObserver; 3] {
     let application = NSNotificationCenter::defaultCenter();
     let workspace = NSWorkspace::sharedWorkspace().notificationCenter();
     // SAFETY: the notification names are immutable AppKit constants.
@@ -208,9 +219,9 @@ fn subscribe_to_activity(sender: &SyncSender<MediaEvent>) -> [LifecycleObserver;
         ]
     };
     registrations.map(|(center, name, activity)| {
-        let sender = sender.clone();
+        let queue = queue.clone();
         let handler = RcBlock::new(move |_| {
-            let _ = sender.try_send(MediaEvent::Activity(activity));
+            queue.send(MediaEvent::Activity(activity));
         });
         // SAFETY: the center copies the block, which only queues owned events.
         let token = unsafe {
@@ -336,14 +347,16 @@ impl SystemMediaControls {
         // SAFETY: the default MediaPlayer info center is process-global and is
         // accessed on the same UI thread as its remote command center.
         let now_playing = unsafe { MPNowPlayingInfoCenter::defaultCenter() };
-        let lifecycle_observers = subscribe_to_activity(&sender);
+        let queue = RemoteQueue {
+            sender,
+            target: Arc::default(),
+            delivery: Default::default(),
+        };
+        let lifecycle_observers = subscribe_to_activity(&queue);
         Self {
             library,
             center,
-            queue: RemoteQueue {
-                sender,
-                target: Arc::default(),
-            },
+            queue,
             receiver,
             targets: Vec::new(),
             now_playing,

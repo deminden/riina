@@ -38,36 +38,46 @@ impl PictureInPictureSession {
 #[cfg(target_os = "macos")]
 mod macos {
     use super::*;
-    use crate::platform::{MacPictureInPicture, macos::pip_window::MinimizeObservation};
-    use slint::{ComponentHandle, Timer, TimerMode};
+    use crate::platform::{
+        MacPictureInPicture, active_poll::ActivePoll, macos::pip_window::MinimizeObservation,
+    };
+    use slint::ComponentHandle;
     use std::{cell::RefCell, rc::Rc, sync::atomic::Ordering, time::Duration};
 
-    const IDLE_INTERVAL: Duration = Duration::from_millis(100);
+    const ONSCREEN_INTERVAL: Duration = Duration::from_millis(100);
     const OFFSCREEN_INTERVAL: Duration = Duration::from_millis(33);
 
     pub(crate) struct PictureInPictureSession {
-        manager: Rc<RefCell<Option<MacPictureInPicture>>>,
-        timer: Rc<Timer>,
-        dirty: Arc<AtomicBool>,
+        poll: Rc<PresentationPoll>,
         minimize_observation: RefCell<Option<MinimizeObservation>>,
     }
 
+    struct PresentationPoll {
+        app: slint::Weak<PlayerWindow>,
+        manager: Rc<RefCell<Option<MacPictureInPicture>>>,
+        timer: ActivePoll,
+        dirty: Arc<AtomicBool>,
+    }
+
     impl PictureInPictureSession {
-        pub(crate) fn new(_app: &PlayerWindow) -> Self {
+        pub(crate) fn new(app: &PlayerWindow) -> Self {
             Self {
-                manager: Rc::new(RefCell::new(None)),
-                timer: Rc::new(Timer::default()),
-                dirty: Arc::new(AtomicBool::new(false)),
+                poll: Rc::new(PresentationPoll {
+                    app: app.as_weak(),
+                    manager: Rc::default(),
+                    timer: ActivePoll::default(),
+                    dirty: Arc::default(),
+                }),
                 minimize_observation: RefCell::new(None),
             }
         }
 
         pub(crate) fn notification_flag(&self) -> Option<Arc<AtomicBool>> {
-            Some(self.dirty.clone())
+            Some(self.poll.dirty.clone())
         }
 
         pub(crate) fn render_extras(&self) -> crate::platform::SharedVideoExtras {
-            crate::platform::SharedVideoExtras::with_picture_in_picture(self.manager.clone())
+            crate::platform::SharedVideoExtras::with_picture_in_picture(self.poll.manager.clone())
         }
 
         pub(crate) fn bind(
@@ -87,93 +97,101 @@ mod macos {
                     )
                     .map_err(std::io::Error::other)
                 });
-            *self.manager.borrow_mut() = match manager {
+            *self.poll.manager.borrow_mut() = match manager {
                 Ok(manager) => Some(manager),
                 Err(error) => {
                     crate::diagnostics::report(app, format!("macOS PiP unavailable: {error}"));
                     None
                 }
             };
-            let weak_app = app.as_weak();
-            let toggle_manager = self.manager.clone();
+            let toggle = Rc::downgrade(&self.poll);
             app.global::<riina_ui::PlayerMenuActions>()
                 .on_toggle_picture_in_picture(move || {
-                    let result = toggle_manager
-                        .borrow_mut()
-                        .as_mut()
-                        .ok_or_else(|| "macOS PiP is unavailable on this system".to_owned())
-                        .and_then(MacPictureInPicture::toggle);
-                    if let Err(error) = result
-                        && let Some(app) = weak_app.upgrade()
-                    {
-                        crate::diagnostics::report(&app, error);
+                    if let Some(poll) = toggle.upgrade() {
+                        poll.toggle();
                     }
                 });
 
-            if self.manager.borrow().is_none() {
-                self.timer.stop();
+            if self.poll.manager.borrow().is_none() {
                 return;
             }
 
-            let weak_player = app.as_weak();
-            let minimized_manager = Rc::downgrade(&self.manager);
+            let minimize = Rc::downgrade(&self.poll);
             self.minimize_observation
                 .replace(Some(MinimizeObservation::new(app, move |minimized| {
-                    if let (Some(player), Some(manager)) =
-                        (weak_player.upgrade(), minimized_manager.upgrade())
-                        && let Ok(mut manager) = manager.try_borrow_mut()
-                        && let Some(manager) = manager.as_mut()
-                    {
-                        manager.minimized(&player, minimized);
+                    if let Some(poll) = minimize.upgrade() {
+                        poll.minimized(minimized);
                     }
                 })));
-            self.start_timer(app);
-        }
-
-        fn start_timer(&self, app: &PlayerWindow) {
-            let manager = Rc::downgrade(&self.manager);
-            let dirty = self.dirty.clone();
-            let player = app.as_weak();
-            let timer = Rc::downgrade(&self.timer);
-            self.timer
-                .start(TimerMode::Repeated, IDLE_INTERVAL, move || {
-                    let (Some(player), Some(manager), Some(timer)) =
-                        (player.upgrade(), manager.upgrade(), timer.upgrade())
-                    else {
-                        return;
-                    };
-                    let Ok(mut manager) = manager.try_borrow_mut() else {
-                        return;
-                    };
-                    let Some(manager) = manager.as_mut() else {
-                        return;
-                    };
-                    if dirty.swap(false, Ordering::AcqRel) {
-                        manager.synchronize_playback();
-                    }
-                    let interval = match manager.poll_source(&player) {
-                        Ok(true) => OFFSCREEN_INTERVAL,
-                        Ok(false) => IDLE_INTERVAL,
-                        Err(error) => {
-                            crate::diagnostics::report(
-                                &player,
-                                format!("Picture-in-Picture: {error}"),
-                            );
-                            IDLE_INTERVAL
-                        }
-                    };
-                    if timer.interval() != interval {
-                        timer.set_interval(interval);
-                    }
-                });
         }
 
         pub(crate) fn prepare_to_close(&self) {
-            self.timer.stop();
+            self.poll.timer.stop();
             self.minimize_observation.replace(None);
-            if let Some(manager) = self.manager.borrow().as_ref() {
+            if let Some(manager) = self.poll.manager.borrow().as_ref() {
                 manager.close();
             }
+        }
+    }
+
+    impl PresentationPoll {
+        fn toggle(self: &Rc<Self>) {
+            let result = self
+                .manager
+                .borrow_mut()
+                .as_mut()
+                .ok_or_else(|| "macOS PiP is unavailable on this system".to_owned())
+                .and_then(MacPictureInPicture::toggle);
+            if let Err(error) = result
+                && let Some(app) = self.app.upgrade()
+            {
+                crate::diagnostics::report(&app, error);
+            }
+            self.start_if_needed();
+        }
+
+        fn minimized(self: &Rc<Self>, minimized: bool) {
+            if let Some(app) = self.app.upgrade()
+                && let Ok(mut manager) = self.manager.try_borrow_mut()
+                && let Some(manager) = manager.as_mut()
+            {
+                manager.minimized(&app, minimized);
+            }
+            self.start_if_needed();
+        }
+
+        fn start_if_needed(self: &Rc<Self>) {
+            if !self.manager.try_borrow().is_ok_and(|manager| {
+                manager
+                    .as_ref()
+                    .is_some_and(MacPictureInPicture::needs_presentation_poll)
+            }) {
+                return;
+            }
+            let weak = Rc::downgrade(self);
+            self.timer.start_if_idle(ONSCREEN_INTERVAL, move || {
+                weak.upgrade().and_then(|poll| poll.tick())
+            });
+        }
+
+        fn tick(&self) -> Option<Duration> {
+            let app = self.app.upgrade()?;
+            let Ok(mut manager) = self.manager.try_borrow_mut() else {
+                return Some(ONSCREEN_INTERVAL);
+            };
+            let manager = manager.as_mut()?;
+            if self.dirty.swap(false, Ordering::AcqRel) {
+                manager.synchronize_playback();
+            }
+            let interval = match manager.poll_source(&app) {
+                Ok(true) => OFFSCREEN_INTERVAL,
+                Ok(false) => ONSCREEN_INTERVAL,
+                Err(error) => {
+                    crate::diagnostics::report(&app, format!("Picture-in-Picture: {error}"));
+                    ONSCREEN_INTERVAL
+                }
+            };
+            manager.needs_presentation_poll().then_some(interval)
         }
     }
 }

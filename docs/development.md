@@ -398,7 +398,7 @@ Pause on minimize follows the owning window's minimize and restore events.
 | Settings recovery notice | 250 ms | Wait for the player to show the recovery notice | Until the first visible player status line |
 | Fullscreen clock and battery | 60 s | Update local time and battery capacity | While fullscreen controls and the information card are visible |
 | Native HDR availability | 2 s | Refresh the display HDR state | While the Windows framed owner is visible and restored |
-| macOS picture-in-picture | 100 ms | Sync AVKit state and update the active indicator | After the player creates a PiP controller, until the session ends |
+| macOS picture-in-picture | 100 ms on-screen, 33 ms offscreen | Sync AVKit playback and supply offscreen frames | A presentation request wakes it. It stops when the transition, presentation and sample cleanup finish |
 | Timeline thumbnails | 80 ms | Drain bounded batches of thumbnail frames | One initial pass and a pass on media or settings changes. The timer repeats while extraction runs. Pointer callbacks update hover previews directly |
 | Native video transition | 80 ms | Capture outgoing and incoming frames and settle the handoff | While a playlist request waits for its frame, playback approaches a pending outgoing capture, or the incoming surface is settling |
 | Windows startup material policy | 500 ms | Reapply native backdrop settings | While the framed owner is visible and restored |
@@ -407,7 +407,7 @@ Pause on minimize follows the owning window's minimize and restore events.
 | Automatic Music Mode | 300 ms | Settle a pending automatic mode switch | One deadline per candidate track catalog while media is loaded, including paused playback |
 | Subtitle discovery | 120 ms | Discover sibling media and select a matching subtitle track | One delayed pass at setup and after relevant playback or discovery settings change |
 | Windows picture-in-picture | 250 ms | Check automatic enter/exit on minimize or restore and refresh active preview | While PiP is active or the automatic minimize policy applies. Stops at shutdown |
-| macOS Now Playing | 50 ms | Sync media controls and drain system actions | During the player session. Stops before clearing the closing player's media state |
+| macOS Now Playing | 50 ms | Sync media controls and drain system actions | Continues while the selected player publishes an item. Focus, playback readiness, the preference and native callbacks wake it for pending work |
 | Windows package smoke | 100 ms | Advance the package verification steps | For the lifetime of the smoke run |
 | Live Text | 300 ms | Request and project paused-frame recognition | While recognition is enabled and paused video is eligible, with one cleanup tick after eligibility ends |
 | Windows player material policy | 100 ms | Follow system material policy and accent colors | While the player displays Windows materials or controls |

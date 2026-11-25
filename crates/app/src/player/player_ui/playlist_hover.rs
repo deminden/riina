@@ -81,15 +81,16 @@ impl PlaylistHover {
         }
     }
 
-    #[cfg(any(target_os = "linux", target_os = "macos", target_os = "windows"))]
     pub(super) fn on_desktop(&self, hover: platform::desktop_drop::Hover) {
         use platform::desktop_drop::Hover;
         match hover {
-            Hover::Entered(paths, position) => {
-                self.begin_desktop(paths, position, false);
+            Hover::Entered {
+                paths,
+                position,
+                known_playable,
+            } => {
+                self.begin_desktop(paths, position, known_playable);
             }
-            #[cfg(target_os = "windows")]
-            Hover::Link(position) => self.begin_desktop(Vec::new(), position, true),
             Hover::Moved(position) => {
                 if let Some(drag) = self.drag.borrow_mut().as_mut() {
                     drag.position = Some(position);
@@ -99,11 +100,12 @@ impl PlaylistHover {
         }
     }
 
-    #[cfg(any(target_os = "linux", target_os = "macos", target_os = "windows"))]
-    fn begin_desktop(&self, paths: Vec<PathBuf>, position: LogicalPosition, link: bool) {
+    fn begin_desktop(&self, paths: Vec<PathBuf>, position: LogicalPosition, known_playable: bool) {
         self.finish();
         let eligibility = Arc::new(Eligibility::default());
-        eligibility.playable.store(link, Ordering::Relaxed);
+        eligibility
+            .playable
+            .store(known_playable, Ordering::Relaxed);
         *self.drag.borrow_mut() = Some(Drag {
             paths,
             position: Some(position),

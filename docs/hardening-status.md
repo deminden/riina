@@ -20,6 +20,11 @@ from the shared player and preferences sources by routing registration, native
 input and the macOS Settings form through platform adapters. The [verification record](verification.md#touch-bar-and-controller-platform-boundary-2026-11-24)
 identifies the Windows and Linux desktop checks and both Apple source targets.
 
+The platform count below uses `git grep -n -E 'cfg\((any\()?target_os'`
+with `crates/app/src` included and `crates/app/src/platform` excluded. The
+count includes matching declarations in test code and is a check on source
+organization. Native support also requires a linked build and runtime evidence.
+
 | Finding | Change | Local commits |
 |---|---|---|
 | H1 Preference recovery | Recover valid sections at startup, preserve the original bytes in quarantine, and report the reset sections. | `e63fce8`, `f90fffd` |
@@ -52,5 +57,5 @@ identifies the Windows and Linux desktop checks and both Apple source targets.
 
 | In progress | Verified progress | Local commits |
 |---|---|---|
-| H14 macOS media timers | Start PiP polling after AVKit controller creation and stop Now Playing updates before player cleanup. The Apple-target source check uses the generated player UI. Native playback and lifecycle verification require macOS. | `d8421ed` |
-| O5 Platform boundary | Platform adapters select player appearance, session services, language names, wheel input, renderer startup, resize targets, transition-cover release policy and HDR profile behavior. The plan's source scan counts 17 target conditionals outside `platform/`. Strict workspace Clippy passed for Apple Silicon and Intel Mac from Windows at `4f7ee4e`. Native linking and playback remain open on macOS. | `7226679`, `e529719`, `47c8f73`, `204adaf`, `63c10a6`, `a6e9da3`, `4f7ee4e`, `96aa8c3` |
+| H14 macOS media timers | Playback and system events wake Now Playing. Picture-in-Picture polling runs during transitions and active presentation. Headless tests cover changes to polling cadence and retirement. Native playback and lifecycle verification require macOS. | `d8421ed`, [polling follow-up](verification.md#macos-media-polling-and-desktop-drop-routing-2026-11-25) |
+| O5 Platform boundary | Platform adapters own renderer startup, input, desktop drop attachment and system media registration. The original source scan counted 17 target conditionals outside `platform/` at `96aa8c3`. Subsequent work brought this count to 224 at `939411e1`. Moving player input and desktop drop setup behind platform adapters reduces it to 205. The plan's limit and native macOS verification remain open. | `7226679`, `e529719`, `47c8f73`, `204adaf`, `63c10a6`, `a6e9da3`, `4f7ee4e`, `96aa8c3`, [desktop drop follow-up](verification.md#macos-media-polling-and-desktop-drop-routing-2026-11-25) |

@@ -5106,3 +5106,45 @@ macOS desktop verification remains open.
 - Linux application SHA-256 `a5457d575f5c3901d48b737b8d8fe31b1010c78cc1e3c4989a640ea9937bb01b`
 - X11 libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`
 - Wayland libmpv SHA-256 `cdce854e1811942602587310026306d92d30c0f593f2be676f07659ae43061d8`
+
+### macOS media polling and desktop drop routing 2026-11-25
+
+Now Playing schedules its existing 50 ms refresh while the selected player
+publishes an item. Focus changes, playback readiness, the system media
+preference and native events wake the service when it has no current item.
+PiP starts polling after a presentation request and stops when AVKit has
+settled and its last sample has been retired. The 100 ms on-screen and 33 ms
+offscreen intervals are preserved. Headless tests exercise the timer cadence,
+retirement and later restart, as well as the Slint playback and preference
+signals.
+
+The player and Welcome window now use the same desktop drop registration
+without choosing a backend. Windows attaches its framed owner and controls.
+AppKit attaches the content view, Wayland owns a protocol route, and X11
+receives drop events through the window loop. The portable player also binds
+system media and the fullscreen event observer through common signatures.
+
+The full Windows gate passed formatting, strict Clippy, 1,084 Rust tests
+including the software pixel comparison, 79 Python tests and four browser
+tests. Windows tests exercised OLE file and URL data objects, registration
+revocation and a drag crossing from the video owner to the controls. The
+locked workspace build and all 65 pinned null-output tests passed separately.
+The isolated Windows application passed ten playback, controls, fullscreen,
+minimize and restore checks, then exited. A live Windows drag and physical
+display output remain separate checks.
+
+Strict Apple Silicon cross-Clippy passed for the full application and test
+targets. AVKit presentation, Control Center integration and macOS shutdown
+still need a native desktop run.
+
+The locked Linux application accepted Xdnd file drops into the visible and
+temporarily revealed sidebar, and into the Music Mode playlist. Cancelling
+an Xdnd drag left the playlist intact. A GTK source on native Wayland inserted
+files into the sidebar and Music Mode. Both runs preserved paused playback
+and existing row order, then closed the exact player processes. The desktop
+probes used the visible playlist rows above the compact footer.
+
+- Windows application SHA-256 `084d41cfa30f2258a546acc0630e15281ea6f8f516e023f71d62b75232583fa1`
+- Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
+- Linux application SHA-256 `311b9bbccbb9eb4da47a9431f0bafc85ae0464fc5d0da0ec906d99a518274902`
+- Linux libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`

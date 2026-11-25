@@ -202,6 +202,12 @@ impl MacPictureInPicture {
         unsafe { self.controller.isPictureInPictureActive() }
     }
 
+    pub(crate) fn needs_presentation_poll(&self) -> bool {
+        let ivars = self.delegate.ivars();
+        !ivars.window.is_closing()
+            && (ivars.transition.get() != Transition::Idle || self.has_sample || self.is_active())
+    }
+
     fn request_stop(&self) {
         self.delegate.ivars().transition.set(Transition::Stopping);
         // SAFETY: the retained controller is queried and stopped on its owning thread.

@@ -71,6 +71,10 @@ The macOS application owns one MediaPlayer registration for all player windows.
 It follows the most recently focused player when Settings or another application
 takes focus. Before dispatch, it checks the window and media generation carried
 by each queued remote action against the current Now Playing item.
+Playback readiness, the system-media preference, player focus and native
+activity or transport callbacks wake the session. Its existing refresh interval
+continues while there is a published item. The last player withdraws the
+registration and stops the refresh during cleanup.
 
 On macOS, the platform adapter registers each player's AppKit Touch Bar with
 the playback observer and retires it before native window cleanup. The scrubber
@@ -164,6 +168,11 @@ The window that receives the drop supplies its client coordinates. The route
 preserves playlist hover as the pointer moves between the two windows and
 queues media commands on Slint's event loop.
 [Win32 drop-target interface](https://learn.microsoft.com/en-us/windows/win32/api/oleidl/nn-oleidl-idroptarget)
+
+The player and Welcome window bind desktop drops through the same platform
+registration. It attaches the correct native windows on Windows or macOS.
+On Wayland it retains the protocol route, and on X11 Winit continues to deliver
+file events through the shared window callback.
 
 The main sidebar and Music Mode share playlist row gestures and insertion
 geometry. An active row drag retains its pointer in window coordinates, so the

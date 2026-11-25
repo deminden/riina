@@ -161,8 +161,6 @@ pub(super) fn install(app: &PlayerWindow, inputs: Inputs<'_>) -> Installed {
         native.map(platform::NativePresentation::host),
         automatic_music,
     );
-    #[cfg(not(target_os = "linux"))]
-    drop(fullscreen);
     let input::InstalledInput {
         file_drop_timer,
         player_window_focus,
@@ -172,9 +170,7 @@ pub(super) fn install(app: &PlayerWindow, inputs: Inputs<'_>) -> Installed {
         commands,
         playback.clone(),
         resize_filter,
-        #[cfg(target_os = "linux")]
         fullscreen,
-        #[cfg(target_os = "windows")]
         native.map(platform::NativePresentation::host),
     );
     let thumbnail_preview = thumbnail_actions::install(app, playback, plugin_host.cloned());
@@ -188,10 +184,7 @@ pub(super) fn install(app: &PlayerWindow, inputs: Inputs<'_>) -> Installed {
     );
     let video_materials =
         platform::video_materials::Monitor::install(app, native, commands, playback);
-    #[cfg(windows)]
     system_media.bind(commands, native.map(platform::NativePresentation::host));
-    #[cfg(not(windows))]
-    system_media.bind(commands);
     live_text::install_actions(app, prefs_path);
     super::startup::install_toolbar_order(app);
     let live_text_timer = live_text::install(app, commands.clone(), playback.clone());

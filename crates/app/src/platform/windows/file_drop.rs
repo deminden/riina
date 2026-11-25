@@ -268,8 +268,12 @@ impl Route {
                     (self.hover)(Hover::Moved(point));
                 } else {
                     match preview {
-                        Some(Preview::Files(paths)) => (self.hover)(Hover::Entered(paths, point)),
-                        Some(Preview::Link) => (self.hover)(Hover::Link(point)),
+                        Some(Preview::Files(paths)) => (self.hover)(Hover::files(paths, point)),
+                        Some(Preview::Link) => (self.hover)(Hover::Entered {
+                            paths: Vec::new(),
+                            position: point,
+                            known_playable: true,
+                        }),
                         None => (self.hover)(Hover::Left),
                     }
                 }
@@ -381,8 +385,11 @@ mod tests {
             scale: Box::new(|| Some(2.0)),
             hover: Box::new(move |event| {
                 hover.borrow_mut().push(match event {
-                    Hover::Entered(_, _) => "files",
-                    Hover::Link(_) => "link",
+                    Hover::Entered {
+                        known_playable: true,
+                        ..
+                    } => "link",
+                    Hover::Entered { .. } => "files",
                     Hover::Moved(_) => "move",
                     Hover::Left => "left",
                 });

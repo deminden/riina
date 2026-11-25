@@ -2,8 +2,7 @@
 mod actions;
 mod registration;
 
-use super::{CommandSender, PlaybackStore, PlayerWindow};
-use crate::NativeVideoHost;
+use super::{CommandSender, NativeVideoHost, PlaybackStore, PlayerWindow};
 use ::windows::Win32::Foundation::HWND;
 use registration::Registration;
 use riina_core::sync::lock;

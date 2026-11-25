@@ -349,3 +349,10 @@ pub(super) fn probe_after_window_event(
         }
     }
 }
+
+#[cfg(not(target_os = "linux"))]
+pub(super) fn probe_after_window_event(
+    _: Rc<Controller>,
+) -> impl Fn(&slint::winit_030::winit::event::WindowEvent) + 'static {
+    |_| {}
+}

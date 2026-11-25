@@ -1,5 +1,5 @@
 //! Keep Now Playing controls and application focus events with the player session.
-use crate::{PlaybackStore, PlayerWindow};
+use crate::{NativeVideoHost, PlaybackStore, PlayerWindow};
 use riina_mpv::CommandSender;
 
 #[cfg(not(any(target_os = "linux", target_os = "macos", target_os = "windows")))]
@@ -10,7 +10,7 @@ impl SystemMediaSession {
     pub(crate) fn new(_: &PlayerWindow, _: PlaybackStore) -> Self {
         Self
     }
-    pub(crate) fn bind(&self, _: &CommandSender) {}
+    pub(crate) fn bind(&self, _: &CommandSender, _: Option<slint::Weak<NativeVideoHost>>) {}
     pub(crate) fn prepare_to_close(&self) {}
 }
 
@@ -21,6 +21,8 @@ pub(super) mod ownership;
 mod macos;
 #[cfg(target_os = "macos")]
 pub(crate) use macos::SystemMediaSession;
+#[cfg(target_os = "macos")]
+pub(super) use macos::wake_application;
 
 #[cfg(windows)]
 mod windows;

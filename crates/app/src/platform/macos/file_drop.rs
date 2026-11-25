@@ -152,7 +152,7 @@ impl Route {
             return;
         };
         match event {
-            Event::Entered(paths, position) => (self.hover)(Hover::Entered(
+            Event::Entered(paths, position) => (self.hover)(Hover::files(
                 paths.into_iter().map(Into::into).collect(),
                 position.logical(scale),
             )),

@@ -2,27 +2,35 @@
 mod dispatch;
 
 use super::{
-    CommandSender, PlaybackStore, PlayerWindow,
+    CommandSender, NativeVideoHost, PlaybackStore, PlayerWindow,
     ownership::{FocusOrder, PlaybackTarget},
 };
 use crate::{
     platform::{
-        MediaEvent, SystemActivity, SystemMediaControls,
+        MediaEvent, SystemActivity, SystemMediaControls, active_poll::ActivePoll,
         player_input::some_player_window_is_focused, player_thumbnails::Samples,
     },
     player_ui::lifecycle::AutomaticPause,
 };
 use riina_core::{Phase, sync::lock};
 use riina_ui::{PlayerControlActions, PlayerPreferences};
-use slint::{ComponentHandle, Timer, TimerMode, Weak, winit_030::WinitWindowAccessor};
+use slint::{ComponentHandle, Weak, winit_030::WinitWindowAccessor};
 use std::{
     cell::{Cell, RefCell},
     rc::{Rc, Weak as RcWeak},
     time::{Duration, Instant},
 };
 
+const MEDIA_UPDATE_INTERVAL: Duration = Duration::from_millis(50);
+
 thread_local! {
     static APPLICATION: RefCell<RcWeak<Application>> = const { RefCell::new(RcWeak::new()) };
+}
+
+pub(in crate::platform) fn wake_application() {
+    if let Ok(Some(application)) = APPLICATION.try_with(|current| current.borrow().upgrade()) {
+        application.wake();
+    }
 }
 
 struct Route {
@@ -107,7 +115,7 @@ struct Application {
     active: Cell<bool>,
     next_id: Cell<u64>,
     intervals: RefCell<Option<SkipIntervals>>,
-    timer: Timer,
+    poll: ActivePoll,
 }
 
 impl Application {
@@ -126,22 +134,26 @@ impl Application {
                 active: Cell::new(true),
                 next_id: Cell::new(1),
                 intervals: RefCell::default(),
-                timer: Timer::default(),
+                poll: ActivePoll::default(),
             });
             *current.borrow_mut() = Rc::downgrade(&application);
-            let weak = Rc::downgrade(&application);
-            application
-                .timer
-                .start(TimerMode::Repeated, Duration::from_millis(50), move || {
-                    if let Some(application) = weak.upgrade() {
-                        application.tick();
-                    }
-                });
             application
         })
     }
 
-    fn tick(&self) {
+    fn wake(self: &Rc<Self>) {
+        if self.routes.borrow().is_empty() {
+            return;
+        }
+        let weak = Rc::downgrade(self);
+        self.poll.start_if_idle(MEDIA_UPDATE_INTERVAL, move || {
+            weak.upgrade()
+                .is_some_and(|application| application.tick())
+                .then_some(MEDIA_UPDATE_INTERVAL)
+        });
+    }
+
+    fn tick(&self) -> bool {
         let windows = self
             .routes
             .borrow()
@@ -205,6 +217,7 @@ impl Application {
                 }
             }
         }
+        published.is_some()
     }
 
     fn publish(&self, owner: Option<&Window>) -> Option<PlaybackTarget> {
@@ -262,13 +275,19 @@ impl Application {
         (forward, backward)
     }
 
-    fn remove(&self, route: u64) {
+    fn remove(self: &Rc<Self>, route: u64) {
         self.routes
             .borrow_mut()
             .retain(|registered| registered.id != route);
         self.focus_order.borrow_mut().remove(route);
         if self.selected.get() == Some(route) {
             self.publish(None);
+            if !self.routes.borrow().is_empty() {
+                self.wake();
+            }
+        }
+        if self.routes.borrow().is_empty() {
+            self.poll.stop();
         }
     }
 }
@@ -308,11 +327,13 @@ impl SystemMediaSession {
             automatic_pause: RefCell::default(),
         });
         application.routes.borrow_mut().push(route.clone());
+        app.on_system_media_observation_changed(wake_application);
         Self { application, route }
     }
 
-    pub(crate) fn bind(&self, sender: &CommandSender) {
+    pub(crate) fn bind(&self, sender: &CommandSender, _: Option<Weak<NativeVideoHost>>) {
         self.route.sender.replace(Some(sender.clone()));
+        self.application.wake();
     }
 
     pub(super) fn store_timeline_samples(&self, samples: &Samples) {

@@ -61,7 +61,7 @@ impl State {
                 let paths = payload.files.iter().map(PathBuf::from).collect::<Vec<_>>();
                 drag.files = Some(payload.files);
                 if !paths.is_empty() {
-                    (drag.target.hover)(Hover::Entered(paths, drag.position));
+                    (drag.target.hover)(Hover::files(paths, drag.position));
                 }
             }
         }

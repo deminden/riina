@@ -3,6 +3,38 @@ use slint::{ComponentHandle, Model};
 use std::{cell::Cell, time::Duration};
 
 #[test]
+fn system_media_wakes_on_playback_readiness_and_preference_changes() {
+    let app = player(1);
+    app.set_loaded(false);
+    flush();
+    let preferences = app.global::<riina_ui::PlayerPreferences>();
+    let changes = Rc::new(Cell::new(0));
+    let recorded = changes.clone();
+    app.on_system_media_observation_changed(move || recorded.set(recorded.get() + 1));
+
+    app.set_loaded(true);
+    flush();
+    assert_eq!(changes.get(), 1);
+
+    preferences.set_key_binding_use_system_media_controls(false);
+    flush();
+    assert_eq!(changes.get(), 2);
+
+    app.set_loaded(false);
+    app.set_loaded(true);
+    flush();
+    assert_eq!(changes.get(), 2);
+
+    preferences.set_key_binding_use_system_media_controls(true);
+    flush();
+    assert_eq!(changes.get(), 3);
+
+    app.set_loaded(false);
+    flush();
+    assert_eq!(changes.get(), 4);
+}
+
+#[test]
 fn audio_and_subtitle_actions_activate_on_first_click() {
     let app = player(1);
     let menu = app.global::<PlayerMenuActions>();
