@@ -14,12 +14,10 @@ use std::{
 
 pub(super) use riina_ui::PlayerEdit as Edit;
 
-#[cfg(any(target_os = "linux", test))]
 mod popup_focus;
 #[cfg(target_os = "windows")]
 mod windows;
 
-#[cfg(any(target_os = "linux", test))]
 pub(super) use popup_focus::PopupFocus;
 
 pub(crate) fn install_player_menu(app: &PlayerWindow) {

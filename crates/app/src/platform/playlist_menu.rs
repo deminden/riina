@@ -11,6 +11,9 @@ pub(super) use player_bar::new_player;
 #[cfg(target_os = "linux")]
 mod x11;
 
+// AppKit's playlist file panel accepts folders in the same selection.
+pub(crate) const MIXED_PLAYLIST_PICKER: bool = cfg!(target_os = "macos");
+
 #[derive(Clone)]
 pub(crate) enum Entry<A> {
     Separator,

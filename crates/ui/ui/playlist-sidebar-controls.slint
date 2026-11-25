@@ -1,23 +1,31 @@
 import { PlayerAppearance } from "player-appearance.slint";
 import { Theme } from "theme.slint";
 import { PlayerMenuActions } from "player-menu-actions.slint";
-import { PlaylistSortButton } from "player-chrome-controls.slint";
 import { Tool } from "player-tool.slint";
 import { PlayerSidebarActions } from "player-sidebar-actions.slint";
 import { PlayerCatalogState } from "player-catalog-state.slint";
-import { PlaylistInteraction } from "playlist-interaction.slint";
+import { PlaylistFooterMenu, PlaylistInteraction, PlaylistMenuOrigin } from "playlist-interaction.slint";
 
 export component PlaylistSidebarControls inherits HorizontalLayout {
+    in property <PlaylistMenuOrigin> menu-origin: PlaylistMenuOrigin.sidebar;
     spacing: 8px;
     Tool { width: 24px; dark-theme: PlayerAppearance.dark-theme; accent-color: PlayerAppearance.interactive-accent-color;
-        label: PlayerCatalogState.loop-label == "File" ? "↻₁" : "↻"; hint: "Cycle repeat: " + PlayerCatalogState.loop-label;
+        icon: PlayerCatalogState.loop-label == "File"
+            ? @image-url("../../../assets/icons/repeat-one.svg") : @image-url("../../../assets/icons/repeat.svg");
+        hint: "Cycle repeat: " + PlayerCatalogState.loop-label;
         activated => { PlayerMenuActions.playlist-action(5, ""); } }
     Tool { width: 24px; dark-theme: PlayerAppearance.dark-theme; accent-color: PlayerAppearance.interactive-accent-color;
         icon: @image-url("../../../assets/icons/shuffle.svg");
         hint: PlayerCatalogState.playlist-shuffled ? "Turn off shuffle" : "Shuffle playlist";
         selected: PlayerCatalogState.playlist-shuffled; activated => { PlayerSidebarActions.toggle-playlist-shuffle(); } }
-    PlaylistSortButton { dark-theme: PlayerAppearance.dark-theme; accent-color: PlayerAppearance.interactive-accent-color;
-        sort-requested(index) => { PlayerSidebarActions.sort-playlist(index); } }
+    Tool {
+        width: 30px; dark-theme: PlayerAppearance.dark-theme; accent-color: PlayerAppearance.interactive-accent-color;
+        icon: @image-url("../../../assets/icons/sort.svg"); hint: "Sort playlist";
+        activated => {
+            PlaylistInteraction.request-playlist-footer-menu(root.menu-origin, PlaylistFooterMenu.sort,
+                self.absolute-position.x / 1px, (self.absolute-position.y + self.height) / 1px);
+        }
+    }
     Text {
         horizontal-stretch: 1;
         min-width: 0px;
@@ -28,9 +36,14 @@ export component PlaylistSidebarControls inherits HorizontalLayout {
         vertical-alignment: center;
         overflow: elide;
     }
-    Tool { width: 24px; dark-theme: PlayerAppearance.dark-theme; accent-color: PlayerAppearance.interactive-accent-color;
-        icon: @image-url("../../../assets/icons/add.svg"); hint: "Add files to playlist";
-        activated => { PlayerMenuActions.browse-files(4); } }
+    Tool {
+        width: 24px; dark-theme: PlayerAppearance.dark-theme; accent-color: PlayerAppearance.interactive-accent-color;
+        icon: @image-url("../../../assets/icons/add.svg"); hint: "Add to playlist";
+        activated => {
+            PlaylistInteraction.request-playlist-footer-menu(root.menu-origin, PlaylistFooterMenu.add,
+                self.absolute-position.x / 1px, (self.absolute-position.y + self.height) / 1px);
+        }
+    }
     Tool { width: 24px; dark-theme: PlayerAppearance.dark-theme; accent-color: PlayerAppearance.interactive-accent-color;
         label: "−"; hint: "Remove selected playlist entries"; enabled: PlaylistInteraction.selected-playlist-token != "";
         activated => { PlayerMenuActions.playlist-action(1, PlaylistInteraction.selected-playlist-token); } }

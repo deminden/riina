@@ -7,8 +7,9 @@ use crate::{
 };
 use riina_core::plugin_menu::PluginMenuItem;
 use riina_ui::{
-    PlayerCatalogState, PlayerMenuActions, PlayerMusicModeState, PlayerSidebarState,
-    PlaylistInteraction, PlaylistMenuOrigin, PlaylistSubtitleAction,
+    PlayerCatalogState, PlayerMenuActions, PlayerMusicModeState, PlayerSidebarActions,
+    PlayerSidebarState, PlaylistFooterMenu, PlaylistInteraction, PlaylistMenuOrigin,
+    PlaylistSubtitleAction,
 };
 use slint::{ComponentHandle, LogicalPosition, Model, SharedString};
 use std::sync::Arc;
@@ -16,11 +17,60 @@ use std::sync::Arc;
 #[derive(Clone)]
 enum Action {
     Player(i32),
+    Footer(FooterAction),
+    Subtitle(PlaylistSubtitleAction),
+    Plugin { identifier: String, id: String },
+}
+
+#[derive(Clone, Copy)]
+enum FooterAction {
     AddFiles,
     AddFolders,
     AddUrl,
-    Subtitle(PlaylistSubtitleAction),
-    Plugin { identifier: String, id: String },
+    Sort(i32),
+}
+
+impl FooterAction {
+    fn activate(self, app: &PlayerWindow) {
+        let menu = app.global::<PlayerMenuActions>();
+        match self {
+            Self::AddFiles => menu.invoke_browse_files(4),
+            Self::AddFolders => menu.invoke_browse_files(5),
+            Self::AddUrl => menu.invoke_open_playlist_url_dialog(),
+            Self::Sort(index) => app
+                .global::<PlayerSidebarActions>()
+                .invoke_sort_playlist(index),
+        }
+    }
+}
+
+fn additions() -> impl Iterator<Item = (&'static str, FooterAction)> {
+    [
+        ("Add File…", FooterAction::AddFiles),
+        ("Add Folder…", FooterAction::AddFolders),
+        ("Add URL…", FooterAction::AddUrl),
+    ]
+    .into_iter()
+    .filter(|(_, action)| {
+        !playlist_menu::MIXED_PLAYLIST_PICKER || !matches!(action, FooterAction::AddFolders)
+    })
+}
+
+fn footer_entries(menu: PlaylistFooterMenu) -> Vec<Entry<FooterAction>> {
+    match menu {
+        PlaylistFooterMenu::Add => additions()
+            .map(|(title, action)| item(title, action, true))
+            .collect(),
+        PlaylistFooterMenu::Sort => [
+            ("Filename Ascending", 0),
+            ("Filename Descending", 1),
+            ("File Path Ascending", 2),
+            ("File Path Descending", 3),
+        ]
+        .into_iter()
+        .map(|(title, index)| item(title, FooterAction::Sort(index), true))
+        .collect(),
+    }
 }
 
 #[derive(PartialEq, Eq)]
@@ -36,15 +86,41 @@ struct Row {
     open_in_browser: bool,
 }
 
-struct Request {
+struct MenuOwner {
     generation: i32,
+    surface: Surface,
+    origin: PlaylistMenuOrigin,
+}
+
+impl MenuOwner {
+    fn new(app: &PlayerWindow, generation: i32, origin: PlaylistMenuOrigin) -> Option<Self> {
+        Some(Self {
+            generation,
+            surface: Surface::visible(app, origin)?,
+            origin,
+        })
+    }
+
+    fn current(&self, app: &PlayerWindow) -> bool {
+        self.generation
+            == app
+                .global::<PlaylistInteraction>()
+                .get_playlist_menu_generation()
+            && Surface::visible(app, self.origin).as_ref() == Some(&self.surface)
+            && !app
+                .global::<riina_ui::PlayerDialogState>()
+                .get_dialog_open()
+            && !app.global::<riina_ui::PlayerCropState>().get_crop_editing()
+    }
+}
+
+struct Request {
+    owner: MenuOwner,
     token: SharedString,
     position: LogicalPosition,
     playlist: Vec<(SharedString, SharedString)>,
     selection: Vec<usize>,
     row: Option<Row>,
-    surface: Surface,
-    origin: PlaylistMenuOrigin,
 }
 
 pub(super) fn dismiss(app: &PlayerWindow) {
@@ -60,6 +136,7 @@ fn next_generation(app: &PlayerWindow) -> i32 {
 }
 
 pub(super) fn install(app: &PlayerWindow, host: Option<&PluginHostHandle>) {
+    install_footer(app);
     let host = host.cloned();
     let weak = app.as_weak();
     app.global::<PlaylistInteraction>()
@@ -98,6 +175,39 @@ pub(super) fn install(app: &PlayerWindow, host: Option<&PluginHostHandle>) {
         });
 }
 
+fn install_footer(app: &PlayerWindow) {
+    let weak = app.as_weak();
+    app.global::<PlaylistInteraction>()
+        .on_request_playlist_footer_menu(move |origin, menu, x, y| {
+            let Some(app) = weak.upgrade() else { return };
+            let generation = next_generation(&app);
+            let Some(request) = MenuOwner::new(&app, generation, origin) else {
+                return;
+            };
+            playlist_menu::dismiss(&app);
+            app.global::<riina_ui::PlayerControlActions>()
+                .invoke_activity();
+            let _ = weak.upgrade_in_event_loop(move |app| {
+                if !request.current(&app) {
+                    return;
+                }
+                let owner = app.as_weak();
+                playlist_menu::popup(
+                    &app,
+                    LogicalPosition::new(x, y),
+                    footer_entries(menu),
+                    move |action| {
+                        if let Some(app) = owner.upgrade()
+                            && request.current(&app)
+                        {
+                            action.activate(&app);
+                        }
+                    },
+                );
+            });
+        });
+}
+
 impl Request {
     fn new(
         app: &PlayerWindow,
@@ -106,7 +216,7 @@ impl Request {
         token: SharedString,
         position: LogicalPosition,
     ) -> Option<Self> {
-        let surface = Surface::visible(app, origin)?;
+        let owner = MenuOwner::new(app, generation, origin)?;
         let rows = app.global::<PlayerCatalogState>().get_playlist();
         let playlist = rows.iter().map(|row| (row.token, row.path)).collect();
         let (row, selection) = if token.is_empty() {
@@ -120,28 +230,22 @@ impl Request {
             (Some(row), selection)
         };
         Some(Self {
-            generation,
+            owner,
             token,
             position,
             playlist,
             selection,
             row,
-            surface,
-            origin,
         })
     }
 
     fn id(&self) -> u64 {
-        u64::from(self.generation as u32)
+        u64::from(self.owner.generation as u32)
     }
 
     fn current(&self, app: &PlayerWindow) -> bool {
         let rows = app.global::<PlayerCatalogState>().get_playlist();
-        self.generation
-            == app
-                .global::<PlaylistInteraction>()
-                .get_playlist_menu_generation()
-            && Surface::visible(app, self.origin).as_ref() == Some(&self.surface)
+        self.owner.current(app)
             && self
                 .playlist
                 .iter()
@@ -180,9 +284,7 @@ impl Request {
             Action::Player(action) => {
                 actions.invoke_playlist_action(action, self.token.clone());
             }
-            Action::AddFiles => actions.invoke_browse_files(4),
-            Action::AddFolders => actions.invoke_browse_files(5),
-            Action::AddUrl => actions.invoke_open_playlist_url_dialog(),
+            Action::Footer(action) => action.activate(app),
             Action::Subtitle(action) => app
                 .global::<PlaylistInteraction>()
                 .invoke_subtitle_action(action, self.token.clone()),
@@ -206,7 +308,7 @@ impl Request {
             .row
             .as_ref()
             .map_or_else(Vec::new, |row| row.entries(self.playlist.len()));
-        if self.origin == PlaylistMenuOrigin::Sidebar && self.row.is_some() {
+        if self.owner.origin == PlaylistMenuOrigin::Sidebar && self.row.is_some() {
             let subtitles = interaction.invoke_subtitle_targets(self.token.clone());
             if subtitles.single || subtitles.matched > 0 {
                 separate(&mut entries);
@@ -253,12 +355,9 @@ impl Request {
             .get_playlist()
             .iter()
             .any(|row| !row.playing);
-        entries.extend([
-            item("Add File…", Action::AddFiles, true),
-            item("Add Folder…", Action::AddFolders, true),
-            item("Add URL…", Action::AddUrl, true),
-            item("Clear Playlist", Action::Player(4), has_queued_items),
-        ]);
+        entries
+            .extend(additions().map(|(title, action)| item(title, Action::Footer(action), true)));
+        entries.push(item("Clear Playlist", Action::Player(4), has_queued_items));
         entries
     }
 }
@@ -349,7 +448,7 @@ fn player(title: &str, action: i32, enabled: bool) -> Entry<Action> {
     item(title, Action::Player(action), enabled)
 }
 
-fn item(title: &str, action: Action, enabled: bool) -> Entry<Action> {
+fn item<A>(title: &str, action: A, enabled: bool) -> Entry<A> {
     Entry::Item {
         title: title.into(),
         shortcut: String::new(),
@@ -398,7 +497,7 @@ mod tests {
     use super::*;
     use slint::{ModelRc, VecModel};
 
-    fn titles(entries: Vec<Entry<Action>>) -> Vec<String> {
+    fn titles<A>(entries: Vec<Entry<A>>) -> Vec<String> {
         entries
             .into_iter()
             .filter_map(|entry| match entry {

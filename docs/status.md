@@ -69,7 +69,9 @@ Implementation does not imply every state or platform is verified.
   of an existing player when duplicate players are disabled. Queued group
   feedback follows the first loaded file and reports accepted entries.
   A replacement request or a closing player cancels its folder scan.
-- **Playlist editing:** the playlist menu can add files, folders or URLs.
+- **Playlist editing:** the sidebar and Music Mode share the playlist
+  controls. Add opens the file and URL choices, with a separate folder choice
+  on Windows and Linux. Sort opens the four filename and path orders.
   Transient add and clear feedback follows native command replies. Clearing
   retains the current item and retires pending sibling discovery. A single-file
   open can discover siblings around the current item. Navigating the resulting

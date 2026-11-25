@@ -5602,3 +5602,34 @@ Both isolated players exited normally.
 - Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
 - Linux application SHA-256 `6bec9517af77e0863fafd97c68b173a7c61c3546e67cce1237766b1fd8e2d1dd`
 - Linux libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`
+
+### Playlist footer in the sidebar and Music Mode 2026-11-25
+
+Both playlist surfaces share six controls. Add opens the file, folder and URL
+choices supported by the platform, and Sort offers four filename and path
+orders. The client menu restores the focused control on dismissal. The repeat
+symbols use the same artwork in both views, including the single-file state.
+
+The Windows workspace gate, locked build, strict Clippy and asset checks passed.
+All 67 Windows native playback tests passed. The Linux application built, and
+the Apple Silicon and Intel application and test targets passed cross-Clippy.
+Headless checks cover the two footers' pointer and keyboard anchors, stale menu
+requests, the compact URL dialog, and reopening Sort after Escape. The six
+updated light and dark snapshot differences are confined to the playlist
+footers. Player and Settings pixel checks passed together.
+
+On a private Windows desktop, the native folder picker appended two files in
+natural order. Filename Descending retained the current paused clip, and the
+player closed normally. The isolated Windows audio-only probe reported an audio
+output initialization error before it could exercise Music Mode.
+
+On Wayland, Escape returned focus to Sort and Return reopened the menu. File
+Path Descending retained the paused clip. The 300-point Music Mode window
+opened the URL dialog, accepted the typed reference and preserved the current
+file, pause and volume. The exact test player exited normally. Native macOS
+interaction and matched IINA visual comparisons remain open.
+
+- Windows application SHA-256 `88f13d4caad9091bc128b528a8d480e1d35d73f9cccdb21b7ed72bbf904ce254`
+- Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
+- Linux application SHA-256 `66bedf3cb6953d6eee04eb73ee97ea6c1c3d890b5e91b1bab79fd7ff218e75e3`
+- Linux libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`

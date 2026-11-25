@@ -23,9 +23,9 @@ impl PopupFocus {
         })
     }
 
-    pub(in crate::platform) fn restore(self, window: &slint::Window) {
+    pub(in crate::platform) fn restore(self, window: &slint::Window) -> bool {
         let Some(item) = self.item.upgrade().filter(|item| item.is_visible()) else {
-            return;
+            return false;
         };
         let inner = WindowInner::from_pub(window);
         inner.set_focus_item(&item, true, FocusReason::PopupActivation);
@@ -34,5 +34,6 @@ impl PopupFocus {
         {
             input.set_selection_offsets(&inner.window_adapter(), &item, anchor, cursor);
         }
+        true
     }
 }

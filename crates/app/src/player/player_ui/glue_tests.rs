@@ -304,6 +304,7 @@ fn player_glue_worker() -> Result<(), Box<dyn std::error::Error>> {
     exercise_observation_and_volume(&harness)?;
     exercise_controller_arrows(&harness);
     exercise_playlist_feedback(&profile)?;
+    exercise_playlist_footer_menus(&profile)?;
     drop(harness);
 
     let capture = Harness::start(profile.join("capture/preferences.json"), true)?;
@@ -705,6 +706,121 @@ fn exercise_playlist_feedback(profile: &std::path::Path) -> Result<(), Box<dyn s
     });
     harness.publish(state)?;
     assert_ne!(osd.get_video_osd_text(), "Added 1 Files to Playlist");
+    Ok(())
+}
+
+fn exercise_playlist_footer_menus(
+    profile: &std::path::Path,
+) -> Result<(), Box<dyn std::error::Error>> {
+    use i_slint_backend_testing::ElementHandle;
+    use riina_ui::{
+        PlaylistFooterMenu, PlaylistInteraction, PlaylistMenuOrigin, PlaylistPluginPopupState,
+        PlaylistPopupInput,
+    };
+    use slint::platform::{Key, PointerEventButton, WindowEvent};
+    let harness = Harness::start(profile.join("playlist-footer/preferences.json"), false)?;
+    let app = &harness.app;
+    let playlist = app.global::<PlaylistInteraction>();
+    let sidebar = app.global::<riina_ui::PlayerSidebarState>();
+    let popup = app.global::<PlaylistPluginPopupState>();
+    let dialog = app.global::<riina_ui::PlayerDialogState>();
+    let menu = app.global::<PlayerMenuActions>();
+    let picked = std::rc::Rc::new(std::cell::Cell::new(None));
+    let report = picked.clone();
+    menu.on_browse_files(move |category| report.set(Some(category)));
+    app.window().set_size(slint::PhysicalSize::new(600, 450));
+    app.set_loaded(true);
+    sidebar.set_sidebar(4);
+    app.show()?;
+
+    let flush = || -> Result<(), Box<dyn std::error::Error>> {
+        slint::invoke_from_event_loop(|| {
+            let _ = slint::quit_event_loop();
+        })?;
+        slint::run_event_loop_until_quit()?;
+        slint::platform::update_timers_and_animations();
+        Ok(())
+    };
+    let show = |origin, menu| -> Result<(), Box<dyn std::error::Error>> {
+        playlist.invoke_request_playlist_footer_menu(origin, menu, 80.0, 300.0);
+        flush()?;
+        assert!(popup.get_shown(), "Could not open {menu:?} in {origin:?}");
+        Ok(())
+    };
+    let choose = |title: &str| {
+        let panel = popup.get_panels().row_data(0).unwrap();
+        let index = panel
+            .rows
+            .iter()
+            .position(|row| row.title == title)
+            .unwrap();
+        popup.invoke_input(
+            PlaylistPopupInput::Choose,
+            0,
+            i32::try_from(index).unwrap(),
+            0.0,
+        );
+        assert!(!popup.get_shown());
+    };
+
+    let sort = ElementHandle::find_by_accessible_label(app, "Sort playlist")
+        .next()
+        .expect("The playlist footer must be visible");
+    sort.mock_single_click(PointerEventButton::Left);
+    flush()?;
+    assert!(popup.get_shown());
+    let press = |key: Key| {
+        let text: slint::SharedString = key.into();
+        app.window()
+            .dispatch_event(WindowEvent::KeyPressed { text: text.clone() });
+        app.window()
+            .dispatch_event(WindowEvent::KeyReleased { text });
+    };
+    press(Key::Escape);
+    flush()?;
+    assert!(!popup.get_shown());
+    press(Key::Return);
+    flush()?;
+    assert!(
+        popup.get_shown(),
+        "Escape must restore the Sort button's focus"
+    );
+    press(Key::End);
+    press(Key::Return);
+    harness.expect(Command::SortPlaylist(
+        riina_core::playlist::PlaylistSort::PathDescending,
+    ));
+
+    show(PlaylistMenuOrigin::Sidebar, PlaylistFooterMenu::Add)?;
+    choose("Add File…");
+    assert_eq!(picked.get(), Some(4));
+    if !crate::platform::playlist_menu::MIXED_PLAYLIST_PICKER {
+        show(PlaylistMenuOrigin::Sidebar, PlaylistFooterMenu::Add)?;
+        choose("Add Folder…");
+        assert_eq!(picked.get(), Some(5));
+    }
+
+    sidebar.set_sidebar(0);
+    let music = app.global::<riina_ui::PlayerMusicModeState>();
+    music.set_music_mode(true);
+    music.set_music_mode_show_playlist(true);
+    flush()?;
+    show(PlaylistMenuOrigin::MusicMode, PlaylistFooterMenu::Sort)?;
+    choose("File Path Descending");
+    harness.expect(Command::SortPlaylist(
+        riina_core::playlist::PlaylistSort::PathDescending,
+    ));
+    show(PlaylistMenuOrigin::MusicMode, PlaylistFooterMenu::Add)?;
+    choose("Add URL…");
+    assert!(dialog.get_url_dialog_visible());
+
+    dialog.set_url_dialog_visible(false);
+    flush()?;
+    show(PlaylistMenuOrigin::MusicMode, PlaylistFooterMenu::Add)?;
+    playlist.set_playlist_menu_generation(playlist.get_playlist_menu_generation().wrapping_add(1));
+    choose("Add URL…");
+    assert!(!dialog.get_url_dialog_visible());
+    app.hide()?;
     Ok(())
 }
 

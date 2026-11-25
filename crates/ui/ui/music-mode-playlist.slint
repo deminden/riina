@@ -8,6 +8,7 @@ import { PlaylistInsertionIndicator, PlaylistRowInput } from "playlist-row-input
 import { PlaylistResumeMark } from "playlist-resume-mark.slint";
 import { PlaylistSeriesTitle } from "playlist-series-title.slint";
 import { PlaylistRowKeys } from "playlist-row-keys.slint";
+import { PlaylistSidebarControls } from "playlist-sidebar-controls.slint";
 
 export component MusicModePlaylist inherits Rectangle {
     in property <bool> dark-theme;
@@ -15,13 +16,14 @@ export component MusicModePlaylist inherits Rectangle {
     in property <color> windows-accent-color;
     callback play-row(string);
     private property <int> focus-index: -1;
-    private property <length> summary-height: PlayerCatalogState.playlist-duration-summary == "" ? 0px : 20px;
+    private property <length> footer-height: 28px;
     private property <color> focus-accent: root.platform-windows
         ? root.windows-accent-color : Theme.playback-progress-accent;
 
     background: Theme.music-mode-playlist-surface(root.dark-theme);
     playlist-scroll := QuickSettingsScrollPage {
-        width: parent.width; height: parent.height - summary-height;
+        x: 0; y: 0;
+        width: parent.width; height: max(0px, parent.height - root.footer-height);
         page-kind: 4;
         playlist-drop-enabled: true;
         playlist-y: PlayerSidebarState.playlist-scroll-y;
@@ -130,10 +132,9 @@ export component MusicModePlaylist inherits Rectangle {
             height: max(0px, parent.height - self.y);
         }
     }
-    if summary-height > 0px : Text {
-        y: root.height - summary-height; width: root.width; height: summary-height;
-        text: PlayerCatalogState.playlist-duration-summary;
-        color: Theme.music-mode-playlist-detail(root.dark-theme);
-        font-size: 11px; horizontal-alignment: center; vertical-alignment: center;
+    PlaylistSidebarControls {
+        x: 12px; y: root.height - root.footer-height;
+        width: max(0px, root.width - 24px); height: root.footer-height;
+        menu-origin: PlaylistMenuOrigin.music-mode;
     }
 }

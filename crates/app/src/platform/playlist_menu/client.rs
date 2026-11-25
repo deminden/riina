@@ -60,11 +60,9 @@ fn show_client<A: 'static>(
     popup.set_player_menu(player_menu_family.is_some());
     popup.set_player_menu_family(player_menu_family.unwrap_or(-1));
     popup.set_panels(ModelRc::from(menu.panels.clone()));
-    #[cfg(any(target_os = "linux", test))]
-    let focus = player_menu_family
-        .and_then(|_| crate::platform::text_edit::PopupFocus::capture(app.window()));
-    #[cfg(any(target_os = "linux", test))]
-    let focus = RefCell::new(focus);
+    let focus = RefCell::new(crate::platform::text_edit::PopupFocus::capture(
+        app.window(),
+    ));
     let current = RefCell::new(Some((menu, selected)));
     popup.on_input(move |input, panel, row, anchor| {
         let Ok(mut current) = current.try_borrow_mut() else {
@@ -84,13 +82,11 @@ fn show_client<A: 'static>(
                 let popup = app.global::<PlaylistPluginPopupState>();
                 popup.set_shown(false);
                 popup.set_panels(ModelRc::default());
-                #[cfg(any(target_os = "linux", test))]
-                if player_menu_family.is_some() {
-                    if let Some(focus) = focus.take() {
-                        focus.restore(app.window());
-                    } else {
-                        app.invoke_focus_player();
-                    }
+                if !focus
+                    .take()
+                    .is_some_and(|focus| focus.restore(app.window()))
+                {
+                    app.invoke_focus_player();
                 }
                 if let Some(action) = result {
                     selected(action);

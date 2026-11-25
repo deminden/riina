@@ -54,7 +54,7 @@ export { PlayerMenuWindow } from "player-menu-window.slint";
 import { PlayerController } from "player-controller.slint";
 import { MusicModeCatalog } from "music-mode-catalog.slint";
 import { PlaylistInteraction, PlaylistMenuOrigin } from "playlist-interaction.slint";
-export { PlaylistDropHover, PlaylistEdit, PlaylistInteraction, PlaylistMenuOrigin } from "playlist-interaction.slint";
+export { PlaylistDropHover, PlaylistEdit, PlaylistFooterMenu, PlaylistInteraction, PlaylistMenuOrigin } from "playlist-interaction.slint";
 export { PlaylistSubtitleAction, PlaylistSubtitleTargets } from "playlist-interaction.slint";
 import { PlaylistBlankMenuArea } from "playlist-context-menu.slint";
 import { PlaylistPluginPopup, PlaylistPopupBounds, PlaylistPluginPopupState, PlaylistPopupInput } from "playlist-plugin-popup.slint";
@@ -714,7 +714,6 @@ export component PlayerWindow inherits PlayerMenuWindow {
         PlayerEntryDialogs { width: parent.width; height: parent.height; }
         playlist-popup := PlaylistPluginPopup {
             width: parent.width; height: parent.height;
-            restore-player-focus => { keys.focus(); }
         }
         FocusScope {
             visible: PlayerDialogState.plugin-interaction-visible;

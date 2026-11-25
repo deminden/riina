@@ -48,7 +48,7 @@ fn menu_focus_handoff_preserves_the_text_selection() {
     let focus = PopupFocus::capture(component.window()).unwrap();
     component.invoke_focus_popup();
     assert!(!editor.has_text_focus());
-    focus.restore(component.window());
+    assert!(focus.restore(component.window()));
     assert!(editor.perform(Edit::Copy, true));
     component.invoke_focus_destination();
     assert!(editor.perform(Edit::Paste, true));

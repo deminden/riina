@@ -50,34 +50,6 @@ export component JumpDialogButton inherits FocusScope {
     }
 }
 
-export component PlaylistSortButton inherits Rectangle {
-    in property <bool> dark-theme: true;
-    in property <color> accent-color: Theme.player-focus-accent;
-    callback sort-requested(int);
-    width: 30px; height: 28px; background: transparent;
-    Tool { dark-theme: root.dark-theme; accent-color: root.accent-color; icon: @image-url("../../../assets/icons/sort.svg"); hint: "Sort playlist";
-        activated => { choices.show(); } }
-    choices := PopupWindow {
-        x: 0px; y: -self.height; width: 190px; height: 146px;
-        close-policy: close-on-click-outside;
-        Rectangle { background: Theme.playlist-sort-surface(root.dark-theme);
-            border-width: 1px; border-color: Theme.playlist-sort-border(root.dark-theme); border-radius: 6px;
-            VerticalLayout { padding: 6px; spacing: 1px;
-                Text { text: "Sorting"; height: 22px; x: 7px; color: Theme.playlist-sort-caption(root.dark-theme); font-size: 11px; vertical-alignment: center; }
-                for label[index] in ["Filename Ascending", "Filename Descending", "File Path Ascending", "File Path Descending"] : Rectangle {
-                    height: 27px; border-radius: 4px;
-                    background: row-touch.has-hover ? Theme.playlist-sort-hover(root.dark-theme) : transparent;
-                    accessible-role: button; accessible-label: label;
-                    accessible-action-default => { root.sort-requested(index); choices.close(); }
-                    Text { x: 8px; width: parent.width - 16px; text: label; font-size: 11px;
-                        color: Theme.sidebar-action-text(root.dark-theme, true); vertical-alignment: center; }
-                    row-touch := TouchArea { clicked => { root.sort-requested(index); choices.close(); } }
-                }
-            }
-        }
-    }
-}
-
 export component TopmostPin inherits Rectangle {
     in property <bool> pinned;
     in property <bool> dark-theme: true;

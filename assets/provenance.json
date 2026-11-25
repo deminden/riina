@@ -309,6 +309,20 @@
       "sha256": "bd6f090291b2e4ef96eaedd2967af5f94dfa4738edc6f8a398d9a0a17637a074"
     },
     {
+      "path": "assets/icons/repeat-one.svg",
+      "author": "riina contributors",
+      "license": "MIT",
+      "origin": "Original geometric SVG authored for riina; no external artwork copied or traced",
+      "sha256": "b1550889c4b88e0f86858544d0205d01f6b4df12fd8fe880cd04bccc58437bd5"
+    },
+    {
+      "path": "assets/icons/repeat.svg",
+      "author": "riina contributors",
+      "license": "MIT",
+      "origin": "Original geometric SVG authored for riina; no external artwork copied or traced",
+      "sha256": "59b4822d66213abe4c107f95e31b561feb5b381265e6a57a3a3551f5cc68ec7c"
+    },
+    {
       "path": "assets/icons/reset.svg",
       "author": "riina contributors",
       "license": "MIT",

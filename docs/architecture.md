@@ -507,6 +507,12 @@ identity after a binding change.
 
 ### Playlist context menus
 
+The sidebar and Music Mode share one playlist footer. Add and Sort use the
+platform playlist menu adapter and remain attached to their opening surface.
+The toolbar menus require only the surface identity. Row menus also keep the
+selection and identities needed for row and plugin commands. The in-player
+menu restores its previous focus on close.
+
 The player captures the playlist entry identities, filenames and selected
 indices when opening a menu in the sidebar or Music Mode. File and URL action
 availability comes from that selection. Copy URLs preserves the playlist

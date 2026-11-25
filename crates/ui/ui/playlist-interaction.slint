@@ -1,6 +1,7 @@
 import { PlayerSidebarActions } from "player-sidebar-actions.slint";
 
 export enum PlaylistMenuOrigin { sidebar, music-mode }
+export enum PlaylistFooterMenu { add, sort }
 export enum PlaylistSubtitleAction { add, clear }
 export enum PlaylistEdit { none, cut, copy, paste, remove, select-all }
 
@@ -19,6 +20,7 @@ export struct PlaylistDropHover {
 export global PlaylistInteraction {
     in-out property <int> playlist-menu-generation: 0;
     callback request-playlist-menu(PlaylistMenuOrigin, string, float, float);
+    callback request-playlist-footer-menu(PlaylistMenuOrigin, PlaylistFooterMenu, float, float);
     callback subtitle-targets(string) -> PlaylistSubtitleTargets;
     callback subtitle-action(PlaylistSubtitleAction, string);
     callback toggle-series-prefix(string);

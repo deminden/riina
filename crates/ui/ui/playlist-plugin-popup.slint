@@ -140,13 +140,11 @@ component PopupPanel inherits Rectangle {
 }
 
 export component PlaylistPluginPopup inherits FocusScope {
-    callback restore-player-focus();
     visible: PlaylistPluginPopupState.shown;
     enabled: self.visible;
     focus-on-click: false;
     changed visible => {
         if self.visible { self.focus(); }
-        else if !PlaylistPluginPopupState.player-menu { root.restore-player-focus(); }
     }
 
     TouchArea {

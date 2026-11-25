@@ -189,7 +189,7 @@ fn playlist_rows_and_six_footer_actions_fit_normal_and_narrow_sidebars() {
                 "Cycle repeat: Off",
                 "Shuffle playlist",
                 "Sort playlist",
-                "Add files to playlist",
+                "Add to playlist",
                 "Remove selected playlist entries",
                 "Clear playlist except current file",
             ] {
@@ -203,6 +203,59 @@ fn playlist_rows_and_six_footer_actions_fit_normal_and_narrow_sidebars() {
             }
         }
     }
+}
+
+#[test]
+fn playlist_footer_anchors_add_and_sort_in_both_surfaces() {
+    use riina_ui::PlaylistFooterMenu;
+
+    let app = player(4);
+    app.global::<PlayerCatalogState>().set_playlist(model());
+    let requested = Rc::new(RefCell::new(Vec::new()));
+    let observe = requested.clone();
+    app.global::<PlaylistInteraction>()
+        .on_request_playlist_footer_menu(move |origin, menu, x, y| {
+            observe.borrow_mut().push((origin, menu, x, y));
+        });
+    for origin in [PlaylistMenuOrigin::Sidebar, PlaylistMenuOrigin::MusicMode] {
+        if origin == PlaylistMenuOrigin::MusicMode {
+            app.window().set_size(LogicalSize::new(300.0, 480.0));
+            app.global::<PlayerSidebarState>().set_sidebar(0);
+            let music = app.global::<PlayerMusicModeState>();
+            music.set_music_mode(true);
+            music.set_music_mode_show_playlist(true);
+        }
+        flush();
+        for (label, menu) in [
+            ("Sort playlist", PlaylistFooterMenu::Sort),
+            ("Add to playlist", PlaylistFooterMenu::Add),
+        ] {
+            let tool = button(&app, label);
+            let position = tool.absolute_position();
+            let bottom = position.y + tool.size().height;
+            tool.mock_single_click(PointerEventButton::Left);
+            flush();
+            assert_eq!(
+                requested.borrow_mut().pop(),
+                Some((origin, menu, position.x, bottom))
+            );
+            key(&app, Key::Return);
+            assert_eq!(
+                requested.borrow_mut().pop(),
+                Some((origin, menu, position.x, bottom))
+            );
+        }
+    }
+    assert!(requested.borrow().is_empty());
+    app.global::<riina_ui::PlayerDialogState>()
+        .set_url_dialog_visible(true);
+    flush();
+    let add = button(&app, "Add");
+    assert!(add.absolute_position().x >= 0.0);
+    assert!(add.absolute_position().x + add.size().width <= 300.0);
+    let url = field(&app, "Media URL");
+    assert!(url.absolute_position().x >= 0.0);
+    assert!(url.absolute_position().x + url.size().width <= 300.0);
 }
 
 #[test]
