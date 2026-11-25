@@ -240,6 +240,9 @@ impl WindowDelivery {
             if let Some(managed) = &self.managed_visibility {
                 managed.reveal(&app, &state);
             }
+            if let Some(volume) = observer.borrow().volume.upgrade() {
+                volume.observe(state.remembered_volume);
+            }
             let first_loaded = (!app.get_loaded()
                 || observer.borrow().media_geometry.generation() != Some(state.generation))
                 && matches!(

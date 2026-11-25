@@ -7,6 +7,7 @@ struct Transaction {
     player: Harness,
     window: PreferencesWindow,
     profile: TestPath,
+    committed_gain: std::rc::Rc<std::cell::Cell<Option<ReplayGainOptions>>>,
 }
 
 impl Transaction {
@@ -31,6 +32,8 @@ impl Transaction {
             })
             .unwrap();
         refresh(&window, &player.app);
+        let committed_gain = std::rc::Rc::new(std::cell::Cell::new(None));
+        let published = committed_gain.clone();
         connect_with_credentials(
             &player.app,
             &window,
@@ -38,11 +41,13 @@ impl Transaction {
             player.session.preference_model.clone(),
             crate::PlaybackStore::default(),
             credentials,
+            move |options| published.set(Some(options)),
         );
         Self {
             player,
             window,
             profile,
+            committed_gain,
         }
     }
 
@@ -97,6 +102,7 @@ fn replay_gain_edits_reach_the_live_decoder_and_persist_without_a_restart() {
             Command::SetReplayGain(selected)
         ]
     );
+    assert_eq!(transaction.committed_gain.get(), Some(selected));
     assert_eq!(
         transaction.profile.read().audio.replay_gain_options(),
         selected
@@ -133,6 +139,7 @@ fn replay_gain_save_failure_restores_the_decoder_and_form() {
         ]
     );
     assert_eq!(form.get_audio_replay_gain_index(), 0);
+    assert_eq!(transaction.committed_gain.get(), None);
     assert!(transaction.profile.file.is_dir());
 }
 
@@ -769,7 +776,7 @@ fn screenshot_edits_preserve_the_configured_format_and_template_outside_the_form
 }
 
 #[test]
-fn saving_a_session_retains_committed_preferences_and_updates_runtime_volume() {
+fn saving_a_session_retains_committed_preferences_without_storing_startup_volume() {
     let transaction = Transaction::new();
     transaction
         .window
@@ -793,7 +800,7 @@ fn saving_a_session_retains_committed_preferences_and_updates_runtime_volume() {
     let saved = transaction.profile.read();
     assert_eq!(saved.audio.audio_threads, 3);
     assert!(!saved.thumbnail_preview.enabled);
-    assert_eq!(saved.volume, 72.0);
+    assert_eq!(saved.volume, Preferences::default().volume);
 }
 
 #[test]
@@ -804,6 +811,7 @@ fn a_session_save_keeps_a_different_writer_s_newer_engine_settings() {
         crate::preference_store::Writer::new(transaction.profile.file.clone(), baseline.clone());
     let mut foreign = baseline;
     foreign.audio.audio_threads = 5;
+    foreign.volume = 56.0;
     writer.save(&foreign).unwrap();
     transaction
         .player
@@ -817,7 +825,7 @@ fn a_session_save_keeps_a_different_writer_s_newer_engine_settings() {
         .unwrap();
     let saved = transaction.profile.read();
     assert_eq!(saved.audio.audio_threads, 5);
-    assert_eq!(saved.volume, 65.0);
+    assert_eq!(saved.volume, 56.0);
 }
 
 #[test]

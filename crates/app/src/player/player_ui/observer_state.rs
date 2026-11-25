@@ -22,6 +22,7 @@ pub(super) struct UiObserverState {
     pub(super) automatic_music: Rc<crate::automatic_music_mode::Controller>,
     pub(super) media_geometry: crate::window_aspect::MediaGeometry,
     pub(super) displayed: Option<Arc<Playback>>,
+    pub(super) volume: Weak<super::volume_preference::VolumePreference>,
     pub(super) opened_media: Option<(u64, i64)>,
     pub(super) seek: SeekOsd,
     pub(super) video: Rc<RefCell<VideoOsd>>,
@@ -43,6 +44,7 @@ impl UiObserverState {
             automatic_music,
             media_geometry,
             displayed: None,
+            volume: Weak::new(),
             opened_media: None,
             seek: SeekOsd::default(),
             video: Rc::new(RefCell::new(video)),
@@ -126,6 +128,10 @@ impl ObserverRegistration {
 
     pub(super) fn bind_open_url(&self, open_url: &Rc<ApplicationOpenUrl>) {
         self.state.borrow_mut().open_url = Rc::downgrade(open_url);
+    }
+
+    pub(super) fn bind_volume(&self, volume: &Rc<super::volume_preference::VolumePreference>) {
+        self.state.borrow_mut().volume = Rc::downgrade(volume);
     }
 
     pub(super) fn bind_playback(

@@ -27,6 +27,7 @@ pub(crate) struct Session {
     pub(crate) updates: Rc<crate::updates::ApplicationUpdates>,
     pub(crate) power: Rc<crate::playback_power::ApplicationPower>,
     pub(crate) application_settings: application_settings::Owner,
+    pub(crate) replay_gain: crate::player_ui::ReplayGainBinding,
 }
 
 pub(crate) fn connect(
@@ -40,6 +41,7 @@ pub(crate) fn connect(
         updates,
         power,
         application_settings,
+        replay_gain,
     }: Session,
     clear_history: impl Fn() -> Result<usize, String> + Clone + 'static,
 ) {
@@ -77,6 +79,7 @@ pub(crate) fn connect(
                         player: &decoder_player,
                         playback: &latest_playback,
                         plugin: plugin_host.as_ref(),
+                        replay_gain: &replay_gain,
                     },
                     clear_history.clone(),
                 ) else {

@@ -14,7 +14,7 @@ use self::handle::{EventRef, Handle};
 use self::playlist_resume::PlaylistResume;
 use super::{Message, WakeupContext, diag, record_notice, trace_shutdown};
 use crate::{
-    EngineError,
+    EngineError, MpvPropertyFormat,
     auto_seek::AutoSeek,
     client_request::{Operation, Pending, Request},
     ffi::{Api, end_reason, event_id, format},
@@ -22,14 +22,16 @@ use crate::{
     properties::OBSERVED,
     seek_feedback::{self, SeekFeedback},
 };
-use riina_core::{CapturedFrame, Command, CommandPlan, NoticeSeverity, Phase, Playback};
+use riina_core::{
+    CapturedFrame, Command, CommandPlan, NoticeSeverity, Phase, Playback, RememberedVolume,
+};
 use std::{
     collections::{BTreeMap, HashMap},
     ffi::{CString, c_int},
     panic::{AssertUnwindSafe, catch_unwind},
     sync::{
         Arc,
-        atomic::{AtomicBool, Ordering},
+        atomic::{AtomicBool, AtomicU64, Ordering},
         mpsc::{Receiver, SyncSender},
     },
     time::Instant,
@@ -279,6 +281,7 @@ struct WorkerState {
     client_requests: HashMap<u64, Pending>,
     hooks: hooks::Hooks,
     volume_boost: bool,
+    adjusted_volume_read: Option<(u64, u64)>,
     pending_drop_subtitles: Vec<String>,
     folder_discovery: folder_discovery::FolderDiscovery,
     playlist_end_pause: playlist_end_pause::EndPause,
@@ -458,8 +461,15 @@ impl WorkerState {
         );
         // The complete intent is planned before native submission begins.
         for mut args in plan.commands {
-            if let (Command::Volume(volume), [_, _, value]) = (command, args.as_mut_slice()) {
-                *value = volume.min(self.volume_limit()).to_string();
+            let mut reply = ReplyKind::for_command(command, args.first().map(String::as_str));
+            if let (Command::Volume(volume) | Command::RestoreVolume(volume), [_, _, value]) =
+                (command, args.as_mut_slice())
+            {
+                let capped = volume.min(self.volume_limit());
+                *value = capped.to_string();
+                if matches!(command, Command::Volume(_)) {
+                    reply = ReplyKind::RememberVolume(capped);
+                }
             }
             if let (Command::OpenMediaLink(link), [action, property, value]) =
                 (command, args.as_mut_slice())
@@ -479,7 +489,6 @@ impl WorkerState {
                 self.seek_feedback.clear();
                 self.auto_seek.interrupt_measurement();
             }
-            let reply = ReplyKind::for_command(command, args.first().map(String::as_str));
             self.issue(handle, &args, reply)?;
             if changes_media(&args)
                 || matches!(command, Command::SetPaused(_) | Command::TogglePause)
@@ -633,6 +642,18 @@ impl WorkerState {
                 self.finish_stream_auth(handle, hook, entry, failed);
                 continue;
             }
+            if event.id() == event_id::GET_PROPERTY_REPLY
+                && let Some((id, revision)) = self.adjusted_volume_read
+                && id == event.userdata()
+            {
+                self.adjusted_volume_read = None;
+                if let Ok(value) = event.client_reply()
+                    && let Some(level) = value.as_f64().filter(|value| value.is_finite())
+                {
+                    self.remember_volume(revision, level.clamp(0.0, self.volume_limit()));
+                }
+                continue;
+            }
             if matches!(
                 event.id(),
                 event_id::GET_PROPERTY_REPLY
@@ -673,13 +694,16 @@ impl WorkerState {
             } else if event.id() == event_id::PLAYBACK_RESTART {
                 self.on_playback_restarted(handle);
             } else if event.id() == event_id::QUEUE_OVERFLOW {
-                self.on_event(&event);
+                let _ = self.on_event(&event);
                 self.continue_stream_auth(handle);
                 self.release_end_pause_hook(handle);
             } else {
                 let command_reply =
                     (event.id() == event_id::COMMAND_REPLY).then(|| event.userdata());
-                self.on_event(&event);
+                let adjusted_volume = self.on_event(&event);
+                if let Some(revision) = adjusted_volume {
+                    self.read_adjusted_volume(handle, revision);
+                }
                 if let Some(id) = command_reply {
                     self.finish_end_pause(handle, id);
                 }
@@ -687,11 +711,11 @@ impl WorkerState {
         }
     }
 
-    fn on_event(&mut self, event: &EventRef<'_>) {
+    fn on_event(&mut self, event: &EventRef<'_>) -> Option<u64> {
         match event.id() {
             event_id::COMMAND_REPLY => {
                 self.on_stream_reply(event);
-                self.on_command_reply(event);
+                return self.on_command_reply(event);
             }
             event_id::START_FILE => {
                 self.active_entry = event.started_entry();
@@ -733,6 +757,7 @@ impl WorkerState {
                 self.folder_discovery = folder_discovery::FolderDiscovery::default();
                 self.playback.folder_discovery_allowed = false;
                 self.client_requests.clear();
+                self.adjusted_volume_read = None;
                 self.playlist_resume = PlaylistResume::Idle;
                 record_notice(
                     &mut self.playback,
@@ -741,6 +766,30 @@ impl WorkerState {
                 );
             }
             _ => {}
+        }
+        None
+    }
+
+    fn read_adjusted_volume(&mut self, handle: &Handle, revision: u64) {
+        // Read the native result of the relative adjustment, including its cap.
+        self.next_id += 1;
+        let read = Operation::Read {
+            name: c"volume".to_owned(),
+            format: MpvPropertyFormat::Number,
+        };
+        if handle.request_property(self.next_id, &read).is_ok() {
+            self.adjusted_volume_read = Some((self.next_id, revision));
+        }
+    }
+
+    fn remember_volume(&mut self, revision: u64, level: f64) {
+        if self
+            .playback
+            .remembered_volume
+            .is_none_or(|old| old.revision < revision)
+        {
+            self.playback.remembered_volume = Some(RememberedVolume { revision, level });
+            self.mark_changed();
         }
     }
 
@@ -815,7 +864,8 @@ impl WorkerState {
         }
     }
 
-    fn on_command_reply(&mut self, event: &EventRef<'_>) {
+    fn on_command_reply(&mut self, event: &EventRef<'_>) -> Option<u64> {
+        static NEXT_VOLUME_REVISION: AtomicU64 = AtomicU64::new(1);
         let failed = event.failed();
         if self.folder_discovery.awaits(event.userdata()) {
             self.folder_discovery
@@ -830,22 +880,25 @@ impl WorkerState {
         if failed {
             self.auto_seek.failed(event.userdata());
         }
-        let Some(pending) = self
+        let pending = self
             .pending
             .remove(&event.userdata())
-            .filter(|reply| reply.belongs_to(&self.playback))
-        else {
-            return;
-        };
+            .filter(|reply| reply.belongs_to(&self.playback))?;
         if pending.kind == ReplyKind::FrameCapture {
             self.finish_frame_request();
         }
         if failed {
             self.on_failed_reply(event, pending);
-            return;
+            return None;
         }
         match pending.kind {
             ReplyKind::Plain => {}
+            ReplyKind::RememberVolume(level) => {
+                self.remember_volume(NEXT_VOLUME_REVISION.fetch_add(1, Ordering::Relaxed), level);
+            }
+            ReplyKind::RememberAdjustedVolume => {
+                return Some(NEXT_VOLUME_REVISION.fetch_add(1, Ordering::Relaxed));
+            }
             ReplyKind::Screenshot { path } => {
                 if let Some(path) = path.or_else(|| event.screenshot_filename()) {
                     self.playback.screenshot_file = Some(path);
@@ -861,6 +914,7 @@ impl WorkerState {
             }
             kind => self.on_capture_reply(event, kind, pending.generation),
         }
+        None
     }
 
     fn on_failed_reply(&mut self, event: &EventRef<'_>, pending: PendingCommand) {
@@ -874,7 +928,10 @@ impl WorkerState {
             ReplyKind::FrameCapture
             | ReplyKind::TransitionCapture
             | ReplyKind::IncomingTransitionCapture => {}
-            ReplyKind::Plain | ReplyKind::Screenshot { .. } => {
+            ReplyKind::Plain
+            | ReplyKind::RememberVolume(_)
+            | ReplyKind::RememberAdjustedVolume
+            | ReplyKind::Screenshot { .. } => {
                 if let Some(error) = event.error() {
                     let message = format!("mpv {}: {error}", pending.label);
                     record_notice(&mut self.playback, NoticeSeverity::Error, message);
@@ -940,7 +997,10 @@ impl WorkerState {
                     .store(frame, Some(generation), None, Some(Instant::now()))
             }
             ReplyKind::FrameCapture => state.captured_frame.store(frame, None, None, None),
-            ReplyKind::Plain | ReplyKind::Screenshot { .. } => {}
+            ReplyKind::Plain
+            | ReplyKind::RememberVolume(_)
+            | ReplyKind::RememberAdjustedVolume
+            | ReplyKind::Screenshot { .. } => {}
         }
     }
 }

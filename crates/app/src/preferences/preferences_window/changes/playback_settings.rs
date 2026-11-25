@@ -130,6 +130,15 @@ impl Draft {
         })
     }
 
+    pub(super) fn committed_replay_gain(
+        &self,
+        applied: &Applied,
+    ) -> Option<audio_preferences::ReplayGainOptions> {
+        applied
+            .replay_gain
+            .then(|| self.audio.replay_gain_options())
+    }
+
     pub(super) fn restart_notice(&self) -> Option<&'static str> {
         if self.advanced_changed {
             Some("Advanced settings apply after restarting Riina")

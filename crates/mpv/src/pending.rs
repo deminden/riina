@@ -8,9 +8,11 @@ pub(super) struct PendingCommand {
     pub(super) changes_media: bool,
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq)]
 pub(super) enum ReplyKind {
     Plain,
+    RememberVolume(f64),
+    RememberAdjustedVolume,
     Screenshot { path: Option<String> },
     FrameCapture,
     TransitionCapture,
@@ -27,6 +29,9 @@ impl ReplyKind {
             Command::Screenshot { .. } if native_command == Some("screenshot") => {
                 Self::Screenshot { path: None }
             }
+            Command::AdjustVolume { .. } if native_command == Some("add") => {
+                Self::RememberAdjustedVolume
+            }
             Command::CaptureFrame | Command::CaptureThumbnailFrame => Self::FrameCapture,
             Command::CaptureTransitionFrame => Self::TransitionCapture,
             Command::CaptureIncomingTransitionFrame => Self::IncomingTransitionCapture,
@@ -39,6 +44,10 @@ impl ReplyKind {
 impl PendingCommand {
     pub(super) fn belongs_to(&self, state: &Playback) -> bool {
         self.generation == state.generation
+            || matches!(
+                self.kind,
+                ReplyKind::RememberVolume(_) | ReplyKind::RememberAdjustedVolume
+            )
             || (self.kind == ReplyKind::TransitionCapture
                 && state.generation.saturating_sub(self.generation) <= 1
                 && state

@@ -377,16 +377,15 @@ pub(super) fn activate_output(
     native_presentation: bool,
     player: Option<&Player>,
     command_sender: &CommandSender,
-    prefs: &Preferences,
+    volume: f64,
     opening: InitialOpen,
     picture_in_picture: &crate::platform::PictureInPictureSession,
 ) -> Result<(), Box<dyn std::error::Error>> {
     crate::fullscreen_info::connect(app);
-    let volume = initial_volume(prefs, opening.media.launch.volume);
     if native_presentation {
         app.set_engine_ready(true);
         command_sender
-            .send(Command::Volume(volume))
+            .send(Command::RestoreVolume(volume))
             .map_err(std::io::Error::other)?;
         opening.open(app, command_sender.clone());
     } else if let Some(player) = player {
@@ -401,11 +400,15 @@ pub(super) fn activate_output(
     Ok(())
 }
 
-fn initial_volume(prefs: &Preferences, requested: Option<f64>) -> f64 {
+pub(super) fn initial_volume(
+    prefs: &Preferences,
+    requested: Option<f64>,
+    recent: Option<f64>,
+) -> f64 {
     let profile_volume = if prefs.audio.initial_volume_enabled {
         f64::from(prefs.audio.initial_volume)
     } else {
-        prefs.volume
+        recent.unwrap_or(prefs.volume)
     };
     requested
         .unwrap_or(profile_volume)
@@ -568,15 +571,16 @@ mod volume_tests {
             volume: 46.0,
             ..Preferences::default()
         };
-        assert_eq!(initial_volume(&prefs, None), 46.0);
+        assert_eq!(initial_volume(&prefs, None, None), 46.0);
+        assert_eq!(initial_volume(&prefs, None, Some(52.0)), 52.0);
         prefs.audio.initial_volume_enabled = true;
         prefs.audio.initial_volume = 65;
-        assert_eq!(initial_volume(&prefs, None), 65.0);
-        assert_eq!(initial_volume(&prefs, Some(24.0)), 24.0);
+        assert_eq!(initial_volume(&prefs, None, Some(52.0)), 65.0);
+        assert_eq!(initial_volume(&prefs, Some(24.0), Some(52.0)), 24.0);
         prefs.audio.initial_volume = 235;
-        assert_eq!(initial_volume(&prefs, None), 100.0);
+        assert_eq!(initial_volume(&prefs, None, None), 100.0);
         prefs.volume_boost = true;
-        assert_eq!(initial_volume(&prefs, None), 200.0);
-        assert_eq!(initial_volume(&prefs, Some(160.0)), 160.0);
+        assert_eq!(initial_volume(&prefs, None, None), 200.0);
+        assert_eq!(initial_volume(&prefs, Some(160.0), None), 160.0);
     }
 }

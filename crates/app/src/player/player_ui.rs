@@ -5,7 +5,9 @@ mod catalog;
 mod context;
 mod control_actions;
 mod controller_arrows;
-mod controller_clock;
+mod profile_playback;
+mod volume_preference;
+pub(crate) use profile_playback::ReplayGainBinding;
 mod delays;
 mod dialogs;
 mod discovery;
@@ -317,7 +319,7 @@ pub(crate) struct ApplicationServices {
     recents: Rc<recent_activity::ApplicationRecents>,
     pub(crate) updates: Rc<crate::updates::ApplicationUpdates>,
     power: Rc<crate::playback_power::ApplicationPower>,
-    clocks: Rc<controller_clock::ApplicationClocks>,
+    profile_playback: Rc<profile_playback::ProfilePlayback>,
     touch_bars: platform::player_touch_bar::Application,
     pub(crate) settings: platform::application_settings::Owner,
 }
@@ -355,13 +357,14 @@ impl ApplicationServices {
         );
         self.highlights.connect(app);
         self.about.connect(app, context.playback().clone());
-        self.clocks.connect(app, context);
+        let replay_gain = self.profile_playback.connect(app, context);
         session_preferences::connect(
             app,
             context,
             &session.history,
             &session.recent.activity,
             self,
+            replay_gain,
         );
     }
 
@@ -371,7 +374,9 @@ impl ApplicationServices {
         observer: &observer_state::ObserverRegistration,
         timers: features::PlaybackTimers,
         native_engine: bool,
+        volume: &Rc<volume_preference::VolumePreference>,
     ) {
+        observer.bind_volume(volume);
         let power = native_engine.then(|| self.power.attach(app));
         observer.bind_playback(timers, power);
     }
@@ -427,6 +432,9 @@ fn configure_with_engine(
     )?;
     let prefs = &session.prefs;
     let prefs_path = &session.prefs_path;
+    let volume = application.profile_playback.volume(prefs_path, prefs);
+    let opening_volume =
+        startup::initial_volume(prefs, media.launch.volume, volume.pending_level());
     let latest_playback = &session.projection.latest_playback;
     let observation_dispatch::PreparedObservation {
         notification,
@@ -484,7 +492,7 @@ fn configure_with_engine(
             resize_filter,
         },
     );
-    application.bind_playback(app, &observer_state, timers, player.is_some());
+    application.bind_playback(app, &observer_state, timers, player.is_some(), &volume);
     let preference_model = PreferenceModel::new(prefs_path.clone(), prefs.clone());
     let context = PlayerContext::new(
         app,
@@ -516,7 +524,7 @@ fn configure_with_engine(
         native.is_some(),
         player.as_ref(),
         &command_sender,
-        prefs,
+        opening_volume,
         startup::InitialOpen {
             media,
             plugins: session.plugin_host_handle.clone(),
@@ -552,6 +560,7 @@ fn configure_with_engine(
         features: guards,
         preference_model,
         preference_state: session_preferences::SessionState {
+            volume,
             audio_equalizer: session.audio_equalizer,
             recent: session.recent,
             history: session.history,

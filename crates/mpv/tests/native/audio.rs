@@ -139,3 +139,34 @@ fn audio_equalizer_applies_updates_and_returns_to_flat() {
     assert_eq!(reset.error(), None);
     drop(harness);
 }
+
+#[test]
+#[ignore = "requires provisioned libmpv; verifies remembered user volume and temporary restoration"]
+fn remembered_volume_tracks_native_user_adjustments() {
+    let root = fixture_root();
+    let harness = Harness::with_options(&root, vec![("ao".into(), "null".into())]).unwrap();
+    harness.send(Command::RestoreVolume(41.0)).unwrap();
+    let restored = harness.wait(|state| state.volume == 41.0);
+    assert_eq!(restored.remembered_volume, None);
+
+    harness
+        .send(Command::AdjustVolume {
+            delta: 6.0,
+            boost: false,
+        })
+        .unwrap();
+    let adjusted = harness.wait(|state| state.remembered_volume.is_some());
+    let remembered = adjusted.remembered_volume.unwrap();
+    assert_eq!(remembered.level, 47.0);
+    harness.send(Command::RestoreVolume(31.0)).unwrap();
+    let restored = harness.wait(|state| state.volume == 31.0);
+    assert_eq!(restored.remembered_volume, Some(remembered));
+
+    harness.send(Command::Volume(150.0)).unwrap();
+    let capped = harness.wait(|state| {
+        state
+            .remembered_volume
+            .is_some_and(|volume| volume.revision > remembered.revision)
+    });
+    assert_eq!(capped.remembered_volume.unwrap().level, 100.0);
+}

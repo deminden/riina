@@ -6,7 +6,7 @@ use crate::{PlayerWindow, PreferencesWindow};
 use std::{cell::RefCell, rc::Rc};
 
 #[cfg(target_os = "macos")]
-pub(crate) use native::{application_status, configure_application_actions};
+pub(crate) use native::{ProfileChanges, application_status, configure_application_actions};
 
 #[cfg(target_os = "macos")]
 pub(crate) const PLUGINS_PANE: i32 = 9;

@@ -4,7 +4,9 @@ use crate::{Playback, audio_equalizer, audio_preferences::ReplayGainOptions};
 impl Command {
     pub(super) fn audio_args(&self) -> Result<Vec<String>, CommandError> {
         let args = match self {
-            Self::Volume(value) if value.is_finite() && (0.0..=200.0).contains(value) => {
+            Self::Volume(value) | Self::RestoreVolume(value)
+                if value.is_finite() && (0.0..=200.0).contains(value) =>
+            {
                 set("volume", value.to_string())
             }
             Self::AudioDevice(name) if !name.is_empty() && !name.contains('\0') => {

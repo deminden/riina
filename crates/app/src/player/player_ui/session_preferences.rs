@@ -2,13 +2,13 @@
 
 use super::{
     ApplicationServices, PlayerContext, UiSession, history_session,
-    recent_activity::RecentActivity, startup,
+    recent_activity::RecentActivity, startup, volume_preference::VolumePreference,
 };
 use crate::{PlaybackStore, PlayerWindow};
 use riina_core::{Phase, Preferences, audio_equalizer};
 use riina_ui::{
-    PlaybackAudioState, PlaybackSubtitleState, PlayerAppearance, PlayerLayoutState,
-    PlayerPreferences, PlayerSidebarState,
+    PlaybackSubtitleState, PlayerAppearance, PlayerLayoutState, PlayerPreferences,
+    PlayerSidebarState,
 };
 use slint::ComponentHandle;
 use std::{
@@ -24,6 +24,7 @@ pub(super) fn connect(
     history: &history_session::Tracking,
     recent: &Rc<RecentActivity>,
     services: &ApplicationServices,
+    replay_gain: super::ReplayGainBinding,
 ) {
     crate::preferences_window::connect(
         app,
@@ -36,6 +37,7 @@ pub(super) fn connect(
             updates: services.updates.clone(),
             power: services.power.clone(),
             application_settings: services.settings.clone(),
+            replay_gain,
         },
         history.clear_hook(
             context.preferences_path().to_path_buf(),
@@ -50,9 +52,13 @@ impl UiSession {
         let candidate = self
             .preference_state
             .capture(app, self.preference_model.snapshot())?;
-        self.preference_model
-            .save_session(candidate)
-            .map_err(io::Error::other)?;
+        let saved = self.preference_model.save_session(candidate);
+        let state = riina_core::sync::lock(&self.preference_state.latest_playback);
+        let volume = state.remembered_volume;
+        drop(state);
+        self.preference_state.volume.observe(volume);
+        let volume_saved = self.preference_state.volume.flush();
+        saved.and(volume_saved).map_err(io::Error::other)?;
         self.preference_state
             .save_current_media()
             .map_err(io::Error::other)?;
@@ -61,6 +67,7 @@ impl UiSession {
 }
 
 pub(super) struct SessionState {
+    pub(super) volume: Rc<VolumePreference>,
     pub(super) audio_equalizer: Arc<Mutex<audio_equalizer::Settings>>,
     pub(super) recent: startup::SessionRecents,
     pub(super) history: history_session::Tracking,
@@ -133,11 +140,6 @@ fn capture_window_state(app: &PlayerWindow, preferences: Preferences) -> io::Res
     // These values can change through the player, its native menus, or engine
     // observations. Settings-only controls are already in the model.
     Ok(Preferences {
-        volume: f64::from(app.global::<PlaybackAudioState>().get_volume()).min(if volume_boost {
-            200.0
-        } else {
-            100.0
-        }),
         volume_boost,
         resume_last_position: player_preferences.get_resume_last_position(),
         live_text_enabled: app.get_live_text_enabled(),

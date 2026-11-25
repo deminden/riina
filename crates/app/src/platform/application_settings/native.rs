@@ -5,7 +5,9 @@ mod font_picker;
 
 use crate::preferences_window::profile_window;
 use crate::{PreferencesWindow, windows::close_observer::CloseObserver};
-use riina_core::{Preferences, osc_preferences::ControllerOptions};
+use riina_core::{
+    Preferences, audio_preferences::ReplayGainOptions, osc_preferences::ControllerOptions,
+};
 use slint::{CloseRequestResponse, ComponentHandle, winit_030::WinitWindowAccessor};
 use std::{
     cell::RefCell,
@@ -17,6 +19,11 @@ use std::{
 pub(crate) struct ApplicationSettings {
     window: RefCell<Option<PreferencesWindow>>,
     pub(crate) closed: CloseObserver,
+}
+
+pub(crate) struct ProfileChanges {
+    pub(crate) controller: Option<ControllerOptions>,
+    pub(crate) replay_gain: Option<ReplayGainOptions>,
 }
 
 struct Profile {
@@ -49,7 +56,7 @@ impl Profile {
         path: PathBuf,
         saved: Preferences,
         credentials: Credentials,
-        committed: impl Fn(Option<ControllerOptions>) + 'static,
+        committed: impl Fn(ProfileChanges) + 'static,
     ) -> Result<(), String> {
         let displayed = fields::read(window, &saved)?;
         let state = Rc::new(RefCell::new(Self {
@@ -84,7 +91,7 @@ impl Profile {
     fn save(
         &mut self,
         window: &PreferencesWindow,
-        committed: impl FnOnce(Option<ControllerOptions>),
+        committed: impl FnOnce(ProfileChanges),
     ) -> Result<(), String> {
         let edit = fields::read(window, &self.displayed).and_then(|edit| {
             crate::preference_store::save_form_edit(
@@ -103,7 +110,11 @@ impl Profile {
             }
         };
         let options = edit.control_bar.controller;
-        committed((options != self.displayed.control_bar.controller).then_some(options));
+        let gain = edit.audio.replay_gain_options();
+        committed(ProfileChanges {
+            controller: (options != self.displayed.control_bar.controller).then_some(options),
+            replay_gain: (gain != self.displayed.audio.replay_gain_options()).then_some(gain),
+        });
         let previous = &self.displayed.online_subtitles;
         let selected = &mut edit.online_subtitles;
         // Commit the profile before writing credentials to the separate key store.
@@ -259,7 +270,7 @@ impl ApplicationSettings {
         path: &Path,
         saved: Preferences,
         clear_history: impl Fn() -> Result<usize, String> + 'static,
-        controller_committed: impl Fn(ControllerOptions) + 'static,
+        committed: impl Fn(ProfileChanges) + 'static,
         configure: impl FnOnce(&PreferencesWindow),
     ) -> Result<(), String> {
         if self.show_visible(None).map_err(|error| error.to_string())? {
@@ -270,10 +281,8 @@ impl ApplicationSettings {
             saved,
             Credentials::system(),
             clear_history,
-            move |options| {
-                if let Some(options) = options {
-                    controller_committed(options);
-                }
+            move |changes| {
+                committed(changes);
                 crate::platform::browser_activation::refresh_idle_menu();
             },
         )?;
@@ -289,7 +298,7 @@ impl ApplicationSettings {
         saved: Preferences,
         credentials: Credentials,
         clear_history: impl Fn() -> Result<usize, String> + 'static,
-        committed: impl Fn(Option<ControllerOptions>) + 'static,
+        committed: impl Fn(ProfileChanges) + 'static,
     ) -> Result<PreferencesWindow, String> {
         let window = profile_window::create(path, &saved, &[], clear_history)?;
         Profile::connect(&window, path.to_owned(), saved, credentials, committed)?;

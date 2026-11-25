@@ -224,7 +224,8 @@ impl AppliedDecoderSettings {
             if !boost {
                 let capped_volume = applied.previous.volume.min(100.0);
                 if capped_volume != applied.previous.volume
-                    && let Err(error) = sender.send(Command::Volume(f64::from(capped_volume)))
+                    && let Err(error) =
+                        sender.send(Command::RestoreVolume(f64::from(capped_volume)))
                 {
                     crate::preferences::restore_playback(
                         sender,
@@ -260,7 +261,7 @@ impl AppliedDecoderSettings {
             if self.previous.volume != app.global::<riina_ui::PlaybackAudioState>().get_volume() {
                 crate::preferences::restore_playback(
                     sender,
-                    Command::Volume(f64::from(self.previous.volume)),
+                    Command::RestoreVolume(f64::from(self.previous.volume)),
                 );
             }
             app.global::<riina_ui::PlayerPreferences>()

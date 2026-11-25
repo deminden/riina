@@ -5498,3 +5498,34 @@ already open players remain open.
 - Linux application SHA-256 `cba18515503c085018bc934be8ab4df685c88b932b9d016afc6e898bb586f444`
 - X11 libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`
 - Wayland libmpv SHA-256 `cdce854e1811942602587310026306d92d30c0f593f2be676f07659ae43061d8`
+
+### Shared playback profile 2026-11-25
+
+Committed ReplayGain edits update the decoder and open Settings form for each
+player using the profile. Headless tests cover profile isolation, failed commits
+and changes from the application-owned Settings form. Null-output native tests
+verify all four ReplayGain values without reloading the paused media.
+
+The engine distinguishes acknowledged absolute and relative volume changes from
+temporary restores. Tests cover the active cap, out-of-order snapshots across
+players, saving after the idle interval and flushing before close. On X11, a
+player started at the saved 42%. A system media control changed it to 40%, and
+another window opened at 40% while the original file stayed paused. Both windows
+closed through the application and the profile kept 40%. On Wayland, the
+configured 235% startup level was capped at 200% with boost enabled. Volume
+changes reached the decoder, saved before shutdown and survived closing both
+windows.
+
+The Windows workspace gate passed strict Clippy, unit and integration tests,
+software-rendered player and Settings pixels, and the script and browser
+suites. All 67 Windows native tests and four Linux native audio tests passed.
+The isolated Windows desktop test checked volume changes during native video,
+fullscreen and clean shutdown in 9,098 ms. The Linux tests used isolated
+X11 and Wayland sessions. Cross-Clippy passed on both Apple targets. Native
+macOS interaction remains unverified.
+
+- Windows application SHA-256 `e815892c0a50b53a9b073018b6aae0920de44ef3316f48d392aca152812d3bef`
+- Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
+- Linux application SHA-256 `2240e366f5da39f31a6b5540557b850fc91be26a238742ceb7bcf7eff408418b`
+- X11 libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`
+- Wayland libmpv SHA-256 `cdce854e1811942602587310026306d92d30c0f593f2be676f07659ae43061d8`

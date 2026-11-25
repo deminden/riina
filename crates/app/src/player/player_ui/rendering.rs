@@ -202,7 +202,7 @@ impl RenderSession {
         let Some(opening) = self.opening.take() else {
             return;
         };
-        if let Err(error) = self.player.send(Command::Volume(opening.volume)) {
+        if let Err(error) = self.player.send(Command::RestoreVolume(opening.volume)) {
             crate::diagnostics::warn!("Could not set the initial playback volume: {error}");
         }
         opening.media.open(app, self.player.command_sender());

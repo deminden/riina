@@ -77,6 +77,7 @@ pub enum Command {
         seek_type: control_preferences::SeekType,
     },
     Volume(f64),
+    RestoreVolume(f64),
     AudioDevice(String),
     SetReplayGain(ReplayGainOptions),
     AdjustVolume {

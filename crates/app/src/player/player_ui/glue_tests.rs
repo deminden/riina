@@ -139,6 +139,72 @@ fn exercise_teardown(profile: &std::path::Path) -> Result<(), Box<dyn std::error
     Ok(())
 }
 
+fn exercise_shared_volume(profile: &std::path::Path) -> Result<(), Box<dyn std::error::Error>> {
+    use riina_core::RememberedVolume;
+
+    let path = profile.join("shared-volume/preferences.json");
+    let application = ApplicationServices::default();
+    let start = || {
+        Harness::start_in_application(
+            path.clone(),
+            false,
+            InitialMedia::default(),
+            application.clone(),
+            None,
+        )
+    };
+    let first = start()?;
+    let second = start()?;
+    let accepted = RememberedVolume {
+        revision: 2,
+        level: 68.0,
+    };
+    first.publish(Playback {
+        volume: accepted.level,
+        remembered_volume: Some(accepted),
+        ..Default::default()
+    })?;
+    assert!(!path.exists());
+    assert_eq!(
+        second.session.preference_state.volume.pending_level(),
+        Some(68.0)
+    );
+    second.publish(Playback {
+        volume: 37.0,
+        remembered_volume: Some(RememberedVolume {
+            revision: 1,
+            level: 37.0,
+        }),
+        ..Default::default()
+    })?;
+    assert_eq!(
+        second.session.preference_state.volume.pending_level(),
+        Some(68.0)
+    );
+    i_slint_backend_testing::mock_elapsed_time(Duration::from_millis(200));
+    assert_eq!(second.session.preference_state.volume.pending_level(), None);
+    assert_eq!(
+        crate::preference_load::load(&path)?.preferences.volume,
+        68.0
+    );
+
+    first.engine.publish(Playback {
+        volume: 42.0,
+        remembered_volume: Some(RememberedVolume {
+            revision: 3,
+            level: 42.0,
+        }),
+        ..Default::default()
+    });
+    first.session.save(&first.app)?;
+    second.session.save(&second.app)?;
+    assert_eq!(
+        crate::preference_load::load(&path)?.preferences.volume,
+        42.0
+    );
+    Ok(())
+}
+
 fn exercise_idle_managed_player(
     profile: &std::path::Path,
 ) -> Result<(), Box<dyn std::error::Error>> {
@@ -230,6 +296,7 @@ fn player_glue_worker() -> Result<(), Box<dyn std::error::Error>> {
     exercise_teardown(&profile)?;
     exercise_idle_managed_player(&profile)?;
     exercise_shared_recents(&profile)?;
+    exercise_shared_volume(&profile)?;
     let harness = Harness::start(profile.join("shared/preferences.json"), false)?;
     exercise_transport_and_tracks(&harness);
     exercise_transport_settings(&harness);

@@ -23,6 +23,12 @@ pub enum Phase {
     Failed,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct RememberedVolume {
+    pub revision: u64,
+    pub level: f64,
+}
+
 #[derive(Debug, Clone, Default)]
 pub struct Playback {
     /// File-opening policy is intent; `paused` remains native observed state.
@@ -55,6 +61,8 @@ pub struct Playback {
     pub completed_navigation_seeks: u64,
     pub seekable: bool,
     pub volume: f64,
+    /// The newest accepted user volume adjustment, retained across media changes.
+    pub remembered_volume: Option<RememberedVolume>,
     pub muted: bool,
     pub speed: f64,
     pub audio_output: Option<String>,

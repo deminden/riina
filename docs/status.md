@@ -38,9 +38,10 @@ Implementation does not imply every state or platform is verified.
   selected action. The Music Mode arrows navigate the playlist.
 - **Audio startup and ReplayGain:** a new player uses the configured initial
   volume when enabled and the saved volume otherwise. An explicit launch
-  volume takes precedence, within the active 100% or 200% limit. ReplayGain
-  mode, preamp, clipping and fallback edits apply to the player that owns
-  the Settings form and save for subsequent players.
+  volume takes precedence, within the active 100% or 200% limit. A deliberate
+  volume change is available to new players while the current one remains
+  open. ReplayGain mode, preamp, clipping and fallback edits apply to all
+  open players using the saved profile.
 - **Music Mode catalog:** the compact player opens Playlist and Chapters in
   the same panel. The toolbar remembers the active tab, and both lists keep
   their scroll positions when switching between the main and compact player.

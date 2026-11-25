@@ -28,9 +28,11 @@ impl Command {
             | Self::SeekWithType { .. }
             | Self::SelectChapter(_)
             | Self::AdjustChapter(_) => self.seek_args()?,
-            Self::Volume(_) | Self::AudioDevice(_) | Self::ToggleMute | Self::SetMuted(_) => {
-                self.audio_args()?
-            }
+            Self::Volume(_)
+            | Self::RestoreVolume(_)
+            | Self::AudioDevice(_)
+            | Self::ToggleMute
+            | Self::SetMuted(_) => self.audio_args()?,
             Self::CaptureFrame
             | Self::CaptureThumbnailFrame
             | Self::CaptureTransitionFrame

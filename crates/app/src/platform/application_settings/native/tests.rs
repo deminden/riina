@@ -34,6 +34,7 @@ fn settings_changes_before_playback_merge_with_an_independent_save() {
         .unwrap();
     let owner = Rc::new(ApplicationSettings::default());
     let commits = Rc::new(Cell::new(0));
+    let gain = riina_core::audio_preferences::ReplayGain::Album;
     let counter = commits.clone();
     let window = owner
         .create(
@@ -41,7 +42,11 @@ fn settings_changes_before_playback_merge_with_an_independent_save() {
             original.clone(),
             credentials(),
             || Ok(0),
-            move |_| counter.set(counter.get() + 1),
+            move |changes| {
+                assert!(changes.controller.is_none());
+                assert_eq!(changes.replay_gain.unwrap().mode, gain);
+                counter.set(counter.get() + 1);
+            },
         )
         .unwrap();
     profile_window::connect_actions(&window, None, &path, || {});
@@ -65,6 +70,9 @@ fn settings_changes_before_playback_merge_with_an_independent_save() {
     general.set_show_preview(false);
     general.set_pause_when_open(true);
     window.set_video_threads_text("8".into());
+    window
+        .global::<riina_ui::AudioSettingsState>()
+        .set_audio_replay_gain_index(2);
     window.set_appearance_index(ThemeMaterial::Dark.index());
     let subtitles = window.global::<crate::SubtitleSettingsState>();
     subtitles.set_subtitle_font("Serif".into());
@@ -80,6 +88,7 @@ fn settings_changes_before_playback_merge_with_an_independent_save() {
     assert_eq!(saved.action_after_launch, ActionAfterLaunch::OpenPanel);
     assert!(saved.pause_when_open);
     assert_eq!(saved.video_threads, 8);
+    assert_eq!(saved.audio.replay_gain_options().mode, gain);
     assert!(!saved.screenshot.show_preview);
     assert!(saved.screenshot.destinations.copy_to_clipboard);
     assert_eq!(saved.screenshot.encoding, original.screenshot.encoding);

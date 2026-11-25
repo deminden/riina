@@ -12,6 +12,7 @@ use super::{
 use crate::{PlayerWindow, PreferencesWindow, preferences::model::PreferenceModel};
 #[cfg(test)]
 use riina_core::Command;
+use riina_core::audio_preferences::ReplayGainOptions;
 use slint::ComponentHandle;
 
 pub(super) fn connect(
@@ -20,6 +21,7 @@ pub(super) fn connect(
     decoder_player: riina_mpv::CommandSender,
     model: PreferenceModel,
     key_binding_playback: crate::PlaybackStore,
+    replay_gain_committed: impl Fn(ReplayGainOptions) + 'static,
 ) {
     connect_with_credentials(
         app,
@@ -28,6 +30,7 @@ pub(super) fn connect(
         model,
         key_binding_playback,
         CredentialStore::system(),
+        replay_gain_committed,
     );
 }
 
@@ -52,6 +55,7 @@ fn connect_with_credentials(
     model: PreferenceModel,
     key_binding_playback: crate::PlaybackStore,
     credentials: CredentialStore,
+    replay_gain_committed: impl Fn(ReplayGainOptions) + 'static,
 ) {
     let parent = app.as_weak();
     let weak = window.as_weak();
@@ -143,6 +147,7 @@ fn connect_with_credentials(
                     &selected_online_subtitles,
                     &applied_subtitles,
                 );
+                preferences.volume = saved.volume;
                 general.put(&mut preferences);
                 display.put(&mut preferences);
                 playback.put(&mut preferences);
@@ -150,20 +155,25 @@ fn connect_with_credentials(
                 save_preferences(&window, &app, &model, preferences)
             });
         match result {
-            Ok(()) => committed::project(
-                &app,
-                &window,
-                &model,
-                &credentials,
-                &key_binding_playback,
-                committed::PreviousValues {
-                    pause_when_open: general.previous.pause_when_open,
-                    resume_last_position: general.previous.resume_last_position,
-                    record_playback_history: general.previous.record_playback_history,
-                    assrt_token: &previous_assrt_token,
-                },
-                restart_notice,
-            ),
+            Ok(()) => {
+                if let Some(options) = playback.committed_replay_gain(&playback_changes) {
+                    replay_gain_committed(options);
+                }
+                committed::project(
+                    &app,
+                    &window,
+                    &model,
+                    &credentials,
+                    &key_binding_playback,
+                    committed::PreviousValues {
+                        pause_when_open: general.previous.pause_when_open,
+                        resume_last_position: general.previous.resume_last_position,
+                        record_playback_history: general.previous.record_playback_history,
+                        assrt_token: &previous_assrt_token,
+                    },
+                    restart_notice,
+                );
+            }
             Err(error) => {
                 general::install_open_policy(&window, &saved);
                 playback.restore(&app, &window, &decoder_player, &general, &playback_changes);
@@ -220,16 +230,6 @@ fn capture_preferences(
 ) -> riina_core::Preferences {
     riina_core::Preferences {
         screenshot,
-        volume: f64::from(app.global::<riina_ui::PlaybackAudioState>().get_volume()).min(
-            if app
-                .global::<riina_ui::PlayerPreferences>()
-                .get_volume_boost()
-            {
-                200.0
-            } else {
-                100.0
-            },
-        ),
         volume_boost: app
             .global::<riina_ui::PlayerPreferences>()
             .get_volume_boost(),

@@ -15,6 +15,7 @@ pub(super) struct Inputs<'a> {
     pub(super) player: &'a CommandSender,
     pub(super) playback: &'a PlaybackStore,
     pub(super) plugin: Option<&'a PluginHostHandle>,
+    pub(super) replay_gain: &'a crate::player_ui::ReplayGainBinding,
 }
 
 pub(super) fn create(
@@ -29,6 +30,7 @@ pub(super) fn create(
         player: decoder_player,
         playback: latest_playback,
         plugin: plugin_host,
+        replay_gain,
     } = inputs;
     let available_devices = latest_playback
         .lock()
@@ -55,12 +57,15 @@ pub(super) fn create(
     });
     crate::online_subtitles_preferences::install_window_catalog(&window, app);
     connect_subtitle_font(app, &window);
+    replay_gain.attach(&window);
+    let replay_gain = replay_gain.clone();
     changes::connect(
         app,
         &window,
         decoder_player.clone(),
         model.clone(),
         latest_playback.clone(),
+        move |options| replay_gain.publish(options),
     );
     Some(window)
 }

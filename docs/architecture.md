@@ -60,6 +60,12 @@ validates each intent against the observed `Playback` state before submitting th
 plan. Its `Handle` ties each borrowed native event to the wait that returned it.
 The worker copies payloads before advancing the event queue.
 
+The shared playback profile distributes committed ReplayGain options to open
+Settings forms and engines. The worker acknowledges user volume adjustments
+separately from temporary volume restoration. The profile keeps the newest
+acknowledgement and saves it after a short idle interval or when a player
+closes. Individual window saves leave this field under profile ownership.
+
 Windows system media controls belong to the player's native toplevel. The
 session publishes observed titles, playback state and seek bounds. Native
 callbacks return to the UI thread and use the player's active key profile.

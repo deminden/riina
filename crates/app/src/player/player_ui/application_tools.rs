@@ -43,11 +43,18 @@ impl ApplicationServices {
         self.configure_application_updates(path, &saved);
         self.power.initialize(saved.playback_power);
         let baseline = saved.clone();
-        let clocks = Rc::clone(&self.clocks);
-        let controller_path = path.to_owned();
-        let controller_committed = move |options| clocks.publish_players(&controller_path, options);
-        settings.show(path, saved, clear, controller_committed, |window| {
-            self.clocks.form.register(path, window);
+        let profile = Rc::clone(&self.profile_playback);
+        let profile_path = path.to_owned();
+        let committed = move |changes: application_settings::ProfileChanges| {
+            if let Some(controller) = changes.controller {
+                profile.publish_players(&profile_path, controller);
+            }
+            if let Some(gain) = changes.replay_gain {
+                profile.adopt_application_gain(&profile_path, gain);
+            }
+        };
+        settings.show(path, saved, clear, committed, |window| {
+            self.profile_playback.form.register(path, window);
             if let Some(pane) = pane {
                 window.set_selected_pane(pane);
             }
