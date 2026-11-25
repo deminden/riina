@@ -1,12 +1,10 @@
 //! Drive the explicit download and setup actions for an installed Windows copy.
-use super::{
-    ApplicationUpdates,
-    package::{Downloaded, Package},
-};
-use crate::{
-    UpdateWindow,
-    platform::update_setup::{self, Setup},
-};
+mod package;
+
+use super::update_setup::{self, Setup};
+use crate::UpdateWindow;
+use package::Downloaded;
+pub(crate) use package::{Asset, Package};
 use slint::ComponentHandle;
 use std::{
     cell::RefCell,
@@ -36,17 +34,36 @@ enum Stage {
 }
 
 #[derive(Default)]
-pub(super) struct InstallFlow(RefCell<Stage>);
+pub(crate) struct InstallFlow {
+    installation: Rc<Installation>,
+}
+
+#[derive(Default)]
+struct Installation {
+    stage: RefCell<Stage>,
+}
 
 impl InstallFlow {
-    pub(super) fn active(&self) -> bool {
+    pub(crate) fn bind(&self, window: &UpdateWindow) {
+        let installation = Rc::downgrade(&self.installation);
+        let window_handle = window.as_weak();
+        window.on_installer_action(move || {
+            if let (Some(window), Some(installation)) =
+                (window_handle.upgrade(), installation.upgrade())
+            {
+                installation.install_action(&window);
+            }
+        });
+    }
+
+    pub(crate) fn active(&self) -> bool {
         matches!(
-            *self.0.borrow(),
+            *self.installation.stage.borrow(),
             Stage::Downloading(..) | Stage::Ready(..) | Stage::Setup
         )
     }
 
-    pub(super) fn offer(&self, window: &UpdateWindow, package: Option<Package>) {
+    pub(crate) fn offer(&self, window: &UpdateWindow, package: Option<Package>) {
         let stage = match (package, update_setup::installed_destination()) {
             (Some(package), Some(destination)) => Stage::Offered(Offer {
                 package,
@@ -54,17 +71,21 @@ impl InstallFlow {
             }),
             _ => Stage::None,
         };
-        self.set(window, stage);
+        self.installation.set(window, stage);
     }
 
-    pub(super) fn dismiss(&self, window: &UpdateWindow) {
-        match self.0.take() {
-            Stage::Downloading(offer, cancelled) => self.cancel(window, offer, cancelled),
-            Stage::Setup => self.set(window, Stage::Setup),
-            _ => self.set(window, Stage::None),
+    pub(crate) fn dismiss(&self, window: &UpdateWindow) {
+        match self.installation.stage.take() {
+            Stage::Downloading(offer, cancelled) => {
+                self.installation.cancel(window, offer, cancelled)
+            }
+            Stage::Setup => self.installation.set(window, Stage::Setup),
+            _ => self.installation.set(window, Stage::None),
         }
     }
+}
 
+impl Installation {
     fn cancel(&self, window: &UpdateWindow, offer: Offer, cancelled: Arc<AtomicBool>) {
         cancelled.store(true, Ordering::Relaxed);
         window.set_detail("Cancelling the installer download…".into());
@@ -80,27 +101,27 @@ impl InstallFlow {
             Stage::Ready(..) => "Open Setup",
             Stage::Downloading(..) | Stage::None | Stage::Setup => "",
         };
-        self.0.replace(stage);
+        self.stage.replace(stage);
         window.set_installer_action_label(label.into());
     }
 }
 
-impl Drop for InstallFlow {
+impl Drop for Installation {
     fn drop(&mut self) {
-        if let Stage::Downloading(_, cancelled) = self.0.get_mut() {
+        if let Stage::Downloading(_, cancelled) = self.stage.get_mut() {
             cancelled.store(true, Ordering::Relaxed);
         }
     }
 }
 
-impl ApplicationUpdates {
-    pub(super) fn install_action(self: &Rc<Self>, window: &UpdateWindow) {
-        let stage = self.install.0.take();
+impl Installation {
+    fn install_action(self: &Rc<Self>, window: &UpdateWindow) {
+        let stage = self.stage.take();
         match stage {
             Stage::Offered(offer) => self.download_installer(window, offer),
-            Stage::Downloading(offer, cancelled) => self.install.cancel(window, offer, cancelled),
+            Stage::Downloading(offer, cancelled) => self.cancel(window, offer, cancelled),
             Stage::Ready(offer, installer) => self.open_setup(window, offer, installer),
-            stage => self.install.set(window, stage),
+            stage => self.set(window, stage),
         }
     }
 
@@ -108,8 +129,7 @@ impl ApplicationUpdates {
         let cancelled = Arc::new(AtomicBool::new(false));
         let flag = cancelled.clone();
         let package = offer.package.clone();
-        self.install
-            .set(window, Stage::Downloading(offer, cancelled.clone()));
+        self.set(window, Stage::Downloading(offer, cancelled.clone()));
         window.set_detail("Downloading and verifying the Windows installer…".into());
 
         let (send, response) = oneshot::channel();
@@ -119,15 +139,15 @@ impl ApplicationUpdates {
             self.finish_download(window, &cancelled, Err(error.to_string()));
             return;
         }
-        let updates = Rc::downgrade(self);
+        let installation = Rc::downgrade(self);
         let weak = window.as_weak();
         let token = cancelled.clone();
         if let Err(error) = slint::spawn_local(async move {
             let result = response
                 .await
                 .unwrap_or_else(|_| Err("The download ended early.".into()));
-            if let (Some(window), Some(updates)) = (weak.upgrade(), updates.upgrade()) {
-                updates.finish_download(&window, &token, result);
+            if let (Some(window), Some(installation)) = (weak.upgrade(), installation.upgrade()) {
+                installation.finish_download(&window, &token, result);
             }
         }) {
             cancelled.store(true, Ordering::Relaxed);
@@ -141,7 +161,7 @@ impl ApplicationUpdates {
         token: &Arc<AtomicBool>,
         result: Result<Downloaded, String>,
     ) {
-        let stage = match self.install.0.take() {
+        let stage = match self.stage.take() {
             Stage::Downloading(offer, current)
                 if Arc::ptr_eq(token, &current) && current.load(Ordering::Relaxed) =>
             {
@@ -162,11 +182,11 @@ impl ApplicationUpdates {
             },
             stage => stage,
         };
-        self.install.set(window, stage);
+        self.set(window, stage);
     }
 
     fn open_setup(self: &Rc<Self>, window: &UpdateWindow, offer: Offer, installer: Downloaded) {
-        self.install.set(window, Stage::Setup);
+        self.set(window, Stage::Setup);
         window.set_detail("Verifying the installer before opening Windows Setup…".into());
         let destination = offer.destination.clone();
         let (opened, opening) = oneshot::channel();
@@ -180,7 +200,7 @@ impl ApplicationUpdates {
             self.report_setup_error(window, offer, error.to_string());
             return;
         }
-        let updates = Rc::downgrade(self);
+        let installation = Rc::downgrade(self);
         let weak = window.as_weak();
         let retry_offer = offer.clone();
         if let Err(error) = slint::spawn_local(async move {
@@ -190,20 +210,22 @@ impl ApplicationUpdates {
                 window.set_detail("Follow the prompts in Windows Setup.".into());
             }
             let result = exit.await;
-            if let (Some(window), Some(updates)) = (weak.upgrade(), updates.upgrade()) {
+            if let (Some(window), Some(installation)) = (weak.upgrade(), installation.upgrade()) {
                 match result {
                     Ok((_, Ok(0))) => {
-                        updates.install.set(&window, Stage::None);
+                        installation.set(&window, Stage::None);
                         window.set_detail("Windows Setup completed.".into());
                     }
                     Ok((installer, Ok(code))) => {
-                        updates.install.set(&window, Stage::Ready(offer, installer));
+                        installation.set(&window, Stage::Ready(offer, installer));
                         window.set_detail(
                             format!("Windows Setup closed with exit code {code}.").into(),
                         );
                     }
-                    Ok((_, Err(error))) => updates.report_setup_error(&window, offer, error),
-                    Err(error) => updates.report_setup_error(&window, offer, error.to_string()),
+                    Ok((_, Err(error))) => installation.report_setup_error(&window, offer, error),
+                    Err(error) => {
+                        installation.report_setup_error(&window, offer, error.to_string())
+                    }
                 }
             }
         }) {
@@ -212,7 +234,7 @@ impl ApplicationUpdates {
     }
 
     fn report_setup_error(&self, window: &UpdateWindow, offer: Offer, error: String) {
-        self.install.set(window, Stage::Offered(offer));
+        self.set(window, Stage::Offered(offer));
         window.set_detail(format!("Could not open Windows Setup. {error}").into());
     }
 }
@@ -235,8 +257,9 @@ mod tests {
     #[test]
     fn cancelling_waits_for_the_matching_worker_without_showing_its_error() {
         i_slint_backend_testing::init_no_event_loop();
-        let updates = Rc::new(ApplicationUpdates::default());
-        let window = updates.window().unwrap();
+        let install = InstallFlow::default();
+        let window = UpdateWindow::new().unwrap();
+        install.bind(&window);
         let assets = serde_json::from_value(serde_json::json!([{
             "name": "riina-5.0.0-windows-x86_64-setup.exe",
             "state": "uploaded",
@@ -250,25 +273,27 @@ mod tests {
             package,
             destination: PathBuf::new(),
         };
-        updates
-            .install
+        install
+            .installation
             .set(&window, Stage::Downloading(offer, token.clone()));
 
         assert_eq!(window.get_installer_action_label(), "Cancel Download");
         window.invoke_installer_action();
         assert!(token.load(Ordering::Relaxed));
-        assert!(updates.install.active());
+        assert!(install.active());
         assert!(window.get_installer_action_label().is_empty());
 
         let stale = Arc::new(AtomicBool::new(false));
-        updates.finish_download(
+        install.installation.finish_download(
             &window,
             &stale,
             Err("Previous network request failed".into()),
         );
-        assert!(updates.install.active());
-        updates.finish_download(&window, &token, Err("Interrupted".into()));
-        assert!(!updates.install.active());
+        assert!(install.active());
+        install
+            .installation
+            .finish_download(&window, &token, Err("Interrupted".into()));
+        assert!(!install.active());
         assert_eq!(window.get_installer_action_label(), "Download Update");
         assert_eq!(window.get_detail(), "Download cancelled.");
     }

@@ -1,5 +1,8 @@
 //! Select and verify the exact Windows Setup asset for a release.
-use crate::http::{RequestPolicy, agent_config};
+use crate::{
+    http::{RequestPolicy, agent_config},
+    platform::windows::update_setup,
+};
 use semver::Version;
 use serde::Deserialize;
 use sha2::{Digest, Sha256};
@@ -19,7 +22,7 @@ const DOWNLOAD_TIME: Duration = Duration::from_secs(120);
 
 #[derive(Default, Deserialize)]
 #[serde(default)]
-pub(super) struct Asset {
+pub(crate) struct Asset {
     name: String,
     state: Option<String>,
     size: u64,
@@ -27,21 +30,21 @@ pub(super) struct Asset {
 }
 
 #[derive(Clone)]
-pub(super) struct Package {
+pub(crate) struct Package {
     name: String,
     address: String,
     size: u64,
     digest: [u8; 32],
 }
 
-pub(super) struct Downloaded {
+pub(crate) struct Downloaded {
     path: PathBuf,
     package: Package,
     _directory: tempfile::TempDir,
 }
 
 impl Package {
-    pub(super) fn select(assets: Vec<Asset>, tag: &str, version: &Version) -> Option<Self> {
+    pub(crate) fn select(assets: Vec<Asset>, tag: &str, version: &Version) -> Option<Self> {
         if !cfg!(target_arch = "x86_64") {
             return None;
         }
@@ -63,7 +66,7 @@ impl Package {
         })
     }
 
-    pub(super) fn download(self, cancelled: &AtomicBool) -> Result<Downloaded, String> {
+    pub(crate) fn download(self, cancelled: &AtomicBool) -> Result<Downloaded, String> {
         let deadline = Instant::now() + DOWNLOAD_TIME;
         let mut address = Url::parse(&self.address).map_err(|error| error.to_string())?;
         for _ in 0..=3 {
@@ -111,7 +114,7 @@ impl Package {
 
         let path = directory.path().join(&self.name);
         fs::rename(pending, &path)?;
-        crate::platform::update_setup::mark_download(&path, &self.address)?;
+        update_setup::mark_download(&path, &self.address)?;
         Ok(Downloaded {
             path,
             package: self,
@@ -165,7 +168,7 @@ impl Downloaded {
     }
 
     /// Keep writers and delete/rename excluded from verification until Windows opens Setup.
-    pub(super) fn lock_verified(&self) -> io::Result<File> {
+    pub(crate) fn lock_verified(&self) -> io::Result<File> {
         let mut file = OpenOptions::new()
             .read(true)
             .share_mode(FILE_SHARE_READ.0)

@@ -52,6 +52,7 @@ pub(crate) mod startup_input;
 pub(crate) mod subtitle_color_panel;
 pub(crate) mod text_edit;
 pub(crate) mod text_recognition;
+pub(crate) mod update_installer;
 pub(crate) use shared_video::SharedVideoExtras;
 mod system_media_session;
 pub(crate) mod transition_cover;
@@ -1097,8 +1098,6 @@ pub(crate) use plugin_sidebar::PluginSidebarPresenter;
 pub(crate) use plugin_sidebar::pump_linux_webview_events;
 #[cfg(target_os = "windows")]
 pub(crate) use windows::materials::native_materials_enabled;
-#[cfg(target_os = "windows")]
-pub(crate) use windows::update_setup;
 #[cfg(target_os = "windows")]
 pub(crate) fn windows_accent_color() -> Option<slint::Color> {
     let [alpha, red, green, blue] = windows::materials::native_accent_color()?;

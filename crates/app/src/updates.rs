@@ -1,15 +1,12 @@
 //! Own one release checker and window for the application lifetime.
 mod check;
-#[cfg(target_os = "windows")]
-mod install;
-#[cfg(target_os = "windows")]
-mod package;
 mod releases;
 mod schedule;
 mod settings;
 
 use crate::{
-    NativeVideoHost, PlayerWindow, PreferencesWindow, UpdateWindow, platform::NativePresentation,
+    NativeVideoHost, PlayerWindow, PreferencesWindow, UpdateWindow,
+    platform::{NativePresentation, update_installer::InstallFlow},
 };
 use riina_ui::{PlayerAppearance, PlayerMenuActions};
 use schedule::{Permission, State, Store};
@@ -35,8 +32,7 @@ pub(crate) struct ApplicationUpdates {
     running: Cell<Option<check::Running>>,
     pub(crate) closed: crate::windows::close_observer::CloseObserver,
     application_theme: Cell<Option<(riina_core::ThemeMaterial, bool)>>,
-    #[cfg(target_os = "windows")]
-    install: install::InstallFlow,
+    install: InstallFlow,
 }
 
 #[derive(Clone)]
@@ -136,16 +132,7 @@ impl ApplicationUpdates {
                 updates.request_manual(&window);
             }
         });
-        #[cfg(target_os = "windows")]
-        {
-            let weak = window.as_weak();
-            let updates = Rc::downgrade(self);
-            window.on_installer_action(move || {
-                if let (Some(window), Some(updates)) = (weak.upgrade(), updates.upgrade()) {
-                    updates.install_action(&window);
-                }
-            });
-        }
+        self.install.bind(&window);
         let weak = window.as_weak();
         let updates = Rc::downgrade(self);
         window.on_dismiss(move || {
@@ -199,7 +186,6 @@ impl ApplicationUpdates {
     }
 
     fn can_dismiss(self: &Rc<Self>, window: &UpdateWindow) -> bool {
-        #[cfg(target_os = "windows")]
         self.install.dismiss(window);
         !window.get_asking_permission() || self.answer_consent(window, false)
     }
@@ -305,10 +291,7 @@ impl ApplicationUpdates {
     }
 
     fn install_in_progress(&self) -> bool {
-        #[cfg(target_os = "windows")]
-        return self.install.active();
-        #[cfg(not(target_os = "windows"))]
-        false
+        self.install.active()
     }
     fn reveal(
         &self,
@@ -356,16 +339,12 @@ fn present(
     window: &UpdateWindow,
     result: Result<releases::Outcome, String>,
 ) {
-    #[cfg(target_os = "windows")]
     updates.install.dismiss(window);
-    #[cfg(not(target_os = "windows"))]
-    let _ = updates;
     window.set_asking_permission(false);
     window.set_checking(false);
     window.set_release_available(false);
     match result {
         Ok(releases::Outcome::Available(release)) => {
-            #[cfg(target_os = "windows")]
             updates.install.offer(window, release.installer);
             window.set_headline(format!("Riina {} is available", release.version).into());
             window.set_detail(format!("Installed version: {}", env!("CARGO_PKG_VERSION")).into());
@@ -417,7 +396,6 @@ mod tests {
             Ok(releases::Outcome::Available(releases::Release {
                 version: Version::new(5, 0, 0),
                 url: "https://github.com/deminden/riina/releases/tag/v5.0.0".into(),
-                #[cfg(target_os = "windows")]
                 installer: None,
             })),
         );

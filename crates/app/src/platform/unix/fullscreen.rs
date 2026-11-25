@@ -1,15 +1,16 @@
 //! Read acknowledgement from the desktop managing the actual player window.
-use crate::{PlayerWindow, background::CoalescedUiCallback};
+mod geometry;
+
+use crate::PlayerWindow;
+use geometry::FullscreenGeometry;
 use slint::{
     ComponentHandle,
     winit_030::{
         WinitWindowAccessor,
         winit::{
-            dpi::PhysicalSize,
             event::WindowEvent,
-            monitor::MonitorHandle,
             raw_window_handle::{HasWindowHandle, RawWindowHandle},
-            window::{Fullscreen, Window as NativeWindow},
+            window::Fullscreen,
         },
     },
 };
@@ -30,7 +31,7 @@ pub(crate) fn observed_fullscreen(window: &slint::Window) -> Option<bool> {
     }
 }
 
-pub(crate) fn request_fullscreen(window: &slint::Window, fullscreen: bool) -> Option<()> {
+fn request_fullscreen(window: &slint::Window, fullscreen: bool) -> Option<()> {
     match surface(window)? {
         // A desktop-initiated X11 transition never changes Winit's requested
         // state. Address the WM directly so Escape can leave that fullscreen too.
@@ -43,12 +44,22 @@ pub(crate) fn request_fullscreen(window: &slint::Window, fullscreen: bool) -> Op
 
 #[derive(Default)]
 pub(in crate::platform) struct Observation {
-    geometry: Rc<RefCell<FullscreenGeometry>>,
+    geometry: Rc<FullscreenGeometry>,
     repair_on_redraw: Cell<bool>,
-    deliver: CoalescedUiCallback,
+    confirm: slint::Timer,
 }
 
 impl Observation {
+    pub(in crate::platform) fn request(&self, window: &slint::Window, active: bool) -> bool {
+        self.geometry.stop();
+        self.repair_on_redraw.set(false);
+        request_fullscreen(window, active).is_some()
+    }
+
+    pub(in crate::platform) fn confirmed(&self, window: &slint::Window) -> Option<bool> {
+        self.geometry.confirmed(window)
+    }
+
     pub(in crate::platform) fn geometry_observed(
         &self,
         window: &slint::Window,
@@ -56,9 +67,9 @@ impl Observation {
         allow_repair: bool,
     ) {
         if !fullscreen {
-            self.geometry.borrow_mut().retried = None;
+            self.geometry.reset();
         }
-        let needs_repair = allow_repair && self.geometry.borrow().needs_repair(window);
+        let needs_repair = allow_repair && self.geometry.needs_repair(window);
         if !self.repair_on_redraw.replace(needs_repair) && needs_repair {
             window.request_redraw();
         }
@@ -79,7 +90,7 @@ impl Observation {
                 if let (Some(app), Some(geometry)) = (app.upgrade(), geometry.upgrade())
                     && may_repair(&app)
                 {
-                    geometry.borrow_mut().repair(app.window());
+                    geometry.repair(&app, may_repair);
                 }
             });
         }
@@ -90,78 +101,21 @@ impl Observation {
                 | WindowEvent::Occluded(false)
                 | WindowEvent::Moved(_)
                 | WindowEvent::Focused(_)
-        ) {
-            self.deliver.post(|| {
-                let app = app.clone();
-                move || {
+        ) && !self.confirm.running()
+        {
+            let app = app.clone();
+            let geometry = Rc::downgrade(&self.geometry);
+            self.confirm
+                .start(slint::TimerMode::SingleShot, Duration::ZERO, move || {
                     if let Some(app) = app.upgrade()
-                        && let Some(active) = observed_fullscreen(app.window())
+                        && let Some(geometry) = geometry.upgrade()
+                        && let Some(active) = geometry.confirmed(app.window())
                     {
                         app.invoke_native_fullscreen_observed(active, true);
                     }
-                }
-            });
+                });
         }
     }
-}
-
-#[derive(Default)]
-struct FullscreenGeometry {
-    retried: Option<(MonitorHandle, PhysicalSize<u32>)>,
-}
-
-impl FullscreenGeometry {
-    fn needs_repair(&self, window: &slint::Window) -> bool {
-        window
-            .with_winit_window(|native| self.undersized_output(native).is_some())
-            .unwrap_or(false)
-    }
-
-    fn repair(&mut self, window: &slint::Window) {
-        window.with_winit_window(|native| {
-            let Some((monitor, bounds)) = self.undersized_output(native) else {
-                return;
-            };
-            // A late windowed buffer can shrink a floating fullscreen container.
-            // Reapply the native request once per output mode, without leaving fullscreen.
-            self.retried = Some((monitor.clone(), bounds));
-            native.set_fullscreen(Some(Fullscreen::Borderless(Some(monitor))));
-            native.request_redraw();
-        });
-    }
-
-    fn undersized_output(
-        &self,
-        native: &NativeWindow,
-    ) -> Option<(MonitorHandle, PhysicalSize<u32>)> {
-        if !matches!(
-            native.window_handle().ok()?.as_raw(),
-            RawWindowHandle::Wayland(_)
-        ) || native.fullscreen().is_none()
-        {
-            return None;
-        }
-        let monitor = native.current_monitor()?;
-        let bounds = monitor.size();
-        if self
-            .retried
-            .as_ref()
-            .is_some_and(|(display, size)| *display == monitor && *size == bounds)
-            || !undersized_fullscreen(native.inner_size(), bounds)
-        {
-            return None;
-        }
-        Some((monitor, bounds))
-    }
-}
-
-fn undersized_fullscreen(surface: PhysicalSize<u32>, output: PhysicalSize<u32>) -> bool {
-    // Check both axes. Fractional scaling can change a pixel and rotated or
-    // otherwise constrained outputs need not report matching dimensions.
-    surface.width > 0
-        && surface.height > 0
-        && u64::from(surface.width) * 8 <= u64::from(output.width) * 7
-        && u64::from(surface.height) * 8 <= u64::from(output.height) * 7
 }
 
 enum Surface {
@@ -260,18 +214,4 @@ fn with_x11<T>(request: impl FnOnce(&X11) -> Option<T>) -> Option<T> {
         }
         result
     })
-}
-
-#[cfg(test)]
-mod tests {
-    use super::{PhysicalSize, undersized_fullscreen};
-
-    #[test]
-    fn only_a_substantially_smaller_fullscreen_surface_needs_recovery() {
-        let output = PhysicalSize::new(1280, 800);
-        assert!(undersized_fullscreen(PhysicalSize::new(320, 180), output));
-        assert!(!undersized_fullscreen(PhysicalSize::new(1279, 799), output));
-        assert!(!undersized_fullscreen(PhysicalSize::new(800, 1280), output));
-        assert!(!undersized_fullscreen(PhysicalSize::new(0, 0), output));
-    }
 }

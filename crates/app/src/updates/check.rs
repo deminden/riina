@@ -197,7 +197,6 @@ mod tests {
         updates.finish(Ok(releases::Outcome::Available(releases::Release {
             version: Version::new(5, 0, 0),
             url: "https://github.com/deminden/riina/releases/tag/v5.0.0".into(),
-            #[cfg(target_os = "windows")]
             installer: None,
         })));
         let window = updates.window().unwrap();

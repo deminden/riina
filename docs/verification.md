@@ -5265,3 +5265,48 @@ open.
 - Linux application SHA-256 `0b15425f6d66a6eee9a073f06676f74844bf1c892db4c044def4e45c47cd4db2`
 - X11 libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`
 - Wayland libmpv SHA-256 `cdce854e1811942602587310026306d92d30c0f593f2be676f07659ae43061d8`
+
+### Wayland fullscreen recovery and update installation 2026-11-25
+
+The Sway fault-injection probe substitutes 320 × 180 for the first
+fullscreen configure on a 1280 × 800 output. The previous application
+sent one fullscreen request after committing the small frame. Sway could
+keep the view small because its transaction already recorded the same
+fullscreen dimensions. A compositor exit and reentry restored the frame,
+and produced two additional mode events on the previous build.
+[Sway 1.11 fullscreen request handling](https://github.com/swaywm/sway/blob/1.11/sway/desktop/xdg_shell.c#L347-L374)
+[Sway 1.11 configure suppression](https://github.com/swaywm/sway/blob/1.11/sway/desktop/transaction.c#L721-L753)
+
+Riina still gives the initial retry time to settle. If the same output
+remains substantially undersized, the Wayland adapter can request one
+native exit and reentry. It observes each acknowledgement with a deadline.
+An explicit mode change supersedes recovery. The intermediate state stays
+within the adapter so playback preferences and plugin listeners observe the
+confirmed user transition.
+
+The Windows adapter now owns release assets, the installer action callback
+and all installation stages. The shared updater retains release selection,
+schedule and window ownership. Its existing tests cover manual checks,
+scheduled results and release versions. The installer tests cover matching
+cancellation tokens, exact asset selection and file verification.
+
+The locked Linux build recovered the 1280 × 800 fullscreen client and
+full-size video in the injected case while playback stayed paused.
+The plugin recorded one fullscreen entry. In a separate injected run,
+Escape returned to 320 × 180 during the initial retry. It published one
+exit and issued no reentry request. Regular X11 and Wayland runs passed
+desktop- and app-initiated fullscreen, Escape, the Music Mode handoff,
+catalog resizing and shutdown. All four Linux player processes exited.
+The two focused Linux geometry tests and strict application Clippy passed.
+
+The Windows workspace gate passed strict Clippy, 1,090 Rust tests,
+79 Python tests and four browser tests. All 65 pinned null-output engine
+tests passed. The locked Windows build passed the private-desktop playback
+and shutdown smoke test. Apple Silicon cross-Clippy passed for application
+and test targets. Native macOS interaction remains open.
+
+- Windows application SHA-256 `fbd162011e74ffa7cb323790fe05089d0d348d60c58e9436a010d33854d7f847`
+- Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
+- Linux application SHA-256 `48e315b13bc69bc0dfd47a2477a7be69e153671114d81309379fe212cffa5cc3`
+- X11 libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`
+- Wayland libmpv SHA-256 `cdce854e1811942602587310026306d92d30c0f593f2be676f07659ae43061d8`

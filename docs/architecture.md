@@ -310,11 +310,12 @@ The General settings edit one update policy per profile. Independent app
 processes share the policy and claim a due check under a file lock. A worker retrieves public
 release metadata and compares versions. A scheduled check opens the window
 only when a newer release is available. The window can open the project's
-release page. For a registered Windows installation, a download worker
-stages the exact installer named by the release and verifies the published
-size and SHA-256. Opening Setup requires a second user action. The Windows
-adapter reinspects the installation and keeps the verified file read-locked
-through the handoff to the shell.
+release page. The Windows update adapter owns the installer offer, cancellation
+and Setup actions. For a registered installation, its download worker stages
+the exact installer named by the release and verifies the published size and
+SHA-256. Opening Setup requires a second user action. The adapter reinspects
+the installation and keeps the verified file read-locked through the handoff
+to the shell.
 
 Playback power also belongs to the application. The first actively playing
 session in creation order determines the request. General settings can
@@ -861,7 +862,10 @@ A confirmed fullscreen change refreshes the paused frame and closes an active
 crop or delogo editor before applying the window's playback preference. On
 Wayland, the player can repeat the native fullscreen request when both axes
 remain substantially smaller than the output. It waits for the undersized frame
-to be presented, then retries once for the current output mode. The compositor
+to be presented before requesting the same output again. If the window remains
+small, the adapter can leave and reenter native fullscreen once. Each leg has
+a deadline. A player request to change modes cancels recovery. The temporary windowed
+state does not trigger playback, Music Mode or plugin effects. The compositor
 still owns the geometry.
 
 Fullscreen, Music Mode, and Picture-in-Picture confirmations enter the player's

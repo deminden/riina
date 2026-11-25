@@ -190,7 +190,7 @@ impl Controller {
             self.timer.stop();
             return;
         };
-        if let Some(fullscreen) = fullscreen_window::observed_fullscreen(app.window()) {
+        if let Some(fullscreen) = self.window.confirmed(app.window()) {
             self.observe(&app, fullscreen, true);
         }
         if self

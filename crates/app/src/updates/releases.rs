@@ -1,6 +1,9 @@
 //! Compare the installed build to the selected Riina release channel.
 use super::schedule::Channel;
-use crate::http::{RequestPolicy, agent_config};
+use crate::{
+    http::{RequestPolicy, agent_config},
+    platform::update_installer::{Assets, Package},
+};
 use semver::Version;
 use serde::Deserialize;
 use std::{cmp::Ordering, time::Duration};
@@ -15,16 +18,14 @@ struct Record {
     tag_name: String,
     draft: bool,
     prerelease: bool,
-    #[cfg(target_os = "windows")]
     #[serde(default)]
-    assets: Vec<super::package::Asset>,
+    assets: Assets,
 }
 
 pub(super) struct Release {
     pub(super) version: Version,
     pub(super) url: String,
-    #[cfg(target_os = "windows")]
-    pub(super) installer: Option<super::package::Package>,
+    pub(super) installer: Option<Package>,
 }
 
 pub(super) enum Outcome {
@@ -80,8 +81,7 @@ impl Record {
         }
         // Validated SemVer limits the path segment. Only open the project release page.
         Some(Release {
-            #[cfg(target_os = "windows")]
-            installer: super::package::Package::select(self.assets, &tag, &version),
+            installer: Package::select(self.assets, &tag, &version),
             version,
             url: format!("{TAG_PAGE}{tag}"),
         })

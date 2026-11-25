@@ -33,7 +33,7 @@ impl FullscreenWindow {
                 .is_some_and(|host| host.invoke_set_fullscreen_window(active));
         }
         #[cfg(target_os = "linux")]
-        return super::unix::fullscreen::request_fullscreen(window, active).is_some();
+        return self.desktop.request(window, active);
         #[cfg(target_os = "macos")]
         return super::macos::fullscreen::request_fullscreen(window, active).is_some();
         #[cfg(not(any(target_os = "linux", target_os = "macos")))]
@@ -46,6 +46,13 @@ impl FullscreenWindow {
     pub(crate) fn geometry_observed(&self, _window: &slint::Window, _active: bool, _repair: bool) {
         #[cfg(target_os = "linux")]
         self.desktop.geometry_observed(_window, _active, _repair);
+    }
+
+    pub(crate) fn confirmed(&self, _window: &slint::Window) -> Option<bool> {
+        #[cfg(target_os = "linux")]
+        return self.desktop.confirmed(_window);
+        #[cfg(not(target_os = "linux"))]
+        None
     }
 
     pub(crate) fn window_event(
