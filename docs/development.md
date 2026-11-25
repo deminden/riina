@@ -404,7 +404,7 @@ Pause on minimize follows the owning window's minimize and restore events.
 | Windows startup material policy | 500 ms | Reapply native backdrop settings | While the framed owner is visible and restored |
 | Windows surface alignment | 16 ms | Align owner, native video and controls | While the framed owner is visible and restored, including mpv child-window handoffs |
 | Playlist metadata | 300 ms | Refresh visible playlist rows | One delayed pass after a lookup completes or the display policy changes |
-| Automatic Music Mode | 100 ms | Complete the track-catalog debounce | While media is loaded and automatic switching is enabled, including paused playback |
+| Automatic Music Mode | 300 ms | Settle a pending automatic mode switch | One deadline per candidate track catalog while media is loaded, including paused playback |
 | Subtitle discovery | 120 ms | Discover sibling media and select a matching subtitle track | One delayed pass at setup and after relevant playback or discovery settings change |
 | Windows picture-in-picture | 250 ms | Check automatic enter/exit on minimize or restore and refresh active preview | While PiP is active or the automatic minimize policy applies. Stops at shutdown |
 | macOS Now Playing | 50 ms | Sync media controls and drain system actions | During the player session. Stops before clearing the closing player's media state |

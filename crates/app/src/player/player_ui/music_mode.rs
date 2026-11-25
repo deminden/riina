@@ -1,8 +1,8 @@
 //! Integrate Music Mode commands and compact window sizing with the player.
 use crate::{PlayerWindow, music_mode_layout, window_aspect};
-use riina_core::{music_mode::State, sync::lock, window_aspect::PixelSize};
+use riina_core::window_aspect::PixelSize;
 use slint::ComponentHandle;
-use std::{cell::Cell, sync::Mutex};
+use std::cell::Cell;
 
 pub(super) fn install_window_resize(app: &PlayerWindow) {
     let resize_owner = app.as_weak();
@@ -47,9 +47,4 @@ pub(super) fn install_window_resize(app: &PlayerWindow) {
             frame.restore_placement(window);
         }
     });
-}
-
-pub(super) fn toggle_manually(app: &PlayerWindow, state: &Mutex<State>) {
-    let active = lock(state).toggle_manually();
-    crate::player::presentation::set_music_mode(app, active);
 }

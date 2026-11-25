@@ -147,6 +147,16 @@ fn window_video_geometry(state: &Playback) -> Option<(f32, f32, i32)> {
     if matches!(state.phase, Phase::Loading | Phase::Stopped | Phase::Failed) {
         return None;
     }
+    // libmpv can report its subtitle canvas as a video target for a song
+    // without artwork. Such a target cannot set the next main window size.
+    if state.video.is_none()
+        && !state
+            .tracks
+            .iter()
+            .any(|track| track.kind == riina_core::TrackKind::Video)
+    {
+        return None;
+    }
     let video = state.window_size_video_parameters()?;
     let width = video.dw.filter(|size| *size > 0).unwrap_or(video.w);
     let height = video.dh.filter(|size| *size > 0).unwrap_or(video.h);
@@ -626,7 +636,7 @@ fn configure_with_engine(
     let latest_playback = &session.projection.latest_playback;
     let observation_dispatch::PreparedObservation {
         notification,
-        music_mode_state,
+        automatic_music,
         crop_editor,
         observer_state,
         feedback_video_osd,
@@ -673,7 +683,7 @@ fn configure_with_engine(
             plugin_host: session.plugin_host_handle.as_ref(),
             plugin_commands: &session.plugin_ui.plugin_command_sender,
             filters: &session.filters,
-            music_mode: &music_mode_state,
+            automatic_music: &automatic_music,
             transition_release_generation: &transition_release_generation,
             picture_in_picture: &session.picture_in_picture,
             system_media: &session.projection.system_media,
@@ -898,6 +908,23 @@ mod window_video_geometry_tests {
             ..Playback::default()
         };
         assert_eq!(window_video_geometry(&state), Some((640.0, 360.0, 90)));
+    }
+
+    #[test]
+    fn subtitle_canvas_does_not_size_the_main_window_for_plain_audio() {
+        let state = Playback {
+            phase: Phase::Paused,
+            video_target: Some(video(960, 600, None)),
+            tracks: vec![
+                serde_json::from_value(serde_json::json!({"id": 1, "type": "audio"})).unwrap(),
+            ]
+            .into(),
+            ..Playback::default()
+        };
+        assert_eq!(window_video_geometry(&state), None);
+        let mut discovering = state;
+        discovering.tracks = Default::default();
+        assert_eq!(window_video_geometry(&discovering), None);
     }
 
     #[test]

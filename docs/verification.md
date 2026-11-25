@@ -5067,3 +5067,42 @@ Windows, X11 and Wayland processes all exited.
 - Linux application SHA-256 `ea536e2e2ef9de504a358f9a970a502b58938c61fa53d8ece0b0eb6647fbefae`
 - X11 libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`
 - Wayland libmpv SHA-256 `cdce854e1811942602587310026306d92d30c0f593f2be676f07659ae43061d8`
+
+### Automatic Music Mode and video window sizing 2026-11-25
+
+Automatic switching uses a single deadline for a pending track catalog
+and cancels it when the catalog changes. A replacement file gets its own
+deadline even when both files are audio. On return to the main player,
+the window owner restores the frame before applying the pending video's
+resize policy. Playback targets used solely to draw subtitles on audio
+files do not count as decoded video dimensions.
+
+The previous X11 binary did not reach the video's natural client size with
+Always resize enabled. The candidate entered a 300 × 390 compact
+client on paused audio, retained both caption lanes, and returned to the
+first video at 320 × 180. After enlarging the normal window to 720 × 460,
+a second audio/video sequence again used a 320 × 180 video client. Native
+Wayland kept the same xdg-shell surface and reached the same client size.
+The isolated 1280 × 800 X11 and Wayland captures showed visible video on
+return, and the player processes exited.
+
+The Windows 11 private desktop run verified both selected captions, the
+300 × 90 artwork roll-up and 300 × 390 restoration, and Next Media to the
+first paused video at 320 × 180 logical points. The isolated application
+closed cleanly. The existing Windows safeguard keeps established D3D11
+viewports stable across later automatic playlist changes. A full Windows
+desktop capture returned an invalid handle, so Windows composited pixels
+and physical-display output remain open.
+
+The locked Windows workspace and Linux x64 application builds passed.
+The full Windows gate passed strict Clippy, 1,082 Rust tests including the
+headless pixel comparison, 79 Python tests and four browser-extension tests.
+All 65 pinned null-output engine tests passed separately. Strict Apple
+Silicon cross-Clippy passed for the application and test targets. Native
+macOS desktop verification remains open.
+
+- Windows application SHA-256 `af3637d89a32025aedb5caef4eb592a8e1dfa7aa0aed7ea33d9abd5070697637`
+- Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
+- Linux application SHA-256 `a5457d575f5c3901d48b737b8d8fe31b1010c78cc1e3c4989a640ea9937bb01b`
+- X11 libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`
+- Wayland libmpv SHA-256 `cdce854e1811942602587310026306d92d30c0f593f2be676f07659ae43061d8`

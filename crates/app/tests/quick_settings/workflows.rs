@@ -1,10 +1,6 @@
 use super::*;
 use slint::{ComponentHandle, Model};
-use std::{
-    cell::Cell,
-    sync::{Arc, Mutex},
-    time::{Duration, Instant},
-};
+use std::{cell::Cell, time::Duration};
 
 #[test]
 fn audio_and_subtitle_actions_activate_on_first_click() {
@@ -694,47 +690,48 @@ fn quick_settings_tab_reveals_equalizer_and_restores_its_scroll_position() {
 }
 
 #[test]
-fn paused_catalog_transitions_mature_without_another_engine_notification() {
+fn paused_catalog_returns_to_video_and_replays_geometry_after_restoration() {
     let app = player(0);
-    let audio: riina_core::Track =
-        serde_json::from_value(serde_json::json!({"id":1,"type":"audio"})).unwrap();
-    let video: riina_core::Track =
-        serde_json::from_value(serde_json::json!({"id":2,"type":"video"})).unwrap();
-    let playback = Arc::new(Mutex::new(Arc::new(riina_core::Playback {
+    let events = Rc::new(RefCell::new(Vec::new()));
+    let seen = events.clone();
+    app.on_music_mode_changed(move || seen.borrow_mut().push("presentation"));
+    let seen = events.clone();
+    app.on_resize_window_for_media(move || seen.borrow_mut().push("resize"));
+    let mode = automatic_music_mode::Controller::install(&app, true);
+    let mut playback = riina_core::Playback {
+        generation: 1,
         phase: riina_core::Phase::Paused,
-        tracks: vec![audio].into(),
+        tracks: vec![serde_json::from_value(serde_json::json!({"id":1,"type":"audio"})).unwrap()]
+            .into(),
         ..Default::default()
-    })));
-    let mode = Arc::new(Mutex::new(riina_core::music_mode::State::new(true)));
-    let past = Instant::now() - Duration::from_secs(1);
-    mode.lock()
-        .unwrap()
-        .observe_at(riina_core::music_mode::AudioStatus::Audio, false, past);
-    let _timer = automatic_music_mode::install(&app, playback.clone(), mode.clone());
-    i_slint_backend_testing::testing_backend::mock_elapsed_time(110);
-    assert!(
-        app.global::<riina_ui::PlayerMusicModeState>()
-            .get_music_mode(),
-        "A quiet paused catalog still needs its debounce completion"
-    );
-    Arc::make_mut(&mut Arc::make_mut(&mut playback.lock().unwrap()).tracks).push(video);
-    mode.lock()
-        .unwrap()
-        .observe_at(riina_core::music_mode::AudioStatus::Video, false, past);
-    i_slint_backend_testing::testing_backend::mock_elapsed_time(110);
-    assert!(
-        !app.global::<riina_ui::PlayerMusicModeState>()
-            .get_music_mode()
-    );
-    mode.lock().unwrap().toggle_manually();
-    app.global::<riina_ui::PlayerMusicModeState>()
-        .set_music_mode(true);
-    i_slint_backend_testing::testing_backend::mock_elapsed_time(110);
-    assert!(
-        app.global::<riina_ui::PlayerMusicModeState>()
-            .get_music_mode(),
-        "Polling must preserve the user's manual override"
-    );
+    };
+    mode.observe(&playback);
+    i_slint_backend_testing::mock_elapsed_time(Duration::from_millis(301));
+    let music = app.global::<PlayerMusicModeState>();
+    assert!(music.get_music_mode());
+    assert_eq!(events.take(), ["presentation"]);
+
+    playback.generation = 2;
+    playback.tracks =
+        vec![serde_json::from_value(serde_json::json!({"id":2,"type":"video"})).unwrap()].into();
+    mode.observe(&playback);
+    app.set_video_window_width(640.0);
+    app.set_video_window_height(360.0);
+    app.invoke_request_media_window_resize(true);
+    assert!(events.borrow().is_empty());
+    i_slint_backend_testing::mock_elapsed_time(Duration::from_millis(301));
+    assert!(!music.get_music_mode());
+    assert_eq!(events.take(), ["presentation", "resize"]);
+
+    mode.toggle_manually(&app);
+    flush();
+    assert!(music.get_music_mode());
+    assert_eq!(events.take(), ["presentation"]);
+    app.invoke_request_media_window_resize(true);
+    app.invoke_cancel_media_window_resize();
+    mode.toggle_manually(&app);
+    flush();
+    assert_eq!(events.take(), ["presentation"]);
 }
 
 #[test]

@@ -224,6 +224,8 @@ export component PlayerWindow inherits PlayerMenuWindow {
     changed observe-live-text => { root.live-text-observation-changed(root.observe-live-text); }
     callback copy-live-text(string);
     private property <bool> music-mode: PlayerMusicModeState.music-mode;
+    private property <bool> compact-frame-active;
+    private property <bool> media-resize-pending;
     private property <bool> auto-switch-to-music-mode: PlayerMusicModeState.auto-switch-to-music-mode;
     private property <bool> music-mode-show-playlist: PlayerMusicModeState.music-mode-show-playlist;
     private property <bool> music-mode-show-album-art: PlayerMusicModeState.music-mode-show-album-art;
@@ -241,6 +243,7 @@ export component PlayerWindow inherits PlayerMenuWindow {
         PlaylistInteraction.cancel-playlist-drag();
         PlayerControlsState.control-bar-dragging = false;
         if PlayerMusicModeState.music-mode {
+            root.compact-frame-active = true;
             // IINA's compact audio surface is independent of main-window sidebars.
             keys.focus();
             PlayerSidebarState.leading-sidebar = 0;
@@ -250,10 +253,19 @@ export component PlayerWindow inherits PlayerMenuWindow {
             PlayerMusicModeState.close-volume-panel();
             PlayerMusicModeState.music-mode-live-catalog-height = -1px;
         }
-        root.music-mode-changed(); PlayerMenuActions.video-menu-changed();
+        root.music-mode-changed();
+        root.compact-frame-active = root.music-mode;
+        if !root.compact-frame-active && root.media-resize-pending {
+            root.media-resize-pending = false;
+            if root.loaded && root.video-window-width > 0 && root.video-window-height > 0 {
+                root.resize-window-for-media();
+            }
+        }
+        PlayerMenuActions.video-menu-changed();
     }
     changed auto-switch-to-music-mode => { root.auto-switch-music-mode-changed(PlayerMusicModeState.auto-switch-to-music-mode); }
-    out property <bool> observe-automatic-music-mode: root.loaded && PlayerMusicModeState.auto-switch-to-music-mode;
+    out property <bool> observe-automatic-music-mode: root.loaded && PlayerMusicModeState.auto-switch-to-music-mode
+        && !root.fullscreen && !root.entering-fullscreen;
     callback automatic-music-observation-changed(bool);
     changed observe-automatic-music-mode => { root.automatic-music-observation-changed(root.observe-automatic-music-mode); }
     changed music-mode-show-playlist => {
@@ -357,6 +369,16 @@ export component PlayerWindow inherits PlayerMenuWindow {
     callback window-level-changed();
     callback window-level-toggle-requested(bool);
     callback resize-window-for-media();
+    public function request-media-window-resize(real-video: bool) {
+        if root.music-mode || root.compact-frame-active {
+            root.media-resize-pending = real-video;
+        } else {
+            root.resize-window-for-media();
+        }
+    }
+    public function cancel-media-window-resize() {
+        root.media-resize-pending = false;
+    }
     callback initial-media-loaded();
     callback fit-window-to-video();
     callback sidebar-resize-finished();

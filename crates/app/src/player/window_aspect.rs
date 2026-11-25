@@ -260,6 +260,13 @@ fn register_aspect_resize(
             let aspect_resize_allowed = aspect_resize_allowed.clone();
             let aspect_initial_state = aspect_initial_state.clone();
             defer_window_update(&app, &aspect_pending, move |app| {
+                if app
+                    .global::<riina_ui::PlayerMusicModeState>()
+                    .get_music_mode()
+                {
+                    aspect_source.set(None);
+                    return;
+                }
                 with_target_window(&action_target, &app, |window| {
                     let current = pixel_size(window.size());
                     aspect_resize_state.set(current);

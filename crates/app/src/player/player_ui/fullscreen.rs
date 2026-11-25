@@ -1,7 +1,6 @@
 //! Confirm window mode changes before applying playback or compact-window effects.
-use super::music_mode;
+use crate::automatic_music_mode;
 use crate::{NativeVideoHost, PlayerWindow};
-use riina_core::music_mode::State;
 use riina_ui::{
     PlayerControlActions, PlayerCropState, PlayerMenuActions, PlayerMusicModeState,
     PlayerPreferences,
@@ -10,7 +9,6 @@ use slint::ComponentHandle;
 use std::{
     cell::Cell,
     rc::Rc,
-    sync::{Arc, Mutex},
     time::{Duration, Instant},
 };
 
@@ -50,7 +48,7 @@ struct Pending {
 pub(super) struct Controller {
     app: slint::Weak<PlayerWindow>,
     host: Option<slint::Weak<NativeVideoHost>>,
-    music: Arc<Mutex<State>>,
+    music: Rc<automatic_music_mode::Controller>,
     pending: Cell<Option<Pending>>,
     desired: Cell<Option<Mode>>,
     timer: slint::Timer,
@@ -65,7 +63,7 @@ pub(super) struct Controller {
 pub(super) fn install(
     app: &PlayerWindow,
     host: Option<slint::Weak<NativeVideoHost>>,
-    music: &Arc<Mutex<State>>,
+    music: &Rc<automatic_music_mode::Controller>,
 ) -> Rc<Controller> {
     let controller = Rc::new(Controller {
         app: app.as_weak(),
@@ -112,10 +110,6 @@ pub(super) fn install(
             target.observe(&app, fullscreen, finished);
         }
     });
-    let music = music.clone();
-    app.on_auto_switch_music_mode_changed(move |enabled| {
-        riina_core::sync::lock(&music).set_auto_switch(enabled);
-    });
     controller
 }
 
@@ -153,7 +147,7 @@ impl Controller {
         match (Mode::current(app), desired) {
             (current, desired) if current == desired => {}
             (Mode::Windowed, Mode::Music) | (Mode::Music, Mode::Windowed) => {
-                music_mode::toggle_manually(app, &self.music);
+                self.music.toggle_manually(app);
             }
             (Mode::Fullscreen, Mode::Music | Mode::Windowed) => {
                 if desired == Mode::Music {

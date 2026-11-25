@@ -19,6 +19,7 @@ thread_local! {
 }
 
 pub(super) struct UiObserverState {
+    pub(super) automatic_music: Rc<crate::automatic_music_mode::Controller>,
     pub(super) media_geometry: crate::window_aspect::MediaGeometry,
     pub(super) displayed: Option<Arc<Playback>>,
     pub(super) opened_media: Option<(u64, i64)>,
@@ -36,8 +37,10 @@ impl UiObserverState {
     pub(super) fn new(
         video: VideoOsd,
         media_geometry: crate::window_aspect::MediaGeometry,
+        automatic_music: Rc<crate::automatic_music_mode::Controller>,
     ) -> Self {
         Self {
+            automatic_music,
             media_geometry,
             displayed: None,
             opened_media: None,
@@ -172,11 +175,21 @@ mod tests {
     use crate::startup_arguments::Presentation;
     use riina_core::Phase;
 
+    fn state(app: &crate::PlayerWindow) -> UiObserverState {
+        UiObserverState::new(
+            VideoOsd::new(false, false),
+            Default::default(),
+            crate::automatic_music_mode::Controller::install(app, true),
+        )
+    }
+
     #[test]
     fn each_session_owns_its_observations_and_late_delivery_is_ignored() {
-        let state = || UiObserverState::new(VideoOsd::new(false, false), Default::default());
-        let first = ObserverRegistration::new(state());
-        let second = ObserverRegistration::new(state());
+        i_slint_backend_testing::init_no_event_loop();
+        let first_app = crate::PlayerWindow::new().unwrap();
+        let second_app = crate::PlayerWindow::new().unwrap();
+        let first = ObserverRegistration::new(state(&first_app));
+        let second = ObserverRegistration::new(state(&second_app));
         let first_id = first.id();
         first_id.lookup().unwrap().borrow_mut().displayed = Some(Arc::default());
         assert!(second.id().lookup().unwrap().borrow().displayed.is_none());
@@ -189,7 +202,7 @@ mod tests {
     fn startup_presentation_waits_for_playback_and_is_retired_by_a_new_request() {
         i_slint_backend_testing::init_no_event_loop();
         let app = crate::PlayerWindow::new().unwrap();
-        let mut observer = UiObserverState::new(VideoOsd::new(false, false), Default::default());
+        let mut observer = state(&app);
         let mut playback = Playback::default();
         app.set_media_request_generation(1);
         observer.startup_presentation = Some((1, Presentation::Music));

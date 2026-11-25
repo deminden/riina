@@ -11,9 +11,7 @@ use crate::{
     plugin_host::PluginHostHandle, plugins::plugin_players::Ticket, screenshot_output::Scratch,
     video_osd::VideoOsd, window_aspect::MediaGeometry,
 };
-use riina_core::{
-    Phase, Playback, Preferences, RecentMedia, music_mode, sync::lock, video_filters,
-};
+use riina_core::{Phase, Playback, Preferences, RecentMedia, sync::lock, video_filters};
 use riina_mpv::CommandSender;
 use riina_ui::PlayerMenuActions;
 use slint::{ComponentHandle, winit_030::WinitWindowAccessor};
@@ -40,8 +38,8 @@ pub(super) struct Inputs<'a> {
 }
 
 pub(super) struct PreparedObservation {
+    pub(super) automatic_music: Rc<crate::automatic_music_mode::Controller>,
     pub(super) notification: PlaybackNotification,
-    pub(super) music_mode_state: Arc<Mutex<music_mode::State>>,
     pub(super) crop_editor: Editor,
     pub(super) observer_state: ObserverRegistration,
     pub(super) feedback_video_osd: Rc<RefCell<VideoOsd>>,
@@ -72,9 +70,8 @@ pub(super) fn prepare_observation(app: &PlayerWindow, inputs: Inputs<'_>) -> Pre
     let transition_release_generation = Arc::new(AtomicU64::new(u64::MAX));
     let notify_transition_overlay = transition_overlay.clone();
     let notify_transition_release_generation = transition_release_generation.clone();
-    let music_mode_state = Arc::new(std::sync::Mutex::new(music_mode::State::new(
-        prefs.auto_switch_to_music_mode,
-    )));
+    let automatic_music =
+        crate::automatic_music_mode::Controller::install(app, prefs.auto_switch_to_music_mode);
     if !native_presentation {
         super::music_mode::install_window_resize(app);
     }
@@ -82,7 +79,7 @@ pub(super) fn prepare_observation(app: &PlayerWindow, inputs: Inputs<'_>) -> Pre
     let observed_crop_editor = crop_editor.clone();
     let mut video_osd = VideoOsd::new(prefs.disable_osd_speed, prefs.disable_osd_pause_resume);
     video_osd.set_volume_limit(prefs.volume_limit());
-    let observer_state = UiObserverState::new(video_osd, media_geometry);
+    let observer_state = UiObserverState::new(video_osd, media_geometry, automatic_music.clone());
     let feedback_video_osd = observer_state.video.clone();
     let observer_state = ObserverRegistration::new(observer_state);
     let observer_id = observer_state.id();
@@ -101,7 +98,6 @@ pub(super) fn prepare_observation(app: &PlayerWindow, inputs: Inputs<'_>) -> Pre
             saved_audio_filters,
             audio_device_sender,
             opening_fullscreen,
-            music_mode_state: music_mode_state.clone(),
             transition_overlay: notify_transition_overlay,
             transition_release_generation: notify_transition_release_generation,
             managed_visibility,
@@ -111,7 +107,7 @@ pub(super) fn prepare_observation(app: &PlayerWindow, inputs: Inputs<'_>) -> Pre
     };
     PreparedObservation {
         notification,
-        music_mode_state,
+        automatic_music,
         crop_editor,
         observer_state,
         feedback_video_osd,
@@ -204,7 +200,6 @@ pub(super) struct WindowDelivery {
     pub(super) saved_audio_filters: Arc<Mutex<video_filters::Settings>>,
     pub(super) audio_device_sender: Arc<Mutex<Option<CommandSender>>>,
     pub(super) opening_fullscreen: Arc<Mutex<OpeningFullscreen>>,
-    pub(super) music_mode_state: Arc<Mutex<music_mode::State>>,
     pub(super) transition_overlay: Arc<AtomicU64>,
     pub(super) transition_release_generation: Arc<AtomicU64>,
     managed_visibility: Option<ManagedVisibility>,
@@ -255,7 +250,6 @@ impl WindowDelivery {
             let clipboard_error = crate::screenshot_output::copy(&app, &captures);
             self.crop_editor.observe(&app, &state);
             let audio_device_sender = lock(&self.audio_device_sender).clone();
-            crate::automatic_music_mode::observe(&app, &state, &self.music_mode_state);
             let enter_fullscreen = lock(&self.opening_fullscreen).observe(
                 &state,
                 app.global::<riina_ui::PlayerPreferences>()
@@ -276,14 +270,15 @@ impl WindowDelivery {
                 },
                 &mut observer.borrow_mut(),
             );
+            let automatic_music = observer.borrow().automatic_music.clone();
+            automatic_music.observe(&state);
             if let Some(timers) = &mut observer.borrow_mut().timers {
                 timers.observe(&app, &state);
             }
             if resize_for_media {
-                // Apply the complete geometry after automatic music mode has
-                // restored the video window. Coalesced snapshots may omit
-                // Loading, so media identity owns this transition.
-                app.invoke_resize_window_for_media();
+                app.invoke_request_media_window_resize(
+                    state.audio_status() == riina_core::music_mode::AudioStatus::Video,
+                );
             }
             if first_loaded {
                 app.invoke_initial_media_loaded();

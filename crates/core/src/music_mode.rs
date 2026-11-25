@@ -37,6 +37,15 @@ impl State {
         self.auto_switch
     }
 
+    pub fn deadline(self) -> Option<Instant> {
+        self.transition_candidate
+            .map(|(_, started)| started + AUTO_SWITCH_STABILITY)
+    }
+
+    pub fn reset_candidate(&mut self) {
+        self.transition_candidate = None;
+    }
+
     pub fn set_auto_switch(&mut self, enabled: bool) {
         self.auto_switch = enabled;
         if !enabled {

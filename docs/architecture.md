@@ -206,6 +206,14 @@ context, and the event worker then permits subtitle-only frames. The
 embedded Windows presenter starts its video output at media open. An
 explicit mpv force-window choice takes precedence on both paths.
 
+Automatic Music Mode uses the track catalog delivered to the UI. A
+pending switch owns a single deadline, which a new media generation or
+incompatible catalog replaces. Stable playback leaves no timer running.
+The window owner retains a decoded video's pending size through the
+compact-to-main handoff. It restores the main frame before applying the
+saved resize policy. A replacement item clears the old request, and a
+subtitle-only canvas cannot supply the main player's natural dimensions.
+
 Playlist drags send the selected entry IDs and destination entry ID to the
 engine as one request. Play Next resolves the current entry and moves the
 selected entries immediately after it in playlist order. The engine plans the

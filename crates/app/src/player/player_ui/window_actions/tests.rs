@@ -1,15 +1,15 @@
 use super::*;
+use crate::automatic_music_mode;
 use crate::{NativeVideoHost, player_ui::fullscreen};
-use riina_core::music_mode::State;
 use slint::ComponentHandle;
-use std::{
-    cell::RefCell,
-    rc::Rc,
-    sync::{Arc, Mutex},
-};
+use std::{cell::RefCell, rc::Rc};
 
 fn install_fullscreen(app: &PlayerWindow, host: Option<slint::Weak<NativeVideoHost>>) {
-    fullscreen::install(app, host, &Arc::new(Mutex::new(State::new(true))));
+    fullscreen::install(
+        app,
+        host,
+        &automatic_music_mode::Controller::install(app, true),
+    );
 }
 
 fn player(fullscreen: bool) -> PlayerWindow {
@@ -177,12 +177,12 @@ fn queued_music_mode_clears_after_cancellation_and_waits_for_a_real_exit() {
     let app = player(true);
     let host = NativeVideoHost::new().unwrap();
     host.on_set_fullscreen_window(|_| false);
-    let state = Arc::new(Mutex::new(State::new(true)));
+    let state = automatic_music_mode::Controller::install(&app, true);
     fullscreen::install(&app, Some(host.as_weak()), &state);
     let menu = app.global::<PlayerMenuActions>();
     menu.invoke_toggle_music_mode();
     assert!(app.get_fullscreen());
-    assert!(!riina_core::sync::lock(&state).active());
+    assert!(!app.global::<PlayerMusicModeState>().get_music_mode());
 
     app.invoke_native_fullscreen_observed(false, false);
     menu.invoke_toggle_music_mode();
@@ -200,6 +200,6 @@ fn queued_music_mode_clears_after_cancellation_and_waits_for_a_real_exit() {
     assert!(app.global::<PlayerMusicModeState>().get_music_mode());
     menu.invoke_request_fullscreen(false);
     menu.invoke_request_fullscreen(true);
-    assert!(riina_core::sync::lock(&state).active());
+    assert!(app.global::<PlayerMusicModeState>().get_music_mode());
     assert!(!app.get_fullscreen());
 }

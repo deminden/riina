@@ -9,7 +9,7 @@ use super::{
     thumbnail_actions, transitions,
 };
 use crate::{PlaybackStore, PlayerWindow, platform, plugin_host::PluginHostHandle};
-use riina_core::{Playback, music_mode, sync::lock};
+use riina_core::{Playback, sync::lock};
 use riina_mpv::CommandSender;
 use std::{
     path::Path,
@@ -21,7 +21,6 @@ pub(super) struct PlaybackFeatures {
     _online_subtitles_window: crate::open_subtitles::SearchWindowGuard,
     _playback_history_window: crate::playback_history_window::Registration,
     _filter_target: crate::video_filter_window::Registration,
-    _automatic_music_mode_timer: Rc<slint::Timer>,
     _file_drop_timer: Rc<slint::Timer>,
     _player_window_focus: input::PlayerWindowFocusRegistration,
 }
@@ -82,7 +81,7 @@ pub(super) struct Inputs<'a> {
     pub(super) plugin_host: Option<&'a PluginHostHandle>,
     pub(super) plugin_commands: &'a Mutex<Option<CommandSender>>,
     pub(super) filters: &'a Rc<crate::video_filter_window::Profile>,
-    pub(super) music_mode: &'a Arc<Mutex<music_mode::State>>,
+    pub(super) automatic_music: &'a Rc<crate::automatic_music_mode::Controller>,
     pub(super) transition_release_generation: &'a Arc<AtomicU64>,
     pub(super) picture_in_picture: &'a platform::PictureInPictureSession,
     pub(super) system_media: &'a platform::SystemMediaSession,
@@ -102,7 +101,7 @@ pub(super) fn install(app: &PlayerWindow, inputs: Inputs<'_>) -> Installed {
         plugin_host,
         plugin_commands,
         filters,
-        music_mode,
+        automatic_music,
         transition_release_generation,
         picture_in_picture,
         system_media,
@@ -132,8 +131,6 @@ pub(super) fn install(app: &PlayerWindow, inputs: Inputs<'_>) -> Installed {
         prefs_path,
         folder_series.clone(),
     );
-    let automatic_music_mode_timer =
-        crate::automatic_music_mode::install(app, playback.clone(), music_mode.clone());
     *lock(plugin_commands) = Some(commands.clone());
     let subtitle_discovery_ready = Arc::new(crate::subtitle_discovery::Readiness::default());
     let subtitle_assignments = Assignments::default();
@@ -162,7 +159,7 @@ pub(super) fn install(app: &PlayerWindow, inputs: Inputs<'_>) -> Installed {
     let fullscreen = fullscreen::install(
         app,
         native.map(platform::NativePresentation::host),
-        music_mode,
+        automatic_music,
     );
     #[cfg(not(target_os = "linux"))]
     drop(fullscreen);
@@ -203,7 +200,6 @@ pub(super) fn install(app: &PlayerWindow, inputs: Inputs<'_>) -> Installed {
             _online_subtitles_window: online_subtitles_window,
             _playback_history_window: playback_history_window,
             _filter_target: filter_target,
-            _automatic_music_mode_timer: automatic_music_mode_timer,
             _file_drop_timer: file_drop_timer,
             _player_window_focus: player_window_focus,
         },

@@ -53,6 +53,10 @@ Implementation does not imply every state or platform is verified.
   volume. Linux exposes the player menu through a compact button and F10.
   A media session can render subtitles on an audio-only canvas without
   adding a video track. The canvas stays with the player when artwork rolls up.
+- **Automatic Music Mode:** the player gives each pending switch one
+  deadline. When video returns, it applies the saved resize policy after
+  restoring the main frame, even if the decoder reported the size while
+  the compact frame was still active.
 - **File opens:** the primary File commands follow the new-window preference,
   and their modifier shortcuts invert it. Active menus show the actual destination.
   The native Windows picker has verified grouped and separate opens and reuse

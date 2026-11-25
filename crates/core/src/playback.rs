@@ -262,22 +262,18 @@ impl Playback {
         {
             return music_mode::AudioStatus::Video;
         }
-        let video_tracks = self
-            .tracks
-            .iter()
-            .filter(|track| track.kind == TrackKind::Video)
-            .collect::<Vec<_>>();
-        let has_audio_track = self
-            .tracks
-            .iter()
-            .any(|track| track.kind == TrackKind::Audio);
-        if video_tracks.is_empty() && !has_audio_track {
-            return music_mode::AudioStatus::Unknown;
+        let mut has_audio_or_artwork = false;
+        for track in self.tracks.iter() {
+            match track.kind {
+                TrackKind::Video if !track.albumart => return music_mode::AudioStatus::Video,
+                TrackKind::Audio | TrackKind::Video => has_audio_or_artwork = true,
+                _ => {}
+            }
         }
-        if video_tracks.iter().all(|track| track.albumart) {
+        if has_audio_or_artwork {
             music_mode::AudioStatus::Audio
         } else {
-            music_mode::AudioStatus::Video
+            music_mode::AudioStatus::Unknown
         }
     }
 

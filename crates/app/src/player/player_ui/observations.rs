@@ -384,6 +384,7 @@ fn update_playback_phase(
     {
         // Do not leave the prior media's resize commands enabled while a
         // replacement is loading or after the current item has stopped.
+        app.invoke_cancel_media_window_resize();
         app.set_video_window_width(0.0);
         app.set_video_window_height(0.0);
         app.set_video_window_rotation(0);
