@@ -419,6 +419,13 @@ changes to those sessions and waits for their acknowledgements before an
 installer can replace an active package. Closing the application retires the
 global entries.
 
+The same coordinator delivers global menu actions from players and the
+application. The application attaches a windowless presenter on macOS.
+That presenter opts into its own menu snapshot and tracks changes to global
+standalone windows. Windows and Linux use the player routes without that
+extra snapshot or change counter. The platform adapter also supplies AppKit
+close notifications and Linux standalone window shortcut ownership.
+
 On macOS, startup loads enabled global entries even if the selected launch
 action leaves the app without a player. The coordinator wakes the UI when a
 global entry requests a player or changes its standalone window, menu or

@@ -3,7 +3,7 @@ use super::{
     HOST_EVENT_POLL_INTERVAL, PluginCommand, PluginHostMessage, UiActivity, enabled_packages,
     host_message, load_grants, record,
 };
-use crate::plugin_runtime::{HostEvent, PluginRuntimeSession, PluginUi};
+use crate::plugin_runtime::{HostEvent, PluginRuntimeSession, PluginUi, standalone::Hub};
 use crate::plugins::plugin_players::{Message, Options, Target, Ticket};
 use riina_core::{plugin::Manifest, plugin_menu::PluginMenuItem, sync::lock};
 use std::{
@@ -23,7 +23,6 @@ const MAX_PLAYERS_PER_PLUGIN: usize = 16;
 const MAX_PENDING_PLAYERS: usize = 32;
 type Acknowledgement = mpsc::Receiver<Result<(), String>>;
 
-#[cfg(any(target_os = "macos", test))]
 #[derive(Clone, PartialEq, Eq)]
 pub(crate) struct GlobalMenu {
     pub(crate) package: String,
@@ -32,8 +31,19 @@ pub(crate) struct GlobalMenu {
     pub(crate) items: Vec<PluginMenuItem>,
 }
 
-#[cfg(any(target_os = "macos", test))]
-type GlobalMenus = Arc<Mutex<Vec<GlobalMenu>>>;
+struct WindowlessUi {
+    activity: UiActivity,
+    menus: Mutex<Vec<GlobalMenu>>,
+}
+
+impl WindowlessUi {
+    fn new() -> Self {
+        Self {
+            activity: UiActivity::new(),
+            menus: Mutex::default(),
+        }
+    }
+}
 
 pub(crate) struct GlobalHost {
     handle: GlobalHandle,
@@ -46,10 +56,7 @@ pub(crate) struct GlobalHandle {
     commands: mpsc::SyncSender<Request>,
     next_player: Arc<AtomicU64>,
     launches: Arc<Mutex<Vec<Arc<Ticket>>>>,
-    #[cfg(any(target_os = "macos", test))]
-    activity: Arc<UiActivity>,
-    #[cfg(any(target_os = "macos", test))]
-    menus: GlobalMenus,
+    windowless: Option<Arc<WindowlessUi>>,
 }
 
 pub(super) struct PlayerPort {
@@ -72,8 +79,6 @@ pub(super) enum PackageChange {
 enum Request {
     #[cfg(any(target_os = "macos", test))]
     LoadEnabledGlobals,
-    #[cfg(any(target_os = "macos", test))]
-    ActivateIdleMenu(String, u64, String),
     Join(Weak<PlayerPort>),
     Ensure(
         Weak<PlayerPort>,
@@ -82,7 +87,11 @@ enum Request {
         mpsc::SyncSender<Result<(), String>>,
     ),
     Change(PackageChange, Option<mpsc::SyncSender<Schedule>>),
-    ActivateMenu(String, String),
+    ActivateMenu {
+        package: String,
+        item: String,
+        generation: Option<u64>,
+    },
     FromPlayer(Weak<PlayerPort>, String, Message),
     Shutdown,
 }
@@ -94,44 +103,37 @@ struct Schedule {
 
 impl GlobalHost {
     pub(crate) fn start(preferences_path: &Path) -> Result<Self, String> {
+        Self::start_with_windowless(
+            preferences_path,
+            crate::platform::plugin_application::SUPPORTS_WINDOWLESS,
+        )
+    }
+
+    pub(super) fn start_with_windowless(
+        preferences_path: &Path,
+        windowless: bool,
+    ) -> Result<Self, String> {
         let (commands, requests) = mpsc::sync_channel(64);
-        let ui = PluginUi::default();
-        let worker_ui = ui.clone();
-        let launches = Arc::new(Mutex::new(Vec::new()));
-        let worker_launches = launches.clone();
-        #[cfg(any(target_os = "macos", test))]
-        let activity = Arc::new(UiActivity::new());
-        #[cfg(any(target_os = "macos", test))]
-        let worker_activity = activity.clone();
-        #[cfg(any(target_os = "macos", test))]
-        let menus = GlobalMenus::default();
-        #[cfg(any(target_os = "macos", test))]
-        let worker_menus = menus.clone();
+        let handle = GlobalHandle {
+            ui: PluginUi {
+                windows: Hub::new(windowless),
+                ..PluginUi::default()
+            },
+            commands,
+            next_player: Arc::default(),
+            launches: Arc::default(),
+            windowless: windowless.then(|| Arc::new(WindowlessUi::new())),
+        };
+        let worker_ui = handle.ui.clone();
+        let launches = handle.launches.clone();
+        let windowless = handle.windowless.clone();
         let profile = preferences_path.to_path_buf();
         let worker = crate::background::spawn_named("riina-application-plugins", move || {
-            Coordinator::new(
-                &profile,
-                worker_ui,
-                worker_launches,
-                #[cfg(any(target_os = "macos", test))]
-                worker_activity,
-                #[cfg(any(target_os = "macos", test))]
-                worker_menus,
-            )
-            .run(requests);
+            Coordinator::new(&profile, worker_ui, launches, windowless).run(requests);
         })
         .map_err(|error| format!("Could not start global plugin host: {error}"))?;
         Ok(Self {
-            handle: GlobalHandle {
-                ui,
-                commands,
-                next_player: Arc::default(),
-                launches,
-                #[cfg(any(target_os = "macos", test))]
-                activity,
-                #[cfg(any(target_os = "macos", test))]
-                menus,
-            },
+            handle,
             worker: Some(worker),
         })
     }
@@ -151,37 +153,43 @@ impl Drop for GlobalHost {
     }
 }
 
+#[cfg(any(target_os = "macos", test))]
 impl GlobalHandle {
-    #[cfg(any(target_os = "macos", test))]
     pub(crate) fn menus(&self) -> Vec<GlobalMenu> {
-        lock(&self.menus).clone()
+        self.windowless
+            .as_ref()
+            .map_or_else(Vec::new, |windowless| lock(&windowless.menus).clone())
     }
 
-    #[cfg(any(target_os = "macos", test))]
     pub(crate) fn activate_idle_menu(
         &self,
         package: String,
         generation: u64,
         id: String,
     ) -> Result<(), String> {
-        self.send(Request::ActivateIdleMenu(package, generation, id))
+        self.send(Request::ActivateMenu {
+            package,
+            item: id,
+            generation: Some(generation),
+        })
     }
 
-    #[cfg(any(target_os = "macos", test))]
     pub(crate) fn reload_all(&self) -> Result<(), String> {
         self.change(PackageChange::Reload(BTreeSet::new()))
     }
 
-    #[cfg(any(target_os = "macos", test))]
     pub(crate) fn set_ui_waker(&self, wake: impl Fn() + Send + Sync + 'static) {
-        self.activity.set_waker(wake);
+        if let Some(windowless) = &self.windowless {
+            windowless.activity.set_waker(wake);
+        }
     }
 
-    #[cfg(any(target_os = "macos", test))]
     pub(crate) fn load_enabled_globals(&self) -> Result<(), String> {
         self.send(Request::LoadEnabledGlobals)
     }
+}
 
+impl GlobalHandle {
     pub(crate) fn enable(&self, manifest: Manifest, directory: PathBuf) -> Result<(), String> {
         self.change(PackageChange::Enable(Arc::new(manifest), directory))
     }
@@ -275,7 +283,11 @@ impl GlobalHandle {
     }
 
     pub(super) fn activate_menu(&self, identifier: String, id: String) -> Result<(), String> {
-        self.send(Request::ActivateMenu(identifier, id))
+        self.send(Request::ActivateMenu {
+            package: identifier,
+            item: id,
+            generation: None,
+        })
     }
 
     pub(super) fn deliver(
@@ -295,7 +307,6 @@ impl GlobalHandle {
 struct Entry {
     session: PluginRuntimeSession,
     name: String,
-    #[cfg(any(target_os = "macos", test))]
     generation: u64,
     menu: Option<Vec<PluginMenuItem>>,
     managed: BTreeMap<u64, PendingPlayer>,
@@ -324,11 +335,7 @@ struct Coordinator {
     suspended: BTreeSet<String>,
     players: Vec<Weak<PlayerPort>>,
     launches: Arc<Mutex<Vec<Arc<Ticket>>>>,
-    #[cfg(any(target_os = "macos", test))]
-    activity: Arc<UiActivity>,
-    #[cfg(any(target_os = "macos", test))]
-    menus: GlobalMenus,
-    #[cfg(any(target_os = "macos", test))]
+    windowless: Option<Arc<WindowlessUi>>,
     next_generation: u64,
 }
 
@@ -337,8 +344,7 @@ impl Coordinator {
         profile: &Path,
         ui: PluginUi,
         launches: Arc<Mutex<Vec<Arc<Ticket>>>>,
-        #[cfg(any(target_os = "macos", test))] activity: Arc<UiActivity>,
-        #[cfg(any(target_os = "macos", test))] menus: GlobalMenus,
+        windowless: Option<Arc<WindowlessUi>>,
     ) -> Self {
         let directory = profile.with_file_name("Plugins");
         crate::plugin_packages::sweep_staging(&directory);
@@ -351,18 +357,13 @@ impl Coordinator {
             suspended: BTreeSet::new(),
             players: Vec::new(),
             launches,
-            #[cfg(any(target_os = "macos", test))]
-            activity,
-            #[cfg(any(target_os = "macos", test))]
-            menus,
-            #[cfg(any(target_os = "macos", test))]
+            windowless,
             next_generation: 0,
         }
     }
 
     fn run(mut self, requests: mpsc::Receiver<Request>) {
-        #[cfg(any(target_os = "macos", test))]
-        let mut shown = self.ui_revisions();
+        let mut shown = self.windowless.as_ref().map(|_| self.ui_revisions());
         loop {
             let request = if self.entries.is_empty() {
                 requests
@@ -378,18 +379,16 @@ impl Coordinator {
             }
             let players = self.live_players();
             self.pump(&players);
-            #[cfg(any(target_os = "macos", test))]
-            {
+            if let (Some(shown), Some(windowless)) = (&mut shown, &self.windowless) {
                 let current = self.ui_revisions();
-                if current != shown {
-                    shown = current;
-                    self.activity.wake();
+                if current != *shown {
+                    *shown = current;
+                    windowless.activity.wake();
                 }
             }
         }
     }
 
-    #[cfg(any(target_os = "macos", test))]
     fn ui_revisions(&self) -> (u64, u64) {
         (self.ui.windows.revision(), self.ui.developer.revision())
     }
@@ -398,15 +397,6 @@ impl Coordinator {
         match request {
             #[cfg(any(target_os = "macos", test))]
             Request::LoadEnabledGlobals => self.load_enabled_globals(),
-            #[cfg(any(target_os = "macos", test))]
-            Request::ActivateIdleMenu(package, generation, id) => {
-                if let Some(entry) = self.entries.get(&package)
-                    && entry.generation == generation
-                    && let Err(error) = entry.session.deliver_plugin_menu_action(id)
-                {
-                    self.report(error);
-                }
-            }
             Request::Join(player) => {
                 if let Some(port) = player.upgrade() {
                     for (identifier, entry) in &mut self.entries {
@@ -429,9 +419,14 @@ impl Coordinator {
                 let _ = response.try_send(result);
             }
             Request::Change(change, response) => self.change(change, response),
-            Request::ActivateMenu(identifier, id) => {
-                if let Some(entry) = self.entries.get(&identifier)
-                    && let Err(error) = entry.session.deliver_plugin_menu_action(id)
+            Request::ActivateMenu {
+                package,
+                item,
+                generation,
+            } => {
+                if let Some(entry) = self.entries.get(&package)
+                    && generation.is_none_or(|generation| entry.generation == generation)
+                    && let Err(error) = entry.session.deliver_plugin_menu_action(item)
                 {
                     self.report(error);
                 }
@@ -484,18 +479,13 @@ impl Coordinator {
             self.ui.clone(),
         )
         .map_err(|error| format!("Could not start global {}: {error}", manifest.name))?;
-        #[cfg(any(target_os = "macos", test))]
-        let generation = {
-            self.next_generation = self.next_generation.wrapping_add(1);
-            self.next_generation
-        };
+        self.next_generation = self.next_generation.wrapping_add(1);
         self.entries.insert(
             manifest.identifier.clone(),
             Entry {
                 session,
                 name: manifest.name.clone(),
-                #[cfg(any(target_os = "macos", test))]
-                generation,
+                generation: self.next_generation,
                 menu: None,
                 managed: BTreeMap::new(),
             },
@@ -536,11 +526,7 @@ impl Coordinator {
         if let Some(response) = response {
             let _ = response.try_send(schedule);
         }
-        #[cfg(any(target_os = "macos", test))]
-        {
-            self.refresh_menus();
-            self.activity.wake();
-        }
+        self.refresh_menus();
     }
 
     fn apply_change(&mut self, change: &PackageChange) -> Result<(), String> {
@@ -590,7 +576,6 @@ impl Coordinator {
     }
 
     fn pump(&mut self, players: &[Arc<PlayerPort>]) {
-        #[cfg(any(target_os = "macos", test))]
         let mut menu_changed = false;
         for (identifier, entry) in &mut self.entries {
             entry.managed.retain(|_, player| player.ticket.is_open());
@@ -611,8 +596,9 @@ impl Coordinator {
                     HostEvent::CreatePluginPlayer(id, options) => {
                         match entry.create_player(identifier, id, options, &self.launches) {
                             Ok(()) => {
-                                #[cfg(any(target_os = "macos", test))]
-                                self.activity.wake();
+                                if let Some(windowless) = &self.windowless {
+                                    windowless.activity.wake();
+                                }
                             }
                             Err(error) => {
                                 if let Some(port) = players.last() {
@@ -624,10 +610,7 @@ impl Coordinator {
                         }
                     }
                     HostEvent::MenuUpdate(items) => {
-                        #[cfg(any(target_os = "macos", test))]
-                        {
-                            menu_changed = true;
-                        }
+                        menu_changed = true;
                         for port in players.iter().filter(|port| port.allows(identifier)) {
                             port.menu(menu_update(identifier, &entry.name, items.clone()));
                         }
@@ -637,13 +620,11 @@ impl Coordinator {
                         if let Some(port) = players.last() {
                             port.publish(host_message(&entry.name, effect));
                         } else {
-                            #[cfg(target_os = "macos")]
-                            if let super::UiEffect::ShowAlert(message) = effect
-                                && let Err(error) =
-                                    self.ui.dialogs.notice(entry.name.clone(), message)
-                            {
-                                crate::diagnostics::warn!("Could not show plugin alert: {error}");
-                            }
+                            crate::platform::plugin_application::present_without_player(
+                                &self.ui.dialogs,
+                                &entry.name,
+                                effect,
+                            );
                         }
                     }
                     HostEvent::Console(message) => {
@@ -657,15 +638,15 @@ impl Coordinator {
                 }
             }
         }
-        #[cfg(any(target_os = "macos", test))]
         if menu_changed {
             self.refresh_menus();
-            self.activity.wake();
         }
     }
 
-    #[cfg(any(target_os = "macos", test))]
     fn refresh_menus(&self) {
+        let Some(windowless) = &self.windowless else {
+            return;
+        };
         let mut next = self
             .entries
             .iter()
@@ -692,7 +673,8 @@ impl Coordinator {
                 .then_with(|| left.title.cmp(&right.title))
                 .then_with(|| left.package.cmp(&right.package))
         });
-        *lock(&self.menus) = next;
+        *lock(&windowless.menus) = next;
+        windowless.activity.wake();
     }
 }
 

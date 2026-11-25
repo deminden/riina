@@ -19,6 +19,7 @@ mod file_reveal;
 pub(crate) mod folder_dialog;
 pub(crate) mod language;
 mod pip_session;
+pub(crate) mod plugin_application;
 pub(crate) mod plugin_dialogs;
 pub(crate) use pip_session::PictureInPictureSession;
 pub(crate) mod playback_power;

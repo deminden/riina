@@ -330,7 +330,7 @@ impl ApplicationServices {
         self.open_url.closed.bind(callback.clone());
         self.updates.closed.bind(callback.clone());
         self.settings.closed.bind(callback.clone());
-        self.plugins.closed.bind(callback.clone());
+        self.plugins.bind_application_close(callback.clone());
         self.filters.closed.bind(callback.clone());
         self.highlights.closed.bind(callback);
     }

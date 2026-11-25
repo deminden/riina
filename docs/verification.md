@@ -5148,3 +5148,42 @@ probes used the visible playlist rows above the compact footer.
 - Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
 - Linux application SHA-256 `311b9bbccbb9eb4da47a9431f0bafc85ae0464fc5d0da0ec906d99a518274902`
 - Linux libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`
+
+### Application plugin platform boundary 2026-11-25
+
+The application coordinator routes actions from both player and windowless
+menus. Idle actions still carry the global entry generation and are discarded
+after reload. The AppKit presenter opts into the menu snapshot and the
+standalone-window change counter. The player-only route uses its existing
+menu publications and window state. Native shortcut ownership, close
+notifications and windowless alert delivery belong to the platform adapter.
+
+The existing host scenario runs with the windowless presenter disabled and
+verifies both player and global actions reach their owning realms. The
+windowless host scenario explicitly enables the presenter and checks startup,
+menu updates, stale actions after reload and resource retirement. The
+standalone-window test enables change tracking to cover closure after a
+presentation failure.
+
+The Windows workspace gate passed 1,084 Rust tests including the headless
+pixel comparison, 79 Python tests and four browser tests. Strict Clippy, the
+locked Windows and Linux builds, and all 65 Windows null-output engine tests
+passed. Strict Apple Silicon cross-Clippy passed for the application and test
+targets. The application menu, ownerless alerts and quit policy still need a
+native macOS desktop run.
+
+On an isolated Windows desktop, the startup prompt and both developer
+consoles worked during paused playback. The global window restored its
+requested width, retained its other frame axes and reopened six times from
+the native Plugin menu. Closing the player tool or console left the global
+one open. Closing the player then retired the exact process. On native
+Wayland the same global WebView survived closing the first player, opened
+Settings through the remaining player and accepted its Quit shortcut.
+An X11 rerun waited for native focus before answering the startup prompt.
+It kept the same global tool across the first player's close, opened Settings
+and quit through the surviving player. Both Linux test processes exited.
+
+- Windows application SHA-256 `121784d5fc9759d44d999d7628106f33cfde50486308a71963f6dae506ab4a9d`
+- Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
+- Linux application SHA-256 `85ffbf60799cc978b70496c678c49b0dca9337abad0cc999869d64c35d08482d`
+- Linux libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`

@@ -441,7 +441,11 @@ fn plugin_menu_actions_from_both_runtime_scopes_reach_their_owner() {
     std::fs::write(root.join("plugin-enabled.json"), r#"["org.example.menu"]"#).unwrap();
 
     let preferences_path = root.join("preferences.json");
-    let host = PluginHost::start(&preferences_path, &[], &[]).unwrap();
+    let global = GlobalHost::start_with_windowless(&preferences_path, false).unwrap();
+    let mut host =
+        PluginHost::prepare_for_application(&preferences_path, &[], &[], global.handle(), None)
+            .unwrap();
+    host.start_player(None);
     let handle = host.handle();
     let deadline = Instant::now() + Duration::from_secs(3);
     let mut messages = Vec::new();
@@ -490,6 +494,7 @@ fn plugin_menu_actions_from_both_runtime_scopes_reach_their_owner() {
             "Both player and global plugin menu snapshots should be available; messages: {messages:#?}"
         );
     };
+    assert!(global.handle().menus().is_empty());
     handle
         .activate_plugin_menu_item("org.example.menu".into(), false, player_menu_id)
         .unwrap();
@@ -622,7 +627,7 @@ fn enabled_global_realms_start_before_any_player_joins() {
     )
     .unwrap();
 
-    let global = GlobalHost::start(&profile).unwrap();
+    let global = GlobalHost::start_with_windowless(&profile, true).unwrap();
     let handle = global.handle();
     let (wake, ready) = mpsc::sync_channel(16);
     handle.set_ui_waker(move || {

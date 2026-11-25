@@ -5,18 +5,19 @@ mod tests;
 use super::{ExecutionControl, RuntimeCommand};
 use riina_core::plugin_window::{Frame, Intent, Presentation, Properties, State, validate_message};
 use rquickjs::{Context, Function, Object, Value, function::Func};
-#[cfg(any(target_os = "macos", test))]
-use std::sync::atomic::{AtomicU64, Ordering};
 use std::{
     path::{Path, PathBuf},
-    sync::{Arc, Mutex, Weak, mpsc::SyncSender},
+    sync::{
+        Arc, Mutex, Weak,
+        atomic::{AtomicU64, Ordering},
+        mpsc::SyncSender,
+    },
 };
 
 #[derive(Clone, Default)]
 pub(crate) struct Hub {
     registry: Arc<Mutex<Registry>>,
-    #[cfg(any(target_os = "macos", test))]
-    revision: Arc<AtomicU64>,
+    revision: Option<Arc<AtomicU64>>,
 }
 
 #[derive(Default)]
@@ -26,6 +27,13 @@ struct Registry {
 }
 
 impl Hub {
+    pub(crate) fn new(track_changes: bool) -> Self {
+        Self {
+            registry: Arc::default(),
+            revision: track_changes.then(Arc::default),
+        }
+    }
+
     pub(super) fn register(
         &self,
         name: String,
@@ -44,7 +52,6 @@ impl Hub {
             execution,
             commands,
             state: Mutex::default(),
-            #[cfg(any(target_os = "macos", test))]
             revision: self.revision.clone(),
         });
         registry.entries.push(Arc::downgrade(&endpoint));
@@ -64,9 +71,10 @@ impl Hub {
         open
     }
 
-    #[cfg(any(target_os = "macos", test))]
     pub(crate) fn revision(&self) -> u64 {
-        self.revision.load(Ordering::Acquire)
+        self.revision
+            .as_ref()
+            .map_or(0, |revision| revision.load(Ordering::Acquire))
     }
 
     #[cfg(any(target_os = "macos", test))]
@@ -88,8 +96,7 @@ pub(crate) struct Endpoint {
     execution: Arc<ExecutionControl>,
     commands: SyncSender<RuntimeCommand>,
     state: Mutex<State>,
-    #[cfg(any(target_os = "macos", test))]
-    revision: Arc<AtomicU64>,
+    revision: Option<Arc<AtomicU64>>,
 }
 
 impl Endpoint {
@@ -117,8 +124,7 @@ impl Endpoint {
         let mut state = riina_core::sync::lock(&self.state);
         if state.presentation().revision == revision {
             let _ = state.apply(Intent::Close);
-            #[cfg(any(target_os = "macos", test))]
-            self.revision.fetch_add(1, Ordering::Release);
+            self.record_change();
         }
     }
 
@@ -183,16 +189,20 @@ impl Endpoint {
             .lock()
             .map_err(|_| "Standalone window state is unavailable")?;
         state.apply(intent)?;
-        #[cfg(any(target_os = "macos", test))]
-        self.revision.fetch_add(1, Ordering::Release);
+        self.record_change();
         Ok(())
+    }
+
+    fn record_change(&self) {
+        if let Some(revision) = &self.revision {
+            revision.fetch_add(1, Ordering::Release);
+        }
     }
 }
 
-#[cfg(any(target_os = "macos", test))]
 impl Drop for Endpoint {
     fn drop(&mut self) {
-        self.revision.fetch_add(1, Ordering::Release);
+        self.record_change();
     }
 }
 

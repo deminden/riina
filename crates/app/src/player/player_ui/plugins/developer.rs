@@ -2,6 +2,7 @@
 use crate::{
     PlayerWindow, platform,
     plugin_runtime::developer::{Command, Console, Directory, Kind, Line, Realm},
+    windows::close_observer::CloseObserver,
 };
 use riina_ui::{
     DeveloperConsoleMember, DeveloperConsoleRow, MenuCatalogRow, PlayerMenuActions,
@@ -19,8 +20,7 @@ pub(super) struct Presenter {
 pub(super) struct Scope {
     directory: Directory,
     windows: Rc<RefCell<BTreeMap<u64, ToolWindow>>>,
-    #[cfg(target_os = "macos")]
-    closed: Option<Rc<crate::windows::close_observer::CloseObserver>>,
+    closed: Option<Rc<CloseObserver>>,
 }
 
 struct RealmMenu {
@@ -34,17 +34,12 @@ impl Scope {
         Self {
             directory,
             windows: Rc::default(),
-            #[cfg(target_os = "macos")]
             closed: None,
         }
     }
 
-    #[cfg(target_os = "macos")]
-    pub(super) fn bind_application_close(
-        &mut self,
-        closed: Rc<crate::windows::close_observer::CloseObserver>,
-    ) {
-        self.closed = Some(closed);
+    pub(super) fn set_application_close(&mut self, closed: Option<Rc<CloseObserver>>) {
+        self.closed = closed;
     }
 
     fn open(&self, app: Option<&PlayerWindow>, id: u64) -> Result<(), String> {
@@ -57,7 +52,6 @@ impl Scope {
             std::collections::btree_map::Entry::Occupied(entry) => entry.into_mut(),
             std::collections::btree_map::Entry::Vacant(entry) => {
                 let window = ToolWindow::new(app, realm)?;
-                #[cfg(target_os = "macos")]
                 if let Some(closed) = self.closed.clone() {
                     window.window.window().on_close_requested(move || {
                         closed.notify();
@@ -70,12 +64,17 @@ impl Scope {
         window.show()
     }
 
-    #[cfg(target_os = "macos")]
+    pub(super) fn close_all(&self) {
+        self.windows.borrow_mut().clear();
+    }
+}
+
+#[cfg(target_os = "macos")]
+impl Scope {
     pub(super) fn open_windowless(&self, id: u64) -> Result<(), String> {
         self.open(None, id)
     }
 
-    #[cfg(target_os = "macos")]
     pub(super) fn present_windowless(&self) -> bool {
         let Ok(mut windows) = self.windows.try_borrow_mut() else {
             return true;
@@ -93,15 +92,10 @@ impl Scope {
         is_visible
     }
 
-    #[cfg(target_os = "macos")]
     pub(super) fn is_visible(&self) -> bool {
         self.windows
             .try_borrow()
             .map_or(true, |windows| visible(&windows))
-    }
-
-    pub(super) fn close_all(&self) {
-        self.windows.borrow_mut().clear();
     }
 }
 

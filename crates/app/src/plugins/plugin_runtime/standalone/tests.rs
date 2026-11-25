@@ -41,7 +41,10 @@ fn player_and_global_windows_have_independent_documents_and_retirement() {
         ",
     )
     .unwrap();
-    let ui = PluginUi::default();
+    let ui = PluginUi {
+        windows: super::Hub::new(true),
+        ..PluginUi::default()
+    };
     let global = PluginRuntimeSession::start_package_global_entry(
         package.path(),
         &manifest,

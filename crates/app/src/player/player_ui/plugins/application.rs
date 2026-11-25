@@ -1,10 +1,8 @@
 //! Present application-wide plugin UI with any active player as its owner.
 use super::developer;
-#[cfg(target_os = "macos")]
-use super::windowless::Driver;
 use crate::{
     PlayerWindow,
-    platform::{plugin_dialogs, plugin_standalone},
+    platform::{plugin_application, plugin_dialogs, plugin_standalone},
     plugin_host::{GlobalHandle, GlobalHost},
     plugins::plugin_players::Ticket,
 };
@@ -14,12 +12,7 @@ use std::{cell::RefCell, path::Path, rc::Rc, sync::Arc};
 pub(crate) struct ApplicationPlugins {
     pub(super) services: RefCell<Option<Services>>,
     pub(super) managed: Rc<RefCell<ManagedWindows>>,
-    #[cfg(target_os = "linux")]
-    owner: std::cell::OnceCell<plugin_standalone::ShortcutOwner>,
-    #[cfg(target_os = "macos")]
-    windowless: RefCell<Option<Rc<Driver>>>,
-    #[cfg(target_os = "macos")]
-    pub(crate) closed: Rc<crate::windows::close_observer::CloseObserver>,
+    platform: plugin_application::Bindings,
 }
 
 pub(super) struct Services {
@@ -30,12 +23,11 @@ pub(super) struct Services {
 }
 
 impl ApplicationPlugins {
-    #[cfg(target_os = "linux")]
     pub(crate) fn bind_shortcut_owner(
         &self,
         owner: impl Fn() -> Option<slint::Weak<PlayerWindow>> + 'static,
     ) {
-        let _ = self.owner.set(Rc::new(owner));
+        self.platform.bind_shortcut_owner(owner);
     }
 
     pub(crate) fn bind_player_launcher(
@@ -54,25 +46,10 @@ impl ApplicationPlugins {
         let handle = host.handle();
         let dialogs = plugin_dialogs::ApplicationOwners::default();
         dialogs.install(&handle.ui.dialogs);
-        let standalone = plugin_standalone::Presenter::new(handle.ui.windows.clone());
-        #[cfg(target_os = "linux")]
-        let standalone = {
-            let mut standalone = standalone;
-            if let Some(owner) = self.owner.get() {
-                standalone.bind_application_owner(owner.clone());
-            }
-            standalone
-        };
-        let developer = developer::Scope::new(handle.ui.developer.clone());
-        #[cfg(target_os = "macos")]
-        let (standalone, developer) = {
-            dialogs.bind_application_close(self.closed.clone());
-            let mut standalone = standalone;
-            standalone.bind_application_close(self.closed.clone());
-            let mut developer = developer;
-            developer.bind_application_close(self.closed.clone());
-            (standalone, developer)
-        };
+        let mut standalone = plugin_standalone::Presenter::new(handle.ui.windows.clone());
+        self.platform.attach(&dialogs, &mut standalone);
+        let mut developer = developer::Scope::new(handle.ui.developer.clone());
+        developer.set_application_close(self.platform.close_observer());
         *services = Some(Services {
             host,
             standalone: Rc::new(RefCell::new(standalone)),
@@ -81,8 +58,14 @@ impl ApplicationPlugins {
         });
         Ok(handle)
     }
+}
 
-    #[cfg(target_os = "macos")]
+#[cfg(target_os = "macos")]
+impl ApplicationPlugins {
+    pub(crate) fn bind_application_close(&self, callback: Rc<dyn Fn()>) {
+        self.platform.bind_close(callback);
+    }
+
     pub(crate) fn bind_windowless(
         self: &Rc<Self>,
         global: GlobalHandle,
@@ -90,24 +73,19 @@ impl ApplicationPlugins {
     ) {
         let owner = Rc::downgrade(self);
         let host = global.clone();
-        let driver = Driver::new(move || {
+        let wake = self.platform.bind_windowless(move || {
             let Some(service) = owner.upgrade().filter(|_| is_windowless()) else {
                 return false;
             };
             service.present_windowless(&host)
         });
-        global.set_ui_waker(driver.waker());
-        self.windowless.replace(Some(driver));
+        global.set_ui_waker(wake);
     }
 
-    #[cfg(target_os = "macos")]
     pub(crate) fn request_windowless(&self) {
-        if let Some(driver) = self.windowless.borrow().as_ref() {
-            driver.request();
-        }
+        self.platform.request_windowless();
     }
 
-    #[cfg(target_os = "macos")]
     fn present_windowless(&self, global: &GlobalHandle) -> bool {
         crate::platform::browser_activation::refresh_idle_plugins();
         if let Ok(mut managed) = self.managed.try_borrow_mut() {
@@ -129,7 +107,6 @@ impl ApplicationPlugins {
         standalone.has_window_activity() || console_visible
     }
 
-    #[cfg(target_os = "macos")]
     pub(crate) fn global_handle(&self) -> Option<GlobalHandle> {
         self.services
             .borrow()
@@ -137,7 +114,6 @@ impl ApplicationPlugins {
             .map(|services| services.host.handle())
     }
 
-    #[cfg(target_os = "macos")]
     pub(crate) fn open_developer_tool(&self, realm: u64) -> Result<(), String> {
         let developer = self
             .services
@@ -150,7 +126,6 @@ impl ApplicationPlugins {
         Ok(())
     }
 
-    #[cfg(target_os = "macos")]
     pub(crate) fn auxiliary_is_visible(&self) -> bool {
         self.services.borrow().as_ref().is_some_and(|services| {
             services.dialogs.application_dialog_visible()
@@ -162,9 +137,8 @@ impl ApplicationPlugins {
         })
     }
 
-    #[cfg(target_os = "macos")]
     pub(crate) fn hide_for_quit(&self) {
-        self.windowless.borrow_mut().take();
+        self.platform.stop_windowless();
         if let Some(services) = self.services.borrow().as_ref() {
             services.host.handle().ui.dialogs.stop();
             services.developer.close_all();

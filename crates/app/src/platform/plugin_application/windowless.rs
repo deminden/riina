@@ -1,4 +1,4 @@
-//! Deliver native plugin work on the application thread when no player can present it.
+//! Deliver AppKit plugin work while no player owns the application menu.
 use crate::background::CoalescedUiCallback;
 use slint::{Timer, TimerMode};
 use std::{

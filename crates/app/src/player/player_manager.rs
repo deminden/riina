@@ -101,7 +101,6 @@ impl PlayerManager {
                 }))
             });
         let launcher = Rc::downgrade(&manager.state);
-        #[cfg(target_os = "linux")]
         {
             let history = Rc::downgrade(&manager.services().history);
             manager.services().plugins.bind_shortcut_owner(move || {
