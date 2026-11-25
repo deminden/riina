@@ -5697,3 +5697,32 @@ audio output and native macOS driver switching remain unverified.
 - Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
 - Linux application SHA-256 `aa2367bfc95e64d21ace260269f2296b90ebc87d56c1ac569a0f4f5f9953f53b`
 - Linux PulseAudio test libmpv SHA-256 `9194ebd43e8bb0ecb3c1fbffd1838496e1471676552c2188163830825453411e`
+
+### Chapter metadata and timeline hover (2026-11-25)
+
+The Windows workspace gate passed strict Clippy, the headless player callbacks,
+and the player and Settings pixel comparisons. The Windows native suite passed
+all 69 playback tests. The locked Windows workspace and Linux application
+builds passed, as did all six focused Linux native audio tests. The native CUE
+test follows two distinct performers and verifies that replacing the file
+clears its chapter state. Apple Silicon and Intel application and test targets
+passed cross-Clippy.
+
+A private Windows desktop opened the CUE fixture in Music Mode. The native
+window title updated from “Introduction” to “Main set” on a paused chapter
+change. The same player window closed normally.
+
+On isolated Linux Wayland, Music Mode and MPRIS published the title and
+performer of each CUE chapter during a paused chapter change. The same
+player window stayed open throughout. With thumbnails disabled, hovering
+the video timeline displayed “Moving square” and “0:02” while the decoder
+remained paused at chapter zero and 0:00. Moving off the timeline dismissed
+the caption. Both exact test processes exited normally.
+
+The Windows system media panel and native macOS playback remain unverified
+for chapter updates.
+
+- Windows application SHA-256 `32883f8074fad85ad00a623c6e37943e5f599043aa7ad97b490d7732f32fe9c1`
+- Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
+- Linux application SHA-256 `1ee1e42e6de90fbe5637e25fdaf88de7491911562d677db4801daf76c5122823`
+- Linux libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`

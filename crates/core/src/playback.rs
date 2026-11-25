@@ -158,6 +158,8 @@ pub struct Playback {
     /// Whether mpv reported the incoming file's track list, including an empty list.
     pub track_list_observed: bool,
     pub chapters: Arc<Vec<Chapter>>,
+    pub chapter_index: Option<usize>,
+    pub chapter_performer: Option<String>,
     pub playlist: Arc<Vec<PlaylistEntry>>,
     /// Latest completed user playlist edit for the player's transient OSD.
     pub playlist_feedback: Option<PlaylistFeedback>,
@@ -279,7 +281,47 @@ pub struct SubtitleStyleAvailability {
     pub ass_warning: bool,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct MediaMetadata<'a> {
+    pub title: &'a str,
+    pub artist: Option<&'a str>,
+    pub album: Option<&'a str>,
+}
+
 impl Playback {
+    pub fn current_chapter_index(&self) -> Option<usize> {
+        self.chapter_index
+            .filter(|index| *index < self.chapters.len())
+    }
+
+    /// A pointer can preview a chapter independently of the native playhead.
+    pub fn chapter_at(&self, seconds: f64) -> Option<(usize, &Chapter)> {
+        self.chapters
+            .iter()
+            .enumerate()
+            .rfind(|(_, chapter)| chapter.time <= seconds)
+    }
+
+    pub fn file_metadata(&self) -> MediaMetadata<'_> {
+        MediaMetadata {
+            title: &self.title,
+            artist: self.artist.as_deref(),
+            album: self.album.as_deref(),
+        }
+    }
+
+    pub fn music_metadata(&self) -> MediaMetadata<'_> {
+        let mut metadata = self.file_metadata();
+        if let Some(index) = self.current_chapter_index() {
+            metadata.title = self.chapters[index]
+                .title
+                .as_deref()
+                .unwrap_or(metadata.title);
+            metadata.artist = self.chapter_performer.as_deref().or(metadata.artist);
+        }
+        metadata
+    }
+
     /// Use post-filter output to compute displayed geometry and aspect ratio.
     pub fn display_video_parameters(&self) -> Option<&VideoParameters> {
         self.video_output
@@ -379,6 +421,8 @@ impl Playback {
         self.tracks = Arc::default();
         self.track_list_observed = false;
         self.chapters = Arc::default();
+        self.chapter_index = None;
+        self.chapter_performer = None;
         self.subtitle_text = None;
         self.secondary_subtitle_text = None;
         self.video = None;

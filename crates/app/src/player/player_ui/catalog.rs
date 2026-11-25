@@ -20,7 +20,7 @@ pub(super) fn install_catalog_selection(app: &PlayerWindow, context: &PlayerCont
                 lock(ctx.playback())
                     .chapters
                     .get(*index)
-                    .and_then(|chapter| chapter.title.clone())
+                    .map(|chapter| chapter.display_title(*index).into_owned())
             } else {
                 None
             };
@@ -305,12 +305,12 @@ fn update_tracks(app: &PlayerWindow, state: &Playback) {
 fn update_chapters(app: &PlayerWindow, state: &Playback) {
     let catalog = app.global::<riina_ui::PlayerCatalogState>();
     let clock = ControllerOptions::default();
-    let active = current_chapter(state);
+    let active = state.current_chapter_index();
     let mut rows = Vec::with_capacity(state.chapters.len());
     let mut menu = Vec::with_capacity(state.chapters.len());
     for (index, chapter) in state.chapters.iter().enumerate() {
         let token = slint::SharedString::from(index.to_string());
-        let title = chapter.title.as_deref().filter(|title| !title.is_empty());
+        let title = chapter.display_title(index);
         let start = clock.elapsed_label(Some(chapter.time));
         let end = state
             .chapters
@@ -319,12 +319,12 @@ fn update_chapters(app: &PlayerWindow, state: &Playback) {
         let selected = active == Some(index);
         menu.push(MenuCatalogRow {
             token: token.clone(),
-            label: format!("{start} – {}", title.unwrap_or_default()).into(),
+            label: format!("{start} – {title}").into(),
             selected,
         });
         rows.push(CatalogRow {
             token,
-            label: title.map_or_else(|| format!("Chapter {index}").into(), Into::into),
+            label: title.as_ref().into(),
             detail: format!("{start} → {end}").into(),
             selected,
             ..CatalogRow::default()
@@ -348,15 +348,6 @@ fn update_chapters(app: &PlayerWindow, state: &Playback) {
     crate::ui_models::set_rows_if_changed(&timeline.get_chapter_times(), times, |times| {
         timeline.set_chapter_times(times);
     });
-}
-
-pub(super) fn current_chapter(state: &Playback) -> Option<usize> {
-    state.position.and_then(|position| {
-        state
-            .chapters
-            .iter()
-            .rposition(|chapter| chapter.time <= position)
-    })
 }
 
 pub(super) fn install_track_cycles(app: &PlayerWindow, context: &PlayerContext) {

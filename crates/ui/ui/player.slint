@@ -181,7 +181,10 @@ export component PlayerWindow inherits PlayerMenuWindow {
     menu-value-video-window-height: root.video-window-height;
     menu-value-video-window-width: root.video-window-width;
 
-    in property <string> window-title: "riina";
+    in property <string> document-title: "riina";
+    out property <string> window-title:
+        PlayerMusicModeState.music-mode && PlayerMusicModeState.music-title != ""
+        ? PlayerMusicModeState.music-title : root.document-title;
     title: root.window-title;
     changed window-title => { root.window-title-changed(root.window-title); }
     preferred-width: 960px; preferred-height: 600px;
@@ -667,7 +670,8 @@ export component PlayerWindow inherits PlayerMenuWindow {
             hovered: keys.music-mode-hovered;
             native-video: root.native-video;
             paused: root.paused;
-            title: root.media-title;
+            title: PlayerMusicModeState.music-title == ""
+                ? root.media-title : PlayerMusicModeState.music-title;
             aspect-ratio: root.video-display-aspect-ratio;
             volume-limit: root.volume-limit;
             sampled-video: PlayerRenderedVideo.video-blurred-frame;

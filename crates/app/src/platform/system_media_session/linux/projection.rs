@@ -113,13 +113,18 @@ impl Snapshot {
         let position = playback.position.and_then(microseconds).unwrap_or_default();
         let loop_status = playback.loop_mode();
         let wraps = loop_status == LoopMode::Playlist && playback.playlist.len() > 1;
+        let metadata = if playback.audio_status() == riina_core::music_mode::AudioStatus::Audio {
+            playback.music_metadata()
+        } else {
+            playback.file_metadata()
+        };
         Self {
             media: active.then(|| Media {
                 route,
                 generation: playback.generation,
-                title: playback.title.clone(),
-                artist: playback.artist.clone(),
-                album: playback.album.clone(),
+                title: metadata.title.to_owned(),
+                artist: metadata.artist.map(str::to_owned),
+                album: metadata.album.map(str::to_owned),
                 length,
             }),
             status,

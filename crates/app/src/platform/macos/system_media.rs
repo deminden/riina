@@ -264,6 +264,11 @@ impl NowPlayingSnapshot {
     fn from_playback(state: &Playback, thumbnail_preview_enabled: bool) -> Self {
         let audio_status = state.audio_status();
         let audio_media = audio_status == riina_core::music_mode::AudioStatus::Audio;
+        let metadata = if audio_media {
+            state.music_metadata()
+        } else {
+            state.file_metadata()
+        };
         let artwork_enabled = now_playing_artwork_enabled();
         let album_art_track = if artwork_enabled {
             state
@@ -275,17 +280,9 @@ impl NowPlayingSnapshot {
         };
         Self {
             generation: state.generation,
-            title: state.title.clone(),
-            artist: if audio_media {
-                state.artist.clone()
-            } else {
-                None
-            },
-            album: if audio_media {
-                state.album.clone()
-            } else {
-                None
-            },
+            title: metadata.title.to_owned(),
+            artist: metadata.artist.filter(|_| audio_media).map(str::to_owned),
+            album: metadata.album.filter(|_| audio_media).map(str::to_owned),
             duration: state
                 .duration
                 .filter(|value| value.is_finite() && *value >= 0.0),
@@ -304,15 +301,7 @@ impl NowPlayingSnapshot {
             queue_count: state.playlist.len(),
             queue_index: state.playlist.iter().position(|entry| entry.current),
             chapter_count: state.chapters.len(),
-            chapter_index: state.position.and_then(|position| {
-                state
-                    .chapters
-                    .iter()
-                    .enumerate()
-                    .filter(|(_, chapter)| chapter.time.is_finite() && chapter.time <= position)
-                    .map(|(index, _)| index)
-                    .next_back()
-            }),
+            chapter_index: state.current_chapter_index(),
             artwork_enabled,
             asset_url: state
                 .playlist

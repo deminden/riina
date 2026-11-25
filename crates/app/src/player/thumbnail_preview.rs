@@ -131,8 +131,6 @@ impl Controller {
             self.displayed_index = None;
             app.global::<riina_ui::PlaybackTimelineState>()
                 .set_timeline_thumbnail_image(Image::default());
-            app.global::<riina_ui::PlaybackTimelineState>()
-                .set_timeline_preview_label("".into());
             if let Some(identity) = next {
                 self.frames.resize_with(THUMBNAIL_COUNT, || None);
                 let source = PathBuf::from(&identity.media_path);
@@ -206,7 +204,7 @@ impl Controller {
                 }
             }
         }
-        self.refresh_preview(app);
+        self.refresh_preview(app, state);
         thumbnails_ready
     }
 
@@ -242,27 +240,28 @@ impl Controller {
         Some((index, self.frames.get(index)?.as_ref()?.1.as_slice()))
     }
 
-    pub(crate) fn hover(&mut self, app: &PlayerWindow, seconds: f64) {
-        if !seconds.is_finite() || seconds < 0.0 {
-            self.hover_time = None;
-            self.displayed_index = None;
-            app.global::<riina_ui::PlaybackTimelineState>()
-                .set_timeline_preview_label("".into());
-            app.global::<riina_ui::PlaybackTimelineState>()
-                .set_timeline_thumbnail_image(Image::default());
-            return;
-        }
-        self.hover_time = Some(seconds);
-        app.global::<riina_ui::PlaybackTimelineState>()
-            .set_timeline_preview_label(riina_core::time_label(Some(seconds)).into());
-        self.refresh_preview(app);
+    pub(crate) fn hover(&mut self, app: &PlayerWindow, state: &Playback, seconds: f64) {
+        self.hover_time = (seconds.is_finite() && seconds >= 0.0).then_some(seconds);
+        self.refresh_preview(app, state);
     }
 
-    fn refresh_preview(&mut self, app: &PlayerWindow) {
-        let Some(seconds) = self.hover_time else {
-            return;
-        };
-        let sample = self.sample_near(None, seconds);
+    fn refresh_preview(&mut self, app: &PlayerWindow, state: &Playback) {
+        let seconds = self
+            .hover_time
+            .zip(state.duration)
+            .and_then(|(seconds, duration)| {
+                (state.seekable && duration.is_finite() && duration > 0.0)
+                    .then_some(seconds.min(duration))
+            });
+        let timeline = app.global::<riina_ui::PlaybackTimelineState>();
+        let caption = seconds.map(|seconds| riina_core::time_label(Some(seconds)));
+        let chapter = seconds
+            .and_then(|seconds| state.chapter_at(seconds))
+            .map(|(index, chapter)| chapter.display_title(index))
+            .unwrap_or_default();
+        timeline.set_timeline_preview_label(caption.unwrap_or_default().into());
+        timeline.set_timeline_preview_chapter(chapter.as_ref().into());
+        let sample = seconds.and_then(|seconds| self.sample_near(Some(state), seconds));
         let index = sample.map(|(index, _)| index);
         if index == self.displayed_index {
             return;
@@ -308,10 +307,12 @@ impl Drop for Controller {
 }
 
 fn sampling_media_ready(state: &Playback) -> bool {
-    matches!(state.phase, Phase::Playing | Phase::Paused)
-        && state
-            .duration
-            .is_some_and(|duration| duration.is_finite() && duration > 0.0)
+    matches!(
+        state.phase,
+        Phase::Playing | Phase::Paused | Phase::Buffering | Phase::Seeking | Phase::Ended
+    ) && state
+        .duration
+        .is_some_and(|duration| duration.is_finite() && duration > 0.0)
 }
 
 pub(crate) fn playback_selection_changed(previous: &Playback, next: &Playback) -> bool {
@@ -320,6 +321,7 @@ pub(crate) fn playback_selection_changed(previous: &Playback, next: &Playback) -
     was_ready != ready
         || (ready
             && (previous.generation != next.generation
+                || !Arc::ptr_eq(&previous.chapters, &next.chapters)
                 || !Arc::ptr_eq(&previous.playlist, &next.playlist)
                 || !Arc::ptr_eq(&previous.tracks, &next.tracks)))
 }

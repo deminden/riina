@@ -200,8 +200,8 @@ mod tests {
         let first = PlayerWindow::new()?;
         let second = PlayerWindow::new()?;
         let welcome = WelcomeWindow::new()?;
-        first.set_window_title("First movie".into());
-        second.set_window_title("Second movie".into());
+        first.set_document_title("First movie".into());
+        second.set_document_title("Second movie".into());
         first.show()?;
         let initial = application.register(&first, &PlayerDisplay::default());
         let other = application.register(
@@ -241,7 +241,7 @@ mod tests {
         owner.refresh();
         assert_eq!(loaded, first_menu.get_window_menu_rows());
 
-        second.set_window_title("Renamed & edited movie".into());
+        second.set_document_title("Renamed & edited movie".into());
         owner.refresh();
         let changed = first_menu.get_window_menu_rows();
         let renamed = if cfg!(target_os = "windows") {

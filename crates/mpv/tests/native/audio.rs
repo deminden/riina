@@ -1,6 +1,58 @@
 use super::*;
 
 #[test]
+#[ignore = "requires provisioned libmpv; observes audio chapter metadata through native playback"]
+fn chapter_metadata_follows_the_playhead_and_clears_on_replacement() {
+    let root = fixture_root();
+    let fixture = riina_test_support::TempDir::new("audio-chapters").unwrap();
+    let wave = fixture.path().join("session.wav");
+    std::fs::copy(root.join("tests/fixtures/external-tone.wav"), &wave).unwrap();
+    let cue = fixture.path().join("session.cue");
+    std::fs::write(
+        &cue,
+        r#"TITLE "Recorded session"
+FILE "session.wav" WAVE
+  TRACK 01 AUDIO
+    TITLE "Introduction"
+    PERFORMER "First performer"
+    INDEX 01 00:00:00
+  TRACK 02 AUDIO
+    TITLE "Main set"
+    PERFORMER "Second performer"
+    INDEX 01 00:01:00
+"#,
+    )
+    .unwrap();
+    let harness = Harness::with_options(&root, vec![("ao".into(), "null".into())]).unwrap();
+    harness.send(Command::SetPauseWhenOpen(true)).unwrap();
+    harness
+        .send(Command::Load(cue.to_str().unwrap().into()))
+        .unwrap();
+    let first = harness.wait(|state| {
+        state.paused
+            && state.current_chapter_index() == Some(0)
+            && state.chapter_performer.as_deref() == Some("First performer")
+    });
+    assert_eq!(first.music_metadata().title, "Introduction");
+    harness.send(Command::AdjustChapter(1)).unwrap();
+    let second = harness.wait(|state| {
+        state.current_chapter_index() == Some(1)
+            && state.chapter_performer.as_deref() == Some("Second performer")
+    });
+    assert!(second.paused);
+    assert_eq!(second.music_metadata().title, "Main set");
+    assert_eq!(second.file_metadata(), first.file_metadata());
+    harness
+        .send(Command::Load(wave.to_str().unwrap().into()))
+        .unwrap();
+    let replacement =
+        harness.wait(|state| state.generation > second.generation && state.phase == Phase::Paused);
+    assert_eq!(replacement.current_chapter_index(), None);
+    assert_eq!(replacement.chapter_performer, None);
+    assert_eq!(replacement.music_metadata(), replacement.file_metadata());
+}
+
+#[test]
 #[ignore = "requires provisioned libmpv; verifies disconnected preferred audio device at startup"]
 fn missing_preferred_device_keeps_automatic_audio_before_first_playback() {
     let root = fixture_root();

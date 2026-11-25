@@ -1,9 +1,7 @@
 //! Apply one playback snapshot to the window and its transient controls.
 use super::{
-    catalog::{current_chapter, update_catalog},
-    clear_screenshot_preview, media_geometry_requires_resize,
-    observer_state::UiObserverState,
-    window_video_geometry,
+    catalog::update_catalog, clear_screenshot_preview, media_geometry_requires_resize,
+    observer_state::UiObserverState, window_video_geometry,
 };
 use crate::{
     PlayerWindow, platform,
@@ -47,7 +45,7 @@ pub(super) fn update_ui(
     let previous_generation = media_geometry.observe(state.generation);
     update_filter_menu_rows(app, state, &resources);
     let title = platform::window_document::playback_title(app.window(), state);
-    app.set_window_title(title.into());
+    app.set_document_title(title.into());
     update_media_actions(app, state);
     update_feedback(
         app,
@@ -71,7 +69,7 @@ pub(super) fn update_ui(
             || old.audio_devices != state.audio_devices
             || old.audio_device != state.audio_device
             || old.audio_output != state.audio_output
-            || current_chapter(old) != current_chapter(state)
+            || old.chapter_index != state.chapter_index
     }) {
         let metadata = timers
             .as_ref()
@@ -109,15 +107,20 @@ pub(super) fn update_ui(
     );
     update_hdr_source(app, state, first_loaded);
     app.set_media_title(state.title.as_str().into());
-    app.global::<riina_ui::PlayerMusicModeState>()
-        .set_music_artist(state.artist.as_deref().unwrap_or_default().into());
-    app.global::<riina_ui::PlayerMusicModeState>()
-        .set_music_album(state.album.as_deref().unwrap_or_default().into());
+    update_music_metadata(app, state);
     super::profile_playback::update_labels(app, state);
     // Playback state belongs to controls and transient OSD, not permanent text
     // over the video. Keep failures visible while ordinary clock ticks stay quiet.
     app.set_status(state.error().unwrap_or_default().into());
     resize_for_media
+}
+
+fn update_music_metadata(app: &PlayerWindow, state: &Playback) {
+    let metadata = state.music_metadata();
+    let music = app.global::<riina_ui::PlayerMusicModeState>();
+    music.set_music_title(metadata.title.into());
+    music.set_music_artist(metadata.artist.unwrap_or_default().into());
+    music.set_music_album(metadata.album.unwrap_or_default().into());
 }
 
 fn update_transition_cover(

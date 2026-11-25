@@ -75,6 +75,13 @@ It uses the matching Apple endpoint when changing between Core Audio and
 AVFoundation and submits recovery on the same native queue as explicit
 device selections. Recovery updates the session without saving a preference.
 
+The playback worker owns the chapter list, native chapter index and current
+performer. Compact controls and desktop media sessions share the chapter
+metadata projection while the full player's document title follows the file.
+Timeline hover resolves the pointer's chapter separately from the playhead.
+The time and chapter label remain available independently of the isolated
+thumbnail decoder and its cache.
+
 Windows system media controls belong to the player's native toplevel. The
 session publishes observed titles, playback state and seek bounds. Native
 callbacks return to the UI thread and use the player's active key profile.

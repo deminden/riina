@@ -302,6 +302,7 @@ fn player_glue_worker() -> Result<(), Box<dyn std::error::Error>> {
     exercise_transport_settings(&harness);
     exercise_dialogs_and_relative_controls(&harness);
     exercise_observation_and_volume(&harness)?;
+    exercise_chapter_metadata_and_hover(&harness)?;
     exercise_controller_arrows(&harness);
     exercise_playlist_feedback(&profile)?;
     exercise_playlist_footer_menus(&profile)?;
@@ -883,6 +884,87 @@ fn exercise_observation_and_volume(harness: &Harness) -> Result<(), Box<dyn std:
     app.global::<riina_ui::PlayerControlActions>()
         .invoke_set_volume(140.0);
     harness.expect(Command::Volume(140.0));
+    Ok(())
+}
+
+fn exercise_chapter_metadata_and_hover(
+    harness: &Harness,
+) -> Result<(), Box<dyn std::error::Error>> {
+    use riina_core::Chapter;
+    use riina_ui::{
+        PlaybackTimelineState, PlayerCatalogState, PlayerControlActions, PlayerMusicModeState,
+    };
+
+    let app = &harness.app;
+    let music = app.global::<PlayerMusicModeState>();
+    let timeline = app.global::<PlaybackTimelineState>();
+    let catalog = app.global::<PlayerCatalogState>();
+    let actions = app.global::<PlayerControlActions>();
+    app.global::<riina_ui::PlayerPreferences>()
+        .set_thumbnail_preview_enabled(false);
+    let mut playback = Playback {
+        generation: 1,
+        phase: Phase::Paused,
+        paused: true,
+        seekable: true,
+        position: Some(1.25),
+        duration: Some(10.0),
+        title: "Recorded session".into(),
+        artist: Some("File artist".into()),
+        album: Some("Session album".into()),
+        chapter_index: Some(0),
+        chapter_performer: Some("Guest artist".into()),
+        chapters: vec![
+            Chapter {
+                time: 1.0,
+                title: Some("Opening".into()),
+            },
+            Chapter {
+                time: 3.0,
+                title: None,
+            },
+        ]
+        .into(),
+        ..Default::default()
+    };
+    harness.publish(playback.clone())?;
+    assert_eq!(app.get_media_title(), "Recorded session");
+    assert_eq!(music.get_music_title(), "Opening");
+    assert_eq!(music.get_music_artist(), "Guest artist");
+    assert_eq!(music.get_music_album(), "Session album");
+    music.set_music_mode(true);
+    assert_eq!(app.get_window_title(), "Opening");
+    assert!(
+        catalog
+            .get_chapters()
+            .row_data(0)
+            .is_some_and(|row| row.selected)
+    );
+
+    actions.invoke_timeline_hovered(0.5);
+    assert!(timeline.get_timeline_preview_chapter().is_empty());
+    actions.invoke_timeline_hovered(3.5);
+    assert_eq!(timeline.get_timeline_preview_chapter(), "Chapter 1");
+    assert_eq!(
+        timeline.get_timeline_preview_label(),
+        riina_core::time_label(Some(3.5))
+    );
+    actions.invoke_timeline_hovered(-1.0);
+    assert!(timeline.get_timeline_preview_label().is_empty());
+    harness.expect_idle();
+
+    playback.chapter_index = Some(1);
+    playback.chapter_performer = None;
+    harness.publish(playback)?;
+    assert!(
+        catalog
+            .get_chapters()
+            .row_data(1)
+            .is_some_and(|row| row.selected)
+    );
+    assert_eq!(music.get_music_title(), "Recorded session");
+    assert_eq!(music.get_music_artist(), "File artist");
+    music.set_music_mode(false);
     Ok(())
 }
 

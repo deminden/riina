@@ -203,16 +203,22 @@ impl Projection {
         let current = playback.playlist.iter().position(|entry| entry.current);
         let position = ticks(playback.position);
         let duration = ticks(playback.duration).max(position);
+        let audio_only = !playback
+            .tracks
+            .iter()
+            .any(|track| track.kind == TrackKind::Video && !track.albumart);
+        let metadata = if audio_only {
+            playback.music_metadata()
+        } else {
+            playback.file_metadata()
+        };
         Self {
             media: Metadata {
                 generation: playback.generation,
-                title: playback.title.clone(),
-                artist: playback.artist.clone().unwrap_or_default(),
-                album: playback.album.clone().unwrap_or_default(),
-                audio_only: !playback
-                    .tracks
-                    .iter()
-                    .any(|track| track.kind == TrackKind::Video && !track.albumart),
+                title: metadata.title.to_owned(),
+                artist: metadata.artist.unwrap_or_default().to_owned(),
+                album: metadata.album.unwrap_or_default().to_owned(),
+                audio_only,
             },
             status: if matches!(
                 playback.phase,

@@ -49,14 +49,16 @@ export component ControllerTimeline inherits HorizontalLayout {
         loop-b-value: PlaybackTimelineState.ab-loop-b;
         show-chapter-positions: PlayerPreferences.show-chapter-pos;
         chapter-times: PlaybackTimelineState.chapter-times;
-        preview-enabled: PlaybackTimelineState.seekable && PlayerPreferences.thumbnail-preview-enabled;
+        preview-enabled: PlaybackTimelineState.seekable && PlaybackTimelineState.duration > 0;
         preview-image: PlaybackTimelineState.timeline-thumbnail-image;
+        preview-image-enabled: PlayerPreferences.thumbnail-preview-enabled;
         preview-label: PlaybackTimelineState.timeline-preview-label;
+        preview-chapter: PlaybackTimelineState.timeline-preview-chapter;
         preview-width: PlaybackTimelineState.thumbnail-preview-width;
         preview-aspect-ratio: root.aspect-ratio > 0 ? root.aspect-ratio : 16 / 9;
         preview-above: root.preview-above;
         minimum: 0;
-        maximum: max(1, PlaybackTimelineState.duration);
+        maximum: PlaybackTimelineState.duration > 0 ? PlaybackTimelineState.duration : 1;
         value: PlaybackTimelineState.position;
         enabled: PlaybackTimelineState.seekable;
         hint: "Playback position";

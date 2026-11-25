@@ -46,6 +46,10 @@ Implementation does not imply every state or platform is verified.
   selection and remains saved for a future launch. During playback, device
   removal falls back to Automatic. Core Audio and AVFoundation use the same
   endpoint after a driver change when libmpv lists both names.
+- **Chapter metadata and timeline:** the active chapter follows the native
+  playhead. Music Mode and desktop media controls for audio use the chapter's
+  title and performer when available. The timeline shows the hovered chapter
+  and time even when thumbnail images are disabled or unavailable.
 - **Music Mode catalog:** the compact player opens Playlist and Chapters in
   the same panel. The toolbar remembers the active tab, and both lists keep
   their scroll positions when switching between the main and compact player.

@@ -22,10 +22,14 @@ pub(super) fn install(
     let sample_observer = timeline_samples.clone();
     let thumbnail_hover = thumbnail_controller.clone();
     let thumbnail_weak = app.as_weak();
+    let hover_playback = latest_playback.clone();
     app.global::<riina_ui::PlayerControlActions>()
         .on_timeline_hovered(move |seconds| {
             if let Some(app) = thumbnail_weak.upgrade() {
-                thumbnail_hover.borrow_mut().hover(&app, f64::from(seconds));
+                let state = lock(&hover_playback).clone();
+                thumbnail_hover
+                    .borrow_mut()
+                    .hover(&app, &state, f64::from(seconds));
             }
         });
     let thumbnail_weak = app.as_weak();

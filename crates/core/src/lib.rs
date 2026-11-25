@@ -63,9 +63,9 @@ pub use media_catalog::{Chapter, PlaylistEntry, PlaylistFileReference, Track, Tr
 mod engine_notice;
 pub use engine_notice::{EngineNotice, EngineNotices, NoticeSeverity};
 pub use playback::{
-    FileFeedback, FrameSlot, MAX_RETAINED_MPV_EVENTS, MpvEventRecord, Phase, Playback,
-    PlaylistChange, PlaylistFeedback, RememberedVolume, SubtitleStyleAvailability, VideoFrameInfo,
-    VideoParameters, time_label,
+    FileFeedback, FrameSlot, MAX_RETAINED_MPV_EVENTS, MediaMetadata, MpvEventRecord, Phase,
+    Playback, PlaylistChange, PlaylistFeedback, RememberedVolume, SubtitleStyleAvailability,
+    VideoFrameInfo, VideoParameters, time_label,
 };
 pub use preferences::{
     ActionAfterLaunch, PreferenceError, Preferences, RecentMedia, Rejection, ThemeMaterial,

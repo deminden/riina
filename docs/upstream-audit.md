@@ -49,6 +49,10 @@ See [visual metrics](visual-spec.md) for the controller and sidebar details.
 - `PlayerCore.playFileInPlaylist` uses `playlist-play-index` to reload even the
   current item; explicit transitions pause before changing entries.
 - Chapter selection uses its observed timestamp, an absolute seek and resume.
+- `PlayerCore.chapterChanged` reads mpv's current chapter. Music Mode and
+  audio Now Playing use the chapter title and performer when present and keep
+  the file's album. `MainWindowController.updateTimePreview` instead resolves
+  the hovered time and shows its chapter above the clock.
 - Clearing a playlist preserves the playing entry. Stable identity and display
   index are separate concerns.
 - Loading an already loaded external subtitle reloads it rather than duplicating

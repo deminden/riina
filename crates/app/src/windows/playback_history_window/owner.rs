@@ -534,7 +534,7 @@ mod tests {
         let updates = Arc::new(AtomicUsize::default());
         let register = |name: &str| -> Result<_, slint::PlatformError> {
             let window = PlayerWindow::new()?;
-            window.set_window_title(name.into());
+            window.set_document_title(name.into());
             let (sender, _test_engine) = riina_mpv::CommandSender::recording(1);
             let updates = updates.clone();
             let route = owner.install(

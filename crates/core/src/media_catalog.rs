@@ -1,6 +1,7 @@
 //! Owned track, chapter and playlist observations from the playback engine.
 use crate::track_labels;
 use serde::{Deserialize, Serialize};
+use std::borrow::Cow;
 
 /// Playlist identity captured before an operation that completes asynchronously.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -117,6 +118,15 @@ pub struct Chapter {
     pub time: f64,
     #[serde(default)]
     pub title: Option<String>,
+}
+
+impl Chapter {
+    pub fn display_title(&self, index: usize) -> Cow<'_, str> {
+        self.title
+            .as_deref()
+            .filter(|title| !title.is_empty())
+            .map_or_else(|| Cow::Owned(format!("Chapter {index}")), Cow::Borrowed)
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Deserialize)]

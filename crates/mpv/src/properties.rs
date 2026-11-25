@@ -352,6 +352,26 @@ pub(super) static OBSERVED: &[ObservedProperty] = &[
         }
     ),
     property!(
+        c"chapter",
+        Integer,
+        |state, value| {
+            state.chapter_index = usize::try_from(value).ok();
+        },
+        |state| {
+            state.chapter_index = None;
+        }
+    ),
+    property!(
+        c"chapter-metadata",
+        Node,
+        |state, value| {
+            state.chapter_performer = metadata_value(&value, "performer");
+        },
+        |state| {
+            state.chapter_performer = None;
+        }
+    ),
+    property!(
         c"playlist",
         Node,
         |state, value| {
@@ -915,6 +935,7 @@ mod observer_table_tests {
                 b"ab-loop-a" | b"ab-loop-b" => json!(1.25),
                 b"track-list" => json!([{"id": 1, "type": "audio"}]),
                 b"chapter-list" => json!([{"time": 1.25, "title": "Opening"}]),
+                b"chapter-metadata" => json!({"PERFORMER": "Test performer"}),
                 b"playlist" => json!([{"id": 1, "filename": "clip.mkv"}]),
                 b"audio-device-list" => json!([{"name": "default", "description": "Test device"}]),
                 b"video-params" | b"video-target-params" | b"video-out-params" => {
