@@ -28,9 +28,37 @@ struct PlayerPreferences {
     context: PlayerContext,
     form: RefCell<slint::Weak<PreferencesWindow>>,
     retry_gain: slint::Timer,
+    retry_font: slint::Timer,
 }
 
 impl PlayerPreferences {
+    fn apply_font(self: &Rc<Self>, font: String) {
+        self.retry_font.stop();
+        if self.context.app().is_none() {
+            return;
+        }
+        match self
+            .context
+            .commands()
+            .send(Command::SubtitleFont(font.clone()))
+        {
+            Ok(()) => {}
+            Err(riina_mpv::EngineError::QueueFull) => {
+                let player = Rc::downgrade(self);
+                self.retry_font.start(
+                    slint::TimerMode::SingleShot,
+                    Duration::from_millis(50),
+                    move || {
+                        if let Some(player) = player.upgrade() {
+                            player.apply_font(font.clone());
+                        }
+                    },
+                );
+            }
+            Err(error) => self.context.report(error),
+        }
+    }
+
     fn apply_gain(self: &Rc<Self>, options: ReplayGainOptions) {
         self.retry_gain.stop();
         if self.context.app().is_none() {
@@ -60,22 +88,31 @@ impl PlayerPreferences {
 }
 
 #[derive(Clone)]
-pub(crate) struct ReplayGainBinding {
+pub(crate) struct ProfilePlaybackBinding {
     profile: Rc<ProfilePlayback>,
     player: Rc<PlayerPreferences>,
 }
 
-impl ReplayGainBinding {
+impl ProfilePlaybackBinding {
     pub(crate) fn attach(&self, form: &PreferencesWindow) {
         self.player.form.replace(form.as_weak());
     }
 
-    pub(crate) fn publish(&self, options: ReplayGainOptions) {
+    pub(crate) fn publish_replay_gain(&self, options: ReplayGainOptions) {
         self.player.retry_gain.stop();
         self.profile.publish_replay_gain(
             self.player.context.preferences_path(),
             Some(&self.player),
             options,
+        );
+    }
+
+    pub(crate) fn publish_subtitle_font(&self, font: &str) {
+        self.player.retry_font.stop();
+        self.profile.publish_subtitle_font(
+            self.player.context.preferences_path(),
+            Some(&self.player),
+            font,
         );
     }
 }
@@ -96,11 +133,12 @@ impl ProfilePlayback {
         self: &Rc<Self>,
         app: &PlayerWindow,
         context: &PlayerContext,
-    ) -> ReplayGainBinding {
+    ) -> ProfilePlaybackBinding {
         let player = Rc::new(PlayerPreferences {
             context: context.clone(),
             form: RefCell::default(),
             retry_gain: slint::Timer::default(),
+            retry_font: slint::Timer::default(),
         });
         let mut players = self.players.borrow_mut();
         players.retain(|target| target.strong_count() > 0);
@@ -110,7 +148,7 @@ impl ProfilePlayback {
         let actions = app.global::<PlayerControlActions>();
         crate::platform::bind_controller_alignment_feedback(app);
         let clocks = Rc::clone(self);
-        let binding = ReplayGainBinding {
+        let binding = ProfilePlaybackBinding {
             profile: self.clone(),
             player: player.clone(),
         };
@@ -160,6 +198,32 @@ impl ProfilePlayback {
                 crate::audio_preferences::install_replay_gain(&form, options);
             }
             player.apply_gain(options);
+        });
+    }
+
+    #[cfg(target_os = "macos")]
+    pub(super) fn adopt_application_font(&self, path: &Path, font: &str) {
+        self.publish_subtitle_font(path, None, font);
+    }
+
+    fn publish_subtitle_font(
+        &self,
+        path: &Path,
+        source: Option<&Rc<PlayerPreferences>>,
+        font: &str,
+    ) {
+        self.for_each_player(path, |player, _| {
+            if source.is_some_and(|source| Rc::ptr_eq(source, player)) {
+                return;
+            }
+            player.context.preferences().adopt_committed(|saved| {
+                saved.subtitle_font = font.to_owned();
+            });
+            if let Some(form) = player.form.borrow().upgrade() {
+                form.global::<crate::SubtitleSettingsState>()
+                    .set_subtitle_font(font.into());
+            }
+            player.apply_font(font.to_owned());
         });
     }
 
@@ -230,7 +294,7 @@ mod tests {
     use std::sync::{Arc, Mutex};
 
     #[test]
-    fn replay_gain_reaches_peer_players_and_forms_on_the_same_profile()
+    fn audio_and_subtitle_defaults_reach_peer_players_and_forms_on_the_same_profile()
     -> Result<(), Box<dyn std::error::Error>> {
         use riina_core::audio_preferences::ReplayGain;
         use std::sync::mpsc::TryRecvError;
@@ -270,7 +334,7 @@ mod tests {
         };
         selected.audio.set_replay_gain_options(options);
         source_model.save(selected)?;
-        source.publish(options);
+        source.publish_replay_gain(options);
 
         assert_eq!(source_engine.commands.try_recv(), Err(TryRecvError::Empty));
         assert_eq!(
@@ -283,6 +347,24 @@ mod tests {
         assert_eq!(audio.get_audio_replay_gain_preamp_text(), "-2.5");
         assert_eq!(other_engine.commands.try_recv(), Err(TryRecvError::Empty));
         assert_eq!(other_model.snapshot().audio.replay_gain_options(), previous);
+
+        let mut selected = source_model.snapshot();
+        selected.subtitle_font = "Test family".into();
+        source_model.save(selected)?;
+        source.publish_subtitle_font("Test family");
+        assert_eq!(source_engine.commands.try_recv(), Err(TryRecvError::Empty));
+        assert_eq!(
+            peer_engine.commands.try_recv(),
+            Ok(Command::SubtitleFont("Test family".into()))
+        );
+        assert_eq!(peer_model.snapshot().subtitle_font, "Test family");
+        assert_eq!(
+            peer_form
+                .global::<crate::SubtitleSettingsState>()
+                .get_subtitle_font(),
+            "Test family"
+        );
+        assert_eq!(other_engine.commands.try_recv(), Err(TryRecvError::Empty));
         Ok(())
     }
 

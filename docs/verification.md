@@ -5726,3 +5726,33 @@ for chapter updates.
 - Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
 - Linux application SHA-256 `1ee1e42e6de90fbe5637e25fdaf88de7491911562d677db4801daf76c5122823`
 - Linux libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`
+
+### Subtitle font chooser ownership (2026-11-25)
+
+The Windows workspace gate passed strict Clippy, automated Settings and player
+tests, and the software-rendered player and Settings comparisons. The separate
+native suite passed all 69 playback tests. The font regressions exercise one
+retained chooser across player and Settings owners, cancellation, a temporary
+font through unrelated Settings changes and shutdown, and distribution of a
+committed default to other players on the same profile.
+
+The locked Windows workspace and Linux application builds passed. Apple
+Silicon and Intel application and test targets passed cross-Clippy. Native
+macOS sheet interaction remains unverified.
+
+A private Windows desktop verified both chooser entry points. The player
+applied Verdana with Settings closed and retained Arial on disk after normal
+shutdown. Settings reused its chooser window, stayed disabled while the
+chooser was open, and left the player enabled. Cancel restored Settings and
+preserved the current font. Confirming Times New Roman updated the paused
+player and saved the default through normal shutdown.
+
+On isolated Wayland, Settings opened the chooser over a paused video.
+A pointer click on General left the Text Subtitles page selected while the
+chooser was open. Enter applied the new font to libmpv and saved it to the
+isolated profile. The Settings and player windows closed normally.
+
+- Windows application SHA-256 `dd1f547b42d04aef0deca5b8d041de3e60a8ed4aed47099b0ed9b96ba32fe8ce`
+- Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
+- Linux application SHA-256 `a7e0ee93a48142c0220ea86061dee55b133de7aca282cf75a302e77fe6e2566b`
+- Linux libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`

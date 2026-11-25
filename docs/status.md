@@ -125,6 +125,10 @@ Implementation does not imply every state or platform is verified.
   focus on its first channel and keeps changes applied before dismissal.
   Numeric sidebar edits retain their draft when a Control or Command
   shortcut reaches the player.
+- **Subtitle font chooser:** the player applies the chosen font to its
+  current playback session. Settings opens the same chooser with the saved
+  default and shares a committed change with players using that profile.
+  The chooser retains its filter and sample across openings.
 - **Utilities:** Settings owns the confirmations for alerts, saved progress,
   history and thumbnails. Cache sizes refresh when the page opens or data is cleared.
 - **Russian and Arabic labels** are bundled for Welcome, Open URL, Playback

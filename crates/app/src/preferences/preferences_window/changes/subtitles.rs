@@ -21,6 +21,7 @@ use riina_mpv::CommandSender;
 
 pub(super) struct Draft {
     previous_font: String,
+    saved_font: String,
     previous_size: f64,
     previous_style: TextStylePreferences,
     previous_overrides: (i32, i32),
@@ -34,6 +35,7 @@ pub(super) struct Draft {
 
 pub(super) struct Applied {
     pub(super) font: String,
+    applied_font: String,
     pub(super) font_size: f64,
     pub(super) style: TextStylePreferences,
     pub(super) primary: AssOverrideLevel,
@@ -46,12 +48,14 @@ impl Draft {
         app: &PlayerWindow,
         window: &PreferencesWindow,
         model: &PreferenceModel,
+        saved: &Preferences,
     ) -> Option<Self> {
         Some(Self {
             previous_font: app
                 .global::<riina_ui::PlaybackSubtitleState>()
                 .get_subtitle_font()
                 .to_string(),
+            saved_font: saved.subtitle_font.clone(),
             previous_size: crate::subtitle_preferences::current_font_size(app),
             previous_style: read_or_refresh(
                 crate::subtitle_preferences::current_style(app),
@@ -107,21 +111,28 @@ impl Draft {
                 .global::<crate::SubtitleSettingsState>()
                 .get_subtitle_ass_override_secondary_index(),
         );
-        let font = window
+        let selected_font = window
             .global::<crate::SubtitleSettingsState>()
             .get_subtitle_font();
+        let font = crate::font_picker::font_name(selected_font)?;
+        // An unrelated edit leaves a temporary player font in place.
+        let live_font = if font == self.saved_font {
+            &self.previous_font
+        } else {
+            &font
+        };
         let size = crate::subtitle_preferences::font_size(
             window
                 .global::<crate::SubtitleSettingsState>()
                 .get_subtitle_font_size_text()
                 .as_str(),
         )?;
-        let (font, font_size) = apply_subtitle_text_preferences(
+        let (applied_font, font_size) = apply_subtitle_text_preferences(
             app,
             sender,
             &self.previous_font,
             self.previous_size,
-            font.as_str(),
+            live_font,
             size,
         )?;
         let restore_font = || {
@@ -130,7 +141,7 @@ impl Draft {
                 sender,
                 &self.previous_font,
                 self.previous_size,
-                &font,
+                &applied_font,
                 font_size,
             );
         };
@@ -151,6 +162,7 @@ impl Draft {
             };
         Ok(Applied {
             font,
+            applied_font,
             font_size,
             style,
             primary,
@@ -210,7 +222,7 @@ impl Applied {
             sender,
             &draft.previous_font,
             draft.previous_size,
-            &self.font,
+            &self.applied_font,
             self.font_size,
         );
         restore_ass_override(

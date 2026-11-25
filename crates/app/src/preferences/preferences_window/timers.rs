@@ -28,6 +28,7 @@ impl VisibleSettings {
                     audio_devices.stop();
                 }
                 window.invoke_close_plugin_settings();
+                window.invoke_close_profile_font_picker();
                 window.invoke_plugin_cancel_import();
                 window.invoke_dismiss_utility_dialogs();
                 window.invoke_dismiss_native_subtitle_color();

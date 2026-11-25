@@ -15,13 +15,18 @@ use riina_core::Command;
 use riina_core::audio_preferences::ReplayGainOptions;
 use slint::ComponentHandle;
 
+pub(super) struct CommittedEdit<'a> {
+    pub(super) replay_gain: Option<ReplayGainOptions>,
+    pub(super) subtitle_font: Option<&'a str>,
+}
+
 pub(super) fn connect(
     app: &PlayerWindow,
     window: &PreferencesWindow,
     decoder_player: riina_mpv::CommandSender,
     model: PreferenceModel,
     key_binding_playback: crate::PlaybackStore,
-    replay_gain_committed: impl Fn(ReplayGainOptions) + 'static,
+    committed_edit: impl Fn(CommittedEdit<'_>) + 'static,
 ) {
     connect_with_credentials(
         app,
@@ -30,7 +35,7 @@ pub(super) fn connect(
         model,
         key_binding_playback,
         CredentialStore::system(),
-        replay_gain_committed,
+        committed_edit,
     );
 }
 
@@ -55,7 +60,7 @@ fn connect_with_credentials(
     model: PreferenceModel,
     key_binding_playback: crate::PlaybackStore,
     credentials: CredentialStore,
-    replay_gain_committed: impl Fn(ReplayGainOptions) + 'static,
+    committed_edit: impl Fn(CommittedEdit<'_>) + 'static,
 ) {
     let parent = app.as_weak();
     let weak = window.as_weak();
@@ -64,6 +69,9 @@ fn connect_with_credentials(
         let (Some(app), Some(window)) = (parent.upgrade(), weak.upgrade()) else {
             return;
         };
+        if window.get_font_picker_open() {
+            return;
+        }
         let saved = model.snapshot();
         let previous = match crate::screenshot_preferences::current(&app) {
             Ok(settings) => settings,
@@ -82,7 +90,7 @@ fn connect_with_credentials(
         let previous_decoder = app
             .global::<riina_ui::PlayerPreferences>()
             .get_hardware_decoder_index();
-        let Some(subtitles) = subtitles::Draft::read(&app, &window, &model) else {
+        let Some(subtitles) = subtitles::Draft::read(&app, &window, &model, &saved) else {
             return;
         };
         let Some(selected_online_subtitles) = read_or_refresh(
@@ -124,6 +132,9 @@ fn connect_with_credentials(
             &app,
             &window,
         ) else {
+            window
+                .global::<crate::SubtitleSettingsState>()
+                .set_subtitle_font(saved.subtitle_font.clone().into());
             return;
         };
         general.selected.project_open_policy(&app);
@@ -156,9 +167,11 @@ fn connect_with_credentials(
             });
         match result {
             Ok(()) => {
-                if let Some(options) = playback.committed_replay_gain(&playback_changes) {
-                    replay_gain_committed(options);
-                }
+                committed_edit(CommittedEdit {
+                    replay_gain: playback.committed_replay_gain(&playback_changes),
+                    subtitle_font: (saved.subtitle_font != applied_subtitles.font)
+                        .then_some(applied_subtitles.font.as_str()),
+                });
                 committed::project(
                     &app,
                     &window,
@@ -187,6 +200,9 @@ fn connect_with_credentials(
                     &playback.previous_tone_mapping,
                 );
                 refresh(&window, &app);
+                window
+                    .global::<crate::SubtitleSettingsState>()
+                    .set_subtitle_font(saved.subtitle_font.into());
                 app.set_status(error.into());
             }
         }

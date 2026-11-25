@@ -13,11 +13,16 @@ pub(crate) const PLUGINS_PANE: i32 = 9;
 
 #[derive(Clone, Default)]
 pub(crate) struct Owner {
+    font_picker: Rc<crate::font_picker::ApplicationFontPicker>,
     #[cfg(target_os = "macos")]
     profile: Rc<native::ApplicationSettings>,
 }
 
 impl Owner {
+    pub(crate) fn font_picker(&self) -> &Rc<crate::font_picker::ApplicationFontPicker> {
+        &self.font_picker
+    }
+
     #[cfg(target_os = "macos")]
     pub(crate) fn profile(&self) -> &Rc<native::ApplicationSettings> {
         &self.profile

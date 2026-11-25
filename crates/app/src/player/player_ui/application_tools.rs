@@ -52,8 +52,12 @@ impl ApplicationServices {
             if let Some(gain) = changes.replay_gain {
                 profile.adopt_application_gain(&profile_path, gain);
             }
+            if let Some(font) = changes.subtitle_font {
+                profile.adopt_application_font(&profile_path, &font);
+            }
         };
         settings.show(path, saved, clear, committed, |window| {
+            self.settings.font_picker().connect_settings(window);
             self.profile_playback.form.register(path, window);
             if let Some(pane) = pane {
                 window.set_selected_pane(pane);

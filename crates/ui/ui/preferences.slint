@@ -341,6 +341,9 @@ export component PreferencesWindow inherits Window {
     callback choose-folder();
     callback choose-subtitle-font();
     callback close-profile-font-picker();
+    callback raise-font-picker();
+    in property <bool> font-picker-open: false;
+    in property <bool> font-picker-input-shield: false;
     callback utilities-open-default-apps();
     callback utilities-default-apps-requested(bool, bool, bool);
     callback utilities-refresh-sizes();
@@ -735,5 +738,21 @@ export component PreferencesWindow inherits Window {
         width: root.width;
         height: root.height;
         confirmed(action) => { return root.utility-confirmed(action); }
+    }
+
+    font-picker-shield := FocusScope {
+        width: root.width; height: root.height;
+        enabled: root.font-picker-input-shield;
+        visible: root.font-picker-input-shield;
+        changed enabled => { if self.enabled { self.focus(); } }
+        key-pressed(event) => {
+            if event.text == Key.Escape { root.close-profile-font-picker(); }
+            else { root.raise-font-picker(); }
+            return accept;
+        }
+        TouchArea {
+            clicked => { root.raise-font-picker(); }
+            scroll-event(event) => { return accept; }
+        }
     }
 }

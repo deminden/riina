@@ -15,7 +15,7 @@ pub(super) struct Inputs<'a> {
     pub(super) player: &'a CommandSender,
     pub(super) playback: &'a PlaybackStore,
     pub(super) plugin: Option<&'a PluginHostHandle>,
-    pub(super) replay_gain: &'a crate::player_ui::ReplayGainBinding,
+    pub(super) profile: &'a crate::player_ui::ProfilePlaybackBinding,
 }
 
 pub(super) fn create(
@@ -30,7 +30,7 @@ pub(super) fn create(
         player: decoder_player,
         playback: latest_playback,
         plugin: plugin_host,
-        replay_gain,
+        profile,
     } = inputs;
     let available_devices = latest_playback
         .lock()
@@ -56,40 +56,22 @@ pub(super) fn create(
         }
     });
     crate::online_subtitles_preferences::install_window_catalog(&window, app);
-    connect_subtitle_font(app, &window);
-    replay_gain.attach(&window);
-    let replay_gain = replay_gain.clone();
+    profile.attach(&window);
+    let profile = profile.clone();
     changes::connect(
         app,
         &window,
         decoder_player.clone(),
         model.clone(),
         latest_playback.clone(),
-        move |options| replay_gain.publish(options),
+        move |edit| {
+            if let Some(options) = edit.replay_gain {
+                profile.publish_replay_gain(options);
+            }
+            if let Some(font) = edit.subtitle_font {
+                profile.publish_subtitle_font(font);
+            }
+        },
     );
     Some(window)
-}
-
-fn connect_subtitle_font(app: &PlayerWindow, window: &PreferencesWindow) {
-    let selected_font = app
-        .global::<riina_ui::PlaybackSubtitleState>()
-        .get_subtitle_font()
-        .to_string();
-    window
-        .global::<crate::SubtitleSettingsState>()
-        .set_subtitle_font(selected_font.into());
-    let choose_parent = app.as_weak();
-    let choose_window = window.as_weak();
-    window.on_choose_subtitle_font(move || {
-        if let (Some(app), Some(window)) = (choose_parent.upgrade(), choose_window.upgrade()) {
-            window
-                .global::<crate::SubtitleSettingsState>()
-                .set_subtitle_font(
-                    app.global::<riina_ui::PlaybackSubtitleState>()
-                        .get_subtitle_font(),
-                );
-            app.global::<PlayerMenuActions>()
-                .invoke_choose_subtitle_font();
-        }
-    });
 }

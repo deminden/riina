@@ -6,10 +6,7 @@ use super::{
 };
 use crate::{PlaybackStore, PlayerWindow};
 use riina_core::{Phase, Preferences, audio_equalizer};
-use riina_ui::{
-    PlaybackSubtitleState, PlayerAppearance, PlayerLayoutState, PlayerPreferences,
-    PlayerSidebarState,
-};
+use riina_ui::{PlayerAppearance, PlayerLayoutState, PlayerPreferences, PlayerSidebarState};
 use slint::ComponentHandle;
 use std::{
     io,
@@ -24,7 +21,7 @@ pub(super) fn connect(
     history: &history_session::Tracking,
     recent: &Rc<RecentActivity>,
     services: &ApplicationServices,
-    replay_gain: super::ReplayGainBinding,
+    profile: super::ProfilePlaybackBinding,
 ) {
     crate::preferences_window::connect(
         app,
@@ -37,7 +34,7 @@ pub(super) fn connect(
             updates: services.updates.clone(),
             power: services.power.clone(),
             application_settings: services.settings.clone(),
-            replay_gain,
+            profile,
         },
         history.clear_hook(
             context.preferences_path().to_path_buf(),
@@ -166,10 +163,6 @@ fn capture_window_state(app: &PlayerWindow, preferences: Preferences) -> io::Res
             .get_track_all_files_in_recent_open_menu(),
         subtitle_other: crate::subtitle_other_preferences::current_player(app)
             .map_err(io::Error::other)?,
-        subtitle_font: app
-            .global::<PlaybackSubtitleState>()
-            .get_subtitle_font()
-            .to_string(),
         subtitle_font_size: crate::subtitle_preferences::current_font_size(app),
         subtitle_text_style: crate::subtitle_preferences::current_style(app)
             .map_err(io::Error::other)?,

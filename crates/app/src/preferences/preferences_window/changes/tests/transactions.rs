@@ -41,7 +41,11 @@ impl Transaction {
             player.session.preference_model.clone(),
             crate::PlaybackStore::default(),
             credentials,
-            move |options| published.set(Some(options)),
+            move |edit| {
+                if let Some(options) = edit.replay_gain {
+                    published.set(Some(options));
+                }
+            },
         );
         Self {
             player,
@@ -77,6 +81,40 @@ impl Transaction {
         assert_eq!(queued.len(), 64);
         queued
     }
+}
+
+#[test]
+fn temporary_player_font_survives_other_settings_edits_and_never_becomes_the_default() {
+    let transaction = Transaction::new();
+    let app = &transaction.player.app;
+    let live = app.global::<riina_ui::PlaybackSubtitleState>();
+    let form = transaction.window.global::<crate::SubtitleSettingsState>();
+    let default_font = transaction.profile.read().subtitle_font;
+    live.set_subtitle_font("Temporary face".into());
+    refresh(&transaction.window, app);
+    assert_eq!(form.get_subtitle_font(), default_font.as_str());
+
+    transaction.window.set_show_chapter_pos(false);
+    assert!(
+        !transaction
+            .apply()
+            .iter()
+            .any(|command| matches!(command, Command::SubtitleFont(_)))
+    );
+    assert_eq!(live.get_subtitle_font(), "Temporary face");
+    transaction.player.session.save(app).unwrap();
+    assert_eq!(transaction.profile.read().subtitle_font, default_font);
+
+    form.set_subtitle_font("New default face".into());
+    assert!(
+        transaction
+            .apply()
+            .contains(&Command::SubtitleFont("New default face".into()))
+    );
+    assert_eq!(transaction.profile.read().subtitle_font, "New default face");
+    live.set_subtitle_font("Another temporary face".into());
+    transaction.player.session.save(app).unwrap();
+    assert_eq!(transaction.profile.read().subtitle_font, "New default face");
 }
 
 #[test]

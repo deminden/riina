@@ -115,7 +115,6 @@ pub(super) fn install(app: &PlayerWindow, player: &CommandSender) {
 
 fn install_appearance(app: &PlayerWindow, player: &CommandSender) {
     let font_size_player = player.clone();
-    crate::font_picker::connect(app);
     crate::platform::subtitle_color_panel::connect_player(app);
     let outline_size_player = player.clone();
     let color_player = player.clone();

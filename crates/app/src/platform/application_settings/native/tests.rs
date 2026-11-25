@@ -45,6 +45,7 @@ fn settings_changes_before_playback_merge_with_an_independent_save() {
             move |changes| {
                 assert!(changes.controller.is_none());
                 assert_eq!(changes.replay_gain.unwrap().mode, gain);
+                assert_eq!(changes.subtitle_font.as_deref(), Some("Serif"));
                 counter.set(counter.get() + 1);
             },
         )

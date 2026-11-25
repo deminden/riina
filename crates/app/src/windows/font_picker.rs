@@ -1,13 +1,12 @@
 //! Shared picker lifetime and background font discovery.
 mod catalog;
+mod session;
 
-use crate::{FontPicker, PlayerWindow, font_catalog};
-use riina_ui::PlayerMenuActions;
-use slint::{
-    ComponentHandle, ModelRc, StandardListViewItem, VecModel,
-    winit_030::{WinitWindowAccessor, winit::window::Theme},
-};
-use std::{cell::RefCell, rc::Rc, time::Duration};
+pub(crate) use session::{ApplicationFontPicker, font_name};
+
+use crate::{FontPicker, font_catalog};
+use slint::{ModelRc, StandardListViewItem, VecModel};
+use std::rc::Rc;
 
 fn items(values: impl Iterator<Item = String>) -> ModelRc<StandardListViewItem> {
     Rc::new(VecModel::from(
@@ -87,17 +86,6 @@ fn preview_width_scale(family: &font_catalog::FontFamily, face: &font_catalog::F
     }
 }
 
-fn refresh_selection(picker: &FontPicker, app: &PlayerWindow) {
-    apply_theme(
-        picker,
-        app.global::<riina_ui::PlayerAppearance>().get_dark_theme(),
-    );
-    let font = app
-        .global::<riina_ui::PlaybackSubtitleState>()
-        .get_subtitle_font();
-    refresh_font(picker, font);
-}
-
 pub(crate) fn refresh_font(picker: &FontPicker, font: slint::SharedString) {
     picker.set_custom_name(
         if font == riina_core::subtitle_controls::DEFAULT_SUBTITLE_FONT {
@@ -111,179 +99,9 @@ pub(crate) fn refresh_font(picker: &FontPicker, font: slint::SharedString) {
     }
 }
 
-fn apply_theme(picker: &FontPicker, dark_theme: bool) {
-    picker.set_dark_theme(dark_theme);
-    let native_theme = if dark_theme {
-        Theme::Dark
-    } else {
-        Theme::Light
-    };
-    picker
-        .window()
-        .with_winit_window(|window| window.set_theme(Some(native_theme)));
-}
-
-fn follow_player_theme(picker: &FontPicker, app: &PlayerWindow, timer: &Rc<slint::Timer>) {
-    apply_theme(
-        picker,
-        app.global::<riina_ui::PlayerAppearance>().get_dark_theme(),
-    );
-    let weak_picker = picker.as_weak();
-    let weak_app = app.as_weak();
-    let weak_timer = Rc::downgrade(timer);
-    timer.start(
-        slint::TimerMode::Repeated,
-        Duration::from_millis(250),
-        move || {
-            let Some(app) = weak_app.upgrade() else {
-                if let Some(timer) = weak_timer.upgrade() {
-                    timer.stop();
-                }
-                return;
-            };
-            let Some(picker) = weak_picker
-                .upgrade()
-                .filter(|picker| picker.get_picker_active())
-            else {
-                if let Some(timer) = weak_timer.upgrade() {
-                    timer.stop();
-                }
-                return;
-            };
-            let dark_theme = app.global::<riina_ui::PlayerAppearance>().get_dark_theme();
-            if picker.get_dark_theme() != dark_theme {
-                apply_theme(&picker, dark_theme);
-            }
-        },
-    );
-}
-
-pub fn connect(app: &PlayerWindow) {
-    let current = Rc::new(RefCell::new(None::<FontPicker>));
-    let appearance_timer = Rc::new(slint::Timer::default());
-    let show_appearance_timer = appearance_timer.clone();
-    let owned = current.clone();
-    app.on_dismiss_font_picker(move || {
-        if let Some(picker) = owned.borrow_mut().take() {
-            picker.set_picker_active(false);
-            // Continue releasing session resources if the window is closing.
-            let _ = picker.hide();
-        }
-    });
-    let weak = app.as_weak();
-    app.global::<PlayerMenuActions>()
-        .on_choose_subtitle_font(move || {
-            let Some(app) = weak.upgrade() else {
-                return;
-            };
-            if app
-                .global::<riina_ui::PlayerDialogState>()
-                .get_dialog_open()
-            {
-                return;
-            }
-            // Reuse the auxiliary window's sample, search and discovered catalog.
-            // Every invocation refreshes playback selection, even if already visible.
-            let existing = current.borrow().as_ref().map(ComponentHandle::clone_strong);
-            if let Some(picker) = existing {
-                refresh_selection(&picker, &app);
-                picker.set_picker_active(true);
-                if let Err(error) = crate::platform::show_window(&picker) {
-                    picker.set_picker_active(false);
-                    app.set_status(error.to_string().into());
-                    return;
-                }
-                crate::platform::enable_font_picker_acrylic(&picker);
-                follow_player_theme(&picker, &app, &show_appearance_timer);
-                let window = picker.as_weak();
-                // The picker is already visible. Deferred focus can expire with the window.
-                let _ = slint::spawn_local(async move {
-                    if let Some(picker) = window.upgrade()
-                        && let Ok(window) = picker.window().winit_window().await
-                        && picker.get_picker_active()
-                    {
-                        window.focus_window();
-                    }
-                });
-                return;
-            }
-            let picker = match FontPicker::new() {
-                Ok(picker) => picker,
-                Err(error) => {
-                    app.set_status(error.to_string().into());
-                    return;
-                }
-            };
-            crate::appearance_preferences::install_system_typography(&picker);
-            refresh_selection(&picker, &app);
-            install_lifecycle(&picker, &app);
-            if let Err(error) = crate::platform::show_window(&picker) {
-                app.set_status(error.to_string().into());
-                return;
-            }
-            crate::platform::enable_font_picker_acrylic(&picker);
-            follow_player_theme(&picker, &app, &show_appearance_timer);
-            crate::platform::center_auxiliary_window(&picker, &app);
-            let window = picker.as_weak();
-            *current.borrow_mut() = Some(picker);
-            discover_catalog(window, |error| app.set_status(error.into()));
-        });
-}
-
-pub(crate) fn selected_name(text: slint::SharedString) -> String {
-    if text.is_empty() {
-        riina_core::subtitle_controls::DEFAULT_SUBTITLE_FONT.to_owned()
-    } else {
-        text.to_string()
-    }
-}
-
-fn install_lifecycle(picker: &FontPicker, app: &PlayerWindow) {
-    let parent = app.as_weak();
-    let window = picker.as_weak();
-    picker.on_accept_font(move |text| {
-        let Some(app) = parent.upgrade() else {
-            return;
-        };
-        app.invoke_subtitle_font_selected(selected_name(text).into());
-        if let Some(window) = window.upgrade() {
-            window.set_picker_active(false);
-            // Continue releasing session resources if the window is closing.
-            let _ = window.hide();
-        }
-        app.global::<riina_ui::PlayerControlActions>()
-            .invoke_activity();
-    });
-    let parent = app.as_weak();
-    let window = picker.as_weak();
-    picker.on_cancel(move || {
-        if let Some(window) = window.upgrade() {
-            window.set_picker_active(false);
-            // Continue releasing session resources if the window is closing.
-            let _ = window.hide();
-        }
-        if let Some(app) = parent.upgrade() {
-            app.global::<riina_ui::PlayerControlActions>()
-                .invoke_activity();
-        }
-    });
-    let parent = app.as_weak();
-    let window = picker.as_weak();
-    picker.window().on_close_requested(move || {
-        if let Some(window) = window.upgrade() {
-            window.set_picker_active(false);
-        }
-        if let Some(app) = parent.upgrade() {
-            app.global::<riina_ui::PlayerControlActions>()
-                .invoke_activity();
-        }
-        slint::CloseRequestResponse::HideWindow
-    });
-}
-
 pub(crate) fn discover_catalog(window: slint::Weak<FontPicker>, report: impl FnOnce(String)) {
     // Only owned metadata crosses threads. A hidden reusable picker may
-    // finish discovery, but no scan shows it; player shutdown drops it.
+    // finish discovery, but no scan can show it.
     let failure = window.clone();
     if let Err(error) = crate::background::spawn_named("font-discovery", move || {
         let families = font_catalog::installed_families();

@@ -21,6 +21,8 @@ pub(crate) mod display_blackout;
 pub(crate) mod file_associations;
 mod file_reveal;
 pub(crate) mod folder_dialog;
+#[cfg(any(windows, target_os = "macos"))]
+pub(crate) mod font_picker_window;
 pub(crate) mod fullscreen_window;
 pub(crate) mod language;
 mod pip_session;

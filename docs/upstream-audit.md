@@ -57,6 +57,9 @@ See [visual metrics](visual-spec.md) for the controller and sidebar details.
   index are separate concerns.
 - Loading an already loaded external subtitle reloads it rather than duplicating
   it. Playlist move operations retain mpv's target-index semantics.
+- `PlayerCore.chooseSubFont` reads and changes the current mpv font.
+  `SettingsPageSubtitles.chooseSubFontAction` edits the saved default through
+  a sheet. Both use the same chooser owned by the application.
 - Loop cycling is off -> file -> playlist -> off.
 - Audio delay sliders cover -5 to 5 seconds in 0.05 steps; numeric input preserves
   finer/out-of-range values and blank entry resets zero.

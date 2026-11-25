@@ -1,8 +1,5 @@
 //! An application-owned Settings window that is usable before playback starts.
 mod fields;
-#[cfg(target_os = "macos")]
-mod font_picker;
-
 use crate::preferences_window::profile_window;
 use crate::{PreferencesWindow, windows::close_observer::CloseObserver};
 use riina_core::{
@@ -24,6 +21,7 @@ pub(crate) struct ApplicationSettings {
 pub(crate) struct ProfileChanges {
     pub(crate) controller: Option<ControllerOptions>,
     pub(crate) replay_gain: Option<ReplayGainOptions>,
+    pub(crate) subtitle_font: Option<String>,
 }
 
 struct Profile {
@@ -79,6 +77,9 @@ impl Profile {
         let weak = window.as_weak();
         window.on_settings_changed(move || {
             let Some(window) = weak.upgrade() else { return };
+            if window.get_font_picker_open() {
+                return;
+            }
             let result = state.borrow_mut().save(&window, &committed);
             match result {
                 Ok(()) => window.set_profile_status("".into()),
@@ -114,6 +115,8 @@ impl Profile {
         committed(ProfileChanges {
             controller: (options != self.displayed.control_bar.controller).then_some(options),
             replay_gain: (gain != self.displayed.audio.replay_gain_options()).then_some(gain),
+            subtitle_font: (edit.subtitle_font != self.displayed.subtitle_font)
+                .then(|| edit.subtitle_font.clone()),
         });
         let previous = &self.displayed.online_subtitles;
         let selected = &mut edit.online_subtitles;
@@ -208,7 +211,6 @@ pub(crate) fn configure_application_actions(
     open_log_viewer: impl Fn() + 'static,
 ) {
     profile_window::connect_actions(window, None, path, open_log_viewer);
-    font_picker::connect(window, application_status(window));
     let weak = window.as_weak();
     let probe = crate::platform::text_recognition::check_availability(move |available| {
         let _ = crate::background::to_ui(weak, move |window| {
@@ -237,6 +239,10 @@ impl ApplicationSettings {
         let Some(window) = existing.filter(|window| window.window().is_visible()) else {
             return Ok(false);
         };
+        if window.get_font_picker_open() {
+            window.invoke_raise_font_picker();
+            return Ok(true);
+        }
         if let Some(pane) = pane {
             window.set_selected_pane(pane);
         }

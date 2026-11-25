@@ -752,8 +752,14 @@ closes. A confirmed action calls its profile service once. Acknowledgements
 stay on the owning window. Cache sizes refresh on entry, reopening and clearing.
 See [Add a preference](recipes/add-a-preference.md) for settings changes.
 
-The application Settings adapter owns the macOS profile form, its font picker
-and the choice of destination for plugin archives. A player Settings request
+The application Settings adapter owns the macOS profile form, the reusable
+subtitle font chooser, and the choice of destination for plugin archives.
+The chooser routes acceptance to the invoking player or the Settings form.
+The player writes the runtime font without changing the profile. Settings
+edits save the default and distribute it to players on the same profile.
+Settings attaches the chooser as an AppKit sheet or an owned modal window
+on Windows. Linux retains the separate chooser and blocks the form's input
+until it closes. A player Settings request
 can raise an already visible application form. Otherwise the player owns its
 own form. Both build their controls from the same profile and apply edits
 through the same Settings store.

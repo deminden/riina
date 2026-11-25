@@ -7,7 +7,7 @@ mod control_actions;
 mod controller_arrows;
 mod profile_playback;
 mod volume_preference;
-pub(crate) use profile_playback::ReplayGainBinding;
+pub(crate) use profile_playback::ProfilePlaybackBinding;
 mod delays;
 mod dialogs;
 mod discovery;
@@ -353,14 +353,17 @@ impl ApplicationServices {
         );
         self.highlights.connect(app);
         self.about.connect(app, context.playback().clone());
-        let replay_gain = self.profile_playback.connect(app, context);
+        self.settings
+            .font_picker()
+            .connect_player(app, context.commands());
+        let profile = self.profile_playback.connect(app, context);
         session_preferences::connect(
             app,
             context,
             &session.history,
             &session.recent.activity,
             self,
-            replay_gain,
+            profile,
         );
     }
 

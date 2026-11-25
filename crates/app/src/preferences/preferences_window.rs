@@ -27,7 +27,7 @@ pub(crate) struct Session {
     pub(crate) updates: Rc<crate::updates::ApplicationUpdates>,
     pub(crate) power: Rc<crate::playback_power::ApplicationPower>,
     pub(crate) application_settings: application_settings::Owner,
-    pub(crate) replay_gain: crate::player_ui::ReplayGainBinding,
+    pub(crate) profile: crate::player_ui::ProfilePlaybackBinding,
 }
 
 pub(crate) fn connect(
@@ -41,7 +41,7 @@ pub(crate) fn connect(
         updates,
         power,
         application_settings,
-        replay_gain,
+        profile,
     }: Session,
     clear_history: impl Fn() -> Result<usize, String> + Clone + 'static,
 ) {
@@ -51,7 +51,7 @@ pub(crate) fn connect(
     application_settings.bind_plugin_archive(app, &current);
     let timers = timers::VisibleSettings::default();
     connect_controller_options(app, current.clone());
-    connect_subtitle_actions(app, current.clone());
+    connect_subtitle_catalog(app, current.clone());
     let parent = app.as_weak();
     app.global::<PlayerMenuActions>()
         .on_open_preferences(move || {
@@ -68,6 +68,10 @@ pub(crate) fn connect(
             }
             let existing = current.borrow().as_ref().map(ComponentHandle::clone_strong);
             let window = if let Some(window) = existing {
+                if window.get_font_picker_open() {
+                    window.invoke_raise_font_picker();
+                    return;
+                }
                 window
             } else {
                 let Some(window) = construction::create(
@@ -79,12 +83,13 @@ pub(crate) fn connect(
                         player: &decoder_player,
                         playback: &latest_playback,
                         plugin: plugin_host.as_ref(),
-                        replay_gain: &replay_gain,
+                        profile: &profile,
                     },
                     clear_history.clone(),
                 ) else {
                     return;
                 };
+                application_settings.font_picker().connect_settings(&window);
                 let owner = app.as_weak();
                 let report = move |message| {
                     if let Some(app) = owner.upgrade() {
@@ -103,11 +108,15 @@ pub(crate) fn connect(
                 window.set_selected_pane(target_pane);
                 app.set_preferences_target_pane(-1);
             }
-            let stored_audio = crate::preference_load::read_valid(&path)
+            let saved = crate::preference_load::read_valid(&path)
                 .ok()
                 .flatten()
-                .map(|preferences| preferences.audio)
-                .unwrap_or_else(|| baseline.audio.clone());
+                .unwrap_or_else(|| model.snapshot());
+            model.adopt_committed(|prefs| prefs.subtitle_font.clone_from(&saved.subtitle_font));
+            window
+                .global::<crate::SubtitleSettingsState>()
+                .set_subtitle_font(saved.subtitle_font.into());
+            let stored_audio = saved.audio;
             let available_devices = latest_playback
                 .lock()
                 .map(|playback| playback.audio_devices.clone())
@@ -139,29 +148,16 @@ pub(crate) fn connect(
         });
 }
 
-fn connect_subtitle_actions(
+fn connect_subtitle_catalog(
     app: &PlayerWindow,
     preferences_window: Rc<RefCell<Option<crate::PreferencesWindow>>>,
 ) {
-    let subtitle_catalog_window = preferences_window.clone();
     let owner = app.as_weak();
     app.on_plugin_subtitle_catalog_changed(move || {
         if let Some(app) = owner.upgrade()
-            && let Some(window) = subtitle_catalog_window.borrow().as_ref()
+            && let Some(window) = preferences_window.borrow().as_ref()
         {
             crate::online_subtitles_preferences::refresh_catalog(window, &app);
-        }
-    });
-    app.on_subtitle_font_selected(move |font| {
-        if let Some(window) = preferences_window
-            .borrow()
-            .as_ref()
-            .map(ComponentHandle::clone_strong)
-        {
-            window
-                .global::<crate::SubtitleSettingsState>()
-                .set_subtitle_font(font);
-            window.invoke_settings_changed();
         }
     });
 }
