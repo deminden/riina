@@ -66,7 +66,9 @@ Implementation does not imply every state or platform is verified.
 - **File opens:** the primary File commands follow the new-window preference,
   and their modifier shortcuts invert it. Active menus show the actual destination.
   The native Windows picker has verified grouped and separate opens and reuse
-  of an existing player when duplicate players are disabled.
+  of an existing player when duplicate players are disabled. Queued group
+  feedback follows the first loaded file and reports accepted entries.
+  A replacement request or a closing player cancels its folder scan.
 - **Playlist editing:** the playlist menu can add files, folders or URLs.
   Transient add and clear feedback follows native command replies. Clearing
   retains the current item and retires pending sibling discovery. A single-file
@@ -81,7 +83,7 @@ Implementation does not imply every state or platform is verified.
 - **Open URL:** one dialog serves the File menu, Welcome and the windowless
   macOS application menu. It previews the default HTTP scheme, offers HTTP
   authentication, and can stop a pending load.
-  Direct browser links and startup groups that begin with a network URL share
+  Direct browser links and groups that begin with a network URL share
   its loading and retry controls. Retrying the first stream preserves the
   remaining playlist.
 - **Recent activity:** player windows share Open Recent with Welcome and

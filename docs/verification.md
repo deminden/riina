@@ -5565,3 +5565,40 @@ test players exited normally. Native macOS interaction remains unverified.
 - Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
 - Linux application SHA-256 `0d47ccb0458edd940207522deb6b9da6365f2e1327843858b31bf1da789ccb5a`
 - Linux libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`
+
+### Grouped media open and startup feedback 2026-11-25
+
+The worker counts native-accepted playlist entries and waits for the lead
+file to restart playback before publishing the group count. The lead can
+redirect to another native entry. A replacement, Stop or Clear retires
+the pending group. Playback observations establish a quiet baseline while
+the file starts, so initial audio and subtitle selections leave the group
+message visible. The portable tests cover partial acceptance, redirect
+identity, replacement, and initial feedback suppression.
+[Pinned IINA startup feedback](../reference/iina-upstream/iina/PlayerCore.swift)
+
+Interactive selections, startup and explicit playlists can use the shared
+progress and retry dialog when their first reference is a network stream.
+A newer player request or owner close cancels an in-flight selection scan.
+The macOS application keeps the duplicate reference during document
+preparation and rechecks the active destination when the results arrive.
+
+The Windows workspace gate, strict all-target Clippy and locked workspace
+build passed. All 67 Windows native tests passed. The two HTTP tests also
+passed after explicitly selecting the null audio output for headless runs.
+The nine Linux HTTP and playlist native tests passed with that setup.
+Both Apple targets passed cross-Clippy. The macOS document-open behavior
+still needs a native desktop run.
+
+The isolated Windows player exposed the three-file message through
+accessibility with the default display timeout. An X11 capture of the
+linked Linux application showed the same count over the first decoded
+frame with the default timeout. Both probes supplied the files out
+of order and confirmed the expected sorted playlist and initial pause.
+A fourth file in the same directory stayed out of the explicit group.
+Both isolated players exited normally.
+
+- Windows application SHA-256 `b1a3d7fee666ffcdb4b9131f5eacf7b76bc6e6da3b228451039b6bd09b5cdc34`
+- Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
+- Linux application SHA-256 `6bec9517af77e0863fafd97c68b173a7c61c3546e67cce1237766b1fd8e2d1dd`
+- Linux libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`

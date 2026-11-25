@@ -3,19 +3,33 @@ use super::features::PlaybackTimers;
 use crate::windows::open_url::ApplicationOpenUrl;
 use crate::{screenshot_osd::ScreenshotOsd, seek_osd::SeekOsd, video_osd::VideoOsd};
 use riina_core::Playback;
+use slint::ComponentHandle;
 use std::{
     cell::RefCell,
     collections::BTreeMap,
     rc::{Rc, Weak},
     sync::{
-        Arc,
-        atomic::{AtomicU64, Ordering},
+        Arc, Weak as SyncWeak,
+        atomic::{AtomicBool, AtomicU64, Ordering},
     },
 };
 
 thread_local! {
-    static OBSERVERS: RefCell<BTreeMap<u64, Weak<RefCell<UiObserverState>>>> =
-        const { RefCell::new(BTreeMap::new()) };
+    static OBSERVERS: RefCell<BTreeMap<u64, Observer>> = const { RefCell::new(BTreeMap::new()) };
+}
+
+struct Observer {
+    window: slint::Weak<crate::PlayerWindow>,
+    state: Weak<RefCell<UiObserverState>>,
+    discovery: SyncWeak<AtomicBool>,
+}
+
+impl Observer {
+    fn cancel_discovery(&self) {
+        if let Some(cancelled) = self.discovery.upgrade() {
+            cancelled.store(true, Ordering::Relaxed);
+        }
+    }
 }
 
 pub(super) struct UiObserverState {
@@ -118,12 +132,47 @@ impl UiObserverState {
 pub(in crate::player) struct ObserverId(u64);
 
 impl ObserverId {
+    pub(in crate::player) fn for_window(app: &crate::PlayerWindow) -> Option<Self> {
+        OBSERVERS.with(|observers| {
+            observers.borrow().iter().find_map(|(&id, observer)| {
+                observer
+                    .window
+                    .upgrade()
+                    .filter(|window| std::ptr::eq(window.window(), app.window()))
+                    .map(|_| Self(id))
+            })
+        })
+    }
+
+    pub(in crate::player) fn begin_discovery(self) -> Arc<AtomicBool> {
+        let cancelled = Arc::<AtomicBool>::default();
+        OBSERVERS.with(|observers| {
+            if let Some(observer) = observers.borrow_mut().get_mut(&self.0) {
+                observer.discovery = Arc::downgrade(&cancelled);
+            }
+        });
+        cancelled
+    }
+
+    pub(in crate::player) fn cancel_discovery(self) {
+        OBSERVERS.with(|observers| {
+            if let Some(observer) = observers.borrow().get(&self.0) {
+                observer.cancel_discovery();
+            }
+        });
+    }
+
     pub(in crate::player) fn open_url(self) -> Option<Rc<ApplicationOpenUrl>> {
         self.lookup()?.borrow().open_url.upgrade()
     }
 
     pub(super) fn lookup(self) -> Option<Rc<RefCell<UiObserverState>>> {
-        OBSERVERS.with(|observers| observers.borrow().get(&self.0).and_then(Weak::upgrade))
+        OBSERVERS.with(|observers| {
+            observers
+                .borrow()
+                .get(&self.0)
+                .and_then(|observer| observer.state.upgrade())
+        })
     }
 }
 
@@ -133,12 +182,19 @@ pub(super) struct ObserverRegistration {
 }
 
 impl ObserverRegistration {
-    pub(super) fn new(state: UiObserverState) -> Self {
+    pub(super) fn new(app: &crate::PlayerWindow, state: UiObserverState) -> Self {
         static NEXT: AtomicU64 = AtomicU64::new(0);
         let id = NEXT.fetch_add(1, Ordering::Relaxed);
         let state = Rc::new(RefCell::new(state));
         OBSERVERS.with(|observers| {
-            observers.borrow_mut().insert(id, Rc::downgrade(&state));
+            observers.borrow_mut().insert(
+                id,
+                Observer {
+                    window: app.as_weak(),
+                    state: Rc::downgrade(&state),
+                    discovery: SyncWeak::new(),
+                },
+            );
         });
         Self {
             id: ObserverId(id),
@@ -195,7 +251,11 @@ impl ObserverRegistration {
 
 impl Drop for ObserverRegistration {
     fn drop(&mut self) {
-        let _ = OBSERVERS.try_with(|observers| observers.borrow_mut().remove(&self.id.0));
+        let _ = OBSERVERS.try_with(|observers| {
+            if let Some(observer) = observers.borrow_mut().remove(&self.id.0) {
+                observer.cancel_discovery();
+            }
+        });
     }
 }
 
@@ -218,12 +278,22 @@ mod tests {
         i_slint_backend_testing::init_no_event_loop();
         let first_app = crate::PlayerWindow::new().unwrap();
         let second_app = crate::PlayerWindow::new().unwrap();
-        let first = ObserverRegistration::new(state(&first_app));
-        let second = ObserverRegistration::new(state(&second_app));
-        let first_id = first.id();
+        let first = ObserverRegistration::new(&first_app, state(&first_app));
+        let second = ObserverRegistration::new(&second_app, state(&second_app));
+        let first_id = ObserverId::for_window(&first_app).unwrap();
+        let second_id = ObserverId::for_window(&second_app).unwrap();
+        let first_scan = first_id.begin_discovery();
+        let second_scan = second_id.begin_discovery();
+        assert_eq!(crate::media_open::invalidate(&first_app), 1);
+        assert!(first_scan.load(Ordering::Relaxed));
+        assert!(!second_scan.load(Ordering::Relaxed));
+        let replacement_scan = first_id.begin_discovery();
         first_id.lookup().unwrap().borrow_mut().displayed = Some(Arc::default());
         assert!(second.id().lookup().unwrap().borrow().displayed.is_none());
         drop(first);
+        assert!(replacement_scan.load(Ordering::Relaxed));
+        assert!(!second_scan.load(Ordering::Relaxed));
+        assert!(ObserverId::for_window(&first_app).is_none());
         assert!(first_id.lookup().is_none());
         assert!(second.id().lookup().is_some());
     }

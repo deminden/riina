@@ -81,7 +81,7 @@ pub(super) fn prepare_observation(app: &PlayerWindow, inputs: Inputs<'_>) -> Pre
     video_osd.set_volume_limit(prefs.volume_limit());
     let observer_state = UiObserverState::new(video_osd, media_geometry, automatic_music.clone());
     let feedback_video_osd = observer_state.video.clone();
-    let observer_state = ObserverRegistration::new(observer_state);
+    let observer_state = ObserverRegistration::new(app, observer_state);
     let observer_id = observer_state.id();
     let screenshot_scratch = Arc::new(Scratch::default());
     let opening_fullscreen = Arc::new(std::sync::Mutex::new(OpeningFullscreen::default()));

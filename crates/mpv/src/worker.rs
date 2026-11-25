@@ -19,7 +19,7 @@ use crate::{
     client_request::{Operation, Pending, Request},
     ffi::{Api, end_reason, event_id, format},
     pending::{PendingCommand, ReplyKind},
-    playlist_feedback::{Edit, PendingEdits},
+    playlist_feedback::{Edit, PendingEdits, Reply as EditReply},
     properties::OBSERVED,
     seek_feedback::{self, SeekFeedback},
 };
@@ -313,6 +313,7 @@ impl WorkerState {
             return;
         }
         self.playback.reconcile();
+        self.publish_open_feedback();
         notify(Arc::new(self.playback.clone()));
         self.published_revision = Some(self.revision);
     }
@@ -432,6 +433,7 @@ impl WorkerState {
         {
             self.playlist_resume = PlaylistResume::Idle;
         }
+        let playlist_edit = playlist_edit.or_else(|| Edit::for_open(&command));
         if let Err(error) = self.issue_plan(handle, &command, plan, stream, playlist_edit) {
             if matches!(command, Command::CaptureMaterialFrame) {
                 diagnostic!("Could not request a Windows video material frame: {error}");
@@ -500,23 +502,27 @@ impl WorkerState {
             }
             let reporting_edit =
                 playlist_edit.filter(|edit| args.first().is_some_and(|verb| edit.tracks(verb)));
-            if reporting_edit.is_some() {
-                reply = ReplyKind::PlaylistEdit(playlist_batch);
+            let replaces_file = is_replacement(&args);
+            if let Some(edit) = reporting_edit {
+                let lead = replaces_file && matches!(edit, Edit::OpenGroup);
+                reply = ReplyKind::PlaylistEdit {
+                    batch: playlist_batch,
+                    lead,
+                };
             }
             self.issue(handle, &args, reply)?;
+            let changes_media = changes_media(&args);
+            if changes_media || args.first().is_some_and(|verb| verb == "playlist-clear") {
+                self.playlist_edits.retire_open();
+            }
             if let Some(edit) = reporting_edit {
                 self.playlist_edits
                     .track(playlist_batch, edit, self.playback.generation);
             }
-            if changes_media(&args)
-                || matches!(command, Command::SetPaused(_) | Command::TogglePause)
-            {
+            if changes_media || matches!(command, Command::SetPaused(_) | Command::TogglePause) {
                 self.playlist_end_pause.disarm();
             }
-            if command.replaces_media()
-                && args.first().is_some_and(|name| name == "loadfile")
-                && args.get(2).is_some_and(|mode| mode == "replace")
-            {
+            if command.replaces_media() && replaces_file {
                 if let Some(stream) = stream.take() {
                     self.stream = Some(stream.for_reply(self.next_id));
                 }
@@ -741,6 +747,7 @@ impl WorkerState {
             }
             event_id::START_FILE => {
                 self.active_entry = event.started_entry();
+                self.playlist_edits.file_started(self.active_entry);
                 self.stream_auth.public_address = None;
                 if let Some(load) = &self.stream
                     && let Some(entry) = self.active_entry
@@ -781,7 +788,7 @@ impl WorkerState {
                 self.client_requests.clear();
                 self.playlist_edits.clear();
                 self.pending
-                    .retain(|_, reply| !matches!(reply.kind, ReplyKind::PlaylistEdit(_)));
+                    .retain(|_, reply| !matches!(reply.kind, ReplyKind::PlaylistEdit { .. }));
                 self.adjusted_volume_read = None;
                 self.playlist_resume = PlaylistResume::Idle;
                 record_notice(
@@ -822,6 +829,7 @@ impl WorkerState {
         let Some(end) = event.end_file() else {
             return;
         };
+        self.playlist_edits.file_ended(end);
         if self.stream.as_mut().is_some_and(|load| load.end(end)) {
             self.stream = None;
         }
@@ -866,6 +874,9 @@ impl WorkerState {
     }
 
     fn on_playback_restarted(&mut self, handle: &Handle) {
+        if self.playback.file_feedback == riina_core::FileFeedback::Loading {
+            self.playback.file_feedback = riina_core::FileFeedback::Restarted(Instant::now());
+        }
         // Only a preceding native SEEK distinguishes this from initial playback.
         if std::mem::take(&mut self.seek_pending) {
             self.playback.completed_seeks = self.playback.completed_seeks.wrapping_add(1);
@@ -906,15 +917,15 @@ impl WorkerState {
             self.auto_seek.failed(event.userdata());
         }
         let pending = self.pending.remove(&event.userdata())?;
-        if let ReplyKind::PlaylistEdit(batch) = pending.kind
-            && let Some(feedback) = self.playlist_edits.reply(batch, !failed)
-            && feedback.generation == self.playback.generation
-            && self
-                .playback
-                .playlist_feedback
-                .is_none_or(|old| old.sequence < feedback.sequence)
-        {
-            self.playback.playlist_feedback = Some(feedback);
+        if let ReplyKind::PlaylistEdit { batch, lead } = pending.kind {
+            let reply = if lead {
+                EditReply::Lead((!failed).then(|| event.loaded_entry()).flatten())
+            } else {
+                EditReply::Entry(!failed)
+            };
+            if let Some(feedback) = self.playlist_edits.reply(batch, reply) {
+                self.publish_playlist_feedback(feedback);
+            }
         }
         if !pending.belongs_to(&self.playback) {
             return None;
@@ -927,7 +938,7 @@ impl WorkerState {
             return None;
         }
         match pending.kind {
-            ReplyKind::Plain | ReplyKind::PlaylistEdit(_) => {}
+            ReplyKind::Plain | ReplyKind::PlaylistEdit { .. } => {}
             ReplyKind::RememberVolume(level) => {
                 self.remember_volume(NEXT_VOLUME_REVISION.fetch_add(1, Ordering::Relaxed), level);
             }
@@ -952,6 +963,32 @@ impl WorkerState {
         None
     }
 
+    fn publish_open_feedback(&mut self) {
+        if matches!(
+            self.playback.phase,
+            Phase::Playing | Phase::Paused | Phase::Buffering
+        ) && matches!(
+            self.playback.file_feedback,
+            riina_core::FileFeedback::Restarted(_)
+        ) && let Some(feedback) = self
+            .playlist_edits
+            .ready_open(self.active_entry, self.playback.generation)
+        {
+            self.publish_playlist_feedback(feedback);
+        }
+    }
+
+    fn publish_playlist_feedback(&mut self, feedback: riina_core::PlaylistFeedback) {
+        if feedback.generation == self.playback.generation
+            && self
+                .playback
+                .playlist_feedback
+                .is_none_or(|old| old.sequence < feedback.sequence)
+        {
+            self.playback.playlist_feedback = Some(feedback);
+        }
+    }
+
     fn on_failed_reply(&mut self, event: &EventRef<'_>, pending: PendingCommand) {
         match pending.kind {
             ReplyKind::MaterialCapture => {
@@ -966,7 +1003,7 @@ impl WorkerState {
             ReplyKind::Plain
             | ReplyKind::RememberVolume(_)
             | ReplyKind::RememberAdjustedVolume
-            | ReplyKind::PlaylistEdit(_)
+            | ReplyKind::PlaylistEdit { .. }
             | ReplyKind::Screenshot { .. } => {
                 if let Some(error) = event.error() {
                     let message = format!("mpv {}: {error}", pending.label);
@@ -1036,13 +1073,18 @@ impl WorkerState {
             ReplyKind::Plain
             | ReplyKind::RememberVolume(_)
             | ReplyKind::RememberAdjustedVolume
-            | ReplyKind::PlaylistEdit(_)
+            | ReplyKind::PlaylistEdit { .. }
             | ReplyKind::Screenshot { .. } => {}
         }
     }
 }
 
 // Keep diagnostics actionable without exposing media paths or arbitrary option values.
+fn is_replacement(args: &[String]) -> bool {
+    args.first().is_some_and(|verb| verb == "loadfile")
+        && args.get(2).is_some_and(|mode| mode == "replace")
+}
+
 fn changes_media(args: &[String]) -> bool {
     let mut names = args.iter().map(String::as_str);
     match names.next() {

@@ -302,6 +302,10 @@ fn multi_file_open_replaces_old_playlist_and_resumes() {
             && state.generation > old.generation
             && state.playlist[0].filename == paths[0]
             && state.playlist[0].current
+            && state.playlist_feedback.is_some_and(|feedback| {
+                matches!(feedback.change, riina_core::PlaylistChange::Added(count) if count.get() == 3)
+                    && feedback.generation == state.generation
+            })
             && state
                 .duration
                 .is_some_and(|duration| (duration - 5.0).abs() < 0.1)

@@ -2,18 +2,19 @@
 use super::same_media;
 use crate::file_selection;
 
-pub(super) struct PlayerSelection {
-    pub(super) paths: Vec<String>,
-    pub(super) duplicate_reference: Option<String>,
-    pub(super) explicit_playlist: bool,
+pub(in crate::player) struct PlayerSelection {
+    pub(in crate::player) paths: Vec<String>,
+    pub(in crate::player) duplicate_reference: Option<String>,
+    pub(in crate::player) explicit_playlist: bool,
 }
 
 pub(super) fn prepare_new_players(
     references: Vec<String>,
     preferences: &riina_core::Preferences,
+    cancelled: impl Fn() -> bool,
 ) -> Result<Vec<PlayerSelection>, String> {
     if preferences.group_simultaneous_opens_in_playlist && references.len() > 1 {
-        let paths = file_selection::prepare(references, true)?;
+        let paths = file_selection::prepare_cancellable(references, true, &cancelled)?;
         return Ok((!paths.is_empty())
             .then_some(PlayerSelection {
                 paths,
@@ -26,6 +27,9 @@ pub(super) fn prepare_new_players(
 
     let mut players: Vec<PlayerSelection> = Vec::new();
     for reference in references {
+        if cancelled() {
+            return Err("Media selection was cancelled".into());
+        }
         if !preferences.allow_duplicate_players
             && players.iter().any(|player| {
                 player
@@ -36,7 +40,7 @@ pub(super) fn prepare_new_players(
         {
             continue;
         }
-        let paths = file_selection::prepare(vec![reference.clone()], true)?;
+        let paths = file_selection::prepare_cancellable(vec![reference.clone()], true, &cancelled)?;
         if !paths.is_empty() {
             players.push(PlayerSelection {
                 paths,
@@ -89,7 +93,7 @@ mod tests {
 
         let requests = vec![playlist.clone(), folder.clone(), folder.clone()];
         let mut prefs = Preferences::default();
-        let separate = prepare_new_players(requests.clone(), &prefs).unwrap();
+        let separate = prepare_new_players(requests.clone(), &prefs, || false).unwrap();
         assert_eq!(separate.len(), 2);
         assert_eq!(separate[0].paths, std::slice::from_ref(&playlist));
         assert_eq!(separate[1].paths, [clip2.clone(), clip10.clone()]);
@@ -100,17 +104,19 @@ mod tests {
 
         prefs.allow_duplicate_players = true;
         assert_eq!(
-            prepare_new_players(requests.clone(), &prefs).unwrap().len(),
+            prepare_new_players(requests.clone(), &prefs, || false)
+                .unwrap()
+                .len(),
             3
         );
 
         prefs.group_simultaneous_opens_in_playlist = true;
-        let grouped = prepare_new_players(requests, &prefs).unwrap();
+        let grouped = prepare_new_players(requests, &prefs, || false).unwrap();
         assert_eq!(grouped.len(), 1);
         assert_eq!(grouped[0].paths, [clip2, clip10]);
         assert_eq!(grouped[0].duplicate_reference, None);
 
-        let single = prepare_new_players(vec![playlist], &prefs).unwrap();
+        let single = prepare_new_players(vec![playlist], &prefs, || false).unwrap();
         assert!(single[0].duplicate_reference.is_some());
     }
 
@@ -121,7 +127,8 @@ mod tests {
             ..Preferences::default()
         };
         let groups =
-            prepare_new_players(vec!["list.m3u".into(), "clip.avi".into()], &prefs).unwrap();
+            prepare_new_players(vec!["list.m3u".into(), "clip.avi".into()], &prefs, || false)
+                .unwrap();
         assert_eq!(groups[0].paths, ["clip.avi"]);
         assert_eq!(groups[0].duplicate_reference, None);
 

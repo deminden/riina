@@ -163,7 +163,17 @@ impl VideoOsd {
         {
             previous.paused = state.paused;
         }
-        let mut messages = changed_all(self.previous.as_ref(), state);
+        // File startup changes the observed track selection and other controls.
+        // Update the baseline without replacing the file or playlist message.
+        let mut messages = if state
+            .file_feedback
+            .suppresses_changes(std::time::Instant::now())
+        {
+            self.pending.clear();
+            Vec::new()
+        } else {
+            changed_all(self.previous.as_ref(), state)
+        };
         for message in &mut messages {
             if message.kind == Kind::Volume && state.volume.is_finite() {
                 message.progress = Some((state.volume / self.volume_limit).clamp(0.0, 1.0) as f32);

@@ -23,6 +23,7 @@ pub const SUPPORTED_AUDIO_EXTENSIONS: &[&str] = &[
 pub enum SelectionError {
     InvalidPath,
     InvalidUnicode,
+    Cancelled,
     Url(NetworkUrlError),
     ScanFolder(std::io::Error),
     ReadEntry(std::io::Error),
@@ -33,6 +34,7 @@ impl std::fmt::Display for SelectionError {
         match self {
             Self::InvalidPath => f.write_str("The media path is empty or contains a NUL byte"),
             Self::InvalidUnicode => f.write_str("The path contains invalid Unicode"),
+            Self::Cancelled => f.write_str("Media selection was cancelled"),
             Self::Url(error) => error.fmt(f),
             Self::ScanFolder(error) => write!(f, "Cannot scan folder: {error}"),
             Self::ReadEntry(error) => error.fmt(f),
@@ -45,7 +47,7 @@ impl std::error::Error for SelectionError {
         match self {
             Self::Url(error) => Some(error),
             Self::ScanFolder(error) | Self::ReadEntry(error) => Some(error),
-            Self::InvalidPath | Self::InvalidUnicode => None,
+            Self::InvalidPath | Self::InvalidUnicode | Self::Cancelled => None,
         }
     }
 }
@@ -55,6 +57,16 @@ pub fn prepare(
     open_media: bool,
     compare_names: impl Fn(&str, &str) -> Ordering,
 ) -> Result<Vec<String>, SelectionError> {
+    prepare_cancellable(paths, open_media, compare_names, || false)
+}
+
+pub fn prepare_cancellable(
+    paths: Vec<String>,
+    open_media: bool,
+    compare_names: impl Fn(&str, &str) -> Ordering,
+    cancelled: impl Fn() -> bool,
+) -> Result<Vec<String>, SelectionError> {
+    check_cancelled(&cancelled)?;
     if paths
         .iter()
         .any(|path| path.is_empty() || path.contains('\0'))
@@ -81,6 +93,7 @@ pub fn prepare(
     let mut local_files = Vec::new();
     let mut seen = HashSet::new();
     for path in paths {
+        check_cancelled(&cancelled)?;
         if crate::media_reference::is_network_url_candidate(&path) {
             // URLs are already explicit playlist entries; never treat their
             // slashes as directories or reorder them with local selections.
@@ -94,20 +107,26 @@ pub fn prepare(
             continue;
         }
         if Path::new(&path).is_dir() {
-            scan_folder(
-                Path::new(&path),
-                || false,
-                |media| {
-                    local_files.push(media);
-                    false
-                },
-            )?;
+            scan_folder(Path::new(&path), &cancelled, |media| {
+                local_files.push(media);
+                false
+            })?;
         } else if accepts_playlist_file(&path) {
             local_files.push(path);
         }
     }
+    check_cancelled(&cancelled)?;
     flush_local_files(&mut local_files, &mut files, &mut seen, &compare_names);
+    check_cancelled(&cancelled)?;
     Ok(files)
+}
+
+fn check_cancelled(cancelled: impl Fn() -> bool) -> Result<(), SelectionError> {
+    if cancelled() {
+        Err(SelectionError::Cancelled)
+    } else {
+        Ok(())
+    }
 }
 
 /// Check a hovered path without collecting or sorting an entire directory.
@@ -298,6 +317,20 @@ mod tests {
             prepare(vec![tree.path("custom.format")], true).unwrap(),
             [tree.path("custom.format")]
         );
+    }
+
+    #[test]
+    fn a_cancelled_recursive_scan_never_returns_a_partial_selection() {
+        let tree = TestTree::new();
+        for index in 0..18 {
+            tree.file(&format!("folder{index}/clip.mkv"));
+        }
+        let checks = std::cell::Cell::new(0);
+        let result = super::prepare_cancellable(vec![tree.path("")], true, str::cmp, || {
+            checks.set(checks.get() + 1);
+            checks.get() >= 12
+        });
+        assert!(matches!(result, Err(SelectionError::Cancelled)));
     }
 
     #[test]

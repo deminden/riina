@@ -11,14 +11,18 @@ fn http_url_opens_and_plays_a_local_media_fixture() {
     let (stop, stopping) = mpsc::channel();
     let server = std::thread::spawn(move || serve_http_fixture(listener, fixture, stopping));
 
-    let harness = Harness::start(&root).unwrap();
+    let harness = Harness::with_options(&root, vec![("ao".into(), "null".into())]).unwrap();
     harness
         .send(Command::Load(format!("http://{address}/moving-square.avi")))
         .unwrap();
     let loaded = harness.wait(|state| {
         state.error().is_some()
             || (state.phase == Phase::Playing
-                && state.position.is_some_and(|position| position > 0.1))
+                && state.position.is_some_and(|position| position > 0.1)
+                && state
+                    .tracks
+                    .iter()
+                    .any(|track| track.kind == TrackKind::Audio && track.selected))
     });
     assert_eq!(loaded.error(), None);
     assert!(
@@ -48,7 +52,7 @@ fn stream_open_tracks_authentication_failure_and_cancellation() {
     let address = listener.local_addr().unwrap();
     let (stop, stopping) = mpsc::channel();
     let server = std::thread::spawn(move || serve_http_fixture(listener, fixture, stopping));
-    let harness = Harness::start(&root).unwrap();
+    let harness = Harness::with_options(&root, vec![("ao".into(), "null".into())]).unwrap();
     let sender = harness.player.command_sender();
     let open = |path: &str, authenticate: bool| {
         let attempt = StreamAttempt::default();
@@ -139,7 +143,10 @@ fn stream_open_tracks_authentication_failure_and_cancellation() {
         grouped.status() == StreamStatus::Opened
             && state.phase == Phase::Paused
             && state.playlist.len() == 3
-            && state.explicit_playlist
+            && state.explicit_playlist && state.playlist_feedback.is_some_and(|feedback| {
+            matches!(feedback.change, riina_core::PlaylistChange::Added(count) if count.get() == 3)
+                && feedback.generation == state.generation
+        })
     });
     assert!(group.playlist[0].playing || group.playlist[0].current);
     assert_eq!(group.playlist[0].filename, lead);

@@ -1,7 +1,8 @@
 //! Route AppKit document opens and idle launch actions into the player manager.
 use super::{
-    ManagerState, PlayerManager, finish_after_auxiliary_close, lifecycle::OpenWork,
-    open_new_player, schedule_quit, schedule_welcome, show_welcome,
+    ManagerState, PlayerManager, existing_player, finish_after_auxiliary_close,
+    lifecycle::OpenWork, open_new_player, schedule_quit, schedule_welcome, show_and_focus,
+    show_welcome,
 };
 use crate::{PlayerWindow, media_open, preference_load};
 use riina_core::ActionAfterLaunch;
@@ -341,11 +342,14 @@ impl PlayerManager {
         }
     }
 
-    fn open_with_existing_player(&self, paths: &[String], origin: ApplicationOpen) -> bool {
-        let destination = self.services().history.browser_destination();
-        let Some((app, display)) = destination else {
-            return false;
-        };
+    fn document_target(
+        &self,
+    ) -> Option<(
+        PlayerWindow,
+        crate::player::surface::PlayerDisplay,
+        riina_mpv::CommandSender,
+    )> {
+        let (app, display) = self.services().history.browser_destination()?;
         let sender = self
             .state
             .borrow()
@@ -353,8 +357,14 @@ impl PlayerManager {
             .iter()
             .find(|player| std::ptr::eq(player.app.window(), app.window()))
             .and_then(|player| player.session.player())
-            .map(riina_mpv::Player::command_sender);
-        let Some(sender) = sender else { return false };
+            .map(riina_mpv::Player::command_sender)?;
+        Some((app, display, sender))
+    }
+
+    fn open_with_existing_player(&self, paths: &[String], origin: ApplicationOpen) -> bool {
+        let Some((app, display, sender)) = self.document_target() else {
+            return false;
+        };
         let result = display.reveal(&app).map(|()| {
             display.focus(&app);
             if origin.records_selection() {
@@ -385,6 +395,7 @@ impl PlayerManager {
                 .record_application_documents(&path, &loaded.preferences, &paths);
         }
         let preferences = loaded.preferences.clone();
+        let into_current = preferences.allow_multiple_windows == origin.alternative();
         let (ready, selection) = tokio::sync::oneshot::channel();
         crate::background::spawn_named("application-media-selection", move || {
             let _ = ready.send(media_open::prepare_application_documents(
@@ -398,7 +409,29 @@ impl PlayerManager {
         if self.is_quitting() {
             return Ok(());
         }
-        for media in players {
+        if into_current
+            && let [selection] = players.as_slice()
+            && let Some((app, display, sender)) = self.document_target()
+        {
+            display.reveal(&app).map_err(|error| error.to_string())?;
+            display.focus(&app);
+            return media_open::prepared_documents(&app, selection.paths.clone(), &sender);
+        }
+        for selection in players {
+            if let Some(reference) = selection.duplicate_reference.as_deref()
+                && let Some(player) = existing_player(&self.state, reference, &loaded.preferences)
+            {
+                show_and_focus(&player, &player);
+                continue;
+            }
+            let media = crate::player_ui::InitialMedia {
+                files: selection
+                    .paths
+                    .into_iter()
+                    .map(std::ffi::OsString::from)
+                    .collect(),
+                ..Default::default()
+            };
             open_new_player::<PlayerWindow>(&self.state, None, media, loaded.clone())?;
         }
         Ok(())

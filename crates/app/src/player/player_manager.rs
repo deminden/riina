@@ -346,26 +346,30 @@ fn open_player(
         crate::platform::preferences_path().map_err(|error| error.to_string())?;
     let loaded =
         crate::preference_load::load(&preferences_path).map_err(|error| error.to_string())?;
-    let preferences = &loaded.preferences;
-    let existing = {
-        let state = state.borrow();
-        crate::media_open::duplicate_player(
-            reference,
-            preferences.allow_duplicate_players,
-            state
-                .players
-                .iter()
-                .map(|player| crate::media_open::current_media(&player.app)),
-        )
-        .map(|index| state.players[index].app.clone_strong())
-    };
-    if let Some(player) = existing {
+    if let Some(player) = existing_player(state, reference, &loaded.preferences) {
         show_and_focus(&player, owner);
         owner.set_status("The selected media is already open.".into());
         return Ok(());
     }
     open_new_player(state, Some(owner), media, loaded)?;
     Ok(())
+}
+
+fn existing_player(
+    state: &Rc<RefCell<ManagerState>>,
+    reference: &str,
+    preferences: &riina_core::Preferences,
+) -> Option<PlayerWindow> {
+    let state = state.borrow();
+    let index = crate::media_open::duplicate_player(
+        reference,
+        preferences.allow_duplicate_players,
+        state
+            .players
+            .iter()
+            .map(|player| crate::media_open::current_media(&player.app)),
+    )?;
+    Some(state.players[index].app.clone_strong())
 }
 
 fn open_new_player<Owner: ComponentHandle + 'static>(

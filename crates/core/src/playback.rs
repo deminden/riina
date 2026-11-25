@@ -23,6 +23,26 @@ pub enum Phase {
     Failed,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum FileFeedback {
+    #[default]
+    Idle,
+    Loading,
+    Restarted(Instant),
+}
+
+impl FileFeedback {
+    pub fn suppresses_changes(self, now: Instant) -> bool {
+        match self {
+            Self::Idle => false,
+            Self::Loading => true,
+            Self::Restarted(at) => {
+                now.saturating_duration_since(at) < std::time::Duration::from_millis(200)
+            }
+        }
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct RememberedVolume {
     pub revision: u64,
@@ -52,6 +72,7 @@ pub struct Playback {
     pub folder_discovery_allowed: bool,
     pub generation: u64,
     pub phase: Phase,
+    pub file_feedback: FileFeedback,
     /// Version string from the loaded libmpv runtime, when that property is available.
     pub mpv_version: Option<String>,
     /// FFmpeg version reported by the loaded libmpv runtime, when available.
@@ -344,6 +365,7 @@ impl Playback {
         self.generation += 1;
         self.incoming_transition_started_at = Some(Instant::now());
         self.phase = Phase::Loading;
+        self.file_feedback = FileFeedback::Loading;
         self.position = None;
         self.duration = None;
         self.remaining_time = None;

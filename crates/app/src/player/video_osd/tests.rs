@@ -454,6 +454,28 @@ fn subtitle_visibility_feedback_identifies_the_changed_lane() {
 }
 
 #[test]
+fn startup_observations_set_the_feedback_baseline_during_the_quiet_period() {
+    use riina_core::FileFeedback;
+    use std::time::{Duration, Instant};
+
+    let mut feedback = VideoOsd::default();
+    let mut state = loaded();
+    state.file_feedback = FileFeedback::Loading;
+    feedback.observe(&state);
+    state.volume = 27.0;
+    assert!(feedback.observe(&state).is_none());
+
+    state.file_feedback = FileFeedback::Restarted(Instant::now());
+    state.volume = 42.0;
+    assert!(feedback.observe(&state).is_none());
+
+    state.file_feedback = FileFeedback::Restarted(Instant::now() - Duration::from_millis(500));
+    assert!(feedback.observe(&state).is_none());
+    state.volume = 46.0;
+    assert_eq!(feedback.observe(&state).unwrap().text, "Volume: 46");
+}
+
+#[test]
 fn track_feedback_uses_selected_track_identity_and_empty_choice() {
     fn audio_track(id: i64, title: &str) -> riina_core::Track {
         riina_core::Track {

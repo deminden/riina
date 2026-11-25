@@ -13,7 +13,7 @@ pub(super) enum ReplyKind {
     Plain,
     RememberVolume(f64),
     RememberAdjustedVolume,
-    PlaylistEdit(u64),
+    PlaylistEdit { batch: u64, lead: bool },
     Screenshot { path: Option<String> },
     FrameCapture,
     TransitionCapture,

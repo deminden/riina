@@ -5,10 +5,11 @@ use super::player_ui::ObserverId;
 use crate::{PlayerWindow, file_selection};
 use riina_core::Command;
 use riina_mpv::CommandSender;
+pub(in crate::player) use routing::PlayerSelection;
 pub(crate) use routing::duplicate_player;
-use routing::{PlayerSelection, prepare_new_players};
+use routing::prepare_new_players;
 use slint::{ComponentHandle, Model, ModelRc, SharedString, VecModel};
-use std::{ffi::OsString, path::Path};
+use std::{ffi::OsString, path::Path, sync::atomic::Ordering};
 
 pub(crate) fn apply_manual_open_repeat(
     app: &PlayerWindow,
@@ -59,7 +60,7 @@ pub(crate) fn history_selection(
                 None,
                 sender,
                 SelectionSource::ExplicitPlaylist,
-                None,
+                ObserverId::for_window(app),
             );
         }
         HistoryDestination::NewPlayer => {
@@ -122,23 +123,20 @@ pub(super) fn prepare_application_documents(
     paths: Vec<String>,
     preferences: &riina_core::Preferences,
     alternative: bool,
-) -> Result<Vec<crate::player_ui::InitialMedia>, String> {
-    let selections = if preferences.allow_multiple_windows != alternative {
-        prepare_new_players(paths, preferences)?
-            .into_iter()
-            .map(|selection| selection.paths)
-            .collect()
+) -> Result<Vec<PlayerSelection>, String> {
+    let players = if preferences.allow_multiple_windows != alternative {
+        prepare_new_players(paths, preferences, || false)?
     } else {
-        vec![file_selection::prepare(paths, true)?]
+        let paths = file_selection::prepare(paths, true)?;
+        (!paths.is_empty())
+            .then_some(PlayerSelection {
+                paths,
+                duplicate_reference: None,
+                explicit_playlist: false,
+            })
+            .into_iter()
+            .collect()
     };
-    let players = selections
-        .into_iter()
-        .filter(|paths| !paths.is_empty())
-        .map(|paths| crate::player_ui::InitialMedia {
-            files: paths.into_iter().map(OsString::from).collect(),
-            ..Default::default()
-        })
-        .collect::<Vec<_>>();
     if players.is_empty() {
         Err("No playable files were found".into())
     } else {
@@ -282,7 +280,14 @@ pub fn dropped(app: &PlayerWindow, paths: Vec<OsString>, sender: CommandSender) 
         }
         return;
     }
-    startup_selection(app, paths, None, sender, SelectionSource::DesktopDrop, None);
+    startup_selection(
+        app,
+        paths,
+        None,
+        sender,
+        SelectionSource::DesktopDrop,
+        ObserverId::for_window(app),
+    );
 }
 
 pub(crate) struct WelcomeDrop {
@@ -303,7 +308,7 @@ impl WelcomeDrop {
         let subtitles = dropped_subtitles(&paths);
         let paths = resolve_dropped_url_shortcuts(paths)?;
         if subtitles.is_empty() && preferences.allow_multiple_windows {
-            let mut players = prepare_new_players(paths, preferences)?.into_iter();
+            let mut players = prepare_new_players(paths, preferences, || false)?.into_iter();
             let first = players
                 .next()
                 .ok_or("Drop a playable file or folder to open it.")?;
@@ -330,8 +335,13 @@ impl WelcomeDrop {
     pub(crate) fn open(self, app: &PlayerWindow, sender: &CommandSender) {
         app.set_status("Opening…".into());
         let result = (|| {
-            sender.send(self.command)?;
-            apply_manual_open_repeat(app, sender)?;
+            open_prepared_command(
+                app,
+                sender,
+                self.command,
+                ObserverId::for_window(app),
+                app.get_media_request_generation(),
+            )?;
             open_new_players(app, self.new_players)?;
             Ok::<(), String>(())
         })();
@@ -510,6 +520,9 @@ pub fn validate_url(value: &str) -> Result<&str, riina_core::media_reference::Ne
 }
 
 pub fn invalidate(app: &PlayerWindow) -> i32 {
+    if let Some(observer) = ObserverId::for_window(app) {
+        observer.cancel_discovery();
+    }
     let generation = app.get_media_request_generation().wrapping_add(1);
     app.set_media_request_generation(generation);
     generation
@@ -540,7 +553,7 @@ pub(crate) fn file_dialog_selection(
         None,
         sender,
         SelectionSource::Interactive { alternative },
-        None,
+        ObserverId::for_window(app),
     );
 }
 
@@ -557,11 +570,15 @@ fn selection_at(
         return;
     }
     let generation = invalidate(app);
+    let discovery = ObserverId::for_window(app)
+        .map(ObserverId::begin_discovery)
+        .unwrap_or_default();
     let weak = app.as_weak();
     let failure = weak.clone();
     app.set_status("Opening…".into());
     let started = crate::background::spawn_named("media-discovery", move || {
-        let result = prepare_selection(paths, append, resume_position, source);
+        let cancelled = || discovery.load(Ordering::Relaxed);
+        let result = prepare_selection(paths, append, resume_position, source, cancelled);
         // The result has no recipient once its window or event loop closes.
         let _ = crate::background::to_ui(weak, move |app| {
             // A newer accepted selection or Stop owns the player now.
@@ -586,6 +603,7 @@ fn prepare_selection(
     append: bool,
     resume_position: Option<f64>,
     source: SelectionSource,
+    cancelled: impl Fn() -> bool,
 ) -> Result<PreparedSelection, String> {
     let desktop_drop = source == SelectionSource::DesktopDrop;
     let subtitles = if desktop_drop && !append {
@@ -609,7 +627,7 @@ fn prepare_selection(
         let prefs = preferences_for_open()?;
         let alternative = matches!(source, SelectionSource::Interactive { alternative: true });
         if prefs.allow_multiple_windows != alternative {
-            let players = prepare_new_players(paths, &prefs)?;
+            let players = prepare_new_players(paths, &prefs, &cancelled)?;
             return if players.is_empty() {
                 Err("No playable files were found".into())
             } else {
@@ -617,7 +635,7 @@ fn prepare_selection(
             };
         }
     }
-    let paths = file_selection::prepare(paths, !append)?;
+    let paths = file_selection::prepare_cancellable(paths, !append, cancelled)?;
     if paths.is_empty() {
         return if subtitles.is_empty() {
             Err("No playable files were found".into())
@@ -683,27 +701,56 @@ impl PreparedSelection {
                 if !has_playlist(app)
                     && let Some(first) = players.next()
                 {
-                    sender.send(Command::OpenFiles(first.paths))?;
-                    apply_manual_open_repeat(app, sender)?;
+                    open_prepared_command(
+                        app,
+                        sender,
+                        Command::OpenFiles(first.paths),
+                        grouped_stream,
+                        generation,
+                    )?;
                 }
                 open_new_players(app, players)
             }
             Self::Command(command) => {
-                if let Some(opening) = grouped_stream.and_then(ObserverId::open_url)
-                    && let Some((address, following, explicit)) = grouped_stream_paths(&command)
-                {
-                    return opening.open_initial_playlist(
-                        app, sender, address, following, explicit, generation,
-                    );
-                }
-                if matches!(&command, Command::AppendFiles(_)) {
-                    sender.send_playlist_edit(command).map_err(String::from)
-                } else {
-                    sender.send(command)?;
-                    apply_manual_open_repeat(app, sender)
-                }
+                open_prepared_command(app, sender, command, grouped_stream, generation)
             }
         }
+    }
+}
+
+#[cfg(target_os = "macos")]
+pub(super) fn prepared_documents(
+    app: &PlayerWindow,
+    paths: Vec<String>,
+    sender: &CommandSender,
+) -> Result<(), String> {
+    let generation = invalidate(app);
+    app.set_status("Opening…".into());
+    open_prepared_command(
+        app,
+        sender,
+        Command::OpenFiles(paths),
+        ObserverId::for_window(app),
+        generation,
+    )
+}
+
+fn open_prepared_command(
+    app: &PlayerWindow,
+    sender: &CommandSender,
+    command: Command,
+    grouped_stream: Option<ObserverId>,
+    generation: i32,
+) -> Result<(), String> {
+    if let Some((address, following, explicit)) = grouped_stream_paths(&command)
+        && let Some(opening) = grouped_stream.and_then(ObserverId::open_url)
+    {
+        opening.open_initial_playlist(app, sender, address, following, explicit, generation)
+    } else if matches!(&command, Command::AppendFiles(_)) {
+        sender.send_playlist_edit(command).map_err(String::from)
+    } else {
+        sender.send(command)?;
+        apply_manual_open_repeat(app, sender)
     }
 }
 
@@ -784,10 +831,20 @@ mod tests {
             super::prepare_application_documents(files(), preferences, alternative)
                 .unwrap()
                 .into_iter()
-                .map(|media| media.files)
+                .map(|media| media.paths)
                 .collect::<Vec<_>>()
         };
         let mut preferences = riina_core::Preferences::default();
+        let separate_plans =
+            super::prepare_application_documents(files(), &preferences, false).unwrap();
+        assert_eq!(
+            separate_plans[0].duplicate_reference.as_deref(),
+            Some("clip10.avi")
+        );
+        let current_plans =
+            super::prepare_application_documents(files(), &preferences, true).unwrap();
+        assert_eq!(current_plans[0].duplicate_reference, None);
+
         let grouped = [vec!["clip2.avi", "clip10.avi"]];
         let separate = [vec!["clip10.avi"], vec!["clip2.avi"]];
         assert_eq!(paths(&preferences, false), separate);
@@ -817,6 +874,7 @@ mod tests {
             true,
             None,
             SelectionSource::Interactive { alternative: false },
+            || false,
         )
         .unwrap();
         let PreparedSelection::Command(Command::AppendFiles(paths)) = prepared else {
@@ -845,6 +903,7 @@ mod tests {
             false,
             None,
             SelectionSource::ExplicitPlaylist,
+            || false,
         )
         .unwrap();
         let PreparedSelection::Command(command) = prepared else {
@@ -873,6 +932,7 @@ mod tests {
             false,
             None,
             SelectionSource::ExplicitPlaylist,
+            || false,
         );
         assert!(
             matches!(current, Ok(PreparedSelection::Command(Command::OpenPlaylist(paths))) if paths == expected)
