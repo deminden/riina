@@ -94,7 +94,9 @@ export component PlayerMenuWindow inherits Window {
     }
 
     // Only the shared Linux presenter installs captions for the in-client bar.
-    private property <bool> use-player-menu-strip: root.menu-bar-visible && root.player-menu-captions.length > 0;
+    private property <bool> has-player-menu-strip: root.menu-bar-visible && root.player-menu-captions.length > 0;
+    private property <bool> use-player-menu-strip: root.has-player-menu-strip && !PlayerMusicModeState.music-mode;
+    out property <bool> compact-player-menu-available: root.has-player-menu-strip && PlayerMusicModeState.music-mode;
     private property <length> player-menu-height: use-player-menu-strip ? strip.preferred-height : 0px;
     out property <length> menu-content-height: max(0px, root.height - player-menu-height);
 
@@ -113,7 +115,7 @@ export component PlayerMenuWindow inherits Window {
     }
 
     if root.menu-bar-visible : MenuBar {
-        visible: !root.use-player-menu-strip;
+        visible: !root.has-player-menu-strip;
         Menu { title: "riina";
             MenuItem { title: ApplicationMenuText.about; activated => { PlayerMenuActions.show-about(); } }
             MenuItem { title: ApplicationMenuText.check-updates;

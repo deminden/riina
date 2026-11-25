@@ -17,19 +17,15 @@ export component PlayerGeometry inherits Rectangle {
     // above and below its 12-point small-control frame.
     out property <length> osc-height: PlayerMusicModeState.music-mode ? 90px : min(root.height,
         root.small-video-controller ? 50px : root.compact-ui ? 71px : 78px);
-    out property <length> osc-row-height: !PlayerMusicModeState.music-mode && root.height < 24px
+    out property <length> osc-row-height: root.height < 24px
         ? min(root.height, 10px) : root.small-video-controller ? 14px : 24px;
-    out property <length> osc-timeline-height: PlayerMusicModeState.music-mode ? 20px : root.height < 48px ? 0px :
+    out property <length> osc-timeline-height: root.height < 48px ? 0px :
         root.small-video-controller ? 16px : 24px;
-    out property <length> osc-row-inline-inset: PlayerMusicModeState.music-mode ? 8px :
-        root.width < 64px ? 0px : root.small-video-controller ? 8px : 12px;
-    out property <length> osc-timeline-inline-inset: PlayerMusicModeState.music-mode ? 6px : root.width < 64px ? 0px :
+    out property <length> osc-row-inline-inset: root.width < 64px ? 0px : root.small-video-controller ? 8px : 12px;
+    out property <length> osc-timeline-inline-inset: root.width < 64px ? 0px :
         root.small-video-controller ? 6px : 8px;
-    out property <length> osc-row-gap: PlayerMusicModeState.music-mode ? 2px : root.width < 64px ? 0px : 4px;
-    out property <length> osc-timeline-gap: PlayerMusicModeState.music-mode ? 6px : root.width < 64px ? 0px : 2px;
-    // IINA's MiniPlayer gives both time labels at least 32 points and keeps
-    // six points between each label and the seek bar.
-    out property <length> music-mode-time-label-min-width: 32px;
+    out property <length> osc-row-gap: root.width < 64px ? 0px : 4px;
+    out property <length> osc-timeline-gap: root.width < 64px ? 0px : 2px;
     out property <length> sidebar-leading-extent: PlayerSidebarState.leading-sidebar == 0 ? 0px :
         min(PlayerSidebarState.leading-sidebar-width * 1px, root.width * 0.8);
     out property <length> sidebar-trailing-extent: PlayerSidebarState.sidebar == 0 ? 0px :
@@ -42,10 +38,9 @@ export component PlayerGeometry inherits Rectangle {
         root.platform-macos && !root.macos-sidebar-reduce-motion-fade ? sidebar-trailing-extent : 0px;
     // Keep enough room for both 24px neighbor buttons, IINA's transport
     // spacing, and the centered bar's inner padding before exposing them.
-    out property <bool> transport-neighbor-actions-fit: PlayerMusicModeState.music-mode ||
-        (root.video-width >= 330px &&
-            (PlayerLayoutState.osc-position == 0 ? max(0px, root.video-width - 24px) : root.video-width) >=
-                (PlayerLayoutState.osc-position == 0 ? 168px : 152px));
+    out property <bool> transport-neighbor-actions-fit: root.video-width >= 330px &&
+        (PlayerLayoutState.osc-position == 0 ? max(0px, root.video-width - 24px) : root.video-width) >=
+            (PlayerLayoutState.osc-position == 0 ? 168px : 152px);
     out property <length> video-inset-leading: PlayerLayoutState.edge-to-edge-video || PlayerSidebarState.leading-sidebar == 0 ? 0px : min(PlayerSidebarState.leading-sidebar-width * 1px, root.width * 0.8);
     out property <length> video-inset-trailing: PlayerLayoutState.edge-to-edge-video || PlayerSidebarState.sidebar == 0 ? 0px : min(PlayerSidebarState.trailing-sidebar-width * 1px, max(0px, root.width - video-inset-leading - 1px));
     out property <length> title-row-height: root.show-player-title-row ? (root.compact-ui ? 30px : 34px) : 0px;

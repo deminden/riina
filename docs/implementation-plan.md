@@ -35,9 +35,11 @@ light Audio. Continue Quick Settings work on the remaining page focus graph,
 modified native-menu shortcuts while a panel owns focus, accessibility action
 bounds and matched macOS control geometry. The local
 [settings/viewport follow-up](../tests/visual/windows-settings-viewport-2026-10-20.json)
-now clips Windows artwork above the controls and playlist and removes it when
-hidden. Continue with matched compact control height/materials, metadata,
-audio/video playlist handoffs, no-art/subtitle states and application-port runtime.
+clips Windows artwork above the controls and playlist and removes it when
+hidden. The compact controller now keeps the timeline and metadata visible at
+rest, and its timeline follows the measured REF-22 placement. Continue with
+matched typography and materials, audio/video playlist handoffs, no-art and
+subtitle states, and application-port runtime.
 
 The 4.2.0 workflow batch adds keyboard-operated equalizer naming, optical
 play-glyph centering, separate Music Mode transport/window controls, independent

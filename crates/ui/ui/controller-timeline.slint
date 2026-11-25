@@ -1,0 +1,78 @@
+import { ControllerTimeLabel } from "controller-time-label.slint";
+import { PlayerAppearance } from "player-appearance.slint";
+import { PlayerControlActions } from "player-control-actions.slint";
+import { PlayerControlsState } from "player-controls-state.slint";
+import { PlayerMenuActions } from "player-menu-actions.slint";
+import { PlayerPreferences } from "player-preferences.slint";
+import { PlaybackTimelineState } from "playback-timeline-state.slint";
+import { PlayerSlider } from "shared-controls.slint";
+import { Theme } from "theme.slint";
+
+export component ControllerTimeline inherits HorizontalLayout {
+    in property <bool> music-mode;
+    in property <bool> small;
+    in property <bool> show-clocks: true;
+    in property <bool> preview-above: true;
+    in property <length> inline-inset;
+    in property <length> item-gap;
+    in property <float> aspect-ratio: 16 / 9;
+    private property <length> clock-width: music-mode ? 32px : small ? 34px : 46px;
+    private property <length> clock-font-size: small ? 10px : 11px;
+
+    padding-left: root.inline-inset;
+    padding-right: root.inline-inset;
+    spacing: root.item-gap;
+    vertical-stretch: 0;
+    ControllerTimeLabel {
+        visible: root.show-clocks;
+        minimum-clock-width: root.clock-width;
+        horizontal-alignment: root.music-mode ? right : center;
+        caption: PlaybackTimelineState.position-label;
+        font-size: root.clock-font-size;
+    }
+    PlayerSlider {
+        dark-theme: PlayerAppearance.dark-theme;
+        height: root.music-mode ? 20px : root.small ? 14px : 13px;
+        knob-width: 3px;
+        knob-height: root.small ? 12px : 15px;
+        knob-radius: 1px;
+        track-thickness: root.music-mode ? 4px : 2px;
+        track-color: root.music-mode ? Theme.controller-time-text(PlayerAppearance.dark-theme).with-alpha(0.45)
+            : Theme.slider-track(PlayerAppearance.dark-theme);
+        progress-color: root.music-mode ? transparent : Theme.timeline-range-marker(self.enabled);
+        scroll-override-enabled: PlaybackTimelineState.seekable && !PlayerPreferences.control-disable-play-slider-scrolling;
+        scroll-disabled: PlayerPreferences.control-disable-play-slider-scrolling;
+        scroll-request(dx, dy) => { return PlayerControlActions.seek-scroll-action-request(dx, dy); }
+        loop-a-visible: PlaybackTimelineState.ab-loop-a-known;
+        loop-a-value: PlaybackTimelineState.ab-loop-a;
+        loop-b-visible: PlaybackTimelineState.ab-loop-b-known;
+        loop-b-value: PlaybackTimelineState.ab-loop-b;
+        show-chapter-positions: PlayerPreferences.show-chapter-pos;
+        chapter-times: PlaybackTimelineState.chapter-times;
+        preview-enabled: PlaybackTimelineState.seekable && PlayerPreferences.thumbnail-preview-enabled;
+        preview-image: PlaybackTimelineState.timeline-thumbnail-image;
+        preview-label: PlaybackTimelineState.timeline-preview-label;
+        preview-width: PlaybackTimelineState.thumbnail-preview-width;
+        preview-aspect-ratio: root.aspect-ratio > 0 ? root.aspect-ratio : 16 / 9;
+        preview-above: root.preview-above;
+        minimum: 0;
+        maximum: max(1, PlaybackTimelineState.duration);
+        value: PlaybackTimelineState.position;
+        enabled: PlaybackTimelineState.seekable;
+        hint: "Playback position";
+        changed is-dragging => { PlayerControlsState.control-bar-dragging = self.is-dragging; }
+        changed(value) => { PlayerMenuActions.seek(value); }
+        loop-a-moved(value) => { PlayerControlActions.set-ab-loop-point(0, value); }
+        loop-b-moved(value) => { PlayerControlActions.set-ab-loop-point(1, value); }
+        preview-requested(value) => { PlayerControlActions.timeline-hovered(value); }
+        preview-dismissed => { PlayerControlActions.timeline-hovered(-1); }
+    }
+    ControllerTimeLabel {
+        visible: root.show-clocks;
+        end-label: true;
+        minimum-clock-width: root.clock-width;
+        horizontal-alignment: root.music-mode ? left : center;
+        caption: PlaybackTimelineState.duration-label;
+        font-size: root.clock-font-size;
+    }
+}

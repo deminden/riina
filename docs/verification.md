@@ -2903,6 +2903,62 @@ passed strict cross-Clippy.
 - X11 libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`
 - Wayland libmpv SHA-256 `cdce854e1811942602587310026306d92d30c0f593f2be676f07659ae43061d8`
 
+### Compact playback controls and idle feedback 2026-11-25
+
+The compact controller keeps its title and timeline when the main controller's
+idle timer runs. Its transport appears when the pointer is over artwork or the
+controls, and keyboard focus can reveal the corresponding actions. Wheel input
+on the control strip and catalog stays in those surfaces. On Linux the compact
+menu button and F10 open the player menu without reserving a separate strip.
+
+The supplied REF-22 resting frame is 600 × 518 pixels. The timeline center is
+about 73 points below the artwork at the inferred 2× scale. The Windows software
+rendering comparisons cover resting, transport and Chapters in light and dark
+themes. The 80 grouped widget tests include idle timeline placement, first-click
+transport and wheel routing. The application tests exercise the compact menu
+with F10 and pointer activation.
+
+The full Windows gate passed formatting, strict Clippy, 1,078 Rust tests,
+79 Python tests and four browser-extension tests. The workspace gate left 78
+Rust tests ignored, including the native integration suite. All 65 native
+tests passed separately with the pinned null-output libmpv.
+
+The locked Windows workspace build opened the REF-22 GIF on a private Windows
+11 desktop. It decoded 960 × 540 video, settled at a 300 × 259-point client and
+kept the playlist closed. The first pointer click after 3.5 seconds at idle
+resumed playback. A second click paused it, and the exact test process exited
+normally. The desktop capture returned an invalid handle, leaving Windows
+compositor pixels unverified for this run.
+
+The locked Linux x64 build preserved paused playback through the X11 resize,
+catalog and Music Mode handoffs. The original 850 × 580 client returned after
+the second exit from Music Mode, and the exact X11 process exited normally.
+
+In a private 1280 × 800 Sway session, the 300 × 410 compact client kept its
+title and clocks visible with the catalog open. Native pointer events revealed
+transport over the control strip and restored the title over the catalog.
+Both the ellipsis and F10 opened the player menu, and Escape closed it. The
+main client returned to 850 × 580 with the same paused media. The exact
+Wayland process exited normally.
+
+A second 1280 × 800 Sway capture used the REF-22 GIF at 1.25 seconds in a
+300 × 259 client. The GIF artwork and title were visible with the catalog
+closed and the pointer outside the window. The timeline center was 72.5 points
+below the artwork, compared with 72.25 at the inferred reference scale.
+The Wayland title spans about 171 pixels at 1×, compared with about 153
+points in the reference. Window corners and strip materials also differ.
+The two end clocks display different durations, so the comparison establishes
+placement and leaves time-display parity open. The test process exited normally.
+
+Strict Apple Silicon cross-Clippy passed for the application and test targets.
+Native macOS playback and window behavior remain open.
+
+- Windows application SHA-256 `c3913742a36c3ac0b3781079c36d8b6dbe59dcc293f4012dfa728c9e0164150a`
+- Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
+- Linux application SHA-256 `dcd99112d356f0eed9d994456a860d9c97deb2bcfaa44bc8a61c8364b5276d3d`
+- X11 libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`
+- Wayland libmpv SHA-256 `cdce854e1811942602587310026306d92d30c0f593f2be676f07659ae43061d8`
+
 ### Quick Settings timing controls 2026-11-24
 
 The IINA v1.5.0 Subtitle pane previews the delay on its indicator and input

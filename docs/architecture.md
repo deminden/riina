@@ -186,6 +186,12 @@ the last changed client size after configure events settle. The resize
 updates the current window. Explicit show and hide actions update the
 profile through its existing preference transaction.
 
+The compact controls have their own lifecycle. The main player's idle timer
+can hide its controller while Music Mode keeps the title and timeline mounted.
+Pointer tracking covers the artwork and control strip and stops at the catalog.
+Keyboard focus can reveal compact actions independently. Linux projects the
+same live player menu through a compact button and F10.
+
 Playlist drags send the selected entry IDs and destination entry ID to the
 engine as one request. Play Next resolves the current entry and moves the
 selected entries immediately after it in playlist order. The engine plans the

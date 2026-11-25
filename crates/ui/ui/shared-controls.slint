@@ -28,6 +28,9 @@ export component PlayerSlider inherits Rectangle {
     in property <length> knob-width: 6px;
     in property <length> knob-height: 8px;
     in property <length> knob-radius: 2px;
+    in property <length> track-thickness: 2px;
+    in property <color> track-color: Theme.slider-track(root.dark-theme);
+    in property <color> progress-color: Theme.timeline-range-marker(root.enabled);
     in property <bool> loop-a-visible: false;
     in property <float> loop-a-value: 0;
     in property <bool> loop-b-visible: false;
@@ -123,12 +126,14 @@ export component PlayerSlider inherits Rectangle {
     private property <length> loop-a-grab-offset: 0px;
     private property <length> loop-b-grab-offset: 0px;
     private property <length> loop-hit-width: max(8px, knob-width);
-    Rectangle { x: track-inset; y: track-center-y - 1px; width: track-width; height: 2px;
-        background: Theme.slider-track(root.dark-theme); border-radius: 1px; }
+    Rectangle { x: track-inset; y: track-center-y - track-thickness / 2;
+        width: track-width; height: track-thickness;
+        background: track-color; border-radius: track-thickness / 2; }
     if neutral-mark : Rectangle { x: parent.width / 2 - 0.5px; y: track-center-y - 4px;
         width: 1px; height: 8px; background: Theme.timeline-chapter-marker(root.dark-theme); }
-    Rectangle { x: track-inset; y: track-center-y - 1px; width: track-width * fraction; height: 2px;
-        background: Theme.timeline-range-marker(enabled); border-radius: 1px; }
+    Rectangle { x: track-inset; y: track-center-y - track-thickness / 2;
+        width: track-width * fraction; height: track-thickness;
+        background: progress-color; border-radius: track-thickness / 2; }
     for tick-index in root.tick-count : Rectangle {
         visible: root.tick-count > 1;
         x: track-inset - 1px + track-width * ((tick-index * 1.0) / (root.tick-count - 1));

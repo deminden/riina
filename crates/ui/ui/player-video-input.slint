@@ -1,6 +1,7 @@
 import { PlayerControlActions, PlayerPluginPointerPhase } from "player-control-actions.slint";
 import { PlayerControlsState } from "player-controls-state.slint";
 import { PlayerPreferences } from "player-preferences.slint";
+import { PlayerMusicModeState } from "player-music-mode-state.slint";
 import { PlayerSidebarState } from "player-sidebar-state.slint";
 
 export component PlayerVideoInput inherits TouchArea {
@@ -52,6 +53,10 @@ export component PlayerVideoInput inherits TouchArea {
         }
     }
     scroll-event(event) => {
+        if PlayerMusicModeState.music-mode &&
+            self.mouse-y >= self.height - PlayerMusicModeState.displayed-catalog-height {
+            return accept;
+        }
         if PlayerControlActions.scroll-action-request(event.delta-x / 1px, event.delta-y / 1px) {
             return accept;
         }

@@ -6,8 +6,9 @@ use riina_ui::{
     CatalogRow, LiveTextRegion, PlayerWindow, PreferencesSearchResult, PreferencesWindow,
 };
 use slint::{
-    ComponentHandle, Image, PhysicalSize, PlatformError, Rgb8Pixel, SharedPixelBuffer, Window,
-    platform::{Platform, WindowAdapter},
+    ComponentHandle, Image, LogicalPosition, PhysicalSize, PlatformError, Rgb8Pixel,
+    SharedPixelBuffer, Window,
+    platform::{Platform, WindowAdapter, WindowEvent},
 };
 use std::{error::Error, path::PathBuf, rc::Rc, time::Duration};
 
@@ -140,6 +141,7 @@ enum Layout {
     Compact,
     Docked,
     Music { chapters: bool },
+    MusicResting,
 }
 
 fn player(
@@ -189,6 +191,14 @@ fn player(
                 .global::<riina_ui::PlayerSidebarState>()
                 .set_remembered_playlist_pane(3);
         }
+    }
+    if matches!(layout, Layout::MusicResting) {
+        let music = window.global::<riina_ui::PlayerMusicModeState>();
+        music.set_music_mode(true);
+        music.set_music_mode_is_audio(true);
+        let controls = window.global::<riina_ui::PlayerControlsState>();
+        controls.set_controls_visible(false);
+        controls.set_controls_rendered(false);
     }
     window
         .global::<riina_ui::PlayerSidebarState>()
@@ -297,7 +307,7 @@ fn player_and_settings_match_their_pixels() -> Result<(), Box<dyn Error>> {
 }
 
 fn player_frames(baselines: &mut Baselines) -> Result<(), Box<dyn Error>> {
-    use Layout::{Compact, Docked, Music, Standard};
+    use Layout::{Compact, Docked, Music, MusicResting, Standard};
     use PlaybackState::{Paused, Playing, Stopped};
     let cases = [
         ("stopped", Stopped, (0, 0), Standard),
@@ -315,14 +325,22 @@ fn player_frames(baselines: &mut Baselines) -> Result<(), Box<dyn Error>> {
         ("docked", Playing, (0, 0), Docked),
         ("music", Playing, (0, 0), Music { chapters: false }),
         ("music-chapters", Paused, (0, 0), Music { chapters: true }),
+        ("music-resting", Paused, (0, 0), MusicResting),
     ];
     for (theme, dark) in [("dark", true), ("light", false)] {
         for (name, state, sidebars, layout) in cases {
             let window = player(state, dark, sidebars, layout)?;
-            let size = if matches!(layout, Music { .. }) {
-                PhysicalSize::new(320, 480)
-            } else {
-                PhysicalSize::new(1000, 640)
+            let size = match layout {
+                Music { .. } => {
+                    let size = PhysicalSize::new(320, 480);
+                    window.window().set_size(size);
+                    window.window().dispatch_event(WindowEvent::PointerMoved {
+                        position: LogicalPosition::new(12.0, 112.0),
+                    });
+                    size
+                }
+                MusicResting => PhysicalSize::new(300, 259),
+                _ => PhysicalSize::new(1000, 640),
             };
             baselines.verify(&format!("player-{theme}-{name}"), window.window(), size)?;
             window.hide()?;

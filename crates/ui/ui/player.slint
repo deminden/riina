@@ -74,6 +74,7 @@ export { RecentMediaRow, WelcomeWindow } from "welcome-window.slint";
 import { Theme } from "theme.slint";
 import { QuickSettingsScrollPage, SidebarScrollMemory } from "quick-settings-scroll-page.slint";
 import { MusicModeWindowActions } from "music-mode-controls.slint";
+import { MusicModeControlBar } from "music-mode-control-bar.slint";
 import { CatalogRow, CatalogSelection } from "catalog-row.slint";
 export { CatalogRow, CatalogSelection } from "catalog-row.slint";
 import { Palette } from "std-widgets.slint";
@@ -419,6 +420,8 @@ export component PlayerWindow inherits PlayerMenuWindow {
         primary-shortcut-is-meta: root.primary-shortcut-is-meta;
         loaded: root.loaded;
         fullscreen: root.fullscreen || root.entering-fullscreen;
+        compact-menu-available: root.compact-player-menu-available && !PlayerDialogState.dialog-open;
+        open-compact-menu => { root.open-player-menu(-1, 28, 24); }
         width: root.width;
         height: root.menu-content-height;
         VideoSurface {
@@ -582,11 +585,10 @@ export component PlayerWindow inherits PlayerMenuWindow {
                 }
             }
         }
-        if PlayerControlsState.controls-rendered && loaded && !crop-editing : osc-bar := PlayerController {
+        if !music-mode && PlayerControlsState.controls-rendered && loaded && !crop-editing : osc-bar := PlayerController {
             geometry: {
                 window-width: root.width,
                 window-height: root.menu-content-height,
-                available-width: parent.width,
                 available-height: parent.height,
                 video-width: root.video-width,
                 video-inset-leading: viewport.video-inset-leading,
@@ -604,7 +606,6 @@ export component PlayerWindow inherits PlayerMenuWindow {
                 osc-timeline-inline-inset: viewport.osc-timeline-inline-inset,
                 transport-neighbor-actions-fit: viewport.transport-neighbor-actions-fit,
                 small-video-controller: viewport.small-video-controller,
-                music-mode-time-label-min-width: viewport.music-mode-time-label-min-width,
             };
             native-video: root.native-video;
             material: {
@@ -630,20 +631,34 @@ export component PlayerWindow inherits PlayerMenuWindow {
                 remembered-settings-pane: PlayerSidebarState.remembered-settings-pane,
                 remembered-playlist-pane: PlayerSidebarState.remembered-playlist-pane,
             };
-            media-title: root.media-title;
             paused: root.paused;
             layout-settings-changed => { root.layout-settings-changed(); }
         }
+        if music-mode && root.loaded && !root.crop-editing : MusicModeControlBar {
+            x: 0px; width: parent.width; height: viewport.osc-height;
+            y: parent.height - PlayerMusicModeState.displayed-catalog-height - self.height;
+            hovered: keys.music-mode-hovered;
+            native-video: root.native-video;
+            paused: root.paused;
+            title: root.media-title;
+            aspect-ratio: root.video-display-aspect-ratio;
+            volume-limit: root.volume-limit;
+            sampled-video: PlayerRenderedVideo.video-blurred-frame;
+            sample-width: root.render-width;
+            sample-height: root.render-height;
+        }
         if PlayerMusicModeState.music-mode && root.loaded : MusicModeWindowActions {
             x: 8px; y: 6px;
+            hovered: keys.music-mode-hovered;
+            reduce-motion: PlayerAppearance.animations-disabled;
+            show-menu: root.compact-player-menu-available;
             artwork-visible: PlayerMusicModeState.music-mode-show-album-art;
             dark-theme: PlayerAppearance.dark-theme;
             translucent: PlayerAppearance.active-liquid-glass-osc;
             accent-color: PlayerAppearance.interactive-accent-color;
-            opacity: PlayerControlsState.controls-visible ? 1 : 0;
-            animate opacity { duration: PlayerAppearance.animations-disabled ? 0ms : 200ms; }
             close-requested => { PlayerMenuActions.close-player(); }
             back-requested => { PlayerMenuActions.toggle-music-mode(); }
+            menu-requested(x, y) => { root.open-player-menu(-1, x, y); }
         }
         PlayerFeedbackLayer {
             width: parent.width; height: parent.height;
@@ -718,7 +733,7 @@ export component PlayerWindow inherits PlayerMenuWindow {
         }
         // A sidebar stays interactive when only the transport tray disappears.
         // Moving focus here would discard a delay/speed edit after the idle timeout.
-        if !PlaylistPluginPopupState.shown && !PlayerControlsState.controls-visible &&
+        if !music-mode && !PlaylistPluginPopupState.shown && !PlayerControlsState.controls-visible &&
             PlayerSidebarState.sidebar == 0 && PlayerSidebarState.leading-sidebar == 0 { keys.focus(); }
         root.refresh-fullscreen-info();
         root.controls-visibility-changed(PlayerControlsState.controls-visible);

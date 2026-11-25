@@ -74,6 +74,52 @@ mod tests {
     use std::cell::Cell;
 
     #[test]
+    fn music_mode_menu_remains_reachable_without_reserving_a_strip()
+    -> Result<(), Box<dyn std::error::Error>> {
+        i_slint_backend_testing::init_no_event_loop();
+        let app = new_player()?;
+        slint::select_bundled_translation("en")?;
+        app.set_loaded(true);
+        app.global::<riina_ui::PlayerMusicModeState>()
+            .set_music_mode(true);
+        app.window().set_size(LogicalSize::new(300.0, 90.0));
+        app.show()?;
+        slint::platform::update_timers_and_animations();
+        assert_eq!(app.get_window_height(), 90.0);
+        let menu = app.global::<PlaylistPluginPopupState>();
+        assert!(!menu.get_shown());
+        let press = |text: slint::SharedString| {
+            app.window()
+                .dispatch_event(WindowEvent::KeyPressed { text: text.clone() });
+            app.window()
+                .dispatch_event(WindowEvent::KeyReleased { text });
+            slint::platform::update_timers_and_animations();
+        };
+        press(Key::F10.into());
+        assert!(menu.get_shown());
+        assert!(
+            menu.get_panels()
+                .row_data(0)
+                .is_some_and(|panel| { panel.rows.iter().any(|row| row.title == "Playback") })
+        );
+        press(Key::Escape.into());
+        assert!(!menu.get_shown());
+
+        let position = LogicalPosition::new(36.0, 12.0);
+        let button = PointerEventButton::Left;
+        app.window()
+            .dispatch_event(WindowEvent::PointerMoved { position });
+        app.window()
+            .dispatch_event(WindowEvent::PointerPressed { position, button });
+        app.window()
+            .dispatch_event(WindowEvent::PointerReleased { position, button });
+        slint::platform::update_timers_and_animations();
+        assert!(menu.get_shown(), "the compact menu accepts pointer input");
+        app.hide()?;
+        Ok(())
+    }
+
+    #[test]
     fn compact_bar_keeps_nested_commands_in_a_scrollable_client()
     -> Result<(), Box<dyn std::error::Error>> {
         i_slint_backend_testing::init_no_event_loop();

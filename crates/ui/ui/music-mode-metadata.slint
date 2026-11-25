@@ -1,0 +1,81 @@
+import { PlayerAppearance } from "player-appearance.slint";
+import { PlayerMusicModeState } from "player-music-mode-state.slint";
+import { Theme } from "theme.slint";
+
+component ScrollingMusicLabel inherits Rectangle {
+    in property <string> caption;
+    in property <color> text-color;
+    in property <length> font-size;
+    in property <int> font-weight: 400;
+    in property <bool> reading;
+    private property <int> delay-ticks;
+    private property <bool> finished;
+    private property <length> offset;
+    private property <length> repeat-distance: first.preferred-width + root.font-size * 1.25;
+    private property <bool> overflowing: first.preferred-width > root.width;
+
+    clip: true;
+    function reset() {
+        root.delay-ticks = 0;
+        root.finished = false;
+        root.offset = 0px;
+    }
+    changed reading => { root.reset(); }
+    changed caption => { root.reset(); }
+    changed width => { root.reset(); }
+
+    // Read the beginning once, then make one pass at the MiniPlayer's pace.
+    Timer {
+        interval: 30ms;
+        running: root.reading && root.overflowing && !root.finished;
+        triggered => {
+            if root.delay-ticks < 7 { root.delay-ticks += 1; }
+            else if root.offset + 1px >= root.repeat-distance {
+                root.offset = 0px;
+                root.finished = true;
+            } else { root.offset += 1px; }
+        }
+    }
+    first := Text {
+        x: -root.offset; width: max(parent.width, self.preferred-width); height: parent.height;
+        text: root.caption; color: root.text-color;
+        font-size: root.font-size; font-weight: root.font-weight;
+        horizontal-alignment: root.overflowing ? left : center;
+        vertical-alignment: center;
+    }
+    if root.offset > 0px : Text {
+        x: root.repeat-distance - root.offset; height: parent.height;
+        text: root.caption; color: root.text-color;
+        font-size: root.font-size; font-weight: root.font-weight;
+        vertical-alignment: center;
+    }
+}
+
+export component MusicModeMetadata inherits Rectangle {
+    in property <string> title;
+    in property <bool> controls-visible;
+    private property <string> artist: PlayerMusicModeState.music-artist;
+    private property <string> album: PlayerMusicModeState.music-album;
+    private property <string> subtitle: artist == "" ? album : album == "" ? artist : artist + " - " + album;
+    private property <bool> reading: !root.controls-visible
+        && !PlayerAppearance.animations-disabled && !PlayerAppearance.system-reduce-motion;
+
+    opacity: root.controls-visible ? 0 : 1;
+    animate opacity { duration: PlayerAppearance.animations-disabled ? 0ms : Theme.controller-content-fade-duration; }
+    ScrollingMusicLabel {
+        x: 24px; y: root.subtitle == "" ? 24px : 14px;
+        width: max(0px, parent.width - 48px); height: 18px;
+        caption: root.title;
+        text-color: Theme.music-mode-title-text(PlayerAppearance.dark-theme);
+        font-size: 13px;
+        font-weight: 700;
+        reading: root.reading;
+    }
+    if root.subtitle != "" : ScrollingMusicLabel {
+        x: 24px; y: 36px; width: max(0px, parent.width - 48px); height: 16px;
+        caption: root.subtitle;
+        text-color: Theme.music-mode-metadata-text(PlayerAppearance.dark-theme);
+        font-size: 11px;
+        reading: root.reading;
+    }
+}

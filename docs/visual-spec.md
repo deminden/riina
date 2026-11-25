@@ -244,10 +244,15 @@ measures 600 x 518 pixels. At the inferred 2x scale this suggests 300 x 259 poin
 with about 169 points for artwork and 90 below; scale confirmation remains open.
 Artwork height also depends on media dimensions and the artwork-visibility setting.
 
-Windows hides its in-window menu in Music Mode to avoid wrapping over the compact
-controls and restores it on return. macOS retains its external application menu.
-Check title/art transitions, hidden controls, focus, playlist and native video
-continuity rather than comparing only the static compact frame.
+The resting strip shows the title and timeline. REF-22 places the timeline
+center about 73 points below the artwork at the inferred scale. Hovering over
+the artwork or controls reveals transport over the metadata. The catalog sits
+outside the hover region. Keyboard focus also reveals the focused controls.
+
+Windows hides its in-window menu in Music Mode and restores it on return.
+macOS retains its external application menu. Linux offers a compact menu button
+and F10. Compare the transitions between title, artwork, transport and catalog,
+including keyboard focus and native video continuity.
 
 ## Auxiliary materials
 

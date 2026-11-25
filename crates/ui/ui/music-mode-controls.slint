@@ -16,41 +16,43 @@ export component MusicModeControls inherits Rectangle {
     callback volume-requested();
     callback playlist-requested();
     callback artwork-requested();
+    out property <bool> keyboard-focused: volume.keyboard-focused || previous.keyboard-focused
+        || transport.keyboard-focused || next.keyboard-focused || catalog.keyboard-focused || artwork.keyboard-focused;
     height: 28px;
     private property <length> play-left: (root.width - 28px) / 2 + 2px;
-    Tool {
+    volume := Tool {
         x: root.play-left - 90px; y: 5px; width: 18px; height: 18px;
         icon-size: 18px; dark-theme: root.dark-theme; accent-color: root.accent-color;
         icon: root.muted ? @image-url("../../../assets/icons/muted.svg") : @image-url("../../../assets/icons/volume.svg");
         hint: "Volume"; activated => { root.volume-requested(); }
     }
-    Tool {
+    previous := Tool {
         x: root.play-left - 52px; width: 28px; height: 28px;
         icon-size: 28px; dark-theme: root.dark-theme; accent-color: root.accent-color;
         icon: @image-url("../../../assets/icons/skip-previous.svg");
         hint: "Previous media"; activated => { root.previous-requested(); }
     }
-    Tool {
+    transport := Tool {
         x: root.play-left; width: 28px; height: 28px;
         icon-size: 28px; icon-optical-offset-x: root.paused ? 2.916667px : 0px;
         dark-theme: root.dark-theme; accent-color: root.accent-color;
         icon: root.paused ? @image-url("../../../assets/icons/osc-play.svg") : @image-url("../../../assets/icons/osc-pause.svg");
         hint: root.paused ? "Play" : "Pause"; activated => { root.pause-requested(); }
     }
-    Tool {
+    next := Tool {
         x: root.play-left + 48px; width: 28px; height: 28px;
         icon-size: 28px; dark-theme: root.dark-theme; accent-color: root.accent-color;
         icon: @image-url("../../../assets/icons/skip-next.svg");
         hint: "Next media"; activated => { root.next-requested(); }
     }
-    Tool {
+    catalog := Tool {
         x: root.play-left + 96px; y: 5px; width: 18px; height: 18px;
         icon-size: 18px; dark-theme: root.dark-theme; accent-color: root.accent-color;
         icon: @image-url("../../../assets/icons/playlist.svg"); selected: root.playlist-visible;
         hint: root.playlist-visible ? "Hide playlist" : "Show playlist";
         activated => { root.playlist-requested(); }
     }
-    Tool {
+    artwork := Tool {
         x: root.play-left + 130px; y: 5px; width: 18px; height: 18px;
         icon-size: 18px; dark-theme: root.dark-theme; accent-color: root.accent-color;
         icon: @image-url("../../../assets/icons/photo.svg"); selected: root.artwork-visible;
@@ -60,12 +62,16 @@ export component MusicModeControls inherits Rectangle {
 }
 
 export component MusicModeWindowActions inherits Rectangle {
+    in property <bool> hovered;
+    in property <bool> reduce-motion;
+    in property <bool> show-menu;
     in property <bool> artwork-visible;
     in property <bool> dark-theme: true;
     in property <bool> translucent;
     in property <color> accent-color: Theme.player-focus-accent;
     callback close-requested();
     callback back-requested();
+    callback menu-requested(float, float);
     private property <length> button-size: artwork-visible ? 13px : 12px;
     private property <length> gap: artwork-visible ? 5px : 4px;
     width: button-size + 6px;
@@ -73,16 +79,30 @@ export component MusicModeWindowActions inherits Rectangle {
     border-radius: 10px;
     background: Theme.music-mode-track-popup(dark-theme, translucent);
     border-width: 1px; border-color: Theme.music-mode-volume-border;
+    opacity: root.hovered || close-tool.keyboard-focused || back-tool.keyboard-focused
+        || menu-tool.keyboard-focused ? 1 : 0;
+    animate opacity { duration: root.reduce-motion ? 0ms : Theme.controller-content-fade-duration; }
     VerticalLayout {
         x: 3px; y: 3px; width: root.button-size;
         height: root.height - 6px; spacing: root.gap;
-        Tool { width: root.button-size; height: root.button-size;
+        close-tool := Tool { width: root.button-size; height: root.button-size;
             dark-theme: root.dark-theme; accent-color: root.accent-color;
             icon: @image-url("../../../assets/icons/music-mode-close.svg");
             hint: "Close player"; activated => { root.close-requested(); } }
-        Tool { width: root.button-size; height: root.button-size;
+        back-tool := Tool { width: root.button-size; height: root.button-size;
             dark-theme: root.dark-theme; accent-color: root.accent-color;
             icon: @image-url("../../../assets/icons/music-mode-back.svg");
             hint: "Return to player"; activated => { root.back-requested(); } }
+    }
+    menu-tool := Tool {
+        visible: root.show-menu;
+        enabled: root.show-menu;
+        x: root.width + 3px; y: 0px; width: 17px; height: 16px;
+        label: "⋯"; hint: @tr("Menu");
+        dark-theme: root.dark-theme; accent-color: root.accent-color;
+        activated => {
+            root.menu-requested(self.absolute-position.x / 1px,
+                (self.absolute-position.y + self.height) / 1px);
+        }
     }
 }

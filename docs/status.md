@@ -45,6 +45,10 @@ Implementation does not imply every state or platform is verified.
   with at least 200 points of space below the controls and artwork, and
   keeps the dragged height at or above that threshold. Explicit panel and
   artwork choices save to the profile. Dragging changes the current player.
+- **Music Mode controls:** the title and timeline remain visible when the
+  player is idle, including with the catalog open. Hovering over artwork or
+  controls reveals transport. Keyboard focus reveals the focused group of
+  actions. Linux exposes the player menu through a compact button and F10.
 - **File opens:** the primary File commands follow the new-window preference,
   and their modifier shortcuts invert it. Active menus show the actual destination.
   The native Windows picker has verified grouped and separate opens and reuse

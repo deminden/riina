@@ -17,6 +17,8 @@ export component Tool inherits Rectangle {
     in property <bool> pointer-handles-activation: false;
     callback pointer-input(PointerEvent, bool);
     callback focus-entered(length, length);
+    private property <bool> pointer-focused;
+    out property <bool> keyboard-focused: focus.has-focus && !root.pointer-focused;
     width: circular ? circular-size : 30px; height: circular ? circular-size : 28px;
     border-radius: circular ? circular-size / 2 : 5px;
     border-width: circular && windows-acrylic-surface ? 1px : 0px;
@@ -45,10 +47,12 @@ export component Tool inherits Rectangle {
     }
     focus := FocusScope {
         focus-changed-event => { if self.has-focus { root.focus-entered(root.absolute-position.y, root.height); } }
+        changed has-focus => { if !self.has-focus { root.pointer-focused = false; } }
         enabled: root.enabled;
         key-pressed(event) => {
             if event.modifiers.alt || event.modifiers.control || event.modifiers.meta || event.modifiers.shift { return reject; }
             if event.text == Key.Return || event.text == " " {
+                root.pointer-focused = false;
                 root.activated(); return accept;
             }
             return reject;
@@ -59,6 +63,7 @@ export component Tool inherits Rectangle {
     touch := TouchArea {
         enabled: root.enabled;
         clicked => {
+            root.pointer-focused = true;
             focus.focus();
             if !root.pointer-handles-activation { root.activated(); }
         }

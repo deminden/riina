@@ -4,6 +4,7 @@ import { PlayerCropState } from "player-crop-state.slint";
 import { PlayerControlsState } from "player-controls-state.slint";
 import { PlayerSidebarState } from "player-sidebar-state.slint";
 import { PlayerMenuActions } from "player-menu-actions.slint";
+import { PlayerMusicModeState } from "player-music-mode-state.slint";
 import { PlaylistPluginPopupState } from "playlist-plugin-popup.slint";
 
 // The same focus scope owns the child controls and the remaining player shortcuts.
@@ -13,8 +14,18 @@ export component PlayerKeyScope inherits FocusScope {
     in property <bool> primary-shortcut-is-meta;
     in property <bool> loaded;
     in property <bool> fullscreen;
+    in property <bool> compact-menu-available;
+    out property <bool> music-mode-hovered: surface.has-hover &&
+        surface.mouse-y < surface.height - PlayerMusicModeState.displayed-catalog-height;
+    callback open-compact-menu();
 
-    @children
+    // Observe the compact player's artwork and strip through their child controls.
+    // The list starts below the tracking area and owns its own interaction.
+    surface := TouchArea {
+        width: root.width; height: root.height;
+        enabled: root.loaded && PlayerMusicModeState.music-mode;
+        @children
+    }
 
     capture-key-pressed(event) => {
         if PlaylistPluginPopupState.shown {
@@ -30,6 +41,10 @@ export component PlayerKeyScope inherits FocusScope {
             menu-alternates-visible = false;
         }
         if native-video && !PlayerCropState.crop-editing && event.text == Key.F10 { PlayerControlActions.open-application-menu(); return accept; }
+        if root.compact-menu-available && event.text == Key.F10
+            && !event.modifiers.control && !event.modifiers.meta && !event.modifiers.alt && !event.modifiers.shift {
+            root.open-compact-menu(); return accept;
+        }
         if !PlayerCropState.crop-editing && !PlayerDialogState.dialog-open
             && PlayerControlActions.begin-plugin-key(event.text, event.modifiers.control, event.modifiers.alt,
                 event.modifiers.shift, event.modifiers.meta, event.repeat, true) {
@@ -51,6 +66,10 @@ export component PlayerKeyScope inherits FocusScope {
             return accept;
         }
         if native-video && event.text == Key.F10 { return accept; }
+        if root.compact-menu-available && event.text == Key.F10
+            && !event.modifiers.control && !event.modifiers.meta && !event.modifiers.alt && !event.modifiers.shift {
+            return accept;
+        }
         let route-to-plugins = !PlayerDialogState.dialog-open;
         if route-to-plugins && PlayerControlActions.begin-plugin-key(event.text, event.modifiers.control, event.modifiers.alt,
                 event.modifiers.shift, event.modifiers.meta, event.repeat, false) {

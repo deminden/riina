@@ -552,6 +552,69 @@ fn compact_catalog_expands_below_the_controls_during_and_after_resize() {
 }
 
 #[test]
+fn compact_timeline_survives_idle_and_keeps_wheel_input_with_its_surface() {
+    let app = player(0);
+    app.set_player_menu_labels(slint::ModelRc::new(slint::VecModel::from(vec![
+        "File".into(),
+        "Playback".into(),
+    ])));
+    let music = app.global::<PlayerMusicModeState>();
+    music.set_music_mode(true);
+    music.set_music_mode_show_album_art(false);
+    music.set_music_mode_show_playlist(true);
+    app.set_paused(true);
+    app.window().set_size(LogicalSize::new(300.0, 390.0));
+    let controls = app.global::<PlayerControlsState>();
+    controls.set_controls_visible(false);
+    controls.set_controls_rendered(false);
+    let timeline = app.global::<PlaybackTimelineState>();
+    timeline.set_seekable(true);
+    timeline.set_duration(75.0);
+    flush();
+    assert!(!app.get_compact_menu_visible());
+    assert_eq!(app.get_window_height(), 390.0);
+    let seek = field(&app, "Playback position");
+    let seek_y = seek.absolute_position().y + seek.size().height / 2.0;
+    assert!((seek_y - 73.0).abs() < 2.0);
+    let generic_wheels = Rc::new(Cell::new(0));
+    let observe = generic_wheels.clone();
+    let actions = app.global::<PlayerControlActions>();
+    actions.on_scroll_action_request(move |_, _| {
+        observe.set(observe.get() + 1);
+        true
+    });
+    let seeks = Rc::new(Cell::new(0));
+    let observe = seeks.clone();
+    actions.on_seek_scroll_action_request(move |_, _| {
+        observe.set(observe.get() + 1);
+        true
+    });
+    let wheel = |y| {
+        app.window().dispatch_event(WindowEvent::PointerScrolled {
+            position: LogicalPosition::new(150.0, y),
+            delta_x: 0.0,
+            delta_y: -16.0,
+        });
+        flush();
+    };
+    wheel(50.0);
+    wheel(160.0);
+    assert_eq!(generic_wheels.get(), 0);
+    wheel(seek_y);
+    assert_eq!(seeks.get(), 1);
+    let pauses = Rc::new(Cell::new(0));
+    let observe = pauses.clone();
+    app.global::<PlayerMenuActions>()
+        .on_toggle_pause(move || observe.set(observe.get() + 1));
+    focus(&app, &button(&app, "Play"));
+    assert_eq!(
+        pauses.get(),
+        1,
+        "the first click reveals and activates transport"
+    );
+}
+
+#[test]
 fn quick_settings_tab_reveals_equalizer_and_restores_its_scroll_position() {
     let app = player(1);
     app.window().set_size(LogicalSize::new(1000.0, 290.0));
