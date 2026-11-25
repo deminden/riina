@@ -67,8 +67,11 @@ Implementation does not imply every state or platform is verified.
   and their modifier shortcuts invert it. Active menus show the actual destination.
   The native Windows picker has verified grouped and separate opens and reuse
   of an existing player when duplicate players are disabled.
-- **Playlist editing:** a single-file open can discover siblings around the
-  current item. Navigating the resulting playlist keeps rows the user removed
+- **Playlist editing:** the playlist menu can add files, folders or URLs.
+  Transient add and clear feedback follows native command replies. Clearing
+  retains the current item and retires pending sibling discovery. A single-file
+  open can discover siblings around the current item. Navigating the resulting
+  playlist keeps rows the user removed
   out of the queue. The sidebar and Music Mode accept focused edit shortcuts.
   Paste expands folders and inserts before the first selected row. Windows
   publishes native file lists and Unicode text for local selections. A separate

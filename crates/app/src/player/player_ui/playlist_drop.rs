@@ -1,5 +1,5 @@
 //! Resolve the visible insertion gap before directory discovery and command dispatch.
-use crate::{PlayerWindow, background, file_selection, media_open, platform, video_osd};
+use crate::{PlayerWindow, background, file_selection, media_open, platform};
 use riina_core::Command;
 use riina_mpv::CommandSender;
 use riina_ui::{PlayerCatalogState, PlayerSidebarState};
@@ -134,18 +134,12 @@ fn insert_prepared(
             if app.get_media_request_generation() != generation {
                 return;
             }
-            let added = result.and_then(|paths| {
-                let count = paths.len();
-                sender.send(Command::InsertPlaylistFilesBefore { paths, before_id })?;
-                Ok(count)
-            });
-            match added {
-                Ok(count) => super::show_osd_message(
-                    &app,
-                    video_osd::action_message(video_osd::ActionFeedback::PlaylistAdded(count)).text,
-                    false,
-                ),
-                Err(error) => app.set_status(error.into()),
+            if let Err(error) = result.and_then(|paths| {
+                sender
+                    .send_playlist_edit(Command::InsertPlaylistFilesBefore { paths, before_id })
+                    .map_err(String::from)
+            }) {
+                app.set_status(error.into());
             }
         });
     });

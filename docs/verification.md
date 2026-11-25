@@ -5529,3 +5529,39 @@ macOS interaction remains unverified.
 - Linux application SHA-256 `2240e366f5da39f31a6b5540557b850fc91be26a238742ceb7bcf7eff408418b`
 - X11 libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`
 - Wayland libmpv SHA-256 `cdce854e1811942602587310026306d92d30c0f593f2be676f07659ae43061d8`
+
+### Acknowledged playlist additions and clear 2026-11-25
+
+File and URL adds, browser enqueue, playlist drops and paste share native
+edit feedback. The worker counts successful additions in each submitted
+group and projects the result to the player that requested it. Folder
+selection uses a native picker and the same discovery rules as folder paste.
+Direct insertion avoids a separate move that might act on the wrong row
+after a rejected add. Clear retains the active file and retires the sibling
+scan that belonged to its open request.
+[Pinned mpv playlist command contract](https://github.com/mpv-player/mpv/blob/36abaa32d00a7229ee206aae12dc0e97e7962dca/DOCS/man/input.rst#playlist-manipulation)
+
+The Windows workspace gate passed strict Clippy, 1,102 Rust tests including
+the player and Settings pixel comparisons, 79 Python tests and four browser
+tests. The locked Windows workspace and Linux application builds passed.
+All 67 Windows native tests and seven Linux native playlist tests passed.
+The native regressions cover acknowledgement counts, stable insertion,
+current item identity, pause and position, stale insertion anchors, and
+a folder scan delivered after Clear. Apple Silicon and Intel passed
+cross-Clippy.
+
+A private Windows desktop verified automatic sibling discovery, Delete and
+Return navigation, Clear with the current paused file and position retained,
+and normal exit. An additional Windows probe could not activate Add Folder
+in the context menu. The native folder picker still needs direct desktop
+verification. The isolated X11 and Wayland applications accepted a native
+file-list folder in natural order at the selected row and exercised clipboard
+edits, keyboard navigation, and Clear. The X11 run also forwarded a browser
+add to the existing paused player. Captures show the two-file addition
+message on X11 and the Clear message on both Linux desktops. Both exact
+test players exited normally. Native macOS interaction remains unverified.
+
+- Windows application SHA-256 `5a855e65f3967055f13448a3b1f9c0a5ccda383e7f8bd805fbfb520a57929014`
+- Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
+- Linux application SHA-256 `0d47ccb0458edd940207522deb6b9da6365f2e1327843858b31bf1da789ccb5a`
+- Linux libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`

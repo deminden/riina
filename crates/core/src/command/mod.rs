@@ -337,6 +337,7 @@ impl Command {
                 | Self::MovePlaylistIdsBefore { .. }
                 | Self::ClearPlaylist
                 | Self::AppendFiles(_)
+                | Self::InsertPlaylistFiles { .. }
                 | Self::InsertPlaylistFilesBefore { .. }
                 | Self::OpenFiles(_)
                 | Self::OpenPlaylist(_)

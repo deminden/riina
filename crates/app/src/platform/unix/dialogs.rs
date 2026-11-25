@@ -21,14 +21,19 @@ pub fn open(
         welcome,
         move |owner| async move {
             #[cfg(target_os = "macos")]
-            if matches!(purpose, Purpose::Media | Purpose::MediaAlternative) {
+            if matches!(
+                purpose,
+                Purpose::Media | Purpose::MediaAlternative | Purpose::Playlist
+            ) {
                 return crate::platform::choose_application_media(purpose.title(), Some(&owner))
                     .await;
             }
             let dialog = rfd::AsyncFileDialog::new()
                 .set_parent(owner.as_ref())
                 .set_title(purpose.title());
-            let files = if purpose.allows_multiple() {
+            let files = if matches!(purpose, Purpose::PlaylistFolders) {
+                dialog.pick_folders().await.unwrap_or_default()
+            } else if purpose.allows_multiple() {
                 dialog.pick_files().await.unwrap_or_default()
             } else {
                 dialog.pick_file().await.into_iter().collect()

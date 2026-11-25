@@ -17,6 +17,7 @@ use std::sync::Arc;
 enum Action {
     Player(i32),
     AddFiles,
+    AddFolders,
     AddUrl,
     Subtitle(PlaylistSubtitleAction),
     Plugin { identifier: String, id: String },
@@ -180,6 +181,7 @@ impl Request {
                 actions.invoke_playlist_action(action, self.token.clone());
             }
             Action::AddFiles => actions.invoke_browse_files(4),
+            Action::AddFolders => actions.invoke_browse_files(5),
             Action::AddUrl => actions.invoke_open_playlist_url_dialog(),
             Action::Subtitle(action) => app
                 .global::<PlaylistInteraction>()
@@ -246,10 +248,16 @@ impl Request {
             }));
         }
         separate(&mut entries);
+        let has_queued_items = app
+            .global::<PlayerCatalogState>()
+            .get_playlist()
+            .iter()
+            .any(|row| !row.playing);
         entries.extend([
             item("Add File…", Action::AddFiles, true),
+            item("Add Folder…", Action::AddFolders, true),
             item("Add URL…", Action::AddUrl, true),
-            item("Clear Playlist", Action::Player(4), self.playlist.len() > 1),
+            item("Clear Playlist", Action::Player(4), has_queued_items),
         ]);
         entries
     }

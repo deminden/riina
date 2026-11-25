@@ -98,7 +98,7 @@ impl WorkerState {
             authentication: source.authenticated_address,
             address: source.address,
         };
-        self.handle_intent_with_stream(handle, command, Some(stream));
+        self.handle_intent_with_stream(handle, command, Some(stream), None);
     }
 
     pub(super) fn on_stream_reply(&mut self, event: &EventRef<'_>) {

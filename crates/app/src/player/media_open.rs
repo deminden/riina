@@ -696,18 +696,8 @@ impl PreparedSelection {
                         app, sender, address, following, explicit, generation,
                     );
                 }
-                if let Command::AppendFiles(paths) = &command {
-                    let count = paths.len();
-                    sender.send(command)?;
-                    crate::player_ui::show_osd_message(
-                        app,
-                        crate::video_osd::action_message(
-                            crate::video_osd::ActionFeedback::PlaylistAdded(count),
-                        )
-                        .text,
-                        false,
-                    );
-                    Ok(())
+                if matches!(&command, Command::AppendFiles(_)) {
+                    sender.send_playlist_edit(command).map_err(String::from)
                 } else {
                     sender.send(command)?;
                     apply_manual_open_repeat(app, sender)
@@ -812,6 +802,31 @@ mod tests {
             super::prepare_application_documents(vec!["captions.srt".into()], &preferences, false)
                 .is_err()
         );
+    }
+
+    #[test]
+    fn playlist_folder_add_prepares_only_supported_media_and_retains_natural_order() {
+        use super::{PreparedSelection, SelectionSource, prepare_selection};
+
+        let directory = riina_test_support::TempDir::new("playlist-folder").unwrap();
+        for name in ["clip10.avi", "clip2.avi", "clip2.srt", "all.m3u8"] {
+            std::fs::write(directory.path().join(name), []).unwrap();
+        }
+        let prepared = prepare_selection(
+            vec![directory.path().to_string_lossy().into_owned()],
+            true,
+            None,
+            SelectionSource::Interactive { alternative: false },
+        )
+        .unwrap();
+        let PreparedSelection::Command(Command::AppendFiles(paths)) = prepared else {
+            panic!("Playlist folders should expand to one append request");
+        };
+        let names: Vec<_> = paths
+            .iter()
+            .map(|path| std::path::Path::new(path).file_name().unwrap())
+            .collect();
+        assert_eq!(names, ["clip2.avi", "clip10.avi"]);
     }
 
     #[test]

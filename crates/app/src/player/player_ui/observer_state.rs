@@ -24,6 +24,7 @@ pub(super) struct UiObserverState {
     pub(super) displayed: Option<Arc<Playback>>,
     pub(super) volume: Weak<super::volume_preference::VolumePreference>,
     pub(super) opened_media: Option<(u64, i64)>,
+    playlist_feedback_seen: Option<u64>,
     pub(super) seek: SeekOsd,
     pub(super) video: Rc<RefCell<VideoOsd>>,
     pub(super) screenshot: ScreenshotOsd,
@@ -46,6 +47,7 @@ impl UiObserverState {
             displayed: None,
             volume: Weak::new(),
             opened_media: None,
+            playlist_feedback_seen: None,
             seek: SeekOsd::default(),
             video: Rc::new(RefCell::new(video)),
             screenshot: ScreenshotOsd::default(),
@@ -55,6 +57,28 @@ impl UiObserverState {
             touch_bar: Default::default(),
             power: None,
         }
+    }
+
+    pub(super) fn show_playlist_feedback(&mut self, app: &crate::PlayerWindow, state: &Playback) {
+        use crate::video_osd::{ActionFeedback, action_message};
+        use riina_core::PlaylistChange;
+
+        let Some(feedback) = state.playlist_feedback else {
+            return;
+        };
+        if feedback.generation != state.generation
+            || self
+                .playlist_feedback_seen
+                .is_some_and(|seen| seen >= feedback.sequence)
+        {
+            return;
+        }
+        self.playlist_feedback_seen = Some(feedback.sequence);
+        let action = match feedback.change {
+            PlaylistChange::Added(count) => ActionFeedback::PlaylistAdded(count.get()),
+            PlaylistChange::Cleared => ActionFeedback::PlaylistCleared,
+        };
+        super::show_osd_message(app, action_message(action).text, true);
     }
 
     pub(super) fn startup_presentation(

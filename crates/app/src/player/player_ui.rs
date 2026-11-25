@@ -244,18 +244,14 @@ impl UiSession {
                 &player.command_sender(),
                 playback,
             )?;
+        } else if append {
+            player
+                .command_sender()
+                .send_playlist_edit(Command::OpenMediaLink(playback))?;
         } else {
             player.send(Command::OpenMediaLink(playback))?;
         }
         if append {
-            show_osd_message(
-                app,
-                crate::video_osd::action_message(crate::video_osd::ActionFeedback::PlaylistAdded(
-                    1,
-                ))
-                .text,
-                false,
-            );
             if let Some(presentation) = presentation {
                 observation_dispatch::apply_startup_presentation(app, presentation);
             }

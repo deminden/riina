@@ -89,7 +89,11 @@ pub fn open(
         host,
         welcome,
         move |owner| {
-            let paths = file_dialog::open_files(owner, purpose.allows_multiple(), purpose.title())?;
+            let paths = if matches!(purpose, Purpose::PlaylistFolders) {
+                file_dialog::open_folders(owner, purpose.title())?
+            } else {
+                file_dialog::open_files(owner, purpose.allows_multiple(), purpose.title())?
+            };
             Ok((!paths.is_empty()).then_some(paths))
         },
         move |app, result| {

@@ -19,11 +19,15 @@ pub enum Purpose {
     Audio,
     Subtitle,
     Playlist,
+    PlaylistFolders,
 }
 
 impl Purpose {
     pub(crate) fn allows_multiple(self) -> bool {
-        matches!(self, Self::Media | Self::MediaAlternative | Self::Playlist)
+        matches!(
+            self,
+            Self::Media | Self::MediaAlternative | Self::Playlist | Self::PlaylistFolders
+        )
     }
 
     pub(crate) fn title(self) -> &'static str {
@@ -32,6 +36,7 @@ impl Purpose {
             Self::Audio => "Load External Audio",
             Self::Subtitle => "Load Subtitle",
             Self::Playlist => "Add to Playlist",
+            Self::PlaylistFolders => "Add Folders to Playlist",
         }
     }
 
@@ -44,7 +49,7 @@ impl Purpose {
             Self::MediaAlternative => return None,
             Self::Audio => Command::AddAudio(paths[0].clone()),
             Self::Subtitle => Command::AddSubtitle(paths[0].clone()),
-            Self::Playlist => Command::AppendFiles(paths),
+            Self::Playlist | Self::PlaylistFolders => Command::AppendFiles(paths),
         })
     }
 }
@@ -68,7 +73,7 @@ pub(crate) fn dispatch_selection(
             );
             Ok(())
         }
-        Purpose::Playlist => {
+        Purpose::Playlist | Purpose::PlaylistFolders => {
             media_open::selection(app, paths, true, sender);
             Ok(())
         }

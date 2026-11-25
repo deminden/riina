@@ -5,7 +5,6 @@ use super::{
         install_playlist_selection, playlist_paste_anchor, selected_playlist_ids,
         selected_playlist_paths, selected_playlist_rows,
     },
-    show_osd_message,
 };
 use crate::{
     PlayerWindow,
@@ -105,18 +104,19 @@ fn install_actions(
             window
                 .global::<riina_ui::PlayerControlActions>()
                 .invoke_activity();
-            if let Err(error) =
-                command.and_then(|command| playlist_player.send(command).map_err(String::from))
-            {
+            let result = command.and_then(|command| {
+                if matches!(command, Command::ClearPlaylist) {
+                    playlist_player.send_playlist_edit(command)
+                } else {
+                    playlist_player.send(command)
+                }
+                .map_err(String::from)
+            });
+            if let Err(error) = result {
                 window.set_status(error.into());
                 return;
             }
-            if action == 4 {
-                let message = crate::video_osd::action_message(
-                    crate::video_osd::ActionFeedback::PlaylistCleared,
-                );
-                show_osd_message(&window, message.text, false);
-            } else if matches!(action, 1 | 13) {
+            if matches!(action, 1 | 13) {
                 window
                     .global::<riina_ui::PlaylistInteraction>()
                     .invoke_clear_selection();

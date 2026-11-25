@@ -29,6 +29,8 @@ fn playlist_duration_probe_reads_local_video_and_audio() {
 #[test]
 #[ignore = "requires provisioned libmpv; verifies a stable playlist move during playback"]
 fn stable_playlist_move_resolves_both_rows_after_an_insertion() {
+    use riina_core::PlaylistChange;
+    use std::num::NonZeroUsize;
     let root = fixture_root();
     let harness = Harness::start(&root).unwrap();
     let path = |name| {
@@ -42,26 +44,40 @@ fn stable_playlist_move_resolves_both_rows_after_an_insertion() {
         .unwrap();
     harness.wait(|state| state.phase == Phase::Playing);
     harness.send(Command::SetPaused(true)).unwrap();
-    harness
-        .send(Command::AppendFiles(vec![
+    let sender = harness.player.command_sender();
+    let two_added = PlaylistChange::Added(NonZeroUsize::new(2).unwrap());
+    sender
+        .send_playlist_edit(Command::AppendFiles(vec![
             path("catalog.mkv"),
             path("external-tone.wav"),
         ]))
         .unwrap();
-    let loaded = harness.wait(|state| state.paused && state.playlist.len() == 3);
+    let loaded = harness.wait(|state| {
+        state.paused
+            && state.playlist.len() == 3
+            && state
+                .playlist_feedback
+                .is_some_and(|feedback| feedback.change == two_added)
+    });
+    let appended = loaded.playlist_feedback.unwrap();
+    assert_eq!(appended.generation, loaded.generation);
     let ids = [
         loaded.playlist[0].id,
         loaded.playlist[1].id,
         loaded.playlist[2].id,
     ];
-    harness
-        .send(Command::InsertPlaylistFilesBefore {
+    sender
+        .send_playlist_edit(Command::InsertPlaylistFilesBefore {
             paths: vec![path("hdr-hlg.mkv")],
             before_id: Some(ids[1]),
         })
         .unwrap();
     let inserted = harness.wait(|state| {
         state.playlist.len() == 4
+            && state.playlist_feedback.is_some_and(|feedback| {
+                feedback.sequence > appended.sequence
+                    && feedback.change == PlaylistChange::Added(NonZeroUsize::MIN)
+            })
             && std::path::Path::new(&state.playlist[1].filename)
                 .file_name()
                 .is_some_and(|name| name == "hdr-hlg.mkv")
@@ -116,6 +132,42 @@ fn stable_playlist_move_resolves_both_rows_after_an_insertion() {
     });
     assert_eq!(dropped.generation, loaded.generation);
     assert!(dropped.paused && dropped.playlist[0].current);
+
+    sender.send_playlist_edit(Command::ClearPlaylist).unwrap();
+    let cleared = harness.wait(|state| {
+        state.playlist.len() == 1
+            && state
+                .playlist_feedback
+                .is_some_and(|feedback| feedback.change == PlaylistChange::Cleared)
+    });
+    assert_eq!(cleared.generation, loaded.generation);
+    assert_eq!(cleared.position, dropped.position);
+    assert_eq!(cleared.playlist[0].id, ids[0]);
+    assert!(cleared.paused && cleared.playlist[0].current);
+    assert_eq!(cleared.error(), None);
+    assert!(!cleared.folder_discovery_allowed);
+    sender
+        .send_for_media(
+            cleared.generation,
+            Command::InsertPlaylistFilesAroundCurrent {
+                before: vec![path("catalog.mkv")],
+                after: vec![path("external-tone.wav")],
+            },
+        )
+        .unwrap();
+    sender.send(Command::SetMuted(true)).unwrap();
+    let after_delayed_discovery = harness.wait(|state| state.muted);
+    assert_eq!(after_delayed_discovery.playlist, cleared.playlist);
+
+    sender
+        .send_playlist_edit(Command::InsertPlaylistFilesBefore {
+            paths: vec![path("catalog.mkv")],
+            before_id: Some(ids[1]),
+        })
+        .unwrap();
+    let rejected = harness.wait(|state| state.error().is_some());
+    assert_eq!(rejected.playlist_feedback, cleared.playlist_feedback);
+    assert_eq!(rejected.playlist, cleared.playlist);
 }
 
 #[test]

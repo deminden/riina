@@ -29,6 +29,19 @@ pub struct RememberedVolume {
     pub level: f64,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PlaylistChange {
+    Added(std::num::NonZeroUsize),
+    Cleared,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct PlaylistFeedback {
+    pub sequence: u64,
+    pub generation: u64,
+    pub change: PlaylistChange,
+}
+
 #[derive(Debug, Clone, Default)]
 pub struct Playback {
     /// File-opening policy is intent; `paused` remains native observed state.
@@ -125,6 +138,8 @@ pub struct Playback {
     pub track_list_observed: bool,
     pub chapters: Arc<Vec<Chapter>>,
     pub playlist: Arc<Vec<PlaylistEntry>>,
+    /// Latest completed user playlist edit for the player's transient OSD.
+    pub playlist_feedback: Option<PlaylistFeedback>,
     /// libmpv does not expose whether its native shuffle order is active.
     pub playlist_shuffled: bool,
     pub audio_delay: f64,

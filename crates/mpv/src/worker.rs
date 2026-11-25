@@ -19,6 +19,7 @@ use crate::{
     client_request::{Operation, Pending, Request},
     ffi::{Api, end_reason, event_id, format},
     pending::{PendingCommand, ReplyKind},
+    playlist_feedback::{Edit, PendingEdits},
     properties::OBSERVED,
     seek_feedback::{self, SeekFeedback},
 };
@@ -118,6 +119,10 @@ impl<N: Fn(Arc<Playback>)> Start<N> {
                         state.observe_dynamic(&handle, &command, &notify);
                     }
                     Message::Intent(command) => state.handle_intent(&handle, command),
+                    Message::PlaylistEdit(command) => {
+                        let edit = Edit::for_command(&command);
+                        state.handle_intent_with_stream(&handle, command, None, edit);
+                    }
                     Message::MediaIntent {
                         generation,
                         command,
@@ -278,6 +283,7 @@ struct WorkerState {
     observers: BTreeMap<u64, String>,
     next_observer: u64,
     pending: HashMap<u64, PendingCommand>,
+    playlist_edits: PendingEdits,
     client_requests: HashMap<u64, Pending>,
     hooks: hooks::Hooks,
     volume_boost: bool,
@@ -358,7 +364,7 @@ impl WorkerState {
     }
 
     fn handle_intent(&mut self, handle: &Handle, command: Command) {
-        self.handle_intent_with_stream(handle, command, None);
+        self.handle_intent_with_stream(handle, command, None, None);
     }
 
     fn accepts_media_intent(&self, generation: u64) -> bool {
@@ -378,6 +384,7 @@ impl WorkerState {
         handle: &Handle,
         command: Command,
         stream: Option<stream::StreamLoad>,
+        playlist_edit: Option<Edit>,
     ) {
         if command.replaces_media() {
             self.pending_drop_subtitles.clear();
@@ -425,7 +432,7 @@ impl WorkerState {
         {
             self.playlist_resume = PlaylistResume::Idle;
         }
-        if let Err(error) = self.issue_plan(handle, &command, plan, stream) {
+        if let Err(error) = self.issue_plan(handle, &command, plan, stream, playlist_edit) {
             if matches!(command, Command::CaptureMaterialFrame) {
                 diagnostic!("Could not request a Windows video material frame: {error}");
             } else {
@@ -451,7 +458,9 @@ impl WorkerState {
         command: &Command,
         plan: CommandPlan,
         mut stream: Option<stream::StreamLoad>,
+        playlist_edit: Option<Edit>,
     ) -> Result<(), String> {
+        let playlist_batch = self.next_id + 1;
         let is_auto_seek = matches!(
             command,
             Command::SeekWithType {
@@ -489,7 +498,16 @@ impl WorkerState {
                 self.seek_feedback.clear();
                 self.auto_seek.interrupt_measurement();
             }
+            let reporting_edit =
+                playlist_edit.filter(|edit| args.first().is_some_and(|verb| edit.tracks(verb)));
+            if reporting_edit.is_some() {
+                reply = ReplyKind::PlaylistEdit(playlist_batch);
+            }
             self.issue(handle, &args, reply)?;
+            if let Some(edit) = reporting_edit {
+                self.playlist_edits
+                    .track(playlist_batch, edit, self.playback.generation);
+            }
             if changes_media(&args)
                 || matches!(command, Command::SetPaused(_) | Command::TogglePause)
             {
@@ -510,7 +528,11 @@ impl WorkerState {
                     self.mark_changed();
                 }
             }
-            if args.first().is_some_and(|name| name == "stop") {
+            if matches!(
+                args.first().map(String::as_str),
+                Some("stop" | "playlist-clear")
+            ) {
+                // Clearing the queue also retires any sibling scan still in flight.
                 self.folder_discovery = folder_discovery::FolderDiscovery::default();
                 self.playback.folder_discovery_allowed = false;
             }
@@ -757,6 +779,9 @@ impl WorkerState {
                 self.folder_discovery = folder_discovery::FolderDiscovery::default();
                 self.playback.folder_discovery_allowed = false;
                 self.client_requests.clear();
+                self.playlist_edits.clear();
+                self.pending
+                    .retain(|_, reply| !matches!(reply.kind, ReplyKind::PlaylistEdit(_)));
                 self.adjusted_volume_read = None;
                 self.playlist_resume = PlaylistResume::Idle;
                 record_notice(
@@ -880,10 +905,20 @@ impl WorkerState {
         if failed {
             self.auto_seek.failed(event.userdata());
         }
-        let pending = self
-            .pending
-            .remove(&event.userdata())
-            .filter(|reply| reply.belongs_to(&self.playback))?;
+        let pending = self.pending.remove(&event.userdata())?;
+        if let ReplyKind::PlaylistEdit(batch) = pending.kind
+            && let Some(feedback) = self.playlist_edits.reply(batch, !failed)
+            && feedback.generation == self.playback.generation
+            && self
+                .playback
+                .playlist_feedback
+                .is_none_or(|old| old.sequence < feedback.sequence)
+        {
+            self.playback.playlist_feedback = Some(feedback);
+        }
+        if !pending.belongs_to(&self.playback) {
+            return None;
+        }
         if pending.kind == ReplyKind::FrameCapture {
             self.finish_frame_request();
         }
@@ -892,7 +927,7 @@ impl WorkerState {
             return None;
         }
         match pending.kind {
-            ReplyKind::Plain => {}
+            ReplyKind::Plain | ReplyKind::PlaylistEdit(_) => {}
             ReplyKind::RememberVolume(level) => {
                 self.remember_volume(NEXT_VOLUME_REVISION.fetch_add(1, Ordering::Relaxed), level);
             }
@@ -931,6 +966,7 @@ impl WorkerState {
             ReplyKind::Plain
             | ReplyKind::RememberVolume(_)
             | ReplyKind::RememberAdjustedVolume
+            | ReplyKind::PlaylistEdit(_)
             | ReplyKind::Screenshot { .. } => {
                 if let Some(error) = event.error() {
                     let message = format!("mpv {}: {error}", pending.label);
@@ -1000,6 +1036,7 @@ impl WorkerState {
             ReplyKind::Plain
             | ReplyKind::RememberVolume(_)
             | ReplyKind::RememberAdjustedVolume
+            | ReplyKind::PlaylistEdit(_)
             | ReplyKind::Screenshot { .. } => {}
         }
     }
@@ -1009,7 +1046,7 @@ impl WorkerState {
 fn changes_media(args: &[String]) -> bool {
     let mut names = args.iter().map(String::as_str);
     match names.next() {
-        Some("loadfile") => names.nth(1).is_none_or(|mode| mode != "append"),
+        Some("loadfile") => !matches!(names.nth(1), Some("append" | "insert-at" | "insert-next")),
         Some(
             "stop"
             | "playlist-next"
@@ -1053,7 +1090,7 @@ mod tests {
         };
         assert!(!worker.accepts_media_intent(3));
         assert!(worker.accepts_media_intent(4));
-        for (mode, accepts) in [("append", true), ("replace", false)] {
+        for (mode, accepts) in [("append", true), ("insert-at", true), ("replace", false)] {
             let args = [
                 "loadfile".to_owned(),
                 "media.mkv".to_owned(),

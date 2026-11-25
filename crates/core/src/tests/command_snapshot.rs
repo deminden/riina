@@ -338,6 +338,7 @@ fn worker_routes_every_command_to_the_expected_lifecycle() {
         "MovePlaylistIdsBefore",
         "ClearPlaylist",
         "AppendFiles",
+        "InsertPlaylistFiles",
         "InsertPlaylistFilesBefore",
         "OpenFiles",
         "OpenPlaylist",

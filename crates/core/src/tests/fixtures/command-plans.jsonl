@@ -93,9 +93,9 @@
 {"command":"MovePlaylistId","mpv":[["playlist-move","1","0"]],"resume_on_load":false}
 {"command":"MovePlaylistIdBefore","mpv":[["playlist-move","0","2"]],"resume_on_load":false}
 {"command":"AppendFiles","mpv":[["loadfile","bonus.mkv","append"]],"resume_on_load":false}
-{"command":"InsertPlaylistFiles","mpv":[["loadfile","bonus.mkv","append"],["playlist-move","3","1"]],"resume_on_load":false}
-{"command":"InsertPlaylistFilesBefore","mpv":[["loadfile","bonus.mkv","append"],["playlist-move","3","1"]],"resume_on_load":false}
-{"command":"InsertPlaylistFilesAroundCurrent","mpv":[["loadfile","intro.mkv","append"],["playlist-move","3","0"],["loadfile","outro.mkv","append"]],"resume_on_load":false}
+{"command":"InsertPlaylistFiles","mpv":[["loadfile","bonus.mkv","insert-at","1"]],"resume_on_load":false}
+{"command":"InsertPlaylistFilesBefore","mpv":[["loadfile","bonus.mkv","insert-at","1"]],"resume_on_load":false}
+{"command":"InsertPlaylistFilesAroundCurrent","mpv":[["loadfile","intro.mkv","insert-at","0"],["loadfile","outro.mkv","append"]],"resume_on_load":false}
 {"command":"RemovePlaylistEntry","mpv":[["playlist-remove","1"]],"resume_on_load":false}
 {"command":"MovePlaylistEntry","mpv":[["playlist-move","0","2"]],"resume_on_load":false}
 {"command":"ClearPlaylist","mpv":[["playlist-clear"]],"resume_on_load":false}

@@ -805,10 +805,8 @@ fn playlist_insertion_resolves_the_target_id_at_execution() {
     assert_eq!(
         plan.commands,
         [
-            vec!["loadfile", "one.mkv", "append"],
-            vec!["playlist-move", "2", "1"],
-            vec!["loadfile", "two.mkv", "append"],
-            vec!["playlist-move", "3", "2"],
+            vec!["loadfile", "one.mkv", "insert-at", "1"],
+            vec!["loadfile", "two.mkv", "insert-at", "2"],
         ]
     );
     assert!(!plan.resume_on_load);

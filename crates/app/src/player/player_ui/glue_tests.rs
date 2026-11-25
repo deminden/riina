@@ -303,6 +303,7 @@ fn player_glue_worker() -> Result<(), Box<dyn std::error::Error>> {
     exercise_dialogs_and_relative_controls(&harness);
     exercise_observation_and_volume(&harness)?;
     exercise_controller_arrows(&harness);
+    exercise_playlist_feedback(&profile)?;
     drop(harness);
 
     let capture = Harness::start(profile.join("capture/preferences.json"), true)?;
@@ -645,6 +646,66 @@ fn exercise_dialogs_and_relative_controls(harness: &Harness) {
         delta: -3.0,
         boost: false,
     });
+}
+
+fn exercise_playlist_feedback(profile: &std::path::Path) -> Result<(), Box<dyn std::error::Error>> {
+    use riina_core::{PlaylistChange, PlaylistFeedback};
+    use riina_ui::PlayerOsdState;
+    use std::num::NonZeroUsize;
+
+    let harness = Harness::start(profile.join("playlist-feedback/preferences.json"), false)?;
+    let app = &harness.app;
+    let osd = app.global::<PlayerOsdState>();
+    let mut state = Playback {
+        generation: 1,
+        phase: Phase::Paused,
+        paused: true,
+        ..Default::default()
+    };
+    harness.publish(state.clone())?;
+    harness.expect(Command::SetHdrEnabledWithIcc {
+        enabled: false,
+        load_icc_profile: true,
+    });
+    let dialog = app.global::<riina_ui::PlayerDialogState>();
+    assert!(dialog.invoke_append_playlist_url("https://example.com/episode.avi".into()));
+    harness.expect(Command::AppendFiles(vec![
+        "https://example.com/episode.avi".into(),
+    ]));
+    assert!(!osd.get_video_osd_text().contains("Added"));
+
+    let first = PlaylistFeedback {
+        sequence: 1,
+        generation: 1,
+        change: PlaylistChange::Added(NonZeroUsize::MIN),
+    };
+    state.playlist_feedback = Some(first);
+    harness.publish(state.clone())?;
+    assert_eq!(osd.get_video_osd_text(), "Added 1 Files to Playlist");
+
+    app.global::<PlayerMenuActions>()
+        .invoke_playlist_action(4, "".into());
+    harness.expect(Command::ClearPlaylist);
+    assert_eq!(osd.get_video_osd_text(), "Added 1 Files to Playlist");
+    state.playlist_feedback = Some(PlaylistFeedback {
+        sequence: 2,
+        change: PlaylistChange::Cleared,
+        ..first
+    });
+    harness.publish(state.clone())?;
+    assert_eq!(osd.get_video_osd_text(), "Cleared Playlist");
+
+    osd.set_video_osd_text("later feedback".into());
+    harness.publish(state.clone())?;
+    assert_eq!(osd.get_video_osd_text(), "later feedback");
+    state.generation += 1;
+    state.playlist_feedback = Some(PlaylistFeedback {
+        sequence: 3,
+        ..first
+    });
+    harness.publish(state)?;
+    assert_ne!(osd.get_video_osd_text(), "Added 1 Files to Playlist");
+    Ok(())
 }
 
 fn exercise_observation_and_volume(harness: &Harness) -> Result<(), Box<dyn std::error::Error>> {

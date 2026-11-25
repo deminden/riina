@@ -264,21 +264,26 @@ pub(super) fn insert_files(
             what: "Playlist items or insertion position are invalid",
         });
     }
-    let first_new = state.playlist.len();
-    let mut commands = Vec::with_capacity(paths.len() * 2);
-    for (offset, path) in paths.iter().enumerate() {
-        commands.push(vec!["loadfile".into(), path.clone(), "append".into()]);
-        let appended_index = first_new + offset;
-        let destination = index + offset;
-        if appended_index != destination {
-            commands.push(vec![
-                "playlist-move".into(),
-                appended_index.to_string(),
-                destination.to_string(),
-            ]);
-        }
+    let append = index == state.playlist.len();
+    Ok(paths
+        .iter()
+        .enumerate()
+        .map(|(offset, path)| add_file(path, (!append).then_some(index + offset)))
+        .collect())
+}
+
+fn add_file(path: &str, index: Option<usize>) -> Vec<String> {
+    // One edit per reference keeps a failed add from moving a different row.
+    if let Some(index) = index {
+        vec![
+            "loadfile".into(),
+            path.into(),
+            "insert-at".into(),
+            index.to_string(),
+        ]
+    } else {
+        vec!["loadfile".into(), path.into(), "append".into()]
     }
-    Ok(commands)
 }
 
 pub(super) fn insert_files_before(
@@ -325,29 +330,19 @@ pub(super) fn insert_files_around_current(
         .iter()
         .map(|entry| playlist_path_key(&entry.filename))
         .collect::<HashSet<_>>();
-    let first_new = state.playlist.len();
-    let mut commands = Vec::with_capacity(before.len() * 2 + after.len());
+    let mut commands = Vec::with_capacity(before.len() + after.len());
     for (offset, path) in before
         .iter()
         .filter(|&path| existing.insert(playlist_path_key(path)))
         .enumerate()
     {
-        commands.push(vec!["loadfile".into(), path.clone(), "append".into()]);
-        let appended_index = first_new + offset;
-        let destination = current_index + offset;
-        if appended_index != destination {
-            commands.push(vec![
-                "playlist-move".into(),
-                appended_index.to_string(),
-                destination.to_string(),
-            ]);
-        }
+        commands.push(add_file(path, Some(current_index + offset)));
     }
     commands.extend(
         after
             .iter()
             .filter(|&path| existing.insert(playlist_path_key(path)))
-            .map(|path| vec!["loadfile".into(), path.clone(), "append".into()]),
+            .map(|path| add_file(path, None)),
     );
     Ok(commands)
 }

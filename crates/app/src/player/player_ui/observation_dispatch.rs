@@ -275,6 +275,7 @@ impl WindowDelivery {
             );
             let automatic_music = observer.borrow().automatic_music.clone();
             automatic_music.observe(&state);
+            observer.borrow_mut().show_playlist_feedback(&app, &state);
             if let Some(timers) = &mut observer.borrow_mut().timers {
                 timers.observe(&app, &state);
             }

@@ -21,6 +21,7 @@ pub(super) fn install_browse(
                 1 => Purpose::Audio,
                 2 => Purpose::Subtitle,
                 4 => Purpose::Playlist,
+                5 => Purpose::PlaylistFolders,
                 _ => return,
             };
             if let Some(app) = weak.upgrade() {
@@ -103,7 +104,7 @@ fn install_url_dialogs(app: &PlayerWindow, command_sender: &CommandSender) {
                 .map_err(|error| error.to_string())
                 .and_then(|url| {
                     commands
-                        .send(Command::AppendFiles(vec![url.to_owned()]))
+                        .send_playlist_edit(Command::AppendFiles(vec![url.to_owned()]))
                         .map_err(String::from)
                 });
             if let Err(error) = result {
@@ -111,10 +112,6 @@ fn install_url_dialogs(app: &PlayerWindow, command_sender: &CommandSender) {
                     .set_url_dialog_error(error.into());
                 return false;
             }
-            let message = crate::video_osd::action_message(
-                crate::video_osd::ActionFeedback::PlaylistAdded(1),
-            );
-            super::show_osd_message(&app, message.text, false);
             true
         });
 }

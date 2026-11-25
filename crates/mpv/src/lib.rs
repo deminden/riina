@@ -9,6 +9,7 @@ pub mod gl_support;
 mod hooks;
 pub use hooks::{MpvHookContinuation, MpvHookRegistration};
 mod pending;
+mod playlist_feedback;
 mod properties;
 #[cfg(feature = "test-support")]
 mod recording;
@@ -66,12 +67,19 @@ pub use worker::{EngineVersions, read_engine_versions, read_local_duration};
 
 enum Message {
     Intent(Command),
+    PlaylistEdit(Command),
     MediaIntent { generation: u64, command: Command },
     OpenStream(Command, StreamSource, StreamAttempt),
     Client(client_request::Request),
     RenderingReady,
     Wake,
     Shutdown,
+}
+
+enum IntentRoute {
+    Global,
+    Media(u64),
+    PlaylistEdit,
 }
 
 struct WakeupContext {
@@ -141,15 +149,25 @@ pub struct CommandSender {
 
 impl CommandSender {
     pub fn send(&self, command: Command) -> Result<(), EngineError> {
-        self.enqueue(command, None)
+        self.enqueue(command, IntentRoute::Global)
+    }
+
+    /// Report only native-accepted additions or a successful clear to the player.
+    pub fn send_playlist_edit(&self, command: Command) -> Result<(), EngineError> {
+        if playlist_feedback::Edit::for_command(&command).is_none() {
+            return Err(EngineError::InvalidArgument {
+                reason: "The command is not a user playlist addition or clear",
+            });
+        }
+        self.enqueue(command, IntentRoute::PlaylistEdit)
     }
 
     /// Discard this intent if native playback has moved to a different media.
     pub fn send_for_media(&self, generation: u64, command: Command) -> Result<(), EngineError> {
-        self.enqueue(command, Some(generation))
+        self.enqueue(command, IntentRoute::Media(generation))
     }
 
-    fn enqueue(&self, command: Command, generation: Option<u64>) -> Result<(), EngineError> {
+    fn enqueue(&self, command: Command, route: IntentRoute) -> Result<(), EngineError> {
         if command == Command::Shutdown {
             return Err(EngineError::ReservedShutdown);
         }
@@ -158,14 +176,15 @@ impl CommandSender {
         }
         match &self.sender {
             CommandQueue::Native(sender) => {
-                let intent = match generation {
-                    Some(generation) => Message::MediaIntent {
+                let message = match route {
+                    IntentRoute::Global => Message::Intent(command),
+                    IntentRoute::Media(generation) => Message::MediaIntent {
                         generation,
                         command,
                     },
-                    None => Message::Intent(command),
+                    IntentRoute::PlaylistEdit => Message::PlaylistEdit(command),
                 };
-                sender.try_send(intent).map_err(send_error)
+                sender.try_send(message).map_err(send_error)
             }
             #[cfg(feature = "test-support")]
             CommandQueue::Recording(sender) => sender.try_send(command).map_err(send_error),

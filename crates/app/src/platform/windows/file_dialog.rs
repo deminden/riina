@@ -62,6 +62,10 @@ pub fn open_files(owner: &DialogOwner, multiple: bool, title: &str) -> Result<Ve
     open_selection(owner, multiple, false, title)
 }
 
+pub(super) fn open_folders(owner: &DialogOwner, title: &str) -> Result<Vec<String>, String> {
+    open_selection(owner, true, true, title)
+}
+
 pub fn pick_folder(owner: &DialogOwner) -> Result<Option<String>, String> {
     Ok(
         open_selection(owner, false, true, "Choose screenshot save path")?

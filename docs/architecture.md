@@ -229,6 +229,13 @@ compact-to-main handoff. It restores the main frame before applying the
 saved resize policy. A replacement item clears the old request, and a
 subtitle-only canvas cannot supply the main player's natural dimensions.
 
+File and folder opens from the playlist share media discovery with paste and
+external drops. The worker inserts each reference directly at its native
+position instead of appending and moving it in a second operation. User
+additions and clears collect native replies for one edit and publish the latest
+outcome for the owning player's OSD. Silent application and plugin commands
+keep the same queue and editing behavior.
+
 Playlist drags send the selected entry IDs and destination entry ID to the
 engine as one request. Play Next resolves the current entry and moves the
 selected entries immediately after it in playlist order. The engine plans the
