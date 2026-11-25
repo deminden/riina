@@ -185,8 +185,10 @@ impl PlayerManager {
         let result = (|| -> Result<(), Box<dyn std::error::Error>> {
             let path = crate::platform::preferences_path()?;
             let loaded = preference_load::load(&path)?;
-            self.services()
-                .show_application_about(&loaded.preferences)?;
+            crate::platform::application_lifecycle::show_about(
+                &self.services(),
+                &loaded.preferences,
+            )?;
             Ok(())
         })();
         if let Err(error) = result {
@@ -200,8 +202,10 @@ impl PlayerManager {
         }
         let result = (|| -> Result<(), Box<dyn std::error::Error>> {
             let loaded = preference_load::load(&crate::platform::preferences_path()?)?;
-            self.services()
-                .show_application_highlights(&loaded.preferences)?;
+            crate::platform::application_lifecycle::show_highlights(
+                &self.services(),
+                &loaded.preferences,
+            )?;
             Ok(())
         })();
         if let Err(error) = result {

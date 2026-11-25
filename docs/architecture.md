@@ -715,7 +715,15 @@ Export captures the chosen records before opening the viewer's save dialog.
 About shares one window across player menus and the idle macOS menu. When
 opened before playback, it reads the installed libmpv and FFmpeg version
 properties on a background thread. The query uses a short-lived client with
-null outputs and loads no media or user configuration.
+null outputs and loads no media or user configuration. The platform adapter
+holds the result and a weak About window. Opening About from a player clears
+that window reference, so the idle probe cannot overwrite the player's versions.
+
+The application lifecycle adapter determines which tools can delay last-player
+shutdown and closes the appropriate tools on Quit. History and the filter editor
+can outlive a player on every desktop. The idle AppKit menu also retains About,
+Log Viewer, Open URL, Software Update, Release Highlights, Settings and plugin
+tools. Each tool owns its own visibility, cleanup and close notification.
 
 The Window menu adapter owns a shared catalog on Windows and Linux. Each
 session supplies the display it owns and retires its registration before native

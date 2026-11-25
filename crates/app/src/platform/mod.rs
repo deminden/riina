@@ -8,6 +8,7 @@ use std::{
     cell::RefCell,
     time::{Duration, Instant},
 };
+pub(crate) mod about_versions;
 #[cfg(any(target_os = "macos", test))]
 mod active_poll;
 pub(crate) mod application_lifecycle;

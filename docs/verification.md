@@ -5410,3 +5410,30 @@ processes exited normally.
 - Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
 - Linux application SHA-256 `9b2c73462efd512082e71043b81754dfefef564a11bd02399d9464270c01787e`
 - Linux libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`
+
+### Auxiliary window lifetime and About version discovery 2026-11-25
+
+The platform lifecycle now defines which tools keep an empty application
+alive and which windows to close on Quit. Shared tools provide visibility and
+cleanup independently of the desktop. The macOS About adapter tracks the idle
+window weakly and clears that reference when the player supplies its versions.
+The platform scan fell from 62 to 47 target annotations outside `platform/`.
+
+The locked Linux build passed both last-window paths on X11 and native
+Wayland. With automatic quit enabled, Playback History stayed open when the
+last player closed and closing History ended the process. With automatic quit
+disabled, closing the last player reopened Welcome, which stayed until it
+was closed. All four tested processes exited normally. Cross-Clippy passed
+on Apple Silicon and Intel. Native macOS About and idle-tool interaction
+still need desktop verification.
+
+The Windows workspace gate passed strict Clippy, 1,095 Rust tests, 79 Python
+tests and four browser tests. The new headless check verifies whether About
+participates in the current platform's idle-menu lifetime. All 65 pinned
+null-output engine tests passed. The locked Windows build passed playback,
+controls and shutdown in a private desktop in 9,316 ms.
+
+- Windows application SHA-256 `217c2c7a7bbd8dbe8f06e41ea707127256fa133a54334608683abb96bcb8303f`
+- Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
+- Linux application SHA-256 `f506f2fd773427813dc2b90e7847a3f1a7f3ad9824bd6033a105a51f9ae0c239`
+- Linux libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`

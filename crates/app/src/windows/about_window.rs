@@ -1,8 +1,5 @@
-#[cfg(target_os = "macos")]
-mod version_probe;
-
 use super::close_observer::CloseObserver;
-use crate::{AboutWindow, PlayerWindow};
+use crate::{AboutWindow, PlayerWindow, platform::about_versions};
 use riina_core::{Phase, Playback};
 use riina_ui::{EngineVersionStatus, PlayerMenuActions};
 use slint::{CloseRequestResponse, ComponentHandle, winit_030::WinitWindowAccessor};
@@ -13,8 +10,7 @@ pub(crate) struct ApplicationAbout {
     window: RefCell<Option<AboutWindow>>,
     timer: Rc<slint::Timer>,
     pub(crate) closed: CloseObserver,
-    #[cfg(target_os = "macos")]
-    probe: version_probe::Probe,
+    pub(crate) probe: about_versions::Probe,
 }
 
 impl ApplicationAbout {
@@ -35,8 +31,7 @@ impl ApplicationAbout {
         app: &PlayerWindow,
         playback: &crate::PlaybackStore,
     ) -> Result<(), slint::PlatformError> {
-        #[cfg(target_os = "macos")]
-        self.probe.application_view.set(false);
+        self.probe.use_player();
         let window = self.window_for(Some(app))?;
         window.set_dark_theme(app.global::<riina_ui::PlayerAppearance>().get_dark_theme());
         let mut versions_ready =
@@ -64,7 +59,7 @@ impl ApplicationAbout {
         Ok(())
     }
 
-    fn window_for(
+    pub(crate) fn window_for(
         self: &Rc<Self>,
         app: Option<&PlayerWindow>,
     ) -> Result<AboutWindow, slint::PlatformError> {
@@ -81,7 +76,7 @@ impl ApplicationAbout {
         let owner = Rc::downgrade(self);
         window.window().on_close_requested(move || {
             if let Some(owner) = owner.upgrade() {
-                owner.timer.stop();
+                owner.stop_refresh();
                 owner.closed.notify();
             }
             CloseRequestResponse::HideWindow
@@ -90,7 +85,10 @@ impl ApplicationAbout {
         Ok(window)
     }
 
-    #[cfg(target_os = "macos")]
+    pub(crate) fn stop_refresh(&self) {
+        self.timer.stop();
+    }
+
     pub(crate) fn is_visible(&self) -> bool {
         self.window
             .borrow()
@@ -98,16 +96,15 @@ impl ApplicationAbout {
             .is_some_and(|window| window.window().is_visible())
     }
 
-    #[cfg(target_os = "macos")]
     pub(crate) fn hide(&self) {
-        self.timer.stop();
+        self.stop_refresh();
         if let Some(window) = self.window.borrow().as_ref() {
             let _ = window.hide();
         }
     }
 }
 
-fn reveal(window: &AboutWindow) -> Result<(), slint::PlatformError> {
+pub(crate) fn reveal(window: &AboutWindow) -> Result<(), slint::PlatformError> {
     crate::platform::show_window(window)?;
     crate::platform::enable_about_acrylic(window);
     window.window().with_winit_window(|window| {
@@ -117,7 +114,7 @@ fn reveal(window: &AboutWindow) -> Result<(), slint::PlatformError> {
     Ok(())
 }
 
-fn refresh_engine_versions(window: &AboutWindow, playback: &Playback) -> bool {
+pub(crate) fn refresh_engine_versions(window: &AboutWindow, playback: &Playback) -> bool {
     let status = if playback.phase == Phase::Stopped {
         EngineVersionStatus::Checking
     } else {

@@ -69,23 +69,6 @@ impl ReleaseHighlights {
         self.show(Some(player), welcome, dark).map(|_| ())
     }
 
-    #[cfg(target_os = "macos")]
-    pub(crate) fn show_from_application(
-        self: &Rc<Self>,
-        preferences: &riina_core::Preferences,
-    ) -> Result<(), slint::PlatformError> {
-        let theme = preferences.effective_theme_material();
-        let window = self.show(None, None, theme.dark_for(preferences.dark))?;
-        window.window().with_winit_window(|host| {
-            let dark = host.theme().map_or(preferences.dark, |theme| {
-                theme == slint::winit_030::winit::window::Theme::Dark
-            });
-            window.set_dark_theme(theme.dark_for(dark));
-        });
-        Ok(())
-    }
-
-    #[cfg(target_os = "macos")]
     pub(crate) fn is_visible(&self) -> bool {
         self.window
             .borrow()
@@ -93,14 +76,13 @@ impl ReleaseHighlights {
             .is_some_and(|window| window.window().is_visible())
     }
 
-    #[cfg(target_os = "macos")]
     pub(crate) fn hide(&self) {
         if let Some(window) = self.window.borrow().as_ref() {
             let _ = window.hide();
         }
     }
 
-    fn show(
+    pub(crate) fn show(
         self: &Rc<Self>,
         player: Option<&PlayerWindow>,
         welcome: Option<&WelcomeWindow>,

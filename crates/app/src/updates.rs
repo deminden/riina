@@ -168,7 +168,6 @@ impl ApplicationUpdates {
         Ok(window)
     }
 
-    #[cfg(target_os = "macos")]
     pub(crate) fn is_visible(&self) -> bool {
         self.window
             .borrow()
@@ -176,7 +175,6 @@ impl ApplicationUpdates {
             .is_some_and(|window| window.window().is_visible())
     }
 
-    #[cfg(target_os = "macos")]
     pub(crate) fn hide_for_quit(&self) {
         self.timer.stop();
         self.running.take();

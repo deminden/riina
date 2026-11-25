@@ -315,7 +315,7 @@ define_class!(
             let launch = self.ivars();
             if !launch.manager.is_quitting() {
                 launch.default_action.take();
-                launch.manager.services().dump_application_debug_information();
+                launch.manager.services().debug_information.dump(None);
             }
         }
 

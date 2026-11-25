@@ -52,12 +52,7 @@ impl ApplicationDebugInformation {
         }
     }
 
-    #[cfg(target_os = "macos")]
-    pub(crate) fn dump_from_application(&self) {
-        self.dump(None);
-    }
-
-    fn dump(&self, owner: Option<&slint::Weak<PlayerWindow>>) {
+    pub(crate) fn dump(&self, owner: Option<&slint::Weak<PlayerWindow>>) {
         let snapshots = self.snapshots();
         let recipient = owner.cloned();
         let started = crate::background::spawn_named("debug-information", move || {

@@ -231,7 +231,6 @@ impl ApplicationOpenUrl {
         self.closed.notify();
     }
 
-    #[cfg(target_os = "macos")]
     pub(crate) fn is_visible(&self) -> bool {
         self.window
             .borrow()
@@ -239,7 +238,6 @@ impl ApplicationOpenUrl {
             .is_some_and(|window| window.window().is_visible())
     }
 
-    #[cfg(target_os = "macos")]
     pub(crate) fn hide_for_quit(&self) {
         if let Some(window) = self.window.borrow().as_ref() {
             self.hide(window);

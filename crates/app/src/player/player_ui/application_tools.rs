@@ -4,39 +4,6 @@ use crate::platform::application_settings;
 use std::rc::Rc;
 
 impl ApplicationServices {
-    pub(crate) fn bind_auxiliary_close(&self, callback: Rc<dyn Fn()>) {
-        self.about.closed.bind(callback.clone());
-        self.logs.closed.bind(callback.clone());
-        self.open_url.closed.bind(callback.clone());
-        self.updates.closed.bind(callback.clone());
-        self.settings.profile().closed.bind(callback.clone());
-        self.plugins.bind_application_close(callback.clone());
-        self.filters.closed.bind(callback.clone());
-        self.highlights.closed.bind(callback);
-    }
-
-    pub(crate) fn auxiliary_is_visible(&self) -> bool {
-        self.history.is_visible()
-            || self.about.is_visible()
-            || self.logs.is_visible()
-            || self.open_url.is_visible()
-            || self.updates.is_visible()
-            || self.highlights.is_visible()
-            || self.settings.profile().is_visible()
-            || self.plugins.auxiliary_is_visible()
-            || self.filters.is_visible()
-    }
-
-    pub(crate) fn hide_auxiliary_tools(&self) {
-        self.about.hide();
-        self.logs.hide();
-        self.open_url.hide_for_quit();
-        self.updates.hide_for_quit();
-        self.highlights.hide();
-        self.settings.profile().hide();
-        self.plugins.hide_for_quit();
-    }
-
     pub(crate) fn show_application_settings(
         &self,
         path: &std::path::Path,
@@ -135,24 +102,6 @@ impl ApplicationServices {
     ) -> Result<(), slint::PlatformError> {
         self.configure_application_updates(path, preferences);
         self.updates.show_from_application()
-    }
-
-    pub(crate) fn show_application_highlights(
-        &self,
-        preferences: &riina_core::Preferences,
-    ) -> Result<(), slint::PlatformError> {
-        self.highlights.show_from_application(preferences)
-    }
-
-    pub(crate) fn dump_application_debug_information(&self) {
-        self.debug_information.dump_from_application();
-    }
-
-    pub(crate) fn show_application_about(
-        &self,
-        preferences: &riina_core::Preferences,
-    ) -> Result<(), slint::PlatformError> {
-        self.about.show_from_application(preferences)
     }
 
     pub(crate) fn record_application_documents(

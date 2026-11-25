@@ -107,7 +107,6 @@ impl ApplicationLogViewer {
         Ok(())
     }
 
-    #[cfg(target_os = "macos")]
     pub(crate) fn is_visible(&self) -> bool {
         self.session
             .borrow()
@@ -115,7 +114,6 @@ impl ApplicationLogViewer {
             .is_some_and(|session| session.window.window().is_visible())
     }
 
-    #[cfg(target_os = "macos")]
     pub(crate) fn hide(&self) {
         self.timer.stop();
         if let Some(session) = self.session.borrow().as_ref() {
