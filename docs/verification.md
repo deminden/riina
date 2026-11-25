@@ -4615,3 +4615,25 @@ all 70 widgets and the headless pixel comparison.
 - Windows shared-renderer application SHA-256 `09a1df16164271ae2da364a485c36ee4150ad186dfb0ff1d7c85217a3b225ccc`
 - Windows default renderer application SHA-256 `f46c060b3301a16d1a5b15c3b9055e5b3c6628343d537edaf827f4da9e53d780`
 - Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
+
+### X11 playlist clipboard formats 2026-11-25
+
+Linux passed strict Clippy, 616 application unit tests and 67 widget tests.
+X11 and Wayland use the same file URL encoding, with regression coverage for
+escaped carriage returns, line feeds, Unicode and special punctuation.
+
+In isolated X11, a GTK consumer read `text/uri-list`, Unicode text and the
+file-manager format after choosing Copy from the Edit menu. The sampled
+filename contained spaces, `%` and `#`. A native `MULTIPLE` request preserved
+both supported results and rejected an unsupported target in the same request.
+An external GTK folder offer remained usable after Riina owned the selection.
+Cut removed the playlist row and kept its file available as Copy for external
+consumers. An isolated test clipboard manager retained all three formats
+after Riina exited.
+
+The same application binary passed the Sway Wayland playlist workflow with
+XWayland disabled. File-list and text export, native GTK folder Paste,
+focused row editing and normal shutdown all passed on both displays.
+
+- Linux application SHA-256 `83d39c032ddc366198f187fc2b1bf1dae5801c1895c75300a8fb7a24d86326f3`
+- Linux libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`

@@ -2,9 +2,13 @@
 use std::{borrow::Cow, cell::RefCell};
 
 #[cfg(target_os = "linux")]
+mod uri_list;
+#[cfg(target_os = "linux")]
 mod wayland;
 #[cfg(target_os = "windows")]
 mod windows;
+#[cfg(target_os = "linux")]
+mod x11;
 
 thread_local! {
     static CLIPBOARD: RefCell<Option<arboard::Clipboard>> = const { RefCell::new(None) };
@@ -138,7 +142,10 @@ pub(crate) fn copy_playlist_references(
             #[cfg(target_os = "windows")]
             return windows::copy_file_list(_window, paths, &text);
             #[cfg(target_os = "linux")]
-            if wayland::copy_file_list(paths, &text).is_ok() {
+            if let Some(uris) = uri_list::encode(paths)
+                && (wayland::copy_file_list(&uris, &text).is_ok()
+                    || x11::copy_file_list(uris, &text).is_ok())
+            {
                 return Ok(());
             }
         }
@@ -234,6 +241,10 @@ pub(crate) fn read_playlist_references() -> Result<PlaylistPaste, String> {
         #[cfg(target_os = "linux")]
         if let Some(paths) = wayland::read_references() {
             return paths.map(PlaylistPaste::new);
+        }
+        #[cfg(target_os = "linux")]
+        if let Some(paths) = x11::read_owned_references() {
+            return Ok(PlaylistPaste::new(paths));
         }
 
         let mut clipboard = arboard::Clipboard::new().map_err(|error| error.to_string())?;
