@@ -59,6 +59,9 @@ Implementation does not imply every state or platform is verified.
   and the saved Welcome resume item together after confirmation.
 - **Playback History:** the macOS application menu can open the shared history
   window and launch playback from it before any player window has opened.
+  Visible local files are checked in the background. Unavailable files hide
+  their progress, and reopening History checks whether they have returned.
+  Playback decodes saved local file URLs before handing the path to the player.
 - **Utilities:** Settings owns the confirmations for alerts, saved progress,
   history and thumbnails. Cache sizes refresh when the page opens or data is cleared.
 - **Russian and Arabic labels** are bundled for Welcome, Open URL, Playback
