@@ -9,6 +9,8 @@ pub(crate) mod accessibility;
 pub(super) mod compact_resize;
 mod dialogs;
 #[cfg(target_os = "linux")]
+pub(super) mod display_blackout;
+#[cfg(target_os = "linux")]
 pub(super) mod fullscreen;
 #[cfg(target_os = "linux")]
 pub(super) mod offscreen_webview;

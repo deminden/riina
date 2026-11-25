@@ -3,6 +3,7 @@ pub(crate) use session::SessionExtras;
 mod appearance;
 pub(super) mod application_menu;
 mod color_panel;
+pub(super) mod display_blackout;
 pub(super) mod edit_menu;
 pub(super) mod file_drop;
 pub(super) mod file_panel;

@@ -156,6 +156,7 @@ pub(super) fn install(app: &PlayerWindow, inputs: Inputs<'_>) -> Installed {
         folder_series,
     );
     picture_in_picture.bind(app, commands, playback);
+    platform::display_blackout::install(app, native.map(platform::NativePresentation::host));
     let fullscreen = fullscreen::install(
         app,
         native.map(platform::NativePresentation::host),

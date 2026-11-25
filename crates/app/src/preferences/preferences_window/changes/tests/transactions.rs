@@ -108,6 +108,10 @@ checkbox_cases! {
         [riina_ui::GeneralSettingsState]
         get_pause_when_leaving_fullscreen, set_pause_when_leaving_fullscreen,
         [PlayerPreferences] get_pause_when_leaving_fullscreen, |p: &Preferences| p.pause_when_leaving_fullscreen;
+    blackout_preference_persists_and_projects =>
+        [riina_ui::GeneralSettingsState]
+        get_black_out_other_monitors, set_black_out_other_monitors,
+        [PlayerPreferences] get_black_out_other_monitors, |p: &Preferences| p.black_out_other_monitors;
     inactive_pause_policy_persists_and_projects =>
         [riina_ui::GeneralSettingsState]
         get_pause_when_inactive, set_pause_when_inactive,

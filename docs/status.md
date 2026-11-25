@@ -128,6 +128,11 @@ Implementation does not imply every state or platform is verified.
   Windows and X11, including minimized players. On Wayland it requests
   activation from the compositor. The macOS port registers Window and Help
   with AppKit for the system window list, standard commands and Help search.
+- **Fullscreen display blackout:** the optional General setting blackens other
+  displays while the fullscreen player owns focus. The default is off. Two-display
+  X11 and Wayland sessions verified video visibility, click-through and cleanup.
+  Wayland requires layer shell and viewporter. Windows and macOS multi-display
+  runtime verification remains open.
 - **New Window:** the optional File menu shortcut opens an independent Welcome
   window. The command stays hidden with the default profile.
 - **Debug Info:** Help saves one report with playback snapshots from every

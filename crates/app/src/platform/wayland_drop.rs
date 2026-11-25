@@ -1,5 +1,6 @@
 //! Run desktop protocols through a guest queue on Winit's Wayland display.
 mod activation;
+pub(super) mod blackout;
 mod payload;
 mod protocol;
 
@@ -102,6 +103,7 @@ impl Receiver {
         // SAFETY: OwnedDisplayHandle owns Winit's display while this guest queue exists.
         let backend = unsafe { Backend::from_foreign_display(native.display.as_ptr().cast()) };
         let connection = Connection::from_backend(backend);
+        blackout::wayland_started();
         let queue = connection.new_event_queue();
         let registry = connection.display().get_registry(&queue.handle(), ());
         Some(Self {
@@ -142,6 +144,7 @@ impl CustomApplicationHandler for Handler {
 
     fn exiting(&mut self, _: &ActiveEventLoop) -> EventResult {
         activation::clear_request();
+        blackout::wayland_started();
         self.0 = None;
         EventResult::Propagate
     }

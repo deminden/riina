@@ -273,14 +273,17 @@ fn key_binding_preferences_keep_reference_defaults_and_round_trip() {
 fn pause_when_open_keeps_legacy_defaults_and_round_trips_enabled_policy() {
     assert!(!Preferences::parse("{}").unwrap().pause_when_open);
     assert!(!Preferences::parse("{}").unwrap().fullscreen_when_open);
+    assert!(!Preferences::parse("{}").unwrap().black_out_other_monitors);
     assert!(Preferences::parse("{}").unwrap().resume_last_position);
-    let enabled = Preferences::parse(
-        r#"{"pause_when_open":true,"fullscreen_when_open":true,"resume_last_position":false}"#,
-    )
+    let enabled = Preferences::parse(concat!(
+        r#"{"pause_when_open":true,"fullscreen_when_open":true,"#,
+        r#""black_out_other_monitors":true,"resume_last_position":false}"#,
+    ))
     .unwrap();
     let saved = serde_json::to_string(&enabled).unwrap();
     assert!(Preferences::parse(&saved).unwrap().pause_when_open);
     assert!(Preferences::parse(&saved).unwrap().fullscreen_when_open);
+    assert!(Preferences::parse(&saved).unwrap().black_out_other_monitors);
     assert!(!Preferences::parse(&saved).unwrap().resume_last_position);
 }
 

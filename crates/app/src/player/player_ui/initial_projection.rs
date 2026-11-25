@@ -81,6 +81,7 @@ fn install_media(app: &PlayerWindow, prefs: &Preferences) {
     player_preferences.set_pause_when_open(prefs.pause_when_open);
     player_preferences.set_play_when_entering_fullscreen(prefs.play_when_entering_fullscreen);
     player_preferences.set_pause_when_leaving_fullscreen(prefs.pause_when_leaving_fullscreen);
+    player_preferences.set_black_out_other_monitors(prefs.black_out_other_monitors);
     player_preferences.set_pause_when_inactive(prefs.pause_when_inactive);
     player_preferences.set_pause_when_minimized(prefs.pause_when_minimized);
     player_preferences.set_pause_when_goes_to_sleep(prefs.pause_when_goes_to_sleep);

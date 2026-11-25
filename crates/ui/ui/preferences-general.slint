@@ -26,6 +26,8 @@ export global GeneralSettingsState {
     in-out property <bool> pause-when-open: false;
     in-out property <bool> play-when-entering-fullscreen: false;
     in-out property <bool> pause-when-leaving-fullscreen: false;
+    in-out property <bool> black-out-other-monitors: false;
+    in property <bool> monitor-blackout-available: true;
     in-out property <bool> pause-when-inactive: false;
     in-out property <bool> pause-when-minimized: false;
     in-out property <bool> pause-when-goes-to-sleep: true;
@@ -173,7 +175,7 @@ export component GeneralPreferencesPage inherits ScrollView {
     }
     Rectangle {
         x: 12px; y: root.general-window-y;
-        width: parent.width - 24px; height: 212px;
+        width: parent.width - 24px; height: 250px;
         border-width: 1px; border-color: Theme.settings-general-card-border; border-radius: 12px; background: Theme.settings-card-surface(root.mica-backdrop-enabled);
         GeneralSettingToggle { x: 12px; y: 8px; width: parent.width - 24px; height: 36px;
             label: @tr("Always open media in new window");
@@ -196,6 +198,12 @@ export component GeneralPreferencesPage inherits ScrollView {
         GeneralSettingToggle { x: 12px; y: 170px; width: parent.width - 24px; height: 36px;
             label: @tr("Keep window open after playback finishes");
             checked <=> GeneralSettingsState.keep-open-on-file-end; toggled => { root.settings-changed(); } }
+        Rectangle { x: 12px; y: 207px; width: parent.width - 24px; height: 1px; background: Theme.settings-general-divider; }
+        GeneralSettingToggle { x: 12px; y: 208px; width: parent.width - 24px; height: 36px;
+            label: @tr("Black out other monitors while in full screen");
+            checked <=> GeneralSettingsState.black-out-other-monitors;
+            enabled: GeneralSettingsState.monitor-blackout-available;
+            toggled => { root.settings-changed(); } }
     }
     Rectangle {
         x: 12px; y: root.general-power-y; width: parent.width - 24px; height: 82px;

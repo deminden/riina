@@ -868,6 +868,21 @@ a deadline. A player request to change modes cancels recovery. The temporary win
 state does not trigger playback, Music Mode or plugin effects. The compositor
 still owns the geometry.
 
+The default-off General setting for blacking out other monitors attaches
+display covers to the focused fullscreen player. The window that owns the
+video determines the excluded display. Native focus and display topology are
+sampled only while the policy is active. The covers release when the owner
+loses focus, leaves fullscreen, closes, or disables the setting.
+
+Windows uses non-activating layered HWNDs, macOS uses borderless AppKit
+windows, and X11 uses override-redirect windows with empty input shapes.
+Wayland requires layer shell and viewporter. The guest registry checks their
+availability. A separate Wayland connection owns the output proxies and
+blackout layers, so the toolkit's output callbacks retain their own proxy data.
+The worker blocks on the compositor socket and the owner's wake socket.
+[Win32 layered window input](https://learn.microsoft.com/windows/win32/winmsg/window-features#layered-windows)
+[Wayland layer-shell protocol](https://github.com/swaywm/wlr-protocols/blob/master/unstable/wlr-layer-shell-unstable-v1.xml)
+
 Fullscreen, Music Mode, and Picture-in-Picture confirmations enter the player's
 plugin command queue in order. The periodic window snapshot tracks geometry,
 focus, minimization, and displays. During each mode callback and its Promise

@@ -16,6 +16,7 @@ pub(super) struct Policy {
     pub(super) pause_when_open: bool,
     play_when_entering_fullscreen: bool,
     pause_when_leaving_fullscreen: bool,
+    black_out_other_monitors: bool,
     pause_when_inactive: bool,
     pause_when_minimized: bool,
     pause_when_goes_to_sleep: bool,
@@ -78,6 +79,7 @@ impl Draft {
         preferences.pause_when_open = self.selected.pause_when_open;
         preferences.play_when_entering_fullscreen = self.selected.play_when_entering_fullscreen;
         preferences.pause_when_leaving_fullscreen = self.selected.pause_when_leaving_fullscreen;
+        preferences.black_out_other_monitors = self.selected.black_out_other_monitors;
         preferences.pause_when_inactive = self.selected.pause_when_inactive;
         preferences.pause_when_minimized = self.selected.pause_when_minimized;
         preferences.pause_when_goes_to_sleep = self.selected.pause_when_goes_to_sleep;
@@ -102,6 +104,7 @@ impl Policy {
             pause_when_open: player_preferences.get_pause_when_open(),
             play_when_entering_fullscreen: player_preferences.get_play_when_entering_fullscreen(),
             pause_when_leaving_fullscreen: player_preferences.get_pause_when_leaving_fullscreen(),
+            black_out_other_monitors: player_preferences.get_black_out_other_monitors(),
             pause_when_inactive: player_preferences.get_pause_when_inactive(),
             pause_when_minimized: player_preferences.get_pause_when_minimized(),
             pause_when_goes_to_sleep: player_preferences.get_pause_when_goes_to_sleep(),
@@ -126,6 +129,7 @@ impl Policy {
             pause_when_open: saved.pause_when_open,
             play_when_entering_fullscreen: saved.play_when_entering_fullscreen,
             pause_when_leaving_fullscreen: saved.pause_when_leaving_fullscreen,
+            black_out_other_monitors: saved.black_out_other_monitors,
             pause_when_inactive: saved.pause_when_inactive,
             pause_when_minimized: saved.pause_when_minimized,
             pause_when_goes_to_sleep: saved.pause_when_goes_to_sleep,
@@ -149,6 +153,8 @@ impl Policy {
         general.set_pause_when_open(self.pause_when_open);
         general.set_play_when_entering_fullscreen(self.play_when_entering_fullscreen);
         general.set_pause_when_leaving_fullscreen(self.pause_when_leaving_fullscreen);
+        general.set_black_out_other_monitors(self.black_out_other_monitors);
+        general.set_monitor_blackout_available(crate::platform::display_blackout::available());
         general.set_pause_when_inactive(self.pause_when_inactive);
         general.set_pause_when_minimized(self.pause_when_minimized);
         general.set_pause_when_goes_to_sleep(self.pause_when_goes_to_sleep);
@@ -173,6 +179,7 @@ impl Policy {
             pause_when_open: general.get_pause_when_open(),
             play_when_entering_fullscreen: general.get_play_when_entering_fullscreen(),
             pause_when_leaving_fullscreen: general.get_pause_when_leaving_fullscreen(),
+            black_out_other_monitors: general.get_black_out_other_monitors(),
             pause_when_inactive: general.get_pause_when_inactive(),
             pause_when_minimized: general.get_pause_when_minimized(),
             pause_when_goes_to_sleep: general.get_pause_when_goes_to_sleep(),
@@ -206,6 +213,7 @@ impl Policy {
         player_preferences.set_pause_when_open(self.pause_when_open);
         player_preferences.set_play_when_entering_fullscreen(self.play_when_entering_fullscreen);
         player_preferences.set_pause_when_leaving_fullscreen(self.pause_when_leaving_fullscreen);
+        player_preferences.set_black_out_other_monitors(self.black_out_other_monitors);
         player_preferences.set_pause_when_inactive(self.pause_when_inactive);
         player_preferences.set_pause_when_minimized(self.pause_when_minimized);
         player_preferences.set_pause_when_goes_to_sleep(self.pause_when_goes_to_sleep);

@@ -66,6 +66,8 @@ pub struct Preferences {
     pub pause_when_open: bool,
     pub play_when_entering_fullscreen: bool,
     pub pause_when_leaving_fullscreen: bool,
+    #[serde(skip_serializing_if = "is_false")]
+    pub black_out_other_monitors: bool,
     pub pause_when_inactive: bool,
     pub pause_when_minimized: bool,
     pub pause_when_goes_to_sleep: bool,
@@ -300,6 +302,7 @@ impl Default for Preferences {
             pause_when_open: false,
             play_when_entering_fullscreen: false,
             pause_when_leaving_fullscreen: false,
+            black_out_other_monitors: false,
             pause_when_inactive: false,
             pause_when_minimized: false,
             pause_when_goes_to_sleep: true,

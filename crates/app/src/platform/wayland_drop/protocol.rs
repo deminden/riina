@@ -1,5 +1,5 @@
 //! Own each seat's data device and separate a hover offer from a completed drop.
-use super::{Hover, OpenDrop, Target, activation, find_target, payload};
+use super::{Hover, OpenDrop, Target, activation, blackout, find_target, payload};
 use slint::LogicalPosition;
 use std::{
     collections::HashMap,
@@ -23,6 +23,7 @@ use wayland_client::{
 
 pub(super) struct State {
     pub(super) activation: activation::State,
+    blackout: blackout::Capabilities,
     _registry: WlRegistry,
     manager: Option<WlDataDeviceManager>,
     seats: HashMap<u32, Seat>,
@@ -38,6 +39,7 @@ impl State {
         let (send, results) = mpsc::channel();
         Self {
             activation: activation::State::default(),
+            blackout: blackout::Capabilities::default(),
             _registry: registry,
             manager: None,
             seats: HashMap::new(),
@@ -146,6 +148,7 @@ impl Dispatch<WlRegistry, ()> for State {
         _: &Connection,
         queue: &QueueHandle<Self>,
     ) {
+        state.blackout.observe(&event);
         match event {
             wl_registry::Event::Global {
                 name,

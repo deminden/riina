@@ -5310,3 +5310,41 @@ and test targets. Native macOS interaction remains open.
 - Linux application SHA-256 `48e315b13bc69bc0dfd47a2477a7be69e153671114d81309379fe212cffa5cc3`
 - X11 libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`
 - Wayland libmpv SHA-256 `cdce854e1811942602587310026306d92d30c0f593f2be676f07659ae43061d8`
+
+### Fullscreen blackout on secondary displays 2026-11-25
+
+IINA 1.5.0 defaults the option off and owns its black windows per fullscreen
+player. Changing the preference or the main window updates the covers.
+Riina's General setting persists the same default and projects changes to the
+player. The Settings transaction test checks persistence and live projection.
+[Pinned fullscreen ownership](../reference/iina-upstream/iina/MainWindowController.swift)
+
+The first Wayland prototype bound its own output proxies on the toolkit's
+connection. A second display exposed a Winit panic when a window received an
+output proxy that lacked Winit's own output data. The cover worker now owns a
+separate connection. The toolkit only checks protocol availability.
+
+The locked Linux binary ran under Sway with two native Wayland outputs and
+under Openbox with two Xorg dummy outputs. Each output measured 1280 × 800.
+The opted-in player left video visible on its own output and blacked out the
+one holding a separate GTK test window. A click reached that window through the
+cover. Focus loss and Escape restored it, and refocusing the fullscreen player
+reapplied the cover. Closing the player also restored the GTK window. The
+Wayland run moved playback to the other output and checked that the covered
+display switched. A separate Wayland run with the preference off left the GTK
+window visible throughout fullscreen. All three player processes exited.
+Strict Linux application Clippy passed.
+
+The Windows workspace gate passed 1,091 Rust tests, 79 Python tests and four
+browser tests. The General and Settings search popup baselines were reviewed
+and regenerated for the added row. All 65 pinned Windows null-output engine
+tests and the locked Windows build's private-desktop smoke test passed.
+Apple Silicon cross-Clippy passed. The Windows machine had one physical
+monitor. Windows and macOS multi-display behavior and macOS GUI tests remain
+unverified.
+
+- Windows application SHA-256 `96536c0818f4cbcf3cc7eae705293ddd3ed6855597705058eb628869e7b9cbbc`
+- Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
+- Linux application SHA-256 `fd6ce5fe3f41f7fea0ca494ac6d555c40553aac37735a995dada09de1ae17e63`
+- X11 libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`
+- Wayland libmpv SHA-256 `cdce854e1811942602587310026306d92d30c0f593f2be676f07659ae43061d8`

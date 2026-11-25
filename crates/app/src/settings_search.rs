@@ -112,6 +112,11 @@ const ENTRIES: &[Entry] = &[
     ),
     general(
         "Behavior",
+        "Black out other monitors while in full screen",
+        "fullscreen darken secondary displays",
+    ),
+    general(
+        "Behavior",
         "Prevent screen saver",
         "prevent display sleep idle power during playback",
     ),
@@ -1292,7 +1297,8 @@ fn general_target(window: &PreferencesWindow, section: &str, title: &str) -> f32
             | "Group media in playlist when opening multiple files at once"
             | "Allow opening the same file in multiple windows"
             | "Quit after all windows are closed"
-            | "Keep window open after playback finishes" => window.get_general_window_target(),
+            | "Keep window open after playback finishes"
+            | "Black out other monitors while in full screen" => window.get_general_window_target(),
             "Prevent screen saver" | "Allow screen saver for audio playback" => {
                 window.get_general_power_target()
             }
