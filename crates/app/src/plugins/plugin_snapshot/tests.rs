@@ -30,7 +30,7 @@ fn playback_observation_releases_history_before_waiting_for_recent_media() {
             .into(),
             ..Playback::default()
         };
-        observe_playback(&playback, &worker_recent, &worker_history, true, 1)
+        observe_playback(&playback, &worker_recent, &worker_history, true, 1, true)
     });
     let deadline = Instant::now() + Duration::from_secs(3);
     let mut history_available = false;
@@ -51,7 +51,7 @@ fn playback_observation_releases_history_before_waiting_for_recent_media() {
     );
     assert!(error.is_none());
     let files = PluginFiles::temporary("org.example.observed-history");
-    files.set_player_context(context);
+    files.set_player_context(context.unwrap());
     assert_eq!(files.core_playback_history().unwrap().len(), 1);
 }
 

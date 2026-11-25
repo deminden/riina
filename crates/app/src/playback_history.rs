@@ -1,4 +1,6 @@
 //! Application-owned playback history, shared across player windows.
+pub(crate) mod progress;
+
 use riina_core::{Phase, Playback};
 use std::{
     collections::{HashMap, HashSet},
@@ -55,31 +57,36 @@ pub(crate) fn shared_history_merge_flag(preferences_path: &Path) -> Arc<AtomicBo
         .clone()
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Default)]
 pub(crate) struct PlaybackHistoryState {
     entries: Vec<riina_core::playback_history::Entry>,
     revision: u64,
     observed_sessions: HashMap<u64, (u64, String)>,
     persistence_path: Option<PathBuf>,
     watch_later_directory: Option<PathBuf>,
-    pending_progress_paths: HashSet<String>,
+    progress: progress::Refresh,
     persistence_error: Option<String>,
 }
 
 impl PlaybackHistoryState {
     pub(crate) fn with_persistence(
-        entries: Vec<riina_core::playback_history::Entry>,
+        mut entries: Vec<riina_core::playback_history::Entry>,
         path: Option<PathBuf>,
         watch_later_directory: Option<PathBuf>,
     ) -> Self {
-        let pending_progress_paths = entries.iter().map(|entry| entry.path.clone()).collect();
+        if watch_later_directory.is_some() {
+            // The archive may contain older cached positions. mpv owns their current values.
+            for entry in &mut entries {
+                entry.progress = None;
+            }
+        }
         Self {
             entries,
             revision: 1,
             observed_sessions: HashMap::new(),
             persistence_path: path,
             watch_later_directory,
-            pending_progress_paths,
+            progress: progress::Refresh::default(),
             persistence_error: None,
         }
     }
@@ -98,7 +105,7 @@ impl PlaybackHistoryState {
 
     pub(crate) fn clear(&mut self) {
         self.entries.clear();
-        self.pending_progress_paths.clear();
+        self.progress.cancel();
         self.revision = self.revision.wrapping_add(1);
     }
 
@@ -117,8 +124,6 @@ impl PlaybackHistoryState {
             crate::playback_history_store::save(persistence_path, &retained)?;
         }
         self.entries = retained;
-        self.pending_progress_paths
-            .retain(|path| !paths.contains(path.as_str()));
         self.revision = self.revision.wrapping_add(1);
         Ok(removed)
     }
@@ -128,7 +133,6 @@ impl PlaybackHistoryState {
     }
 
     pub(crate) fn observe(&mut self, session_id: u64, playback: &Playback, record_history: bool) {
-        self.refresh_saved_progress(playback);
         if !matches!(
             playback.phase,
             Phase::Playing | Phase::Paused | Phase::Buffering | Phase::Seeking | Phase::Ended
@@ -177,6 +181,7 @@ impl PlaybackHistoryState {
             .duration_since(std::time::UNIX_EPOCH)
             .map(|duration| duration.as_millis().min(u64::MAX as u128) as u64)
             .unwrap_or(0);
+        self.progress.entry_replaced(&path);
         self.entries.retain(|entry| entry.path != path);
         self.entries.insert(
             0,
@@ -199,37 +204,6 @@ impl PlaybackHistoryState {
             && let Err(error) = crate::playback_history_store::save(path, &self.entries)
         {
             self.persistence_error = Some(error);
-        }
-    }
-
-    fn refresh_saved_progress(&mut self, playback: &Playback) {
-        let (Some(directory), Some(ignore_path)) = (
-            self.watch_later_directory.as_deref(),
-            playback.ignore_path_in_watch_later_config,
-        ) else {
-            return;
-        };
-        if self.pending_progress_paths.is_empty() {
-            return;
-        }
-
-        let paths = std::mem::take(&mut self.pending_progress_paths);
-        let mut changed = false;
-        for entry in &mut self.entries {
-            if paths.contains(&entry.path) {
-                let progress = crate::playback_history_store::progress_from_watch_later(
-                    &entry.path,
-                    directory,
-                    ignore_path,
-                );
-                if entry.progress != progress {
-                    entry.progress = progress;
-                    changed = true;
-                }
-            }
-        }
-        if changed {
-            self.save_change();
         }
     }
 }

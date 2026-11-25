@@ -4682,3 +4682,34 @@ Clear then updated the archive as requested. The test process exited normally.
 - Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
 - Linux application SHA-256 `58c0d1bf26c4901b0245341169a6f5cd3ed885eb6dbac48aff9a5e5fe52184c4`
 - Linux libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`
+
+### Playback History saved progress 2026-11-25
+
+One worker per profile reads mpv's watch-later files outside the playback
+and outline locks. Opening History schedules a fresh read. Before a player
+reports its filename-hashing option, History uses the profile's inline
+Advanced option or the default. Confirming Clear Saved Playback Progress
+discards in-flight results and clears the displayed positions.
+
+The affected Windows gate passed strict Clippy, 652 application unit tests
+and 70 widget checks. The progress tests cover reopening without a player,
+refreshing changed positions, the observed engine option taking priority
+and rejecting a result read before Settings cleared it. The Apple Silicon
+application source check passed. Native macOS interaction remains open.
+
+An isolated Windows session opened History with two archived entries.
+History displayed the position in the watch-later file and showed its new
+value after reopening. Cancel in Settings Utilities preserved the file
+and the displayed position. Confirm removed the file and the progress
+label from the still-open History window while keeping both archive entries.
+The exact test process exited normally.
+
+The full Linux application build passed the existing isolated X11 Utilities
+workflow, including cancellation, separate clearing of progress, history
+and thumbnails, an unavailable progress directory, reopening Settings and
+normal exit.
+
+- Windows application SHA-256 `689eadcfed168f91b61fe77d53df375302269c9911861388a9f8f62c587be55a`
+- Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
+- Linux application SHA-256 `2d7fd8f2aa8bd2b4c6ba4fc419a4bacb1e964ea1d41cb441c561f155cb5e861e`
+- Linux libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`

@@ -155,16 +155,26 @@ pub(super) struct HistoryObservation {
     pub(super) session_id: u64,
     pub(super) plugin: Option<PluginHostHandle>,
     pub(super) last_plugin_context: Mutex<PluginPlayerFileContext>,
+    pub(super) last_progress_path_policy: Mutex<Option<bool>>,
 }
 
 impl HistoryObservation {
     fn publish(&self, app: &slint::Weak<PlayerWindow>, state: &Playback) {
+        if let Some(ignore_path) = state.ignore_path_in_watch_later_config {
+            let mut previous = lock(&self.last_progress_path_policy);
+            if *previous != Some(ignore_path) {
+                *previous = Some(ignore_path);
+                drop(previous);
+                crate::playback_history::progress::observe_path_policy(&self.history, ignore_path);
+            }
+        }
         let (plugin_context, history_error) = crate::plugin_snapshot::observe_playback(
             state,
             &self.recent_documents,
             &self.history,
             self.record_history.load(Ordering::Acquire),
             self.session_id,
+            self.plugin.is_some(),
         );
         if let Some(error) = history_error {
             // The result has no recipient once its window or event loop closes.
@@ -175,14 +185,12 @@ impl HistoryObservation {
                 );
             });
         }
-        let mut last_context = lock(&self.last_plugin_context);
-        if *last_context != plugin_context
-            && let Some(host) = &self.plugin
-            && host
-                .update_player_file_context(plugin_context.clone())
-                .is_ok()
-        {
-            *last_context = plugin_context;
+        if let (Some(host), Some(context)) = (&self.plugin, plugin_context) {
+            let mut last_context = lock(&self.last_plugin_context);
+            if *last_context != context && host.update_player_file_context(context.clone()).is_ok()
+            {
+                *last_context = context;
+            }
         }
     }
 }

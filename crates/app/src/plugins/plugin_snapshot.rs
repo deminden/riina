@@ -1,5 +1,8 @@
 //! Owned plugin snapshots keep history persistence outside the JavaScript host.
-use crate::{playback_history::playback_media_url, plugin_files::PluginPlayerFileContext};
+use crate::{
+    playback_history::{PlaybackHistoryState, playback_media_url},
+    plugin_files::PluginPlayerFileContext,
+};
 use riina_core::{Phase, Playback, TrackKind};
 use std::{
     collections::BTreeMap,
@@ -10,10 +13,11 @@ use std::{
 pub(crate) fn observe_playback(
     playback: &Playback,
     recent_documents: &Mutex<Vec<riina_core::RecentMedia>>,
-    history: &Mutex<crate::playback_history::PlaybackHistoryState>,
+    history: &Mutex<PlaybackHistoryState>,
     record_history: bool,
     session_id: u64,
-) -> (PluginPlayerFileContext, Option<String>) {
+    needs_plugin_context: bool,
+) -> (Option<PluginPlayerFileContext>, Option<String>) {
     // History actions also refresh plugin snapshots. Release history before
     // acquiring recent media so those two paths cannot invert their locks.
     let (entries, error) = {
@@ -21,15 +25,20 @@ pub(crate) fn observe_playback(
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner);
         history.observe(session_id, playback, record_history);
-        (history.entries().to_vec(), history.take_persistence_error())
+        (
+            needs_plugin_context.then(|| history.entries().to_vec()),
+            history.take_persistence_error(),
+        )
     };
-    let context = player_file_context(
-        playback,
-        &recent_documents
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner),
-        &entries,
-    );
+    let context = entries.map(|entries| {
+        player_file_context(
+            playback,
+            &recent_documents
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner),
+            &entries,
+        )
+    });
     (context, error)
 }
 

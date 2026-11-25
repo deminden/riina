@@ -28,18 +28,19 @@ pub(crate) struct Archive {
 #[cfg(any(test, target_os = "macos"))]
 impl Archive {
     fn load(preferences_path: PathBuf) -> Result<Self, String> {
-        let legacy = crate::preference_load::read_valid(&preferences_path)
+        let preferences = crate::preference_load::read_valid(&preferences_path)
             .ok()
             .flatten()
-            .map_or_else(Vec::new, |prefs| prefs.playback_history);
+            .unwrap_or_default();
         let path = crate::playback_history_store::path_for_preferences(&preferences_path);
-        let entries = crate::playback_history_store::load(&path, &legacy)?;
+        let entries = crate::playback_history_store::load(&path, &preferences.playback_history)?;
         let history = crate::playback_history::shared_playback_history_state(
             path.clone(),
             entries,
             Some(path),
             Some(preferences_path.with_file_name("watch-later")),
         );
+        crate::playback_history::progress::configure_path_policy(&history, &preferences.advanced);
         let cleared = crate::playback_history::shared_history_merge_flag(&preferences_path);
         Ok(Self {
             history,
@@ -301,6 +302,7 @@ impl ApplicationHistory {
         self.availability.clear();
         let mut last_revision = (revision(&archive.history), self.availability.revision());
         crate::platform::show_window(&window)?;
+        crate::playback_history::progress::refresh_on_open(&archive.history);
         super::refresh(&window, &archive.history, &self.groups, &self.availability);
         crate::platform::enable_history_acrylic(&window);
         window.window().with_winit_window(|window| {
@@ -383,7 +385,7 @@ mod tests {
             path: "saved-film.mkv".into(),
             title: Some("Saved Film".into()),
             date_ms: 42,
-            progress: Some(3.0),
+            progress: None,
             duration: 8.0,
         };
         crate::playback_history_store::save(&history_path, std::slice::from_ref(&entry))?;

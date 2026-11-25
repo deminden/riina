@@ -22,7 +22,7 @@ pub(crate) fn connect(
     });
     install_default_app_actions(window);
     install_browser_extension_action(window);
-    install_cache_and_history_actions(window, watch_later, clear_history);
+    install_cache_and_history_actions(window, preferences_path.to_owned(), clear_history);
 }
 
 fn install_browser_extension_action(window: &PreferencesWindow) {
@@ -115,10 +115,11 @@ fn install_default_app_actions(window: &PreferencesWindow) {
 
 fn install_cache_and_history_actions(
     window: &PreferencesWindow,
-    watch_later: PathBuf,
+    preferences_path: PathBuf,
     clear_history: impl Fn() -> Result<usize, String> + 'static,
 ) {
     let weak = window.as_weak();
+    let watch_later = preferences_path.with_file_name("watch-later");
     window.on_utility_confirmed(move |action| {
         let Some(window) = weak.upgrade() else {
             return slint::SharedString::default();
@@ -131,6 +132,10 @@ fn install_cache_and_history_actions(
             UtilityAction::RestoreAlerts => settings.get_alerts_restored(),
             UtilityAction::ClearProgress => {
                 let cleared = clear_watch_later(&watch_later);
+                crate::playback_history::progress::files_cleared(
+                    &preferences_path,
+                    cleared.is_ok(),
+                );
                 crate::player_ui::refresh_playlist_resume_positions();
                 settings.set_utilities_progress_size(display_size(&watch_later).into());
                 match cleared {

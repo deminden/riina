@@ -42,10 +42,6 @@ fn selected_history_rows_are_removed_in_one_persisted_change() {
         history.entries()
     );
     assert_eq!(
-        history.pending_progress_paths,
-        HashSet::from([original[1].path.clone()])
-    );
-    assert_eq!(
         history.remove_paths([original[0].path.as_str()]).unwrap(),
         0
     );
@@ -64,7 +60,6 @@ fn a_failed_history_batch_keeps_every_row_and_revision() {
         None,
     );
     let revision = history.revision();
-    let pending = history.pending_progress_paths.clone();
     assert!(
         history
             .remove_paths(original.iter().map(|entry| entry.path.as_str()))
@@ -72,7 +67,6 @@ fn a_failed_history_batch_keeps_every_row_and_revision() {
     );
     assert_eq!(history.entries(), original);
     assert_eq!(history.revision(), revision);
-    assert_eq!(history.pending_progress_paths, pending);
 }
 
 #[test]
@@ -185,50 +179,4 @@ fn playback_history_fills_late_metadata_without_resetting_visit_or_progress() {
     playback.duration = Some(90.0);
     history.observe(1, &playback, false);
     assert_eq!(history.revision(), revision + 1);
-}
-
-#[test]
-fn restored_playback_history_reads_progress_from_mpv_watch_later() {
-    let temp = TempDir::new("riina-history-watch-later").unwrap();
-    let root = temp.path();
-    let watch_later = root.join("watch-later");
-    std::fs::create_dir_all(&watch_later).unwrap();
-    let archive_path = root.join("playback-history.json");
-    let media = "https://media.example/movie.mkv";
-    let entry = riina_core::playback_history::Entry {
-        path: media.into(),
-        title: None,
-        date_ms: 1,
-        progress: None,
-        duration: 90.0,
-    };
-    crate::playback_history_store::save(&archive_path, std::slice::from_ref(&entry)).unwrap();
-    let key = crate::playback_history_store::md5_hex(media.as_bytes());
-    std::fs::write(watch_later.join(key), "start=42.25\n").unwrap();
-    let mut state = PlaybackHistoryState::with_persistence(
-        vec![entry],
-        Some(archive_path.clone()),
-        Some(watch_later),
-    );
-    let mut playback = Playback {
-        generation: 1,
-        phase: Phase::Playing,
-        ignore_path_in_watch_later_config: Some(false),
-        ..Playback::default()
-    };
-    std::sync::Arc::make_mut(&mut playback.playlist).push(PlaylistEntry {
-        id: 1,
-        filename: media.into(),
-        title: None,
-        current: true,
-        playing: true,
-    });
-
-    state.observe(1, &playback, false);
-
-    assert_eq!(state.entries()[0].progress, Some(42.25));
-    assert_eq!(
-        crate::playback_history_store::load(&archive_path, &[]).unwrap()[0].progress,
-        Some(42.25)
-    );
 }

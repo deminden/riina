@@ -73,6 +73,7 @@ impl LoadedHistory {
             self.write_path,
             Some(prefs_path.with_file_name("watch-later")),
         );
+        playback_history::progress::configure_path_policy(&state, &prefs.advanced);
         Tracking {
             state,
             recording: Arc::new(AtomicBool::new(prefs.record_playback_history)),
@@ -102,6 +103,7 @@ impl Tracking {
             session_id: self.session_id,
             plugin,
             last_plugin_context: Default::default(),
+            last_progress_path_policy: Default::default(),
         }
     }
 
