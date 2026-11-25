@@ -35,7 +35,6 @@ pub(super) fn connect(
             plugin_host: context.plugin_host().cloned(),
             updates: services.updates.clone(),
             power: services.power.clone(),
-            #[cfg(target_os = "macos")]
             application_settings: services.settings.clone(),
         },
         history.clear_hook(

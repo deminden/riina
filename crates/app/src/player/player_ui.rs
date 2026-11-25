@@ -195,8 +195,7 @@ pub(crate) struct UiSession {
     _plugins: plugins::RuntimeSession,
     application: ApplicationServices,
     debug_information: crate::debug_dump::Registration,
-    #[cfg(not(target_os = "macos"))]
-    window_menu: crate::windows::window_menu::Registration,
+    window_menu: platform::window_menu::Registration,
     _presentation: Option<SessionResource<platform::NativePresentation>>,
     _live_text_timer: Option<Rc<slint::Timer>>,
     _preference_recovery_notice: Option<Rc<slint::Timer>>,
@@ -213,7 +212,6 @@ impl UiSession {
         self.features.display_blackout.retire();
         self.features.fullscreen.retire();
         self.debug_information.retire();
-        #[cfg(not(target_os = "macos"))]
         self.window_menu.retire();
         self.observer_state.release_power();
         self.observer_state.release_touch_bar();
@@ -312,8 +310,7 @@ pub(crate) struct ApplicationServices {
     inspector: Rc<crate::windows::media_inspector::ApplicationInspector>,
     logs: Rc<crate::log_viewer::ApplicationLogViewer>,
     debug_information: Rc<crate::debug_dump::ApplicationDebugInformation>,
-    #[cfg(not(target_os = "macos"))]
-    window_menu: Rc<crate::windows::window_menu::ApplicationWindowMenu>,
+    window_menu: platform::window_menu::Application,
     highlights: Rc<crate::windows::release_highlights::ReleaseHighlights>,
     pub(crate) open_url: Rc<crate::windows::open_url::ApplicationOpenUrl>,
     about: Rc<crate::about_window::ApplicationAbout>,
@@ -322,8 +319,7 @@ pub(crate) struct ApplicationServices {
     power: Rc<crate::playback_power::ApplicationPower>,
     clocks: Rc<controller_clock::ApplicationClocks>,
     touch_bars: platform::player_touch_bar::Application,
-    #[cfg(target_os = "macos")]
-    settings: Rc<crate::preferences_window::ApplicationSettings>,
+    settings: platform::application_settings::Owner,
 }
 
 impl ApplicationServices {
@@ -458,8 +454,7 @@ fn configure_with_engine(
         welcome: welcome.map(slint::ComponentHandle::as_weak),
         host: native.as_ref().map(platform::NativePresentation::host),
     };
-    #[cfg(not(target_os = "macos"))]
-    let window_menu = application.window_menu.register(app, display.clone());
+    let window_menu = application.window_menu.register(app, &display);
     let features::Installed {
         guards,
         timers,
@@ -548,7 +543,6 @@ fn configure_with_engine(
         _plugins: plugin_runtime,
         application,
         debug_information,
-        #[cfg(not(target_os = "macos"))]
         window_menu,
         _presentation: native.map(SessionResource::Live),
         _live_text_timer: live_text_timer,

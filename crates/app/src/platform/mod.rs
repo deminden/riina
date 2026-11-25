@@ -11,6 +11,7 @@ use std::{
 #[cfg(any(target_os = "macos", test))]
 mod active_poll;
 pub(crate) mod application_lifecycle;
+pub(crate) mod application_settings;
 pub(crate) mod browser_activation;
 pub(crate) mod clipboard;
 #[cfg(any(target_os = "linux", target_os = "macos", target_os = "windows"))]
@@ -58,6 +59,7 @@ pub(crate) use shared_video::SharedVideoExtras;
 mod system_media_session;
 pub(crate) mod transition_cover;
 pub(crate) mod window_document;
+pub(crate) mod window_menu;
 pub(crate) use system_media_session::SystemMediaSession;
 pub(crate) mod video_materials;
 #[cfg(target_os = "linux")]

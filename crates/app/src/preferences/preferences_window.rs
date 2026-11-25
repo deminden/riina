@@ -1,31 +1,22 @@
 //! Own the preferences window and its platform dialogs and refresh timers.
-#[cfg(any(target_os = "macos", test))]
-mod application;
-#[cfg(target_os = "macos")]
-pub(crate) use application::{
-    ApplicationSettings, application_status, configure_application_actions,
-};
 mod changes;
 mod construction;
 mod folder;
-mod general_policy;
+pub(crate) mod general_policy;
 mod key_bindings;
 mod live;
 mod music_mode;
 mod owner;
-mod profile_window;
+pub(crate) mod profile_window;
 mod refresh;
 mod timers;
 
 use super::model::PreferenceModel;
-use crate::PlayerWindow;
+use crate::{PlayerWindow, platform::application_settings};
 use refresh::refresh;
 use riina_ui::PlayerMenuActions;
 use slint::{ComponentHandle, winit_030::WinitWindowAccessor};
 use std::{cell::RefCell, path::PathBuf, rc::Rc};
-
-#[cfg(target_os = "macos")]
-pub(crate) const PLUGINS_PANE: i32 = 9;
 
 pub(crate) struct Session {
     pub(crate) decoder_player: riina_mpv::CommandSender,
@@ -35,8 +26,7 @@ pub(crate) struct Session {
     pub(crate) plugin_host: Option<crate::plugin_host::PluginHostHandle>,
     pub(crate) updates: Rc<crate::updates::ApplicationUpdates>,
     pub(crate) power: Rc<crate::playback_power::ApplicationPower>,
-    #[cfg(target_os = "macos")]
-    pub(crate) application_settings: Rc<ApplicationSettings>,
+    pub(crate) application_settings: application_settings::Owner,
 }
 
 pub(crate) fn connect(
@@ -49,7 +39,6 @@ pub(crate) fn connect(
         plugin_host,
         updates,
         power,
-        #[cfg(target_os = "macos")]
         application_settings,
     }: Session,
     clear_history: impl Fn() -> Result<usize, String> + Clone + 'static,
@@ -57,35 +46,7 @@ pub(crate) fn connect(
     let baseline = model.snapshot();
     let current = Rc::new(RefCell::new(None::<crate::PreferencesWindow>));
     music_mode::connect(app, current.clone(), path.clone(), model.clone());
-    #[cfg(target_os = "macos")]
-    {
-        let settings = current.clone();
-        let application = application_settings.clone();
-        let parent = app.as_weak();
-        app.on_open_plugin_archive(move |archive| {
-            if application.is_visible() {
-                return application.install_plugin_archive(archive).is_ok();
-            }
-            let Some(app) = parent.upgrade() else {
-                return false;
-            };
-            let previous_pane = app.get_preferences_target_pane();
-            app.set_preferences_target_pane(PLUGINS_PANE);
-            app.global::<PlayerMenuActions>().invoke_open_preferences();
-            app.set_preferences_target_pane(previous_pane);
-            let window = settings
-                .borrow()
-                .as_ref()
-                .map(ComponentHandle::clone_strong);
-            if let Some(window) = window.filter(|window| window.window().is_visible()) {
-                window.set_selected_pane(PLUGINS_PANE);
-                window.invoke_plugin_install_archive(archive);
-                true
-            } else {
-                false
-            }
-        });
-    }
+    application_settings.bind_plugin_archive(app, &current);
     let timers = timers::VisibleSettings::default();
     connect_controller_options(app, current.clone());
     connect_subtitle_actions(app, current.clone());
@@ -100,20 +61,8 @@ pub(crate) fn connect(
             {
                 return;
             }
-            #[cfg(target_os = "macos")]
-            {
-                let pane = app.get_preferences_target_pane();
-                match application_settings.show_visible((pane >= 0).then_some(pane)) {
-                    Ok(false) => {}
-                    Ok(true) => {
-                        app.set_preferences_target_pane(-1);
-                        return;
-                    }
-                    Err(error) => {
-                        app.set_status(error.to_string().into());
-                        return;
-                    }
-                }
+            if application_settings.redirect_to_visible(&app) {
+                return;
             }
             let existing = current.borrow().as_ref().map(ComponentHandle::clone_strong);
             let window = if let Some(window) = existing {

@@ -5381,3 +5381,32 @@ restoration of the companion window after the exact player process exited.
 - Linux application SHA-256 `e1d12c578fee672e5c7c0be01ae5e845c13cfe24e302b4359f03a7f94a1a5560`
 - X11 libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`
 - Wayland libmpv SHA-256 `cdce854e1811942602587310026306d92d30c0f593f2be676f07659ae43061d8`
+
+### Application Settings and Window menu ownership 2026-11-25
+
+Platform adapters now own the Settings form that can open without playback,
+its font picker, plugin archive routing, and the Window menu catalog. The
+existing headless tests still check profile saves, reopening and pane selection.
+The catalog regression now enters through its platform registration API.
+The hardening scan counted 62 target annotations outside `platform/`, down
+from 78 with the same pattern.
+
+The locked Windows build, full workspace gate with 1,094 Rust tests, and
+65 pinned null-output engine tests passed. The two-player private-desktop
+test verified that both native Window menus mark their owning player, keep a
+minimized player selectable, restore it and remove its entry on close. The
+final player exited normally. Cross-Clippy passed for the application and
+tests on both Apple Silicon and Intel targets. The macOS Settings, font-picker
+and plugin archive routes still need desktop verification.
+
+The locked Linux build passed two-player switching and shutdown on X11 and
+Wayland. X11 restored a minimized player through its Window menu and through
+Bring All to Front. On Wayland the menu click produced a compositor activation
+request and transferred focus to the second player. Both desktop captures
+showed only the remaining player after closing the other one. Both test
+processes exited normally.
+
+- Windows application SHA-256 `fbf879baf766f78986cbf60333265e41862a36d669378679acbba5ad7693d250`
+- Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
+- Linux application SHA-256 `9b2c73462efd512082e71043b81754dfefef564a11bd02399d9464270c01787e`
+- Linux libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`

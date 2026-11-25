@@ -42,6 +42,15 @@ pub(super) struct Draft {
     launch_action: ActionAfterLaunch,
 }
 
+#[cfg(any(target_os = "macos", test))]
+pub(crate) fn read_profile(
+    window: &PreferencesWindow,
+    preferences: &mut Preferences,
+) -> Result<(), &'static str> {
+    Draft::parse(Policy::from_profile(preferences), window)?.put(preferences);
+    Ok(())
+}
+
 impl Draft {
     pub(super) fn read(app: &PlayerWindow, window: &PreferencesWindow) -> Option<Self> {
         Self::parse(Policy::from_player(app), window)
@@ -50,14 +59,6 @@ impl Draft {
                 refresh(window, app);
             })
             .ok()
-    }
-
-    #[cfg(any(target_os = "macos", test))]
-    pub(super) fn read_profile(
-        window: &PreferencesWindow,
-        saved: &Preferences,
-    ) -> Result<Self, &'static str> {
-        Self::parse(Policy::from_profile(saved), window)
     }
 
     fn parse(previous: Policy, window: &PreferencesWindow) -> Result<Self, &'static str> {

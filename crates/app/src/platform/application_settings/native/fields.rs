@@ -1,5 +1,5 @@
 //! Read an edit to the saved profile when there is no playback engine.
-use super::super::{general_policy, profile_window};
+use crate::preferences_window::{general_policy, profile_window};
 use crate::{PreferencesWindow, SubtitleSettingsState, preferences::model::PreferenceSection};
 use riina_core::{
     Preferences, ThemeMaterial, advanced_preferences, audio_preferences, control_preferences,
@@ -22,7 +22,7 @@ pub(super) fn read(
 }
 
 fn read_general(window: &PreferencesWindow, prefs: &mut Preferences) -> Result<(), String> {
-    general_policy::Draft::read_profile(window, prefs)?.put(prefs);
+    general_policy::read_profile(window, prefs)?;
     let general = window.global::<GeneralSettingsState>();
     prefs.allow_multiple_windows = general.get_allow_multiple_windows();
     prefs.group_simultaneous_opens_in_playlist = general.get_group_simultaneous_opens_in_playlist();

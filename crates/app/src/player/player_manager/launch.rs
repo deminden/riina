@@ -302,7 +302,9 @@ impl PlayerManager {
                 crate::platform::browser_activation::show_idle_menu();
             }
             let result = self
-                .open_application_settings(Some(crate::preferences_window::PLUGINS_PANE))
+                .open_application_settings(Some(
+                    crate::platform::application_settings::PLUGINS_PANE,
+                ))
                 .and_then(|()| self.services().open_plugin_archive(archive.to_owned()));
             if let Err(error) = result {
                 crate::diagnostics::warn!("Could not open the plugin package: {error}");

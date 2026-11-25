@@ -63,7 +63,7 @@ impl ApplicationWindowMenu {
                 if let Ok(destination) = token.parse()
                     && let Some(target) = owner.destination(destination)
                 {
-                    target.focus_from_menu(&app);
+                    focus_from_menu(&target, &app);
                 }
                 // Native checkable items toggle on activation. The check
                 // identifies the owning player and stays in its original row.
@@ -104,7 +104,11 @@ impl ApplicationWindowMenu {
                 let surface = player.display.switchable(&app)?;
                 Some(WindowEntry {
                     id: player.id,
-                    title: surface.label(&app),
+                    title: if matches!(surface, SwitchableWindow::Welcome(_)) {
+                        "Riina".into()
+                    } else {
+                        app.get_window_title()
+                    },
                 })
             })
             .collect::<Vec<_>>();
@@ -119,6 +123,24 @@ impl ApplicationWindowMenu {
         self.projected.replace(windows);
         true
     }
+}
+
+fn focus_from_menu(target: &SwitchableWindow, origin: &PlayerWindow) {
+    #[cfg(target_os = "linux")]
+    {
+        use crate::platform::wayland_drop::request_focus;
+        let requested = match target {
+            SwitchableWindow::Welcome(window) => request_focus(origin, window.as_weak()),
+            SwitchableWindow::Native(window) => request_focus(origin, window.as_weak()),
+            SwitchableWindow::Shared(window) => request_focus(origin, window.as_weak()),
+        };
+        if requested {
+            return;
+        }
+    }
+    #[cfg(not(target_os = "linux"))]
+    let _ = origin;
+    target.focus();
 }
 
 fn publish(app: &PlayerWindow, id: u64, windows: &[WindowEntry]) {
@@ -173,17 +195,18 @@ mod tests {
     fn menus_follow_visible_surfaces_titles_and_session_ownership()
     -> Result<(), Box<dyn std::error::Error>> {
         i_slint_backend_testing::init_no_event_loop();
-        let owner = Rc::new(ApplicationWindowMenu::default());
+        let application = crate::platform::window_menu::Application::default();
+        let owner = &application.catalog;
         let first = PlayerWindow::new()?;
         let second = PlayerWindow::new()?;
         let welcome = WelcomeWindow::new()?;
         first.set_window_title("First movie".into());
         second.set_window_title("Second movie".into());
         first.show()?;
-        let initial = owner.register(&first, PlayerDisplay::default());
-        let other = owner.register(
+        let initial = application.register(&first, &PlayerDisplay::default());
+        let other = application.register(
             &second,
-            PlayerDisplay {
+            &PlayerDisplay {
                 welcome: Some(welcome.as_weak()),
                 host: None,
             },

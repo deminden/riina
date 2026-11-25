@@ -698,6 +698,12 @@ closes. A confirmed action calls its profile service once. Acknowledgements
 stay on the owning window. Cache sizes refresh on entry, reopening and clearing.
 See [Add a preference](recipes/add-a-preference.md) for settings changes.
 
+The application Settings adapter owns the macOS profile form, its font picker
+and the choice of destination for plugin archives. A player Settings request
+can raise an already visible application form. Otherwise the player owns its
+own form. Both build their controls from the same profile and apply edits
+through the same Settings store.
+
 The Log Viewer is application-owned. The Window menu and Advanced Settings
 open the same window and share its filters and selection. On macOS the idle
 Window menu can also open it. The viewer reads the
@@ -711,7 +717,7 @@ opened before playback, it reads the installed libmpv and FFmpeg version
 properties on a background thread. The query uses a short-lived client with
 null outputs and loads no media or user configuration.
 
-The Windows and Linux Window menus share an application-owned catalog. Each
+The Window menu adapter owns a shared catalog on Windows and Linux. Each
 session supplies the display it owns and retires its registration before native
 teardown. The catalog keeps minimized players and omits hidden playback frames
 that have no visible Welcome surface. It samples window-manager state while

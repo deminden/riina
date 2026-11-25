@@ -6,7 +6,7 @@ use riina_core::{Preferences, audio_preferences::OutputDevice};
 use slint::ComponentHandle;
 use std::path::Path;
 
-pub(super) fn video_threads(window: &PreferencesWindow) -> Result<u32, &'static str> {
+pub(crate) fn video_threads(window: &PreferencesWindow) -> Result<u32, &'static str> {
     window
         .get_video_threads_text()
         .trim()
@@ -16,7 +16,7 @@ pub(super) fn video_threads(window: &PreferencesWindow) -> Result<u32, &'static 
         .ok_or("Video decoder threads must be between 0 and 2,147,483,647")
 }
 
-pub(super) fn connect_actions(
+pub(crate) fn connect_actions(
     window: &PreferencesWindow,
     app: Option<&PlayerWindow>,
     path: &Path,
@@ -41,7 +41,7 @@ pub(super) fn connect_actions(
     });
 }
 
-pub(super) fn create(
+pub(crate) fn create(
     path: &Path,
     baseline: &Preferences,
     available_devices: &[OutputDevice],
@@ -64,7 +64,7 @@ pub(super) fn create(
     Ok(window)
 }
 
-pub(super) fn install_profile_controls(
+pub(crate) fn install_profile_controls(
     window: &PreferencesWindow,
     baseline: &Preferences,
     available_devices: &[OutputDevice],

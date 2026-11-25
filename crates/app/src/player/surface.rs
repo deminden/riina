@@ -43,15 +43,6 @@ pub(crate) enum SwitchableWindow {
 }
 
 impl SwitchableWindow {
-    #[cfg(not(target_os = "macos"))]
-    pub(crate) fn label(&self, app: &PlayerWindow) -> slint::SharedString {
-        if matches!(self, Self::Welcome(_)) {
-            "Riina".into()
-        } else {
-            app.get_window_title()
-        }
-    }
-
     pub(crate) fn focus(&self) {
         let handle = match self {
             Self::Welcome(window) => window.window(),
@@ -59,25 +50,6 @@ impl SwitchableWindow {
             Self::Shared(window) => window.window(),
         };
         activate(handle);
-    }
-
-    #[cfg(not(target_os = "macos"))]
-    pub(crate) fn focus_from_menu(&self, origin: &PlayerWindow) {
-        #[cfg(target_os = "linux")]
-        {
-            use crate::platform::wayland_drop::request_focus;
-            let requested = match self {
-                Self::Welcome(window) => request_focus(origin, window.as_weak()),
-                Self::Native(window) => request_focus(origin, window.as_weak()),
-                Self::Shared(window) => request_focus(origin, window.as_weak()),
-            };
-            if requested {
-                return;
-            }
-        }
-        #[cfg(not(target_os = "linux"))]
-        let _ = origin;
-        self.focus();
     }
 }
 

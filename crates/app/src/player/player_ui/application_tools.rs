@@ -1,5 +1,6 @@
 //! AppKit menu actions and tools that can outlive a player.
 use super::ApplicationServices;
+use crate::platform::application_settings;
 use std::rc::Rc;
 
 impl ApplicationServices {
@@ -8,7 +9,7 @@ impl ApplicationServices {
         self.logs.closed.bind(callback.clone());
         self.open_url.closed.bind(callback.clone());
         self.updates.closed.bind(callback.clone());
-        self.settings.closed.bind(callback.clone());
+        self.settings.profile().closed.bind(callback.clone());
         self.plugins.bind_application_close(callback.clone());
         self.filters.closed.bind(callback.clone());
         self.highlights.closed.bind(callback);
@@ -21,7 +22,7 @@ impl ApplicationServices {
             || self.open_url.is_visible()
             || self.updates.is_visible()
             || self.highlights.is_visible()
-            || self.settings.is_visible()
+            || self.settings.profile().is_visible()
             || self.plugins.auxiliary_is_visible()
             || self.filters.is_visible()
     }
@@ -32,7 +33,7 @@ impl ApplicationServices {
         self.open_url.hide_for_quit();
         self.updates.hide_for_quit();
         self.highlights.hide();
-        self.settings.hide();
+        self.settings.profile().hide();
         self.plugins.hide_for_quit();
     }
 
@@ -42,8 +43,8 @@ impl ApplicationServices {
         loaded: crate::preference_load::LoadedPreferences,
         pane: Option<i32>,
     ) -> Result<(), String> {
-        if self
-            .settings
+        let settings = self.settings.profile();
+        if settings
             .show_visible(pane)
             .map_err(|error| error.to_string())?
         {
@@ -78,46 +79,45 @@ impl ApplicationServices {
         let clocks = Rc::clone(&self.clocks);
         let controller_path = path.to_owned();
         let controller_committed = move |options| clocks.publish_players(&controller_path, options);
-        self.settings
-            .show(path, saved, clear, controller_committed, |window| {
-                self.clocks.form.register(path, window);
-                if let Some(pane) = pane {
-                    window.set_selected_pane(pane);
+        settings.show(path, saved, clear, controller_committed, |window| {
+            self.clocks.form.register(path, window);
+            if let Some(pane) = pane {
+                window.set_selected_pane(pane);
+            }
+            let report = application_settings::application_status(window);
+            self.updates.connect_settings(window, report.clone());
+            self.updates.refresh_settings(window);
+            self.power
+                .connect_settings(window, path, &baseline, report.clone());
+            self.power.refresh_settings(window);
+            if let Some(status) = status {
+                report(status);
+            }
+            let plugin_host = self
+                .plugins
+                .host(path)
+                .inspect_err(|error| report(error.clone()))
+                .ok();
+            crate::plugin_preferences::connect(window, path, plugin_host, None);
+            let logs = Rc::downgrade(&self.logs);
+            let path_for_logs = path.to_owned();
+            application_settings::configure_application_actions(window, path, move || {
+                let Some(logs) = logs.upgrade() else { return };
+                let level = crate::preference_load::read_valid(&path_for_logs)
+                    .ok()
+                    .flatten()
+                    .map_or(baseline.advanced.log_level, |saved| {
+                        saved.advanced.log_level
+                    });
+                if let Err(error) = logs.show(None, &path_for_logs, level) {
+                    report(error.to_string());
                 }
-                let report = crate::preferences_window::application_status(window);
-                self.updates.connect_settings(window, report.clone());
-                self.updates.refresh_settings(window);
-                self.power
-                    .connect_settings(window, path, &baseline, report.clone());
-                self.power.refresh_settings(window);
-                if let Some(status) = status {
-                    report(status);
-                }
-                let plugin_host = self
-                    .plugins
-                    .host(path)
-                    .inspect_err(|error| report(error.clone()))
-                    .ok();
-                crate::plugin_preferences::connect(window, path, plugin_host, None);
-                let logs = Rc::downgrade(&self.logs);
-                let path_for_logs = path.to_owned();
-                crate::preferences_window::configure_application_actions(window, path, move || {
-                    let Some(logs) = logs.upgrade() else { return };
-                    let level = crate::preference_load::read_valid(&path_for_logs)
-                        .ok()
-                        .flatten()
-                        .map_or(baseline.advanced.log_level, |saved| {
-                            saved.advanced.log_level
-                        });
-                    if let Err(error) = logs.show(None, &path_for_logs, level) {
-                        report(error.to_string());
-                    }
-                });
-            })
+            });
+        })
     }
 
     pub(crate) fn open_plugin_archive(&self, path: String) -> Result<(), String> {
-        self.settings.install_plugin_archive(path.into())
+        self.settings.profile().install_plugin_archive(path.into())
     }
 
     pub(crate) fn configure_application_updates(

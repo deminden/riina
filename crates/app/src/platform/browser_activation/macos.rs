@@ -276,7 +276,7 @@ define_class!(
         fn idle_manage_plugins(&self, _sender: Option<&AnyObject>) {
             let launch = self.ivars();
             launch.default_action.take();
-            launch.manager.show_application_settings(Some(crate::preferences_window::PLUGINS_PANE));
+            launch.manager.show_application_settings(Some(crate::platform::application_settings::PLUGINS_PANE));
         }
 
         #[unsafe(method(riinaIdlePluginAction:))]

@@ -9,5 +9,3 @@ pub(crate) mod playback_history_window;
 pub(crate) mod release_highlights;
 pub(crate) mod video_filter_window;
 pub(crate) mod visible_refresh;
-#[cfg(not(target_os = "macos"))]
-pub(crate) mod window_menu;

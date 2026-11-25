@@ -1,7 +1,9 @@
 //! An application-owned Settings window that is usable before playback starts.
 mod fields;
+#[cfg(target_os = "macos")]
+mod font_picker;
 
-use super::profile_window;
+use crate::preferences_window::profile_window;
 use crate::{PreferencesWindow, windows::close_observer::CloseObserver};
 use riina_core::{Preferences, osc_preferences::ControllerOptions};
 use slint::{CloseRequestResponse, ComponentHandle, winit_030::WinitWindowAccessor};
@@ -142,6 +144,43 @@ fn report(window: &PreferencesWindow, error: String) {
 }
 
 #[cfg(target_os = "macos")]
+pub(super) fn bind_plugin_archive(
+    app: &crate::PlayerWindow,
+    local: &Rc<RefCell<Option<PreferencesWindow>>>,
+    application: &Rc<ApplicationSettings>,
+) {
+    use super::PLUGINS_PANE;
+    use riina_ui::PlayerMenuActions;
+
+    let settings = local.clone();
+    let application = application.clone();
+    let parent = app.as_weak();
+    app.on_open_plugin_archive(move |archive| {
+        if application.is_visible() {
+            return application.install_plugin_archive(archive).is_ok();
+        }
+        let Some(app) = parent.upgrade() else {
+            return false;
+        };
+        let previous_pane = app.get_preferences_target_pane();
+        app.set_preferences_target_pane(PLUGINS_PANE);
+        app.global::<PlayerMenuActions>().invoke_open_preferences();
+        app.set_preferences_target_pane(previous_pane);
+        let window = settings
+            .borrow()
+            .as_ref()
+            .map(ComponentHandle::clone_strong);
+        if let Some(window) = window.filter(|window| window.window().is_visible()) {
+            window.set_selected_pane(PLUGINS_PANE);
+            window.invoke_plugin_install_archive(archive);
+            true
+        } else {
+            false
+        }
+    });
+}
+
+#[cfg(target_os = "macos")]
 pub(crate) fn application_status(window: &PreferencesWindow) -> impl Fn(String) + Clone + 'static {
     let weak = window.as_weak();
     move |message| {
@@ -158,7 +197,7 @@ pub(crate) fn configure_application_actions(
     open_log_viewer: impl Fn() + 'static,
 ) {
     profile_window::connect_actions(window, None, path, open_log_viewer);
-    crate::windows::font_picker::connect_profile(window, application_status(window));
+    font_picker::connect(window, application_status(window));
     let weak = window.as_weak();
     let probe = crate::platform::text_recognition::check_availability(move |available| {
         let _ = crate::background::to_ui(weak, move |window| {
