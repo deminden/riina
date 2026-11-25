@@ -1,7 +1,7 @@
 //! Filesystem preparation never runs inside a rendering callback or GUI event.
 mod routing;
 
-use super::player_ui::ObserverId;
+use super::{player_ui::ObserverId, surface::PlayerDisplay};
 use crate::{PlayerWindow, file_selection};
 use riina_core::Command;
 use riina_mpv::CommandSender;
@@ -39,34 +39,58 @@ pub(super) fn playlist_in_new_player(app: &PlayerWindow, paths: Vec<String>) {
     new_player_selection(app, paths);
 }
 
-#[derive(Clone, Copy)]
-pub(crate) enum HistoryDestination {
-    CurrentPlayer,
-    NewPlayer,
+pub(crate) fn history_playlist(
+    app: &PlayerWindow,
+    display: &PlayerDisplay,
+    paths: Vec<String>,
+    sender: CommandSender,
+) -> Result<(), String> {
+    display.reveal(app).map_err(|error| error.to_string())?;
+    display.focus(app);
+    selection_at(
+        app,
+        paths,
+        false,
+        None,
+        sender,
+        SelectionSource::ExplicitPlaylist,
+        ObserverId::for_window(app),
+    );
+    Ok(())
 }
 
-pub(crate) fn history_selection(
+pub(crate) fn history_entry(
     app: &PlayerWindow,
-    paths: Vec<String>,
-    destination: HistoryDestination,
+    display: &PlayerDisplay,
+    path: &str,
+    position: Option<f64>,
     sender: CommandSender,
-) {
-    match destination {
-        HistoryDestination::CurrentPlayer => {
-            selection_at(
-                app,
-                paths,
-                false,
-                None,
-                sender,
-                SelectionSource::ExplicitPlaylist,
-                ObserverId::for_window(app),
-            );
-        }
-        HistoryDestination::NewPlayer => {
-            playlist_in_new_player(app, paths);
-        }
+) -> Result<(), String> {
+    let resume = app
+        .global::<riina_ui::PlayerPreferences>()
+        .get_resume_last_position();
+    let position = position.filter(|value| resume && value.is_finite() && *value >= 0.0);
+    if open_single_in_separate_player(app, path, position)? {
+        return Ok(());
     }
+    display.reveal(app).map_err(|error| error.to_string())?;
+    display.focus(app);
+    let observer = ObserverId::for_window(app);
+    if let Ok(address) = validate_url(path)
+        && let Some(opening) = observer.and_then(ObserverId::open_url)
+    {
+        return opening.open_initial_stream(app, &sender, address, position);
+    }
+    selection_at(
+        app,
+        vec![path.to_owned()],
+        false,
+        position,
+        sender,
+        SelectionSource::Startup,
+        observer,
+    );
+    Ok(())
 }
 
 fn new_player_selection(app: &PlayerWindow, paths: Vec<String>) {

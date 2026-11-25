@@ -5633,3 +5633,43 @@ interaction and matched IINA visual comparisons remain open.
 - Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
 - Linux application SHA-256 `66bedf3cb6953d6eee04eb73ee97ea6c1c3d890b5e91b1bab79fd7ff218e75e3`
 - Linux libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`
+
+### Playback History file checks and keyboard actions 2026-11-25
+
+History checks the selected local files off the UI thread before opening them,
+then resolves the visible playback destination. Closing the window or starting
+a newer History playback request retires the pending check. A single-entry
+open leaves the resume position to mpv when History has no saved position.
+Explicit playlist actions retain their selection and discovery rules.
+
+The locked Windows workspace and Linux application builds passed. The Windows
+workspace gate passed strict Clippy and the player and Settings pixel
+comparisons. The separate native suite passed all 67 playback tests. The
+History tests cover file URL decoding, removed files, accessible row
+selection, keyboard action dispatch, and routing past hidden player windows.
+The Apple Silicon and Intel application and test targets passed cross-Clippy.
+
+A private Windows desktop opened one History window from two player frames.
+The keyboard menu showed Play in New Window while media was loaded and hid
+it after both players closed. Play reused the second frame, and standalone
+History opened a replacement player. Closing the last History window exited
+the exact test process normally.
+
+On isolated Linux X11, a double-click reused the current player and read a
+two-second mpv watch-later position written after History opened. Play skipped
+a file removed after selection and left an unselected sibling out of the
+playlist. Play in New Window opened one additional window, and History
+started a replacement after both players closed. The inspected keyboard
+menu captures show the action list with and without an active player.
+The exact test process exited normally.
+
+On isolated Wayland, the File menu opened History over a decoded, paused
+video. Shift+F10 anchored the row menu below the selection. Return opened the
+selected local file URL in the same player and retained pause. History stayed
+open after the player closed, then closing History exited the process normally.
+Native macOS History interaction remains unverified.
+
+- Windows application SHA-256 `6aea304b7c554f7ce8df516a9fd19d390fec22f0e69adf6b5b73ab33b3cbe8cb`
+- Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
+- Linux application SHA-256 `63b8a78a55fc2ba25a1efbcf311ec2b035b960b6f9736473bd3735c8435c8bb8`
+- Linux libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`

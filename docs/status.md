@@ -97,6 +97,9 @@ Implementation does not imply every state or platform is verified.
   Visible local files are checked in the background. Unavailable files hide
   their progress, and reopening History checks whether they have returned.
   Playback decodes saved local file URLs before handing the path to the player.
+  Playback actions recheck selected files off the interface thread and choose a
+  visible destination when the check finishes. Single-row opens honor the
+  saved window and resume settings. The row menu is reachable from the keyboard.
   Saved positions come from mpv's files and refresh when History opens.
   Clearing saved progress in Utilities updates the open History window and
   preserves its entries.

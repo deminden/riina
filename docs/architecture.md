@@ -258,9 +258,12 @@ discards the action when the window closes. The application owns one History
 window. Each live player registers a weak window reference and its command
 sender. Focus changes update the playback destination, and player teardown
 removes its registration.
-The visible History window can outlive the players and asks the application to
-start a player when there is no live destination. Closing it then applies the
-application's last-window policy.
+History checks selected local references on a background worker when playback
+is requested. A newer History playback action or closing the outline retires
+the pending check. When the files are ready, the outline finds the most
+recently focused visible player, including a minimized player or Welcome.
+A player opened from the outline uses the same launch path when History is
+the only visible window. Closing History applies the last-window policy.
 
 Playlist subtitle associations belong to the player session and use media
 filenames. The subtitle picker verifies the playlist entry before saving its
@@ -354,7 +357,10 @@ restart. The group message can then appear without an automatic track
 selection replacing it.
 
 Playback History sends selected rows to the current player or to one new player
-according to the chosen action. Play in New Window in the playlist menu uses
+according to the chosen action. These actions open an explicit playlist. A
+double-click opens one entry using the saved window and resume preferences and
+shows the stream progress dialog when the entry is a supported stream.
+Play in New Window in the playlist menu uses
 the same explicit playlist open. The engine retains the selection policy through
 navigation and appends. Same-folder media discovery skips it until a regular
 media open replaces it.

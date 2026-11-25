@@ -261,12 +261,6 @@ pub(super) fn path_from_reference(reference: &str) -> Option<PathBuf> {
     }
 }
 
-pub(super) fn playback_reference(reference: String) -> String {
-    path_from_reference(&reference)
-        .and_then(|path| path.into_os_string().into_string().ok())
-        .unwrap_or(reference)
-}
-
 fn progress_ratio(progress: Option<f64>, duration: f64) -> f32 {
     progress
         .filter(|_| duration.is_finite() && duration > 0.0)

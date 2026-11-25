@@ -1,5 +1,6 @@
 mod availability;
 mod confirmation;
+mod open_request;
 mod outline;
 mod owner;
 mod search;
@@ -7,9 +8,10 @@ mod selection;
 
 pub(crate) use owner::{ApplicationHistory, Archive, HistorySync, Registration};
 
-use crate::{PlaybackHistoryRow, PlaybackHistoryWindow, media_open::HistoryDestination};
-use outline::{Projection, build_rows, path_from_reference, playback_reference};
+use crate::{PlaybackHistoryRow, PlaybackHistoryWindow};
+use outline::{Projection, build_rows, path_from_reference};
 use riina_core::playback_history::Entry;
+use riina_ui::PlaybackHistoryAction;
 use slint::{ComponentHandle, Model, ModelRc, SharedString, VecModel};
 use std::{
     collections::HashSet,
@@ -110,12 +112,15 @@ fn connect_open_entry(window: &PlaybackHistoryWindow, connection: &WindowConnect
         let (Some(window), Some(owner)) = (weak_window.upgrade(), context.owner.upgrade()) else {
             return;
         };
+        if window.get_confirmation_visible() {
+            return;
+        }
         let path = path.to_string();
         let Some(position) = riina_core::sync::lock(&context.archive.history)
             .entries()
             .iter()
             .find(|entry| entry.path == path)
-            .map(|entry| entry.progress.unwrap_or(0.0))
+            .map(|entry| entry.progress)
         else {
             return;
         };
@@ -124,7 +129,11 @@ fn connect_open_entry(window: &PlaybackHistoryWindow, connection: &WindowConnect
             .iter()
             .any(|row| row.path.as_str() == path && row.available)
         {
-            owner.open_single(&window, playback_reference(path), position);
+            owner.request_open(
+                &window,
+                vec![path],
+                open_request::Intent::Single { position },
+            );
         }
     });
 }
@@ -156,10 +165,19 @@ fn read_selected_paths(window: &PlaybackHistoryWindow) -> HashSet<String> {
 
 fn write_selected_paths(window: &PlaybackHistoryWindow, paths: &HashSet<String>) {
     let rows = window.get_rows();
+    let active = window.get_selected_path();
+    let mut first_selected = None;
+    let mut active_selected = None;
     let mut playable = false;
     let mut local = false;
     for (index, mut row) in rows.iter().enumerate() {
         let selected = !row.is_group && paths.contains(row.path.as_str());
+        if selected {
+            first_selected.get_or_insert(index);
+            if row.path == active {
+                active_selected = Some(index);
+            }
+        }
         playable |= selected && row.available;
         local |= selected && row.local_file;
         if row.selected != selected {
@@ -169,6 +187,12 @@ fn write_selected_paths(window: &PlaybackHistoryWindow, paths: &HashSet<String>)
     }
     window.set_has_playable_selection(playable);
     window.set_has_local_selection(local);
+    window.set_selected_menu_row(
+        active_selected
+            .or(first_selected)
+            .and_then(|index| i32::try_from(index).ok())
+            .unwrap_or(-1),
+    );
     let mut paths = paths.iter().cloned().collect::<Vec<_>>();
     paths.sort();
     window.set_selected_paths(ModelRc::new(VecModel::from(
@@ -237,30 +261,26 @@ fn connect_context_actions(window: &PlaybackHistoryWindow, connection: &WindowCo
         }
         let paths = context_selected_paths(&window, clicked_path.as_str());
         match action {
-            0 | 1 => {
-                let playable = selected_available(&window, paths, |row| row.available)
-                    .into_iter()
-                    .map(playback_reference)
-                    .collect::<Vec<_>>();
-                let destination = if action == 0 {
-                    HistoryDestination::CurrentPlayer
+            PlaybackHistoryAction::Play | PlaybackHistoryAction::PlayInNewWindow => {
+                let playable = selected_available(&window, paths, |row| row.available);
+                let destination = if action == PlaybackHistoryAction::Play {
+                    open_request::Intent::Play
                 } else {
-                    HistoryDestination::NewPlayer
+                    open_request::Intent::PlayInNewWindow
                 };
                 if let Some(owner) = context.owner.upgrade() {
-                    owner.open_selection(&window, playable, destination);
+                    owner.request_open(&window, playable, destination);
                 }
             }
-            2 => reveal_history_files(
+            PlaybackHistoryAction::Reveal => reveal_history_files(
                 &window,
                 selected_available(&window, paths, |row| row.local_file),
             ),
-            3 => context.confirmation.remove(&window, paths),
-            4 => context.confirmation.trash(
+            PlaybackHistoryAction::Remove => context.confirmation.remove(&window, paths),
+            PlaybackHistoryAction::Trash => context.confirmation.trash(
                 &window,
                 selected_available(&window, paths, |row| row.local_file),
             ),
-            _ => {}
         }
     });
 }
@@ -344,7 +364,7 @@ fn revision(history: &HistoryState) -> u64 {
 mod tests {
     use std::collections::HashSet;
 
-    use super::{build_rows, context_selection_in_row_order, playback_reference};
+    use super::{build_rows, context_selection_in_row_order};
     use chrono::{Local, TimeZone};
     use riina_core::playback_history::Entry;
 
@@ -425,14 +445,6 @@ mod tests {
         assert!(rows[2].progress.is_empty());
         assert!(!rows[2].local_file);
         assert!(!rows[2].available);
-        assert_eq!(
-            playback_reference(entries[0].path.clone()),
-            tree.path().join("Épisode 1.mkv").to_str().unwrap(),
-        );
-        assert_eq!(
-            playback_reference("https://example.test/film.mkv?x=a%2Fb".into()),
-            "https://example.test/film.mkv?x=a%2Fb",
-        );
     }
 
     #[test]

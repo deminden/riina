@@ -13,10 +13,11 @@ pub(super) fn connect(window: &PlaybackHistoryWindow, anchor: &Anchor) {
         let (Some(window), Ok(index)) = (weak.upgrade(), usize::try_from(index)) else {
             return;
         };
-        if window
-            .get_rows()
-            .row_data(index)
-            .is_some_and(|row| !row.is_group && row.path == path)
+        if !window.get_confirmation_visible()
+            && window
+                .get_rows()
+                .row_data(index)
+                .is_some_and(|row| !row.is_group && row.path == path)
         {
             select(&window, &pointer_anchor, path, index, extend, range);
         }
@@ -26,26 +27,27 @@ pub(super) fn connect(window: &PlaybackHistoryWindow, anchor: &Anchor) {
     let navigation_anchor = anchor.clone();
     window.on_navigate(move |direction, range, page| {
         let Some(window) = weak.upgrade() else { return };
-        navigate(&window, &navigation_anchor, direction, range, page);
+        if !window.get_confirmation_visible() {
+            navigate(&window, &navigation_anchor, direction, range, page);
+        }
     });
 
     let weak = window.as_weak();
     let key_anchor = anchor.clone();
-    window.on_history_key(move |action| {
+    window.on_select_all(move || {
         let Some(window) = weak.upgrade() else { return };
-        if action == 0 {
-            let rows = window.get_rows();
-            let selected = rows
-                .iter()
-                .filter(|row| !row.is_group)
-                .map(|row| row.path.to_string());
-            write_selected_paths(&window, &selected.collect());
-            let first = rows.iter().find(|row| !row.is_group).map(|row| row.path);
-            window.set_selected_path(first.clone().unwrap_or_default());
-            *key_anchor.borrow_mut() = first;
-        } else if (1..=5).contains(&action) {
-            window.invoke_context_action(action - 1, SharedString::default());
+        if window.get_confirmation_visible() {
+            return;
         }
+        let rows = window.get_rows();
+        let first = rows.iter().find(|row| !row.is_group).map(|row| row.path);
+        window.set_selected_path(first.clone().unwrap_or_default());
+        *key_anchor.borrow_mut() = first;
+        let selected = rows
+            .iter()
+            .filter(|row| !row.is_group)
+            .map(|row| row.path.to_string());
+        write_selected_paths(&window, &selected.collect());
     });
 }
 
@@ -138,7 +140,12 @@ fn navigate(
 mod tests {
     use super::*;
     use crate::PlaybackHistoryRow;
-    use slint::{ModelRc, VecModel};
+    use i_slint_backend_testing::{AccessibleRole, ElementHandle};
+    use riina_ui::PlaybackHistoryAction;
+    use slint::{
+        ModelRc, VecModel,
+        platform::{Key, WindowEvent},
+    };
 
     #[test]
     fn keyboard_range_uses_the_original_path_after_rows_shift() -> Result<(), slint::PlatformError>
@@ -149,6 +156,7 @@ mod tests {
         connect(&window, &anchor);
         let row = |path: &str, available| PlaybackHistoryRow {
             path: path.into(),
+            label: path.into(),
             available,
             local_file: available,
             ..Default::default()
@@ -183,8 +191,30 @@ mod tests {
             ["two".into(), "three".into()].into()
         );
         assert!(window.get_has_playable_selection() && window.get_has_local_selection());
+        assert_eq!(window.get_selected_menu_row(), 5);
         window.invoke_navigate(Navigation::PageUp, false, 4);
         assert_eq!(window.get_selected_path(), "new");
+        assert_eq!(window.get_selected_menu_row(), 1);
+
+        window.show()?;
+        ElementHandle::find_by_accessible_label(&window, "three")
+            .find(|row| row.accessible_role() == Some(AccessibleRole::ListItem))
+            .unwrap()
+            .invoke_accessible_default_action();
+        assert_eq!(window.get_selected_path(), "three");
+        let observed = Rc::new(RefCell::new(None));
+        let capture = observed.clone();
+        window.on_context_action(move |action, clicked| {
+            *capture.borrow_mut() = Some((action, clicked))
+        });
+        window.window().dispatch_event(WindowEvent::KeyPressed {
+            text: Key::Return.into(),
+        });
+        assert_eq!(
+            *observed.borrow(),
+            Some((PlaybackHistoryAction::Play, SharedString::default()))
+        );
+        window.hide()?;
         Ok(())
     }
 }

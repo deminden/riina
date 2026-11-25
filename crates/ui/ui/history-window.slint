@@ -2,6 +2,7 @@ import { Theme } from "theme.slint";
 import { ConfirmationSheet } from "confirmation-sheet.slint";
 import { Button, ComboBox, ScrollView } from "std-widgets.slint";
 import { NativeTypography, AuxiliaryPalette } from "shared-controls.slint";
+import { HistoryActionMenu, PlaybackHistoryAction } from "history-action-menu.slint";
 
 export struct PlaybackHistoryRow {
     is-group: bool,
@@ -41,8 +42,10 @@ export component PlaybackHistoryWindow inherits Window {
     in-out property <int> search-mode: 1;
     in-out property <string> selected-path: "";
     in property <[string]> selected-paths: [];
+    in property <int> selected-menu-row: -1;
     in property <bool> has-playable-selection;
     in property <bool> has-local-selection;
+    in property <bool> has-playing-destination;
     in property <bool> has-collapsed-groups;
     in property <bool> has-expanded-groups;
     in property <bool> confirmation-visible;
@@ -52,10 +55,10 @@ export component PlaybackHistoryWindow inherits Window {
     callback search-changed();
     callback search-accepted();
     callback recent-search-selected(int);
-    callback history-key(int);
+    callback select-all();
     callback navigate(PlaybackHistoryNavigation, bool, int);
     callback select-entry(string, int, bool, bool);
-    callback context-action(int, string);
+    callback context-action(PlaybackHistoryAction, string);
     callback open-entry(string);
     callback clear-history();
     callback answer-confirmation(bool);
@@ -180,6 +183,8 @@ export component PlaybackHistoryWindow inherits Window {
         horizontal-scrollbar-policy: always-off;
         Rectangle {
             width: parent.width; height: max(1px, root.rows.length * 46px);
+            accessible-role: list;
+            accessible-label: @tr("Playback History");
             background: root.acrylic-backdrop-enabled ? AuxiliaryPalette.light-acrylic-fill : Theme.auxiliary-light-list-surface;
             for row[index] in root.rows : Rectangle {
                 x: 0; y: index * 46px; width: parent.width; height: 46px;
@@ -199,6 +204,10 @@ export component PlaybackHistoryWindow inherits Window {
                 }
                 if row.is-group : TouchArea {
                     width: parent.width; height: parent.height;
+                    accessible-role: button;
+                    accessible-label: row.label;
+                    accessible-expanded: !row.collapsed;
+                    accessible-action-default => { keys.focus(); root.toggle-group(row.group-key); }
                     clicked => { keys.focus(); root.toggle-group(row.group-key); }
                 }
                 if !row.is-group : Rectangle {
@@ -236,6 +245,12 @@ export component PlaybackHistoryWindow inherits Window {
                 }
                 if !row.is-group : TouchArea {
                     width: parent.width; height: parent.height;
+                    accessible-role: list-item;
+                    accessible-label: row.label;
+                    accessible-item-index: index;
+                    accessible-item-selectable: true;
+                    accessible-item-selected: row.selected;
+                    accessible-action-default => { keys.focus(); root.select-entry(row.path, index, false, false); }
                     pointer-event(event) => {
                         if event.button == PointerEventButton.left && event.kind == PointerEventKind.up {
                             keys.focus();
@@ -247,32 +262,12 @@ export component PlaybackHistoryWindow inherits Window {
                         if row.available { root.open-entry(row.path); }
                     }
                 }
-                if !row.is-group : ContextMenuArea {
+                if !row.is-group : HistoryActionMenu {
                     x: 0; y: 0; width: parent.width; height: parent.height;
-                    Menu {
-                        MenuItem {
-                            title: @tr("Play"); enabled: row.available || root.has-playable-selection;
-                            activated => { root.context-action(0, row.path); }
-                        }
-                        MenuItem {
-                            title: @tr("Play in New Window"); enabled: row.available || root.has-playable-selection;
-                            activated => { root.context-action(1, row.path); }
-                        }
-                        MenuSeparator {}
-                        MenuItem {
-                            title: @tr("Show in File Manager"); enabled: row.local-file || root.has-local-selection;
-                            activated => { root.context-action(2, row.path); }
-                        }
-                        MenuSeparator {}
-                        MenuItem {
-                            title: @tr("Remove from History");
-                            activated => { root.context-action(3, row.path); }
-                        }
-                        MenuItem {
-                            title: @tr("Move to Trash…"); enabled: row.local-file || root.has-local-selection;
-                            activated => { root.context-action(4, row.path); }
-                        }
-                    }
+                    can-play: row.available || root.has-playable-selection;
+                    can-reveal: row.local-file || root.has-local-selection;
+                    has-playing-destination: root.has-playing-destination;
+                    action(selected) => { root.context-action(selected, row.path); }
                 }
             }
             if root.rows.length == 0 : Text {
@@ -281,6 +276,14 @@ export component PlaybackHistoryWindow inherits Window {
                 color: Theme.history-secondary-text; font-size: 12px; horizontal-alignment: center; vertical-alignment: center;
             }
         }
+    }
+
+    keyboard-menu := HistoryActionMenu {
+        x: 0; y: 0; width: 0; height: 0;
+        can-play: root.has-playable-selection;
+        can-reveal: root.has-local-selection;
+        has-playing-destination: root.has-playing-destination;
+        action(selected) => { root.context-action(selected, ""); }
     }
 
     if root.status-text != "" : Text {
@@ -296,7 +299,16 @@ export component PlaybackHistoryWindow inherits Window {
         }
         if search-input.has-focus { return reject; }
         if (event.modifiers.control || event.modifiers.meta) && (event.text == "a" || event.text == "A") {
-            root.history-key(0); return accept;
+            root.select-all(); return accept;
+        }
+        if !event.modifiers.alt && !event.modifiers.control && !event.modifiers.meta
+            && (event.text == Key.Menu || (event.text == Key.F10 && event.modifiers.shift)) {
+            if root.selected-menu-row >= 0 {
+                let row-bottom = (root.selected-menu-row + 1) * 46px + outline.content-y;
+                keyboard-menu.show({ x: outline.x + 40px,
+                    y: outline.y + clamp(row-bottom, 0px, outline.visible-height) });
+            }
+            return accept;
         }
         if !event.modifiers.alt && !event.modifiers.control && !event.modifiers.meta && (
             event.text == Key.UpArrow || event.text == Key.DownArrow || event.text == Key.Home
@@ -311,19 +323,19 @@ export component PlaybackHistoryWindow inherits Window {
         }
         if event.modifiers.alt || event.modifiers.shift { return reject; }
         if (event.modifiers.control || event.modifiers.meta) && event.text == Key.Return {
-            root.history-key(2); return accept;
+            root.context-action(PlaybackHistoryAction.play-in-new-window, ""); return accept;
         }
         if (event.modifiers.control || event.modifiers.meta) && (event.text == "l" || event.text == "L") {
-            root.history-key(3); return accept;
+            root.context-action(PlaybackHistoryAction.reveal, ""); return accept;
         }
         if (event.modifiers.control || event.modifiers.meta)
             && (event.text == Key.Backspace || event.text == Key.Delete) {
-            root.history-key(5); return accept;
+            root.context-action(PlaybackHistoryAction.trash, ""); return accept;
         }
         if event.modifiers.control || event.modifiers.meta { return reject; }
-        if event.text == Key.Return { root.history-key(1); return accept; }
+        if event.text == Key.Return { root.context-action(PlaybackHistoryAction.play, ""); return accept; }
         if event.text == Key.Backspace || event.text == Key.Delete {
-            root.history-key(4); return accept;
+            root.context-action(PlaybackHistoryAction.remove, ""); return accept;
         }
         return reject;
     }

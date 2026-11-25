@@ -1,0 +1,23 @@
+export enum PlaybackHistoryAction { play, play-in-new-window, reveal, remove, trash }
+
+export component HistoryActionMenu inherits ContextMenuArea {
+    in property <bool> can-play;
+    in property <bool> can-reveal;
+    in property <bool> has-playing-destination;
+    callback action(PlaybackHistoryAction);
+
+    Menu {
+        MenuItem { title: @tr("Play"); enabled: root.can-play;
+            activated => { root.action(PlaybackHistoryAction.play); } }
+        if root.has-playing-destination : MenuItem { title: @tr("Play in New Window"); enabled: root.can-play;
+            activated => { root.action(PlaybackHistoryAction.play-in-new-window); } }
+        MenuSeparator {}
+        MenuItem { title: @tr("Show in File Manager"); enabled: root.can-reveal;
+            activated => { root.action(PlaybackHistoryAction.reveal); } }
+        MenuSeparator {}
+        MenuItem { title: @tr("Remove from History");
+            activated => { root.action(PlaybackHistoryAction.remove); } }
+        MenuItem { title: @tr("Move to Trash…"); enabled: root.can-reveal;
+            activated => { root.action(PlaybackHistoryAction.trash); } }
+    }
+}

@@ -1,17 +1,21 @@
 //! Own the History window and resolve live playback destinations at activation.
-use super::{CollapsedGroups, HistoryState, availability::Availability, report, revision};
-use crate::{
-    PlaybackHistoryWindow, PlayerWindow, media_open::HistoryDestination,
-    player::surface::PlayerDisplay, player_ui::InitialMedia,
+use super::{
+    CollapsedGroups, HistoryState, availability::Availability, open_request, report, revision,
 };
-use riina_core::{RecentMedia, playback_history::Entry};
-use riina_ui::{PlayerMenuActions, PlayerPreferences};
+use crate::{
+    PlaybackHistoryWindow, PlayerWindow, player::surface::PlayerDisplay, player_ui::InitialMedia,
+};
+use riina_core::playback_history::Entry;
+use riina_ui::PlayerMenuActions;
 use slint::{CloseRequestResponse, ComponentHandle, Timer, winit_030::WinitWindowAccessor};
 use std::{
     cell::{Cell, OnceCell, RefCell},
     path::PathBuf,
     rc::{Rc, Weak},
-    sync::{Arc, atomic::AtomicBool},
+    sync::{
+        Arc,
+        atomic::{AtomicBool, AtomicU64, Ordering},
+    },
     time::Duration,
 };
 
@@ -58,6 +62,7 @@ pub(crate) struct ApplicationHistory {
     availability: Availability,
     destinations: RefCell<Vec<PlayerRoute>>,
     next_id: Cell<u64>,
+    open_generation: Arc<AtomicU64>,
     launch: OnceCell<Launch>,
     close: OnceCell<Box<dyn Fn()>>,
 }
@@ -69,6 +74,14 @@ struct PlayerRoute {
     player: riina_mpv::CommandSender,
     sync: HistorySync,
     display: PlayerDisplay,
+}
+
+impl PlayerRoute {
+    fn visible_window(&self) -> Option<PlayerWindow> {
+        let app = self.window.upgrade()?;
+        self.display.switchable(&app)?;
+        Some(app)
+    }
 }
 
 pub(crate) struct Registration {
@@ -83,6 +96,9 @@ impl Drop for Registration {
                 .destinations
                 .borrow_mut()
                 .retain(|route| route.id != self.id);
+            if let Some(window) = owner.window.borrow().as_ref() {
+                owner.refresh_destinations(window);
+            }
         }
     }
 }
@@ -179,6 +195,24 @@ impl ApplicationHistory {
             .map(|(app, route)| (app, route.display))
     }
 
+    fn history_destination(&self) -> Option<(PlayerWindow, PlayerRoute)> {
+        self.destinations
+            .borrow()
+            .iter()
+            .rev()
+            .find_map(|route| Some((route.visible_window()?, route.clone())))
+    }
+
+    fn refresh_destinations(&self, window: &PlaybackHistoryWindow) {
+        let playing = self
+            .destinations
+            .borrow()
+            .iter()
+            .filter_map(PlayerRoute::visible_window)
+            .any(|app| app.get_loaded());
+        window.set_has_playing_destination(playing);
+    }
+
     pub(crate) fn sync_plugins(&self, entries: &[Entry]) -> Result<(), String> {
         let routes = self.destinations.borrow().clone();
         let mut failure = None;
@@ -190,46 +224,105 @@ impl ApplicationHistory {
         failure.map_or(Ok(()), Err)
     }
 
-    pub(super) fn open_single(&self, window: &PlaybackHistoryWindow, path: String, position: f64) {
-        if let Some((app, route)) = self.active_player() {
-            if let Err(error) = route.display.reveal(&app) {
-                report(window, format!("Could not show the player: {error}"));
-                return;
-            }
-            crate::media_open::open_recent(
-                &app,
-                RecentMedia {
-                    path,
-                    title: String::new(),
-                    position,
-                },
-                app.global::<PlayerPreferences>().get_resume_last_position(),
-                route.player,
-            );
-        } else {
-            self.launch_from_history(window, vec![path], Some(position), false);
-        }
-    }
-
-    pub(super) fn open_selection(
-        &self,
+    pub(super) fn request_open(
+        self: &Rc<Self>,
         window: &PlaybackHistoryWindow,
         paths: Vec<String>,
-        destination: HistoryDestination,
+        intent: open_request::Intent,
     ) {
         if paths.is_empty() {
             return;
         }
-        if let Some((app, route)) = self.active_player() {
-            if matches!(destination, HistoryDestination::CurrentPlayer)
-                && let Err(error) = route.display.reveal(&app)
+        let generation = self
+            .open_generation
+            .fetch_add(1, Ordering::Relaxed)
+            .wrapping_add(1);
+        let current = self.open_generation.clone();
+        let (ready, result) = tokio::sync::oneshot::channel();
+        if let Err(error) = crate::background::spawn_named("riina-history-open", move || {
+            let prepared =
+                open_request::prepare(paths, || current.load(Ordering::Relaxed) != generation);
+            let _ = ready.send(prepared);
+        }) {
+            report(
+                window,
+                format!("Could not prepare Playback History files: {error}"),
+            );
+            return;
+        }
+
+        window.set_status_text("Opening…".into());
+        let owner = Rc::downgrade(self);
+        let target = window.as_weak();
+        if let Err(error) = slint::spawn_local(async move {
+            let result = result.await;
+            let (Some(owner), Some(window)) = (owner.upgrade(), target.upgrade()) else {
+                return;
+            };
+            if owner.open_generation.load(Ordering::Relaxed) != generation
+                || !window.window().is_visible()
             {
-                report(window, format!("Could not show the player: {error}"));
                 return;
             }
-            crate::media_open::history_selection(&app, paths, destination, route.player);
-        } else {
-            self.launch_from_history(window, paths, None, true);
+            if let Ok(Some(prepared)) = result {
+                if prepared.missing_local_file {
+                    owner.availability.clear();
+                }
+                if prepared.paths.is_empty() {
+                    window.set_status_text("No playable history items are available".into());
+                    return;
+                }
+                window.set_status_text(Default::default());
+                owner.dispatch_open(&window, prepared.paths, intent);
+            } else {
+                window.set_status_text("Could not prepare Playback History files".into());
+            }
+        }) {
+            self.cancel_pending_open();
+            report(
+                window,
+                format!("Could not open Playback History files: {error}"),
+            );
+        }
+    }
+
+    fn cancel_pending_open(&self) {
+        self.open_generation.fetch_add(1, Ordering::Relaxed);
+    }
+
+    fn dispatch_open(
+        &self,
+        window: &PlaybackHistoryWindow,
+        paths: Vec<String>,
+        intent: open_request::Intent,
+    ) {
+        use open_request::Intent;
+
+        if !matches!(intent, Intent::PlayInNewWindow)
+            && let Some((app, route)) = self.history_destination()
+        {
+            let result = match intent {
+                Intent::Single { position } => crate::media_open::history_entry(
+                    &app,
+                    &route.display,
+                    &paths[0],
+                    position,
+                    route.player,
+                ),
+                _ => crate::media_open::history_playlist(&app, &route.display, paths, route.player),
+            };
+            if let Err(error) = result {
+                report(
+                    window,
+                    format!("Could not open media from Playback History: {error}"),
+                );
+            }
+            return;
+        }
+
+        match intent {
+            Intent::Single { position } => self.launch_from_history(window, paths, position, false),
+            _ => self.launch_from_history(window, paths, None, true),
         }
     }
 
@@ -300,6 +393,7 @@ impl ApplicationHistory {
             window
         };
         self.availability.clear();
+        self.refresh_destinations(&window);
         let mut last_revision = (revision(&archive.history), self.availability.revision());
         crate::platform::show_window(&window)?;
         crate::playback_history::progress::refresh_on_open(&archive.history);
@@ -312,11 +406,15 @@ impl ApplicationHistory {
         let history = archive.history.clone();
         let groups = self.groups.clone();
         let availability = self.availability.clone();
+        let owner = Rc::downgrade(self);
         super::super::visible_refresh::run(
             &window,
             &self.timer,
             Duration::from_millis(500),
             move |window| {
+                if let Some(owner) = owner.upgrade() {
+                    owner.refresh_destinations(window);
+                }
                 let current_revision = (revision(&history), availability.revision());
                 if last_revision != current_revision {
                     super::refresh(window, &history, &groups, &availability);
@@ -331,6 +429,9 @@ impl ApplicationHistory {
         let weak = Rc::downgrade(self);
         let history = window.as_weak();
         window.window().on_close_requested(move || {
+            if let Some(owner) = weak.upgrade() {
+                owner.cancel_pending_open();
+            }
             if let Some(history) = history.upgrade() {
                 history.invoke_answer_confirmation(false);
             }
@@ -361,9 +462,11 @@ impl ApplicationHistory {
     }
 
     pub(crate) fn hide(&self) {
+        self.cancel_pending_open();
         self.timer.stop();
         self.availability.clear();
         if let Some(window) = self.window.borrow().as_ref() {
+            window.set_status_text(Default::default());
             window.invoke_answer_confirmation(false);
             let _ = window.hide();
         }
@@ -448,6 +551,8 @@ mod tests {
         };
         let (first, first_route) = register("First player")?;
         let (second, second_route) = register("Second player")?;
+        first.show()?;
+        first.set_loaded(true);
         first
             .global::<PlayerMenuActions>()
             .invoke_show_playback_history();
@@ -460,22 +565,37 @@ mod tests {
         );
         let active_title = || owner.active_player().unwrap().0.get_window_title();
         assert_eq!(active_title(), "Second player");
+        assert!(history.get_has_playing_destination());
+        assert_eq!(
+            owner.history_destination().unwrap().0.get_window_title(),
+            "First player"
+        );
         first.invoke_history_player_activated();
         assert_eq!(active_title(), "First player");
         assert!(owner.sync_plugins(&[]).is_ok());
         assert_eq!(updates.load(Ordering::Relaxed), 2);
         drop(first_route);
         assert_eq!(active_title(), "Second player");
+        assert!(!history.get_has_playing_destination());
+        assert!(owner.history_destination().is_none());
         drop(second_route);
         assert!(owner.is_visible());
         assert!(owner.active_player().is_none());
-        owner.open_selection(
+        owner.dispatch_open(
             &history,
             vec!["one.mkv".into(), "two.mkv".into()],
-            HistoryDestination::CurrentPlayer,
+            open_request::Intent::Play,
         );
         assert!(launches.borrow()[0].explicit_playlist);
         assert_eq!(launches.borrow()[0].files, ["one.mkv", "two.mkv"]);
+        owner.dispatch_open(
+            &history,
+            vec!["three.mkv".into()],
+            open_request::Intent::Single { position: None },
+        );
+        assert!(launches.borrow()[1].resume_position.is_none());
+        assert!(!launches.borrow()[1].explicit_playlist);
+        first.hide()?;
         owner.hide();
         assert!(!owner.is_visible());
         Ok(())
