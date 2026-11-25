@@ -1,5 +1,5 @@
 use super::{Command, CommandError, cmd, flag, set};
-use crate::{Playback, audio_equalizer};
+use crate::{Playback, audio_equalizer, audio_preferences::ReplayGainOptions};
 
 impl Command {
     pub(super) fn audio_args(&self) -> Result<Vec<String>, CommandError> {
@@ -47,6 +47,15 @@ pub(super) fn equalizer(
         commands.push(vec!["af".into(), "add".into(), filter]);
     }
     Ok(commands)
+}
+
+pub(super) fn replay_gain(options: ReplayGainOptions) -> Result<Vec<Vec<String>>, CommandError> {
+    options.validate().map_err(CommandError::Preference)?;
+    Ok(options
+        .engine_values()
+        .into_iter()
+        .map(|(key, value)| set(key, value))
+        .collect())
 }
 
 pub(super) fn adjust_volume(delta: f64, boost: bool) -> Result<Vec<Vec<String>>, CommandError> {

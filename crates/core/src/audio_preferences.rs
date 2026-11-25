@@ -55,22 +55,7 @@ impl Settings {
                 "Initial volume must be between 0 and 1000",
             ));
         }
-        if !self.replay_gain_preamp.is_finite()
-            || !(-15.0..=15.0).contains(&self.replay_gain_preamp)
-        {
-            return Err(PreferenceError::new(
-                "audio",
-                "ReplayGain preamp must be between -15 and 15 dB",
-            ));
-        }
-        if !self.replay_gain_fallback.is_finite()
-            || !(-20.0..=6.0).contains(&self.replay_gain_fallback)
-        {
-            return Err(PreferenceError::new(
-                "audio",
-                "ReplayGain fallback must be between -20 and 6 dB",
-            ));
-        }
+        self.replay_gain_options().validate()?;
         if self.device.contains('\0')
             || self.device_description.contains('\0')
             || self.preferred_languages.contains('\0')
@@ -91,21 +76,13 @@ impl Settings {
             ("ad-lavc-threads".into(), self.audio_threads.to_string()),
             ("alang".into(), self.preferred_languages.clone()),
             ("audio-spdif".into(), self.spdif_value()),
-            ("replaygain".into(), self.replay_gain.native_value().into()),
-            (
-                "replaygain-preamp".into(),
-                self.replay_gain_preamp.to_string(),
-            ),
-            (
-                "replaygain-clip".into(),
-                if self.replay_gain_clip { "yes" } else { "no" }.into(),
-            ),
-            (
-                "replaygain-fallback".into(),
-                self.replay_gain_fallback.to_string(),
-            ),
-            ("gapless-audio".into(), self.gapless.native_value().into()),
         ];
+        options.extend(
+            self.replay_gain_options()
+                .engine_values()
+                .map(|(key, value)| (key.into(), value)),
+        );
+        options.push(("gapless-audio".into(), self.gapless.native_value().into()));
         if self.driver != Driver::Default {
             options.push(("ao".into(), self.driver.native_value().into()));
         }
@@ -125,6 +102,60 @@ impl Settings {
             .map(SpdifCodec::native_value)
             .collect::<Vec<_>>()
             .join(",")
+    }
+
+    pub fn replay_gain_options(&self) -> ReplayGainOptions {
+        ReplayGainOptions {
+            mode: self.replay_gain,
+            preamp: self.replay_gain_preamp,
+            clip: self.replay_gain_clip,
+            fallback: self.replay_gain_fallback,
+        }
+    }
+
+    pub fn set_replay_gain_options(&mut self, options: ReplayGainOptions) {
+        self.replay_gain = options.mode;
+        self.replay_gain_preamp = options.preamp;
+        self.replay_gain_clip = options.clip;
+        self.replay_gain_fallback = options.fallback;
+    }
+}
+
+#[derive(Debug, Default, Clone, Copy, PartialEq)]
+pub struct ReplayGainOptions {
+    pub mode: ReplayGain,
+    pub preamp: f64,
+    pub clip: bool,
+    pub fallback: f64,
+}
+
+impl ReplayGainOptions {
+    pub(crate) fn validate(self) -> Result<(), PreferenceError> {
+        if !(-15.0..=15.0).contains(&self.preamp) {
+            return Err(PreferenceError::new(
+                "audio",
+                "ReplayGain preamp must be between -15 and 15 dB",
+            ));
+        }
+        if !(-20.0..=6.0).contains(&self.fallback) {
+            return Err(PreferenceError::new(
+                "audio",
+                "ReplayGain fallback must be between -20 and 6 dB",
+            ));
+        }
+        Ok(())
+    }
+
+    pub(crate) fn engine_values(self) -> [(&'static str, String); 4] {
+        [
+            ("replaygain", self.mode.native_value().into()),
+            ("replaygain-preamp", self.preamp.to_string()),
+            (
+                "replaygain-clip",
+                if self.clip { "yes" } else { "no" }.into(),
+            ),
+            ("replaygain-fallback", self.fallback.to_string()),
+        ]
     }
 }
 

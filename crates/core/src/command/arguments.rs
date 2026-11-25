@@ -109,6 +109,7 @@ impl Command {
             | Self::SetAudioFilterAt { .. }
             | Self::VideoViewport(_)
             | Self::AudioEqualizer(_)
+            | Self::SetReplayGain(_)
             | Self::VideoReflection { .. }
             | Self::EnterCrop(_)
             | Self::ExitCrop { .. }

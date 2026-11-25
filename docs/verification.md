@@ -5466,3 +5466,35 @@ opacity and switched to Simple Mode. All three test players exited normally.
 - Linux application SHA-256 `dd96fe65ee09c0d04e41ee8062fcb30ac9fc6cb8040e4ee6dd0405edeee68e32`
 - X11 and overlay libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`
 - Wayland MPRIS libmpv SHA-256 `cdce854e1811942602587310026306d92d30c0f593f2be676f07659ae43061d8`
+
+### Audio startup level and live ReplayGain 2026-11-25
+
+The shared startup path selects the explicit launch volume first, then the
+configured initial volume when enabled, then the last saved level. Both
+renderers clamp the choice to the active 100% or 200% limit. ReplayGain edits
+apply one validated command to the player that owns Settings and persist the
+same values for the next player. A profile save failure restores the former
+decoder values and form selection. [IINA 1.5.0 engine options](../reference/iina-upstream/iina/MPVController.swift),
+[mpv audio option reference](https://mpv.io/manual/stable/#audio)
+
+Three isolated Linux players verified their starting level through the
+native decoder. X11 observed the configured 67% and the remembered 42%
+with the initial setting off. Wayland clamped a configured 235% to 200%
+with boost enabled. Play/Pause, seek, MPRIS volume and shutdown still worked.
+All three processes exited normally.
+
+The full Windows gate passed strict Clippy, 1,099 workspace tests, 79 Python
+tests and four browser tests. The new Settings regressions exercised live
+ReplayGain, durable save and rollback on a failed save. The 66 pinned Windows
+native tests and the three Linux native audio tests passed with null audio.
+The ReplayGain test observed all four new values and retained the same
+paused file, position and mixer volume. The Windows build passed playback,
+controls and shutdown on a private desktop in 9,005 ms. Both Apple targets
+passed cross-Clippy. Native macOS interaction and live propagation to other
+already open players remain open.
+
+- Windows application SHA-256 `80e5b206c315a88bbd6bfde19228fadf058363e88706e09c3c8940fb22832739`
+- Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
+- Linux application SHA-256 `cba18515503c085018bc934be8ab4df685c88b932b9d016afc6e898bb586f444`
+- X11 libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`
+- Wayland libmpv SHA-256 `cdce854e1811942602587310026306d92d30c0f593f2be676f07659ae43061d8`

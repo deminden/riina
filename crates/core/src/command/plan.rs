@@ -18,6 +18,7 @@ impl Command {
                 key_bindings::mpv_action_commands(action).map_err(CommandError::InputBinding)?
             }
             Self::AudioEqualizer(gains) => audio::equalizer(state, gains)?,
+            Self::SetReplayGain(options) => audio::replay_gain(*options)?,
             Self::SubtitleLetterboxMargins(enabled) => {
                 let value = flag(*enabled);
                 vec![

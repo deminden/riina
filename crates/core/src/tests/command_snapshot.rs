@@ -43,6 +43,7 @@ command_samples! {
     SeekWithType { seconds: 31.5, seek_type: control_preferences::SeekType::Exact };
     Volume[64.0];
     AudioDevice["auto".into()];
+    SetReplayGain[audio_preferences::ReplayGainOptions::default()];
     AdjustVolume { delta: 50.0, boost: true };
     SetVolumeBoost[true];
     ToggleMute;

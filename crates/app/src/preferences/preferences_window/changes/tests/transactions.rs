@@ -74,6 +74,68 @@ impl Transaction {
     }
 }
 
+#[test]
+fn replay_gain_edits_reach_the_live_decoder_and_persist_without_a_restart() {
+    use riina_core::audio_preferences::{ReplayGain, ReplayGainOptions};
+
+    let transaction = Transaction::new();
+    let form = transaction.window.global::<riina_ui::AudioSettingsState>();
+    form.set_audio_replay_gain_index(2);
+    form.set_audio_replay_gain_preamp_text("-2.5".into());
+    form.set_audio_replay_gain_clip(true);
+    form.set_audio_replay_gain_fallback_text("-4".into());
+    let selected = ReplayGainOptions {
+        mode: ReplayGain::Album,
+        preamp: -2.5,
+        clip: true,
+        fallback: -4.0,
+    };
+    assert_eq!(
+        transaction.apply(),
+        [
+            transaction.expected_subtitle_reload(),
+            Command::SetReplayGain(selected)
+        ]
+    );
+    assert_eq!(
+        transaction.profile.read().audio.replay_gain_options(),
+        selected
+    );
+    assert!(!transaction.player.app.get_status().contains("restart"));
+}
+
+#[test]
+fn replay_gain_save_failure_restores_the_decoder_and_form() {
+    use riina_core::audio_preferences::{ReplayGain, ReplayGainOptions};
+
+    let transaction = Transaction::new();
+    let previous = transaction.profile.read().audio.replay_gain_options();
+    let subtitle_reload = transaction.expected_subtitle_reload();
+    let form = transaction.window.global::<riina_ui::AudioSettingsState>();
+    form.set_audio_replay_gain_index(1);
+    std::fs::remove_file(&transaction.profile.file).unwrap();
+    std::fs::create_dir(&transaction.profile.file).unwrap();
+
+    let commands = transaction.apply();
+    assert_eq!(commands.first(), Some(&subtitle_reload));
+    assert_eq!(
+        commands
+            .iter()
+            .filter(|command| matches!(command, Command::SetReplayGain(_)))
+            .cloned()
+            .collect::<Vec<_>>(),
+        [
+            Command::SetReplayGain(ReplayGainOptions {
+                mode: ReplayGain::Track,
+                ..previous
+            }),
+            Command::SetReplayGain(previous)
+        ]
+    );
+    assert_eq!(form.get_audio_replay_gain_index(), 0);
+    assert!(transaction.profile.file.is_dir());
+}
+
 macro_rules! checkbox_cases {
     ($($test:ident => $([$form:ty])? $window_get:ident, $window_set:ident,
       $([$projected:ty])? $app_get:ident, $saved:expr;)+) => {

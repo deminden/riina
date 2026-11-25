@@ -1,6 +1,62 @@
 use super::*;
 
 #[test]
+#[ignore = "requires provisioned libmpv; verifies live ReplayGain values during paused playback"]
+fn replay_gain_changes_all_options_without_reloading_playback() {
+    use riina_core::audio_preferences::{ReplayGain, ReplayGainOptions};
+
+    let root = fixture_root();
+    let harness = Harness::with_options(&root, vec![("ao".into(), "null".into())]).unwrap();
+    harness.send(Command::SetPauseWhenOpen(true)).unwrap();
+    harness
+        .send(Command::Load(
+            root.join("tests/fixtures/moving-square.avi")
+                .to_string_lossy()
+                .into_owned(),
+        ))
+        .unwrap();
+    let loaded = harness.wait(|state| {
+        state.paused
+            && state.position.is_some()
+            && state.audio_output.is_some()
+            && state
+                .tracks
+                .iter()
+                .any(|track| track.kind == TrackKind::Audio && track.selected)
+    });
+    let properties = [
+        ("replaygain", serde_json::json!("album")),
+        ("replaygain-preamp", serde_json::json!(-2.5)),
+        ("replaygain-clip", serde_json::json!(true)),
+        ("replaygain-fallback", serde_json::json!(-4.0)),
+    ];
+    for (name, _) in &properties {
+        harness
+            .send(Command::ObserveMpvProperty((*name).into()))
+            .unwrap();
+    }
+    harness
+        .send(Command::SetReplayGain(ReplayGainOptions {
+            mode: ReplayGain::Album,
+            preamp: -2.5,
+            clip: true,
+            fallback: -4.0,
+        }))
+        .unwrap();
+    let applied = harness.wait(|state| {
+        state.error().is_some()
+            || properties
+                .iter()
+                .all(|(name, expected)| state.observed_mpv_properties.get(*name) == Some(expected))
+    });
+    assert_eq!(applied.error(), None);
+    assert!(applied.paused);
+    assert_eq!(applied.generation, loaded.generation);
+    assert_eq!(applied.position, loaded.position);
+    assert_eq!(applied.volume, loaded.volume);
+}
+
+#[test]
 #[ignore = "requires provisioned libmpv; verifies audio-device selection through observed property state"]
 fn audio_device_selection_updates_the_live_engine() {
     let root = fixture_root();

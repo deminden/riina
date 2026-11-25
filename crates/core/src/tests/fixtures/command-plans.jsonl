@@ -17,6 +17,7 @@
 {"command":"SeekWithType","mpv":[["seek","31.5","relative+exact"]],"resume_on_load":false}
 {"command":"Volume","mpv":[["set","volume","64"]],"resume_on_load":false}
 {"command":"AudioDevice","mpv":[["set","audio-device","auto"]],"resume_on_load":false}
+{"command":"SetReplayGain","mpv":[["set","replaygain","no"],["set","replaygain-preamp","0"],["set","replaygain-clip","no"],["set","replaygain-fallback","0"]],"resume_on_load":false}
 {"command":"AdjustVolume","mpv":[["set","volume-max","200"],["add","volume","50"]],"resume_on_load":false}
 {"command":"SetVolumeBoost","mpv":[["set","volume-max","200"],["add","volume","0"]],"resume_on_load":false}
 {"command":"ToggleMute","mpv":[["cycle","mute"]],"resume_on_load":false}

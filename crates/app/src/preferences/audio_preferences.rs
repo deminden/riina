@@ -3,9 +3,11 @@
 use super::model::{PreferenceSection, SectionError};
 use crate::{AudioSettingsState, PreferencesWindow};
 use riina_core::audio_preferences::{
-    Driver, Gapless, OutputDevice, ReplayGain, Settings, SpdifCodec,
+    Driver, Gapless, OutputDevice, ReplayGain, ReplayGainOptions, Settings, SpdifCodec,
 };
 use slint::{ComponentHandle, Model};
+
+const REPLAY_GAIN_MODES: [ReplayGain; 3] = [ReplayGain::Off, ReplayGain::Track, ReplayGain::Album];
 
 impl PreferenceSection for Settings {
     fn get(all: &riina_core::Preferences) -> Self {
@@ -35,7 +37,9 @@ impl PreferenceSection for Settings {
     }
 
     fn needs_restart(&self, previous: &Self) -> bool {
-        self != previous
+        let mut selected = self.clone();
+        selected.set_replay_gain_options(previous.replay_gain_options());
+        &selected != previous
     }
 }
 
@@ -56,7 +60,6 @@ fn selected<T: Copy>(items: &[T], index: i32, label: &str) -> Result<T, String> 
 pub(crate) fn current_window(window: &crate::PreferencesWindow) -> Result<Settings, String> {
     let audio = window.global::<AudioSettingsState>();
     let drivers = Driver::choices_for_current_platform();
-    let replay_gain = [ReplayGain::Off, ReplayGain::Track, ReplayGain::Album];
     let gapless = [Gapless::Disabled, Gapless::Weak, Gapless::Strong];
     let device_index = usize::try_from(audio.get_audio_device_index())
         .map_err(|_| "Invalid audio device selection".to_owned())?;
@@ -90,7 +93,7 @@ pub(crate) fn current_window(window: &crate::PreferencesWindow) -> Result<Settin
             "Initial volume",
         )?,
         replay_gain: selected(
-            &replay_gain,
+            &REPLAY_GAIN_MODES,
             audio.get_audio_replay_gain_index(),
             "ReplayGain",
         )?,
@@ -182,7 +185,6 @@ fn install_driver(window: &PreferencesWindow, preferences: &Settings) {
 fn install_output_options(window: &PreferencesWindow, preferences: &Settings) {
     let audio = window.global::<AudioSettingsState>();
     let text = window.global::<riina_ui::MediaSettingsText>();
-    let replay_gain = [ReplayGain::Off, ReplayGain::Track, ReplayGain::Album];
     let gapless = [Gapless::Disabled, Gapless::Weak, Gapless::Strong];
     audio.set_audio_spdif_ac3(preferences.spdif.contains(&SpdifCodec::Ac3));
     audio.set_audio_spdif_dts(preferences.spdif.contains(&SpdifCodec::Dts));
@@ -191,16 +193,8 @@ fn install_output_options(window: &PreferencesWindow, preferences: &Settings) {
     audio.set_audio_spdif_truehd(preferences.spdif.contains(&SpdifCodec::TrueHd));
     audio.set_audio_initial_volume_enabled(preferences.initial_volume_enabled);
     audio.set_audio_initial_volume_text(preferences.initial_volume.to_string().into());
-    audio.set_audio_replay_gain_index(
-        replay_gain
-            .iter()
-            .position(|value| *value == preferences.replay_gain)
-            .unwrap_or(0) as i32,
-    );
     audio.set_audio_replay_gain_options(text.get_replay_gain_options());
-    audio.set_audio_replay_gain_preamp_text(preferences.replay_gain_preamp.to_string().into());
-    audio.set_audio_replay_gain_clip(preferences.replay_gain_clip);
-    audio.set_audio_replay_gain_fallback_text(preferences.replay_gain_fallback.to_string().into());
+    install_replay_gain(window, preferences.replay_gain_options());
     audio.set_audio_gapless_index(
         gapless
             .iter()
@@ -210,6 +204,19 @@ fn install_output_options(window: &PreferencesWindow, preferences: &Settings) {
     audio.set_audio_gapless_options(text.get_gapless_options());
     audio.set_audio_preferred_languages(preferences.preferred_languages.clone().into());
     crate::language_token_preferences::install_audio(window, &preferences.preferred_languages);
+}
+
+pub(crate) fn install_replay_gain(window: &PreferencesWindow, options: ReplayGainOptions) {
+    let audio = window.global::<AudioSettingsState>();
+    audio.set_audio_replay_gain_index(
+        REPLAY_GAIN_MODES
+            .iter()
+            .position(|mode| *mode == options.mode)
+            .unwrap_or(0) as i32,
+    );
+    audio.set_audio_replay_gain_preamp_text(options.preamp.to_string().into());
+    audio.set_audio_replay_gain_clip(options.clip);
+    audio.set_audio_replay_gain_fallback_text(options.fallback.to_string().into());
 }
 
 pub(crate) fn install_devices(

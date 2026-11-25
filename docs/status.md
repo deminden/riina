@@ -36,6 +36,11 @@ Implementation does not imply every state or platform is verified.
 - **Controller arrows:** Interface Settings selects playback speed, playlist
   navigation, or a 10-second seek. The main controller and Touch Bar use the
   selected action. The Music Mode arrows navigate the playlist.
+- **Audio startup and ReplayGain:** a new player uses the configured initial
+  volume when enabled and the saved volume otherwise. An explicit launch
+  volume takes precedence, within the active 100% or 200% limit. ReplayGain
+  mode, preamp, clipping and fallback edits apply to the player that owns
+  the Settings form and save for subsequent players.
 - **Music Mode catalog:** the compact player opens Playlist and Chapters in
   the same panel. The toolbar remembers the active tab, and both lists keep
   their scroll positions when switching between the main and compact player.

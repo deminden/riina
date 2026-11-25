@@ -17,6 +17,7 @@ pub(super) struct Draft {
     cache: Cache,
     network: Connection,
     audio: audio_preferences::Settings,
+    previous_replay_gain: audio_preferences::ReplayGainOptions,
     tone_mapping: hdr_preferences::Settings,
     pub(super) previous_tone_mapping: hdr_preferences::Settings,
     tone_mapping_changed: bool,
@@ -37,6 +38,7 @@ pub(super) struct Applied {
     end_policy: bool,
     tone_mapping: bool,
     video_threads: bool,
+    replay_gain: bool,
 }
 
 impl Draft {
@@ -111,6 +113,7 @@ impl Draft {
             cache,
             network,
             audio,
+            previous_replay_gain: saved.audio.replay_gain_options(),
             tone_mapping,
             previous_tone_mapping,
             tone_mapping_changed,
@@ -168,6 +171,11 @@ impl Draft {
             sender.send(Command::VideoThreads(self.video_threads))?;
             applied.video_threads = true;
         }
+        let gain = self.audio.replay_gain_options();
+        if gain != self.previous_replay_gain {
+            sender.send(Command::SetReplayGain(gain))?;
+            applied.replay_gain = true;
+        }
         Ok(())
     }
 
@@ -191,6 +199,13 @@ impl Draft {
         general: &general::Draft,
         applied: &Applied,
     ) {
+        if applied.replay_gain {
+            crate::preferences::restore_playback(
+                sender,
+                Command::SetReplayGain(self.previous_replay_gain),
+            );
+        }
+        crate::audio_preferences::install_replay_gain(window, self.previous_replay_gain);
         if applied.end_policy {
             crate::preferences::restore_playback(
                 sender,

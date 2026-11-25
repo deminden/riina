@@ -23,9 +23,9 @@ mod tracks;
 mod video;
 
 use crate::{
-    LoopMode, TrackKind, control_preferences, crop, crop_session, hdr_preferences,
-    network_preferences, screenshot, subtitle_color, subtitle_controls, video_controls,
-    video_reflection, video_viewport,
+    LoopMode, TrackKind, audio_preferences::ReplayGainOptions, control_preferences, crop,
+    crop_session, hdr_preferences, network_preferences, screenshot, subtitle_color,
+    subtitle_controls, video_controls, video_reflection, video_viewport,
 };
 
 fn cmd<const N: usize>(parts: [&str; N]) -> Vec<String> {
@@ -78,6 +78,7 @@ pub enum Command {
     },
     Volume(f64),
     AudioDevice(String),
+    SetReplayGain(ReplayGainOptions),
     AdjustVolume {
         delta: f64,
         boost: bool,
