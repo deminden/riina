@@ -1,5 +1,5 @@
 //! Own the History window and resolve live playback destinations at activation.
-use super::{CollapsedGroups, HistoryState, report, revision};
+use super::{CollapsedGroups, HistoryState, availability::Availability, report, revision};
 use crate::{
     PlaybackHistoryWindow, PlayerWindow, media_open::HistoryDestination,
     player::surface::PlayerDisplay, player_ui::InitialMedia,
@@ -54,6 +54,7 @@ pub(crate) struct ApplicationHistory {
     window: RefCell<Option<PlaybackHistoryWindow>>,
     timer: Rc<Timer>,
     groups: CollapsedGroups,
+    availability: Availability,
     destinations: RefCell<Vec<PlayerRoute>>,
     next_id: Cell<u64>,
     launch: OnceCell<Launch>,
@@ -287,6 +288,7 @@ impl ApplicationHistory {
                     collapsed_groups: self.groups.clone(),
                     owner: Rc::downgrade(self),
                     confirmation: Rc::default(),
+                    availability: self.availability.clone(),
                 },
             );
             if let Some(app) = app {
@@ -296,9 +298,10 @@ impl ApplicationHistory {
             *self.window.borrow_mut() = Some(window.clone_strong());
             window
         };
-        let mut last_revision = revision(&archive.history);
-        super::refresh(&window, &archive.history, &self.groups);
+        self.availability.clear();
+        let mut last_revision = (revision(&archive.history), self.availability.revision());
         crate::platform::show_window(&window)?;
+        super::refresh(&window, &archive.history, &self.groups, &self.availability);
         crate::platform::enable_history_acrylic(&window);
         window.window().with_winit_window(|window| {
             window.set_minimized(false);
@@ -306,14 +309,15 @@ impl ApplicationHistory {
         });
         let history = archive.history.clone();
         let groups = self.groups.clone();
+        let availability = self.availability.clone();
         super::super::visible_refresh::run(
             &window,
             &self.timer,
             Duration::from_millis(500),
             move |window| {
-                let current_revision = revision(&history);
+                let current_revision = (revision(&history), availability.revision());
                 if last_revision != current_revision {
-                    super::refresh(window, &history, &groups);
+                    super::refresh(window, &history, &groups, &availability);
                     last_revision = current_revision;
                 }
             },
@@ -356,6 +360,7 @@ impl ApplicationHistory {
 
     pub(crate) fn hide(&self) {
         self.timer.stop();
+        self.availability.clear();
         if let Some(window) = self.window.borrow().as_ref() {
             window.invoke_answer_confirmation(false);
             let _ = window.hide();

@@ -1,3 +1,4 @@
+mod availability;
 mod confirmation;
 mod owner;
 mod search;
@@ -25,6 +26,7 @@ struct WindowConnection {
     collapsed_groups: CollapsedGroups,
     owner: Weak<ApplicationHistory>,
     confirmation: Rc<confirmation::Session>,
+    availability: availability::Availability,
 }
 
 pub(crate) fn report(window: &PlaybackHistoryWindow, message: String) {
@@ -33,106 +35,71 @@ pub(crate) fn report(window: &PlaybackHistoryWindow, message: String) {
 }
 
 fn connect_window(window: &PlaybackHistoryWindow, connection: WindowConnection) {
-    let history = &connection.archive.history;
-    let collapsed_groups = &connection.collapsed_groups;
     let selection_anchor = selection::Anchor::default();
-    connect_search(window, history, collapsed_groups);
+    connect_search(window, &connection);
     search::install_recents(window, &connection.archive.preferences_path);
     selection::connect(window, &selection_anchor);
-    connect_group_expansion(window, history, collapsed_groups);
+    connect_group_expansion(window, &connection);
     connect_context_actions(window, &connection);
-    connect_group_collapse(window, history, collapsed_groups);
+    connect_group_collapse(window, &connection);
     connect_open_entry(window, &connection);
     confirmation::connect(window, &connection, selection_anchor);
 }
 
-fn connect_search(
-    window: &PlaybackHistoryWindow,
-    history: &HistoryState,
-    collapsed_groups: &CollapsedGroups,
-) {
+fn connect_search(window: &PlaybackHistoryWindow, connection: &WindowConnection) {
     let weak_window = window.as_weak();
-    let observed_history = history.clone();
-    let search_collapsed_groups = collapsed_groups.clone();
+    let context = connection.clone();
     window.on_search_changed(move || {
         let Some(window) = weak_window.upgrade() else {
             return;
         };
-        riina_core::sync::lock(&search_collapsed_groups).clear();
-        refresh(&window, &observed_history, &search_collapsed_groups);
+        riina_core::sync::lock(&context.collapsed_groups).clear();
+        context.refresh(&window);
     });
 }
 
-fn connect_group_expansion(
-    window: &PlaybackHistoryWindow,
-    history: &HistoryState,
-    collapsed_groups: &CollapsedGroups,
-) {
+fn connect_group_expansion(window: &PlaybackHistoryWindow, connection: &WindowConnection) {
     let weak_window = window.as_weak();
-    let groups_for_toggle = collapsed_groups.clone();
-    let history_for_toggle = history.clone();
+    let context = connection.clone();
     window.on_toggle_group(move |label| {
         let Some(window) = weak_window.upgrade() else {
             return;
         };
         let label = label.to_string();
         {
-            let mut collapsed = groups_for_toggle
-                .lock()
-                .unwrap_or_else(std::sync::PoisonError::into_inner);
+            let mut collapsed = riina_core::sync::lock(&context.collapsed_groups);
             if !collapsed.remove(&label) {
                 collapsed.insert(label);
             }
         }
-        refresh(&window, &history_for_toggle, &groups_for_toggle);
+        context.refresh(&window);
     });
 
     let weak_window = window.as_weak();
-    let groups_for_expand = collapsed_groups.clone();
-    let history_for_expand = history.clone();
+    let context = connection.clone();
     window.on_expand_all_groups(move || {
         let Some(window) = weak_window.upgrade() else {
             return;
         };
-        groups_for_expand
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner)
-            .clear();
-        refresh(&window, &history_for_expand, &groups_for_expand);
+        riina_core::sync::lock(&context.collapsed_groups).clear();
+        context.refresh(&window);
     });
 }
 
-fn connect_group_collapse(
-    window: &PlaybackHistoryWindow,
-    history: &HistoryState,
-    collapsed_groups: &CollapsedGroups,
-) {
+fn connect_group_collapse(window: &PlaybackHistoryWindow, connection: &WindowConnection) {
     let weak_window = window.as_weak();
-    let groups_for_collapse = collapsed_groups.clone();
-    let history_for_collapse = history.clone();
+    let context = connection.clone();
     window.on_collapse_all_groups(move || {
         let Some(window) = weak_window.upgrade() else {
             return;
         };
-        let group_labels = {
-            let history = riina_core::sync::lock(&history_for_collapse);
-            build_rows(
-                history.entries(),
-                window.get_search_text().as_str(),
-                window.get_search_mode(),
-                window.get_group_mode(),
-                &HashSet::new(),
-                &HashSet::new(),
-            )
-            .into_iter()
+        *riina_core::sync::lock(&context.collapsed_groups) = window
+            .get_rows()
+            .iter()
             .filter(|row| row.is_group)
             .map(|row| row.label.to_string())
-            .collect::<HashSet<_>>()
-        };
-        *groups_for_collapse
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner) = group_labels;
-        refresh(&window, &history_for_collapse, &groups_for_collapse);
+            .collect();
+        context.refresh(&window);
     });
 }
 
@@ -152,13 +119,26 @@ fn connect_open_entry(window: &PlaybackHistoryWindow, connection: &WindowConnect
         else {
             return;
         };
-        if describe(&path).available() {
-            owner.open_single(&window, path, position);
+        if window
+            .get_rows()
+            .iter()
+            .any(|row| row.path.as_str() == path && row.available)
+        {
+            owner.open_single(&window, playback_reference(path), position);
         }
     });
 }
 
 impl WindowConnection {
+    fn refresh(&self, window: &PlaybackHistoryWindow) {
+        refresh(
+            window,
+            &self.archive.history,
+            &self.collapsed_groups,
+            &self.availability,
+        );
+    }
+
     fn sync_plugins(&self, entries: &[Entry]) -> Result<(), String> {
         self.owner
             .upgrade()
@@ -209,6 +189,23 @@ fn context_selected_paths(window: &PlaybackHistoryWindow, clicked_path: &str) ->
     context_selection_in_row_order(&visible_paths, &read_selected_paths(window), clicked_path)
 }
 
+fn selected_available(
+    window: &PlaybackHistoryWindow,
+    paths: Vec<String>,
+    predicate: impl Fn(&PlaybackHistoryRow) -> bool,
+) -> Vec<String> {
+    let available = window
+        .get_rows()
+        .iter()
+        .filter(|row| !row.is_group && predicate(row))
+        .map(|row| row.path.to_string())
+        .collect::<HashSet<_>>();
+    paths
+        .into_iter()
+        .filter(|path| available.contains(path.as_str()))
+        .collect()
+}
+
 fn context_selection_in_row_order(
     visible_paths: &[String],
     selected_paths: &HashSet<String>,
@@ -241,9 +238,9 @@ fn connect_context_actions(window: &PlaybackHistoryWindow, connection: &WindowCo
         let paths = context_selected_paths(&window, clicked_path.as_str());
         match action {
             0 | 1 => {
-                let playable = paths
+                let playable = selected_available(&window, paths, |row| row.available)
                     .into_iter()
-                    .filter(|path| describe(path).available())
+                    .map(playback_reference)
                     .collect::<Vec<_>>();
                 let destination = if action == 0 {
                     HistoryDestination::CurrentPlayer
@@ -254,9 +251,15 @@ fn connect_context_actions(window: &PlaybackHistoryWindow, connection: &WindowCo
                     owner.open_selection(&window, playable, destination);
                 }
             }
-            2 => reveal_history_files(&window, paths),
+            2 => reveal_history_files(
+                &window,
+                selected_available(&window, paths, |row| row.local_file),
+            ),
             3 => context.confirmation.remove(&window, paths),
-            4 => context.confirmation.trash(&window, paths),
+            4 => context.confirmation.trash(
+                &window,
+                selected_available(&window, paths, |row| row.local_file),
+            ),
             _ => {}
         }
     });
@@ -293,10 +296,11 @@ fn refresh(
     window: &PlaybackHistoryWindow,
     history: &HistoryState,
     collapsed_groups: &CollapsedGroups,
+    availability: &availability::Availability,
 ) {
     let entries = riina_core::sync::lock(history).entries().to_vec();
     let selected = read_selected_paths(window);
-    let rows = build_rows(
+    let Projection { rows, checks } = build_rows(
         &entries,
         window.get_search_text().as_str(),
         window.get_search_mode(),
@@ -305,7 +309,11 @@ fn refresh(
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner),
         &selected,
+        &availability.snapshot(),
     );
+    if window.window().is_visible() {
+        availability.request(checks);
+    }
     let visible_paths = rows
         .iter()
         .filter(|row| !row.is_group)
@@ -332,6 +340,11 @@ fn revision(history: &HistoryState) -> u64 {
     history.lock().map_or(0, |history| history.revision())
 }
 
+struct Projection {
+    rows: Vec<PlaybackHistoryRow>,
+    checks: Vec<PathBuf>,
+}
+
 fn build_rows(
     entries: &[Entry],
     query: &str,
@@ -339,7 +352,8 @@ fn build_rows(
     group_mode: i32,
     collapsed_groups: &HashSet<String>,
     selected_paths: &HashSet<String>,
-) -> Vec<PlaybackHistoryRow> {
+    files: &availability::Files,
+) -> Projection {
     let query = search::Query::new(query);
     let mut groups = BTreeMap::<String, Vec<(&Entry, MediaDescription)>>::new();
     for entry in entries {
@@ -375,6 +389,7 @@ fn build_rows(
     }
 
     let mut rows = Vec::new();
+    let mut checks = Vec::new();
     for (group, mut entries) in buckets {
         entries.sort_by_key(|(entry, _)| std::cmp::Reverse(entry.date_ms));
         let collapsed = collapsed_groups.contains(&group);
@@ -395,13 +410,22 @@ fn build_rows(
             continue;
         }
         for (entry, description) in entries {
-            let available = description.available();
+            let state = description
+                .local
+                .as_ref()
+                .and_then(|path| files.get(path))
+                .copied();
+            let available = state != Some(false) && !description.invalid_file_url;
+            if let Some(path) = &description.local {
+                checks.push(path.clone());
+            }
             let fallback = if description.local.is_some() {
                 &description.name
             } else {
                 &entry.path
             };
-            let progress = entry.progress.filter(|_| available);
+            let show_progress = available && (description.local.is_none() || state == Some(true));
+            let progress = entry.progress.filter(|_| show_progress);
             rows.push(PlaybackHistoryRow {
                 is_group: false,
                 collapsed: false,
@@ -416,24 +440,19 @@ fn build_rows(
                 path: entry.path.clone().into(),
                 progress_ratio: progress_ratio(progress, entry.duration),
                 available,
-                local_file: description.local.is_some() && available,
+                local_file: state == Some(true),
                 selected: selected_paths.contains(entry.path.as_str()),
             });
         }
     }
-    rows
+    Projection { rows, checks }
 }
 
 struct MediaDescription {
     name: String,
     location: String,
     local: Option<PathBuf>,
-}
-
-impl MediaDescription {
-    fn available(&self) -> bool {
-        self.local.as_ref().is_none_or(|path| path.is_file())
-    }
+    invalid_file_url: bool,
 }
 
 fn describe(reference: &str) -> MediaDescription {
@@ -450,6 +469,7 @@ fn describe(reference: &str) -> MediaDescription {
             name,
             location,
             local: Some(path),
+            invalid_file_url: false,
         };
     }
     if let Ok(url) = url::Url::parse(reference) {
@@ -470,12 +490,14 @@ fn describe(reference: &str) -> MediaDescription {
             name,
             location,
             local: None,
+            invalid_file_url: url.scheme() == "file",
         };
     }
     MediaDescription {
         name: reference.to_owned(),
         location: String::new(),
         local: Some(PathBuf::from(reference)),
+        invalid_file_url: false,
     }
 }
 
@@ -489,10 +511,19 @@ fn path_from_reference(reference: &str) -> Option<PathBuf> {
         return Some(PathBuf::from(reference));
     }
     match url::Url::parse(reference) {
-        Ok(url) if url.scheme() == "file" => url.to_file_path().ok(),
+        Ok(url) if url.scheme() == "file" => url
+            .to_file_path()
+            .ok()
+            .or_else(|| crate::file_actions::local_media_path(reference)),
         Ok(_) => None,
         Err(_) => Some(PathBuf::from(reference)),
     }
+}
+
+fn playback_reference(reference: String) -> String {
+    path_from_reference(&reference)
+        .and_then(|path| path.into_os_string().into_string().ok())
+        .unwrap_or(reference)
 }
 
 fn date_string(date_ms: u64) -> String {
@@ -550,7 +581,7 @@ fn format_time(seconds: f64) -> String {
 mod tests {
     use std::collections::HashSet;
 
-    use super::{build_rows, context_selection_in_row_order};
+    use super::{build_rows, context_selection_in_row_order, playback_reference};
     use riina_core::playback_history::Entry;
 
     #[test]
@@ -600,7 +631,27 @@ mod tests {
             make_entry(&available_path),
             make_entry(&tree.path().join("Épisode 2.mkv")),
         ];
-        let rows = build_rows(&entries, "ÉPISODE ", 1, 1, &HashSet::new(), &HashSet::new());
+        let missing_path = tree.path().join("Épisode 2.mkv");
+        let groups = HashSet::new();
+        let selected = HashSet::new();
+        let pending = build_rows(
+            &entries,
+            "ÉPISODE ",
+            1,
+            1,
+            &groups,
+            &selected,
+            &Default::default(),
+        );
+        assert_eq!(
+            pending.checks,
+            [available_path.clone(), missing_path.clone()]
+        );
+        assert!(pending.rows[1].available);
+        assert!(!pending.rows[1].local_file);
+        let files =
+            super::availability::Files::from([(available_path, true), (missing_path, false)]);
+        let rows = build_rows(&entries, "ÉPISODE ", 1, 1, &groups, &selected, &files).rows;
         assert_eq!(rows.len(), 3);
         assert_eq!(rows[1].label, "Chroniques de Montréal");
         assert_eq!(rows[1].detail, "Épisode 1.mkv");
@@ -610,5 +661,13 @@ mod tests {
         assert!(rows[2].progress.is_empty());
         assert!(!rows[2].local_file);
         assert!(!rows[2].available);
+        assert_eq!(
+            playback_reference(entries[0].path.clone()),
+            tree.path().join("Épisode 1.mkv").to_str().unwrap(),
+        );
+        assert_eq!(
+            playback_reference("https://example.test/film.mkv?x=a%2Fb".into()),
+            "https://example.test/film.mkv?x=a%2Fb",
+        );
     }
 }

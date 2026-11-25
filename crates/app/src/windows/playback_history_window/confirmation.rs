@@ -55,7 +55,6 @@ impl Session {
         let files = paths
             .iter()
             .filter_map(|reference| path_from_reference(reference))
-            .filter(|path| path.is_file())
             .collect::<BTreeSet<_>>();
         let Some(first) = files.first() else {
             window.set_status_text(
@@ -156,7 +155,7 @@ fn clear_history(
                 .lock()
                 .unwrap_or_else(std::sync::PoisonError::into_inner)
                 .clear();
-            refresh(window, &context.archive.history, &context.collapsed_groups);
+            context.refresh(window);
             window.set_status_text(
                 match sync_error {
                     Some(error) => {
@@ -202,11 +201,7 @@ fn remove_history_entries(
     match result {
         Ok((removed, sync_error)) if removed > 0 => {
             clear_history_selection(window, selection_anchor);
-            refresh(
-                window,
-                &connection.archive.history,
-                &connection.collapsed_groups,
-            );
+            connection.refresh(window);
             if let Some(error) = sync_error {
                 report(
                     window,
@@ -228,6 +223,7 @@ fn move_history_files_to_trash(
     let weak_window = window.as_weak();
     let trash_history = connection.archive.history.clone();
     let trash_groups = connection.collapsed_groups.clone();
+    let availability = connection.availability.clone();
     let task = crate::background::spawn_named("riina-history-trash-selection", move || {
         let count = files.len();
         let moved = files
@@ -238,7 +234,10 @@ fn move_history_files_to_trash(
             riina_core::sync::lock(&trash_history).files_changed();
         }
         let _ = crate::background::to_ui(weak_window, move |window| {
-            refresh(&window, &trash_history, &trash_groups);
+            if moved > 0 && window.window().is_visible() {
+                availability.clear();
+                refresh(&window, &trash_history, &trash_groups, &availability);
+            }
             let items = if moved == 1 {
                 "1 file".to_owned()
             } else {
@@ -306,6 +305,7 @@ mod tests {
             collapsed_groups: Arc::default(),
             owner: Weak::new(),
             confirmation: Default::default(),
+            availability: Default::default(),
         };
         connect(&window, &connection, selection::Anchor::default());
         window.show().unwrap();
