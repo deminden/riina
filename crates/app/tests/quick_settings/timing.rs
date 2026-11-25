@@ -156,3 +156,39 @@ fn timing_fields_handle_accessibility_and_keep_playback_keys_out_of_text_edits()
         }
     }
 }
+
+#[test]
+fn numeric_editing_keeps_its_draft_while_a_modified_player_shortcut_runs() {
+    let app = player(6);
+    let screenshots = Rc::new(Cell::new(0));
+    let observed = screenshots.clone();
+    app.global::<PlayerMenuActions>()
+        .on_take_screenshot(move || observed.set(observed.get() + 1));
+    let edits = Rc::new(Cell::new(0));
+    let observed = edits.clone();
+    app.global::<PlayerSidebarActions>()
+        .on_set_speed_text(move |_| {
+            observed.set(observed.get() + 1);
+            true
+        });
+    let input = field(&app, "Custom playback speed");
+    focus(&app, &input);
+    input.set_accessible_value("2.25");
+    for modifier in [Key::Control, Key::Shift] {
+        app.window().dispatch_event(WindowEvent::KeyPressed {
+            text: modifier.into(),
+        });
+    }
+    key(&app, "S");
+    for modifier in [Key::Shift, Key::Control] {
+        app.window().dispatch_event(WindowEvent::KeyReleased {
+            text: modifier.into(),
+        });
+    }
+    assert_eq!(screenshots.get(), 1);
+    assert_eq!(edits.get(), 0);
+    assert_eq!(input.accessible_value().as_deref(), Some("2.25"));
+    key(&app, Key::Escape);
+    assert_eq!(input.accessible_value().as_deref(), Some("1"));
+    assert_eq!(edits.get(), 0);
+}

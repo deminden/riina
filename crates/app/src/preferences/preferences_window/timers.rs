@@ -30,6 +30,7 @@ impl VisibleSettings {
                 window.invoke_close_plugin_settings();
                 window.invoke_plugin_cancel_import();
                 window.invoke_dismiss_utility_dialogs();
+                window.invoke_dismiss_native_subtitle_color();
                 // Continue releasing session resources if the window is closing.
                 let _ = window.hide();
             }

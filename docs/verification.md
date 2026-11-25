@@ -4822,3 +4822,45 @@ pixels remain open.
 - Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
 - Linux application SHA-256 `47f2fea0590f73371b52c5fd9f8beefe0349ae2b3d1f8ca977c984e115385842`
 - Linux libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`
+
+### Subtitle color controls and sidebar shortcuts 2026-11-25
+
+Quick Settings and Settings use AppKit's shared color panel on macOS. The
+active well owns updates to text, outline or background. Selecting a new
+well detaches the old target before setting the initial color. Closing an
+owner dismisses its panel, while closing an earlier owner leaves a newer
+owner's panel available.
+
+The portable color editor starts keyboard focus on Red. Tab and Shift+Tab
+move between channels, and Escape dismisses it with live edits retained.
+While editing a numeric field, unhandled Control or Command shortcuts
+reach the player with the numeric draft intact. Alt and AltGr input stays
+with the editor.
+
+The grouped Windows gate passed formatting, strict Clippy, and 738 app
+and UI tests. The widget group ran 77 tests, including portable color
+editing and typed requests for the AppKit panel. The headless pixel
+comparison and all seven pinned libmpv subtitle tests passed.
+
+A full Linux x64 build accepted keyboard changes in a 551 × 700 X11
+client. The engine reported a 4:3 preset, a custom 2:1 aspect, a managed
+crop filter, and 90-degree rotation. The video fixture stayed paused and
+the test process exited normally. A second X11 session exercised the
+subtitle styles. The color editor started on Red and Tab advanced to
+Green. Escape kept both channel changes, preserving the outline color.
+The preset menus applied font size 60 and outline width 5. The second
+fixture stayed paused and its process exited normally.
+
+Private Windows 11 sessions confirmed that Right Arrow on the aspect rail
+applied 4:3. The subtitle editor opened on Red, and Left Arrow changed the
+engine color from `#FFFFFFFF` to `#FFFEFFFF` while preserving the outline
+color. Escape kept the edit. Keyboard selection in the preset menus applied
+font size 25 and outline width 0.25. The exact test processes exited normally.
+
+The Apple Silicon application and test targets passed source checks.
+AppKit target switching and panel dismissal still need native macOS checks.
+
+- Windows application SHA-256 `e4e6de4cdad4f60bdafffb2e08d31534ecd1733ef6c7a89c754bcc35047adb54`
+- Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
+- Linux application SHA-256 `3e239bc9e5f2ff0896c0b9013381c8f6d1c9ab333936581067cf4a406b3564d2`
+- Linux libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`

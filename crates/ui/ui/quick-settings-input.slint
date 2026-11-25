@@ -34,6 +34,11 @@ export component QuickSettingsInput inherits Rectangle {
         root.dirty = false;
         input.text = root.observed-value;
     }
+    pure function command-shortcut(event: KeyEvent) -> bool {
+        // Preserve Alt/AltGr text entry. The text widget handles its own
+        // shortcuts before a remaining Control or Command chord can bubble.
+        return event.modifiers.meta || (event.modifiers.control && !event.modifiers.alt);
+    }
     // Playback observations must not overwrite an unfinished edit. Cancelling
     // restores the latest observation; switching subtitle lanes discards it.
     changed observed-value => { if !root.dirty { input.text = root.observed-value; } }
@@ -43,12 +48,14 @@ export component QuickSettingsInput inherits Rectangle {
     field-scope := FocusScope {
         width: parent.width; height: parent.height; forward-focus: input;
         // The text input gets the first chance to handle editing commands.
-        // Rejected keys stay in the editor, apart from focus traversal.
+        // Plain input stays in the editor even if the text widget declines it.
         focus-on-tab-navigation: false;
         key-pressed(event) => {
-            return event.text == Key.Tab || event.text == Key.Backtab ? reject : accept;
+            return event.text == Key.Tab || event.text == Key.Backtab || root.command-shortcut(event) ? reject : accept;
         }
-        key-released(event) => { return event.text == Key.Alt || event.text == Key.AltGr ? reject : accept; }
+        key-released(event) => {
+            return event.text == Key.Alt || event.text == Key.AltGr || root.command-shortcut(event) ? reject : accept;
+        }
         input := TextInput {
             x: root.horizontal-inset; width: parent.width - 2 * root.horizontal-inset; height: parent.height;
             text: root.observed-value;

@@ -33,7 +33,7 @@ pub(super) fn connect_actions(
     super::key_bindings::connect(window, &owner);
     super::folder::register(window, &owner);
     let color = owner.clone();
-    crate::platform::preferences::install_subtitle_color_panel(window, move |error| {
+    crate::platform::subtitle_color_panel::connect_preferences(window, move |error| {
         color.report(error);
     });
     crate::advanced_preferences::connect_actions(window, path, open_log_viewer, move |error| {

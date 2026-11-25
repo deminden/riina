@@ -124,12 +124,14 @@ export component PlayerSidebarPage inherits VerticalLayout {
         interactive-accent-color: PlayerAppearance.interactive-accent-color;
         load-subtitle => { PlayerMenuActions.browse-files(2); }
         loaded: root.loaded;
+        platform-macos: PlayerAppearance.platform-macos;
         platform-windows: PlayerAppearance.platform-windows;
         reset-subtitle-delay => { PlayerMenuActions.reset-subtitle-delay(); }
         restore-player-focus => { root.restore-player-focus(); }
         set-delay(lane, seconds) => { PlayerSidebarActions.set-delay(lane, seconds); }
         set-delay-text(lane, text) => { return PlayerSidebarActions.set-delay-text(lane, text); }
         set-subtitle-color(component, color) => { PlayerSidebarActions.set-subtitle-color(component, color); }
+        request-native-subtitle-color(component, color) => { PlayerSidebarActions.request-native-subtitle-color(component, color); }
         set-subtitle-font-size(value) => { PlayerSidebarActions.set-subtitle-font-size(value); }
         set-subtitle-outline-size(value) => { PlayerSidebarActions.set-subtitle-outline-size(value); }
         set-subtitle-position(secondary, position) => { PlayerSidebarActions.set-subtitle-position(secondary, position); }

@@ -8,6 +8,7 @@ import { DelayLane } from "delay-lane.slint";
 import { SubtitleVisibilityRow, SubtitleLaneSegment } from "player-sidebar-controls.slint";
 import { SubtitleSizePicker } from "subtitle-size-picker.slint";
 import { SubtitleColorWell } from "shared-controls.slint";
+import { SubtitleColorTarget } from "subtitle-color-target.slint";
 
 export component SubtitleQuickSettingsPage inherits VerticalLayout {
     in property <length> sidebar-width;
@@ -19,12 +20,14 @@ export component SubtitleQuickSettingsPage inherits VerticalLayout {
     callback load-subtitle();
     in property <bool> loaded;
     in property <bool> platform-windows;
+    in property <bool> platform-macos;
     callback reset-subtitle-delay();
     callback restore-player-focus();
     callback format-delay-preview(float) -> string;
     callback set-delay(DelayLane, float);
     callback set-delay-text(DelayLane, string) -> bool;
-    callback set-subtitle-color(int, color);
+    callback set-subtitle-color(SubtitleColorTarget, color);
+    callback request-native-subtitle-color(SubtitleColorTarget, color);
     callback set-subtitle-font-size(float);
     callback set-subtitle-outline-size(float);
     callback set-subtitle-position(bool, float);
@@ -291,9 +294,11 @@ export component SubtitleQuickSettingsPage inherits VerticalLayout {
                     font-size: 12px; font-weight: 700; vertical-alignment: center; }
                 Rectangle { horizontal-stretch: 1; background: transparent; }
                 SubtitleColorWell { observed-color: PlaybackSubtitleState.subtitle-text-color; hint: "Subtitle text color";
+                    native-color-panel: root.platform-macos; color-target: SubtitleColorTarget.text;
                     focus-entered(top, height) => { root.focus-entered(top, height); }
                     enabled: root.loaded && PlaybackSubtitleState.subtitle-text-color-known;
-                    edited(value) => { root.set-subtitle-color(1, value); } }
+                    native-color-requested(target, value) => { root.request-native-subtitle-color(target, value); }
+                    edited(value) => { root.set-subtitle-color(self.color-target, value); } }
             }
             HorizontalLayout { height: 30px; spacing: 8px;
                 Text { text: "Border"; color: Theme.sidebar-heading-text(root.dark-theme);
@@ -312,18 +317,22 @@ export component SubtitleQuickSettingsPage inherits VerticalLayout {
                     selected(value) => { root.set-subtitle-outline-size(value); }
                 }
                 SubtitleColorWell { observed-color: PlaybackSubtitleState.subtitle-border-color; hint: "Subtitle border color";
+                    native-color-panel: root.platform-macos; color-target: SubtitleColorTarget.outline;
                     focus-entered(top, height) => { root.focus-entered(top, height); }
                     enabled: root.loaded && PlaybackSubtitleState.subtitle-border-color-known;
-                    edited(value) => { root.set-subtitle-color(3, value); } }
+                    native-color-requested(target, value) => { root.request-native-subtitle-color(target, value); }
+                    edited(value) => { root.set-subtitle-color(self.color-target, value); } }
             }
             HorizontalLayout { height: 30px; spacing: 8px;
                 Text { text: "Shadow"; color: Theme.sidebar-heading-text(root.dark-theme);
                     font-size: 12px; font-weight: 700; vertical-alignment: center; }
                 Rectangle { horizontal-stretch: 1; background: transparent; }
                 SubtitleColorWell { observed-color: PlaybackSubtitleState.subtitle-shadow-color; hint: "Subtitle shadow color";
+                    native-color-panel: root.platform-macos; color-target: SubtitleColorTarget.background;
                     focus-entered(top, height) => { root.focus-entered(top, height); }
                     enabled: root.loaded && PlaybackSubtitleState.subtitle-shadow-color-known;
-                    edited(value) => { root.set-subtitle-color(2, value); } }
+                    native-color-requested(target, value) => { root.request-native-subtitle-color(target, value); }
+                    edited(value) => { root.set-subtitle-color(self.color-target, value); } }
             }
         }
     }

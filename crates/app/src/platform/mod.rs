@@ -44,6 +44,7 @@ pub(crate) mod settings_file;
 mod shared_video;
 pub(crate) mod startup;
 pub(crate) mod startup_input;
+pub(crate) mod subtitle_color_panel;
 pub(crate) mod text_edit;
 pub(crate) mod text_recognition;
 pub(crate) use shared_video::SharedVideoExtras;
@@ -1133,9 +1134,8 @@ mod macos;
 pub(crate) use macos::file_panel::choose_media as choose_application_media;
 #[cfg(target_os = "macos")]
 pub(crate) use macos::{
-    ControlGesture, GesturePhase, MacPictureInPicture, MacPluginMenuObserver,
-    MacSubtitleColorPanel, RemoteMediaAction, SystemMediaControls, control_gesture,
-    display_identity, icc_profile_for_window,
+    ControlGesture, GesturePhase, MacPictureInPicture, MacPluginMenuObserver, RemoteMediaAction,
+    SystemMediaControls, control_gesture, display_identity, icc_profile_for_window,
 };
 #[cfg(target_os = "macos")]
 use macos::{MediaEvent, SystemActivity};

@@ -20,6 +20,9 @@ mod timing;
 #[path = "quick_settings/presets.rs"]
 mod presets;
 
+#[path = "quick_settings/subtitle_colors.rs"]
+mod subtitle_colors;
+
 #[path = "quick_settings/workflows.rs"]
 mod workflows;
 

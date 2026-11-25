@@ -75,6 +75,11 @@ Implementation does not imply every state or platform is verified.
   the focused choice. Custom aspect entry supports cancellation. The
   **Subtitles** page displays the engine's current font size and border
   width, including values outside the preset lists.
+- **Subtitle color controls** use the shared AppKit panel on macOS in both
+  Quick Settings and Settings. The portable popup opens with keyboard
+  focus on its first channel and keeps changes applied before dismissal.
+  Numeric sidebar edits retain their draft when a Control or Command
+  shortcut reaches the player.
 - **Utilities:** Settings owns the confirmations for alerts, saved progress,
   history and thumbnails. Cache sizes refresh when the page opens or data is cleared.
 - **Russian and Arabic labels** are bundled for Welcome, Open URL, Playback

@@ -8,7 +8,11 @@ use objc2::{
 };
 use objc2_app_kit::{NSColor, NSColorPanel, NSColorSpace};
 use objc2_foundation::NSObjectProtocol;
-use std::rc::Rc;
+use std::{cell::Cell, ptr, rc::Rc};
+
+thread_local! {
+    static ACTIVE_TARGET: Cell<*const ColorPanelTarget> = const { Cell::new(ptr::null()) };
+}
 
 struct ColorPanelTargetIvars {
     changed: Rc<dyn Fn([u8; 4])>,
@@ -26,16 +30,19 @@ define_class!(
     impl ColorPanelTarget {
         #[unsafe(method(colorPanelDidChange:))]
         fn color_panel_did_change(&self, panel: &NSColorPanel) {
-            if let Some(channels) = rgba_channels(&panel.color()) {
-                (self.ivars().changed)(channels);
+            if ACTIVE_TARGET.with(|target| ptr::eq(target.get(), self))
+                && let Some(channels) = rgba_channels(&panel.color())
+            {
+                let changed = self.ivars().changed.clone();
+                changed(channels);
             }
         }
     }
 );
 
-/// Keeps the panel's weak target alive while the Preferences window owns it.
+/// Keeps the shared panel's weak target alive while the requesting window owns it.
 pub(crate) struct MacSubtitleColorPanel {
-    _target: Retained<ColorPanelTarget>,
+    target: Retained<ColorPanelTarget>,
 }
 
 impl MacSubtitleColorPanel {
@@ -52,7 +59,11 @@ impl MacSubtitleColorPanel {
             f64::from(initial[2]) / 255.0,
             f64::from(initial[3]) / 255.0,
         );
+        // Seeding the panel must never send the new well's color to its old owner.
+        ACTIVE_TARGET.with(|target| target.set(ptr::null()));
+        detach(&panel);
         panel.setShowsAlpha(true);
+        panel.setContinuous(true);
         panel.setColor(&initial);
 
         let target = ColorPanelTarget::alloc(main_thread).set_ivars(ColorPanelTargetIvars {
@@ -70,8 +81,36 @@ impl MacSubtitleColorPanel {
             panel.setTarget(Some(target_object));
             panel.setAction(Some(sel!(colorPanelDidChange:)));
         }
+        ACTIVE_TARGET.with(|active| active.set(Retained::as_ptr(&target)));
         panel.makeKeyAndOrderFront(None);
-        Ok(Self { _target: target })
+        Ok(Self { target })
+    }
+}
+
+impl Drop for MacSubtitleColorPanel {
+    fn drop(&mut self) {
+        let retired = ACTIVE_TARGET.try_with(|target| {
+            if target.get() != Retained::as_ptr(&self.target) {
+                return false;
+            }
+            target.set(ptr::null());
+            true
+        });
+        if matches!(retired, Ok(true))
+            && let Some(main_thread) = MainThreadMarker::new()
+        {
+            let panel = NSColorPanel::sharedColorPanel(main_thread);
+            detach(&panel);
+            panel.orderOut(None);
+        }
+    }
+}
+
+fn detach(panel: &NSColorPanel) {
+    // SAFETY: both values are cleared, so AppKit cannot invoke a selector on a retired target.
+    unsafe {
+        panel.setTarget(None);
+        panel.setAction(None);
     }
 }
 

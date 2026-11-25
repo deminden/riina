@@ -293,6 +293,7 @@ fn close(window: &PreferencesWindow) {
     window.invoke_close_profile_font_picker();
     window.invoke_close_plugin_settings();
     window.invoke_dismiss_utility_dialogs();
+    window.invoke_dismiss_native_subtitle_color();
     let _ = window.hide();
 }
 

@@ -1,4 +1,5 @@
 import { DelayLane } from "delay-lane.slint";
+import { SubtitleColorTarget } from "subtitle-color-target.slint";
 
 // Every sidebar routes its control actions to the owning player session.
 export global PlayerSidebarActions {
@@ -26,7 +27,9 @@ export global PlayerSidebarActions {
     callback set-speed-text(string) -> bool;
     callback set-subtitle-font-size(float);
     callback set-subtitle-outline-size(float);
-    callback set-subtitle-color(int, color);
+    callback set-subtitle-color(SubtitleColorTarget, color);
+    callback request-native-subtitle-color(SubtitleColorTarget, color);
+    callback dismiss-native-subtitle-color();
     callback set-subtitle-position(bool, float);
     callback set-delay(DelayLane, float);
     callback set-delay-text(DelayLane, string) -> bool;

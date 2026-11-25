@@ -1,6 +1,7 @@
 export { TouchBarText } from "touch-bar-text.slint";
 export { MediaSettingsText } from "media-settings-text.slint";
 export { SettingsSearchText } from "settings-search-text.slint";
+export { SubtitleColorTarget } from "subtitle-color-target.slint";
 export { PluginReviewText } from "plugin-review-text.slint";
 export { PlayerDialogState } from "player-dialog-state.slint";
 import { PlayerDialogState } from "player-dialog-state.slint";
@@ -28,6 +29,7 @@ import { PlayerAppearance } from "player-appearance.slint";
 export { PlayerAppearance } from "player-appearance.slint";
 import { PlayerGeometry } from "player-geometry.slint";
 export { PlayerSidebarActions } from "player-sidebar-actions.slint";
+import { PlayerSidebarActions } from "player-sidebar-actions.slint";
 import { PlayerSidebarPage } from "player-sidebar-page.slint";
 import { PlayerPreferences } from "player-preferences.slint";
 export { PlayerPreferences } from "player-preferences.slint";
@@ -700,6 +702,7 @@ export component PlayerWindow inherits PlayerMenuWindow {
         PlayerMenuActions.video-menu-changed();
         if !root.loaded {
             PlayerControlActions.reset-controller-arrow();
+            PlayerSidebarActions.dismiss-native-subtitle-color();
             keys.focus();
         }
         root.refresh-fullscreen-info();

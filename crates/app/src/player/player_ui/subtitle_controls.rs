@@ -2,7 +2,7 @@
 use crate::PlayerWindow;
 use riina_core::Command;
 use riina_mpv::CommandSender;
-use riina_ui::PlayerMenuActions;
+use riina_ui::{PlayerMenuActions, SubtitleColorTarget};
 use slint::ComponentHandle;
 
 pub(super) fn install(app: &PlayerWindow, player: &CommandSender) {
@@ -116,6 +116,7 @@ pub(super) fn install(app: &PlayerWindow, player: &CommandSender) {
 fn install_appearance(app: &PlayerWindow, player: &CommandSender) {
     let font_size_player = player.clone();
     crate::font_picker::connect(app);
+    crate::platform::subtitle_color_panel::connect_player(app);
     let outline_size_player = player.clone();
     let color_player = player.clone();
     let weak = app.as_weak();
@@ -128,30 +129,27 @@ fn install_appearance(app: &PlayerWindow, player: &CommandSender) {
                     return;
                 };
                 let command = match target {
-                    1 => Command::SubtitleTextColor(color),
-                    2 => Command::SubtitleShadowColor(color),
-                    3 => Command::SubtitleBorderColor(color),
-                    _ => return,
+                    SubtitleColorTarget::Text => Command::SubtitleTextColor(color),
+                    SubtitleColorTarget::Background => Command::SubtitleShadowColor(color),
+                    SubtitleColorTarget::Outline => Command::SubtitleBorderColor(color),
                 };
                 app.global::<riina_ui::PlayerControlActions>()
                     .invoke_activity();
                 if let Err(error) = color_player.send(command) {
                     crate::diagnostics::report(&app, error);
                 } else {
+                    let preferences = app.global::<riina_ui::PlayerPreferences>();
                     match target {
-                        1 => app
-                            .global::<riina_ui::PlayerPreferences>()
-                            .set_subtitle_text_preference_color(value),
-                        2 => {
-                            app.global::<riina_ui::PlayerPreferences>()
-                                .set_subtitle_shadow_preference_color(value);
-                            app.global::<riina_ui::PlayerPreferences>()
-                                .set_subtitle_background_preference_color(value);
+                        SubtitleColorTarget::Text => {
+                            preferences.set_subtitle_text_preference_color(value)
                         }
-                        3 => app
-                            .global::<riina_ui::PlayerPreferences>()
-                            .set_subtitle_outline_preference_color(value),
-                        _ => unreachable!("target was validated above"),
+                        SubtitleColorTarget::Background => {
+                            preferences.set_subtitle_shadow_preference_color(value);
+                            preferences.set_subtitle_background_preference_color(value);
+                        }
+                        SubtitleColorTarget::Outline => {
+                            preferences.set_subtitle_outline_preference_color(value)
+                        }
                     }
                 }
             }

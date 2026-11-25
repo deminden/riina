@@ -1,4 +1,5 @@
 import { Theme } from "theme.slint";
+import { SubtitleColorTarget } from "subtitle-color-target.slint";
 import { KeyBindingDialogs } from "preferences-key-binding-dialogs.slint";
 import { PluginsPreferencesPage, PluginInstallDialog } from "preferences-plugin-page.slint";
 import { PluginInformation, PluginInformationAction, PluginInformationDialog } from "preferences-plugin-information.slint";
@@ -319,7 +320,8 @@ export component PreferencesWindow inherits Window {
     in-out property <bool> disable-osd-speed: false;
     in-out property <bool> disable-osd-seek: false;
     callback settings-changed();
-    callback native-subtitle-color-requested(int, color);
+    callback native-subtitle-color-requested(SubtitleColorTarget, color);
+    callback dismiss-native-subtitle-color();
     callback open-assrt-token-page();
     callback toolbar-move(int, int);
     callback toolbar-drag-finished();

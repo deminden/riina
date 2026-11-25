@@ -1,6 +1,7 @@
 import { PreferenceSwitch, OverrideLaneButton, PreferenceActionButton, PreferenceNumericInput, LanguageTokenEditor, GeneralDisclosureRow, PreferenceOptionCard } from "preferences-controls.slint";
 import { Theme } from "theme.slint";
 import { CheckBox, ComboBox, ScrollView } from "std-widgets.slint";
+import { SubtitleColorTarget } from "subtitle-color-target.slint";
 import { SubtitleColorWell } from "shared-controls.slint";
 import { MenuCatalogRow } from "native-video.slint";
 
@@ -94,7 +95,7 @@ export component SubtitlesPreferencesPage inherits ScrollView {
     in property <length> subtitle-text-height;
     callback choose-subtitle-font();
     in property <bool> platform-macos;
-    callback native-subtitle-color-requested(int, color);
+    callback native-subtitle-color-requested(SubtitleColorTarget, color);
     in property <length> subtitle-online-height;
     callback open-assrt-token-page();
     callback add-subtitle-language-token(string);
@@ -176,26 +177,26 @@ export component SubtitlesPreferencesPage inherits ScrollView {
             CheckBox { x: 150px; y: 52px; width: 72px; height: 24px; text: @tr("Bold"); checked <=> SubtitleSettingsState.subtitle-bold; toggled => { root.settings-changed(); } }
             CheckBox { x: 236px; y: 52px; width: 72px; height: 24px; text: @tr("Italic"); checked <=> SubtitleSettingsState.subtitle-italic; toggled => { root.settings-changed(); } }
             Text { x: 14px; y: 92px; width: 70px; height: 24px; text: @tr("Color"); font-size: 12px; color: Theme.settings-control-label; vertical-alignment: center; }
-            SubtitleColorWell { x: 90px; y: 92px; observed-color: SubtitleSettingsState.subtitle-text-color; hint: @tr("Subtitle text color"); native-color-panel: root.platform-macos; color-target: 1;
+            SubtitleColorWell { x: 90px; y: 92px; observed-color: SubtitleSettingsState.subtitle-text-color; hint: @tr("Subtitle text color"); native-color-panel: root.platform-macos; color-target: SubtitleColorTarget.text;
                 native-color-requested(target, color) => { root.native-subtitle-color-requested(target, color); }
                 edited(value) => { SubtitleSettingsState.subtitle-text-color = value; root.settings-changed(); }
             }
             Text { x: 150px; y: 92px; width: 100px; height: 24px; text: @tr("Background"); font-size: 12px; color: Theme.settings-control-label; vertical-alignment: center; }
-            SubtitleColorWell { x: parent.width - 54px; y: 92px; observed-color: SubtitleSettingsState.subtitle-background-color; hint: @tr("Subtitle background color"); native-color-panel: root.platform-macos; color-target: 2;
+            SubtitleColorWell { x: parent.width - 54px; y: 92px; observed-color: SubtitleSettingsState.subtitle-background-color; hint: @tr("Subtitle background color"); native-color-panel: root.platform-macos; color-target: SubtitleColorTarget.background;
                 native-color-requested(target, color) => { root.native-subtitle-color-requested(target, color); }
                 edited(value) => { SubtitleSettingsState.subtitle-background-color = value; SubtitleSettingsState.subtitle-shadow-color = value; root.settings-changed(); }
             }
             Text { x: 14px; y: 132px; width: 70px; height: 24px; text: @tr("Border"); font-size: 12px; color: Theme.settings-control-label; vertical-alignment: center; }
             PreferenceNumericInput { x: 90px; y: 132px; width: 44px; height: 24px; label: @tr("Subtitle border size"); text <=> SubtitleSettingsState.subtitle-outline-size-text; accepted => { root.settings-changed(); } }
             Text { x: 166px; y: 132px; width: 74px; height: 24px; text: @tr("Color"); font-size: 12px; color: Theme.settings-control-label; vertical-alignment: center; }
-            SubtitleColorWell { x: parent.width - 54px; y: 132px; observed-color: SubtitleSettingsState.subtitle-outline-color; hint: @tr("Subtitle border color"); native-color-panel: root.platform-macos; color-target: 3;
+            SubtitleColorWell { x: parent.width - 54px; y: 132px; observed-color: SubtitleSettingsState.subtitle-outline-color; hint: @tr("Subtitle border color"); native-color-panel: root.platform-macos; color-target: SubtitleColorTarget.outline;
                 native-color-requested(target, color) => { root.native-subtitle-color-requested(target, color); }
                 edited(value) => { SubtitleSettingsState.subtitle-outline-color = value; root.settings-changed(); }
             }
             Text { x: 14px; y: 172px; width: 70px; height: 24px; text: @tr("Shadow"); font-size: 12px; color: Theme.settings-control-label; vertical-alignment: center; }
             PreferenceNumericInput { x: 90px; y: 172px; width: 44px; height: 24px; label: @tr("Subtitle shadow offset"); text <=> SubtitleSettingsState.subtitle-shadow-offset-text; accepted => { root.settings-changed(); } }
             Text { x: 166px; y: 172px; width: 74px; height: 24px; text: @tr("Color"); font-size: 12px; color: Theme.settings-control-label; vertical-alignment: center; }
-            SubtitleColorWell { x: parent.width - 54px; y: 172px; observed-color: SubtitleSettingsState.subtitle-shadow-color; hint: @tr("Subtitle shadow color"); native-color-panel: root.platform-macos; color-target: 4;
+            SubtitleColorWell { x: parent.width - 54px; y: 172px; observed-color: SubtitleSettingsState.subtitle-shadow-color; hint: @tr("Subtitle shadow color"); native-color-panel: root.platform-macos; color-target: SubtitleColorTarget.background;
                 native-color-requested(target, color) => { root.native-subtitle-color-requested(target, color); }
                 edited(value) => { SubtitleSettingsState.subtitle-shadow-color = value; SubtitleSettingsState.subtitle-background-color = value; root.settings-changed(); }
             }

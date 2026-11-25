@@ -18,6 +18,8 @@ pub(super) fn install_lifecycle(app: &PlayerWindow, welcome: Option<&WelcomeWind
             if let Some(app) = weak.upgrade() {
                 app.invoke_window_will_close();
                 app.invoke_dismiss_font_picker();
+                app.global::<riina_ui::PlayerSidebarActions>()
+                    .invoke_dismiss_native_subtitle_color();
                 // Remove the borrowed texture before hide suspends its context.
                 // Teardown runs inside the backend's window borrow and cannot
                 // safely dirty a property that schedules another redraw.
