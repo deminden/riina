@@ -4637,3 +4637,16 @@ focused row editing and normal shutdown all passed on both displays.
 
 - Linux application SHA-256 `83d39c032ddc366198f187fc2b1bf1dae5801c1895c75300a8fb7a24d86326f3`
 - Linux libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`
+
+### Windows multi-file opening 2026-11-25
+
+Two isolated sessions used the default video renderer and the native File
+menu and picker. With grouping enabled, selecting two videos created one
+new player whose playlist contained both entries. The original player
+remained open. With grouping disabled, the picker created two independent
+players within the same process. Opening one of those files again with
+duplicates disabled kept the existing three windows. Each application
+exited normally after its windows closed.
+
+- Windows application SHA-256 `f46c060b3301a16d1a5b15c3b9055e5b3c6628343d537edaf827f4da9e53d780`
+- Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`

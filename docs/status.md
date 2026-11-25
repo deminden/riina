@@ -1,6 +1,6 @@
 # Current status
 
-Updated 2026-11-24. Published release: **4.2.1**. Reference: **IINA v1.5.0**
+Updated 2026-11-25. Published release: **4.2.1**. Reference: **IINA v1.5.0**
 at `fbcff4df7183b335880396af0655f6bb89d46442`.
 
 Riina is a functioning media player. Full feature, behavior and visual parity
@@ -37,6 +37,8 @@ Implementation does not imply every state or platform is verified.
   selected action. The Music Mode arrows navigate the playlist.
 - **File opens:** the primary File commands follow the new-window preference,
   and their modifier shortcuts invert it. Active menus show the actual destination.
+  The native Windows picker has verified grouped and separate opens and reuse
+  of an existing player when duplicate players are disabled.
 - **Playlist editing:** a single-file open can discover siblings around the
   current item. Navigating the resulting playlist keeps rows the user removed
   out of the queue. The sidebar and Music Mode accept focused edit shortcuts.
