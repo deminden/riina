@@ -1,0 +1,82 @@
+import { SidebarFocusRegion } from "player-sidebar-controls.slint";
+import { Theme } from "theme.slint";
+
+export component SubtitleSizePicker inherits SidebarFocusRegion {
+    in property <[string]> presets;
+    in property <float> observed-value;
+    in property <bool> value-known;
+    in property <string> hint;
+    in property <bool> dark-theme;
+    in property <bool> windows-acrylic-surface;
+    in property <color> focus-accent-color;
+    callback selected(float);
+    private property <string> display-value: root.value-known ? "" + root.observed-value : "—";
+
+    width: 60px;
+    height: 24px;
+    accessible-role: button;
+    accessible-label: root.hint;
+    accessible-value: root.display-value;
+    accessible-enabled: root.enabled;
+    accessible-action-default => { root.open-menu(); }
+
+    function open-menu() {
+        if root.enabled {
+            root.focus();
+            choices.show({ x: 0px, y: root.height });
+        }
+    }
+
+    key-pressed(event) => {
+        if event.modifiers.alt || event.modifiers.control || event.modifiers.meta || event.modifiers.shift { return reject; }
+        if event.text == Key.DownArrow || event.text == Key.Return || event.text == " " {
+            root.open-menu();
+            return accept;
+        }
+        return reject;
+    }
+
+    Rectangle {
+        border-radius: 4px;
+        border-width: 1px;
+        border-color: root.has-focus ? root.focus-accent-color : Theme.sidebar-material-border(root.dark-theme);
+        background: Theme.sidebar-input-surface(root.dark-theme, root.windows-acrylic-surface);
+        HorizontalLayout {
+            padding-left: 6px; padding-right: 4px; spacing: 4px;
+            cross-axis-alignment: center;
+            Text {
+                horizontal-stretch: 1;
+                text: root.display-value;
+                font-size: 12px;
+                vertical-alignment: center;
+                color: Theme.sidebar-action-text(root.dark-theme, root.enabled);
+                overflow: elide;
+            }
+            Image {
+                width: 8px; height: 8px;
+                source: @image-url("../../../assets/icons/chevron-forward.svg");
+                transform-rotation: 90deg;
+                colorize: Theme.sidebar-action-text(root.dark-theme, root.enabled);
+            }
+        }
+        TouchArea { enabled: root.enabled; clicked => { root.open-menu(); } }
+    }
+
+    // A custom mpv value remains visible without pretending it is a preset.
+    choices := ContextMenuArea {
+        enabled: root.enabled;
+        Menu {
+            for value in root.presets : MenuItem {
+                title: value;
+                checkable: true;
+                checked: root.value-known && root.observed-value == value.to-float();
+                activated => {
+                    if root.enabled {
+                        root.selected(value.to-float());
+                        root.focus();
+                    }
+                }
+            }
+        }
+    }
+}

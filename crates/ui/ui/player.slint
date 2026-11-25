@@ -140,7 +140,9 @@ export component PlayerWindow inherits PlayerMenuWindow {
         if root.crop-editing { PlaylistInteraction.cancel-playlist-drag(); }
     }
 
+    in property <bool> snapshot-menu-shortcuts;
     menu-bar-visible: !native-video && !(PlayerAppearance.platform-windows && PlayerMusicModeState.music-mode);
+    menu-value-snapshot-shortcuts: root.snapshot-menu-shortcuts;
     menu-value-menu-shortcuts: root.menu-shortcuts;
     menu-value-crop-editing: PlayerCropState.crop-editing;
     menu-value-current-file-manager-name: root.current-file-manager-name;
@@ -471,8 +473,7 @@ export component PlayerWindow inherits PlayerMenuWindow {
         for side in [0, 1] : sidebar-frame := PlayerSidebarFrame {
             // Each side owns its selected pane; catalog callbacks retain their original kind.
             private property <int> pane-kind: side == 0 ? PlayerSidebarState.leading-sidebar : PlayerSidebarState.sidebar;
-            private property <bool> quick-settings-pane:
-                pane-kind == 1 || pane-kind == 2 || pane-kind == 5 || pane-kind == 6;
+            private property <bool> quick-settings-pane: PlayerSidebarState.is-quick-settings(pane-kind);
             leading: side == 0;
             viewport-width: parent.width;
             sidebar-open: pane-kind != 0 && !PlayerCropState.crop-editing;

@@ -536,11 +536,16 @@ fn update_video_and_artwork(app: &PlayerWindow, state: &Playback) {
     };
     app.global::<riina_ui::PlayerMusicModeState>()
         .set_music_mode_artwork_aspect_ratio(artwork_aspect.unwrap_or(0.0) as f32);
-    video.set_video_aspect_index(
-        state
-            .video_aspect
-            .preset_index()
-            .map_or(-1, |index| index as i32),
+    let aspect_preset = state.video_aspect.preset_index();
+    video.set_video_aspect_index(aspect_preset.map_or(-1, |index| index as i32));
+    let requested_aspect = state.video_aspect.requested_text();
+    video.set_video_custom_aspect(
+        if riina_core::video_controls::ASPECT_PRESETS.contains(&requested_aspect) {
+            ""
+        } else {
+            requested_aspect
+        }
+        .into(),
     );
     video.set_video_aspect_menu_index(
         state

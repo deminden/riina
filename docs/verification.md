@@ -4776,3 +4776,49 @@ Native macOS date formatting and matched reference pixels remain open.
 - Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
 - Linux application SHA-256 `272cb652d9bd3db9fe6f443b22702937bff0e0b49addf366ee1f19ca666def08`
 - Linux libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`
+
+### Quick Settings keyboard navigation and presets 2026-11-25
+
+Theme is one Tab stop, following the selected segment. Left and Right move
+between themes. Home and End select the first and last choices. Keyboard
+focus reveals controls in both dimensions of the Layout viewport, including
+the actionable end of a switch row that is wider than the pane.
+
+Video's aspect, crop and rotation groups support one Tab stop each. Arrow
+keys, Home and End move the focus and reveal it along the preset rail.
+The Custom Crop choice opens its editor on explicit activation. Custom
+aspect entry shares the other sidebar fields' draft and cancellation behavior.
+Subtitle font size and outline width present the observed value separately from
+the list of presets. Dismissing a preset menu leaves the displayed value intact.
+
+The shared player gives visible Quick Settings controls first access to plain
+navigation and activation keys. Keys a control declines still reach the
+player's active binding profile. Modified menu shortcuts keep their existing
+dispatch, and the Linux menu popup still lists the configured shortcuts.
+
+The grouped Windows gate passed formatting, strict Clippy and 735 app and UI
+tests, including the headless pixel comparison. Its 74 widget tests include theme
+navigation with active playback menu bindings, both narrow Layout placements,
+Video keyboard traversal while engine observations lag, and Subtitle size
+menu dismissal, activation and focus reveal.
+The pinned Windows libmpv suite passed all 65 tests with null audio output.
+
+Two isolated Windows 11 sessions exercised the leading and trailing Layout
+panes in 285 × 310 logical-pixel clients at 300% scaling. Theme changed through
+arrow keys, Home and End. Tab moved from Theme to the first switch and
+continued to the lower Plugins placement control, which responded to Right
+Arrow. The fixture stayed paused and both test processes exited normally.
+
+A full Linux x64 application build ran the same keyboard sequence in a
+551 × 310 X11 client. The saved Theme values followed the keys. Captures
+show the lower Plugins control revealed, focused and changed by Right
+Arrow. The test process exited normally.
+
+The Apple Silicon application and test targets passed source cross-checks.
+Native Video and Subtitle control checks, macOS runtime and matched IINA
+pixels remain open.
+
+- Windows application SHA-256 `086763836e98b2b470bb360643bf5f5b59f40dd76ee541ed81ed3a46804d5161`
+- Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
+- Linux application SHA-256 `47f2fea0590f73371b52c5fd9f8beefe0349ae2b3d1f8ca977c984e115385842`
+- Linux libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`

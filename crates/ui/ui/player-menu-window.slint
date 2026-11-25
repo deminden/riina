@@ -26,6 +26,7 @@ export component PlayerMenuWindow inherits Window {
         && root.width < strip.required-width;
     callback request-player-menu(int, float, float);
     in property <bool> export-playback-menu-keys;
+    in property <bool> menu-value-snapshot-shortcuts;
     function playback-entry(key: string, label: string) -> string {
         return root.export-playback-menu-keys ? "\u{1f}" + key + "\u{1f}" + label : label;
     }
@@ -74,8 +75,21 @@ export component PlayerMenuWindow inherits Window {
             : PlayerSidebarState.sidebar == 4 || PlayerSidebarState.leading-sidebar == 4;
         return PlaylistPluginPopupState.shown ||
             (PlayerPluginSidebarState.composited && PlayerPluginSidebarState.keyboard-focused) ||
-            (playlist-visible && PlaylistInteraction.owns-navigation-shortcut(shortcut))
+            (playlist-visible && PlaylistInteraction.owns-navigation-shortcut(shortcut)) ||
+            (!root.menu-value-snapshot-shortcuts && PlayerSidebarState.quick-settings-visible
+                && root.quick-settings-key(shortcut))
             ? @keys() : shortcut;
+    }
+
+    // Let focused controls handle traversal and activation first. The player
+    // key scope still dispatches the active profile when a control declines.
+    pure function quick-settings-key(shortcut: keys) -> bool {
+        return shortcut == @keys(LeftArrow) || shortcut == @keys(RightArrow)
+            || shortcut == @keys(UpArrow) || shortcut == @keys(DownArrow)
+            || shortcut == @keys(Home) || shortcut == @keys(End)
+            || shortcut == @keys(PageUp) || shortcut == @keys(PageDown)
+            || shortcut == @keys(Delete) || shortcut == @keys(Backspace)
+            || shortcut == @keys(Return) || shortcut == @keys(Space);
     }
 
     // Only the shared Linux presenter installs captions for the in-client bar.

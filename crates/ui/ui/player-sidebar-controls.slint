@@ -1,15 +1,30 @@
 import { Theme } from "theme.slint";
 
-export component SidebarTab inherits FocusScope {
+export component SidebarFocusRegion inherits FocusScope {
+    in property <length> focus-left: root.absolute-position.x;
+    in property <length> focus-width: root.width;
+    callback focus-entered(length, length, length, length);
+    focus-changed-event => {
+        if self.has-focus {
+            root.focus-entered(root.focus-left, root.absolute-position.y, root.focus-width, root.height);
+        }
+    }
+}
+
+export component SidebarTab inherits SidebarFocusRegion {
     in property <string> label;
     in property <bool> selected;
     in property <bool> dark-theme: true;
     in property <color> accent-color: Theme.sidebar-catalog-accent;
     in property <color> accent-foreground: Theme.sidebar-catalog-accent-text;
     in property <color> focus-accent-color: Theme.player-focus-accent;
+    in property <int> segment-index: -1;
+    in property <int> segment-count: 0;
     private property <bool> focus-visible: false;
     private property <bool> pointer-focus-request: false;
     callback activated();
+    callback navigate-segment(int);
+    focus-on-tab-navigation: root.segment-count == 0 || root.selected;
     height: 30px;
     horizontal-stretch: 1;
     accessible-role: button;
@@ -43,6 +58,12 @@ export component SidebarTab inherits FocusScope {
         root.pointer-focus-request = false;
         root.focus-visible = true;
         if event.modifiers.alt || event.modifiers.control || event.modifiers.meta { return reject; }
+        if root.segment-count > 0 && !event.modifiers.shift {
+            if event.text == Key.LeftArrow { root.navigate-segment(max(0, root.segment-index - 1)); return accept; }
+            if event.text == Key.RightArrow { root.navigate-segment(min(root.segment-count - 1, root.segment-index + 1)); return accept; }
+            if event.text == Key.Home { root.navigate-segment(0); return accept; }
+            if event.text == Key.End { root.navigate-segment(root.segment-count - 1); return accept; }
+        }
         if event.text == Key.Return || event.text == " " { activated(); return accept; }
         return reject;
     }
@@ -64,7 +85,7 @@ export component SidebarSectionTitle inherits Rectangle {
     }
 }
 
-export component SidebarPositionToggle inherits FocusScope {
+export component SidebarPositionToggle inherits SidebarFocusRegion {
     in property <string> label;
     in property <image> icon;
     in property <length> icon-size: 16px;
@@ -73,6 +94,8 @@ export component SidebarPositionToggle inherits FocusScope {
     in property <bool> mini: false;
     in property <color> accent-color: Theme.sidebar-layout-toggle-accent;
     callback changed(bool);
+    focus-left: switch-track.absolute-position.x;
+    focus-width: switch-track.width;
     height: mini ? 16px : 30px;
     accessible-role: checkbox;
     accessible-label: label;
@@ -101,7 +124,7 @@ export component SidebarPositionToggle inherits FocusScope {
             }
         }
     }
-    TouchArea { clicked => { root.changed(!root.leading); } }
+    TouchArea { clicked => { root.focus(); root.changed(!root.leading); } }
     if root.has-focus : Rectangle {
         background: transparent; border-width: 1px;
         border-color: root.accent-color; border-radius: 3px;
@@ -113,7 +136,7 @@ export component SidebarPositionToggle inherits FocusScope {
     }
 }
 
-export component SidebarSideChoice inherits FocusScope {
+export component SidebarSideChoice inherits SidebarFocusRegion {
     in property <string> label;
     in property <image> icon;
     in property <bool> leading;
@@ -121,6 +144,8 @@ export component SidebarSideChoice inherits FocusScope {
     in property <color> accent-color: Theme.sidebar-layout-choice-accent;
     in property <color> accent-foreground: Theme.sidebar-catalog-accent-text;
     callback changed(bool);
+    focus-left: switch-track.absolute-position.x;
+    focus-width: switch-track.width;
     height: 24px;
     accessible-role: checkbox;
     accessible-label: label + " on leading side";
@@ -154,7 +179,7 @@ export component SidebarSideChoice inherits FocusScope {
                                 (Theme.sidebar-layout-stepper-glyph(root.dark-theme));
                         }
                     }
-                    TouchArea { clicked => { root.changed(side); } }
+                    TouchArea { clicked => { root.focus(); root.changed(side); } }
                 }
             }
         }
@@ -222,7 +247,7 @@ export component SubtitleVisibilityRow inherits FocusScope {
     }
 }
 
-export component SidebarAction inherits FocusScope {
+export component SidebarAction inherits SidebarFocusRegion {
     in property <string> label;
     in property <image> icon;
     in property <bool> dark-theme: true;

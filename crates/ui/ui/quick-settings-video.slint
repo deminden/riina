@@ -62,6 +62,8 @@ export component VideoQuickSettingsPage inherits VerticalLayout {
         card-edge: Theme.sidebar-card-border(root.dark-theme);
         aspect-presets: PlaybackVideoState.video-aspect-presets;
         aspect-index: PlaybackVideoState.video-aspect-index;
+        custom-aspect: PlaybackVideoState.video-custom-aspect;
+        restore-player-focus => { root.restore-player-focus(); }
         rotation-index: PlaybackVideoState.video-rotation-index;
         crop-presets: PlaybackVideoState.video-crop-presets;
         crop-index: PlaybackVideoState.video-crop-index;

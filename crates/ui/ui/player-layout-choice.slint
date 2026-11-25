@@ -1,5 +1,7 @@
 import { Theme } from "theme.slint";
-export component LayoutChoice inherits FocusScope {
+import { SidebarFocusRegion } from "player-sidebar-controls.slint";
+
+export component LayoutChoice inherits SidebarFocusRegion {
     in property <string> label;
     in property <int> position;
     in property <bool> selected;

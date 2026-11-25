@@ -1,6 +1,5 @@
 import { Theme } from "theme.slint";
 import { Tool } from "player-tool.slint";
-import { ComboBox } from "std-widgets.slint";
 
 export component ToolbarAction inherits Rectangle {
     in property <int> kind;
@@ -94,19 +93,4 @@ export component TopmostPin inherits Rectangle {
         hint: root.pinned ? "Remove float on top" : "Float on top";
         activated => { root.changed(!root.pinned); }
     }
-}
-
-export component ObservedSizePicker inherits ComboBox {
-    in property <int> observed-index: -1;
-    in property <string> observed-value;
-    callback focus-entered(length, length);
-    changed has-focus => {
-        if self.has-focus { root.focus-entered(root.absolute-position.y, root.height); }
-    }
-    current-index: observed-index;
-    current-value: observed-value;
-    // Popup selection mutates its own properties. Native observations must
-    // restore both display text and keyboard cursor after those bindings break.
-    changed observed-value => { self.current-value = self.observed-value; self.current-index = self.observed-index; }
-    changed observed-index => { self.current-index = self.observed-index; }
 }

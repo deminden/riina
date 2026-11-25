@@ -1,6 +1,7 @@
 import { Theme } from "theme.slint";
 export component Tool inherits Rectangle {
     in property <string> label;
+    in property <bool> elide-label: false;
     in property <image> icon;
     in property <length> icon-size: 17px;
     in property <length> icon-optical-offset-x: 0px;
@@ -29,6 +30,7 @@ export component Tool inherits Rectangle {
     accessible-enabled: enabled;
     accessible-action-default => { if enabled { activated(); } }
     if icon.width == 0 : Text { text: label; color: !enabled ? Theme.player-tool-disabled-glyph : selected ? root.accent-color : Theme.sidebar-action-text(dark-theme, true); font-size: 17px;
+        overflow: root.elide-label ? elide : clip;
         horizontal-alignment: center; vertical-alignment: center; }
     if icon.width > 0 : glyph := Image {
         source: icon; image-fit: contain;

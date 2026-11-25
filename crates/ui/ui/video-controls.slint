@@ -1,6 +1,7 @@
 import { Theme } from "theme.slint";
 import { ScrollView } from "std-widgets.slint";
 import { ScrollReveal } from "scroll-reveal.slint";
+import { QuickSettingsInput } from "quick-settings-input.slint";
 
 // NSSegmentedControl uses one joined rail, not individually spaced buttons.
 // This keeps the WinUI-like equivalent compact over the video-backed material.
@@ -16,9 +17,10 @@ component VideoSegment inherits Rectangle {
     in property <color> focus-accent-color: Theme.player-focus-accent;
     in property <bool> separator-visible: false;
     in property <bool> wheel-scroll-enabled: false;
+    in property <int> index;
+    in property <bool> keyboard-focused;
     callback chosen();
-    callback focus-entered();
-    callback navigate(int);
+    callback reveal();
     callback scroll-request(float) -> bool;
     height: 24px;
     background: transparent;
@@ -29,7 +31,9 @@ component VideoSegment inherits Rectangle {
     accessible-checked: selected;
     accessible-item-selectable: true;
     accessible-item-selected: selected;
-    accessible-action-default => { if enabled { chosen(); } }
+    accessible-item-index: index;
+    accessible-action-default => { if root.enabled { root.chosen(); } }
+    changed keyboard-focused => { if root.keyboard-focused { root.reveal(); } }
     if touch.has-hover && root.enabled && !root.selected : Rectangle {
         x: 1px; y: 2px; width: max(0px, parent.width - 2px); height: parent.height - 4px;
         border-radius: 3px;
@@ -55,11 +59,11 @@ component VideoSegment inherits Rectangle {
                 : (Theme.sidebar-action-text(root.dark-theme, false));
             vertical-alignment: center; }
     }
-    if focus.has-focus : Rectangle { background: transparent; border-radius: 3px;
+    if root.keyboard-focused : Rectangle { background: transparent; border-radius: 3px;
         border-width: 1px; border-color: root.focus-accent-color; }
     touch := TouchArea {
         enabled: true;
-        clicked => { if root.enabled { focus.focus(); root.chosen(); } }
+        clicked => { if root.enabled { root.chosen(); } }
         scroll-event(event) => {
             if root.wheel-scroll-enabled && event.delta-y != 0px && event.delta-x == 0px
                 && root.scroll-request(event.delta-y / 1px) {
@@ -68,17 +72,53 @@ component VideoSegment inherits Rectangle {
             return reject;
         }
     }
-    focus := FocusScope {
-        focus-on-click: false;
-        enabled: root.enabled;
-        focus-changed-event => { if self.has-focus { root.focus-entered(); } }
-        key-pressed(event) => {
-            if event.modifiers.alt || event.modifiers.control || event.modifiers.meta || event.modifiers.shift { return reject; }
-            if event.text == Key.Return || event.text == " " { root.chosen(); return accept; }
-            if event.text == Key.LeftArrow { root.navigate(-1); return accept; }
-            if event.text == Key.RightArrow { root.navigate(1); return accept; }
-            return reject;
+}
+
+// Keep one focus owner per rail. mpv may acknowledge selection after another
+// key event, so navigation uses the keyboard cursor and painting uses observations.
+component VideoPresetKeys inherits FocusScope {
+    in property <int> count;
+    in property <int> observed-index;
+    in property <bool> last-opens-editor;
+    in property <string> label;
+    out property <int> focused-index: root.has-focus ? root.cursor : -1;
+    private property <int> cursor;
+    callback chosen(int);
+    callback focus-entered(length, length);
+    accessible-role: list;
+    accessible-label: root.label;
+    accessible-enabled: root.enabled;
+    accessible-item-count: root.count;
+    accessible-delegate-focus: root.focused-index;
+    focus-on-click: false;
+    focus-changed-event => {
+        if self.has-focus {
+            root.cursor = clamp(root.observed-index, 0, max(0, root.count - 1));
+            root.focus-entered(root.absolute-position.y, root.height);
         }
+    }
+    public function choose(index: int) {
+        if root.enabled {
+            root.focus();
+            root.cursor = index;
+            root.chosen(index);
+        }
+    }
+    function navigate(index: int) {
+        let next = clamp(index, 0, root.count - 1);
+        if next == root.cursor { return; }
+        root.cursor = next;
+        if !root.last-opens-editor || next != root.count - 1 { root.chosen(next); }
+    }
+    key-pressed(event) => {
+        if !root.has-focus || root.count == 0 || event.modifiers.alt || event.modifiers.control
+            || event.modifiers.meta || event.modifiers.shift { return reject; }
+        if event.text == Key.Return || event.text == " " { root.chosen(root.cursor); return accept; }
+        if event.text == Key.LeftArrow { root.navigate(root.cursor - 1); return accept; }
+        if event.text == Key.RightArrow { root.navigate(root.cursor + 1); return accept; }
+        if event.text == Key.Home { root.navigate(0); return accept; }
+        if event.text == Key.End { root.navigate(root.count - 1); return accept; }
+        return reject;
     }
 }
 
@@ -145,10 +185,12 @@ component PresetRailScrollView inherits ScrollView {
 
 export component VideoControls inherits Rectangle {
     callback focus-entered(length, length);
+    callback restore-player-focus();
     in property <bool> compact-ui: false;
     in property <bool> animations-disabled: false;
     in property <[string]> aspect-presets;
     in property <int> aspect-index: 0;
+    in property <string> custom-aspect;
     in property <int> rotation-index: -1;
     in property <[string]> crop-presets;
     in property <int> crop-index: -1;
@@ -184,7 +226,13 @@ export component VideoControls inherits Rectangle {
             Text { text: "Aspect Ratio"; font-size: 12px; font-weight: 700;
                 color: Theme.sidebar-heading-text(root.dark-theme); vertical-alignment: center; }
         }
-        Rectangle { height: 24px;
+        aspect-keys := VideoPresetKeys {
+            height: 24px;
+            label: "Aspect ratio presets";
+            enabled: root.aspect-enabled && root.aspect-presets.length > 0;
+            count: root.aspect-presets.length; observed-index: root.aspect-index;
+            chosen(index) => { root.aspect-changed(root.aspect-presets[index]); }
+            focus-entered(top, height) => { root.focus-entered(top, height); }
             HorizontalLayout { spacing: 4px;
                 aspect-scroll := PresetRailScrollView {
                     horizontal-stretch: 1; min-width: 0px; height: 24px;
@@ -208,6 +256,7 @@ export component VideoControls inherits Rectangle {
                                         : index == 2 ? 50px : index == 3 ? 56px
                                         : index == 4 ? 49px : 45px;
                                     label: label; hint: "Aspect ratio " + label;
+                                    index: index;
                                     enabled: root.aspect-enabled;
                                     wheel-scroll-enabled: true;
                                     dark-theme: root.dark-theme;
@@ -219,57 +268,31 @@ export component VideoControls inherits Rectangle {
                                     scroll-request(amount) => { aspect-scroll.scroll-by(amount); }
                                     separator-visible: index > 0 && root.aspect-index != index &&
                                         root.aspect-index != index - 1;
-                                    chosen => { root.aspect-changed(label); }
-                                    focus-entered => {
+                                    keyboard-focused: aspect-keys.focused-index == index;
+                                    chosen => { aspect-keys.choose(index); }
+                                    reveal => {
                                         aspect-scroll.reveal-horizontal(self.absolute-position.x, self.width);
-                                        root.focus-entered(self.absolute-position.y, self.height);
-                                    }
-                                    navigate(direction) => {
-                                        root.aspect-changed(root.aspect-presets[clamp(
-                                            (root.aspect-index >= 0 ? root.aspect-index : index) + direction,
-                                            0, root.aspect-presets.length - 1)]);
                                     }
                                 }
                             }
                         }
-                        Rectangle { width: 40px; height: 24px;
-                            background: root.windows-acrylic-surface
-                                ? (Theme.sidebar-input-surface(root.dark-theme, true))
-                                : (Theme.sidebar-input-surface(root.dark-theme, false));
-                            border-radius: 4px; border-width: 1px;
-                            border-color: custom.has-focus
-                                ? root.focus-accent-color
-                                : (Theme.sidebar-material-border(root.dark-theme));
-                            forward-focus: custom;
-                            FocusScope {
-                                width: parent.width; height: parent.height;
-                                forward-focus: custom;
-                                focus-on-tab-navigation: false;
-                                // Unmodified editing keys must not seek, pause or
-                                // change volume when the text editor rejects them.
-                                key-pressed(event) => {
-                                    if event.modifiers.alt || event.modifiers.control || event.modifiers.meta { return reject; }
-                                    if event.text == Key.Escape { return reject; }
-                                    if event.text == Key.Tab { return reject; }
-                                    return accept;
-                                }
-                                custom := TextInput { x: 3px; width: parent.width - 6px; height: parent.height;
-                                    single-line: true; enabled: root.aspect-enabled;
-                                    color: root.aspect-enabled
-                                        ? (Theme.sidebar-action-text(root.dark-theme, true))
-                                        : (Theme.sidebar-action-text(root.dark-theme, false));
-                                    font-size: 12px;
-                                    vertical-alignment: center; accessible-label: "Custom aspect ratio";
-                                    changed has-focus => {
-                                        if self.has-focus {
-                                            aspect-scroll.reveal-horizontal(self.absolute-position.x, self.width);
-                                            root.focus-entered(self.absolute-position.y, self.height);
-                                        }
-                                    }
-                                    accessible-action-set-value(value) => { self.text = value; }
-                                    accepted => { if self.text != "" { root.aspect-changed(self.text); } }
-                                }
+                        custom := QuickSettingsInput {
+                            width: 40px; height: 24px; horizontal-inset: 3px;
+                            hint: "Custom aspect ratio";
+                            enabled: root.aspect-enabled;
+                            accent-color: root.focus-accent-color;
+                            dark-theme: root.dark-theme;
+                            windows-acrylic-surface: root.windows-acrylic-surface;
+                            observed-value: root.custom-aspect; empty-value: root.custom-aspect;
+                            focus-entered(top, height) => {
+                                aspect-scroll.reveal-horizontal(self.absolute-position.x, self.width);
+                                root.focus-entered(top, height);
                             }
+                            committed(value) => {
+                                if !value.is-empty { root.aspect-changed(value); }
+                                return true;
+                            }
+                            editing-finished => { root.restore-player-focus(); }
                         }
                     }
                 }
@@ -295,7 +318,14 @@ export component VideoControls inherits Rectangle {
             Text { text: "Crop"; font-size: 12px; font-weight: 700;
                 color: Theme.sidebar-heading-text(root.dark-theme); vertical-alignment: center; }
         }
-        Rectangle { height: 24px;
+        crop-keys := VideoPresetKeys {
+            height: 24px;
+            label: "Crop presets";
+            enabled: root.crop-enabled && root.crop-presets.length > 0;
+            count: root.crop-presets.length; observed-index: root.crop-index;
+            last-opens-editor: true;
+            chosen(index) => { root.crop-changed(index); }
+            focus-entered(top, height) => { root.focus-entered(top, height); }
             HorizontalLayout { spacing: 4px;
                 crop-scroll := PresetRailScrollView {
                     horizontal-stretch: 1; min-width: 0px; height: 24px;
@@ -319,6 +349,7 @@ export component VideoControls inherits Rectangle {
                                     : index == 1 ? 45px : index == 2 ? 50px
                                     : index == 3 ? 56px : index == 4 ? 49px : 45px;
                                 label: label; hint: "Crop " + label;
+                                index: index;
                                 enabled: root.crop-enabled;
                                 wheel-scroll-enabled: true;
                                 dark-theme: root.dark-theme;
@@ -329,13 +360,11 @@ export component VideoControls inherits Rectangle {
                                 scroll-request(amount) => { crop-scroll.scroll-by(amount); }
                                 separator-visible: index > 0 && root.crop-index != index &&
                                     root.crop-index != index - 1;
-                                chosen => { root.crop-changed(index); }
-                                focus-entered => {
+                                keyboard-focused: crop-keys.focused-index == index;
+                                chosen => { crop-keys.choose(index); }
+                                reveal => {
                                     crop-scroll.reveal-horizontal(self.absolute-position.x, self.width);
-                                    root.focus-entered(self.absolute-position.y, self.height);
                                 }
-                                navigate(direction) => { root.crop-changed(clamp(
-                                    (root.crop-index >= 0 ? root.crop-index : index) + direction, 0, 6)); }
                             }
                         }
                     }
@@ -363,28 +392,35 @@ export component VideoControls inherits Rectangle {
             Text { text: "Rotation"; font-size: 12px; font-weight: 700;
                 color: Theme.sidebar-heading-text(root.dark-theme); vertical-alignment: center; }
         }
-        Rectangle {
-            width: 190px; height: 24px; border-radius: 4px; border-width: 1px;
+        rotation-rail := Rectangle {
+            width: min(190px, parent.width); height: 24px; border-radius: 4px; border-width: 1px;
             border-color: Theme.sidebar-material-border(root.dark-theme);
             background: root.windows-acrylic-surface
                 ? (Theme.video-preset-rail-material(root.dark-theme))
                 : (Theme.video-preset-rail-surface(root.dark-theme));
-            HorizontalLayout { x: 1px; y: 0px; spacing: 0px;
-                for label[index] in ["0°", "90°", "180°", "270°"] : VideoSegment {
-                    width: 47px;
-                    label: label; hint: "Video rotation " + label;
-                    enabled: root.rotation-enabled;
-                    dark-theme: root.dark-theme;
-                    windows-acrylic-surface: root.windows-acrylic-surface;
-                    accent-color: root.accent-color;
-                    accent-foreground: root.accent-foreground;
-                    selected: root.rotation-index == index;
-                    separator-visible: index > 0 && root.rotation-index != index &&
-                        root.rotation-index != index - 1;
-                    chosen => { root.rotation-changed(index * 90); }
-                    focus-entered => { root.focus-entered(self.absolute-position.y, self.height); }
-                    navigate(direction) => { root.rotation-changed(clamp(
-                        (root.rotation-index >= 0 ? root.rotation-index : index) + direction, 0, 3) * 90); }
+            rotation-keys := VideoPresetKeys {
+                width: parent.width; height: parent.height;
+                label: "Rotation presets";
+                enabled: root.rotation-enabled;
+                count: 4; observed-index: root.rotation-index;
+                chosen(index) => { root.rotation-changed(index * 90); }
+                focus-entered(top, height) => { root.focus-entered(top, height); }
+                HorizontalLayout { x: 1px; y: 0px; spacing: 0px;
+                    for label[index] in ["0°", "90°", "180°", "270°"] : VideoSegment {
+                        width: (rotation-rail.width - 2px) / 4;
+                        label: label; hint: "Video rotation " + label;
+                        index: index;
+                        enabled: root.rotation-enabled;
+                        dark-theme: root.dark-theme;
+                        windows-acrylic-surface: root.windows-acrylic-surface;
+                        accent-color: root.accent-color;
+                        accent-foreground: root.accent-foreground;
+                        selected: root.rotation-index == index;
+                        separator-visible: index > 0 && root.rotation-index != index &&
+                            root.rotation-index != index - 1;
+                        keyboard-focused: rotation-keys.focused-index == index;
+                        chosen => { rotation-keys.choose(index); }
+                    }
                 }
             }
         }

@@ -6,7 +6,7 @@ import { QuickSettingsDelayEditor } from "quick-settings-delay.slint";
 import { QuickSettingsTrackList } from "quick-settings-tracks.slint";
 import { DelayLane } from "delay-lane.slint";
 import { SubtitleVisibilityRow, SubtitleLaneSegment } from "player-sidebar-controls.slint";
-import { ObservedSizePicker } from "player-chrome-controls.slint";
+import { SubtitleSizePicker } from "subtitle-size-picker.slint";
 import { SubtitleColorWell } from "shared-controls.slint";
 
 export component SubtitleQuickSettingsPage inherits VerticalLayout {
@@ -266,18 +266,24 @@ export component SubtitleQuickSettingsPage inherits VerticalLayout {
                 Text { text: "Font"; color: Theme.sidebar-heading-text(root.dark-theme);
                     font-size: 12px; font-weight: 700; vertical-alignment: center; }
                 Rectangle { horizontal-stretch: 1; background: transparent; }
-                Tool { accent-color: root.interactive-accent-color; dark-theme: root.dark-theme; width: 140px; label: PlaybackSubtitleState.subtitle-font; hint: "Choose subtitle font";
+                Tool { accent-color: root.interactive-accent-color; dark-theme: root.dark-theme;
+                    width: clamp(parent.width - 110px, 0px, 140px);
+                    label: PlaybackSubtitleState.subtitle-font; hint: "Choose subtitle font";
+                    elide-label: true;
                     focus-entered(top, height) => { root.focus-entered(top, height); }
                     enabled: root.loaded && PlaybackSubtitleState.subtitle-font-known;
                     activated => { root.choose-subtitle-font(); } }
-                ObservedSizePicker { width: 60px; height: 24px;
-                    focus-entered(top, height) => { root.focus-entered(top, height); }
-                    model: ["25", "30", "35", "40", "45", "50", "55", "60", "65", "70", "75"];
-                    observed-index: PlaybackSubtitleState.subtitle-font-size >= 25 && PlaybackSubtitleState.subtitle-font-size <= 75 && mod(PlaybackSubtitleState.subtitle-font-size - 25, 5) == 0 ? round((PlaybackSubtitleState.subtitle-font-size - 25) / 5) : -1;
-                    observed-value: PlaybackSubtitleState.subtitle-font-size-known ? "" + PlaybackSubtitleState.subtitle-font-size : "—";
+                SubtitleSizePicker {
+                    focus-entered(x, top, width, height) => { root.focus-entered(top, height); }
+                    presets: ["25", "30", "35", "40", "45", "50", "55", "60", "65", "70", "75"];
+                    observed-value: PlaybackSubtitleState.subtitle-font-size;
+                    value-known: PlaybackSubtitleState.subtitle-font-size-known;
                     enabled: root.loaded && PlaybackSubtitleState.subtitle-font-size-known;
-                    accessible-label: "Subtitle font size";
-                    selected(value) => { if value.is-float() { root.set-subtitle-font-size(value.to-float()); } }
+                    hint: "Subtitle font size";
+                    dark-theme: root.dark-theme;
+                    focus-accent-color: root.interactive-accent-color;
+                    windows-acrylic-surface: root.windows-sidebar-material-active;
+                    selected(value) => { root.set-subtitle-font-size(value); }
                 }
             }
             HorizontalLayout { height: 30px; spacing: 8px;
@@ -293,14 +299,17 @@ export component SubtitleQuickSettingsPage inherits VerticalLayout {
                 Text { text: "Border"; color: Theme.sidebar-heading-text(root.dark-theme);
                     font-size: 12px; font-weight: 700; vertical-alignment: center; }
                 Rectangle { horizontal-stretch: 1; background: transparent; }
-                ObservedSizePicker { width: 60px; height: 24px;
-                    focus-entered(top, height) => { root.focus-entered(top, height); }
-                    model: ["0", "0.25", "0.5", "1", "1.5", "2", "2.5", "3", "4", "5"];
-                    observed-index: PlaybackSubtitleState.subtitle-outline-size == 0 ? 0 : PlaybackSubtitleState.subtitle-outline-size == 0.25 ? 1 : PlaybackSubtitleState.subtitle-outline-size == 0.5 ? 2 : PlaybackSubtitleState.subtitle-outline-size == 1 ? 3 : PlaybackSubtitleState.subtitle-outline-size == 1.5 ? 4 : PlaybackSubtitleState.subtitle-outline-size == 2 ? 5 : PlaybackSubtitleState.subtitle-outline-size == 2.5 ? 6 : PlaybackSubtitleState.subtitle-outline-size == 3 ? 7 : PlaybackSubtitleState.subtitle-outline-size == 4 ? 8 : PlaybackSubtitleState.subtitle-outline-size == 5 ? 9 : -1;
-                    observed-value: PlaybackSubtitleState.subtitle-outline-size-known ? "" + PlaybackSubtitleState.subtitle-outline-size : "—";
+                SubtitleSizePicker {
+                    focus-entered(x, top, width, height) => { root.focus-entered(top, height); }
+                    presets: ["0", "0.25", "0.5", "1", "1.5", "2", "2.5", "3", "4", "5"];
+                    observed-value: PlaybackSubtitleState.subtitle-outline-size;
+                    value-known: PlaybackSubtitleState.subtitle-outline-size-known;
                     enabled: root.loaded && PlaybackSubtitleState.subtitle-outline-size-known;
-                    accessible-label: "Subtitle outline width";
-                    selected(value) => { if value.is-float() { root.set-subtitle-outline-size(value.to-float()); } }
+                    hint: "Subtitle outline width";
+                    dark-theme: root.dark-theme;
+                    focus-accent-color: root.interactive-accent-color;
+                    windows-acrylic-surface: root.windows-sidebar-material-active;
+                    selected(value) => { root.set-subtitle-outline-size(value); }
                 }
                 SubtitleColorWell { observed-color: PlaybackSubtitleState.subtitle-border-color; hint: "Subtitle border color";
                     focus-entered(top, height) => { root.focus-entered(top, height); }

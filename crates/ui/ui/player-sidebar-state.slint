@@ -29,6 +29,12 @@ export global PlayerSidebarState {
     out property <int> playlist-insertion-slot: PlaylistInteraction.playlist-drag-active ? root.playlist-reorder-slot
         : PlaylistInteraction.external-drop-hover.active
             ? root.playlist-drop-slot(PlaylistInteraction.external-drop-hover.x, PlaylistInteraction.external-drop-hover.y) : -1;
+    out property <bool> quick-settings-visible: !PlayerMusicModeState.music-mode && !PlayerCropState.crop-editing
+        && (root.is-quick-settings(root.sidebar) || root.is-quick-settings(root.leading-sidebar));
+
+    public pure function is-quick-settings(pane: int) -> bool {
+        return pane == 1 || pane == 2 || pane == 5 || pane == 6;
+    }
 
     changed sidebar => { PlaylistInteraction.cancel-playlist-drag(); }
     changed leading-sidebar => { PlaylistInteraction.cancel-playlist-drag(); }

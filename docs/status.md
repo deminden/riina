@@ -68,6 +68,13 @@ Implementation does not imply every state or platform is verified.
   preserves its entries.
   Date headings and played-at timestamps use the system locale and local
   time zone. Collapse and chronological ordering use local calendar days.
+- In **Quick Settings Layout**, the selected Theme option is one Tab stop.
+  Arrow keys, Home and End choose a theme. Tab navigation scrolls narrow
+  Layout panes to reveal the focused switch or controller choice.
+- In **Quick Settings Video**, each preset rail has one Tab stop and reveals
+  the focused choice. Custom aspect entry supports cancellation. The
+  **Subtitles** page displays the engine's current font size and border
+  width, including values outside the preset lists.
 - **Utilities:** Settings owns the confirmations for alerts, saved progress,
   history and thumbnails. Cache sizes refresh when the page opens or data is cleared.
 - **Russian and Arabic labels** are bundled for Welcome, Open URL, Playback

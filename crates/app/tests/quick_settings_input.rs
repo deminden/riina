@@ -17,6 +17,9 @@ mod equalizer;
 #[path = "quick_settings/timing.rs"]
 mod timing;
 
+#[path = "quick_settings/presets.rs"]
+mod presets;
+
 #[path = "quick_settings/workflows.rs"]
 mod workflows;
 
@@ -519,6 +522,119 @@ fn tab_leaves_the_category_group_for_the_page_in_one_step() {
         1,
         "Inactive categories must not add Tab stops"
     );
+}
+
+#[test]
+fn layout_theme_uses_one_keyboard_stop_and_owns_unmodified_navigation() {
+    let app = player(5);
+    let appearance = app.global::<riina_ui::PlayerAppearance>();
+    appearance.set_appearance_mode(2);
+    let mut shortcuts = vec![MenuShortcutRow::default(); 4];
+    shortcuts[0].shortcut = slint::Keys::from_parts(["Space"]).unwrap();
+    shortcuts[2].shortcut = slint::Keys::from_parts(["Control", "RightArrow"]).unwrap();
+    shortcuts[3].shortcut = slint::Keys::from_parts(["LeftArrow"]).unwrap();
+    app.set_menu_shortcuts(slint::ModelRc::new(slint::VecModel::from(shortcuts)));
+    let menu_calls = Rc::new(RefCell::new(Vec::new()));
+    let received = menu_calls.clone();
+    app.global::<PlayerMenuActions>()
+        .on_seek_relative(move |seconds| received.borrow_mut().push(seconds));
+    let received = menu_calls.clone();
+    app.global::<PlayerMenuActions>()
+        .on_toggle_pause(move || received.borrow_mut().push(0.0));
+    let playback_keys = Rc::new(std::cell::Cell::new(0));
+    let received = playback_keys.clone();
+    let profile = menu_calls.clone();
+    app.global::<riina_ui::PlayerControlActions>()
+        .on_dispatch_key_binding(move |text, control, _, _, _| {
+            let right: slint::SharedString = Key::RightArrow.into();
+            if control && text == right {
+                profile.borrow_mut().push(5.0);
+                return true;
+            }
+            received.set(received.get() + 1);
+            false
+        });
+    focus(&app, &button(&app, "Layout"));
+    key(&app, Key::Tab);
+    playback_keys.set(0);
+    for (pressed, expected) in [
+        (Key::LeftArrow, 1),
+        (Key::Home, 0),
+        (Key::RightArrow, 1),
+        (Key::End, 2),
+        (Key::RightArrow, 2),
+        (Key::LeftArrow, 1),
+    ] {
+        key(&app, pressed);
+        assert_eq!(appearance.get_appearance_mode(), expected);
+    }
+    assert_eq!(playback_keys.get(), 0);
+    assert!(menu_calls.borrow().is_empty());
+    app.window().dispatch_event(WindowEvent::KeyPressed {
+        text: Key::Control.into(),
+    });
+    key(&app, Key::RightArrow);
+    app.window().dispatch_event(WindowEvent::KeyReleased {
+        text: Key::Control.into(),
+    });
+    assert_eq!(&*menu_calls.borrow(), &[5.0]);
+    let initial = appearance.get_liquid_glass_osd();
+    key(&app, Key::Tab);
+    key(&app, " ");
+    assert_ne!(appearance.get_liquid_glass_osd(), initial);
+    assert_eq!(appearance.get_appearance_mode(), 1);
+    key(&app, Key::Backtab);
+    playback_keys.set(0);
+    key(&app, Key::Home);
+    assert_eq!(appearance.get_appearance_mode(), 0);
+    assert_eq!(playback_keys.get(), 0);
+    assert_eq!(&*menu_calls.borrow(), &[5.0]);
+    app.invoke_focus_player();
+    key(&app, Key::LeftArrow);
+    assert_eq!(&*menu_calls.borrow(), &[5.0, -5.0]);
+}
+
+#[test]
+fn layout_tab_reveals_lower_switches_in_both_narrow_sidebar_positions() {
+    let app = player(5);
+    app.window().set_size(LogicalSize::new(285.0, 310.0));
+    let sidebar = app.global::<riina_ui::PlayerSidebarState>();
+    for leading in [false, true] {
+        sidebar.set_settings_at_leading(leading);
+        sidebar.set_sidebar(if leading { 0 } else { 5 });
+        sidebar.set_leading_sidebar(if leading { 5 } else { 0 });
+        flush();
+        let viewport =
+            ElementHandle::find_by_element_id(&app, "PlayerSidebarContent::layout-scroll")
+                .next()
+                .unwrap();
+        assert!(
+            ElementHandle::find_by_accessible_label(&app, "Plugins on leading side")
+                .next()
+                .is_none_or(|row| row.absolute_position().y > 310.0)
+        );
+        focus(&app, &button(&app, "Layout"));
+        // The leading header places its Close button after the categories.
+        for _ in 0..(13 + usize::from(leading)) {
+            key(&app, Key::Tab);
+        }
+        let lower = field(&app, "Plugins on leading side");
+        let position = lower.absolute_position();
+        let lower_size = lower.size();
+        let top = viewport.absolute_position().y;
+        let right = viewport.absolute_position().x + viewport.size().width;
+        assert!(
+            position.y >= top && position.y + lower_size.height <= 310.0,
+            "Layout did not reveal the focused row at {position:?}"
+        );
+        assert!(
+            position.x + lower_size.width <= right + 0.5,
+            "The focused switch remained clipped at {position:?}"
+        );
+        let initial = sidebar.get_plugins_at_leading();
+        key(&app, " ");
+        assert_ne!(sidebar.get_plugins_at_leading(), initial);
+    }
 }
 
 #[test]

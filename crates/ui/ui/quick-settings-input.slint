@@ -1,5 +1,5 @@
 import { Theme } from "theme.slint";
-// Shared edit lifecycle for speed and audio/subtitle timing fields.
+// Shared edit lifecycle for sidebar playback fields.
 export component QuickSettingsInput inherits Rectangle {
     in property <string> observed-value: "0";
     in property <string> empty-value: "0";
@@ -9,6 +9,7 @@ export component QuickSettingsInput inherits Rectangle {
     in property <bool> windows-acrylic-surface: false;
     in property <color> accent-color: Theme.player-focus-accent;
     in property <string> hint;
+    in property <length> horizontal-inset: 6px;
     callback committed(string) -> bool;
     callback editing-finished();
     callback focus-entered(length, length);
@@ -49,7 +50,7 @@ export component QuickSettingsInput inherits Rectangle {
         }
         key-released(event) => { return event.text == Key.Alt || event.text == Key.AltGr ? reject : accept; }
         input := TextInput {
-            x: 6px; width: parent.width - 12px; height: parent.height;
+            x: root.horizontal-inset; width: parent.width - 2 * root.horizontal-inset; height: parent.height;
             text: root.observed-value;
             enabled: root.enabled;
             font-size: 12px;
