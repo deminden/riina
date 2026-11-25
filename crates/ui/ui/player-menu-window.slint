@@ -71,19 +71,20 @@ export component PlayerMenuWindow inherits Window {
 
     // Slint dispatches menu-bar shortcuts before visiting the focused item.
     function player-shortcut(shortcut: keys) -> keys {
-        let playlist-visible = PlayerMusicModeState.music-mode ? PlayerMusicModeState.music-mode-show-playlist
+        let playlist-visible = PlayerMusicModeState.music-mode ? PlayerSidebarState.visible-catalog-pane == 4
             : PlayerSidebarState.sidebar == 4 || PlayerSidebarState.leading-sidebar == 4;
         return PlaylistPluginPopupState.shown ||
             (PlayerPluginSidebarState.composited && PlayerPluginSidebarState.keyboard-focused) ||
             (playlist-visible && PlaylistInteraction.owns-navigation-shortcut(shortcut)) ||
-            (!root.menu-value-snapshot-shortcuts && PlayerSidebarState.quick-settings-visible
-                && root.quick-settings-key(shortcut))
+            (!root.menu-value-snapshot-shortcuts &&
+                (PlayerSidebarState.quick-settings-visible || PlayerSidebarState.visible-catalog-pane != 0)
+                && root.panel-navigation-key(shortcut))
             ? @keys() : shortcut;
     }
 
     // Let focused controls handle traversal and activation first. The player
     // key scope still dispatches the active profile when a control declines.
-    pure function quick-settings-key(shortcut: keys) -> bool {
+    pure function panel-navigation-key(shortcut: keys) -> bool {
         return shortcut == @keys(LeftArrow) || shortcut == @keys(RightArrow)
             || shortcut == @keys(UpArrow) || shortcut == @keys(DownArrow)
             || shortcut == @keys(Home) || shortcut == @keys(End)
@@ -258,7 +259,8 @@ export component PlayerMenuWindow inherits Window {
                 shortcut: root.menu-shortcut(47);
                 activated => { PlayerMenuActions.toggle-file-loop(); } }
             MenuSeparator {}
-            MenuItem { title: @tr("Show Playlist Panel"); enabled: !root.menu-value-crop-editing;
+            MenuItem { title: PlayerSidebarState.visible-catalog-pane == 4 ? @tr("Hide Playlist Panel") : @tr("Show Playlist Panel");
+                enabled: !root.menu-value-crop-editing;
                 shortcut: root.menu-shortcut(12);
                 activated => { PlayerMenuActions.toggle-playlist-pane(4); } }
             MenuItem { title: @tr("Playlist Loop"); checkable: true; checked: PlayerCatalogState.loop-label == @tr("Playlist");
@@ -277,11 +279,12 @@ export component PlayerMenuWindow inherits Window {
             MenuItem { title: @tr("Previous Media"); enabled: root.menu-value-loaded && !root.menu-value-crop-editing;
                 shortcut: root.menu-shortcut(14);
                 activated => { PlayerMenuActions.playlist-previous(); } }
-            MenuItem { title: @tr("Show Chapters Panel"); enabled: !root.menu-value-crop-editing;
+            MenuItem { title: PlayerSidebarState.visible-catalog-pane == 3 ? @tr("Hide Chapters Panel") : @tr("Show Chapters Panel");
+                enabled: !root.menu-value-crop-editing;
                 shortcut: root.menu-shortcut(15);
                 activated => { PlayerMenuActions.toggle-playlist-pane(3); } }
-            Menu { title: @tr("Chapters"); enabled: root.menu-value-loaded && PlayerCatalogState.chapters.length > 0 && !root.menu-value-crop-editing;
-                for row in PlayerCatalogState.chapters : MenuItem {
+            Menu { title: @tr("Chapters"); enabled: root.menu-value-loaded && PlayerCatalogState.chapter-menu-rows.length > 0 && !root.menu-value-crop-editing;
+                for row in PlayerCatalogState.chapter-menu-rows : MenuItem {
                     title: row.label;
                     checkable: true; checked: row.selected;
                     activated => { PlayerMenuActions.select-item(CatalogSelection.chapter, row.token); }

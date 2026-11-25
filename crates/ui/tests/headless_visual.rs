@@ -139,7 +139,7 @@ enum Layout {
     Standard,
     Compact,
     Docked,
-    Music,
+    Music { chapters: bool },
 }
 
 fn player(
@@ -179,15 +179,17 @@ fn player(
             .global::<riina_ui::PlayerLayoutState>()
             .set_osc_position(2);
     }
-    window
-        .global::<riina_ui::PlayerMusicModeState>()
-        .set_music_mode(matches!(layout, Layout::Music));
-    window
-        .global::<riina_ui::PlayerMusicModeState>()
-        .set_music_mode_is_audio(matches!(layout, Layout::Music));
-    window
-        .global::<riina_ui::PlayerMusicModeState>()
-        .set_music_mode_show_playlist(matches!(layout, Layout::Music));
+    if let Layout::Music { chapters } = layout {
+        let music = window.global::<riina_ui::PlayerMusicModeState>();
+        music.set_music_mode(true);
+        music.set_music_mode_is_audio(true);
+        music.set_music_mode_show_playlist(true);
+        if chapters {
+            window
+                .global::<riina_ui::PlayerSidebarState>()
+                .set_remembered_playlist_pane(3);
+        }
+    }
     window
         .global::<riina_ui::PlayerSidebarState>()
         .set_sidebar(sidebars.0);
@@ -228,9 +230,26 @@ fn player(
         window
             .global::<riina_ui::PlayerCatalogState>()
             .set_playlist(catalog(&["Headless test clip", "Next clip", "Final clip"]));
+        let chapters = [
+            ("Opening", "00:00 → 00:25"),
+            ("Middle", "00:25 → 00:51"),
+            ("Credits", "00:51 → End"),
+        ];
         window
             .global::<riina_ui::PlayerCatalogState>()
-            .set_chapters(catalog(&["Opening", "Middle", "Credits"]));
+            .set_chapters(slint::ModelRc::new(slint::VecModel::from(
+                chapters
+                    .into_iter()
+                    .enumerate()
+                    .map(|(index, (title, range))| CatalogRow {
+                        token: index.to_string().into(),
+                        label: title.into(),
+                        detail: range.into(),
+                        selected: index == 0,
+                        ..Default::default()
+                    })
+                    .collect::<Vec<_>>(),
+            )));
         window
             .global::<riina_ui::PlayerRenderedVideo>()
             .set_video_frame(test_picture());
@@ -294,12 +313,13 @@ fn player_frames(baselines: &mut Baselines) -> Result<(), Box<dyn Error>> {
         ("paired-sidebars", Paused, (4, 5), Standard),
         ("compact", Paused, (0, 0), Compact),
         ("docked", Playing, (0, 0), Docked),
-        ("music", Playing, (0, 0), Music),
+        ("music", Playing, (0, 0), Music { chapters: false }),
+        ("music-chapters", Paused, (0, 0), Music { chapters: true }),
     ];
     for (theme, dark) in [("dark", true), ("light", false)] {
         for (name, state, sidebars, layout) in cases {
             let window = player(state, dark, sidebars, layout)?;
-            let size = if matches!(layout, Music) {
+            let size = if matches!(layout, Music { .. }) {
                 PhysicalSize::new(320, 480)
             } else {
                 PhysicalSize::new(1000, 640)

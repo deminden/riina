@@ -7,7 +7,8 @@ import { SubtitleQuickSettingsPage } from "quick-settings-subtitles.slint";
 import { VideoQuickSettingsPage } from "quick-settings-video.slint";
 import { PlayerMenuActions } from "player-menu-actions.slint";
 import { Theme } from "theme.slint";
-import { CatalogRow, CatalogSelection } from "catalog-row.slint";
+import { CatalogSelection } from "catalog-row.slint";
+import { ChapterRows } from "chapter-rows.slint";
 import { DelayLane } from "delay-lane.slint";
 import { PlayerPreferences } from "player-preferences.slint";
 import { CatalogSidebarRow } from "playlist-sidebar-row.slint";
@@ -26,8 +27,6 @@ export component PlayerSidebarPage inherits VerticalLayout {
     pure function selection-for-pane(kind: int) -> CatalogSelection {
         return kind == 1 ? CatalogSelection.audio-track :
             kind == 2 ? CatalogSelection.primary-subtitle :
-            kind == 3 ? CatalogSelection.chapter :
-            kind == 4 ? CatalogSelection.playlist :
             kind == 5 ? CatalogSelection.secondary-subtitle :
             kind == 6 ? CatalogSelection.video-track : CatalogSelection.unknown;
     }
@@ -72,18 +71,22 @@ export component PlayerSidebarPage inherits VerticalLayout {
             color: Theme.sidebar-secondary-text(PlayerAppearance.dark-theme);
             font-size: 11px; wrap: word-wrap; }
     }
-    for row[index] in (pane-kind == 3 ? PlayerCatalogState.chapters : pane-kind == 4 ? PlayerCatalogState.playlist : []): CatalogSidebarRow {
+    if pane-kind == 3 : ChapterRows {
+        width: parent.width;
+        viewport-height: root.viewport-height;
+        reveal-row(top, height) => { root.focus-entered(top, height); }
+    }
+    for row[index] in (pane-kind == 4 ? PlayerCatalogState.playlist : []): CatalogSidebarRow {
         width: parent.width;
         entry: row;
         index: index;
-        pane-kind: root.pane-kind;
         requested-index: root.playlist-focus-index;
         viewport-height: root.viewport-height;
         dark-theme: PlayerAppearance.dark-theme;
         focus-entered(top, height) => { root.focus-entered(top, height); }
         move-playlist-focus(index) => { root.playlist-focus-index = index; }
         interactive-accent-color: PlayerAppearance.interactive-accent-color;
-        select-row(token) => { PlayerMenuActions.select-item(root.selection-for-pane(pane-kind), token); }
+        select-row(token) => { PlayerMenuActions.select-item(CatalogSelection.playlist, token); }
     }
     if pane-kind == 6 : VideoQuickSettingsPage {
         sidebar-width: root.sidebar-width;

@@ -258,12 +258,12 @@ impl Request {
 impl Surface {
     fn visible(app: &PlayerWindow, origin: PlaylistMenuOrigin) -> Option<Self> {
         let music = app.global::<PlayerMusicModeState>();
+        let state = app.global::<PlayerSidebarState>();
         match origin {
             PlaylistMenuOrigin::MusicMode => (music.get_music_mode()
-                && music.get_music_mode_show_playlist())
-            .then_some(Self::MusicMode),
+                && state.get_visible_catalog_pane() == 4)
+                .then_some(Self::MusicMode),
             PlaylistMenuOrigin::Sidebar if !music.get_music_mode() => {
-                let state = app.global::<PlayerSidebarState>();
                 let leading = state.get_leading_sidebar();
                 let trailing = state.get_sidebar();
                 (leading == 4 || trailing == 4).then_some(Self::Sidebars { leading, trailing })

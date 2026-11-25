@@ -52,7 +52,7 @@ export { DelayLane } from "delay-lane.slint";
 import { PlayerMenuWindow } from "player-menu-window.slint";
 export { PlayerMenuWindow } from "player-menu-window.slint";
 import { PlayerController } from "player-controller.slint";
-import { MusicModePlaylist } from "music-mode-playlist.slint";
+import { MusicModeCatalog } from "music-mode-catalog.slint";
 import { PlaylistInteraction, PlaylistMenuOrigin } from "playlist-interaction.slint";
 export { PlaylistDropHover, PlaylistEdit, PlaylistInteraction, PlaylistMenuOrigin } from "playlist-interaction.slint";
 export { PlaylistSubtitleAction, PlaylistSubtitleTargets } from "playlist-interaction.slint";
@@ -321,7 +321,7 @@ export component PlayerWindow inherits PlayerMenuWindow {
     changed open-subtitles-auto-search => { root.open-subtitles-auto-search-changed(root.open-subtitles-auto-search); }
     out property <bool> show-playlist-metadata: PlayerPreferences.playlist-show-metadata && (!PlayerPreferences.playlist-show-metadata-in-music-mode || music-mode);
     out property <bool> prefetch-playlist-durations: PlayerPreferences.prefetch-playlist-video-duration
-        && (music-mode ? PlayerMusicModeState.music-mode-show-playlist
+        && (music-mode ? PlayerSidebarState.visible-catalog-pane == 4
             : PlayerSidebarState.sidebar == 4 || PlayerSidebarState.leading-sidebar == 4);
     callback refresh-playlist-metadata();
     changed show-playlist-metadata => { root.refresh-playlist-metadata(); }
@@ -478,7 +478,7 @@ export component PlayerWindow inherits PlayerMenuWindow {
             private property <bool> quick-settings-pane: PlayerSidebarState.is-quick-settings(pane-kind);
             leading: side == 0;
             viewport-width: parent.width;
-            sidebar-open: pane-kind != 0 && !PlayerCropState.crop-editing;
+            sidebar-open: pane-kind != 0 && !root.music-mode && !PlayerCropState.crop-editing;
             reduce-motion-fade: PlayerAppearance.macos-sidebar-reduce-motion-fade;
             y: viewport.title-row-height + (PlayerLayoutState.osc-position == 1 ? viewport.osc-height : 0px);
             width: min((side == 0 ? PlayerSidebarState.leading-sidebar-width : PlayerSidebarState.trailing-sidebar-width) * 1px, parent.width * 0.8);
@@ -515,14 +515,14 @@ export component PlayerWindow inherits PlayerMenuWindow {
                     audio-y: scroll-memory.audio-y;
                     video-y: scroll-memory.video-y;
                     subtitles-y: scroll-memory.subtitles-y;
-                    playlist-y: scroll-memory.playlist-y;
-                    chapters-y: scroll-memory.chapters-y;
+                    playlist-y: PlayerSidebarState.playlist-scroll-y;
+                    chapters-y: PlayerSidebarState.chapters-scroll-y;
                     position-changed(kind, offset) => {
                         if kind == 1 { scroll-memory.audio-y = offset; }
                         else if kind == 6 { scroll-memory.video-y = offset; }
                         else if kind == 2 { scroll-memory.subtitles-y = offset; }
-                        else if kind == 4 { scroll-memory.playlist-y = offset; }
-                        else if kind == 3 { scroll-memory.chapters-y = offset; }
+                        else if kind == 4 { PlayerSidebarState.save-playlist-scroll(offset); }
+                        else if kind == 3 { PlayerSidebarState.chapters-scroll-y = offset; }
                     }
                     width: parent.width - (quick-settings-pane
                         ? 20px : (PlayerAppearance.compact-ui ? 18px : 24px));
@@ -655,11 +655,8 @@ export component PlayerWindow inherits PlayerMenuWindow {
             render-width: root.render-width;
             render-height: root.render-height;
             screenshot-preview-action(action) => { root.screenshot-preview-action(action); }
-            if music-mode && PlayerMusicModeState.music-mode-show-playlist : MusicModePlaylist {
+            if music-mode && PlayerMusicModeState.music-mode-show-playlist : MusicModeCatalog {
                 x: 0px; y: parent.height - 300px; width: parent.width; height: 300px;
-                dark-theme: PlayerAppearance.dark-theme;
-                platform-windows: PlayerAppearance.platform-windows;
-                windows-accent-color: PlayerAppearance.windows-accent-color;
                 play-row(token) => {
                     PlaylistInteraction.clear-selection();
                     PlayerMenuActions.select-item(CatalogSelection.playlist, token);

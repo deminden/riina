@@ -36,6 +36,11 @@ Implementation does not imply every state or platform is verified.
 - **Controller arrows:** Interface Settings selects playback speed, playlist
   navigation, or a 10-second seek. The main controller and Touch Bar use the
   selected action. The Music Mode arrows navigate the playlist.
+- **Music Mode catalog:** the compact player opens Playlist and Chapters in
+  the same panel. The toolbar remembers the active tab, and both lists keep
+  their scroll positions when switching between the main and compact player.
+  Chapter rows show the time range. Navigation moves the row selection and
+  activation seeks to the chapter.
 - **File opens:** the primary File commands follow the new-window preference,
   and their modifier shortcuts invert it. Active menus show the actual destination.
   The native Windows picker has verified grouped and separate opens and reuse

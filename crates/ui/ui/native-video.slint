@@ -95,6 +95,7 @@ export component NativeVideoHost inherits Window {
     in property <string> open-subtitles-plugin-provider-label;
     in property <[MenuCatalogRow]> plugin-subtitle-providers;
     in property <bool> video-panel-open: false;
+    in property <int> visible-catalog-pane;
     in property <bool> audio-panel-open: false;
     in property <bool> subtitles-panel-open: false;
     in property <bool> plugins-panel-open: false;
@@ -359,7 +360,8 @@ export component NativeVideoHost inherits Window {
                 shortcut: root.menu-shortcut(47);
                 enabled: root.playback-loaded; activated => { root.toggle-file-loop(); } }
             MenuSeparator {}
-            MenuItem { title: @tr("Show Playlist Panel"); shortcut: root.menu-shortcut(12);
+            MenuItem { title: root.visible-catalog-pane == 4 ? @tr("Hide Playlist Panel") : @tr("Show Playlist Panel");
+                shortcut: root.menu-shortcut(12);
                 activated => { root.show-playlist-panel(); } }
             MenuItem { title: @tr("Playlist Loop"); checkable: true; checked: root.loop-label == @tr("Playlist");
                 enabled: root.playback-loaded; activated => { root.cycle-playlist-loop(); } }
@@ -377,7 +379,7 @@ export component NativeVideoHost inherits Window {
             MenuItem { title: @tr("Previous Media"); enabled: root.playback-loaded;
                 shortcut: root.menu-shortcut(14);
                 activated => { root.playlist-previous(); } }
-            MenuItem { title: @tr("Show Chapters Panel");
+            MenuItem { title: root.visible-catalog-pane == 3 ? @tr("Hide Chapters Panel") : @tr("Show Chapters Panel");
                 shortcut: root.menu-shortcut(15);
                 activated => { root.show-chapters-panel(); } }
             Menu { title: @tr("Chapters"); enabled: root.playback-loaded && root.chapter-menu-rows.length > 0;

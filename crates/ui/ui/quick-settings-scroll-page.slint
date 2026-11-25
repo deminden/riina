@@ -7,12 +7,10 @@ export component SidebarScrollMemory inherits Rectangle {
     in-out property <length> audio-y;
     in-out property <length> video-y;
     in-out property <length> subtitles-y;
-    in-out property <length> playlist-y;
-    in-out property <length> chapters-y;
 }
 
-// Each sidebar owns independent page positions. A deferred restore lets the new
-// page establish its extent before the scroll view clamps its saved position.
+// Quick Settings positions belong to the sidebar. Catalog positions follow the
+// player between the sidebar and Music Mode.
 export component QuickSettingsScrollPage inherits PlaylistDropScrollView {
     in property <int> page-kind;
     in property <length> audio-y;
@@ -54,11 +52,12 @@ export component QuickSettingsScrollPage inherits PlaylistDropScrollView {
     Timer {
         interval: 1ms; running: root.restoring;
         triggered => {
-            root.content-y = root.page-kind == 1 ? root.audio-y
+            let saved = root.page-kind == 1 ? root.audio-y
                 : root.page-kind == 6 ? root.video-y
                 : root.page-kind == 2 ? root.subtitles-y
                 : root.page-kind == 4 ? root.playlist-y
                 : root.page-kind == 3 ? root.chapters-y : 0px;
+            root.content-y = clamp(saved, min(0px, root.visible-height - root.content-height), 0px);
             root.content-x = 0px;
             root.user-scrolling = false;
             root.restoring = false;

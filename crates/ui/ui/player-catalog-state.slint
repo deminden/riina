@@ -10,6 +10,7 @@ export global PlayerCatalogState {
     in-out property <[MenuCatalogRow]> recent-open-menu-rows: [];
     in-out property <[MenuCatalogRow]> window-menu-rows: [];
     in-out property <[CatalogRow]> chapters;
+    in-out property <[MenuCatalogRow]> chapter-menu-rows;
     in-out property <[CatalogRow]> playlist;
     in property <string> playlist-duration-summary;
     in-out property <bool> playlist-shuffled: false;
@@ -20,7 +21,7 @@ export global PlayerCatalogState {
 
     changed recent-open-menu-rows => { PlayerMenuActions.video-menu-changed(); }
     changed window-menu-rows => { PlayerMenuActions.video-menu-changed(); }
-    changed chapters => { PlayerMenuActions.video-menu-changed(); }
+    changed chapter-menu-rows => { PlayerMenuActions.video-menu-changed(); }
     changed playlist => {
         PlaylistInteraction.cancel-playlist-drag();
         PlayerMenuActions.video-menu-changed();

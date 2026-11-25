@@ -1,0 +1,94 @@
+import { CatalogSelection } from "catalog-row.slint";
+import { PlayerAppearance } from "player-appearance.slint";
+import { PlayerCatalogState } from "player-catalog-state.slint";
+import { PlayerMenuActions } from "player-menu-actions.slint";
+import { PlayerSidebarState } from "player-sidebar-state.slint";
+import { Theme } from "theme.slint";
+
+export component ChapterRows inherits FocusScope {
+    in property <length> viewport-height;
+    callback reveal-row(length, length);
+
+    private property <length> row-height: 40px;
+    private property <int> count: PlayerCatalogState.chapters.length;
+    private property <int> cursor: clamp(PlayerSidebarState.chapter-cursor, 0, max(0, count - 1));
+    height: row-height * count;
+    focus-on-tab-navigation: count > 0;
+    focus-on-click: false;
+
+    function reveal-current() {
+        if root.count > 0 {
+            root.reveal-row(root.absolute-position.y + root.cursor * root.row-height, root.row-height);
+        }
+    }
+
+    function activate(index: int) {
+        if index >= 0 && index < root.count {
+            PlayerMenuActions.select-item(CatalogSelection.chapter, PlayerCatalogState.chapters[index].token);
+        }
+    }
+
+    focus-changed-event => { if self.has-focus { root.reveal-current(); } }
+    key-pressed(event) => {
+        if root.count == 0 || event.modifiers.alt || event.modifiers.control ||
+            event.modifiers.meta || event.modifiers.shift { return reject; }
+        if event.text == Key.Return { root.activate(root.cursor); return accept; }
+        let page = max(1, floor(root.viewport-height / root.row-height));
+        let target = event.text == Key.UpArrow ? max(0, root.cursor - 1)
+            : event.text == Key.DownArrow ? min(root.count - 1, root.cursor + 1)
+            : event.text == Key.Home ? 0
+            : event.text == Key.End ? root.count - 1
+            : event.text == Key.PageUp ? max(0, root.cursor - page)
+            : event.text == Key.PageDown ? min(root.count - 1, root.cursor + page) : -1;
+        if target < 0 { return reject; }
+        PlayerSidebarState.chapter-cursor = target;
+        root.reveal-current();
+        return accept;
+    }
+
+    VerticalLayout {
+        for row[index] in PlayerCatalogState.chapters : Rectangle {
+            height: root.row-height;
+            private property <bool> cursor-here: root.cursor == index &&
+                (root.has-focus || PlayerSidebarState.chapter-cursor >= 0);
+            background: cursor-here || pointer.has-hover
+                ? Theme.sidebar-row-selection(PlayerAppearance.dark-theme) : transparent;
+            border-width: cursor-here && root.has-focus ? 1px : 0px;
+            border-color: PlayerAppearance.interactive-accent-color;
+            border-radius: 3px;
+            accessible-role: button;
+            accessible-label: row.label;
+            accessible-item-selectable: true;
+            accessible-item-selected: cursor-here;
+            accessible-action-default => {
+                PlayerSidebarState.chapter-cursor = index;
+                root.focus();
+                root.activate(index);
+            }
+            if row.selected : Image {
+                x: 8px; y: 8px; width: 12px; height: 12px;
+                source: @image-url("../../../assets/icons/play.svg");
+                colorize: PlayerAppearance.interactive-accent-color;
+                image-fit: contain;
+            }
+            VerticalLayout {
+                x: 28px; y: 4px; width: max(0px, parent.width - 36px); height: parent.height - 8px;
+                Text {
+                    text: row.label; color: Theme.sidebar-heading-text(PlayerAppearance.dark-theme);
+                    font-size: 12px; vertical-alignment: center; overflow: elide;
+                }
+                Text {
+                    text: row.detail; color: Theme.sidebar-playlist-metadata(PlayerAppearance.dark-theme);
+                    font-size: 10px; vertical-alignment: center; overflow: elide;
+                }
+            }
+            pointer := TouchArea {
+                clicked => {
+                    PlayerSidebarState.chapter-cursor = index;
+                    root.focus();
+                }
+                double-clicked => { root.activate(index); }
+            }
+        }
+    }
+}

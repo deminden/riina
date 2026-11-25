@@ -3,7 +3,7 @@ import { PlaylistInteraction, PlaylistMenuOrigin } from "playlist-interaction.sl
 import { PlaylistBlankMenuArea, PlaylistContextMenu } from "playlist-context-menu.slint";
 import { PlayerCatalogState } from "player-catalog-state.slint";
 import { PlayerSidebarState } from "player-sidebar-state.slint";
-import { PlaylistDropScrollView } from "playlist-drop-viewport.slint";
+import { QuickSettingsScrollPage } from "quick-settings-scroll-page.slint";
 import { PlaylistInsertionIndicator, PlaylistRowInput } from "playlist-row-input.slint";
 import { PlaylistResumeMark } from "playlist-resume-mark.slint";
 import { PlaylistSeriesTitle } from "playlist-series-title.slint";
@@ -20,9 +20,12 @@ export component MusicModePlaylist inherits Rectangle {
         ? root.windows-accent-color : Theme.playback-progress-accent;
 
     background: Theme.music-mode-playlist-surface(root.dark-theme);
-    playlist-scroll := PlaylistDropScrollView {
+    playlist-scroll := QuickSettingsScrollPage {
         width: parent.width; height: parent.height - summary-height;
+        page-kind: 4;
         playlist-drop-enabled: true;
+        playlist-y: PlayerSidebarState.playlist-scroll-y;
+        position-changed(_, offset) => { PlayerSidebarState.save-playlist-scroll(offset); }
         content-width: self.visible-width;
         content-height: max(self.visible-height, music-rows.preferred-height);
         init => { PlayerSidebarState.music-list-drop-viewport = self.drop-viewport; }
@@ -113,7 +116,7 @@ export component MusicModePlaylist inherits Rectangle {
                     play-row => { root.play-row(row.token); }
                     focus-entered => {
                         root.focus-index = index;
-                        playlist-scroll.reveal-vertical(row-item.absolute-position.y, row-item.height);
+                        playlist-scroll.reveal-control(row-item.absolute-position.y, row-item.height);
                     }
                     move-focus(target) => { root.focus-index = target; }
                 }

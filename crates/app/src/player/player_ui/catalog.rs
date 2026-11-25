@@ -3,7 +3,9 @@ use super::{PlayerContext, bind};
 use crate::{
     CatalogRow, CatalogSelection, MenuCatalogRow, PlayerWindow, video_osd::ActionFeedback,
 };
-use riina_core::{Command, Phase, Playback, TrackKind, sync::lock, time_label};
+use riina_core::{
+    Command, Phase, Playback, TrackKind, osc_preferences::ControllerOptions, sync::lock,
+};
 use riina_ui::PlayerMenuActions;
 use slint::{ComponentHandle, Model};
 use std::collections::HashSet;
@@ -326,49 +328,51 @@ fn update_tracks(app: &PlayerWindow, state: &Playback) {
 }
 
 fn update_chapters(app: &PlayerWindow, state: &Playback) {
-    app.global::<riina_ui::PlayerCatalogState>()
-        .set_chapters(slint::ModelRc::new(slint::VecModel::from(
-            state
-                .chapters
-                .iter()
-                .enumerate()
-                .map(|(index, chapter)| CatalogRow {
-                    token: index.to_string().into(),
-                    detail: "".into(),
-                    path: "".into(),
-                    language: "".into(),
-                    label: format!(
-                        "{}  {}",
-                        time_label(Some(chapter.time)),
-                        chapter
-                            .title
-                            .clone()
-                            .unwrap_or_else(|| format!("Chapter {}", index + 1))
-                    )
-                    .into(),
-                    selected: state.position.is_some_and(|position| {
-                        position >= chapter.time
-                            && state
-                                .chapters
-                                .get(index + 1)
-                                .is_none_or(|next| position < next.time)
-                    }),
-                    playing: false,
-                    ..CatalogRow::default()
-                })
-                .collect::<Vec<_>>(),
-        )));
+    let catalog = app.global::<riina_ui::PlayerCatalogState>();
+    let clock = ControllerOptions::default();
+    let active = current_chapter(state);
+    let mut rows = Vec::with_capacity(state.chapters.len());
+    let mut menu = Vec::with_capacity(state.chapters.len());
+    for (index, chapter) in state.chapters.iter().enumerate() {
+        let token = slint::SharedString::from(index.to_string());
+        let title = chapter.title.as_deref().filter(|title| !title.is_empty());
+        let start = clock.elapsed_label(Some(chapter.time));
+        let end = state
+            .chapters
+            .get(index + 1)
+            .map_or_else(|| "End".into(), |next| clock.elapsed_label(Some(next.time)));
+        let selected = active == Some(index);
+        menu.push(MenuCatalogRow {
+            token: token.clone(),
+            label: format!("{start} – {}", title.unwrap_or_default()).into(),
+            selected,
+        });
+        rows.push(CatalogRow {
+            token,
+            label: title.map_or_else(|| format!("Chapter {index}").into(), Into::into),
+            detail: format!("{start} → {end}").into(),
+            selected,
+            ..CatalogRow::default()
+        });
+    }
+    crate::ui_models::set_rows_if_changed(&catalog.get_chapters(), rows, |rows| {
+        catalog.set_chapters(rows);
+    });
+    crate::ui_models::set_rows_if_changed(&catalog.get_chapter_menu_rows(), menu, |rows| {
+        catalog.set_chapter_menu_rows(rows);
+    });
     // IINA omits the first chapter boundary because it coincides with the bar origin.
-    app.global::<riina_ui::PlaybackTimelineState>()
-        .set_chapter_times(slint::ModelRc::new(slint::VecModel::from(
-            state
-                .chapters
-                .iter()
-                .skip(1)
-                .map(|chapter| chapter.time as f32)
-                .filter(|time| time.is_finite() && *time >= 0.0)
-                .collect::<Vec<_>>(),
-        )));
+    let timeline = app.global::<riina_ui::PlaybackTimelineState>();
+    let times = state
+        .chapters
+        .iter()
+        .skip(1)
+        .map(|chapter| chapter.time as f32)
+        .filter(|time| time.is_finite() && *time >= 0.0)
+        .collect();
+    crate::ui_models::set_rows_if_changed(&timeline.get_chapter_times(), times, |times| {
+        timeline.set_chapter_times(times);
+    });
 }
 
 pub(super) fn current_chapter(state: &Playback) -> Option<usize> {

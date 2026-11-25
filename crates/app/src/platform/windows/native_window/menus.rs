@@ -52,6 +52,7 @@ fn sync(host: &NativeVideoHost, app: &PlayerWindow) {
         sidebar.get_sidebar()
     };
     let video = app.global::<riina_ui::PlaybackVideoState>();
+    host.set_visible_catalog_pane(sidebar.get_visible_catalog_pane());
     host.set_video_panel_open(settings_pane == 6);
     host.set_audio_panel_open(settings_pane == 1);
     host.set_subtitles_panel_open(settings_pane == 2);
@@ -127,12 +128,7 @@ fn sync(host: &NativeVideoHost, app: &PlayerWindow) {
         |row| row.selected,
         |rows| host.set_audio_track_menu_rows(rows),
     );
-    sync_catalog_rows(
-        catalog.get_chapters(),
-        &host.get_chapter_menu_rows(),
-        |row| row.selected,
-        |rows| host.set_chapter_menu_rows(rows),
-    );
+    host.set_chapter_menu_rows(catalog.get_chapter_menu_rows());
     sync_catalog_rows(
         video.get_video_tracks(),
         &host.get_video_track_menu_rows(),

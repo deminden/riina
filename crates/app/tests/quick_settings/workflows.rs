@@ -380,11 +380,25 @@ fn playlist_keyboard_reveals_rows_and_extends_selection_in_both_surfaces() {
     switch(&app, 4);
     for music_mode in [false, true] {
         if music_mode {
+            let sidebar = app.global::<PlayerSidebarState>();
+            let top_row = sidebar.get_playlist_scroll_row();
+            assert_eq!(sidebar.get_playlist_row_stride(), 31.0);
             switch(&app, 0);
             let music = app.global::<PlayerMusicModeState>();
             music.set_music_mode(true);
             music.set_music_mode_show_playlist(true);
             flush();
+            let _ = button(&app, "Clip 0");
+            i_slint_backend_testing::testing_backend::mock_elapsed_time(4);
+            flush();
+            assert!(top_row < -8.0);
+            assert_eq!(sidebar.get_playlist_row_stride(), 39.0);
+            let realized = sidebar.get_music_list_drop_viewport().content_y;
+            assert!((realized - top_row * 39.0).abs() < 1.0);
+            let visible_index = (-top_row).ceil() as usize + 1;
+            let near_end = button(&app, &format!("Clip {visible_index}"));
+            focus(&app, &near_end);
+            key(&app, Key::Home);
         }
         let first = button(&app, "Clip 0");
         let initial_y = first.absolute_position().y;
@@ -436,6 +450,75 @@ fn playlist_keyboard_reveals_rows_and_extends_selection_in_both_surfaces() {
             .chain(expected)
             .map(|action| (action, true)))
     );
+}
+
+#[test]
+fn chapter_rows_keep_their_cursor_between_modes_and_seek_on_activation() {
+    let app = player(3);
+    app.window().set_size(LogicalSize::new(1000.0, 460.0));
+    app.global::<PlayerCatalogState>()
+        .set_chapters(slint::ModelRc::new(slint::VecModel::from(
+            (0..24)
+                .map(|index| CatalogRow {
+                    token: index.to_string().into(),
+                    label: format!("Chapter {index}").into(),
+                    detail: format!("{index}:00 → End").into(),
+                    selected: index == 0,
+                    ..Default::default()
+                })
+                .collect::<Vec<_>>(),
+        )));
+    let jumps = Rc::new(RefCell::new(Vec::new()));
+    let observed = jumps.clone();
+    app.global::<PlayerMenuActions>()
+        .on_select_item(move |kind, token| {
+            assert_eq!(kind, CatalogSelection::Chapter);
+            observed.borrow_mut().push(token.to_string());
+        });
+    let sidebar = app.global::<PlayerSidebarState>();
+    sidebar.set_playlist_at_leading(false);
+    switch(&app, 3);
+    focus(&app, &button(&app, "Chapter 0"));
+    key(&app, Key::End);
+    assert!(jumps.borrow().is_empty());
+    assert_eq!(sidebar.get_chapter_cursor(), 23);
+    let offset = sidebar.get_chapters_scroll_y();
+    assert!(offset < -250.0);
+    key(&app, Key::Return);
+    assert_eq!(jumps.borrow().as_slice(), ["23"]);
+
+    sidebar.set_remembered_playlist_pane(3);
+    let music = app.global::<PlayerMusicModeState>();
+    music.set_music_mode(true);
+    music.set_music_mode_show_playlist(true);
+    flush();
+    let _ = button(&app, "Chapter 0");
+    i_slint_backend_testing::testing_backend::mock_elapsed_time(4);
+    flush();
+    assert_eq!(sidebar.get_chapter_cursor(), 23);
+    assert_eq!(sidebar.get_chapters_scroll_y(), offset);
+    assert_eq!(
+        button(&app, "Chapters").accessible_item_selected(),
+        Some(true)
+    );
+    let visible_index = (-offset / 40.0).ceil() as usize + 1;
+    let near_end = button(&app, &format!("Chapter {visible_index}"));
+    let position = near_end.absolute_position();
+    let tabs = button(&app, "Chapters");
+    let rows_top = tabs.absolute_position().y + tabs.size().height + 2.0;
+    let expected_y = rows_top + visible_index as f32 * 40.0 + offset;
+    assert!((position.y - expected_y).abs() <= 1.0);
+    assert!(position.y + near_end.size().height <= 460.0);
+    assert_eq!(
+        sidebar.invoke_playlist_drop_slot(position.x + 5.0, position.y + 5.0),
+        -1
+    );
+    focus(&app, &near_end);
+    key(&app, Key::PageUp);
+    assert!(sidebar.get_chapter_cursor() < 23);
+    assert_eq!(jumps.borrow().as_slice(), ["23"]);
+    key(&app, Key::Return);
+    assert_eq!(jumps.borrow().len(), 2);
 }
 
 #[test]

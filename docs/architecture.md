@@ -173,6 +173,12 @@ cancellation. Selection and metadata refresh update existing rows in place
 when their identities and order are stable. Structural changes retire the
 gesture before a release can act on a different order.
 
+The owning player stores the active catalog tab, the Playlist and Chapters
+scroll positions, and the Chapter selection. Main-window and Music Mode
+views restore those values when mounted. The playback observation supplies
+the playing-chapter marker independently of selection, so moving the
+keyboard cursor leaves the engine position alone.
+
 Playlist drags send the selected entry IDs and destination entry ID to the
 engine as one request. Play Next resolves the current entry and moves the
 selected entries immediately after it in playlist order. The engine plans the

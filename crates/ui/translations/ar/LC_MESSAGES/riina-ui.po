@@ -419,6 +419,9 @@ msgstr "تكرار الملف"
 msgid "Show Playlist Panel"
 msgstr "إظهار لوحة قائمة التشغيل"
 
+msgid "Hide Playlist Panel"
+msgstr "إخفاء لوحة قائمة التشغيل"
+
 msgid "Playlist Loop"
 msgstr "تكرار قائمة التشغيل"
 
@@ -433,6 +436,9 @@ msgstr "الوسائط السابقة"
 
 msgid "Show Chapters Panel"
 msgstr "إظهار لوحة الفصول"
+
+msgid "Hide Chapters Panel"
+msgstr "إخفاء لوحة الفصول"
 
 msgid "Chapters"
 msgstr "الفصول"

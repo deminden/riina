@@ -1,0 +1,44 @@
+import { ChapterRows } from "chapter-rows.slint";
+import { MusicModePlaylist } from "music-mode-playlist.slint";
+import { PlayerAppearance } from "player-appearance.slint";
+import { PlayerSidebarActions } from "player-sidebar-actions.slint";
+import { PlayerSidebarState } from "player-sidebar-state.slint";
+import { PlaylistPaneTabs } from "player-sidebar-tabs.slint";
+import { QuickSettingsScrollPage } from "quick-settings-scroll-page.slint";
+import { Theme } from "theme.slint";
+
+export component MusicModeCatalog inherits Rectangle {
+    callback play-row(string);
+    background: Theme.music-mode-playlist-surface(PlayerAppearance.dark-theme);
+
+    VerticalLayout {
+        PlaylistPaneTabs {
+            height: 34px;
+            padding: 2px;
+            selected-pane: PlayerSidebarState.remembered-playlist-pane;
+            chosen(pane) => { PlayerSidebarActions.select-playlist-pane(pane); }
+        }
+        if PlayerSidebarState.remembered-playlist-pane == 4 : MusicModePlaylist {
+            vertical-stretch: 1;
+            dark-theme: PlayerAppearance.dark-theme;
+            platform-windows: PlayerAppearance.platform-windows;
+            windows-accent-color: PlayerAppearance.windows-accent-color;
+            play-row(token) => { root.play-row(token); }
+        }
+        if PlayerSidebarState.remembered-playlist-pane == 3 : chapters-scroll := QuickSettingsScrollPage {
+            vertical-stretch: 1;
+            vertical-scrollbar-policy: always-off;
+            page-kind: 3;
+            content-width: self.visible-width;
+            content-height: max(self.visible-height, chapters.preferred-height);
+            chapters-y: PlayerSidebarState.chapters-scroll-y;
+            position-changed(_, offset) => { PlayerSidebarState.chapters-scroll-y = offset; }
+            chapters := ChapterRows {
+                y: 0px;
+                width: parent.width;
+                viewport-height: chapters-scroll.visible-height;
+                reveal-row(top, height) => { chapters-scroll.reveal-control(top, height); }
+            }
+        }
+    }
+}

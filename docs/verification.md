@@ -4864,3 +4864,46 @@ AppKit target switching and panel dismissal still need native macOS checks.
 - Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
 - Linux application SHA-256 `3e239bc9e5f2ff0896c0b9013381c8f6d1c9ab333936581067cf4a406b3564d2`
 - Linux libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`
+
+### Playlist and Chapters in Music Mode 2026-11-25
+
+The compact player uses the same Playlist and Chapters tabs as the main
+window. The playback menu opens the requested tab, closes it when it is
+already active, and switches between tabs without resizing the window. The
+toolbar reopens the last active tab. Each list keeps its scroll position
+across presentations, including when Music Mode shows taller metadata rows.
+Chapter rows show a title and time range, with a
+separate marker for the playing chapter. The keyboard moves the selection
+through the list, and Enter or a double-click seeks and resumes playback.
+
+The full Windows workspace gate passed formatting, strict Clippy, 1,073
+Rust tests, 79 Python tests and four browser-extension tests. The application
+tests cover menu routing, the row-height change between surfaces, and
+keyboard selection and activation. The software pixel comparison covers
+Playlist and Chapters in both themes. The pinned null-output libmpv suite
+passed all 65 tests.
+
+On a private Windows 11 desktop, the native Playback menu displayed Hide
+Chapters Panel while Chapters was visible. In Music Mode, both a pointer
+click and the toolbar accessibility action reopened the remembered tab.
+Down Arrow moved the selection with playback paused. Enter sought to the
+second chapter and resumed
+playback. The tab buttons switched between Playlist and Chapters at the same
+frame size. The toolbar hid and restored the active tab. Returning to the
+main player kept the same loaded media and the newly paused playback state.
+The exact test process exited normally.
+
+The locked Linux x64 application ran the same two-chapter fixture in a
+private X11 session. The keyboard switched between Playlist and Chapters
+at 300 × 390 and closed the panel to 300 × 90. Enter sought and resumed
+playback after Down Arrow moved the selection. Returning to the main player
+restored its 850 × 580 frame and retained the paused fixture. The exact
+process exited normally.
+
+The Apple Silicon application and test targets passed source checks.
+Native macOS playback and matched IINA visuals remain open.
+
+- Windows application SHA-256 `a0a73866801029d204333bbf728f1f4b386025a06c5a6ce8c0b763fc6a6eca7d`
+- Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
+- Linux application SHA-256 `674410f854581c9776b9bd9de9ab210b6b231df5b45facc84dbdf502483ac631`
+- Linux libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`

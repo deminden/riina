@@ -20,7 +20,6 @@ export component PlaylistInsertionIndicator inherits Rectangle {
 }
 
 export component PlaylistRowInput inherits TouchArea {
-    in property <bool> reorderable: true;
     in property <int> index;
     in property <string> token;
     in property <bool> selected;
@@ -29,7 +28,7 @@ export component PlaylistRowInput inherits TouchArea {
 
     private property <bool> extend-selection;
     private property <bool> range-selection;
-    private property <bool> owns-gesture: root.reorderable && root.token != ""
+    private property <bool> owns-gesture: root.token != ""
         && PlaylistInteraction.playlist-drag-token == root.token;
 
     public function cancel-drag() -> bool {
@@ -49,7 +48,6 @@ export component PlaylistRowInput inherits TouchArea {
     }
 
     pointer-event(event) => {
-        if !root.reorderable { return; }
         if event.button == PointerEventButton.right && event.kind == PointerEventKind.up
             && root.mouse-x >= 0px && root.mouse-x < root.width && root.mouse-y >= 0px && root.mouse-y < root.height {
             root.open-menu(root.mouse-x, root.mouse-y);

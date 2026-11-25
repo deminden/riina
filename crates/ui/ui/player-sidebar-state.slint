@@ -1,5 +1,6 @@
 import { PlayerCatalogState } from "player-catalog-state.slint";
 import { PlayerCropState } from "player-crop-state.slint";
+import { PlayerMenuActions } from "player-menu-actions.slint";
 import { PlayerMusicModeState } from "player-music-mode-state.slint";
 import { PlaylistDropViewport } from "playlist-drop-viewport.slint";
 import { PlaylistInteraction } from "playlist-interaction.slint";
@@ -11,6 +12,12 @@ export global PlayerSidebarState {
     in-out property <int> leading-sidebar: 0;
     in-out property <int> remembered-settings-pane: 6;
     in-out property <int> remembered-playlist-pane: 4;
+    // Metadata can change the row height on entering Music Mode.
+    in-out property <float> playlist-scroll-row;
+    out property <length> playlist-row-stride: PlayerCatalogState.playlist-metadata-visible ? 39px : 31px;
+    out property <length> playlist-scroll-y: root.playlist-scroll-row * root.playlist-row-stride;
+    in-out property <length> chapters-scroll-y;
+    in-out property <int> chapter-cursor: -1;
     in-out property <bool> settings-at-leading: false;
     in-out property <bool> playlist-at-leading: true;
     in-out property <bool> plugins-at-leading: true;
@@ -31,13 +38,24 @@ export global PlayerSidebarState {
             ? root.playlist-drop-slot(PlaylistInteraction.external-drop-hover.x, PlaylistInteraction.external-drop-hover.y) : -1;
     out property <bool> quick-settings-visible: !PlayerMusicModeState.music-mode && !PlayerCropState.crop-editing
         && (root.is-quick-settings(root.sidebar) || root.is-quick-settings(root.leading-sidebar));
+    private property <int> main-catalog-pane: root.playlist-at-leading ? root.leading-sidebar : root.sidebar;
+    out property <int> visible-catalog-pane: PlayerCropState.crop-editing ? 0
+        : PlayerMusicModeState.music-mode
+            ? (PlayerMusicModeState.music-mode-show-playlist ? root.remembered-playlist-pane : 0)
+            : (root.main-catalog-pane == 3 || root.main-catalog-pane == 4 ? root.main-catalog-pane : 0);
 
     public pure function is-quick-settings(pane: int) -> bool {
         return pane == 1 || pane == 2 || pane == 5 || pane == 6;
     }
 
+    public function save-playlist-scroll(offset: length) {
+        root.playlist-scroll-row = offset / root.playlist-row-stride;
+    }
+
     changed sidebar => { PlaylistInteraction.cancel-playlist-drag(); }
     changed leading-sidebar => { PlaylistInteraction.cancel-playlist-drag(); }
+    changed remembered-playlist-pane => { PlaylistInteraction.cancel-playlist-drag(); }
+    changed visible-catalog-pane => { PlayerMenuActions.video-menu-changed(); }
 
     pure function drop-slot-in(view: PlaylistDropViewport, x: length, y: length) -> int {
         let local-x = x - view.x;
@@ -46,14 +64,14 @@ export global PlayerSidebarState {
             return -1;
         }
         // Row midpoints divide gaps for insertion. Both views use a 1px row gap.
-        let stride = PlayerCatalogState.playlist-metadata-visible ? 39px : 31px;
-        return clamp(floor((local-y - view.content-y) / stride + 0.5), 0, PlayerCatalogState.playlist.length);
+        return clamp(floor((local-y - view.content-y) / root.playlist-row-stride + 0.5),
+            0, PlayerCatalogState.playlist.length);
     }
 
     public pure function playlist-drop-slot(x: float, y: float) -> int {
         if PlayerCropState.crop-editing { return -1; }
         if PlayerMusicModeState.music-mode {
-            return PlayerMusicModeState.music-mode-show-playlist
+            return root.visible-catalog-pane == 4
                 ? root.drop-slot-in(root.music-list-drop-viewport, x * 1px, y * 1px) : -1;
         }
         if root.sidebar != 0 && root.sidebar != 5 {

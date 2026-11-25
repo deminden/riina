@@ -416,6 +416,9 @@ msgstr "Повтор файла"
 msgid "Show Playlist Panel"
 msgstr "Показать панель плейлиста"
 
+msgid "Hide Playlist Panel"
+msgstr "Скрыть панель плейлиста"
+
 msgid "Playlist Loop"
 msgstr "Повтор плейлиста"
 
@@ -430,6 +433,9 @@ msgstr "Предыдущий медиафайл"
 
 msgid "Show Chapters Panel"
 msgstr "Показать панель глав"
+
+msgid "Hide Chapters Panel"
+msgstr "Скрыть панель глав"
 
 msgid "Chapters"
 msgstr "Главы"

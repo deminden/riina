@@ -4,7 +4,6 @@ import { PlayerAppearance } from "player-appearance.slint";
 import { PlayerMusicModeState } from "player-music-mode-state.slint";
 
 export component PlaylistRowKeys inherits FocusScope {
-    in property <bool> playlist: true;
     in property <int> index;
     in property <string> token;
     in property <bool> music-mode: false;
@@ -19,24 +18,24 @@ export component PlaylistRowKeys inherits FocusScope {
 
     width: 0px;
     focus-on-click: false;
-    focus-on-tab-navigation: !root.playlist || root.index == clamp(root.requested-index, 0,
+    focus-on-tab-navigation: root.index == clamp(root.requested-index, 0,
         max(0, PlayerCatalogState.playlist.length - 1));
 
     changed requested-index => {
-        if root.playlist && root.requested-index == root.index && !root.has-focus { root.focus(); }
+        if root.requested-index == root.index && !root.has-focus { root.focus(); }
     }
     changed index => {
-        if root.playlist && root.has-focus { root.focus-entered(); }
+        if root.has-focus { root.focus-entered(); }
     }
     changed edit-focus-target => {
-        if root.playlist && root.music-mode == PlayerMusicModeState.music-mode
+        if root.music-mode == PlayerMusicModeState.music-mode
             && root.edit-focus-target != "" && root.edit-focus-target == root.token {
             root.focus();
             PlaylistInteraction.edit-focus-target = "";
         }
     }
     focus-changed-event(reason) => {
-        if root.playlist && root.has-focus { PlaylistInteraction.focused-playlist-token = root.token; }
+        if root.has-focus { PlaylistInteraction.focused-playlist-token = root.token; }
         if !root.has-focus && reason != FocusReason.window-activation
             && PlaylistInteraction.focused-playlist-token == root.token {
             PlaylistInteraction.focused-playlist-token = "";
@@ -48,7 +47,7 @@ export component PlaylistRowKeys inherits FocusScope {
         let primary = PlayerAppearance.platform-macos
             ? event.modifiers.meta && !event.modifiers.control
             : event.modifiers.control && !event.modifiers.meta;
-        if root.playlist && primary && !event.modifiers.alt && !event.modifiers.shift {
+        if primary && !event.modifiers.alt && !event.modifiers.shift {
             let edit = event.text == "x" || event.text == "X" ? PlaylistEdit.cut
                 : event.text == "c" || event.text == "C" ? PlaylistEdit.copy
                 : event.text == "v" || event.text == "V" ? PlaylistEdit.paste
@@ -56,9 +55,9 @@ export component PlaylistRowKeys inherits FocusScope {
             if edit != PlaylistEdit.none && PlaylistInteraction.edit(edit, true) { return accept; }
         }
         if event.modifiers.alt || event.modifiers.control || event.modifiers.meta { return reject; }
-        if root.playlist && !event.modifiers.shift && (event.text == Key.Backspace || event.text == Key.Delete)
+        if !event.modifiers.shift && (event.text == Key.Backspace || event.text == Key.Delete)
             && PlaylistInteraction.edit(PlaylistEdit.remove, true) { return accept; }
-        if root.playlist && event.modifiers.shift && event.text == Key.F10 {
+        if event.modifiers.shift && event.text == Key.F10 {
             root.open-context-menu();
             return accept;
         }
@@ -66,7 +65,6 @@ export component PlaylistRowKeys inherits FocusScope {
             root.play-row();
             return accept;
         }
-        if !root.playlist { return reject; }
         let count = PlayerCatalogState.playlist.length;
         if count == 0 { return reject; }
         let destination = event.text == Key.UpArrow ? max(0, root.index - 1)

@@ -1,7 +1,7 @@
 //! Persist a completed resize, never every intermediate drag event.
 use crate::PlayerWindow;
 use riina_core::Preferences;
-use riina_ui::PlayerMenuActions;
+use riina_ui::{PlayerMenuActions, PlayerMusicModeState, PlayerSidebarActions, PlayerSidebarState};
 use slint::ComponentHandle;
 use std::{cell::Cell, path::PathBuf, rc::Rc};
 
@@ -31,6 +31,20 @@ fn plugin_panel_destination(
     }
 }
 
+fn choose_catalog_pane(app: &PlayerWindow, pane: i32, toggle: bool) {
+    let sidebar = app.global::<PlayerSidebarState>();
+    let music = app.global::<PlayerMusicModeState>();
+    let close = toggle && sidebar.get_visible_catalog_pane() == pane;
+    sidebar.set_remembered_playlist_pane(pane);
+    if music.get_music_mode() {
+        music.set_music_mode_show_playlist(!close);
+    } else if sidebar.get_playlist_at_leading() {
+        sidebar.set_leading_sidebar(if close { 0 } else { pane });
+    } else {
+        sidebar.set_sidebar(if close { 0 } else { pane });
+    }
+}
+
 pub(crate) fn connect(app: &PlayerWindow, path: PathBuf, baseline: Preferences) {
     let weak_settings = app.as_weak();
     app.global::<PlayerMenuActions>()
@@ -38,6 +52,9 @@ pub(crate) fn connect(app: &PlayerWindow, path: PathBuf, baseline: Preferences) 
             let Some(app) = weak_settings.upgrade() else {
                 return;
             };
+            if app.global::<PlayerMusicModeState>().get_music_mode() {
+                return;
+            }
             app.global::<riina_ui::PlayerSidebarState>()
                 .set_remembered_settings_pane(kind);
             let destination_leading = app
@@ -84,48 +101,15 @@ pub(crate) fn connect(app: &PlayerWindow, path: PathBuf, baseline: Preferences) 
     let weak_playlist = app.as_weak();
     app.global::<PlayerMenuActions>()
         .on_toggle_playlist_pane(move |kind| {
-            let Some(app) = weak_playlist.upgrade() else {
-                return;
-            };
-            app.global::<riina_ui::PlayerSidebarState>()
-                .set_remembered_playlist_pane(kind);
-            let destination_leading = app
-                .global::<riina_ui::PlayerSidebarState>()
-                .get_playlist_at_leading();
-            let current = if destination_leading {
-                app.global::<riina_ui::PlayerSidebarState>()
-                    .get_leading_sidebar()
-            } else {
-                app.global::<riina_ui::PlayerSidebarState>().get_sidebar()
-            };
-            let next = if current == kind { 0 } else { kind };
-            if destination_leading {
-                app.global::<riina_ui::PlayerSidebarState>()
-                    .set_leading_sidebar(next);
-            } else {
-                app.global::<riina_ui::PlayerSidebarState>()
-                    .set_sidebar(next);
+            if let Some(app) = weak_playlist.upgrade() {
+                choose_catalog_pane(&app, kind, true);
             }
         });
     let weak_playlist = app.as_weak();
-    app.global::<riina_ui::PlayerSidebarActions>()
+    app.global::<PlayerSidebarActions>()
         .on_select_playlist_pane(move |kind| {
-            let Some(app) = weak_playlist.upgrade() else {
-                return;
-            };
-            if app
-                .global::<riina_ui::PlayerSidebarState>()
-                .get_playlist_at_leading()
-            {
-                app.global::<riina_ui::PlayerSidebarState>()
-                    .set_remembered_playlist_pane(kind);
-                app.global::<riina_ui::PlayerSidebarState>()
-                    .set_leading_sidebar(kind);
-            } else {
-                app.global::<riina_ui::PlayerSidebarState>()
-                    .set_remembered_playlist_pane(kind);
-                app.global::<riina_ui::PlayerSidebarState>()
-                    .set_sidebar(kind);
+            if let Some(app) = weak_playlist.upgrade() {
+                choose_catalog_pane(&app, kind, false);
             }
         });
     let weak_plugins = app.as_weak();
@@ -190,11 +174,49 @@ fn connect_width_persistence(app: &PlayerWindow, path: PathBuf, baseline: Prefer
 
 #[cfg(test)]
 mod tests {
-    use super::plugin_panel_destination;
+    use super::*;
 
     #[test]
     fn plugin_panel_opens_on_the_saved_side() {
         assert_eq!(plugin_panel_destination(true, 0, 2), (7, 2));
         assert_eq!(plugin_panel_destination(false, 3, 0), (3, 7));
+    }
+
+    #[test]
+    fn catalog_menu_toggles_the_active_pane_and_tabs_change_it_in_place() {
+        i_slint_backend_testing::init_no_event_loop();
+        let app = PlayerWindow::new().unwrap();
+        connect(&app, PathBuf::new(), Preferences::default());
+        let menu = app.global::<PlayerMenuActions>();
+        let tabs = app.global::<PlayerSidebarActions>();
+        let sidebar = app.global::<PlayerSidebarState>();
+        let music = app.global::<PlayerMusicModeState>();
+        music.set_music_mode_show_playlist(false);
+        sidebar.set_playlist_at_leading(false);
+
+        menu.invoke_toggle_playlist_pane(3);
+        assert_eq!(sidebar.get_sidebar(), 3);
+        tabs.invoke_select_playlist_pane(4);
+        assert_eq!(sidebar.get_sidebar(), 4);
+        menu.invoke_toggle_playlist_pane(4);
+        assert_eq!(sidebar.get_visible_catalog_pane(), 0);
+
+        music.set_music_mode(true);
+        menu.invoke_toggle_playlist_pane(3);
+        assert!(music.get_music_mode_show_playlist());
+        assert_eq!(sidebar.get_visible_catalog_pane(), 3);
+        assert_eq!(sidebar.get_sidebar(), 0);
+        assert_eq!(sidebar.get_leading_sidebar(), 0);
+        menu.invoke_toggle_playlist_pane(4);
+        assert!(music.get_music_mode_show_playlist());
+        assert_eq!(sidebar.get_visible_catalog_pane(), 4);
+        tabs.invoke_select_playlist_pane(3);
+        tabs.invoke_select_playlist_pane(3);
+        assert_eq!(sidebar.get_visible_catalog_pane(), 3);
+        menu.invoke_toggle_playlist_pane(3);
+        assert!(!music.get_music_mode_show_playlist());
+        assert_eq!(sidebar.get_remembered_playlist_pane(), 3);
+        menu.invoke_toggle_settings_pane(6);
+        assert_eq!(sidebar.get_sidebar(), 0);
     }
 }

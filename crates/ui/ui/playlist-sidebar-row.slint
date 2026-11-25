@@ -12,7 +12,6 @@ import { PlaylistRowKeys } from "playlist-row-keys.slint";
 export component CatalogSidebarRow inherits Rectangle {
     in property <CatalogRow> entry;
     in property <int> index;
-    in property <int> pane-kind;
     in property <bool> dark-theme;
     in property <color> interactive-accent-color;
     in property <int> requested-index: -1;
@@ -21,24 +20,18 @@ export component CatalogSidebarRow inherits Rectangle {
     callback move-playlist-focus(int);
     callback select-row(string);
 
-    private property <length> duration-width: pane-kind == 4 && entry.duration-label != "" ? 60px : 0px;
-    height: pane-kind < 3 || pane-kind == 6 ? 26px : pane-kind == 3 ? 40px
-        : (PlayerCatalogState.playlist-metadata-visible ? 38px : 30px);
-    background: (pane-kind == 2 || pane-kind == 6) ? transparent
-        : entry.selected ? Theme.sidebar-row-selection(root.dark-theme) : transparent;
-    accessible-role: button; accessible-label: pane-kind == 4 && entry.path != ""
+    private property <length> duration-width: entry.duration-label != "" ? 60px : 0px;
+    height: PlayerCatalogState.playlist-metadata-visible ? 38px : 30px;
+    background: entry.selected ? Theme.sidebar-row-selection(root.dark-theme) : transparent;
+    accessible-role: button; accessible-label: entry.path != ""
         ? entry.label + (entry.detail != "" ? ", " + entry.detail : "") + ", " + entry.path : entry.label;
-    if pane-kind == 2 || pane-kind == 6 : Rectangle {
-        x: 0; y: parent.height - 1px; width: parent.width; height: 1px;
-        background: Theme.sidebar-material-border(root.dark-theme);
-    }
-    if pane-kind == 4 && entry.resume-fraction > 0 : PlaylistResumeMark {
+    if entry.resume-fraction > 0 : PlaylistResumeMark {
         y: parent.height - self.height;
         row-width: parent.width;
         fraction: entry.resume-fraction;
         accent: root.interactive-accent-color;
     }
-    if pane-kind == 4 : PlaylistInsertionIndicator {
+    PlaylistInsertionIndicator {
         width: parent.width;
         height: parent.height;
         index: root.index;
@@ -46,8 +39,8 @@ export component CatalogSidebarRow inherits Rectangle {
     }
     accessible-action-default => { root.select-row(entry.token); }
     if row-focus.has-focus : Rectangle { border-width: 1px; border-color: root.interactive-accent-color; border-radius: 3px; background: transparent; }
-    if (pane-kind == 4 ? entry.playing : entry.selected) : Rectangle { x: 0; width: 4px; y: 5px; height: parent.height - 10px; background: root.interactive-accent-color; border-radius: 2px; }
-    if pane-kind == 4 && entry.detail != "" : VerticalLayout {
+    if entry.playing : Rectangle { x: 0; width: 4px; y: 5px; height: parent.height - 10px; background: root.interactive-accent-color; border-radius: 2px; }
+    if entry.detail != "" : VerticalLayout {
         x: 12px; y: 3px; width: parent.width - 18px - duration-width; height: parent.height - 6px;
         spacing: 0px;
         Text { text: entry.label; color: Theme.sidebar-heading-text(root.dark-theme); font-size: 12px;
@@ -55,19 +48,6 @@ export component CatalogSidebarRow inherits Rectangle {
         Text { text: entry.detail; color: Theme.sidebar-playlist-metadata(root.dark-theme); font-size: 10px;
             vertical-alignment: center; overflow: elide; }
     }
-    if pane-kind != 4 : Text { x: 12px;
-        width: parent.width - 18px - (entry.language != "" ? 42px : 0px) - duration-width;
-        text: entry.label;
-        color: entry.token == "no"
-            ? Theme.sidebar-no-track-text(root.dark-theme)
-            : (Theme.sidebar-heading-text(root.dark-theme));
-        font-size: 12px;
-        vertical-alignment: center; overflow: elide; }
-    if entry.language != "" : Rectangle { width: 38px; height: 16px; x: parent.width - self.width - 3px;
-        y: (parent.height - self.height) / 2; border-radius: 3px;
-        background: Theme.sidebar-language-badge(root.dark-theme);
-        Text { text: entry.language; color: Theme.sidebar-heading-text(root.dark-theme);
-            font-size: 11px; horizontal-alignment: center; vertical-alignment: center; } }
     if duration-width > 0px : Text {
         x: parent.width - duration-width - 6px; width: duration-width; height: parent.height;
         text: entry.duration-label; font-size: 11px;
@@ -75,22 +55,20 @@ export component CatalogSidebarRow inherits Rectangle {
         horizontal-alignment: right; vertical-alignment: center;
     }
     row-input := PlaylistRowInput {
-        reorderable: root.pane-kind == 4;
         index: root.index;
         token: root.entry.token;
         selected: root.entry.selected;
         open-menu(x, y) => { row-menu.open-at(x, y); }
         focus-row => { row-focus.focus(); }
-        clicked => { if pane-kind != 4 { row-focus.focus(); if pane-kind < 3 || pane-kind == 6 { root.select-row(entry.token); } } }
         double-clicked => {
-            if pane-kind >= 3 && !PlaylistInteraction.playlist-drag-active {
+            if !PlaylistInteraction.playlist-drag-active {
                 row-input.cancel-drag();
                 root.select-row(entry.token);
                 PlaylistInteraction.clear-selection();
             }
         }
     }
-    if pane-kind == 4 && entry.detail == "" : PlaylistSeriesTitle {
+    if entry.detail == "" : PlaylistSeriesTitle {
         x: 12px; width: max(0px, parent.width - 18px - duration-width);
         height: parent.height;
         entry: root.entry;
@@ -103,7 +81,6 @@ export component CatalogSidebarRow inherits Rectangle {
         token: root.entry.token;
     }
     row-focus := PlaylistRowKeys {
-        playlist: root.pane-kind == 4;
         index: root.index;
         token: root.entry.token;
         requested-index: root.requested-index;
@@ -112,10 +89,10 @@ export component CatalogSidebarRow inherits Rectangle {
         open-context-menu => { row-menu.open-at(12px, root.height); }
         play-row => {
             root.select-row(entry.token);
-            if root.pane-kind == 4 { PlaylistInteraction.clear-selection(); }
+            PlaylistInteraction.clear-selection();
         }
         focus-entered => {
-            if root.pane-kind == 4 { root.move-playlist-focus(root.index); }
+            root.move-playlist-focus(root.index);
             root.focus-entered(root.absolute-position.y, root.height);
         }
         move-focus(index) => { root.move-playlist-focus(index); }

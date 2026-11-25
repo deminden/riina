@@ -6,6 +6,39 @@ import { SidebarTab } from "player-sidebar-controls.slint";
 import { QuickSettingsTabs } from "quick-settings-tabs.slint";
 import { Tool } from "player-tool.slint";
 
+export component PlaylistPaneTabs inherits HorizontalLayout {
+    in property <int> selected-pane;
+    callback chosen(int);
+
+    spacing: 4px;
+    function choose(index: int) {
+        if index == 0 { playlist-tab.focus(); root.chosen(4); }
+        else { chapters-tab.focus(); root.chosen(3); }
+    }
+    playlist-tab := SidebarTab {
+        min-width: 76px;
+        dark-theme: PlayerAppearance.dark-theme;
+        accent-color: PlayerAppearance.platform-windows ? PlayerAppearance.windows-accent-color : Theme.sidebar-catalog-accent;
+        accent-foreground: PlayerAppearance.platform-windows ? PlayerAppearance.windows-accent-foreground : Theme.sidebar-catalog-accent-text;
+        focus-accent-color: PlayerAppearance.interactive-accent-color;
+        label: @tr("Playlist"); selected: root.selected-pane == 4;
+        segment-index: 0; segment-count: 2;
+        activated => { root.chosen(4); }
+        navigate-segment(index) => { root.choose(index); }
+    }
+    chapters-tab := SidebarTab {
+        min-width: 76px;
+        dark-theme: PlayerAppearance.dark-theme;
+        accent-color: PlayerAppearance.platform-windows ? PlayerAppearance.windows-accent-color : Theme.sidebar-catalog-accent;
+        accent-foreground: PlayerAppearance.platform-windows ? PlayerAppearance.windows-accent-foreground : Theme.sidebar-catalog-accent-text;
+        focus-accent-color: PlayerAppearance.interactive-accent-color;
+        label: @tr("Chapters"); selected: root.selected-pane == 3;
+        segment-index: 1; segment-count: 2;
+        activated => { root.chosen(3); }
+        navigate-segment(index) => { root.choose(index); }
+    }
+}
+
 export component PlayerSidebarTabs inherits HorizontalLayout {
     in property <bool> leading;
     in property <int> pane-kind;
@@ -35,12 +68,9 @@ export component PlayerSidebarTabs inherits HorizontalLayout {
         focus-accent-color: PlayerAppearance.interactive-accent-color;
         chosen(pane) => { root.select-settings-pane(pane); }
     }
-    if root.pane-kind == 3 || root.pane-kind == 4 : HorizontalLayout {
-        spacing: 4px;
-        SidebarTab { min-width: 76px; dark-theme: PlayerAppearance.dark-theme; accent-color: PlayerAppearance.platform-windows ? PlayerAppearance.windows-accent-color : Theme.sidebar-catalog-accent; accent-foreground: PlayerAppearance.platform-windows ? PlayerAppearance.windows-accent-foreground : Theme.sidebar-catalog-accent-text; focus-accent-color: PlayerAppearance.interactive-accent-color; label: "Playlist"; selected: root.pane-kind == 4;
-            activated => { root.select-playlist-pane(4); } }
-        SidebarTab { min-width: 76px; dark-theme: PlayerAppearance.dark-theme; accent-color: PlayerAppearance.platform-windows ? PlayerAppearance.windows-accent-color : Theme.sidebar-catalog-accent; accent-foreground: PlayerAppearance.platform-windows ? PlayerAppearance.windows-accent-foreground : Theme.sidebar-catalog-accent-text; focus-accent-color: PlayerAppearance.interactive-accent-color; label: "Chapters"; selected: root.pane-kind == 3;
-            activated => { root.select-playlist-pane(3); } }
+    if root.pane-kind == 3 || root.pane-kind == 4 : PlaylistPaneTabs {
+        selected-pane: root.pane-kind;
+        chosen(pane) => { root.select-playlist-pane(pane); }
     }
     if root.pane-kind == 7 : HorizontalLayout {
         Text { text: "Plugins"; color: Theme.sidebar-heading-text(PlayerAppearance.dark-theme);
