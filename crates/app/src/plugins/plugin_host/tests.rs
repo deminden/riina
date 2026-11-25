@@ -926,7 +926,6 @@ fn core_ui_visibility_messages_reach_the_player_ui() {
     );
 }
 
-#[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
 #[test]
 fn an_old_overlay_cannot_deliver_messages_to_a_reloaded_plugin() {
     let scratch = TempDir::new("overlay-realm-routing").unwrap();

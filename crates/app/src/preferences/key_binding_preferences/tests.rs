@@ -4,13 +4,12 @@ use super::builtins::BUILTIN_PROFILES;
 use super::*;
 use super::{
     builtins::{SYSTEM_MEDIA_ROWS, builtin_mappings},
-    dispatch::{
-        RuntimeAction, is_system_media_key, preferred_system_skip_interval, runtime_action,
-    },
+    dispatch::{RuntimeAction, is_system_media_key, runtime_action},
     editor::{display_row, matches_query, visible_source_indices},
     keys::normalize_profile_key,
     menus::{MENU_SHORTCUT_ACTIONS, menu_shortcut_rows},
 };
+use crate::platform::system_media_session::key_actions::preferred_system_skip_interval;
 use riina_core::key_bindings::{ActionKind, Mapping};
 use riina_ui::PlayerMenuActions;
 

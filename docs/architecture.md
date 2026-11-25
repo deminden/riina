@@ -438,7 +438,9 @@ whether or not a player is open, and retires it when its realm stops.
 The application checks WebView frames and console output while the tools are
 visible. Prompts and file pickers can use the application when no visible
 player can host them. Plugin tools and application dialogs participate in the
-same quit policy as other app-owned tools.
+same quit policy as other app-owned tools. The platform presenter chooses
+the owner. A notice occupies the same dialog slot as a prompt or picker and
+is cancelled when the owning plugin stops.
 
 Settings and both plugin hosts share package discovery. Links and development
 folders keep their project location, with permissions and preferences stored
@@ -519,6 +521,9 @@ The installed keyboard profile resolves conflicts for plugin menu shortcuts
 using the same platform key normalization as playback. The player retains the
 requested shortcut so it can restore the accelerator after a profile change.
 Both menu presenters receive the resolved shortcut and the conflict count.
+The desktop media adapters resolve transport buttons through that same
+profile and send the selected mapping to the shared action dispatcher. The
+native idle menu projects its shortcuts from the same ordered mappings.
 
 ### Plugin sidebar surfaces
 

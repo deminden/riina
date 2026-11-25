@@ -3,14 +3,14 @@ use super::keys::normalize_profile_key;
 use riina_core::key_bindings::Mapping;
 use std::collections::{HashMap, hash_map::Entry};
 
-pub(super) struct Bindings {
+pub(crate) struct Bindings {
     mappings: Vec<Mapping>,
     by_key: HashMap<String, usize>,
     order: Vec<usize>,
 }
 
 impl Bindings {
-    pub(super) fn new(mappings: Vec<Mapping>) -> Self {
+    pub(crate) fn new(mappings: Vec<Mapping>) -> Self {
         let mut by_key = HashMap::new();
         let mut order = Vec::new();
         for (index, mapping) in mappings.iter().enumerate() {
@@ -35,7 +35,7 @@ impl Bindings {
         }
     }
 
-    pub(super) fn get(&self, key: &str) -> Option<&Mapping> {
+    pub(crate) fn get(&self, key: &str) -> Option<&Mapping> {
         self.by_key
             .get(key)
             .map(|&slot| &self.mappings[self.order[slot]])

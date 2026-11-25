@@ -264,8 +264,7 @@ impl Application {
         {
             return (saved.forward, saved.backward);
         }
-        let (forward, backward) =
-            crate::key_binding_preferences::system_skip_intervals_for_profile(profile);
+        let (forward, backward) = super::key_actions::system_skip_intervals_for_profile(profile);
         *saved = Some(SkipIntervals {
             profile: profile.to_owned(),
             expires: now + Duration::from_secs(1),

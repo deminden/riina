@@ -89,12 +89,10 @@ impl Bindings {
 }
 
 pub(crate) fn present_without_player(dialogs: &PluginDialogs, title: &str, effect: UiEffect) {
-    #[cfg(target_os = "macos")]
-    if let UiEffect::ShowAlert(message) = effect
+    if SUPPORTS_WINDOWLESS
+        && let UiEffect::ShowAlert(message) = effect
         && let Err(error) = dialogs.notice(title.to_owned(), message)
     {
         crate::diagnostics::warn!("Could not show plugin alert: {error}");
     }
-    #[cfg(not(target_os = "macos"))]
-    let _ = (dialogs, title, effect);
 }

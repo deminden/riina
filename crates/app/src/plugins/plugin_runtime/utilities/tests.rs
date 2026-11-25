@@ -156,6 +156,33 @@ fn chooser_delivers_selection_and_cancellation_to_the_requesting_entry() {
 }
 
 #[test]
+fn an_application_notice_holds_the_dialog_slot_until_dismissed() {
+    let dialogs = PluginDialogs::default();
+    let (present, pending) = std::sync::mpsc::sync_channel(1);
+    dialogs.install(move |request| present.try_send(request).map_err(|error| error.to_string()));
+
+    dialogs.notice("Plugin".into(), "First".into()).unwrap();
+    assert_eq!(
+        dialogs.notice("Plugin".into(), "Second".into()),
+        Err("A plugin dialog is already open".into()),
+    );
+    drop(pending.try_recv().unwrap());
+
+    dialogs.notice("Plugin".into(), "Second".into()).unwrap();
+    let DialogRequest::Notice(notice) = pending.try_recv().unwrap() else {
+        panic!("Expected the application notice");
+    };
+    assert_eq!(notice.message, "Second");
+    assert!(!notice.is_cancelled());
+    dialogs.stop();
+    assert!(notice.is_cancelled());
+    assert_eq!(
+        dialogs.notice("Plugin".into(), "Third".into()),
+        Err("The plugin dialog owner has closed".into()),
+    );
+}
+
+#[test]
 fn startup_dialogs_return_synchronous_answers_and_preserve_the_realm_budget() {
     let root = riina_test_support::TempDir::new("utility-interaction").unwrap();
     let manifest = super::super::tests::manifest("main.js".into());

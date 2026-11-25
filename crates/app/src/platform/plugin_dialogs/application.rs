@@ -25,10 +25,12 @@ impl Dialogs {
         id
     }
 
+    #[cfg(target_os = "macos")]
     pub(super) fn bind_close(&self, callback: Rc<CloseObserver>) {
         self.closed.replace(Some(callback));
     }
 
+    #[cfg(target_os = "macos")]
     pub(super) fn is_visible(&self) -> bool {
         self.active.get()
     }

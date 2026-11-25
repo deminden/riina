@@ -61,7 +61,7 @@ pub(super) enum Action {
 
 impl Action {
     fn apply(self, app: &PlayerWindow, latest: &PlaybackStore) {
-        use crate::key_binding_preferences::{
+        use super::super::key_actions::{
             dispatch_system_media_key, system_skip_intervals_for_profile,
         };
         let controls = app.global::<PlayerControlActions>();

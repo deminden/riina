@@ -1,5 +1,4 @@
 //! Plugin dialogs use the player's existing modal exclusion.
-#[cfg(target_os = "macos")]
 mod application;
 mod interaction;
 
@@ -16,11 +15,18 @@ struct ApplicationOwner {
     native: Option<slint::Weak<NativeVideoHost>>,
 }
 
-#[derive(Default)]
 pub(crate) struct ApplicationOwners {
     players: Arc<Mutex<Vec<Weak<ApplicationOwner>>>>,
-    #[cfg(target_os = "macos")]
-    application: std::rc::Rc<application::Dialogs>,
+    application: Option<std::rc::Rc<application::Dialogs>>,
+}
+
+impl Default for ApplicationOwners {
+    fn default() -> Self {
+        Self {
+            players: Default::default(),
+            application: super::plugin_application::SUPPORTS_WINDOWLESS.then(Default::default),
+        }
+    }
 }
 
 pub(crate) struct OwnerRegistration {
@@ -30,14 +36,15 @@ pub(crate) struct OwnerRegistration {
 impl ApplicationOwners {
     pub(crate) fn install(&self, dialogs: &PluginDialogs) {
         let owners = self.players.clone();
-        #[cfg(target_os = "macos")]
-        let application = self.application.bind_to_thread();
+        let application = self
+            .application
+            .as_ref()
+            .map(application::Dialogs::bind_to_thread);
         dialogs.install(move |request| {
             let owners = owners.clone();
             slint::invoke_from_event_loop(move || {
-                #[cfg(target_os = "macos")]
                 if matches!(request, DialogRequest::Notice(_)) {
-                    application::present(application, request);
+                    present_without_player(application, request);
                     return;
                 }
                 let owners = {
@@ -70,8 +77,7 @@ impl ApplicationOwners {
                                 .and_then(slint::Weak::upgrade)
                                 .map_or(0, |host| rank(host.window())),
                         );
-                        #[cfg(target_os = "macos")]
-                        if rank == 0 {
+                        if rank == 0 && application.is_some() {
                             return None;
                         }
                         Some((rank, app, &owner.native))
@@ -80,10 +86,7 @@ impl ApplicationOwners {
                 if let Some((_, app, native)) = target {
                     present(&app, native.clone(), request);
                 } else {
-                    #[cfg(target_os = "macos")]
-                    application::present(application, request);
-                    #[cfg(not(target_os = "macos"))]
-                    request.fail("No player window is available for the plugin dialog".into());
+                    present_without_player(application, request);
                 }
             })
             .map_err(|error| error.to_string())
@@ -110,12 +113,24 @@ impl ApplicationOwners {
         &self,
         callback: std::rc::Rc<crate::windows::close_observer::CloseObserver>,
     ) {
-        self.application.bind_close(callback);
+        if let Some(application) = &self.application {
+            application.bind_close(callback);
+        }
     }
 
     #[cfg(target_os = "macos")]
     pub(crate) fn application_dialog_visible(&self) -> bool {
-        self.application.is_visible()
+        self.application
+            .as_deref()
+            .is_some_and(application::Dialogs::is_visible)
+    }
+}
+
+fn present_without_player(application: Option<u64>, request: DialogRequest) {
+    if let Some(application) = application {
+        application::present(application, request);
+    } else {
+        request.fail("No player window is available for the plugin dialog".into());
     }
 }
 

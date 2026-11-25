@@ -13,7 +13,7 @@ pub(super) fn apply(
 ) {
     match action {
         Action::Play => {
-            if !crate::key_binding_preferences::dispatch_system_media_key(
+            if !super::super::key_actions::dispatch_system_media_key(
                 app,
                 "PLAYONLY",
                 latest_playback,
@@ -23,7 +23,7 @@ pub(super) fn apply(
             }
         }
         Action::Pause => {
-            if !crate::key_binding_preferences::dispatch_system_media_key(
+            if !super::super::key_actions::dispatch_system_media_key(
                 app,
                 "PAUSEONLY",
                 latest_playback,
@@ -32,7 +32,7 @@ pub(super) fn apply(
             }
         }
         Action::Toggle => {
-            if !crate::key_binding_preferences::dispatch_system_media_key(
+            if !super::super::key_actions::dispatch_system_media_key(
                 app,
                 "PLAYPAUSE",
                 latest_playback,
@@ -41,34 +41,22 @@ pub(super) fn apply(
             }
         }
         Action::Stop => {
-            if !crate::key_binding_preferences::dispatch_system_media_key(
-                app,
-                "STOP",
-                latest_playback,
-            ) {
+            if !super::super::key_actions::dispatch_system_media_key(app, "STOP", latest_playback) {
                 app.global::<PlayerMenuActions>().invoke_stop();
             }
         }
         Action::Next => {
-            if !crate::key_binding_preferences::dispatch_system_media_key(
-                app,
-                "NEXT",
-                latest_playback,
-            ) {
+            if !super::super::key_actions::dispatch_system_media_key(app, "NEXT", latest_playback) {
                 app.global::<PlayerMenuActions>().invoke_playlist_next();
             }
         }
         Action::Previous => {
-            if !crate::key_binding_preferences::dispatch_system_media_key(
-                app,
-                "PREV",
-                latest_playback,
-            ) {
+            if !super::super::key_actions::dispatch_system_media_key(app, "PREV", latest_playback) {
                 app.global::<PlayerMenuActions>().invoke_playlist_previous();
             }
         }
         Action::Forward(seconds) => {
-            if !crate::key_binding_preferences::dispatch_system_media_key(
+            if !super::super::key_actions::dispatch_system_media_key(
                 app,
                 "FORWARD",
                 latest_playback,
@@ -80,11 +68,8 @@ pub(super) fn apply(
             }
         }
         Action::Backward(seconds) => {
-            if !crate::key_binding_preferences::dispatch_system_media_key(
-                app,
-                "REWIND",
-                latest_playback,
-            ) && seconds.is_finite()
+            if !super::super::key_actions::dispatch_system_media_key(app, "REWIND", latest_playback)
+                && seconds.is_finite()
                 && seconds > 0.0
             {
                 app.global::<PlayerControlActions>()

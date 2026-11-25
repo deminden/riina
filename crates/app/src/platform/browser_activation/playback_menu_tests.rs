@@ -16,7 +16,7 @@ fn idle_playback_catalog_follows_the_player_sections_and_profile() {
         prefs.video_filters.save(title, "hflip").unwrap();
     }
     catalog.set_options(super::playback_menu_options::from_profile(&prefs));
-    let profile = crate::key_binding_preferences::profile_menu_shortcuts("IINA Default").unwrap();
+    let profile = super::playback_menu_options::shortcuts("IINA Default").unwrap();
     let rows = catalog.snapshot(ModelRc::new(VecModel::from(profile.clone())));
     assert_eq!(
         rows.iter()
@@ -70,7 +70,7 @@ fn localized_playback_menus_keep_intents_shortcuts_and_user_names() {
     let mut prefs = riina_core::Preferences::default();
     prefs.video_filters.save("Видеофильтры…", "hflip").unwrap();
     catalog.set_options(super::playback_menu_options::from_profile(&prefs));
-    let profile = crate::key_binding_preferences::profile_menu_shortcuts("IINA Default").unwrap();
+    let profile = super::playback_menu_options::shortcuts("IINA Default").unwrap();
     let shortcuts = ModelRc::new(VecModel::from(profile));
     let player = crate::PlayerWindow::new().unwrap();
     let audio = player.global::<PlaybackAudioState>();

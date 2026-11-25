@@ -5437,3 +5437,32 @@ controls and shutdown in a private desktop in 9,316 ms.
 - Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
 - Linux application SHA-256 `f506f2fd773427813dc2b90e7847a3f1a7f3ad9824bd6033a105a51f9ae0c239`
 - Linux libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`
+
+### Desktop media keys and plugin routing 2026-11-25
+
+The media adapters resolve system buttons and skip intervals through the
+shared key profile. The AppKit idle menu uses the same shortcut projection
+as the player. The plugin platform presenter chooses a dialog owner and the
+runtime retains its bounded overlay message and dialog routes. The scan
+counted 28 target annotations outside `platform/`, meeting the limit of 30.
+
+The Windows workspace gate passed strict Clippy, 1,096 Rust tests, 79 Python
+tests and four browser tests. The focused cases covered a notice releasing
+its dialog slot on dismissal, cancellation on owner stop, stale overlay
+replies after reload and profile-derived skip intervals. All 65 pinned
+null-output engine tests passed. The locked build passed playback, controls
+and shutdown on a private Windows desktop. Apple Silicon and Intel cross-
+Clippy passed. Native macOS media keys and dialog presentation remain open.
+
+The locked Linux build passed MPRIS checks on X11 and Wayland. A custom
+Play/Pause binding sought forward while the video stayed paused. The probes
+also covered the default Play and Pause routes, a stale track identifier,
+the volume limit, OpenUri and Quit. The Wayland overlay exchanged messages
+with its player, routed a trusted click, resized the page, changed its
+opacity and switched to Simple Mode. All three test players exited normally.
+
+- Windows application SHA-256 `8e643a3dd28a77d51895400c7abc4fe3c03025647431f7713404b2c57dd7fa7a`
+- Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
+- Linux application SHA-256 `dd96fe65ee09c0d04e41ee8062fcb30ac9fc6cb8040e4ee6dd0405edeee68e32`
+- X11 and overlay libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`
+- Wayland MPRIS libmpv SHA-256 `cdce854e1811942602587310026306d92d30c0f593f2be676f07659ae43061d8`

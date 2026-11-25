@@ -57,7 +57,7 @@ pub(crate) mod text_edit;
 pub(crate) mod text_recognition;
 pub(crate) mod update_installer;
 pub(crate) use shared_video::SharedVideoExtras;
-mod system_media_session;
+pub(crate) mod system_media_session;
 pub(crate) mod transition_cover;
 pub(crate) mod window_document;
 pub(crate) mod window_menu;

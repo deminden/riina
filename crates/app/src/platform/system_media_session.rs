@@ -2,6 +2,9 @@
 use crate::{NativeVideoHost, PlaybackStore, PlayerWindow};
 use riina_mpv::CommandSender;
 
+#[cfg(any(target_os = "linux", target_os = "macos", target_os = "windows", test))]
+pub(crate) mod key_actions;
+
 #[cfg(not(any(target_os = "linux", target_os = "macos", target_os = "windows")))]
 pub(crate) struct SystemMediaSession;
 

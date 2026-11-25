@@ -11,25 +11,18 @@ use crate::{PlayerWindow, PreferencesWindow};
 use riina_core::{Preferences, key_bindings::Settings};
 use slint::ComponentHandle;
 
+pub(crate) use bindings::Bindings;
 pub(crate) use builtins::mappings_for;
-#[cfg(any(target_os = "linux", target_os = "macos", target_os = "windows"))]
-pub(crate) use dispatch::dispatch_system_media_key;
-#[cfg(any(target_os = "macos", target_os = "windows"))]
-pub(crate) use dispatch::system_skip_intervals_for_profile;
 pub(crate) use dispatch::{
-    CurrentMediaLocation, current_media_location, install_player, reveal_current_media,
+    CurrentMediaLocation, current_media_location, dispatch_mapping, install_player,
+    reveal_current_media,
 };
 pub(crate) use editor::{
     activate_profile, current_player, current_window, install_window, mapping_for_row, refresh,
     remove_mapping, save_mapping, search, select_profile,
 };
 pub(crate) use keys::{plugin_event_key, plugin_key_binding, recorded_key, shortcut_keys};
-
-#[cfg(any(target_os = "macos", test))]
-pub(crate) fn profile_menu_shortcuts(name: &str) -> Result<Vec<crate::MenuShortcutRow>, String> {
-    let mappings = bindings::Bindings::new(mappings_for(name)?);
-    Ok(menus::menu_shortcut_rows(&mappings))
-}
+pub(crate) use menus::menu_shortcut_rows;
 
 impl PreferenceSection for Settings {
     fn get(all: &Preferences) -> Self {

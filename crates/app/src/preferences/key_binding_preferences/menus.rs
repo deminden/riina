@@ -66,7 +66,7 @@ pub(super) const MENU_SHORTCUT_ACTIONS: [(ActionKind, &str); 56] = [
     (ActionKind::Riina, "find-online-subs"),
 ];
 
-pub(super) fn menu_shortcut_rows(mappings: &Bindings) -> Vec<MenuShortcutRow> {
+pub(crate) fn menu_shortcut_rows(mappings: &Bindings) -> Vec<MenuShortcutRow> {
     MENU_SHORTCUT_ACTIONS
         .iter()
         .map(|(kind, action)| {

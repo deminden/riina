@@ -156,7 +156,6 @@ impl PluginHostHandle {
             .map_err(command_error)
     }
 
-    #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
     pub(crate) fn notify_plugin_page_loaded(&self, route: PlayerPluginRoute) -> Result<(), String> {
         self.commands
             .try_send(PluginCommand::PluginOverlayLoaded(Some(route)))
@@ -192,7 +191,6 @@ impl PluginHostHandle {
             .map_err(|error| format!("Plugin host did not prepare window shutdown: {error}"))
     }
 
-    #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
     pub(crate) fn deliver_overlay_message(
         &self,
         route: PlayerPluginRoute,
@@ -428,7 +426,6 @@ enum PluginCommand {
     ThumbnailsReady,
     MenuUpdate,
     WindowWillClose(Vec<WindowModeChange>, mpsc::SyncSender<()>),
-    #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
     DeliverOverlayMessage {
         route: PlayerPluginRoute,
         name: String,
@@ -681,7 +678,6 @@ fn handle_command(
             // The caller can finish closing before the acknowledgement arrives.
             let _ = response.send(());
         }
-        #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
         PluginCommand::DeliverOverlayMessage { route, name, data } => {
             if let Some(session) = player_plugin_session(sessions, &route)
                 && let Err(error) = session.deliver_overlay_message(name, data)

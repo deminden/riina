@@ -35,10 +35,9 @@ impl Menus {
     pub(super) fn refresh(&self, target: &LaunchTarget, profile: &riina_core::Preferences) {
         self.catalog
             .set_options(super::super::playback_menu_options::from_profile(profile));
-        let shortcuts = crate::key_binding_preferences::profile_menu_shortcuts(
-            &profile.key_bindings.current_profile,
-        )
-        .unwrap_or_default();
+        let shortcuts =
+            super::super::playback_menu_options::shortcuts(&profile.key_bindings.current_profile)
+                .unwrap_or_default();
         let rows = self
             .catalog
             .snapshot(ModelRc::new(VecModel::from(shortcuts)));

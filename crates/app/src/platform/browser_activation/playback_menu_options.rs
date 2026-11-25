@@ -2,6 +2,13 @@ use riina_core::{Preferences, crop, subtitle_controls, video_controls};
 use riina_ui::{CatalogRow, PlaybackMenuOptions};
 use slint::{ModelRc, SharedString, VecModel};
 
+pub(super) fn shortcuts(name: &str) -> Result<Vec<crate::MenuShortcutRow>, String> {
+    use crate::key_binding_preferences::{Bindings, mappings_for, menu_shortcut_rows};
+
+    let mappings = Bindings::new(mappings_for(name)?);
+    Ok(menu_shortcut_rows(&mappings))
+}
+
 pub(super) fn from_profile(preferences: &Preferences) -> PlaybackMenuOptions {
     use crate::windows::video_filter_window::saved_filter_rows;
 
