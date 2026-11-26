@@ -19,6 +19,11 @@ pub(crate) fn native_path_spelling(path: &str) -> (bool, &str) {
     (false, path)
 }
 
+/// Compare local paths while allowing the forms returned by Windows canonicalization.
+pub fn same_native_path(left: &str, right: &str) -> bool {
+    native_path_spelling(left) == native_path_spelling(right)
+}
+
 const STREAM_SCHEMES: &[&str] = &[
     "ftp", "ftps", "http", "https", "mms", "mmsh", "mmst", "rtmp", "rtmpe", "rtmps", "rtmpt",
     "rtmpte", "rtmpts", "rtp", "rtsp", "rtsps", "smb", "srt", "srtp", "tcp", "udp", "ytdl",

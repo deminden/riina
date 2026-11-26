@@ -195,6 +195,7 @@ fn install_footer(app: &PlayerWindow) {
                 playlist_menu::popup(
                     &app,
                     LogicalPosition::new(x, y),
+                    "Playlist menu",
                     footer_entries(menu),
                     move |action| {
                         if let Some(app) = owner.upgrade()
@@ -267,11 +268,17 @@ impl Request {
         }
         let entries = self.entries(app, contributions);
         let owner = app.as_weak();
-        playlist_menu::popup(app, self.position, entries, move |action| {
-            if let Some(app) = owner.upgrade() {
-                self.activate(&app, host.as_ref(), action);
-            }
-        });
+        playlist_menu::popup(
+            app,
+            self.position,
+            "Playlist menu",
+            entries,
+            move |action| {
+                if let Some(app) = owner.upgrade() {
+                    self.activate(&app, host.as_ref(), action);
+                }
+            },
+        );
     }
 
     fn activate(&self, app: &PlayerWindow, host: Option<&PluginHostHandle>, action: Action) {

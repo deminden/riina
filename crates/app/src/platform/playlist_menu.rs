@@ -1,4 +1,4 @@
-//! Platform presentation for a playlist menu whose tree is supplied at runtime.
+//! Platform presentation for a contextual menu whose tree is supplied at runtime.
 use crate::PlayerWindow;
 use slint::ComponentHandle;
 use slint::LogicalPosition;
@@ -42,6 +42,7 @@ pub(crate) fn dismiss(app: &PlayerWindow) {
 pub(crate) fn popup<A: Clone + 'static>(
     app: &PlayerWindow,
     position: LogicalPosition,
+    label: &'static str,
     entries: Vec<Entry<A>>,
     selected: impl FnOnce(A) + 'static,
 ) {
@@ -64,7 +65,7 @@ pub(crate) fn popup<A: Clone + 'static>(
                     return;
                 }
                 Err(error) => {
-                    crate::diagnostics::warn!("Could not present native playlist menu: {error}")
+                    crate::diagnostics::warn!("Could not present native {label}: {error}")
                 }
             }
         }
@@ -81,12 +82,12 @@ pub(crate) fn popup<A: Clone + 'static>(
                 selected(action);
             }
         }) {
-            crate::diagnostics::warn!("Could not present X11 playlist menu: {error}");
+            crate::diagnostics::warn!("Could not present X11 {label}: {error}");
             if let Some(selected) = callback.take() {
-                client::show(app, position, entries, selected);
+                client::show(app, position, label, entries, selected);
             }
         }
         return;
     }
-    client::show(app, position, entries, selected);
+    client::show(app, position, label, entries, selected);
 }

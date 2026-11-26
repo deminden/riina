@@ -1,6 +1,7 @@
 import { CatalogSelection } from "catalog-row.slint";
 
 export enum PlayerEdit { undo, redo, cut, copy, paste, delete, select-all }
+export enum SubtitleMenuSource { sidebar, controller }
 export struct PlayerEditMenuState {
     undo: bool,
     redo: bool,
@@ -13,6 +14,7 @@ export struct PlayerEditMenuState {
 
 // The player, native owner, and Slint menu dispatch commands to the same window session.
 export global PlayerMenuActions {
+    callback show-subtitle-menu(SubtitleMenuSource, float, float);
     in property <PlayerEditMenuState> edit-menu-state;
     callback edit(PlayerEdit);
     callback video-menu-changed();

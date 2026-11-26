@@ -92,6 +92,13 @@
       "sha256": "b98a03fc747987e2a9de7132a3d23079b4f5356e15795bd95de190cedff5930c"
     },
     {
+      "path": "assets/icons/chevron-down.svg",
+      "author": "riina contributors",
+      "license": "MIT",
+      "origin": "Original geometric SVG authored for riina; no external artwork copied or traced",
+      "sha256": "1ca9e971213f5d6ad61965fd33e67e79dcf4543b631ec4b75a223ee3b5f8548b"
+    },
+    {
       "path": "assets/icons/chevron-forward.svg",
       "author": "riina contributors",
       "license": "MIT",

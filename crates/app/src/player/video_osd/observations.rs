@@ -469,18 +469,5 @@ fn readable_track_title(
         // IINA represents the no-track choice as the synthetic track #0.
         return "#0 <None>".into();
     };
-    let language = track
-        .lang
-        .as_deref()
-        .filter(|language| !language.is_empty() && *language != "und")
-        .map(|language| {
-            let name = languages.display_name(Some(language));
-            if name.is_empty() {
-                String::new()
-            } else {
-                format!("[{name}] ")
-            }
-        })
-        .unwrap_or_default();
-    format!("#{} {language}{}", track.id, track.display_name())
+    languages.track_title(track)
 }

@@ -1,6 +1,6 @@
 use super::{Command, CommandError, cmd, flag, set};
-use crate::subtitle_controls;
 use crate::{Phase, Playback, Track, TrackKind, valid_path};
+use crate::{media_reference::same_native_path, subtitle_controls};
 
 impl Command {
     pub(super) fn subtitles_args(&self) -> Result<Vec<String>, CommandError> {
@@ -201,7 +201,7 @@ fn external_track<'a>(state: &'a Playback, path: &str) -> Option<&'a Track> {
             && track
                 .external_filename
                 .as_deref()
-                .is_some_and(|existing| same_external_path(existing, path))
+                .is_some_and(|existing| same_native_path(existing, path))
     })
 }
 
@@ -240,16 +240,11 @@ pub(super) fn add_without_selection(
         let exists = external_track(state, path).is_some()
             || added
                 .iter()
-                .any(|existing| same_external_path(existing, path));
+                .any(|existing| same_native_path(existing, path));
         if !exists {
             added.push(path);
             commands.push(vec!["sub-add".into(), path.clone(), "auto".into()]);
         }
     }
     Ok(commands)
-}
-
-fn same_external_path(left: &str, right: &str) -> bool {
-    crate::media_reference::native_path_spelling(left)
-        == crate::media_reference::native_path_spelling(right)
 }

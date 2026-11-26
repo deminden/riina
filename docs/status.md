@@ -180,6 +180,11 @@ Implementation does not imply every state or platform is verified.
   focus on its first channel and keeps changes applied before dismissal.
   Numeric sidebar edits retain their draft when a Control or Command
   shortcut reaches the player.
+- **Subtitle chooser menus:** the Subtitles panel's Load Subtitle split
+  button lists nearby files, including unmatched files from configured
+  search paths. The controller's optional subtitle button also lists loaded
+  tracks and offers None for the primary subtitle. Nearby files remain
+  available when automatic subtitle loading is disabled.
 - **Subtitle font chooser:** the player applies the chosen font to its
   current playback session. Settings opens the same chooser with the saved
   default and shares a committed change with players using that profile.

@@ -6375,3 +6375,32 @@ Locked workspace source checks passed for Apple Silicon and Intel.
 - Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
 - Linux application SHA-256 `50f8f92f2d254b54b98a353d5f98acbfef947e2c5569f725375f327b666b2421`
 - Linux libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`
+
+### Subtitle chooser menus (2026-11-26)
+
+The locked Windows workspace build, full source gate and 72 native
+playback tests passed. The matcher and menu tests covered disabled automatic
+loading, natural file ordering and primary track selection. The headless
+input test exercised the two entry points. The Windows software-rendered
+comparison passed after inspection and updates limited to the Load Subtitle
+row in both themes.
+
+In a private Windows desktop, UI Automation opened the controller and
+Subtitles panel choosers. Keyboard navigation selected nearby files from
+the native popup while automatic loading was disabled. The controller
+then cleared the primary subtitle with None. Playback stayed paused and
+the exact player process closed normally.
+
+The locked Linux application build, strict Clippy and two focused tests
+passed. In an isolated native Wayland session, AT-SPI opened both menus by
+name and confirmed that Episode 2 appeared before Episode 10 with automatic
+loading disabled. The controller loaded Episode 2, the Subtitles panel
+loaded Episode 10, and the controller's None menu item cleared the primary
+track without resuming. MPRIS Quit closed the exact player process normally.
+Locked workspace source checks passed for Apple Silicon and Intel. Native
+macOS interaction and matched IINA appearance remain open.
+
+- Windows application SHA-256 `31bdc0e70eb82fb3d7e0e4e50dffcf7c03a8d3d05b76b1d9180ada9969040fa5`
+- Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
+- Linux application SHA-256 `aa520dccc84be298c96fa3bb4ce428acf28757426a0165fcb1d8799de39f44e0`
+- Linux libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`

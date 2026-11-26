@@ -135,6 +135,7 @@ pub(super) fn install(app: &PlayerWindow, inputs: Inputs<'_>) -> Installed {
     );
     *lock(plugin_commands) = Some(commands.clone());
     let subtitle_discovery_ready = Arc::new(crate::subtitle_discovery::Readiness::default());
+    super::subtitle_menu::install(app, commands, playback);
     let subtitle_assignments = Assignments::default();
     playlist_subtitles::install(
         app,

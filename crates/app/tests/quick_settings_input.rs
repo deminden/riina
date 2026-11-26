@@ -42,6 +42,28 @@ fn flush() {
     slint::platform::update_timers_and_animations();
 }
 
+#[test]
+fn sidebar_and_controller_open_the_subtitle_chooser_without_cycling_tracks() {
+    let app = player(2);
+    let menus = Rc::new(RefCell::new(Vec::new()));
+    let reported = menus.clone();
+    app.global::<PlayerMenuActions>()
+        .on_show_subtitle_menu(move |source, x, y| {
+            assert!(x > 0.0 && y > 0.0);
+            reported.borrow_mut().push(source);
+        });
+    focus(&app, &field(&app, "Choose nearby subtitle"));
+    key(&app, Key::Return);
+    assert_eq!(menus.take(), [SubtitleMenuSource::Sidebar; 2]);
+
+    let controls = app.global::<PlayerControlsState>();
+    controls.set_toolbar_visible_order(slint::ModelRc::new(slint::VecModel::from(vec![5])));
+    controls.set_controls_visible(true);
+    flush();
+    focus(&app, &field(&app, "Switch Subtitle Track"));
+    assert_eq!(menus.take(), [SubtitleMenuSource::Controller]);
+}
+
 #[expect(
     clippy::unwrap_used,
     reason = "Widget tests require a working headless player"

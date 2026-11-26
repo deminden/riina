@@ -75,6 +75,46 @@ impl AutoDiscovery {
 
 pub(crate) type Matches = HashMap<PathBuf, Vec<PathBuf>>;
 
+#[derive(Default)]
+pub(crate) struct MenuFiles {
+    pub(crate) related: Vec<PathBuf>,
+    pub(crate) all: Vec<PathBuf>,
+}
+
+/// Browse the same search paths even when loading subtitles automatically is disabled.
+pub(crate) fn files_for_menu(
+    media_path: &Path,
+    preferences: &AutoLoadPreferences,
+    is_current: impl Fn() -> bool,
+) -> MenuFiles {
+    if !is_current() {
+        return MenuFiles::default();
+    }
+    let Ok(media_path) = std::path::absolute(media_path) else {
+        return MenuFiles::default();
+    };
+    let candidates = read_subtitle_candidates(&media_path, &preferences.search_paths, &is_current);
+    let related = if preferences.mode == AutoLoadMode::Intelligent && is_current() {
+        let files = media_files_with_stems(&media_path, true);
+        files
+            .iter()
+            .find(|(path, _)| *path == media_path)
+            .map_or_else(Vec::new, |(_, stem)| {
+                let stems = unique_stems(&files);
+                FolderMatcher::new(&stems, &candidates, preferences).matching_files(stem)
+            })
+    } else {
+        Vec::new()
+    };
+    let mut all: Vec<_> = candidates.into_iter().map(|(path, _)| path).collect();
+    all.sort_by(|left, right| {
+        let left_name = left.file_name().unwrap_or_default().to_string_lossy();
+        let right_name = right.file_name().unwrap_or_default().to_string_lossy();
+        crate::platform::natural_compare(&left_name, &right_name).then_with(|| left.cmp(right))
+    });
+    MenuFiles { related, all }
+}
+
 pub(crate) fn find_matches(
     media_path: &Path,
     preferences: &AutoLoadPreferences,
@@ -87,25 +127,11 @@ pub(crate) fn find_matches(
     let Ok(media_path) = std::path::absolute(media_path) else {
         return Matches::new();
     };
-    let intelligent = preferences.mode == AutoLoadMode::Intelligent;
-    let mut files = if include_siblings || intelligent {
-        sibling_media_files(&media_path)
-    } else {
-        Vec::new()
-    };
-    if !files.contains(&media_path) {
-        files.push(media_path.clone());
-    }
-    let files: Vec<_> = files
-        .into_iter()
-        .filter_map(|file| {
-            let stem = file.file_stem()?.to_str()?.to_lowercase();
-            (!stem.is_empty()).then_some((file, stem))
-        })
-        .collect();
-    let mut stems: Vec<_> = files.iter().map(|(_, stem)| stem.clone()).collect();
-    stems.sort();
-    stems.dedup();
+    let files = media_files_with_stems(
+        &media_path,
+        include_siblings || preferences.mode == AutoLoadMode::Intelligent,
+    );
+    let stems = unique_stems(&files);
     let candidates = read_subtitle_candidates(&media_path, &preferences.search_paths, &is_current);
     let matcher = FolderMatcher::new(&stems, &candidates, preferences);
     files
@@ -114,6 +140,68 @@ pub(crate) fn find_matches(
         .take_while(|_| is_current())
         .map(|(file, stem)| (file, matcher.matching_files(&stem)))
         .collect()
+}
+
+fn media_files_with_stems(media_path: &Path, include_siblings: bool) -> Vec<(PathBuf, String)> {
+    let mut files = if include_siblings {
+        sibling_media_files(media_path)
+    } else {
+        Vec::new()
+    };
+    if !files.iter().any(|file| file == media_path) {
+        files.push(media_path.into());
+    }
+    files
+        .into_iter()
+        .filter_map(|file| {
+            let stem = file.file_stem()?.to_str()?.to_lowercase();
+            (!stem.is_empty()).then_some((file, stem))
+        })
+        .collect()
+}
+
+fn unique_stems(files: &[(PathBuf, String)]) -> Vec<String> {
+    let mut stems: Vec<_> = files.iter().map(|(_, stem)| stem.clone()).collect();
+    stems.sort();
+    stems.dedup();
+    stems
+}
+
+#[cfg(test)]
+#[test]
+fn manual_browsing_includes_unmatched_files_even_when_auto_loading_is_disabled() {
+    let temp = riina_test_support::TempDir::new("subtitle-menu-search").unwrap();
+    let root = temp.path();
+    std::fs::create_dir(root.join("subs")).unwrap();
+    for file in [
+        "episode.mkv",
+        "episode.en.srt",
+        "subs/extra10.srt",
+        "subs/extra2.srt",
+        "subs/.hidden.srt",
+    ] {
+        std::fs::write(root.join(file), b"").unwrap();
+    }
+    let path = root.join("episode.mkv");
+    let mut prefs = AutoLoadPreferences {
+        mode: AutoLoadMode::Disabled,
+        search_paths: "./subs".into(),
+        ..AutoLoadPreferences::default()
+    };
+    let files = files_for_menu(&path, &prefs, || true);
+    assert!(files.related.is_empty());
+    assert_eq!(
+        files.all,
+        [
+            root.join("episode.en.srt"),
+            root.join("subs/extra2.srt"),
+            root.join("subs/extra10.srt")
+        ]
+    );
+    prefs.mode = AutoLoadMode::Intelligent;
+    let files = files_for_menu(&path, &prefs, || true);
+    assert_eq!(files.related, [root.join("episode.en.srt")]);
+    assert!(files_for_menu(&path, &prefs, || false).all.is_empty());
 }
 
 fn read_subtitle_candidates(

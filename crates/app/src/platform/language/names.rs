@@ -33,6 +33,17 @@ impl LanguageNames {
             self.names.display_name(identifier)
         }
     }
+
+    pub(crate) fn track_title(&self, track: &riina_core::Track) -> String {
+        let language =
+            self.display_name(track.lang.as_deref().filter(|language| *language != "und"));
+        let title = track.display_name();
+        if language.is_empty() {
+            format!("#{} {title}", track.id)
+        } else {
+            format!("#{} [{language}] {title}", track.id)
+        }
+    }
 }
 
 #[cfg(any(not(target_os = "macos"), test))]

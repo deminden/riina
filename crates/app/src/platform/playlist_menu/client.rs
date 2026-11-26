@@ -25,10 +25,11 @@ pub(super) fn dismiss(app: &PlayerWindow) {
 pub(super) fn show<A: 'static>(
     app: &PlayerWindow,
     point: LogicalPosition,
+    label: &str,
     entries: Vec<Entry<A>>,
     selected: impl FnOnce(A) + 'static,
 ) {
-    show_client(app, point, entries, None, selected);
+    show_client(app, point, label, entries, None, selected);
 }
 
 #[cfg(any(target_os = "linux", test))]
@@ -39,12 +40,13 @@ pub(super) fn show_player_menu<A: 'static>(
     entries: Vec<Entry<A>>,
     selected: impl FnOnce(A) + 'static,
 ) {
-    show_client(app, point, entries, Some(family), selected);
+    show_client(app, point, "", entries, Some(family), selected);
 }
 
 fn show_client<A: 'static>(
     app: &PlayerWindow,
     point: LogicalPosition,
+    label: &str,
     entries: Vec<Entry<A>>,
     player_menu_family: Option<i32>,
     selected: impl FnOnce(A) + 'static,
@@ -58,6 +60,7 @@ fn show_client<A: 'static>(
     let menu = Menu::new(viewport, point, entries, player_menu_family.is_some());
     let popup = app.global::<PlaylistPluginPopupState>();
     popup.set_player_menu(player_menu_family.is_some());
+    popup.set_accessible_menu_label(label.into());
     popup.set_player_menu_family(player_menu_family.unwrap_or(-1));
     popup.set_panels(ModelRc::from(menu.panels.clone()));
     let focus = RefCell::new(crate::platform::text_edit::PopupFocus::capture(
@@ -449,6 +452,7 @@ mod tests {
         show(
             &app,
             LogicalPosition::new(388.0, 383.0),
+            "Playlist menu",
             entries,
             move |item| {
                 selected.set(Some(item));

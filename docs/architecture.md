@@ -642,6 +642,15 @@ discards replies and activations when the playlist, selection or originating
 surface changes. Win32, AppKit and GTK track native popup menus. Wayland and
 the native fallback use the scrollable in-window presenter.
 
+### Subtitle chooser menus
+
+The Subtitles panel and on-screen controller use the contextual menu
+presenters. The controller also lists the engine's loaded subtitle tracks.
+Each player allows one manual folder scan at a time. It shares candidate
+discovery with subtitle auto-loading and delivers the result only while the
+same media, open request, preferences and source control still apply.
+Selections go through the owning player's media-scoped command channel.
+
 ### Plugin input
 
 Player realms register normalized keys and video-surface mouse events. Each

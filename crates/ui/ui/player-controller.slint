@@ -4,8 +4,7 @@ import { PlayerLayoutState } from "player-layout-state.slint";
 import { PlayerPreferences } from "player-preferences.slint";
 import { PlayerAppearance } from "player-appearance.slint";
 import { PlaybackAudioState } from "playback-audio-state.slint";
-import { PlaybackSubtitleState } from "playback-subtitle-state.slint";
-import { PlayerMenuActions } from "player-menu-actions.slint";
+import { PlayerMenuActions, SubtitleMenuSource } from "player-menu-actions.slint";
 import { Theme } from "theme.slint";
 import { ToolbarAction } from "player-chrome-controls.slint";
 import { Tool } from "player-tool.slint";
@@ -261,7 +260,7 @@ export component PlayerController inherits Rectangle {
                 action-height: min(root.toolbar-button-width, root.layout.osc-row-height);
                 height: root.layout.osc-row-height;
                 dark-theme: PlayerAppearance.dark-theme;
-                enabled: (action-kind != 5 || (root.toolbar.loaded && PlaybackSubtitleState.subtitle-tracks.length > 1)) &&
+                enabled: (action-kind != 5 || root.toolbar.loaded) &&
                     (action-kind != 6 || root.toolbar.screenshot-available) &&
                     (action-kind != 8 || root.toolbar.live-text-available);
                 selected: action-kind == 0 ? (root.toolbar.sidebar == 1 || root.toolbar.sidebar == 2 || root.toolbar.sidebar == 5 || root.toolbar.sidebar == 6 ||
@@ -284,7 +283,10 @@ export component PlayerController inherits Rectangle {
                     else if kind == 2 { PlayerMenuActions.toggle-picture-in-picture(); }
                     else if kind == 3 { PlayerMenuActions.toggle-fullscreen(); }
                     else if kind == 4 { PlayerMenuActions.toggle-music-mode(); }
-                    else if kind == 5 { PlayerMenuActions.cycle-subtitle-track(); }
+                    else if kind == 5 {
+                        PlayerMenuActions.show-subtitle-menu(SubtitleMenuSource.controller,
+                            self.absolute-position.x / 1px, self.absolute-position.y / 1px);
+                    }
                     else if kind == 6 { PlayerMenuActions.take-screenshot(); }
                     else if kind == 7 { PlayerMenuActions.toggle-plugins-pane(); }
                     else if kind == 8 { PlayerMenuActions.toggle-live-text(); }

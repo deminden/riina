@@ -48,6 +48,7 @@ pub(in crate::player) use observer_state::ObserverId;
 mod plugin_menus;
 mod plugins;
 mod subtitle_controls;
+mod subtitle_menu;
 mod video_controls;
 pub(crate) use context::PlayerContext;
 use context::bind;
