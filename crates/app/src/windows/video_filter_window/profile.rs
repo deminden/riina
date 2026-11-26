@@ -58,10 +58,10 @@ impl Kind {
         }
     }
 
-    pub(super) fn remove(self, filter: VideoFilter) -> Command {
+    pub(super) fn remove_at(self, index: usize) -> Command {
         match self {
-            Self::Video => Command::RemoveVideoFilter(filter),
-            Self::Audio => Command::RemoveAudioFilter(filter),
+            Self::Video => Command::RemoveVideoFilterAt(index),
+            Self::Audio => Command::RemoveAudioFilterAt(index),
         }
     }
 

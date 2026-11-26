@@ -10,7 +10,6 @@ pub(super) fn latest(
     let Message::MediaIntent {
         generation,
         command: Command::SeekTimeline(_),
-        filter_name: None,
     } = message
     else {
         return (message, None);
@@ -22,7 +21,6 @@ pub(super) fn latest(
             Message::MediaIntent {
                 generation: current,
                 command: Command::SeekTimeline(_),
-                filter_name: None,
             } if current == generation => message = next,
             _ => return (message, Some(next)),
         }
@@ -39,7 +37,6 @@ mod tests {
         Message::MediaIntent {
             generation,
             command: Command::SeekTimeline(fraction),
-            filter_name: None,
         }
     }
 
@@ -62,7 +59,6 @@ mod tests {
             Message::MediaIntent {
                 generation: 7,
                 command: Command::SeekTimeline(0.5),
-                filter_name: None,
             }
         ));
         assert!(matches!(next, Some(Message::Intent(Command::Stop))));
@@ -72,7 +68,6 @@ mod tests {
             Message::MediaIntent {
                 generation: 7,
                 command: Command::SeekTimeline(0.8),
-                filter_name: None,
             }
         ));
         let (message, next) = latest(next.ok_or("Expected the replacement's seek")?, &inbox);
@@ -81,7 +76,6 @@ mod tests {
             Message::MediaIntent {
                 generation: 8,
                 command: Command::SeekTimeline(0.1),
-                filter_name: None,
             }
         ));
         assert!(matches!(next, Some(Message::Shutdown)));

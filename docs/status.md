@@ -201,7 +201,9 @@ Implementation does not imply every state or platform is verified.
 - **Playback feedback:** pause and resume show the current and total time.
   User filter edits show the added filter's name or confirm removal after
   the engine accepts the change. The confirmation belongs to the media
-  that received the edit.
+  that received the edit. Consecutive filter toggles use the engine's latest
+  chain. The editor removes or replaces the selected row and asks for a new
+  selection if the chain changed in the meantime.
 - **Subtitle font chooser:** the player applies the chosen font to its
   current playback session. Settings opens the same chooser with the saved
   default and shares a committed change with players using that profile.

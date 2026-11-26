@@ -83,10 +83,12 @@ command_samples! {
     ToggleVideoFilter["hflip".into()];
     AddVideoFilter["vflip".into()];
     RemoveVideoFilter[sample_filter("hflip", None)];
+    RemoveVideoFilterAt[1];
     SetVideoFilterAt { index: 0, filter: "vflip".into() };
     ToggleAudioFilter["acompressor".into()];
     AddAudioFilter["aecho".into()];
     RemoveAudioFilter[sample_filter("acompressor", None)];
+    RemoveAudioFilterAt[0];
     SetAudioFilterAt { index: 0, filter: "aecho".into() };
     ToggleVideoReflection[video_reflection::Axis::Horizontal];
     VideoViewport[Some(sample_viewport())];

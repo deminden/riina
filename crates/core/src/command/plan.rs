@@ -1,6 +1,6 @@
 use super::{
-    Command, CommandError, CommandPlan, audio, filters::FilterChain, flag, network, playback,
-    playlist, screenshot_plan, seek, set, subtitles, video,
+    Command, CommandError, CommandPlan, audio, filters, flag, network, playback, playlist,
+    screenshot_plan, seek, set, subtitles, video,
 };
 use crate::{Phase, Playback, hdr_preferences, key_bindings, video_viewport};
 
@@ -43,18 +43,6 @@ impl Command {
             Self::EnterCrop(session) => session.enter_commands(state)?,
             Self::ExitCrop { session, rectangle } => session.exit_commands(state, *rectangle)?,
             Self::RemoveDelogo => video::remove_delogo(state)?,
-            Self::ToggleVideoFilter(filter) => FilterChain::Video.toggle(state, filter)?,
-            Self::AddVideoFilter(filter) => FilterChain::Video.add(filter)?,
-            Self::RemoveVideoFilter(filter) => FilterChain::Video.remove(state, filter)?,
-            Self::SetVideoFilterAt { index, filter } => {
-                FilterChain::Video.replace(state, *index, filter)?
-            }
-            Self::ToggleAudioFilter(filter) => FilterChain::Audio.toggle(state, filter)?,
-            Self::AddAudioFilter(filter) => FilterChain::Audio.add(filter)?,
-            Self::RemoveAudioFilter(filter) => FilterChain::Audio.remove(state, filter)?,
-            Self::SetAudioFilterAt { index, filter } => {
-                FilterChain::Audio.replace(state, *index, filter)?
-            }
             Self::VideoCropRectangle(rectangle) => video::crop_rectangle(state, rectangle)?,
             Self::VideoCrop(preset) => video::crop_preset(state, *preset)?,
             Self::AdjustVolume { delta, boost } => audio::adjust_volume(*delta, *boost)?,
@@ -151,7 +139,10 @@ impl Command {
             Self::CycleLoop => playback::set_loop_mode_commands(state.loop_mode().next()),
             Self::ToggleLoopMode(mode) => playback::toggle_loop_mode(state, *mode),
             Self::SetLoopMode(mode) => playback::set_loop_mode_commands(*mode),
-            _ => vec![self.mpv_args()?],
+            _ => match filters::plan_edit(self, state) {
+                Some(edit) => edit?,
+                None => vec![self.mpv_args()?],
+            },
         };
         Ok(CommandPlan {
             commands,

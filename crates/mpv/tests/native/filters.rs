@@ -1,4 +1,116 @@
 use super::*;
+use riina_mpv::EngineError;
+
+#[test]
+#[ignore = "requires provisioned libmpv; submits filter toggles without waiting for property notifications"]
+fn rapid_audio_and_video_toggles_consume_each_previous_native_edit() -> Result<(), EngineError> {
+    let harness = paused_filter_fixture()?;
+    let initial = harness.wait(|state| {
+        state.phase == Phase::Paused
+            && state.audio_filters.as_ref().is_some_and(Vec::is_empty)
+            && state.video_filters.as_ref().is_some_and(Vec::is_empty)
+    });
+    let sender = harness.player.command_sender();
+    let mut previous_reply = 0;
+    for command in [
+        Command::ToggleAudioFilter("lavfi=[volume=0.5]".into()),
+        Command::ToggleVideoFilter("hflip".into()),
+    ] {
+        for _ in 0..3 {
+            for _ in 0..2 {
+                sender.send_filter_edit(initial.generation, command.clone(), "Preset".into())?;
+            }
+            let state = harness.wait(|state| {
+                state.filter_feedback.as_ref().is_some_and(|feedback| {
+                    feedback.sequence > previous_reply
+                        && feedback.change == riina_core::FilterChange::Removed
+                }) && state.audio_filters.as_ref().is_some_and(Vec::is_empty)
+                    && state.video_filters.as_ref().is_some_and(Vec::is_empty)
+            });
+            previous_reply = state.filter_feedback.as_ref().unwrap().sequence;
+            assert_eq!(state.generation, initial.generation);
+            assert_eq!(
+                state.completed_navigation_seeks,
+                initial.completed_navigation_seeks
+            );
+            assert_eq!(state.error(), None);
+            assert!(state.paused);
+        }
+    }
+    Ok(())
+}
+
+#[test]
+#[ignore = "requires provisioned libmpv; checks row identity and an obsolete filter chain"]
+fn indexed_edits_keep_the_selected_occurrence_and_reject_a_changed_chain() -> Result<(), EngineError>
+{
+    let harness = paused_filter_fixture()?;
+    let initial = harness.wait(|state| state.phase == Phase::Paused);
+    let sender = harness.player.command_sender();
+    for filter in ["hflip", "vflip", "hflip"] {
+        harness.send(Command::AddVideoFilter(filter.into()))?;
+    }
+    let filter_names = |state: &Playback| {
+        state
+            .video_filters
+            .as_ref()
+            .map(|filters| {
+                filters
+                    .iter()
+                    .map(|filter| filter.name.clone())
+                    .collect::<Vec<_>>()
+            })
+            .unwrap_or_default()
+    };
+    let before = harness.wait(|state| filter_names(state) == ["hflip", "vflip", "hflip"]);
+    let displayed = before.video_filters.unwrap();
+    sender.send_indexed_filter_edit(
+        initial.generation,
+        Command::RemoveVideoFilterAt(2),
+        displayed.clone(),
+    )?;
+    sender.send_indexed_filter_edit(
+        initial.generation,
+        Command::SetVideoFilterAt {
+            index: 0,
+            filter: "vflip".into(),
+        },
+        displayed,
+    )?;
+    let rejected = harness.wait(|state| {
+        filter_names(state) == ["hflip", "vflip"]
+            && state
+                .error()
+                .is_some_and(|message| message.contains("active filters changed"))
+    });
+    let removed = rejected.filter_feedback.unwrap();
+    assert_eq!(removed.change, riina_core::FilterChange::Removed);
+
+    sender.send_indexed_filter_edit(
+        initial.generation,
+        Command::SetVideoFilterAt {
+            index: 0,
+            filter: "vflip".into(),
+        },
+        rejected.video_filters.unwrap(),
+    )?;
+    let edited = harness.wait(|state| filter_names(state) == ["vflip", "vflip"]);
+    assert_eq!(edited.filter_feedback.unwrap(), removed);
+    assert!(edited.paused);
+    Ok(())
+}
+
+fn paused_filter_fixture() -> Result<Harness, EngineError> {
+    let root = fixture_root();
+    let harness = Harness::start(&root)?;
+    harness.send(Command::SetPauseWhenOpen(true))?;
+    harness.send(Command::Load(
+        root.join("tests/fixtures/catalog.mkv")
+            .to_string_lossy()
+            .into_owned(),
+    ))?;
+    Ok(harness)
+}
 
 #[test]
 #[ignore = "requires provisioned libmpv; checks native filter replies and media ownership"]

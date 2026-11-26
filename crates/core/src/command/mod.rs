@@ -131,6 +131,7 @@ pub enum Command {
     ToggleVideoFilter(String),
     AddVideoFilter(String),
     RemoveVideoFilter(crop::VideoFilter),
+    RemoveVideoFilterAt(usize),
     SetVideoFilterAt {
         index: usize,
         filter: String,
@@ -138,6 +139,7 @@ pub enum Command {
     ToggleAudioFilter(String),
     AddAudioFilter(String),
     RemoveAudioFilter(crop::VideoFilter),
+    RemoveAudioFilterAt(usize),
     SetAudioFilterAt {
         index: usize,
         filter: String,

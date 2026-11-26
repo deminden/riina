@@ -1,6 +1,7 @@
 //! Native commands and events are serialized on the event thread.
 mod audio_route;
 mod duration_probe;
+pub(crate) mod filter_edits;
 mod folder_discovery;
 mod handle;
 mod hooks;
@@ -117,11 +118,10 @@ impl<N: Fn(Arc<Playback>)> Start<N> {
         }
 
         let mut deferred = None;
-        while let Some(message) = deferred.take().or_else(|| {
-            state
-                .hooks
-                .next_message(&receiver, state.script_input.deadline())
-        }) {
+        while let Some(message) = deferred
+            .take()
+            .or_else(|| state.hooks.next_message(&receiver, state.next_deadline()))
+        {
             let (message, next) = timeline_queue::latest(message, &receiver);
             deferred = next;
             if accept_shutdown(&message) {
@@ -141,11 +141,13 @@ impl<N: Fn(Arc<Playback>)> Start<N> {
                     Message::MediaIntent {
                         generation,
                         command,
-                        filter_name,
-                    } => {
-                        state.drain_events(&mut handle, &callback_sender);
-                        state.handle_media_intent(&handle, generation, command, filter_name);
-                    }
+                    } => state.handle_media_intent(
+                        &mut handle,
+                        &callback_sender,
+                        generation,
+                        command,
+                    ),
+                    Message::FilterEdit(request) => state.enqueue_filter_edit(request),
                     Message::OpenStream(command, source, attempt) => {
                         state.open_stream(&handle, command, source, attempt);
                     }
@@ -317,6 +319,7 @@ struct WorkerState {
     next_observer: u64,
     pending: HashMap<u64, PendingCommand>,
     playlist_edits: PendingEdits,
+    filter_edits: filter_edits::Queue,
     client_requests: HashMap<u64, Pending>,
     hooks: hooks::Hooks,
     script_input: script_input::Watch,
@@ -344,6 +347,14 @@ enum PlaylistInsertion {
 }
 
 impl WorkerState {
+    fn next_deadline(&self) -> Option<Instant> {
+        self.script_input
+            .deadline()
+            .into_iter()
+            .chain(self.filter_edits.deadline())
+            .min()
+    }
+
     fn mark_changed(&mut self) {
         self.revision = self.revision.wrapping_add(1);
     }
@@ -460,20 +471,13 @@ impl WorkerState {
 
     fn handle_media_intent(
         &mut self,
-        handle: &Handle,
+        handle: &mut Handle,
+        wake: &SyncSender<Message>,
         generation: u64,
         command: Command,
-        filter_name: Option<String>,
     ) {
-        if !self.accepts_media_intent(generation) {
-            return;
-        }
-        if let Some(name) = filter_name {
-            if let Err(error) = self.issue_filter_edit(handle, command, name) {
-                record_notice(&mut self.playback, NoticeSeverity::Error, error);
-                self.mark_changed();
-            }
-        } else {
+        self.drain_events(handle, wake);
+        if self.accepts_media_intent(generation) {
             self.handle_intent(handle, command);
         }
     }
@@ -734,23 +738,6 @@ impl WorkerState {
         Ok(())
     }
 
-    fn issue_filter_edit(
-        &mut self,
-        handle: &Handle,
-        command: Command,
-        name: String,
-    ) -> Result<(), String> {
-        let plan = command
-            .plan(&self.playback)
-            .map_err(|error| error.to_string())?;
-        let [args] = plan.commands.as_slice() else {
-            return Err("A filter edit must submit one native command".into());
-        };
-        let kind = ReplyKind::for_filter_edit(args, name)
-            .ok_or("A filter edit must add or remove a native filter")?;
-        self.issue(handle, args, kind)
-    }
-
     fn volume_limit(&self) -> f64 {
         if self.volume_boost { 200.0 } else { 100.0 }
     }
@@ -825,6 +812,10 @@ impl WorkerState {
                 self.finish_stream_auth(handle, hook, entry, failed);
                 continue;
             }
+            if let Some(result) = self.take_filter_read(&event) {
+                self.finish_filter_read(handle, result);
+                continue;
+            }
             if event.id() == event_id::GET_PROPERTY_REPLY
                 && let Some((id, revision)) = self.adjusted_volume_read
                 && id == event.userdata()
@@ -894,6 +885,7 @@ impl WorkerState {
                     self.read_adjusted_volume(handle, revision);
                 }
                 if let Some(id) = command_reply {
+                    self.filter_edits.edit_replied(id);
                     self.finish_end_pause(handle, id);
                 }
             }
@@ -907,6 +899,7 @@ impl WorkerState {
             self.playlist_insertion = None;
             self.handle_intent(handle, Command::SelectPlaylistId(id));
         }
+        self.advance_filter_edits(handle);
     }
 
     fn on_event(&mut self, event: &EventRef<'_>) -> Option<u64> {
@@ -960,6 +953,7 @@ impl WorkerState {
                 self.playback.folder_discovery_allowed = false;
                 self.client_requests.clear();
                 self.playlist_edits.clear();
+                self.retire_filter_edits();
                 self.pending
                     .retain(|_, reply| !matches!(reply.kind, ReplyKind::PlaylistEdit { .. }));
                 self.adjusted_volume_read = None;

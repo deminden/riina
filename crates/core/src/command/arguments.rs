@@ -2,6 +2,8 @@ use super::Command;
 use super::CommandError;
 use crate::key_bindings;
 
+const REQUIRES_PLAN: &str = "This intent requires a command plan";
+
 impl Command {
     pub fn mpv_args(&self) -> Result<Vec<String>, CommandError> {
         Ok(match self {
@@ -106,10 +108,12 @@ impl Command {
             | Self::ToggleVideoFilter(_)
             | Self::AddVideoFilter(_)
             | Self::RemoveVideoFilter(_)
+            | Self::RemoveVideoFilterAt(_)
             | Self::SetVideoFilterAt { .. }
             | Self::ToggleAudioFilter(_)
             | Self::AddAudioFilter(_)
             | Self::RemoveAudioFilter(_)
+            | Self::RemoveAudioFilterAt(_)
             | Self::SetAudioFilterAt { .. }
             | Self::VideoViewport(_)
             | Self::AudioEqualizer(_)
@@ -148,9 +152,7 @@ impl Command {
             | Self::QueuePlaylistIdsNext(_)
             | Self::MovePlaylistIdsBefore { .. }
             | Self::MovePlaylistId { .. }
-            | Self::MovePlaylistIdBefore { .. } => {
-                return invalid_state("This intent requires a command plan");
-            }
+            | Self::MovePlaylistIdBefore { .. } => return invalid_state(REQUIRES_PLAN),
             Self::Shutdown => return invalid_state("Shutdown is a lifecycle command"),
             _ => return Err(CommandError::OUT_OF_RANGE),
         })

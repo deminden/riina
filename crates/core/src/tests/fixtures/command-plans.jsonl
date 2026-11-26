@@ -48,10 +48,12 @@
 {"command":"ToggleVideoFilter","mpv":[["vf","set","@riina-delogo:lavfi"]],"resume_on_load":false}
 {"command":"AddVideoFilter","mpv":[["vf","add","vflip"]],"resume_on_load":false}
 {"command":"RemoveVideoFilter","mpv":[["vf","set","@riina-delogo:lavfi"]],"resume_on_load":false}
+{"command":"RemoveVideoFilterAt","mpv":[["vf","set","hflip"]],"resume_on_load":false}
 {"command":"SetVideoFilterAt","mpv":[["vf","set","vflip,@riina-delogo:lavfi"]],"resume_on_load":false}
 {"command":"ToggleAudioFilter","mpv":[["af","set",""]],"resume_on_load":false}
 {"command":"AddAudioFilter","mpv":[["af","add","aecho"]],"resume_on_load":false}
 {"command":"RemoveAudioFilter","mpv":[["af","set",""]],"resume_on_load":false}
+{"command":"RemoveAudioFilterAt","mpv":[["af","set",""]],"resume_on_load":false}
 {"command":"SetAudioFilterAt","mpv":[["af","set","aecho"]],"resume_on_load":false}
 {"command":"ToggleVideoReflection","mpv":[["vf","toggle","@riina-mirror:hflip"]],"resume_on_load":false}
 {"command":"VideoViewport","mpv":[["set","video-margin-ratio-left","0"],["set","video-margin-ratio-right","0"],["set","video-margin-ratio-top","0.05"],["set","video-margin-ratio-bottom","0.05"]],"resume_on_load":false}

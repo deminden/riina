@@ -96,13 +96,13 @@ impl Hooks {
     pub(super) fn next_message(
         &self,
         receiver: &Receiver<Message>,
-        script_deadline: Option<Instant>,
+        work_deadline: Option<Instant>,
     ) -> Option<Message> {
         let Some(deadline) = self
             .pending
             .values()
             .map(|hook| hook.deadline)
-            .chain(script_deadline)
+            .chain(work_deadline)
             .min()
         else {
             return receiver.recv().ok();

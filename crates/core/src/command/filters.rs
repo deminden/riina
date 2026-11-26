@@ -1,9 +1,31 @@
-use super::CommandError;
-use super::cmd;
+use super::{Command, CommandError, cmd};
 use crate::{Playback, crop::VideoFilter, video_filters};
 
+pub(super) fn plan_edit(
+    command: &Command,
+    state: &Playback,
+) -> Option<Result<Vec<Vec<String>>, CommandError>> {
+    Some(match command {
+        Command::ToggleVideoFilter(filter) => FilterChain::Video.toggle(state, filter),
+        Command::AddVideoFilter(filter) => FilterChain::Video.add(filter),
+        Command::RemoveVideoFilter(filter) => FilterChain::Video.remove(state, filter),
+        Command::RemoveVideoFilterAt(index) => FilterChain::Video.remove_index(state, *index),
+        Command::SetVideoFilterAt { index, filter } => {
+            FilterChain::Video.replace(state, *index, filter)
+        }
+        Command::ToggleAudioFilter(filter) => FilterChain::Audio.toggle(state, filter),
+        Command::AddAudioFilter(filter) => FilterChain::Audio.add(filter),
+        Command::RemoveAudioFilter(filter) => FilterChain::Audio.remove(state, filter),
+        Command::RemoveAudioFilterAt(index) => FilterChain::Audio.remove_index(state, *index),
+        Command::SetAudioFilterAt { index, filter } => {
+            FilterChain::Audio.replace(state, *index, filter)
+        }
+        _ => return None,
+    })
+}
+
 #[derive(Clone, Copy)]
-pub(super) enum FilterChain {
+enum FilterChain {
     Video,
     Audio,
 }
@@ -48,11 +70,7 @@ impl FilterChain {
         }
     }
 
-    pub(super) fn toggle(
-        self,
-        state: &Playback,
-        filter: &str,
-    ) -> Result<Vec<Vec<String>>, CommandError> {
+    fn toggle(self, state: &Playback, filter: &str) -> Result<Vec<Vec<String>>, CommandError> {
         if !video_filters::valid_filter_string(filter) {
             return Err(CommandError::InvalidArgument {
                 what: match self {
@@ -72,7 +90,7 @@ impl FilterChain {
         }
     }
 
-    pub(super) fn add(self, filter: &str) -> Result<Vec<Vec<String>>, CommandError> {
+    fn add(self, filter: &str) -> Result<Vec<Vec<String>>, CommandError> {
         if !video_filters::valid_filter_string(filter) {
             return Err(CommandError::InvalidArgument {
                 what: self.invalid(),
@@ -81,7 +99,7 @@ impl FilterChain {
         Ok(vec![cmd([self.property(), "add", filter])])
     }
 
-    pub(super) fn remove(
+    fn remove(
         self,
         state: &Playback,
         selected: &VideoFilter,
@@ -93,6 +111,20 @@ impl FilterChain {
             .ok_or(CommandError::Unavailable {
                 what: self.inactive(),
             })?;
+        Ok(self.remove_at(filters, index))
+    }
+
+    fn remove_index(
+        self,
+        state: &Playback,
+        index: usize,
+    ) -> Result<Vec<Vec<String>>, CommandError> {
+        let filters = self.filters(state)?;
+        if index >= filters.len() {
+            return Err(CommandError::Unavailable {
+                what: self.inactive(),
+            });
+        }
         Ok(self.remove_at(filters, index))
     }
 
@@ -109,7 +141,7 @@ impl FilterChain {
         vec![cmd([self.property(), "set", &chain])]
     }
 
-    pub(super) fn replace(
+    fn replace(
         self,
         state: &Playback,
         index: usize,

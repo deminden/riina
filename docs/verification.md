@@ -6633,3 +6633,35 @@ Native macOS runtime and matched IINA visual comparisons remain open.
 - Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
 - Linux application SHA-256 `a153891793751ee55b57fa5ed4309424eb413d2f34af9ac5beb3b2bb98012df3`
 - Linux libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`
+
+### Ordered audio and video filter edits (2026-11-26)
+
+The locked Windows workspace build and full source gate passed, including
+strict Clippy, 714 application unit tests and the headless visual comparison.
+All 75 pinned Windows libmpv tests also passed. The new native tests submit
+consecutive audio and video toggles without waiting for property observations,
+then verify that each pair restores the empty chain without seeking or changing
+media. The editor regression removes the last of two identical filters with a
+different filter between them. It rejects an edit from the old row list, then
+accepts an edit from the refreshed list.
+
+On the private Windows desktop, single native menu commands first added and
+removed each preset. The follow-up posted four rapid pairs each to the Audio
+and Video menus. Every pair left its native chain empty and the same clip
+paused. The exact player exited normally. An earlier probe that sent menu
+commands separately could hit a changing native menu and miss a dispatch.
+
+The locked Linux application build, strict Clippy and all seven pinned native
+filter tests passed. In an isolated Wayland session, the virtual keyboard sent
+four rapid shortcut pairs. Each left the chain empty with the same clip paused.
+The final capture showed Removed Filter, and the exact player exited normally.
+This run resumed and paused the clip before the key probe. An attempt without
+that step did not observe the first shortcut taking effect.
+
+Locked workspace source checks passed for Apple Silicon and Intel. Native
+macOS playback and matched IINA visual comparisons remain open.
+
+- Windows application SHA-256 `2df62c2476f6109ee89aeaa36aff32d7d9b13aa1e2e9f186a176e51b54249288`
+- Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
+- Linux application SHA-256 `5fab0da2877ad7bd69e8d188b87f8832bc423dad51654cd1e67b72ffe8e8d808`
+- Linux libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`

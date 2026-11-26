@@ -145,6 +145,11 @@ struct SavedRows {
     rows: Vec<SavedFilterMenuRow>,
 }
 
+enum Dispatch {
+    Named(String),
+    Indexed,
+}
+
 struct Editor {
     profile: Weak<Profile>,
     history: Weak<ApplicationHistory>,
@@ -256,8 +261,7 @@ impl Editor {
     fn send(
         &self,
         profile: &Profile,
-        chain_sensitive: bool,
-        feedback_name: Option<String>,
+        dispatch: Dispatch,
         command: impl FnOnce(&LiveView) -> Result<Command, String>,
     ) -> Result<(), String> {
         let (target, live) = self
@@ -269,15 +273,19 @@ impl Editor {
             .as_ref()
             .filter(|expected| expected.same_media(&live))
             .ok_or("Playback changed. Try again with the current player.")?;
-        if chain_sensitive && expected.filters != live.filters {
+        if matches!(dispatch, Dispatch::Indexed) && expected.filters != live.filters {
             return Err("The active filters changed. Select the filter again.".into());
         }
         let command = command(&live)?;
-        match feedback_name {
-            Some(name) => target
+        match dispatch {
+            Dispatch::Named(name) => target
                 .player
                 .send_filter_edit(live.generation, command, name),
-            None => target.player.send_for_media(live.generation, command),
+            Dispatch::Indexed => {
+                target
+                    .player
+                    .send_indexed_filter_edit(live.generation, command, live.filters)
+            }
         }
         .map_err(|error| error.to_string())
     }
@@ -306,7 +314,7 @@ impl Editor {
                     .and_then(|index| window.get_presets().row_data(index))
                     .filter(|_| window.get_preset_index() > 0)
                     .map_or_else(|| raw.clone(), |label| label.to_string());
-                editor.send(profile, false, Some(name), |_| Ok(editor.kind.add(raw)))?;
+                editor.send(profile, Dispatch::Named(name), |_| Ok(editor.kind.add(raw)))?;
                 window.set_filter_string("".into());
                 Ok(())
             }
@@ -316,14 +324,13 @@ impl Editor {
             window,
             on_remove_current_filter,
             |editor, profile, _window, token| {
-                editor.send(profile, true, Some(String::new()), |live| {
-                    let filter = token
+                editor.send(profile, Dispatch::Indexed, |live| {
+                    let index = token
                         .parse::<usize>()
                         .ok()
-                        .and_then(|index| live.filters.get(index))
-                        .cloned()
+                        .filter(|index| *index < live.filters.len())
                         .ok_or("The selected filter is no longer active")?;
-                    Ok(editor.kind.remove(filter))
+                    Ok(editor.kind.remove_at(index))
                 })
             }
         );
@@ -332,7 +339,7 @@ impl Editor {
             window,
             on_apply_current_filter,
             |editor, profile, window, index, raw| {
-                editor.send(profile, true, None, |live| {
+                editor.send(profile, Dispatch::Indexed, |live| {
                     let index = usize::try_from(index)
                         .ok()
                         .filter(|index| *index < live.filters.len())
@@ -355,7 +362,9 @@ impl Editor {
                 } else {
                     name.to_string()
                 };
-                editor.send(profile, false, Some(name), |_| Ok(editor.kind.toggle(raw)))
+                editor.send(profile, Dispatch::Named(name), |_| {
+                    Ok(editor.kind.toggle(raw))
+                })
             }
         );
         self.bind_presets(window);

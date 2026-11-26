@@ -345,14 +345,18 @@ outcome for the owning player's OSD. Silent application and plugin commands
 keep the same queue and editing behavior.
 
 The filter editor, saved-filter menus and shortcuts send audio and video
-edits through the requesting player's media-scoped queue. The worker
-captures the added filter's display name and publishes feedback after the
-native add or remove succeeds. A replacement media generation retires
-obsolete replies. Removal rebuilds the chain without the selected filter
-and preserves separators inside retained parameter values using the native
-byte-count notation. Pause and resume feedback retains the native clock
-values from the observation that produced it. The subtitle export confirms
-a completed save for the owning media even when optional messages are disabled.
+edits through the requesting player's media-scoped queue. The worker waits
+for each native command reply before reading the chain for the next edit.
+This lets successive toggles see the result even when the observed property
+has yet to update. Row edits compare the displayed chain with the current
+native chain, then edit the selected occurrence by index. The worker captures
+the added filter's display name and publishes feedback after the native add
+or remove succeeds. A replacement media generation retires obsolete replies.
+Removal rebuilds the chain and preserves separators inside retained parameter
+values using the native byte-count notation. Pause and resume feedback retains
+the native clock values from the observation that produced it. The subtitle
+export confirms a completed save for the owning media even when optional
+messages are disabled.
 
 Playlist drags send the selected entry IDs and destination entry ID to the
 engine as one request. Play Next resolves the current entry and moves the

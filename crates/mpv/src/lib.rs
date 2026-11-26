@@ -68,11 +68,8 @@ pub use worker::{EngineVersions, decode_screenshot, read_engine_versions, read_l
 enum Message {
     Intent(Command),
     PlaylistEdit(Command),
-    MediaIntent {
-        generation: u64,
-        command: Command,
-        filter_name: Option<String>,
-    },
+    MediaIntent { generation: u64, command: Command },
+    FilterEdit(worker::filter_edits::Request),
     OpenStream(Command, StreamSource, StreamAttempt),
     Client(client_request::Request),
     RenderingReady,
@@ -84,7 +81,7 @@ enum IntentRoute {
     Global,
     Media(u64),
     PlaylistEdit,
-    FilterEdit { generation: u64, name: String },
+    FilterEdit(worker::filter_edits::Target),
 }
 
 struct WakeupContext {
@@ -179,20 +176,19 @@ impl CommandSender {
         command: Command,
         name: String,
     ) -> Result<(), EngineError> {
-        if !matches!(
-            command,
-            Command::AddVideoFilter(_)
-                | Command::ToggleVideoFilter(_)
-                | Command::RemoveVideoFilter(_)
-                | Command::AddAudioFilter(_)
-                | Command::ToggleAudioFilter(_)
-                | Command::RemoveAudioFilter(_)
-        ) {
-            return Err(EngineError::InvalidArgument {
-                reason: "The command is not a user filter addition, removal or toggle",
-            });
-        }
-        self.enqueue(command, IntentRoute::FilterEdit { generation, name })
+        let target = worker::filter_edits::Target::named(generation, &command, name)?;
+        self.enqueue(command, IntentRoute::FilterEdit(target))
+    }
+
+    /// Keep row edits tied to the exact filter chain displayed by the editor.
+    pub fn send_indexed_filter_edit(
+        &self,
+        generation: u64,
+        command: Command,
+        expected: Vec<riina_core::crop::VideoFilter>,
+    ) -> Result<(), EngineError> {
+        let target = worker::filter_edits::Target::indexed(generation, &command, expected)?;
+        self.enqueue(command, IntentRoute::FilterEdit(target))
     }
 
     fn enqueue(&self, command: Command, route: IntentRoute) -> Result<(), EngineError> {
@@ -209,14 +205,11 @@ impl CommandSender {
                     IntentRoute::Media(generation) => Message::MediaIntent {
                         generation,
                         command,
-                        filter_name: None,
                     },
                     IntentRoute::PlaylistEdit => Message::PlaylistEdit(command),
-                    IntentRoute::FilterEdit { generation, name } => Message::MediaIntent {
-                        generation,
-                        command,
-                        filter_name: Some(name),
-                    },
+                    IntentRoute::FilterEdit(target) => {
+                        Message::FilterEdit(worker::filter_edits::Request { command, target })
+                    }
                 };
                 sender.try_send(message).map_err(send_error)
             }
