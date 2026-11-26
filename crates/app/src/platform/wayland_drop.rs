@@ -2,7 +2,7 @@
 mod activation;
 pub(super) mod blackout;
 mod payload;
-mod protocol;
+pub(super) mod protocol;
 
 use super::desktop_drop::{Hover, OpenDrop};
 use slint::{
@@ -10,10 +10,12 @@ use slint::{
     winit_030::{
         CustomApplicationHandler, EventResult, WinitWindowAccessor,
         winit::{
+            event::WindowEvent,
             event_loop::{ActiveEventLoop, OwnedDisplayHandle},
             raw_window_handle::{
                 HasDisplayHandle, HasWindowHandle, RawDisplayHandle, RawWindowHandle,
             },
+            window::{Window, WindowId},
         },
     },
 };
@@ -119,6 +121,23 @@ impl CustomApplicationHandler for Handler {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) -> EventResult {
         if self.0.is_none() {
             self.0 = Receiver::new(event_loop.owned_display_handle());
+        }
+        EventResult::Propagate
+    }
+
+    fn window_event(
+        &mut self,
+        _: &ActiveEventLoop,
+        id: WindowId,
+        native: Option<&Window>,
+        window: Option<&slint::Window>,
+        event: &WindowEvent,
+    ) -> EventResult {
+        if let Some(receiver) = self.0.as_ref() {
+            receiver
+                .state
+                .input_methods
+                .window_event(id, native, window, event);
         }
         EventResult::Propagate
     }

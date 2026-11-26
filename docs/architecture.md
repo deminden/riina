@@ -70,12 +70,17 @@ callbacks wake the windowless presenter so a hidden page can finish starting.
 
 ## Wayland plugin sidebar input
 
-The visible player window owns the compositor's input method. The sidebar's
-offscreen WebKit view requests it when a browser editor gains focus and supplies
-the caret in sidebar coordinates. The player routes composition text only to
-that focused document. WebKit owns the draft, commit and cancellation, including
-DOM composition events and editing selection. A player dialog takes over the
-same native input method when it opens.
+On the player's Wayland display connection, the guest event queue owns one
+browser text-input object per seat. The offscreen WebKit view provides the
+focused editor, caret rectangle and surrounding-text selection for the entered
+player surface. The seat binds each compositor edit to the corresponding
+advertised state before delivering it to WebKit. Password fields publish
+their purpose and caret only. WebKit owns composition, DOM editing events
+and selection. The browser releases the seat synchronously before a Slint
+editor takes over with Winit's text-input object. If the compositor returns
+a reply on the disabled browser object, the guest queue accepts only the
+current serial and forwards composition to the focused writable Slint field
+on the entered surface.
 
 ## Playback and threading
 

@@ -67,6 +67,8 @@ pub(crate) use system_media_session::SystemMediaSession;
 pub(crate) mod video_materials;
 #[cfg(target_os = "linux")]
 pub(crate) mod wayland_drop;
+#[cfg(target_os = "linux")]
+mod wayland_text_input;
 pub(crate) mod window_sizing;
 #[cfg(windows)]
 pub(crate) mod windows_job;
@@ -1097,13 +1099,12 @@ pub(crate) fn reveal_files(paths: &[std::path::PathBuf]) -> std::io::Result<()> 
 #[cfg(any(target_os = "windows", target_os = "macos", target_os = "linux"))]
 mod plugin_sidebar;
 #[cfg(target_os = "linux")]
-pub(crate) use plugin_sidebar::route_sidebar_window_event;
+pub(crate) use plugin_sidebar::update_sidebar_window_focus;
 #[cfg(not(target_os = "linux"))]
-pub(crate) fn route_sidebar_window_event(
+pub(crate) fn update_sidebar_window_focus(
     _: &slint::Weak<crate::PlayerWindow>,
     _: &slint::winit_030::winit::event::WindowEvent,
-) -> bool {
-    false
+) {
 }
 #[cfg(target_os = "windows")]
 mod windows;

@@ -35,11 +35,15 @@ impl View {
                 .window_handle()
                 .map_err(|error| format!("Could not inspect the Linux player window: {error}"))?;
             match handle.as_raw() {
-                RawWindowHandle::Wayland(_) => {
+                RawWindowHandle::Wayland(handle) => {
                     use wry::WebViewExtUnix;
 
                     let surface = OffscreenWebView::build(builder, viewport, url)?;
-                    let input_method = InputMethod::attach(&surface.browser().webview(), owner)?;
+                    let input_method = InputMethod::attach(
+                        &surface.browser().webview(),
+                        owner,
+                        handle.surface.as_ptr().addr(),
+                    )?;
                     return Ok(Self::Composited(CompositedView {
                         surface,
                         input_method,
@@ -154,6 +158,7 @@ impl CompositedView {
             Phase::Cancel => self.cancel_press(),
             Phase::Down if (1..=3).contains(&button) => {
                 self.focus(true);
+                self.input_method.external_edit();
                 self.surface
                     .pointer(EventType::ButtonPress, point, button, held, modifiers);
                 self.held.set(held | (1 << (button - 1)));

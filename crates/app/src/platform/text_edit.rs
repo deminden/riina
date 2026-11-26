@@ -116,7 +116,7 @@ impl Editor {
     }
 }
 
-fn focused_text(adapter: &Rc<dyn WindowAdapter>) -> Option<ItemRc> {
+pub(super) fn focused_text(adapter: &Rc<dyn WindowAdapter>) -> Option<ItemRc> {
     // The Windows framed owner can take native focus while the controls retain
     // their focused item and selection for the duration of the menu.
     WindowInner::from_pub(adapter.window())

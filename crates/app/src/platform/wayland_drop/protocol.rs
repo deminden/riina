@@ -21,8 +21,9 @@ use wayland_client::{
     },
 };
 
-pub(super) struct State {
+pub(in crate::platform) struct State {
     pub(super) activation: activation::State,
+    pub(in crate::platform) input_methods: crate::platform::wayland_text_input::InputMethods,
     blackout: blackout::Capabilities,
     _registry: WlRegistry,
     manager: Option<WlDataDeviceManager>,
@@ -39,6 +40,7 @@ impl State {
         let (send, results) = mpsc::channel();
         Self {
             activation: activation::State::default(),
+            input_methods: crate::platform::wayland_text_input::InputMethods::new(),
             blackout: blackout::Capabilities::default(),
             _registry: registry,
             manager: None,
@@ -149,6 +151,21 @@ impl Dispatch<WlRegistry, ()> for State {
         queue: &QueueHandle<Self>,
     ) {
         state.blackout.observe(&event);
+        if let wl_registry::Event::Global {
+            name, interface, ..
+        } = &event
+        {
+            state.input_methods.bind(
+                *name,
+                interface,
+                registry,
+                state
+                    .seats
+                    .iter()
+                    .map(|(&name, seat)| (name, seat.proxy.clone())),
+                queue,
+            );
+        }
         match event {
             wl_registry::Event::Global {
                 name,
@@ -181,10 +198,12 @@ impl Dispatch<WlRegistry, ()> for State {
                     .manager
                     .as_ref()
                     .map(|manager| manager.get_data_device(&proxy, queue, ()));
+                state.input_methods.add_seat(name, &proxy, queue);
                 state.seats.insert(name, Seat { proxy, device });
             }
             wl_registry::Event::GlobalRemove { name } => {
                 state.activation.remove_global(name);
+                state.input_methods.remove_global(name);
                 if let Some(seat) = state.seats.remove(&name) {
                     state.activation.remove_seat(&seat.proxy.id());
                     if let Some(device) = seat.device.as_ref() {

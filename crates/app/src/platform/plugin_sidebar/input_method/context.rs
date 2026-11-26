@@ -4,6 +4,19 @@ use gtk::glib::{self, subclass::prelude::*, translate::FromGlibPtrBorrow};
 use std::ffi::c_char;
 use webkit2gtk::ffi;
 
+pub(super) fn supports_surrounding_edits() -> bool {
+    // Earlier releases resolve deletion ranges against the page rather than
+    // the focused contenteditable element (WebKit bug 325166).
+    // SAFETY: These version queries take no arguments and return runtime constants.
+    unsafe {
+        (
+            ffi::webkit_get_major_version(),
+            ffi::webkit_get_minor_version(),
+            ffi::webkit_get_micro_version(),
+        ) >= (2, 54, 1)
+    }
+}
+
 glib::wrapper! {
     pub struct WebKitContext(Object<ffi::WebKitInputMethodContext, ffi::WebKitInputMethodContextClass>);
 
@@ -34,6 +47,7 @@ impl ObjectSubclass for InputMethod {
         class.notify_focus_in = Some(focus_in);
         class.notify_focus_out = Some(focus_out);
         class.notify_cursor_area = Some(cursor_area);
+        class.notify_surrounding = Some(surrounding);
         class.reset = Some(reset);
     }
 }
@@ -90,5 +104,30 @@ unsafe extern "C" fn cursor_area(
 unsafe extern "C" fn reset(object: *mut ffi::WebKitInputMethodContext) {
     // SAFETY: WebKit calls this vfunc on a live instance of this subclass.
     let context = unsafe { Context::from_glib_borrow(object.cast()) };
-    context.imp().clear();
+    context.imp().reset();
+}
+
+unsafe extern "C" fn surrounding(
+    object: *mut ffi::WebKitInputMethodContext,
+    text: *const c_char,
+    length: u32,
+    cursor: u32,
+    anchor: u32,
+) {
+    // SAFETY: WebKit calls this vfunc on a live instance of this subclass.
+    let context = unsafe { Context::from_glib_borrow(object.cast()) };
+    let bytes = if length == 0 {
+        &[]
+    } else if text.is_null() {
+        return;
+    } else {
+        // SAFETY: The public vfunc supplies a buffer of the indicated byte
+        // length for the duration of this callback.
+        unsafe { std::slice::from_raw_parts(text.cast::<u8>(), length as usize) }
+    };
+    if let Ok(text) = std::str::from_utf8(bytes) {
+        context
+            .imp()
+            .set_surrounding(text, cursor as usize, anchor as usize);
+    }
 }

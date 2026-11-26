@@ -133,7 +133,9 @@ Implementation does not imply every state or platform is verified.
   including nested scroll panes and page handlers that cancel scrolling.
   Plugin confirmations temporarily hide the browser on both desktops. Focused
   Wayland editors accept composed text and report the browser caret and
-  password-field purpose to the input method.
+  password-field purpose to the input method. WebKitGTK 2.54.1 and later
+  supplies surrounding text for contextual editing in ordinary and rich
+  browser fields. Password fields keep surrounding text private.
 - **Standalone plugin tools:** a plugin can load a page, exchange messages and
   update its document while its tool window is hidden. The native close
   action hides the tool, and reopening retains the current page.

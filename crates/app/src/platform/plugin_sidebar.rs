@@ -1,11 +1,11 @@
 //! Confined plugin sidebar documents owned by their player.
 #[cfg(target_os = "linux")]
-mod input_method;
+pub(super) mod input_method;
 mod view;
 #[cfg(target_os = "linux")]
 mod wayland;
 #[cfg(target_os = "linux")]
-pub(crate) use wayland::route_sidebar_window_event;
+pub(crate) use wayland::update_sidebar_window_focus;
 
 use super::plugin_page::{self as page, Page};
 use crate::{

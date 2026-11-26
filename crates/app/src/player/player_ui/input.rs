@@ -150,9 +150,7 @@ fn install_window_events(
     let mut script_keys = embedded_input::WindowKeys::default();
     app.window().on_winit_window_event(move |window, event| {
         native_drop.attach(window);
-        if platform::route_sidebar_window_event(&event_app, event) {
-            return EventResult::PreventDefault;
-        }
+        platform::update_sidebar_window_focus(&event_app, event);
         // The native event arrives before Slint can match a menu accelerator.
         if script_keys.handle(&event_app, event) {
             return EventResult::PreventDefault;

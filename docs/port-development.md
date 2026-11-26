@@ -23,10 +23,14 @@ native browser child on X11 and the shared compositing path on Wayland. Linux
 file selection needs an available XDG Desktop Portal backend with X11 or Wayland
 parent support.
 
-Wayland sidebar editors share the player window's input method. WebKit renders
-the interim text, commits composition and supplies the candidate-window anchor.
-The Winit backend supplies composition text and commit events. Input methods
-that need surrounding text or request deletion around the caret remain open.
+Wayland sidebar editors use the player's compositor connection for text input.
+WebKit renders interim text, commits composition and supplies the
+candidate-window anchor. WebKitGTK 2.54.1 and later can also supply surrounding
+text for replacements and deletion around a caret. Password fields keep
+surrounding text private. Earlier runtimes retain composition support.
+Deleting around an existing selection while retaining that selection remains
+open because WebKit exposes one contiguous delete range.
+[WebKitGTK 2.54.1 release notes](https://webkitgtk.org/2026/10/02/webkitgtk2.54.1-released.html)
 
 Slint 1.18.1 selects X11 when it detects WSL. An isolated native Wayland lab
 can hide those detection markers inside the test's private mount namespace.

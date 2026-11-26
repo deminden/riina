@@ -5258,6 +5258,7 @@ dependencies = [
  "glow",
  "gtk",
  "i-slint-backend-testing",
+ "i-slint-core",
  "icu_casemap",
  "icu_datetime",
  "icu_decimal",
