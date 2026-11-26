@@ -28,6 +28,7 @@ export global KeyBindingSettingsState {
     in-out property <string> key-binding-editor-action: "";
     in-out property <string> key-binding-editor-comment: "";
     in-out property <int> key-binding-editor-kind: 0;
+    pure callback build-binding-action(string, string, string, string) -> string;
 }
 
 export component KeyBindingActionRow inherits Rectangle {

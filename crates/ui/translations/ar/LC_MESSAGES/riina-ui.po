@@ -2504,3 +2504,186 @@ msgstr "خفض سرعة التشغيل"
 
 msgid "Increase playback speed"
 msgstr "زيادة سرعة التشغيل"
+
+msgid "Add"
+msgstr "إضافة"
+
+msgid "Amount"
+msgstr "المقدار"
+
+msgid "Audio Delay"
+msgstr "تأخير الصوت"
+
+msgid "Audio Panel"
+msgstr "لوحة الصوت"
+
+msgid "A–B Loop"
+msgstr "تكرار A–B"
+
+msgid "Backward"
+msgstr "للخلف"
+
+msgid "Bigger Window"
+msgstr "تكبير النافذة"
+
+msgid "Brightness"
+msgstr "السطوع"
+
+msgid "Chapter"
+msgstr "الفصل"
+
+msgid "Choose a command…"
+msgstr "اختر أمرًا…"
+
+msgid "Choose a media key"
+msgstr "اختر مفتاح وسائط"
+
+msgid "Clear Playlist"
+msgstr "مسح قائمة التشغيل"
+
+msgid "Command"
+msgstr "الأمر"
+
+msgid "Command type"
+msgstr "نوع الأمر"
+
+msgid "Contrast"
+msgstr "التباين"
+
+msgid "Cycle"
+msgstr "تبديل"
+
+msgid "Cycle Values"
+msgstr "التنقل بين القيم"
+
+msgid "Exact"
+msgstr "دقيق"
+
+msgid "Find Online Subtitles"
+msgstr "البحث عن ترجمات عبر الإنترنت"
+
+msgid "Flip Vertically"
+msgstr "قلب عمودي"
+
+msgid "Forward"
+msgstr "للأمام"
+
+msgid "Ignore"
+msgstr "تجاهل"
+
+msgid "Keyframes"
+msgstr "الإطارات الرئيسية"
+
+msgid "Media keys"
+msgstr "مفاتيح الوسائط"
+
+msgid "Mirror Horizontally"
+msgstr "عكس أفقي"
+
+msgid "Move Current File to Trash"
+msgstr "نقل الملف الحالي إلى سلة المهملات"
+
+msgid "Multiply"
+msgstr "ضرب"
+
+msgid "Next Item"
+msgstr "العنصر التالي"
+
+msgid "On"
+msgstr "تشغيل"
+
+msgid "Open File"
+msgstr "فتح ملف"
+
+msgid "Percent"
+msgstr "النسبة المئوية"
+
+msgid "Permanently Delete Current File"
+msgstr "حذف الملف الحالي نهائيًا"
+
+msgid "Playback Speed"
+msgstr "سرعة التشغيل"
+
+msgid "Playback command"
+msgstr "أمر تشغيل"
+
+msgid "Player action"
+msgstr "إجراء المشغّل"
+
+msgid "Playlist command"
+msgstr "أمر قائمة التشغيل"
+
+msgid "Press any key to record."
+msgstr "اضغط على مفتاح لتسجيله."
+
+msgid "Previous Item"
+msgstr "العنصر السابق"
+
+msgid "Property"
+msgstr "الخاصية"
+
+msgid "Quit"
+msgstr "إنهاء"
+
+msgid "Remove Current Entry"
+msgstr "إزالة العنصر الحالي"
+
+msgid "Saturation"
+msgstr "التشبع"
+
+msgid "Save Downloaded Subtitle"
+msgstr "حفظ الترجمة المنزّلة"
+
+msgid "Save Playback Position"
+msgstr "حفظ موضع التشغيل"
+
+msgid "Save Playlist"
+msgstr "حفظ قائمة التشغيل"
+
+msgid "Seconds"
+msgstr "الثواني"
+
+msgid "Seek direction"
+msgstr "اتجاه الانتقال"
+
+msgid "Seek precision"
+msgstr "دقة الانتقال"
+
+msgid "Seek units"
+msgstr "وحدات الانتقال"
+
+msgid "Set"
+msgstr "تعيين"
+
+msgid "Show Current File in File Manager"
+msgstr "إظهار الملف الحالي في مدير الملفات"
+
+msgid "Shuffle Playlist"
+msgstr "خلط قائمة التشغيل"
+
+msgid "Smaller Window"
+msgstr "تصغير النافذة"
+
+msgid "Stop"
+msgstr "إيقاف"
+
+msgid "Subtitle Delay"
+msgstr "تأخير الترجمة"
+
+msgid "Subtitle Position"
+msgstr "موضع الترجمة"
+
+msgid "Subtitle Scale"
+msgstr "مقياس الترجمة"
+
+msgid "Subtitles Panel"
+msgstr "لوحة الترجمة"
+
+msgid "To position"
+msgstr "إلى موضع"
+
+msgid "Two or more values"
+msgstr "قيمتان أو أكثر"
+
+msgid "Video Panel"
+msgstr "لوحة الفيديو"

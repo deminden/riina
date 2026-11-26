@@ -2501,3 +2501,186 @@ msgstr "Снизить скорость воспроизведения"
 
 msgid "Increase playback speed"
 msgstr "Увеличить скорость воспроизведения"
+
+msgid "Add"
+msgstr "Прибавить"
+
+msgid "Amount"
+msgstr "Величина"
+
+msgid "Audio Delay"
+msgstr "Задержка звука"
+
+msgid "Audio Panel"
+msgstr "Панель звука"
+
+msgid "A–B Loop"
+msgstr "Повтор A–B"
+
+msgid "Backward"
+msgstr "Назад"
+
+msgid "Bigger Window"
+msgstr "Увеличить окно"
+
+msgid "Brightness"
+msgstr "Яркость"
+
+msgid "Chapter"
+msgstr "Глава"
+
+msgid "Choose a command…"
+msgstr "Выберите команду…"
+
+msgid "Choose a media key"
+msgstr "Выбрать мультимедийную клавишу"
+
+msgid "Clear Playlist"
+msgstr "Очистить список воспроизведения"
+
+msgid "Command"
+msgstr "Команда"
+
+msgid "Command type"
+msgstr "Тип команды"
+
+msgid "Contrast"
+msgstr "Контрастность"
+
+msgid "Cycle"
+msgstr "Переключить"
+
+msgid "Cycle Values"
+msgstr "Перебирать значения"
+
+msgid "Exact"
+msgstr "Точно"
+
+msgid "Find Online Subtitles"
+msgstr "Найти субтитры в Интернете"
+
+msgid "Flip Vertically"
+msgstr "Отразить по вертикали"
+
+msgid "Forward"
+msgstr "Вперёд"
+
+msgid "Ignore"
+msgstr "Игнорировать"
+
+msgid "Keyframes"
+msgstr "Ключевые кадры"
+
+msgid "Media keys"
+msgstr "Мультимедийные клавиши"
+
+msgid "Mirror Horizontally"
+msgstr "Отразить по горизонтали"
+
+msgid "Move Current File to Trash"
+msgstr "Переместить текущий файл в корзину"
+
+msgid "Multiply"
+msgstr "Умножить"
+
+msgid "Next Item"
+msgstr "Следующий элемент"
+
+msgid "On"
+msgstr "Вкл."
+
+msgid "Open File"
+msgstr "Открыть файл"
+
+msgid "Percent"
+msgstr "Проценты"
+
+msgid "Permanently Delete Current File"
+msgstr "Удалить текущий файл безвозвратно"
+
+msgid "Playback Speed"
+msgstr "Скорость воспроизведения"
+
+msgid "Playback command"
+msgstr "Команда воспроизведения"
+
+msgid "Player action"
+msgstr "Действие проигрывателя"
+
+msgid "Playlist command"
+msgstr "Команда списка воспроизведения"
+
+msgid "Press any key to record."
+msgstr "Нажмите клавишу для записи."
+
+msgid "Previous Item"
+msgstr "Предыдущий элемент"
+
+msgid "Property"
+msgstr "Свойство"
+
+msgid "Quit"
+msgstr "Выйти"
+
+msgid "Remove Current Entry"
+msgstr "Убрать текущий элемент"
+
+msgid "Saturation"
+msgstr "Насыщенность"
+
+msgid "Save Downloaded Subtitle"
+msgstr "Сохранить загруженные субтитры"
+
+msgid "Save Playback Position"
+msgstr "Сохранить позицию воспроизведения"
+
+msgid "Save Playlist"
+msgstr "Сохранить список воспроизведения"
+
+msgid "Seconds"
+msgstr "Секунды"
+
+msgid "Seek direction"
+msgstr "Направление перехода"
+
+msgid "Seek precision"
+msgstr "Точность перехода"
+
+msgid "Seek units"
+msgstr "Единицы перехода"
+
+msgid "Set"
+msgstr "Установить"
+
+msgid "Show Current File in File Manager"
+msgstr "Показать текущий файл в файловом менеджере"
+
+msgid "Shuffle Playlist"
+msgstr "Перемешать список воспроизведения"
+
+msgid "Smaller Window"
+msgstr "Уменьшить окно"
+
+msgid "Stop"
+msgstr "Остановить"
+
+msgid "Subtitle Delay"
+msgstr "Задержка субтитров"
+
+msgid "Subtitle Position"
+msgstr "Положение субтитров"
+
+msgid "Subtitle Scale"
+msgstr "Масштаб субтитров"
+
+msgid "Subtitles Panel"
+msgstr "Панель субтитров"
+
+msgid "To position"
+msgstr "К позиции"
+
+msgid "Two or more values"
+msgstr "Два значения или больше"
+
+msgid "Video Panel"
+msgstr "Панель видео"

@@ -5791,3 +5791,33 @@ Wayland probe did not deliver the profile actions and did not verify this path.
 - Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
 - Linux application SHA-256 `e4093722a2bf3b68e8df4ae3322f0d7cc71850fb06bee3100765e7b256f8c197`
 - Linux libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`
+
+### Guided shortcut editing (2026-11-26)
+
+The Windows workspace gate passed. The headless interaction test recorded
+an encoded key as soon as the dialog opened, kept the existing raw draft,
+wrapped focus across both ends of the dialog, selected Play from the media
+keys, and submitted a guided Open URL mapping with its note still attached.
+Escape dismissed the editor. The portable builder test exercised signed
+seeks, numeric and text values, and rejection of malformed or multi-command
+input.
+
+The locked Windows workspace and Linux application builds passed. The
+separate Windows native suite passed all 69 playback tests. The Apple Silicon
+and Intel application and test targets passed cross-Clippy. All shortcut
+editor labels resolve in the bundled Russian and Arabic catalogs.
+
+The Windows software render updated only the Key Mapping dialog baseline.
+The captured dialog showed the focused recorder, media-key selector,
+command selector, editable command and note, and confirmation buttons.
+The baseline is a Riina regression reference. Matched IINA sheet images
+and native macOS interaction remain open.
+
+On isolated Linux X11, Settings recorded F8 on opening the editor and
+built an Open URL player action. The command selectors remained separate
+in the captured dialog. Confirming saved the directive to the test profile.
+F8 opened Open URL in the same player without a restart. The Settings
+window, Open URL dialog and player closed normally.
+
+- Linux application SHA-256 `253526483d42db9d838ac4df7fdf7c387271f12a7e8cc17c0522f62b8ae92aa3`
+- Linux libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`

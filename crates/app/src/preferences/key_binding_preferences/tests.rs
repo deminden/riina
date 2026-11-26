@@ -608,6 +608,102 @@ fn installed_profiles_dispatch_encoded_events_without_ui_fallbacks() {
 }
 
 #[test]
+fn mapping_editor_records_a_key_and_builds_a_media_shortcut_without_replacing_raw_drafts() {
+    use riina_ui::KeyBindingSettingsState;
+    use slint::{
+        ComponentHandle, LogicalSize, SharedString,
+        platform::{Key, WindowEvent},
+    };
+    use std::{cell::RefCell, rc::Rc};
+
+    i_slint_backend_testing::init_no_event_loop();
+    let window = PreferencesWindow::new().unwrap();
+    window.set_selected_pane(7);
+    window.window().set_size(LogicalSize::new(750.0, 670.0));
+    let form = window.global::<KeyBindingSettingsState>();
+    form.on_build_binding_action(|command, selection, modifier, value| {
+        riina_core::key_bindings::build_action(&command, &selection, &modifier, &value)
+            .unwrap_or_default()
+            .into()
+    });
+    let weak = window.as_weak();
+    window.on_key_binding_key_recorded(move |key, control, alt, shift, meta| {
+        let window = weak.upgrade().unwrap();
+        if let Some(key) = recorded_key(&key, control, alt, shift, meta) {
+            window
+                .global::<KeyBindingSettingsState>()
+                .set_key_binding_editor_key(key.into());
+        }
+    });
+    let submitted = Rc::new(RefCell::new(None));
+    let received = submitted.clone();
+    window.on_key_binding_mapping_submitted(move |key, action, note, kind, row| {
+        received.replace(Some((
+            key.to_string(),
+            action.to_string(),
+            note.to_string(),
+            kind,
+            row,
+        )));
+    });
+    let weak = window.as_weak();
+    window.on_key_binding_editor_cancelled(move || {
+        weak.upgrade()
+            .unwrap()
+            .global::<KeyBindingSettingsState>()
+            .set_key_binding_editor_open(false);
+    });
+    window.show().unwrap();
+    form.set_key_binding_editor_action("no-osd cycle pause".into());
+    form.set_key_binding_editor_comment("keep this note".into());
+    form.set_key_binding_editor_open(true);
+
+    let press = |text: SharedString| {
+        window
+            .window()
+            .dispatch_event(WindowEvent::KeyPressed { text: text.clone() });
+        window
+            .window()
+            .dispatch_event(WindowEvent::KeyReleased { text });
+    };
+    press(Key::F6.into());
+    assert_eq!(form.get_key_binding_editor_key().as_str(), "F6");
+    press(Key::Backtab.into());
+    press(Key::Tab.into());
+    press(Key::F7.into());
+    assert_eq!(form.get_key_binding_editor_key().as_str(), "F7");
+    assert_eq!(
+        form.get_key_binding_editor_action().as_str(),
+        "no-osd cycle pause"
+    );
+    press(Key::Tab.into());
+    press(Key::DownArrow.into());
+    assert_eq!(form.get_key_binding_editor_key().as_str(), "PLAY");
+    press(Key::Tab.into());
+    press(Key::DownArrow.into());
+    assert_eq!(form.get_key_binding_editor_action().as_str(), "open-file");
+    assert_eq!(form.get_key_binding_editor_kind(), 1);
+    press(Key::Tab.into());
+    press(Key::DownArrow.into());
+    assert_eq!(form.get_key_binding_editor_action().as_str(), "open-url");
+    press(Key::Tab.into());
+    press(Key::Return.into());
+    assert_eq!(
+        *submitted.borrow(),
+        Some((
+            "PLAY".into(),
+            "open-url".into(),
+            "keep this note".into(),
+            1,
+            -1
+        ))
+    );
+    press(Key::Escape.into());
+    assert!(!form.get_key_binding_editor_open());
+    window.hide().unwrap();
+}
+
+#[test]
 fn custom_application_bindings_dispatch_through_player_actions_and_ignore_held_deletion_keys() {
     use slint::ComponentHandle;
     use std::{cell::RefCell, rc::Rc};

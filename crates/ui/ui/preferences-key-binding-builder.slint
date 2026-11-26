@@ -1,0 +1,392 @@
+import { ComboBox } from "std-widgets.slint";
+import { KeyBindingSettingsState } from "preferences-key-bindings.slint";
+import { Theme } from "theme.slint";
+
+component BuilderValue inherits Rectangle {
+    in-out property <string> value;
+    in property <string> prompt;
+    callback edited();
+    border-radius: 4px;
+    border-width: 1px;
+    border-color: input.has-focus ? Theme.settings-accent : Theme.settings-field-border;
+    background: Theme.settings-field-surface;
+    Text { x: 6px; width: parent.width - 12px; height: parent.height;
+        visible: root.value.is-empty; text: root.prompt;
+        color: Theme.settings-key-binding-capture-placeholder; font-size: 11px;
+        vertical-alignment: center; overflow: elide; }
+    input := TextInput {
+        x: 6px; width: parent.width - 12px; height: parent.height;
+        text <=> root.value; single-line: true; accessible-label: root.prompt;
+        font-size: 11px; color: Theme.settings-modal-title; vertical-alignment: center;
+        edited => { root.edited(); }
+    }
+}
+
+export component KeyBindingActionBuilder inherits Rectangle {
+    in-out property <bool> draft-valid: true;
+    callback action-built(string, int);
+
+    private property <int> selection: 0;
+    private property <int> direction: 0;
+    private property <int> units: 0;
+    private property <int> precision: 0;
+    private property <int> toggle: 0;
+    private property <string> amount;
+    private property <string> mode: mode-index >= 0 ? modes[mode-index] : "";
+    private property <int> mode-index: 0;
+    private property <[string]> modes: ["", "action", "action", "action", "seek", "set", "cycle", "cycle-values", "add", "multiply"];
+    private property <bool> has-action: mode == "action";
+    private property <bool> has-property: !has-action && !mode.is-empty && mode != "seek";
+    private property <bool> numeric-only: mode == "add" || mode == "multiply";
+    private property <bool> is-toggle: mode == "set" && (current-option == "pause" ||
+        current-option == "deinterlace" ||
+        current-option == "mute" ||
+        current-option == "sub-visibility" ||
+        current-option == "fullscreen" ||
+        current-option == "ontop");
+    private property <bool> needs-value: mode == "seek" || mode == "cycle-values" || numeric-only || (mode == "set" && !is-toggle);
+    private property <string> current-option: selection >= 0 && selection < option-codes.length ? option-codes[selection] : "";
+    private property <[string]> option-codes: mode-index == 1 ? player-codes
+        : mode-index == 2 ? playback-codes : mode-index == 3 ? playlist-codes
+        : mode == "set" ? set-codes : mode == "cycle" ? cycle-codes
+        : mode == "cycle-values" ? values-codes : numeric-codes;
+    private property <[string]> option-labels: mode-index == 1 ? player-labels
+        : mode-index == 2 ? playback-labels : mode-index == 3 ? playlist-labels
+        : mode == "set" ? set-labels : mode == "cycle" ? cycle-labels
+        : mode == "cycle-values" ? values-labels : numeric-labels;
+
+    function rebuild() {
+        if mode.is-empty {
+            root.draft-valid = true;
+            return;
+        }
+        let seek-base = direction == 2 ? "absolute" : "relative";
+        let suffix = (units == 1 ? "-percent" : "") + (precision == 1 ? "+exact" : precision == 2 ? "+keyframes" : "");
+        let option = mode == "seek" ? seek-base + suffix : current-option;
+        let modifier = mode == "seek" && direction == 1 ? "backward" : is-toggle ? (toggle == 0 ? "yes" : "no") : "";
+        let action = KeyBindingSettingsState.build-binding-action(mode, option, modifier, amount);
+        root.draft-valid = !action.is-empty;
+        if root.draft-valid { root.action-built(action, mode-index == 1 ? 1 : 0); }
+    }
+
+    function change-mode() {
+        selection = 0;
+        direction = 0;
+        units = 0;
+        precision = 0;
+        toggle = 0;
+        amount = "";
+        root.rebuild();
+    }
+
+    ComboBox {
+        x: 0px; y: 0px; width: root.width; height: 27px;
+        accessible-label: @tr("Command type");
+        model: [@tr("Choose a command…"), @tr("Player action"), @tr("Playback command"), @tr("Playlist command"),
+            @tr("Seek"), @tr("Set"), @tr("Cycle"), @tr("Cycle Values"), @tr("Add"), @tr("Multiply")];
+        current-index <=> root.mode-index;
+        selected => { root.change-mode(); }
+    }
+    if root.has-action || root.has-property : ComboBox {
+        y: 32px; width: root.needs-value || root.is-toggle ? (root.width - 6px) / 2 : root.width; height: 27px;
+        accessible-label: root.has-action ? @tr("Command") : @tr("Property");
+        model: root.option-labels;
+        current-index <=> root.selection;
+        selected => { root.amount = ""; root.toggle = 0; root.rebuild(); }
+    }
+    if root.is-toggle : ComboBox {
+        x: (root.width + 6px) / 2; y: 32px; width: (root.width - 6px) / 2; height: 27px;
+        accessible-label: @tr("Value");
+        model: [@tr("On"), @tr("Off")];
+        current-index <=> root.toggle;
+        selected => { root.rebuild(); }
+    }
+    if root.needs-value && root.mode != "seek" : BuilderValue {
+        x: (root.width + 6px) / 2; y: 32px; width: (root.width - 6px) / 2; height: 27px;
+        value <=> root.amount;
+        prompt: root.mode == "cycle-values" ? @tr("Two or more values") : @tr("Value");
+        edited => { root.rebuild(); }
+    }
+    if root.mode == "seek" : HorizontalLayout {
+        y: 32px; width: root.width; height: 27px; spacing: 5px;
+        ComboBox {
+            min-width: 64px;
+            accessible-label: @tr("Seek direction");
+            model: [@tr("Forward"), @tr("Backward"), @tr("To position")];
+            current-index <=> root.direction;
+            selected => { root.rebuild(); }
+        }
+        BuilderValue {
+            min-width: 35px; horizontal-stretch: 1;
+            value <=> root.amount; prompt: @tr("Amount");
+            edited => { root.rebuild(); }
+        }
+        ComboBox {
+            min-width: 58px;
+            accessible-label: @tr("Seek units");
+            model: [@tr("Seconds"), @tr("Percent")]; current-index <=> root.units;
+            selected => { root.rebuild(); }
+        }
+        ComboBox {
+            min-width: 64px;
+            accessible-label: @tr("Seek precision");
+            model: [@tr("Default"), @tr("Exact"), @tr("Keyframes")]; current-index <=> root.precision;
+            selected => { root.rebuild(); }
+        }
+    }
+    private property <string> label-pause: @tr("Pause");
+    private property <string> label-deinterlace: @tr("Deinterlace");
+    private property <string> label-mute: @tr("Mute");
+    private property <string> label-sub-visibility: @tr("Show Subtitles");
+    private property <string> label-fullscreen: @tr("Fullscreen");
+    private property <string> label-ontop: @tr("Float on Top");
+    private property <string> label-speed: @tr("Playback Speed");
+    private property <string> label-video: @tr("Video Track");
+    private property <string> label-contrast: @tr("Contrast");
+    private property <string> label-brightness: @tr("Brightness");
+    private property <string> label-gamma: @tr("Gamma");
+    private property <string> label-saturation: @tr("Saturation");
+    private property <string> label-audio: @tr("Audio Track");
+    private property <string> label-volume: @tr("Volume");
+    private property <string> label-audio-delay: @tr("Audio Delay");
+    private property <string> label-sub: @tr("Subtitle Track");
+    private property <string> label-sub-delay: @tr("Subtitle Delay");
+    private property <string> label-sub-pos: @tr("Subtitle Position");
+    private property <string> label-sub-scale: @tr("Subtitle Scale");
+    private property <string> label-chapter: @tr("Chapter");
+    private property <string> label-video-aspect-override: @tr("Aspect Ratio");
+    private property <[string]> player-codes: [
+        "open-file",
+        "open-url",
+        "video-panel",
+        "audio-panel",
+        "sub-panel",
+        "playlist-panel",
+        "chapter-panel",
+        "save-playlist",
+        "show-current-file-in-finder",
+        "delete-current-file",
+        "delete-current-file-hard",
+        "find-online-subs",
+        "save-downloaded-sub",
+        "toggle-flip",
+        "toggle-mirror",
+        "toggle-pip",
+        "toggle-music-mode",
+        "live-text",
+        "bigger-window",
+        "smaller-window",
+        "fit-to-screen",
+    ];
+    private property <[string]> player-labels: [
+        @tr("Open File"),
+        @tr("Open URL"),
+        @tr("Video Panel"),
+        @tr("Audio Panel"),
+        @tr("Subtitles Panel"),
+        @tr("Playlist"),
+        @tr("Chapters"),
+        @tr("Save Playlist"),
+        @tr("Show Current File in File Manager"),
+        @tr("Move Current File to Trash"),
+        @tr("Permanently Delete Current File"),
+        @tr("Find Online Subtitles"),
+        @tr("Save Downloaded Subtitle"),
+        @tr("Flip Vertically"),
+        @tr("Mirror Horizontally"),
+        @tr("Picture-in-Picture"),
+        @tr("Music Mode"),
+        @tr("Live Text"),
+        @tr("Bigger Window"),
+        @tr("Smaller Window"),
+        @tr("Fit to Screen"),
+    ];
+    private property <[string]> playback-codes: [
+        "ignore",
+        "frame-step",
+        "frame-back-step",
+        "ab-loop",
+        "write-watch-later-config",
+        "stop",
+        "quit",
+    ];
+    private property <[string]> playback-labels: [
+        @tr("Ignore"),
+        @tr("Next Frame"),
+        @tr("Previous Frame"),
+        @tr("A–B Loop"),
+        @tr("Save Playback Position"),
+        @tr("Stop"),
+        @tr("Quit"),
+    ];
+    private property <[string]> playlist-codes: [
+        "playlist-next",
+        "playlist-prev",
+        "playlist-clear",
+        "playlist-remove",
+        "playlist-shuffle",
+    ];
+    private property <[string]> playlist-labels: [
+        @tr("Next Item"),
+        @tr("Previous Item"),
+        @tr("Clear Playlist"),
+        @tr("Remove Current Entry"),
+        @tr("Shuffle Playlist"),
+    ];
+    private property <[string]> numeric-codes: [
+        "speed",
+        "video",
+        "contrast",
+        "brightness",
+        "gamma",
+        "saturation",
+        "audio",
+        "volume",
+        "audio-delay",
+        "sub",
+        "sub-delay",
+        "sub-pos",
+        "sub-scale",
+        "chapter",
+    ];
+    private property <[string]> numeric-labels: [
+        label-speed,
+        label-video,
+        label-contrast,
+        label-brightness,
+        label-gamma,
+        label-saturation,
+        label-audio,
+        label-volume,
+        label-audio-delay,
+        label-sub,
+        label-sub-delay,
+        label-sub-pos,
+        label-sub-scale,
+        label-chapter,
+    ];
+    private property <[string]> set-codes: [
+        "pause",
+        "deinterlace",
+        "mute",
+        "sub-visibility",
+        "fullscreen",
+        "ontop",
+        "speed",
+        "video",
+        "contrast",
+        "brightness",
+        "gamma",
+        "saturation",
+        "audio",
+        "volume",
+        "audio-delay",
+        "sub",
+        "sub-delay",
+        "sub-pos",
+        "sub-scale",
+        "chapter",
+        "video-aspect-override",
+    ];
+    private property <[string]> set-labels: [
+        label-pause,
+        label-deinterlace,
+        label-mute,
+        label-sub-visibility,
+        label-fullscreen,
+        label-ontop,
+        label-speed,
+        label-video,
+        label-contrast,
+        label-brightness,
+        label-gamma,
+        label-saturation,
+        label-audio,
+        label-volume,
+        label-audio-delay,
+        label-sub,
+        label-sub-delay,
+        label-sub-pos,
+        label-sub-scale,
+        label-chapter,
+        label-video-aspect-override,
+    ];
+    private property <[string]> cycle-codes: [
+        "pause",
+        "deinterlace",
+        "mute",
+        "sub-visibility",
+        "fullscreen",
+        "ontop",
+        "speed",
+        "video",
+        "contrast",
+        "brightness",
+        "gamma",
+        "saturation",
+        "audio",
+        "volume",
+        "audio-delay",
+        "sub",
+        "sub-delay",
+        "sub-pos",
+        "sub-scale",
+        "chapter",
+    ];
+    private property <[string]> cycle-labels: [
+        label-pause,
+        label-deinterlace,
+        label-mute,
+        label-sub-visibility,
+        label-fullscreen,
+        label-ontop,
+        label-speed,
+        label-video,
+        label-contrast,
+        label-brightness,
+        label-gamma,
+        label-saturation,
+        label-audio,
+        label-volume,
+        label-audio-delay,
+        label-sub,
+        label-sub-delay,
+        label-sub-pos,
+        label-sub-scale,
+        label-chapter,
+    ];
+    private property <[string]> values-codes: [
+        "speed",
+        "video",
+        "contrast",
+        "brightness",
+        "gamma",
+        "saturation",
+        "audio",
+        "volume",
+        "audio-delay",
+        "sub",
+        "sub-delay",
+        "sub-pos",
+        "sub-scale",
+        "chapter",
+        "video-aspect-override",
+    ];
+    private property <[string]> values-labels: [
+        label-speed,
+        label-video,
+        label-contrast,
+        label-brightness,
+        label-gamma,
+        label-saturation,
+        label-audio,
+        label-volume,
+        label-audio-delay,
+        label-sub,
+        label-sub-delay,
+        label-sub-pos,
+        label-sub-scale,
+        label-chapter,
+        label-video-aspect-override,
+    ];
+}

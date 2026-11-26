@@ -208,6 +208,13 @@ async fn import_profile(window: &PreferencesWindow) -> Result<Option<String>, St
 }
 
 fn install_mapping_actions(window: &PreferencesWindow, owner: &Owner) {
+    window
+        .global::<riina_ui::KeyBindingSettingsState>()
+        .on_build_binding_action(|command, selection, modifier, value| {
+            riina_core::key_bindings::build_action(&command, &selection, &modifier, &value)
+                .unwrap_or_default()
+                .into()
+        });
     let add_window = window.as_weak();
     window.on_key_binding_add_requested(move || {
         let Some(window) = add_window.upgrade() else {

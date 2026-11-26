@@ -1,5 +1,6 @@
 import { KeyBindingSettingsState } from "preferences-key-bindings.slint";
-import { CheckBox } from "std-widgets.slint";
+import { CheckBox, ComboBox } from "std-widgets.slint";
+import { KeyBindingActionBuilder } from "preferences-key-binding-builder.slint";
 import { PreferenceActionButton } from "preferences-controls.slint";
 import { Theme } from "theme.slint";
 
@@ -77,7 +78,7 @@ export component DeleteKeyBindingProfileDialog inherits Rectangle {
 }
 
 export component KeyBindingMappingDialog inherits Rectangle {
-    in property <string> mapping-key;
+    in-out property <string> mapping-key;
     in-out property <string> mapping-action;
     in-out property <string> mapping-comment;
     in-out property <int> mapping-kind;
@@ -86,21 +87,48 @@ export component KeyBindingMappingDialog inherits Rectangle {
     callback key-recorded(string, bool, bool, bool, bool);
     callback submitted(string, string, string, int, int);
 
+    private property <bool> ready: builder.draft-valid && !mapping-key.is-empty && !mapping-action.is-empty;
+
+    function submit() {
+        if root.ready { root.submitted(root.mapping-key, root.mapping-action, root.mapping-comment, root.mapping-kind, root.mapping-row); }
+    }
+
+    init => { capture.focus(); }
     background: Theme.settings-modal-scrim;
-    Rectangle {
-        x: (parent.width - 360px) / 2; y: (parent.height - 250px) / 2;
-        width: 360px; height: 250px;
-        border-radius: Theme.settings-modal-corner; border-width: 1px; border-color: Theme.settings-modal-border;
-        background: Theme.settings-modal-surface;
+    TouchArea { width: parent.width; height: parent.height; }
+
+    panel := FocusScope {
+        x: (parent.width - self.width) / 2; y: (parent.height - self.height) / 2;
+        width: min(520px, parent.width - 24px); height: 314px;
+        capture-key-pressed(event) => {
+            let backward = event.text == Key.Backtab || (event.text == Key.Tab && event.modifiers.shift);
+            if backward && capture.has-focus {
+                if root.ready { ok-button.focus(); } else { cancel-button.focus(); }
+                return accept;
+            }
+            if event.text == Key.Tab && !backward && (ok-button.has-focus || (!root.ready && cancel-button.has-focus)) {
+                capture.focus();
+                return accept;
+            }
+            return reject;
+        }
+        key-pressed(event) => {
+            if event.text == Key.Escape { root.cancelled(); return accept; }
+            return reject;
+        }
+        Rectangle {
+            border-radius: Theme.settings-modal-corner; border-width: 1px; border-color: Theme.settings-modal-border;
+            background: Theme.settings-modal-surface;
+        }
         Text { x: 20px; y: 14px; width: parent.width - 40px; height: 22px;
             text: @tr("Key Mapping"); font-size: Theme.settings-modal-title-size; font-weight: 600; color: Theme.settings-modal-title; }
-        Text { x: 20px; y: 39px; width: parent.width - 40px; height: 18px;
-            text: @tr("Press a key, then choose what it should do.");
-            font-size: 11px; color: Theme.settings-modal-message; }
-        Text { x: 20px; y: 67px; width: 52px; height: 26px; text: @tr("Key");
+        Text { x: 20px; y: 38px; width: parent.width - 40px; height: 18px;
+            text: @tr("Press any key to record."); font-size: 11px; color: Theme.settings-modal-message; }
+
+        Text { x: 20px; y: 66px; width: 52px; height: 26px; text: @tr("Key");
             font-size: 11px; color: Theme.settings-card-title; vertical-alignment: center; }
-        FocusScope {
-            x: 76px; y: 67px; width: parent.width - 96px; height: 26px;
+        capture := FocusScope {
+            x: 76px; y: 66px; width: max(80px, parent.width * 0.50 - 60px); height: 26px;
             accessible-role: button; accessible-label: @tr("Press a key to record its shortcut");
             Rectangle { width: parent.width; height: parent.height;
                 border-radius: 4px; border-width: 1px;
@@ -109,54 +137,70 @@ export component KeyBindingMappingDialog inherits Rectangle {
                 Text { width: parent.width; height: parent.height;
                     text: root.mapping-key.is-empty ? @tr("Press a key…") : root.mapping-key;
                     font-size: 11px; color: root.mapping-key.is-empty ? Theme.settings-key-binding-capture-placeholder : Theme.settings-modal-title;
-                    horizontal-alignment: center; vertical-alignment: center; }
+                    horizontal-alignment: center; vertical-alignment: center; overflow: elide; }
             }
             key-pressed(event) => {
-                if event.text == Key.Escape { root.cancelled(); return accept; }
-                if event.text == Key.Tab { return reject; }
-                root.key-recorded(event.text, event.modifiers.control,
-                    event.modifiers.alt, event.modifiers.shift, event.modifiers.meta);
+                if event.text == Key.Escape || event.text == Key.Tab || event.text == Key.Backtab { return reject; }
+                if !event.repeat {
+                    root.key-recorded(event.text, event.modifiers.control,
+                        event.modifiers.alt, event.modifiers.shift, event.modifiers.meta);
+                }
                 return accept;
             }
-            capture-touch := TouchArea { clicked => { parent.focus(); } }
+            TouchArea { clicked => { capture.focus(); } }
         }
-        Text { x: 20px; y: 101px; width: 52px; height: 26px; text: @tr("Action");
+        ComboBox {
+            x: capture.x + capture.width + 8px; y: capture.y; width: parent.width - self.x - 20px; height: 26px;
+            accessible-label: @tr("Choose a media key");
+            model: [@tr("Media keys"), @tr("Play"), @tr("Previous"), @tr("Next")];
+            selected => {
+                if self.current-index > 0 {
+                    let media = ["PLAY", "PREV", "NEXT"];
+                    root.mapping-key = media[self.current-index - 1];
+                    self.current-index = 0;
+                }
+            }
+        }
+
+        Text { x: 20px; y: 99px; width: 52px; height: 26px; text: @tr("Action");
             font-size: 11px; color: Theme.settings-card-title; vertical-alignment: center; }
-        Rectangle { x: 76px; y: 101px; width: parent.width - 96px; height: 26px;
+        builder := KeyBindingActionBuilder {
+            x: 76px; y: 100px; width: parent.width - 96px; height: 59px;
+            action-built(action, kind) => { root.mapping-action = action; root.mapping-kind = kind; }
+        }
+        Text { x: 20px; y: 168px; width: 56px; height: 26px; text: @tr("Command");
+            font-size: 11px; color: Theme.settings-card-title; vertical-alignment: center; overflow: elide; }
+        Rectangle { x: 76px; y: 168px; width: parent.width - 96px; height: 26px;
             border-radius: 4px; border-width: 1px; border-color: Theme.settings-field-border; background: Theme.settings-field-surface;
             TextInput { x: 5px; y: 1px; width: parent.width - 10px; height: parent.height - 2px;
                 text <=> root.mapping-action; single-line: true;
-                font-size: 11px; color: Theme.settings-modal-title; accessible-label: @tr("Mapping action"); }
-        }
-        Text { x: 20px; y: 135px; width: 52px; height: 26px; text: @tr("Note");
-            font-size: 11px; color: Theme.settings-card-title; vertical-alignment: center; }
-        Rectangle { x: 76px; y: 135px; width: parent.width - 96px; height: 26px;
-            border-radius: 4px; border-width: 1px; border-color: Theme.settings-field-border; background: Theme.settings-field-surface;
-            TextInput { x: 5px; y: 1px; width: parent.width - 10px; height: parent.height - 2px;
-                text <=> root.mapping-comment; single-line: true;
-                font-size: 11px; color: Theme.settings-modal-title; accessible-label: @tr("Mapping comment"); }
+                font-size: 11px; color: Theme.settings-modal-title; accessible-label: @tr("Mapping action");
+                edited => { builder.draft-valid = true; }
+                accepted => { root.submit(); }
+            }
         }
         CheckBox {
-            x: 76px; y: 168px; width: 180px; height: 22px;
+            x: 76px; y: 200px; width: 180px; height: 22px;
             text: @tr("Riina action"); checked: root.mapping-kind == 1;
             toggled => { root.mapping-kind = self.checked ? 1 : 0; }
         }
-        Text { x: 20px; y: 192px; width: parent.width - 40px; height: 18px;
-            text: @tr("Use an mpv command unless this is a player action.");
-            font-size: 10px; color: Theme.settings-section-heading; }
-        PreferenceActionButton {
-            x: parent.width - 178px; y: 214px; label: @tr("Cancel");
+        Text { x: 20px; y: 228px; width: 52px; height: 26px; text: @tr("Note");
+            font-size: 11px; color: Theme.settings-card-title; vertical-alignment: center; }
+        Rectangle { x: 76px; y: 228px; width: parent.width - 96px; height: 26px;
+            border-radius: 4px; border-width: 1px; border-color: Theme.settings-field-border; background: Theme.settings-field-surface;
+            TextInput { x: 5px; y: 1px; width: parent.width - 10px; height: parent.height - 2px;
+                text <=> root.mapping-comment; single-line: true;
+                font-size: 11px; color: Theme.settings-modal-title; accessible-label: @tr("Mapping comment");
+                accepted => { root.submit(); }
+            }
+        }
+        cancel-button := PreferenceActionButton {
+            x: parent.width - 178px; y: parent.height - 40px; label: @tr("Cancel");
             activated => { root.cancelled(); }
         }
-        PreferenceActionButton {
-            x: parent.width - 92px; y: 214px; label: @tr("OK");
-            activated => {
-                if !root.mapping-key.is-empty && !root.mapping-action.is-empty {
-                    root.submitted(root.mapping-key,
-                        root.mapping-action, root.mapping-comment,
-                        root.mapping-kind, root.mapping-row);
-                }
-            }
+        ok-button := PreferenceActionButton {
+            x: parent.width - 92px; y: parent.height - 40px; label: @tr("OK"); enabled: root.ready;
+            activated => { root.submit(); }
         }
     }
 }
@@ -189,7 +233,7 @@ export component KeyBindingDialogs inherits Rectangle {
 
     if KeyBindingSettingsState.key-binding-editor-open : KeyBindingMappingDialog {
         x: 0px; y: 0px; width: root.width; height: root.height;
-        mapping-key: KeyBindingSettingsState.key-binding-editor-key;
+        mapping-key <=> KeyBindingSettingsState.key-binding-editor-key;
         mapping-action <=> KeyBindingSettingsState.key-binding-editor-action;
         mapping-comment <=> KeyBindingSettingsState.key-binding-editor-comment;
         mapping-kind <=> KeyBindingSettingsState.key-binding-editor-kind;

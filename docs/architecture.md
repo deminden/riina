@@ -581,6 +581,11 @@ file worker captures the native playlist identity and filename before removing
 a local file. Successful removals submit those identities to libmpv and leave
 failed or superseded entries alone.
 
+The Settings shortcut editor keeps the recording, generated command and note
+in its draft. The portable builder emits one profile command from the chosen
+action or property inputs. The user can edit the resulting command through
+the same raw field used for imported profiles.
+
 ### Plugin sidebar surfaces
 
 Each player owns its plugin sidebar documents and selects one tab for display.

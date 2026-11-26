@@ -102,6 +102,11 @@ Implementation does not imply every state or platform is verified.
   runs off the interface thread and removes the confirmed file from the
   playlist by its captured identity. The player ignores repeated key events
   for both deletion commands.
+- **Key mapping editor:** Settings focuses the recorder when the sheet opens
+  and offers Play, Previous and Next as media keys. The command builder covers
+  player actions, playback, playlist, seeking and property commands. Choosing
+  an action fills the editable command field. Existing raw commands and notes
+  remain intact when opening the editor. Tab navigation stays in the dialog.
 - **Recent activity:** player windows share Open Recent with Welcome and
   plugins. The macOS application menu also opens and clears recent documents
   while no player is open. Settings Utilities clears history, recent documents

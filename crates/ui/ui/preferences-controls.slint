@@ -106,7 +106,9 @@ export component OverrideLaneButton inherits Rectangle {
 export component PreferenceActionButton inherits Rectangle {
     in property <string> label;
     in property <bool> enabled: true;
+    out property <bool> has-focus: focus.has-focus;
     callback activated();
+    forward-focus: focus;
     width: 78px;
     height: 24px;
     border-radius: 4px;

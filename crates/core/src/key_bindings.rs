@@ -4,6 +4,9 @@ use crate::PreferenceError;
 mod action_error;
 pub use action_error::InputActionError;
 
+mod builder;
+pub use builder::build_action;
+
 mod plugin_keys;
 pub use plugin_keys::normalize_mpv_key;
 
