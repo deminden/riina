@@ -85,8 +85,16 @@ fn loop_value(value: Option<f64>) -> Result<String, CommandError> {
 pub(super) fn select_chapter(
     state: &Playback,
     index: usize,
+    command: &Command,
 ) -> Result<Vec<Vec<String>>, CommandError> {
-    let chapter = state.chapters.get(index).ok_or(CommandError::Unavailable {
+    let chapter = state.chapters.get(index);
+    // A menu can remain open when the current file's chapter list changes.
+    if let Command::ActivateChapter { start, .. } = command
+        && chapter.is_none_or(|chapter| chapter.time.to_bits() != start.to_bits())
+    {
+        return Ok(Vec::new());
+    }
+    let chapter = chapter.ok_or(CommandError::Unavailable {
         what: "The chapter is no longer available",
     })?;
     if !chapter.time.is_finite() || chapter.time < 0.0 {

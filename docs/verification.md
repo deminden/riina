@@ -6237,3 +6237,31 @@ behavior on long-keyframe media still need desktop verification.
 - Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
 - Linux application SHA-256 `f3a846ef73fbcb344ce89b93bdcf3c72e1123f8ff2e345a320c7e975b8a724c7`
 - Linux libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`
+
+### Chapter navigation and feedback (2026-11-26)
+
+The Windows workspace gate passed with 1,139 Rust test passes including the
+isolated app subprocesses, 84 ignored cases, 79 Python tests and four browser
+tests. It included the software-rendered player and Settings comparisons.
+The headless player test verified that the sidebar marker follows the native
+chapter, the menu check follows the playhead, and an old menu row cannot seek
+in a replacement file. The OSD test verified that a successful menu selection
+reports its title once in the active generation. All 71 Windows libmpv tests
+passed, and the new chapter-selection case also passed on Linux.
+
+On a private Windows desktop, the native Playback menu listed both formatted
+chapter labels, resumed the second chapter at 2.125 seconds, and moved the
+checkmark from Opening to Moving square. In isolated Wayland playback, a
+single click in the Chapters sidebar preserved the paused playhead and a
+double click resumed the second chapter at 2.000 seconds. In Music Mode, the
+same actions preserved pause and then resumed the second chapter at 1.006
+seconds. The existing compact window updated its title to Main set. All three
+processes closed normally. The locked Windows workspace and Linux application
+builds, strict Linux Clippy, and strict cross-Clippy for both macOS architectures
+passed. Matched reference OSD timing and pixels and native macOS interaction
+remain open.
+
+- Windows application SHA-256 `0c090f6a0dcefa9c278801c938e593953f5b6483db36b1b163477e292602e10d`
+- Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
+- Linux application SHA-256 `4e4bf3d635a1bb43dfa64d0d5ba2a563c86e96b10d7c7e99f8196d6e6f8dad70`
+- Linux libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`

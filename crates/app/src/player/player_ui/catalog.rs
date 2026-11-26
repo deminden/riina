@@ -1,9 +1,7 @@
-//! Playlist, chapter, track and audio-device models follow native observations.
+//! Playlist, track and audio-device models follow native observations.
 use super::{PlayerContext, bind};
-use crate::{
-    CatalogRow, CatalogSelection, MenuCatalogRow, PlayerWindow, video_osd::ActionFeedback,
-};
-use riina_core::{Command, Playback, TrackKind, osc_preferences::ControllerOptions, sync::lock};
+use crate::{CatalogRow, CatalogSelection, MenuCatalogRow, PlayerWindow};
+use riina_core::{Command, Playback, TrackKind};
 use riina_ui::PlayerMenuActions;
 use slint::{ComponentHandle, Model};
 use std::collections::HashSet;
@@ -15,26 +13,22 @@ pub(super) fn install_catalog_selection(app: &PlayerWindow, context: &PlayerCont
         app.global::<PlayerMenuActions>(),
         on_select_item,
         |ctx, category, token| {
-            let command = selection_command(category, token.as_str());
-            let chapter_title = if let Ok(Command::SelectChapter(index)) = &command {
-                lock(ctx.playback())
-                    .chapters
-                    .get(*index)
-                    .map(|chapter| chapter.display_title(*index).into_owned())
-            } else {
-                None
-            };
-            let Some(app) = ctx.app() else { return };
-            app.global::<riina_ui::PlayerControlActions>()
-                .invoke_activity();
-            match (command, chapter_title) {
-                (Ok(command), Some(title)) => {
-                    ctx.send_with_osd(command, ActionFeedback::Chapter(title), false)
-                }
-                (Ok(command), None) => ctx.send(command),
-                (Err(error), _) => ctx.report(error),
+            if category == CatalogSelection::Chapter {
+                super::chapters::activate(&ctx, token.as_str(), false);
+                return;
+            }
+            ctx.activity();
+            match selection_command(category, token.as_str()) {
+                Ok(command) => ctx.send(command),
+                Err(error) => ctx.report(error),
             }
         }
+    );
+    bind!(
+        context,
+        app.global::<PlayerMenuActions>(),
+        on_select_chapter_menu,
+        |ctx, token| super::chapters::activate(&ctx, token.as_str(), true)
     );
 }
 
@@ -48,9 +42,8 @@ fn selection_command(category: CatalogSelection, token: &str) -> Result<Command,
         PrimarySubtitle => track(TrackKind::Sub),
         VideoTrack => track(TrackKind::Video),
         SecondarySubtitle => parse_track_id(token).map(Command::SelectSecondarySubtitle),
-        Chapter => token.parse::<usize>().map(Command::SelectChapter),
         Playlist => token.parse::<i64>().map(Command::SelectPlaylistId),
-        Unknown => return Err("Unknown selection category".into()),
+        Unknown | Chapter => return Err("Unknown selection category".into()),
     }
     .map_err(|error| error.to_string())
 }
@@ -193,7 +186,6 @@ pub(super) fn update_catalog(
     metadata: &playlist::MetadataSnapshot,
 ) {
     update_tracks(app, state);
-    update_chapters(app, state);
     playlist::update(app, state, metadata);
     if app.get_prefetch_playlist_durations() {
         app.invoke_refresh_playlist_metadata();
@@ -300,54 +292,6 @@ fn update_tracks(app: &PlayerWindow, state: &Playback) {
         );
     app.global::<riina_ui::PlaybackSubtitleState>()
         .set_secondary_subtitle_tracks(slint::ModelRc::new(slint::VecModel::from(secondary_rows)));
-}
-
-fn update_chapters(app: &PlayerWindow, state: &Playback) {
-    let catalog = app.global::<riina_ui::PlayerCatalogState>();
-    let clock = ControllerOptions::default();
-    let active = state.current_chapter_index();
-    let mut rows = Vec::with_capacity(state.chapters.len());
-    let mut menu = Vec::with_capacity(state.chapters.len());
-    for (index, chapter) in state.chapters.iter().enumerate() {
-        let token = slint::SharedString::from(index.to_string());
-        let title = chapter.display_title(index);
-        let start = clock.elapsed_label(Some(chapter.time));
-        let end = state
-            .chapters
-            .get(index + 1)
-            .map_or_else(|| "End".into(), |next| clock.elapsed_label(Some(next.time)));
-        let selected = active == Some(index);
-        menu.push(MenuCatalogRow {
-            token: token.clone(),
-            label: format!("{start} – {title}").into(),
-            selected,
-        });
-        rows.push(CatalogRow {
-            token,
-            label: title.as_ref().into(),
-            detail: format!("{start} → {end}").into(),
-            selected,
-            ..CatalogRow::default()
-        });
-    }
-    crate::ui_models::set_rows_if_changed(&catalog.get_chapters(), rows, |rows| {
-        catalog.set_chapters(rows);
-    });
-    crate::ui_models::set_rows_if_changed(&catalog.get_chapter_menu_rows(), menu, |rows| {
-        catalog.set_chapter_menu_rows(rows);
-    });
-    // IINA omits the first chapter boundary because it coincides with the bar origin.
-    let timeline = app.global::<riina_ui::PlaybackTimelineState>();
-    let times = state
-        .chapters
-        .iter()
-        .skip(1)
-        .map(|chapter| chapter.time as f32)
-        .filter(|time| time.is_finite() && *time >= 0.0)
-        .collect();
-    crate::ui_models::set_rows_if_changed(&timeline.get_chapter_times(), times, |times| {
-        timeline.set_chapter_times(times);
-    });
 }
 
 pub(super) fn install_track_cycles(app: &PlayerWindow, context: &PlayerContext) {

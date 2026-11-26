@@ -192,6 +192,11 @@ pub enum Command {
     CycleTrack(TrackKind),
     SelectSecondarySubtitle(Option<i64>),
     SelectChapter(usize),
+    ActivateChapter {
+        index: usize,
+        start: f64,
+        notify: bool,
+    },
     AdjustChapter(i32),
     SelectPlaylistEntry(usize),
     SelectPlaylistId(i64),

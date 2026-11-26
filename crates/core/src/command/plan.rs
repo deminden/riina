@@ -130,7 +130,9 @@ impl Command {
             }
             Self::Load(_) | Self::LoadAtPosition { .. } => playback::load(state, self)?,
             Self::OpenMediaLink(link) => super::media_link::plan(state, link)?,
-            Self::SelectChapter(index) => seek::select_chapter(state, *index)?,
+            Self::SelectChapter(index) | Self::ActivateChapter { index, .. } => {
+                seek::select_chapter(state, *index, self)?
+            }
             Self::SeekTimeline(_) if !state.timeline_seekable() => Vec::new(),
             Self::SelectPlaylistEntry(_)
             | Self::PlaylistNext

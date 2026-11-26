@@ -123,6 +123,7 @@ command_samples! {
     CycleTrack[TrackKind::Audio];
     SelectSecondarySubtitle[Some(3)];
     SelectChapter[1];
+    ActivateChapter { index: 1, start: 45.0, notify: true };
     AdjustChapter[1];
     SelectPlaylistEntry[1];
     SelectPlaylistId[20];

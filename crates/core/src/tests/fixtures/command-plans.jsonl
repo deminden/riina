@@ -85,6 +85,7 @@
 {"command":"CycleTrack","mpv":[["cycle","aid"]],"resume_on_load":false}
 {"command":"SelectSecondarySubtitle","mpv":[["set","secondary-sid","3"]],"resume_on_load":false}
 {"command":"SelectChapter","mpv":[["seek","45","absolute"],["set","pause","no"]],"resume_on_load":false}
+{"command":"ActivateChapter","mpv":[["seek","45","absolute"],["set","pause","no"]],"resume_on_load":false}
 {"command":"AdjustChapter","mpv":[["add","chapter","1"]],"resume_on_load":false}
 {"command":"SelectPlaylistEntry","mpv":[["set","pause","yes"],["playlist-play-index","1"]],"resume_on_load":true}
 {"command":"SelectPlaylistId","mpv":[["set","pause","yes"],["playlist-play-index","1"]],"resume_on_load":true}

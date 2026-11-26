@@ -1,6 +1,59 @@
 use super::*;
 
 #[test]
+#[ignore = "requires provisioned libmpv; verifies media-scoped chapter actions"]
+fn chapter_actions_resume_and_only_menu_selection_confirms() {
+    let root = fixture_root();
+    let harness = Harness::start(&root).unwrap();
+    harness.send(Command::SetPauseWhenOpen(true)).unwrap();
+    let fixture = root.join("tests/fixtures/catalog.mkv");
+    harness
+        .send(Command::Load(fixture.to_string_lossy().into_owned()))
+        .unwrap();
+    let loaded = harness.wait(|state| state.paused && state.chapters.len() == 2);
+    let select = |index, start, notify| Command::ActivateChapter {
+        index,
+        start,
+        notify,
+    };
+    harness
+        .send(select(1, loaded.chapters[1].time + 1.0, true))
+        .unwrap();
+    harness.send(Command::SubtitleDelay(0.25)).unwrap();
+    let stale = harness.wait(|state| (state.subtitle_delay - 0.25).abs() < 0.001);
+    assert!(stale.paused);
+    assert!(stale.chapter_feedback.is_none());
+    assert_eq!(stale.error(), None);
+
+    harness
+        .send(select(1, loaded.chapters[1].time, false))
+        .unwrap();
+    let sidebar = harness.wait(|state| !state.paused && state.current_chapter_index() == Some(1));
+    assert!(sidebar.chapter_feedback.is_none());
+    harness.send(Command::SetPaused(true)).unwrap();
+    harness.wait(|state| state.paused);
+    harness
+        .send(select(0, loaded.chapters[0].time, true))
+        .unwrap();
+    let menu = harness.wait(|state| {
+        !state.paused
+            && state.current_chapter_index() == Some(0)
+            && state.chapter_feedback.is_some()
+    });
+    assert_eq!(
+        menu.chapter_feedback.as_ref().unwrap().title.as_ref(),
+        "Opening"
+    );
+
+    harness
+        .send(Command::Load(fixture.to_string_lossy().into_owned()))
+        .unwrap();
+    let next =
+        harness.wait(|state| state.generation > loaded.generation && state.chapters.len() == 2);
+    assert!(next.chapter_feedback.is_none());
+}
+
+#[test]
 #[ignore = "requires provisioned libmpv; checks silent playlist duration probing"]
 fn playlist_duration_probe_reads_local_video_and_audio() {
     let root = fixture_root();

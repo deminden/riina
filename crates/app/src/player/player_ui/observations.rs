@@ -60,30 +60,28 @@ pub(super) fn update_ui(
     timeline.set_seek_duration_label(seek_osd::clock(state.duration).into());
     app.global::<riina_ui::PlayerCatalogState>()
         .set_playlist_shuffled(state.playlist_shuffled);
+    super::chapters::update(app, displayed.as_deref(), state);
     // Preserve row identity across clock ticks so focus and accessibility indexes
     // are not destroyed by unrelated time-pos notifications.
     if displayed.as_ref().is_none_or(|old| {
         old.tracks != state.tracks
-            || old.chapters != state.chapters
             || old.playlist != state.playlist
             || old.audio_devices != state.audio_devices
             || old.audio_device != state.audio_device
             || old.audio_output != state.audio_output
-            || old.chapter_index != state.chapter_index
     }) {
         let metadata = timers
             .as_ref()
             .map(|timers| timers.playlist.snapshot(state))
             .unwrap_or_default();
         update_catalog(app, state, &metadata);
-        *displayed = Some(state.clone());
     } else if displayed
         .as_ref()
         .is_some_and(|old| old.duration != state.duration)
     {
         app.invoke_refresh_playlist_metadata();
-        *displayed = Some(state.clone());
     }
+    *displayed = Some(state.clone());
     let first_loaded = (!app.get_loaded() || previous_generation != Some(state.generation))
         && matches!(
             state.phase,

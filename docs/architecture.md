@@ -123,6 +123,9 @@ metadata projection while the full player's document title follows the file.
 Timeline hover resolves the pointer's chapter separately from the playhead.
 The time and chapter label remain available independently of the isolated
 thumbnail decoder and its cache.
+Chapter controls submit the observed media generation, chapter index, and
+start time. The worker retires stale selections before seeking. An accepted
+chapter menu seek publishes its title to the player's transient feedback.
 
 Windows system media controls belong to the player's native toplevel. The
 session publishes observed titles, playback state and seek bounds. Native
@@ -259,9 +262,10 @@ gesture before a release can act on a different order.
 
 The owning player stores the active catalog tab, the Playlist and Chapters
 scroll positions, and the Chapter selection. Main-window and Music Mode
-views restore those values when mounted. The playback observation supplies
-the playing-chapter marker independently of selection, so moving the
-keyboard cursor leaves the engine position alone.
+views restore those values when mounted. Each file starts with a fresh chapter
+cursor and scroll position. The native chapter index updates the sidebar's
+playing marker in place. The menu checks the entry whose time range contains
+the observed playhead and aligns start times to the final entry's width.
 
 The Music Mode window owner supplies the panel height to the controls and
 artwork during resize. Windows settles it after the sizing loop, and

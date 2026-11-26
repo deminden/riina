@@ -2,6 +2,7 @@
 mod application_tools;
 mod audio_controls;
 mod catalog;
+mod chapters;
 mod context;
 mod control_actions;
 mod controller_arrows;

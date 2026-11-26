@@ -151,7 +151,7 @@ fn install_application_actions(host: &NativeVideoHost, app: &PlayerWindow) {
     });
     forward!(host, app, on_select_menu_chapter_item, |token| {
         app.global::<PlayerMenuActions>()
-            .invoke_select_item(CatalogSelection::Chapter, token);
+            .invoke_select_chapter_menu(token);
     });
     forward!(host, app, on_show_video_panel, || {
         app.global::<PlayerMenuActions>()

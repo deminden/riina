@@ -52,6 +52,24 @@ fn accepted_action_feedback_uses_reference_stop_chapter_and_playlist_messages() 
 }
 
 #[test]
+fn chapter_feedback_is_consumed_once_and_scoped_to_active_media() {
+    let mut feedback = VideoOsd::default();
+    let mut state = loaded();
+    assert_eq!(feedback.observe(&state), None);
+    state.chapter_feedback = Some(riina_core::ChapterFeedback {
+        sequence: 1,
+        title: "Opening".into(),
+    });
+    assert_eq!(feedback.observe(&state).unwrap().text, "Chapter: Opening");
+    assert_eq!(feedback.observe(&state), None);
+
+    state.generation += 1;
+    state.chapter_feedback.as_mut().unwrap().sequence += 1;
+    assert_eq!(feedback.observe(&state), None);
+    assert_eq!(feedback.observe(&state), None);
+}
+
+#[test]
 fn disabling_speed_feedback_removes_only_queued_speed_messages() {
     let mut feedback = VideoOsd::default();
     let mut state = loaded();

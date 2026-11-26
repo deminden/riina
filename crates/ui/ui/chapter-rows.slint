@@ -49,11 +49,10 @@ export component ChapterRows inherits FocusScope {
     VerticalLayout {
         for row[index] in PlayerCatalogState.chapters : Rectangle {
             height: root.row-height;
-            private property <bool> cursor-here: root.cursor == index &&
-                (root.has-focus || PlayerSidebarState.chapter-cursor >= 0);
+            private property <bool> cursor-here: PlayerSidebarState.chapter-cursor == index;
             background: cursor-here || pointer.has-hover
                 ? Theme.sidebar-row-selection(PlayerAppearance.dark-theme) : transparent;
-            border-width: cursor-here && root.has-focus ? 1px : 0px;
+            border-width: root.cursor == index && root.has-focus ? 1px : 0px;
             border-color: PlayerAppearance.interactive-accent-color;
             border-radius: 3px;
             accessible-role: button;
@@ -87,7 +86,10 @@ export component ChapterRows inherits FocusScope {
                     PlayerSidebarState.chapter-cursor = index;
                     root.focus();
                 }
-                double-clicked => { root.activate(index); }
+                double-clicked => {
+                    root.activate(index);
+                    PlayerSidebarState.chapter-cursor = -1;
+                }
             }
         }
     }

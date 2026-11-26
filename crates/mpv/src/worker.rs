@@ -1064,6 +1064,9 @@ impl WorkerState {
         }
         match pending.kind {
             ReplyKind::Plain | ReplyKind::PlaylistEdit { .. } => {}
+            ReplyKind::ChapterSelection { index, start } => {
+                self.publish_chapter_feedback(event.userdata(), index, start);
+            }
             ReplyKind::RememberVolume(level) => {
                 self.remember_volume(NEXT_VOLUME_REVISION.fetch_add(1, Ordering::Relaxed), level);
             }
@@ -1103,6 +1106,26 @@ impl WorkerState {
         }
     }
 
+    fn publish_chapter_feedback(&mut self, sequence: u64, index: usize, start: f64) {
+        if let Some(chapter) = self.playback.chapters.get(index)
+            && chapter.time.to_bits() == start.to_bits()
+            && self
+                .playback
+                .chapter_feedback
+                .as_ref()
+                .is_none_or(|old| old.sequence < sequence)
+        {
+            self.playback.chapter_feedback = Some(riina_core::ChapterFeedback {
+                sequence,
+                title: chapter.title.as_deref().map_or_else(
+                    || Arc::from(chapter.display_title(index).as_ref()),
+                    Arc::from,
+                ),
+            });
+            self.mark_changed();
+        }
+    }
+
     fn publish_playlist_feedback(&mut self, feedback: riina_core::PlaylistFeedback) {
         if feedback.generation == self.playback.generation
             && self
@@ -1129,6 +1152,7 @@ impl WorkerState {
             | ReplyKind::RememberVolume(_)
             | ReplyKind::RememberAdjustedVolume
             | ReplyKind::PlaylistEdit { .. }
+            | ReplyKind::ChapterSelection { .. }
             | ReplyKind::Screenshot { .. } => {
                 if let Some(error) = event.error() {
                     let message = format!("mpv {}: {error}", pending.label);
@@ -1199,6 +1223,7 @@ impl WorkerState {
             | ReplyKind::RememberVolume(_)
             | ReplyKind::RememberAdjustedVolume
             | ReplyKind::PlaylistEdit { .. }
+            | ReplyKind::ChapterSelection { .. }
             | ReplyKind::Screenshot { .. } => {}
         }
     }

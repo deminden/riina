@@ -14,6 +14,7 @@ pub(super) enum ReplyKind {
     RememberVolume(f64),
     RememberAdjustedVolume,
     PlaylistEdit { batch: u64, lead: bool },
+    ChapterSelection { index: usize, start: f64 },
     Screenshot { path: Option<String> },
     FrameCapture,
     TransitionCapture,
@@ -38,6 +39,14 @@ impl ReplyKind {
             Command::AdjustVolume { .. } if native_command == Some("add") => {
                 Self::RememberAdjustedVolume
             }
+            Command::ActivateChapter {
+                index,
+                start,
+                notify: true,
+            } if native_command == Some("seek") => Self::ChapterSelection {
+                index: *index,
+                start: *start,
+            },
             Command::CaptureFrame | Command::CaptureThumbnailFrame => Self::FrameCapture,
             Command::CaptureTransitionFrame => Self::TransitionCapture,
             Command::CaptureIncomingTransitionFrame => Self::IncomingTransitionCapture,

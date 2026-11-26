@@ -54,6 +54,11 @@ See [visual metrics](visual-spec.md) for the controller and sidebar details.
 - `PlayerCore.playFileInPlaylist` uses `playlist-play-index` to reload even the
   current item; explicit transitions pause before changing entries.
 - Chapter selection uses its observed timestamp, an absolute seek and resume.
+- `MenuController.updateChapterList` aligns timestamps and checks the active
+  playhead interval. `MainMenuActionHandler.menuChapterSwitch` supplies the
+  title for on-screen feedback. `SidebarChaptersPane.doubleAction` clears the
+  clicked selection after seeking, and its playing marker follows the native
+  chapter index.
 - `PlayerCore.chapterChanged` reads mpv's current chapter. Music Mode and
   audio Now Playing use the chapter title and performer when present and keep
   the file's album. `MainWindowController.updateTimePreview` instead resolves

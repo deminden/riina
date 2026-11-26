@@ -139,6 +139,7 @@ impl Command {
             | Self::SetHdrEnabledWithIcc { .. }
             | Self::VideoThreads(_)
             | Self::SelectPlaylistId(_)
+            | Self::ActivateChapter { .. }
             | Self::RemovePlaylistId(_)
             | Self::RemovePlaylistIds(_)
             | Self::RemoveDeletedPlaylistEntries(_)

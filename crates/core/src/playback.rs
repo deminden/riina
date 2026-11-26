@@ -62,6 +62,12 @@ pub struct PlaylistFeedback {
     pub change: PlaylistChange,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ChapterFeedback {
+    pub sequence: u64,
+    pub title: Arc<str>,
+}
+
 #[derive(Debug, Clone, Default)]
 pub struct Playback {
     /// File-opening policy is intent; `paused` remains native observed state.
@@ -165,6 +171,7 @@ pub struct Playback {
     pub track_list_observed: bool,
     pub chapters: Arc<Vec<Chapter>>,
     pub chapter_index: Option<usize>,
+    pub chapter_feedback: Option<ChapterFeedback>,
     pub chapter_performer: Option<String>,
     pub playlist: Arc<Vec<PlaylistEntry>>,
     /// Latest completed user playlist edit for the player's transient OSD.
@@ -351,6 +358,17 @@ impl Playback {
             .rfind(|(_, chapter)| chapter.time <= seconds)
     }
 
+    /// The chapter menu checks the half-open interval at millisecond precision.
+    pub fn chapter_menu_index(&self) -> Option<usize> {
+        let position = self
+            .position
+            .filter(|time| time.is_finite() && *time >= 0.0)?;
+        let millis = (position * 1000.0).trunc();
+        self.chapters.iter().rposition(|chapter| {
+            chapter.time.is_finite() && (chapter.time * 1000.0).trunc() <= millis
+        })
+    }
+
     pub fn file_metadata(&self) -> MediaMetadata<'_> {
         MediaMetadata {
             title: &self.title,
@@ -465,6 +483,7 @@ impl Playback {
         self.track_list_observed = false;
         self.chapters = Arc::default();
         self.chapter_index = None;
+        self.chapter_feedback = None;
         self.chapter_performer = None;
         self.subtitle_text = None;
         self.secondary_subtitle_text = None;

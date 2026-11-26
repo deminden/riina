@@ -292,7 +292,7 @@ export component PlayerMenuWindow inherits Window {
                 for row in PlayerCatalogState.chapter-menu-rows : MenuItem {
                     title: row.label;
                     checkable: true; checked: row.selected;
-                    activated => { PlayerMenuActions.select-item(CatalogSelection.chapter, row.token); }
+                    activated => { PlayerMenuActions.select-chapter-menu(row.token); }
                 }
             }
             MenuSeparator {}

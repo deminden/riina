@@ -107,7 +107,7 @@ pub(super) fn changed_one(previous: Option<&Playback>, state: &Playback) -> Opti
         .or_else(|| track_feedback(previous, state))
 }
 
-fn same_playback(previous: &Playback, state: &Playback) -> bool {
+pub(super) fn same_playback(previous: &Playback, state: &Playback) -> bool {
     previous.generation == state.generation
         && !matches!(state.phase, Phase::Loading | Phase::Stopped | Phase::Failed)
         && matches!(

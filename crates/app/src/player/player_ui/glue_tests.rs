@@ -1066,7 +1066,8 @@ fn exercise_chapter_metadata_and_hover(
 ) -> Result<(), Box<dyn std::error::Error>> {
     use riina_core::Chapter;
     use riina_ui::{
-        PlaybackTimelineState, PlayerCatalogState, PlayerControlActions, PlayerMusicModeState,
+        PlaybackTimelineState, PlayerCatalogState, PlayerControlActions, PlayerMenuActions,
+        PlayerMusicModeState, PlayerSidebarState,
     };
 
     let app = &harness.app;
@@ -1106,6 +1107,13 @@ fn exercise_chapter_metadata_and_hover(
     assert_eq!(music.get_music_title(), "Opening");
     assert_eq!(music.get_music_artist(), "Guest artist");
     assert_eq!(music.get_music_album(), "Session album");
+    let menu_actions = app.global::<PlayerMenuActions>();
+    let sidebar = app.global::<PlayerSidebarState>();
+    let menu = catalog.get_chapter_menu_rows();
+    let first = menu.row_data(0).unwrap();
+    assert_eq!(first.label, "00:01 – Opening");
+    assert!(first.selected);
+    let rows = catalog.get_chapters();
     music.set_music_mode(true);
     assert_eq!(app.get_window_title(), "Opening");
     assert!(
@@ -1127,17 +1135,64 @@ fn exercise_chapter_metadata_and_hover(
     assert!(timeline.get_timeline_preview_label().is_empty());
     harness.expect_idle();
 
+    menu_actions.invoke_select_item(crate::CatalogSelection::Chapter, first.token.clone());
+    harness.expect(Command::ActivateChapter {
+        index: 0,
+        start: 1.0,
+        notify: false,
+    });
+    menu_actions.invoke_select_chapter_menu(first.token.clone());
+    harness.expect(Command::ActivateChapter {
+        index: 0,
+        start: 1.0,
+        notify: true,
+    });
+
     playback.chapter_index = Some(1);
     playback.chapter_performer = None;
-    harness.publish(playback)?;
+    sidebar.set_chapter_cursor(1);
+    harness.publish(playback.clone())?;
     assert!(
         catalog
             .get_chapters()
             .row_data(1)
             .is_some_and(|row| row.selected)
     );
+    assert!(rows.row_data(1).unwrap().selected);
+    assert!(
+        catalog
+            .get_chapter_menu_rows()
+            .row_data(0)
+            .unwrap()
+            .selected
+    );
+    assert_eq!(sidebar.get_chapter_cursor(), 1);
     assert_eq!(music.get_music_title(), "Recorded session");
     assert_eq!(music.get_music_artist(), "File artist");
+    playback.position = Some(3.0);
+    harness.publish(playback.clone())?;
+    assert!(
+        catalog
+            .get_chapter_menu_rows()
+            .row_data(1)
+            .unwrap()
+            .selected
+    );
+
+    playback.generation += 1;
+    std::sync::Arc::make_mut(&mut playback.chapters)[1].time = 3661.0;
+    harness.publish(playback)?;
+    harness.expect(Command::SetHdrEnabledWithIcc {
+        enabled: false,
+        load_icc_profile: true,
+    });
+    assert_eq!(sidebar.get_chapter_cursor(), -1);
+    assert_eq!(
+        catalog.get_chapter_menu_rows().row_data(0).unwrap().label,
+        "0:00:01 – Opening"
+    );
+    menu_actions.invoke_select_chapter_menu(first.token);
+    harness.expect_idle();
     music.set_music_mode(false);
     Ok(())
 }

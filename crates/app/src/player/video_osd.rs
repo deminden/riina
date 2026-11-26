@@ -174,6 +174,18 @@ impl VideoOsd {
         } else {
             changed_all(self.previous.as_ref(), state)
         };
+        if let Some(previous) = &self.previous
+            && observations::same_playback(previous, state)
+            && let Some(feedback) = &state.chapter_feedback
+            && previous
+                .chapter_feedback
+                .as_ref()
+                .is_none_or(|old| old.sequence != feedback.sequence)
+        {
+            messages.push(action_message(ActionFeedback::Chapter(
+                feedback.title.to_string(),
+            )));
+        }
         for message in &mut messages {
             if message.kind == Kind::Volume && state.volume.is_finite() {
                 message.progress = Some((state.volume / self.volume_limit).clamp(0.0, 1.0) as f32);
@@ -202,8 +214,7 @@ impl VideoOsd {
             loop_playlist: state.loop_playlist.clone(),
             ab_loop_a: state.ab_loop_a,
             ab_loop_b: state.ab_loop_b,
-            position: state.position,
-            chapters: state.chapters.clone(),
+            chapter_feedback: state.chapter_feedback.clone(),
             tracks: state.tracks.clone(),
             audio_delay: state.audio_delay,
             subtitle_delay: state.subtitle_delay,
