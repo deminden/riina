@@ -1,7 +1,7 @@
 //! Recheck historical references without blocking the outline or its window owner.
 use super::outline::path_from_reference;
 pub(super) enum Intent {
-    Single { position: Option<f64> },
+    Single,
     Play,
     PlayInNewWindow,
 }

@@ -143,7 +143,14 @@ impl PlaybackHistoryState {
         let Some(media) = playback.playlist.iter().find(|entry| entry.current) else {
             return;
         };
-        let path = playback_media_url(&media.filename).unwrap_or_else(|| media.filename.clone());
+        let path = if crate::playback_history_store::mpv_url_scheme(&media.filename)
+            .is_some_and(|scheme| !scheme.eq_ignore_ascii_case("file"))
+        {
+            // Even equivalent network URLs can refer to separate mpv resume files.
+            media.filename.clone()
+        } else {
+            playback_media_url(&media.filename).unwrap_or_else(|| media.filename.clone())
+        };
         let observed = (playback.generation, path.clone());
         if self.observed_sessions.get(&session_id) == Some(&observed) {
             // Decoder metadata can arrive after the playable snapshot.

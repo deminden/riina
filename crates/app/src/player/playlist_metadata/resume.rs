@@ -1,7 +1,7 @@
 //! A visible playlist reads saved resume positions from its own profile.
 
 use crate::{PlayerWindow, background, playback_history_store};
-use riina_core::{Playback, PlaylistEntry, sync::lock};
+use riina_core::{FileFeedback, Phase, Playback, PlaylistEntry, sync::lock};
 use slint::ComponentHandle;
 use std::{
     collections::{HashMap, HashSet},
@@ -37,6 +37,26 @@ struct State {
 struct Request {
     filenames: HashSet<String>,
     policy: PathPolicy,
+    playback: PlaybackState,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) struct PlaybackState {
+    generation: u64,
+    loading: bool,
+    stopped: bool,
+}
+
+impl From<&Playback> for PlaybackState {
+    fn from(playback: &Playback) -> Self {
+        // Loading a file can consume its saved position. Replacing or
+        // stopping playback can write the position of the previous file.
+        Self {
+            generation: playback.generation,
+            loading: playback.file_feedback == FileFeedback::Loading,
+            stopped: playback.phase == Phase::Stopped,
+        }
+    }
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -76,10 +96,11 @@ impl Reader {
             state.clear();
             return;
         };
+        let media = PlaybackState::from(playback);
         if state
             .request
             .as_ref()
-            .is_some_and(|previous| previous.policy == policy)
+            .is_some_and(|previous| previous.policy == policy && previous.playback == media)
             && state
                 .playlist
                 .as_ref()
@@ -95,6 +116,7 @@ impl Reader {
                 .map(|entry| entry.filename.clone())
                 .collect(),
             policy,
+            playback: media,
         };
         if state.request.as_deref() == Some(&request) {
             return;
@@ -185,14 +207,18 @@ mod tests {
         let temp = TempDir::new("playlist-resume-positions").unwrap();
         let directory = temp.path();
         let filename = "folder/Video with spaces.mkv";
+        let stream = "https://MEDIA.example:443/play/../video.mkv";
         let path = directory.join(playback_history_store::md5_hex(b"Video with spaces.mkv"));
         std::fs::write(path, "start=7.5\n").unwrap();
+        let stream_path = directory.join(playback_history_store::md5_hex(stream.as_bytes()));
+        std::fs::write(stream_path, "# video.mkv\nstart=15\n").unwrap();
         let request = Arc::new(Request {
-            filenames: HashSet::from([filename.into(), "missing.mkv".into()]),
+            filenames: HashSet::from([filename.into(), stream.into(), "missing.mkv".into()]),
             policy: PathPolicy {
                 ignore_path: true,
                 revision: REVISION.load(Ordering::Acquire),
             },
+            playback: PlaybackState::from(&Playback::default()),
         });
         let shared = Mutex::new(State {
             request: Some(request.clone()),
@@ -206,7 +232,7 @@ mod tests {
         assert!(read_latest(&shared, directory));
         assert_eq!(
             lock(&shared).saved.as_ref().unwrap().1.as_ref(),
-            &Positions::from([(filename.into(), 7.5)])
+            &Positions::from([(filename.into(), 7.5), (stream.into(), 15.0)])
         );
         assert!(!lock(&shared).running);
 
@@ -214,5 +240,31 @@ mod tests {
         state.clear();
         assert!(!state.is_current(&request));
         assert!(state.saved.is_some());
+    }
+
+    #[test]
+    fn the_same_playlist_can_refresh_after_reopening_or_stopping_a_file() {
+        let mut playback = Playback {
+            generation: 1,
+            phase: Phase::Playing,
+            ..Playback::default()
+        };
+        let playing = PlaybackState::from(&playback);
+        playback.position = Some(37.0);
+        playback.phase = Phase::Paused;
+        assert_eq!(PlaybackState::from(&playback), playing);
+        playback.phase = Phase::Stopped;
+        assert_ne!(PlaybackState::from(&playback), playing);
+        playback.phase = Phase::Loading;
+        playback.generation += 1;
+        playback.file_feedback = FileFeedback::Loading;
+        let loading = PlaybackState::from(&playback);
+        assert_ne!(loading, playing);
+        // Slow loads can outlast the playlist timer. Playback restart is
+        // after mpv has finished applying and removing the resume file.
+        playback.phase = Phase::Playing;
+        assert_eq!(PlaybackState::from(&playback), loading);
+        playback.file_feedback = FileFeedback::Restarted(std::time::Instant::now());
+        assert_ne!(PlaybackState::from(&playback), loading);
     }
 }

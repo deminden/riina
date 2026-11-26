@@ -174,7 +174,11 @@ Implementation does not imply every state or platform is verified.
   Playback actions recheck selected files off the interface thread and choose a
   visible destination when the check finishes. Single-row opens honor the
   saved window and resume settings. The row menu is reachable from the keyboard.
-  Saved positions come from mpv's files and refresh when History opens.
+  History and Playlist display saved positions from mpv, including files with
+  the optional filename comment. History keeps the original stream address
+  and refreshes its displayed positions when opened. Playlist refreshes them
+  when media changes or stops. Reopening a history row uses the position mpv
+  finds when it loads the file.
   Clearing saved progress in Utilities updates the open History window and
   preserves its entries.
   Date headings and played-at timestamps use the system locale and local

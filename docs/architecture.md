@@ -240,10 +240,11 @@ playlist withdraws its queued requests and cancels probes that other windows
 no longer need. The current player's observed duration takes precedence.
 Each player reads saved resume positions for its visible playlist in one
 background job. The read uses the profile's watch-later directory and the
-decoder's observed filename policy. Row ordering and playback clock ticks
-leave completed lookups available for the same media. Hiding the playlist
-withdraws pending reads. Clearing saved playback progress invalidates the
-displayed positions and supersedes any read still in flight.
+decoder's observed filename policy. A media change or stop refreshes saved
+positions even when the playlist contains the same files. Row ordering and
+playback clock ticks reuse completed lookups. Hiding the playlist withdraws
+pending reads. Clearing saved playback progress invalidates the displayed
+positions and supersedes any read still in flight.
 Folder discovery also supplies common series filename prefixes to the
 player's playlist. The grouping rules are shared with subtitle matching.
 The row keeps its full title for accessibility and folds the shared part
@@ -382,6 +383,7 @@ the freedesktop file-manager service.
 Playback History stores an optional decoder title beside the media reference.
 Late title and duration observations update the same visit. The outline uses
 media references as selection anchors across group changes and refreshes.
+Stream entries keep the original address for mpv's watch-later filename.
 Moving a file to Trash refreshes availability and keeps its record available
 for separate removal. Clear, remove and trash confirmations belong to the
 History window. It holds one pending action, defaults focus to Cancel and
@@ -491,6 +493,8 @@ Playback History sends selected rows to the current player or to one new player
 according to the chosen action. These actions open an explicit playlist. A
 double-click opens one entry using the saved window and resume preferences and
 shows the stream progress dialog when the entry is a supported stream.
+mpv applies the saved position at load time. The History window reads saved
+positions for display.
 Play in New Window in the playlist menu uses
 the same explicit playlist open. The engine retains the selection policy through
 navigation and appends. Same-folder media discovery skips it until a regular

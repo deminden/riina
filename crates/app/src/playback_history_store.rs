@@ -3,7 +3,8 @@
 use md5::{Digest, Md5};
 use riina_core::playback_history::Entry;
 use serde::{Deserialize, Serialize};
-use std::io::{BufRead, ErrorKind, Read};
+use std::borrow::Cow;
+use std::io::{BufRead, BufReader, ErrorKind, Read};
 use std::path::{Path, PathBuf};
 
 const SCHEMA_VERSION: u32 = 1;
@@ -41,15 +42,32 @@ pub(crate) fn progress_from_watch_later(
             std::fs::File::open(watch_later_path.with_file_name(lowercase))
         })
         .ok()?;
-    const MAX_START_LINE: u64 = 512;
-    let mut first_line = String::new();
-    let bytes = std::io::BufReader::new(file.take(MAX_START_LINE))
-        .read_line(&mut first_line)
+    // mpv can prefix its options with a 1023-byte filename comment. The
+    // truncated name need not be valid UTF-8, but the start value must be.
+    const MAX_FILENAME_LINE: usize = 2 + 1023 + 2;
+    const MAX_START_LINE: usize = 512;
+    let mut reader = BufReader::new(file);
+    let mut line = Vec::new();
+    reader
+        .by_ref()
+        .take((MAX_FILENAME_LINE + 1) as u64)
+        .read_until(b'\n', &mut line)
         .ok()?;
-    if bytes as u64 >= MAX_START_LINE {
+    if line.starts_with(b"# ") {
+        if line.len() > MAX_FILENAME_LINE || !line.ends_with(b"\n") {
+            return None;
+        }
+        line.clear();
+        reader
+            .take(MAX_START_LINE as u64)
+            .read_until(b'\n', &mut line)
+            .ok()?;
+    }
+    if line.len() >= MAX_START_LINE {
         return None;
     }
-    let value = first_line
+    let value = std::str::from_utf8(&line)
+        .ok()?
         .trim_end_matches(['\r', '\n'])
         .strip_prefix("start=")?
         .parse::<f64>()
@@ -62,32 +80,32 @@ fn watch_later_file_path(
     watch_later_directory: &Path,
     ignore_path: bool,
 ) -> Option<PathBuf> {
-    let is_windows_drive_path = media_reference.as_bytes().get(1) == Some(&b':')
-        && media_reference
-            .as_bytes()
-            .first()
-            .is_some_and(u8::is_ascii_alphabetic)
-        && matches!(media_reference.as_bytes().get(2), Some(b'/') | Some(b'\\'));
-
-    let identifier = if !is_windows_drive_path {
-        match url::Url::parse(media_reference) {
-            Ok(url) if url.scheme() == "file" => {
-                let path = url.to_file_path().ok()?;
-                if ignore_path {
-                    path.file_name()?.to_string_lossy().into_owned()
-                } else {
-                    // The Windows engine hashes its native backslash spelling.
-                    // Decode history URLs back to that path before hashing.
-                    path.to_string_lossy().into_owned()
-                }
-            }
-            Ok(url) => url.as_str().to_owned(),
-            Err(_) => local_path_identifier(media_reference, ignore_path)?,
-        }
+    let identifier = if media_reference
+        .split_once(':')
+        .is_some_and(|(scheme, _)| scheme.eq_ignore_ascii_case("file"))
+    {
+        // History archives can store local entries as file URLs. Decode them
+        // to the native path, including the Windows engine's backslashes.
+        let path = url::Url::parse(media_reference)
+            .ok()
+            .and_then(|url| url.to_file_path().ok())
+            .or_else(|| crate::file_actions::local_media_path(media_reference))?;
+        Cow::Owned(local_path_identifier(path.to_str()?, ignore_path)?.to_owned())
+    } else if mpv_url_scheme(media_reference).is_some() {
+        Cow::Borrowed(media_reference)
     } else {
-        local_path_identifier(media_reference, ignore_path)?
+        Cow::Borrowed(local_path_identifier(media_reference, ignore_path)?)
     };
     Some(watch_later_directory.join(md5_hex(identifier.as_bytes()).to_ascii_uppercase()))
+}
+
+pub(super) fn mpv_url_scheme(reference: &str) -> Option<&str> {
+    let (scheme, _) = reference.split_once("://")?;
+    let mut bytes = scheme.bytes();
+    bytes.next().filter(u8::is_ascii_alphabetic)?;
+    bytes
+        .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'-' | b'+'))
+        .then_some(scheme)
 }
 
 pub(crate) fn md5_hex(input: &[u8]) -> String {
@@ -97,12 +115,11 @@ pub(crate) fn md5_hex(input: &[u8]) -> String {
         .collect()
 }
 
-fn local_path_identifier(media_reference: &str, ignore_path: bool) -> Option<String> {
-    let path = Path::new(media_reference);
+fn local_path_identifier(media_reference: &str, ignore_path: bool) -> Option<&str> {
     if ignore_path {
-        Some(path.file_name()?.to_string_lossy().into_owned())
+        Path::new(media_reference).file_name()?.to_str()
     } else {
-        Some(media_reference.to_owned())
+        Some(media_reference)
     }
 }
 
@@ -198,14 +215,22 @@ mod tests {
             "5D41402ABC4B2A76B9719D911017C592"
         );
 
-        let remote =
-            watch_later_file_path("https://media.example/video.mkv", &directory, true).unwrap();
-        let expected = md5_hex(b"https://media.example/video.mkv").to_ascii_uppercase();
-        assert_eq!(remote.file_name().unwrap().to_string_lossy(), expected);
+        let address = "https://MEDIA.example:443/play/../video.mkv?key=a%2Fb";
+        for ignore_path in [false, true] {
+            let remote = watch_later_file_path(address, &directory, ignore_path).unwrap();
+            let expected = md5_hex(address.as_bytes()).to_ascii_uppercase();
+            assert_eq!(remote.file_name().unwrap().to_string_lossy(), expected);
+        }
 
         let first = watch_later_file_path("folder-a/video.mkv", &directory, true).unwrap();
         let second = watch_later_file_path("folder-b/video.mkv", &directory, true).unwrap();
         assert_eq!(first, second);
+
+        #[cfg(unix)]
+        assert_eq!(
+            watch_later_file_path("Folder: Disc/video.mkv", &directory, true),
+            Some(first)
+        );
     }
 
     #[cfg(target_os = "windows")]
@@ -228,7 +253,7 @@ mod tests {
     }
 
     #[test]
-    fn watch_later_progress_reads_only_a_valid_start_value_from_the_first_line() {
+    fn watch_later_progress_reads_the_leading_start_with_or_without_a_filename_comment() {
         let temp = TempDir::new("riina-watch-later").unwrap();
         let directory = temp.path();
         let media = "https://media.example/video.mkv";
@@ -240,11 +265,28 @@ mod tests {
             Some(42.25)
         );
 
-        for invalid in ["volume=30\nstart=42.25\n", "start=NaN\n", "start=-1\n"] {
+        let mut with_comment = b"# ".to_vec();
+        with_comment.extend([0xc3; 1023]);
+        with_comment.extend(b"\r\nstart=36.75\r\n");
+        std::fs::write(&file, with_comment).unwrap();
+        assert_eq!(
+            progress_from_watch_later(media, directory, false),
+            Some(36.75)
+        );
+
+        for invalid in [
+            "volume=30\nstart=42.25\n",
+            "# movie.mkv\nvolume=30\nstart=42.25\n",
+            "# redirect entry\n# movie.mkv\n",
+            "start=NaN\n",
+            "start=-1\n",
+        ] {
             std::fs::write(&file, invalid).unwrap();
             assert_eq!(progress_from_watch_later(media, directory, false), None);
         }
         std::fs::write(&file, format!("start={}\n", "0".repeat(600))).unwrap();
+        assert_eq!(progress_from_watch_later(media, directory, false), None);
+        std::fs::write(&file, format!("# {}\nstart=40\n", "x".repeat(1025))).unwrap();
         assert_eq!(progress_from_watch_later(media, directory, false), None);
     }
 }

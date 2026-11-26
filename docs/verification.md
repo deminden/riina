@@ -6798,3 +6798,18 @@ ended, and no Riina instance remained.
 
 - Windows application SHA-256 `a134460093675f014d625d1bb13589dc9e9a02106a7ce0f909a1ed6896ebe893`
 - Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
+
+### Saved positions in History and Playlist (2026-11-26)
+
+The native Windows resume test used the pinned libmpv with null output.
+Stopping playback wrote a filename comment and a saved position. Reopening
+restored that position with resume enabled. Disabling resume prevented the
+save and started playback from the beginning. All 75 null-output engine tests
+passed in 10.99 seconds.
+
+The locked Windows workspace build and full source gate passed, including
+strict Clippy and 718 application unit tests. The group covers stream address
+identity, legacy Windows file URL decoding, bounded filename comments and
+playlist refresh after a load or stop. Strict workspace cross-Clippy passed
+for Apple Silicon and Intel. All 26 focused Linux tests passed. Desktop and
+native macOS checks for these changes remain open.

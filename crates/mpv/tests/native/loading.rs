@@ -265,6 +265,10 @@ fn resume_last_position_saves_on_stop_and_restores_only_when_enabled() {
             ),
             ("save-position-on-quit".to_owned(), value.clone()),
             ("resume-playback".to_owned(), value),
+            (
+                "write-filename-in-watch-later-config".to_owned(),
+                "yes".to_owned(),
+            ),
         ]
     };
 
@@ -283,8 +287,15 @@ fn resume_last_position_saves_on_stop_and_restores_only_when_enabled() {
         .map(|entry| entry.unwrap().path())
         .collect();
     assert!(
-        !saved_entries.is_empty(),
-        "explicit Stop must write a watch-later file before the player is dropped"
+        saved_entries.iter().any(|path| {
+            let bytes = std::fs::read(path).unwrap();
+            let mut lines = bytes.split(|byte| *byte == b'\n');
+            lines
+                .next()
+                .is_some_and(|line| line.starts_with(b"# ") && line.ends_with(b"catalog.mkv"))
+                && lines.next().is_some_and(|line| line.starts_with(b"start="))
+        }),
+        "explicit Stop must write a filename comment followed by the position"
     );
     drop(player);
 

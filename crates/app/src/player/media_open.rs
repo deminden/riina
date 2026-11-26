@@ -62,14 +62,11 @@ pub(crate) fn history_entry(
     app: &PlayerWindow,
     display: &PlayerDisplay,
     path: &str,
-    position: Option<f64>,
     sender: CommandSender,
 ) -> Result<(), String> {
-    let resume = app
-        .global::<riina_ui::PlayerPreferences>()
-        .get_resume_last_position();
-    let position = position.filter(|value| resume && value.is_finite() && *value >= 0.0);
-    if open_single_in_separate_player(app, path, position)? {
+    // The history row is a cached display. Load normally so mpv applies its
+    // current saved position and resume preference for the destination player.
+    if open_single_in_separate_player(app, path, None)? {
         return Ok(());
     }
     display.reveal(app).map_err(|error| error.to_string())?;
@@ -78,12 +75,12 @@ pub(crate) fn history_entry(
     if let Ok(address) = validate_url(path)
         && let Some(opening) = observer.and_then(ObserverId::open_url)
     {
-        return opening.open_initial_stream(app, &sender, address, position);
+        return opening.open_initial_stream(app, &sender, address, None);
     }
     selection_at(
         app,
         vec![path.to_owned()],
-        position,
+        None,
         sender,
         SelectionSource::Startup,
         observer,

@@ -72,7 +72,7 @@ fn a_failed_history_batch_keeps_every_row_and_revision() {
 #[test]
 fn playback_history_records_a_loaded_media_once_per_generation() {
     let mut state = PlaybackHistoryState::default();
-    let media = "https://media.example/sample.mp4";
+    let media = "https://MEDIA.example:443/play/../sample.mp4?key=a%2Fb";
     let mut playback = Playback {
         generation: 1,
         phase: Phase::Playing,

@@ -302,13 +302,9 @@ impl ApplicationHistory {
             && let Some((app, route)) = self.history_destination()
         {
             let result = match intent {
-                Intent::Single { position } => crate::media_open::history_entry(
-                    &app,
-                    &route.display,
-                    &paths[0],
-                    position,
-                    route.player,
-                ),
+                Intent::Single => {
+                    crate::media_open::history_entry(&app, &route.display, &paths[0], route.player)
+                }
                 _ => crate::media_open::history_playlist(&app, &route.display, paths, route.player),
             };
             if let Err(error) = result {
@@ -320,17 +316,13 @@ impl ApplicationHistory {
             return;
         }
 
-        match intent {
-            Intent::Single { position } => self.launch_from_history(window, paths, position, false),
-            _ => self.launch_from_history(window, paths, None, true),
-        }
+        self.launch_from_history(window, paths, !matches!(intent, Intent::Single));
     }
 
     fn launch_from_history(
         &self,
         window: &PlaybackHistoryWindow,
         paths: Vec<String>,
-        resume_position: Option<f64>,
         explicit_playlist: bool,
     ) {
         let launch = self
@@ -339,7 +331,6 @@ impl ApplicationHistory {
             .ok_or_else(|| "Riina is closing".to_owned());
         let media = InitialMedia {
             files: paths.into_iter().map(Into::into).collect(),
-            resume_position,
             explicit_playlist,
             ..InitialMedia::default()
         };
@@ -591,7 +582,7 @@ mod tests {
         owner.dispatch_open(
             &history,
             vec!["three.mkv".into()],
-            open_request::Intent::Single { position: None },
+            open_request::Intent::Single,
         );
         assert!(launches.borrow()[1].resume_position.is_none());
         assert!(!launches.borrow()[1].explicit_playlist);

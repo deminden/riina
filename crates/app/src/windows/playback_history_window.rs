@@ -116,12 +116,11 @@ fn connect_open_entry(window: &PlaybackHistoryWindow, connection: &WindowConnect
             return;
         }
         let path = path.to_string();
-        let Some(position) = riina_core::sync::lock(&context.archive.history)
+        if !riina_core::sync::lock(&context.archive.history)
             .entries()
             .iter()
-            .find(|entry| entry.path == path)
-            .map(|entry| entry.progress)
-        else {
+            .any(|entry| entry.path == path)
+        {
             return;
         };
         if window
@@ -129,11 +128,7 @@ fn connect_open_entry(window: &PlaybackHistoryWindow, connection: &WindowConnect
             .iter()
             .any(|row| row.path.as_str() == path && row.available)
         {
-            owner.request_open(
-                &window,
-                vec![path],
-                open_request::Intent::Single { position },
-            );
+            owner.request_open(&window, vec![path], open_request::Intent::Single);
         }
     });
 }
