@@ -6434,3 +6434,32 @@ macOS operation and live responses from the subtitle services remain open.
 - Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
 - Linux application SHA-256 `e0c9cd06458548708f1d6c6453c9d825d3ab9e9930925c76b9b65f36f01920ba`
 - Linux libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`
+
+### X11 media link and file drops (2026-11-26)
+
+The locked Linux application build and strict application Clippy passed.
+Five focused tests covered URI and plain-text parsing, and the separate
+player and Welcome routes. On isolated X11 desktops, real GTK text drags
+opened a paused loopback stream
+from Welcome and inserted a stream URL in the visible playlist without
+changing its active item. An Xdnd client canceled one selection and sent
+two URI-list files in a second incremental transfer. Release preceded
+completion, and the files arrived in order, including the Unicode filename.
+Holding a file at the right edge revealed the temporary playlist and let the
+user insert the file without resuming playback.
+
+An expired selection was rejected without changing the playlist. GTK then
+dropped a plain-text stream URL and an escaped local file URI onto the video.
+Both played in the receiving window with the default multi-window setting.
+The window kept playback paused and closed normally after the second drop.
+
+The same Linux build passed a native Wayland regression. A GTK source
+inserted two files at row 27 in a scrolled playlist, leaving its active
+item paused. The Linux test players exited normally.
+
+The locked Windows workspace build, full source gate and all 72 native
+playback tests passed. Locked workspace source checks passed for Apple
+Silicon and Intel.
+
+- Linux application SHA-256 `55b92d7b6b7fe63037d277d7fac233186cf0e792f87909114cda781390c50cc6`
+- Linux libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`

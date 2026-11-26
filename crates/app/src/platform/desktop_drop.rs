@@ -9,23 +9,32 @@ use std::{
 use super::macos::file_drop as native;
 #[cfg(target_os = "linux")]
 use super::wayland_drop as native;
+#[cfg(target_os = "linux")]
+mod x11;
 #[cfg(target_os = "windows")]
 use super::windows::file_drop as native;
 
-pub(crate) struct Registration(native::Registration);
+pub(crate) struct Registration {
+    native: native::Registration,
+    #[cfg(target_os = "linux")]
+    x11: x11::Registration,
+}
 
 impl Registration {
     pub(crate) fn attach(&self, window: &Window) {
         #[cfg(any(target_os = "macos", target_os = "windows"))]
-        self.0.attach(window);
+        self.native.attach(window);
         #[cfg(target_os = "linux")]
-        let _ = (&self.0, window);
+        {
+            let _ = &self.native;
+            self.x11.attach(window);
+        }
     }
 
     pub(crate) fn attach_owner(&self, owner: Option<Weak<crate::NativeVideoHost>>) {
         #[cfg(target_os = "windows")]
         if let Some(owner) = owner.and_then(|owner| owner.upgrade()) {
-            self.0.attach_owner(owner.window());
+            self.native.attach_owner(owner.window());
         }
         #[cfg(not(target_os = "windows"))]
         let _ = owner;
@@ -37,7 +46,29 @@ pub(crate) fn register<T: ComponentHandle + 'static>(
     hover: impl Fn(Hover) + 'static,
     capture: impl Fn(LogicalPosition) -> Option<OpenDrop> + 'static,
 ) -> Registration {
-    Registration(native::register(window, hover, capture))
+    #[cfg(target_os = "linux")]
+    {
+        let hover = std::rc::Rc::new(hover);
+        let capture = std::rc::Rc::new(capture);
+        let native_hover = hover.clone();
+        let native_capture = capture.clone();
+        Registration {
+            native: native::register(
+                window,
+                move |event| native_hover(event),
+                move |position| native_capture(position),
+            ),
+            x11: x11::Registration::new(
+                window,
+                move |event| hover(event),
+                move |position| capture(position),
+            ),
+        }
+    }
+    #[cfg(not(target_os = "linux"))]
+    Registration {
+        native: native::register(window, hover, capture),
+    }
 }
 
 pub(crate) enum Hover {

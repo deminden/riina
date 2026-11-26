@@ -25,6 +25,10 @@ Implementation does not imply every state or platform is verified.
 - **Playback:** files, folders and URLs; play/pause, seeking, volume/mute, speed,
   frame stepping, loops, chapters, playlist editing, history and resume.
   Pause When Open also applies when the playlist automatically advances.
+- **Desktop drops** open media in the receiving player or insert it at the
+  captured playlist position. Welcome and the File menu follow the
+  window-opening preferences. On Linux, X11 and Wayland accept media URLs,
+  URI lists and supported local paths.
 - **macOS Touch Bar:** the player defines customizable native playback controls,
   time displays, and a scrubber with cached thumbnails. The second clock has
   its own saved mode. AppKit supplies the customization menu on supported Macs.

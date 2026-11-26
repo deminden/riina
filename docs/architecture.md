@@ -274,9 +274,18 @@ queues media commands on Slint's event loop.
 [Win32 drop-target interface](https://learn.microsoft.com/en-us/windows/win32/api/oleidl/nn-oleidl-idroptarget)
 
 The player and Welcome window bind desktop drops through the same platform
-registration. It attaches the correct native windows on Windows or macOS.
-On Wayland it retains the protocol route, and on X11 Winit continues to deliver
-file events through the shared window callback.
+registration. It attaches the correct native windows on Windows or macOS and
+retains the Wayland data-device route. On X11, an Xdnd proxy receives URI lists
+and plain-text references. A separate X11 connection reads direct and
+incremental selections. Each offer owns a requestor window, so cancellation
+retires replies before the next drag. The UI captures the playlist insertion
+gap at release, including when transfer completion arrives later. Winit still
+handles file events sent directly to its window.
+[Xdnd protocol](https://www.freedesktop.org/specifications/xdnd/)
+
+A video drop opens media in the player that received the event. Welcome and
+the File menu use the application-level window-opening policy. This follows
+the video and initial-window drop routes in the pinned IINA source.
 
 The main sidebar and Music Mode share playlist row gestures and insertion
 geometry. An active row drag retains its pointer in window coordinates, so the

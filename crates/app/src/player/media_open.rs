@@ -616,14 +616,9 @@ fn prepare_selection(
     };
     if !append
         && resume_position.is_none()
-        && matches!(
-            source,
-            SelectionSource::Interactive { .. } | SelectionSource::DesktopDrop
-        )
-        && subtitles.is_empty()
+        && let SelectionSource::Interactive { alternative } = source
     {
         let prefs = preferences_for_open()?;
-        let alternative = matches!(source, SelectionSource::Interactive { alternative: true });
         if prefs.allow_multiple_windows != alternative {
             let players = prepare_new_players(paths, &prefs, &cancelled)?;
             return if players.is_empty() {
@@ -943,6 +938,28 @@ mod tests {
         assert_eq!(player.paths, expected);
         assert!(player.explicit_playlist);
         assert!(player.duplicate_reference.is_none());
+    }
+
+    #[test]
+    fn a_player_surface_drop_opens_files_and_links_in_its_own_session() {
+        use super::{PreparedSelection, SelectionSource, prepare_selection};
+
+        for paths in [
+            vec!["Café 2.mkv".to_owned()],
+            vec!["https://example.test/live".to_owned()],
+            vec!["Café 2.mkv".to_owned(), "Café 10.mkv".to_owned()],
+        ] {
+            let result = prepare_selection(
+                paths.clone(),
+                false,
+                None,
+                SelectionSource::DesktopDrop,
+                || false,
+            );
+            assert!(
+                matches!(result, Ok(PreparedSelection::Command(Command::OpenFiles(open))) if open == paths)
+            );
+        }
     }
 
     #[test]

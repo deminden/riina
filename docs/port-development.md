@@ -37,9 +37,10 @@ can hide those detection markers inside the test's private mount namespace.
 Record the actual surface protocol when reporting Wayland results.
 
 Native file drops in the player, Welcome window and playlist have X11 and
-Wayland desktop evidence. Wayland also accepts plain-text media URLs.
+Wayland desktop evidence. Both receivers accept plain-text media URLs.
 [X11 playlist drop checks](verification.md#files-dropped-into-the-playlist-2026-11-23),
-[Wayland drop checks](verification.md#wayland-file-and-url-drops-2026-11-23)
+[Wayland drop checks](verification.md#wayland-file-and-url-drops-2026-11-23),
+[X11 link and selection checks](verification.md#x11-media-link-and-file-drops-2026-11-26)
 
 Playlist clipboard editing has [X11 and Wayland desktop evidence](verification.md#x11-playlist-clipboard-formats-2026-11-25).
 Local file selections offer `text/uri-list` and plain text on X11 and on
