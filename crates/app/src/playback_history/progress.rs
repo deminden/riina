@@ -1,7 +1,7 @@
 //! Read mpv's saved positions without blocking playback or the History window.
 use super::{PlaybackHistoryState, SHARED_PLAYBACK_HISTORIES};
 use crate::{background, playback_history_store};
-use riina_core::sync::lock;
+use riina_core::{playback_history::WatchLaterKey, sync::lock};
 use std::{
     collections::{HashMap, HashSet},
     path::Path,
@@ -21,6 +21,10 @@ pub(super) struct Refresh {
 }
 
 impl Refresh {
+    pub(super) fn path_policy(&self) -> bool {
+        self.observed_policy.unwrap_or(self.configured_policy)
+    }
+
     pub(super) fn cancel(&mut self) {
         self.epoch = self.epoch.wrapping_add(1);
         self.pending = false;
@@ -75,6 +79,13 @@ fn request(archive: &Archive, reason: RefreshReason) -> Option<background::TaskH
                 return None;
             }
             refresh.observed_policy = Some(ignore_path);
+            if state
+                .entries
+                .iter()
+                .all(|entry| entry.watch_later_key.is_some())
+            {
+                return None;
+            }
         }
         RefreshReason::Open => {}
         RefreshReason::FilesCleared { all_removed: true } => {
@@ -110,13 +121,20 @@ fn request(archive: &Archive, reason: RefreshReason) -> Option<background::TaskH
 fn run(archive: &Archive, directory: &Path) {
     while let Some(scan) = Scan::take(archive) {
         let mut positions = HashMap::new();
-        for chunk in scan.paths.chunks(64) {
+        let mut saved_positions = HashMap::new();
+        for chunk in scan.entries.chunks(64) {
             if lock(archive).progress.epoch != scan.epoch {
                 break;
             }
-            for path in chunk {
-                let position =
-                    playback_history_store::progress_from_watch_later(path, directory, scan.policy);
+            for (path, recorded_key) in chunk {
+                let key = recorded_key.clone().or_else(|| {
+                    playback_history_store::watch_later_key(path, scan.legacy_ignore_path)
+                });
+                let position = key.and_then(|key| {
+                    *saved_positions.entry(key.clone()).or_insert_with(|| {
+                        playback_history_store::progress_for_key(&key, directory)
+                    })
+                });
                 positions.insert(path.as_str(), position);
             }
         }
@@ -126,8 +144,8 @@ fn run(archive: &Archive, directory: &Path) {
 
 struct Scan {
     epoch: u64,
-    policy: bool,
-    paths: Vec<String>,
+    legacy_ignore_path: bool,
+    entries: Vec<(String, Option<WatchLaterKey>)>,
 }
 
 impl Scan {
@@ -141,11 +159,11 @@ impl Scan {
         refresh.replaced.clear();
         Some(Self {
             epoch: refresh.epoch,
-            policy: refresh.observed_policy.unwrap_or(refresh.configured_policy),
-            paths: state
+            legacy_ignore_path: refresh.path_policy(),
+            entries: state
                 .entries
                 .iter()
-                .map(|entry| entry.path.clone())
+                .map(|entry| (entry.path.clone(), entry.watch_later_key.clone()))
                 .collect(),
         })
     }
@@ -195,6 +213,7 @@ mod tests {
         Entry {
             path,
             title: None,
+            watch_later_key: None,
             date_ms: 1,
             progress: Some(99.0),
             duration: 90.0,
@@ -249,6 +268,38 @@ mod tests {
             playback_history_store::load(&archive_path, &[]).unwrap(),
             history
         );
+    }
+
+    #[test]
+    fn changing_the_path_policy_only_reinterprets_legacy_history_rows() {
+        let temp = TempDir::new("history-keyed-progress").unwrap();
+        let directory = temp.path();
+        let media = directory.join("movie.mp4");
+        let media = media.to_str().unwrap();
+        let key = playback_history_store::watch_later_key(media, true).unwrap();
+        let full_key = playback_history_store::watch_later_key(media, false).unwrap();
+        std::fs::write(directory.join(key.as_str()), "start=12\n").unwrap();
+        std::fs::write(directory.join(full_key.as_str()), "start=34\n").unwrap();
+
+        let old = entry(media.into());
+        let recorded = Entry {
+            watch_later_key: Some(key),
+            ..entry(directory.join("moved/movie.mp4").to_str().unwrap().into())
+        };
+        let archive = Arc::new(Mutex::new(PlaybackHistoryState::with_persistence(
+            vec![old, recorded],
+            None,
+            Some(directory.into()),
+        )));
+        for (ignore_path, legacy_position) in [(true, 12.0), (false, 34.0)] {
+            request(&archive, RefreshReason::Observed { ignore_path })
+                .unwrap()
+                .join()
+                .unwrap();
+            let history = lock(&archive);
+            assert_eq!(history.entries()[0].progress, Some(legacy_position));
+            assert_eq!(history.entries()[1].progress, Some(12.0));
+        }
     }
 
     #[test]

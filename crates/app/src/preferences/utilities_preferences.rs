@@ -397,6 +397,7 @@ mod tests {
             playback_history: vec![riina_core::playback_history::Entry {
                 path: "file:///C:/media/movie.mkv".into(),
                 title: None,
+                watch_later_key: None,
                 date_ms: 1_750_000_000_000,
                 progress: Some(12.0),
                 duration: 90.0,

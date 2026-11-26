@@ -6837,3 +6837,20 @@ final changes passed on Apple Silicon and Intel. Native macOS and Wayland
 layout restoration still need desktop verification.
 
 - Windows application SHA-256 `3e86dbbb851f4ea2281f36f80fb319113a34beb212b21569aa7202dd22e3c9f7`
+
+### Playback History resume identity (2026-11-26)
+
+The Windows workspace source gate passed with strict Clippy and 724 application
+unit tests. The History group covers matching local filenames under both
+engine policies, restoring older archive rows, retaining saved keys across
+policy changes, and keeping competing player observations on their own visits.
+Plugin history continues to expose its established fields.
+
+All 75 native Windows playback engine tests passed in 12.10 seconds. The resume
+test checked the basename-derived file and its optional filename comment. It
+then reopened the media from another directory and resumed the saved position.
+
+The locked Windows workspace build, 35 focused Linux application tests, and
+strict workspace cross-Clippy for both Apple architectures passed. The new
+reader accepts archives without resume keys. Entries saved with a key require
+the updated reader.

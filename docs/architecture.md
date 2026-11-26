@@ -381,9 +381,15 @@ can advance to a remaining item. Reveal groups items for Explorer, Finder or
 the freedesktop file-manager service.
 
 Playback History stores an optional decoder title beside the media reference.
-Late title and duration observations update the same visit. The outline uses
-media references as selection anchors across group changes and refreshes.
-Stream entries keep the original address for mpv's watch-later filename.
+Late title and duration observations belong to the active decoder and its
+recorded visit. Replaying the same media in another window retires the older
+visit's metadata updates. The outline uses media references as selection
+anchors across group changes and refreshes.
+Each new entry keeps the resume filename chosen by mpv at the time of playback.
+Matching keys replace earlier visits and read the same saved position after a
+path-policy change. Stream keys preserve the original address. Entries from
+older archives derive the filename from the current policy when read. A scan
+reads each saved position file at most once.
 Moving a file to Trash refreshes availability and keeps its record available
 for separate removal. Clear, remove and trash confirmations belong to the
 History window. It holds one pending action, defaults focus to Cancel and

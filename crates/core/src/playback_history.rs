@@ -8,10 +8,45 @@ pub struct Entry {
     pub path: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub title: Option<String>,
+    /// The resume filename chosen by mpv's policy when this media was played.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub watch_later_key: Option<WatchLaterKey>,
     /// Unix epoch milliseconds, matching the JavaScript `Date` value exposed to plugins.
     pub date_ms: u64,
     pub progress: Option<f64>,
     pub duration: f64,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(try_from = "String")]
+pub struct WatchLaterKey(String);
+
+impl WatchLaterKey {
+    pub fn from_digest(digest: [u8; 16]) -> Self {
+        const HEX: &[u8; 16] = b"0123456789ABCDEF";
+        let mut key = String::with_capacity(32);
+        for byte in digest {
+            key.push(char::from(HEX[usize::from(byte >> 4)]));
+            key.push(char::from(HEX[usize::from(byte & 0xf)]));
+        }
+        Self(key)
+    }
+
+    pub fn as_str(&self) -> &str {
+        &self.0
+    }
+}
+
+impl TryFrom<String> for WatchLaterKey {
+    type Error = &'static str;
+
+    fn try_from(mut value: String) -> Result<Self, Self::Error> {
+        if value.len() != 32 || !value.bytes().all(|byte| byte.is_ascii_hexdigit()) {
+            return Err("invalid watch-later key");
+        }
+        value.make_ascii_uppercase();
+        Ok(Self(value))
+    }
 }
 
 impl Entry {
@@ -41,6 +76,7 @@ mod tests {
         let first = Entry {
             path: "clip.mkv".into(),
             title: Some("A Clip".into()),
+            watch_later_key: Some(WatchLaterKey::from_digest([0xab; 16])),
             date_ms: 10,
             progress: Some(3.5),
             duration: 12.0,
@@ -48,6 +84,7 @@ mod tests {
         let second = Entry {
             path: "other.mkv".into(),
             title: None,
+            watch_later_key: None,
             date_ms: 11,
             progress: None,
             duration: 0.0,
@@ -80,6 +117,7 @@ mod tests {
             let entry = Entry {
                 path: path.into(),
                 title: None,
+                watch_later_key: None,
                 date_ms: 1,
                 progress,
                 duration,

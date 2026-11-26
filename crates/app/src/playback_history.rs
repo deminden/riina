@@ -1,7 +1,8 @@
 //! Application-owned playback history, shared across player windows.
 pub(crate) mod progress;
 
-use riina_core::{Phase, Playback};
+use crate::playback_history_store;
+use riina_core::{Phase, Playback, playback_history::Entry};
 use std::{
     collections::{HashMap, HashSet},
     path::{Path, PathBuf},
@@ -26,7 +27,7 @@ pub(crate) fn next_history_session_id() -> u64 {
 
 pub(crate) fn shared_playback_history_state(
     key: PathBuf,
-    entries: Vec<riina_core::playback_history::Entry>,
+    entries: Vec<Entry>,
     persistence_path: Option<PathBuf>,
     watch_later_directory: Option<PathBuf>,
 ) -> Arc<Mutex<PlaybackHistoryState>> {
@@ -59,18 +60,27 @@ pub(crate) fn shared_history_merge_flag(preferences_path: &Path) -> Arc<AtomicBo
 
 #[derive(Debug, Default)]
 pub(crate) struct PlaybackHistoryState {
-    entries: Vec<riina_core::playback_history::Entry>,
+    entries: Vec<Entry>,
     revision: u64,
-    observed_sessions: HashMap<u64, (u64, String)>,
+    observed_sessions: HashMap<u64, Visit>,
     persistence_path: Option<PathBuf>,
     watch_later_directory: Option<PathBuf>,
     progress: progress::Refresh,
     persistence_error: Option<String>,
 }
 
+#[derive(Debug)]
+struct Visit {
+    generation: u64,
+    filename: String,
+    recorded_path: Option<String>,
+    duration: Option<f64>,
+    title: String,
+}
+
 impl PlaybackHistoryState {
     pub(crate) fn with_persistence(
-        mut entries: Vec<riina_core::playback_history::Entry>,
+        mut entries: Vec<Entry>,
         path: Option<PathBuf>,
         watch_later_directory: Option<PathBuf>,
     ) -> Self {
@@ -91,7 +101,7 @@ impl PlaybackHistoryState {
         }
     }
 
-    pub(crate) fn entries(&self) -> &[riina_core::playback_history::Entry] {
+    pub(crate) fn entries(&self) -> &[Entry] {
         &self.entries
     }
 
@@ -105,6 +115,9 @@ impl PlaybackHistoryState {
 
     pub(crate) fn clear(&mut self) {
         self.entries.clear();
+        for visit in self.observed_sessions.values_mut() {
+            visit.recorded_path = None;
+        }
         self.progress.cancel();
         self.revision = self.revision.wrapping_add(1);
     }
@@ -121,7 +134,7 @@ impl PlaybackHistoryState {
             return Ok(0);
         }
         if let Some(persistence_path) = &self.persistence_path {
-            crate::playback_history_store::save(persistence_path, &retained)?;
+            playback_history_store::save(persistence_path, &retained)?;
         }
         self.entries = retained;
         self.revision = self.revision.wrapping_add(1);
@@ -132,6 +145,10 @@ impl PlaybackHistoryState {
         self.persistence_error.take()
     }
 
+    pub(crate) fn release_session(&mut self, session_id: u64) {
+        self.observed_sessions.remove(&session_id);
+    }
+
     pub(crate) fn observe(&mut self, session_id: u64, playback: &Playback, record_history: bool) {
         if !matches!(
             playback.phase,
@@ -140,32 +157,36 @@ impl PlaybackHistoryState {
         {
             return;
         }
-        let Some(media) = playback.playlist.iter().find(|entry| entry.current) else {
+        let Some(media) = playback.playlist.iter().find(|entry| {
+            playback
+                .active_playlist_entry
+                .map_or(entry.current, |id| entry.id == id)
+        }) else {
             return;
         };
-        let path = if crate::playback_history_store::mpv_url_scheme(&media.filename)
-            .is_some_and(|scheme| !scheme.eq_ignore_ascii_case("file"))
+        let duration = playback
+            .duration
+            .filter(|value| value.is_finite() && *value > 0.0);
+        if let Some(visit) = self.observed_sessions.get_mut(&session_id)
+            && visit.generation == playback.generation
+            && visit.filename == media.filename
         {
-            // Even equivalent network URLs can refer to separate mpv resume files.
-            media.filename.clone()
-        } else {
-            playback_media_url(&media.filename).unwrap_or_else(|| media.filename.clone())
-        };
-        let observed = (playback.generation, path.clone());
-        if self.observed_sessions.get(&session_id) == Some(&observed) {
-            // Decoder metadata can arrive after the playable snapshot.
-            if record_history
-                && let Some(entry) = self.entries.iter_mut().find(|entry| entry.path == path)
-            {
-                let duration = playback
-                    .duration
-                    .filter(|value| value.is_finite() && *value > 0.0)
-                    .unwrap_or(entry.duration);
-                let title = entry
-                    .title
-                    .is_none()
-                    .then(|| playback_history_title(playback, &media.filename))
-                    .flatten();
+            let Some(path) = visit.recorded_path.as_deref().filter(|_| record_history) else {
+                return;
+            };
+            if visit.duration == duration && visit.title == playback.title {
+                return;
+            }
+            // Decoder metadata can arrive after the first playable snapshot.
+            visit.duration = duration;
+            visit.title.clone_from(&playback.title);
+            if let Some(entry) = self.entries.iter_mut().find(|entry| entry.path == path) {
+                let duration = duration.unwrap_or(entry.duration);
+                let title = if entry.title.is_none() {
+                    playback_history_title(playback, &media.filename)
+                } else {
+                    None
+                };
                 if entry.duration != duration || title.is_some() {
                     entry.duration = duration;
                     if let Some(title) = title {
@@ -176,30 +197,53 @@ impl PlaybackHistoryState {
             }
             return;
         }
-        self.observed_sessions.insert(session_id, observed);
-        if !record_history {
-            return;
+        let recorded_path = record_history.then(|| history_path(&media.filename));
+        if let Some(path) = &recorded_path {
+            for visit in self.observed_sessions.values_mut() {
+                if visit.recorded_path.as_ref() == Some(path) {
+                    visit.recorded_path = None;
+                }
+            }
         }
-        let duration = playback
-            .duration
-            .filter(|duration| duration.is_finite() && *duration >= 0.0)
-            .unwrap_or(0.0);
+        self.observed_sessions.insert(
+            session_id,
+            Visit {
+                generation: playback.generation,
+                filename: media.filename.clone(),
+                recorded_path: recorded_path.clone(),
+                duration,
+                title: playback.title.clone(),
+            },
+        );
+        let Some(path) = recorded_path else {
+            return;
+        };
+        let ignore_path = playback
+            .ignore_path_in_watch_later_config
+            .unwrap_or_else(|| self.progress.path_policy());
+        let watch_later_key = playback_history_store::watch_later_key(&media.filename, ignore_path);
         let date_ms = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .map(|duration| duration.as_millis().min(u64::MAX as u128) as u64)
             .unwrap_or(0);
         self.progress.entry_replaced(&path);
-        self.entries.retain(|entry| entry.path != path);
+        self.entries.retain(|entry| {
+            entry.path != path
+                && watch_later_key
+                    .as_ref()
+                    .is_none_or(|key| entry.watch_later_key.as_ref() != Some(key))
+        });
         self.entries.insert(
             0,
-            riina_core::playback_history::Entry {
+            Entry {
                 path,
                 title: playback_history_title(playback, &media.filename).map(str::to_owned),
+                watch_later_key,
                 date_ms,
                 // IINA reads this from mpv's watch-later file when history is
                 // restored. A new history row has no saved progress yet.
                 progress: None,
-                duration,
+                duration: duration.unwrap_or_default(),
             },
         );
         self.save_change();
@@ -208,10 +252,21 @@ impl PlaybackHistoryState {
     fn save_change(&mut self) {
         self.revision = self.revision.wrapping_add(1);
         if let Some(path) = &self.persistence_path
-            && let Err(error) = crate::playback_history_store::save(path, &self.entries)
+            && let Err(error) = playback_history_store::save(path, &self.entries)
         {
             self.persistence_error = Some(error);
         }
+    }
+}
+
+fn history_path(filename: &str) -> String {
+    if playback_history_store::mpv_url_scheme(filename)
+        .is_some_and(|scheme| !scheme.eq_ignore_ascii_case("file"))
+    {
+        // Even equivalent network URLs can refer to separate mpv resume files.
+        filename.to_owned()
+    } else {
+        playback_media_url(filename).unwrap_or_else(|| filename.to_owned())
     }
 }
 

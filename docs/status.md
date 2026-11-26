@@ -178,7 +178,9 @@ Implementation does not imply every state or platform is verified.
   the optional filename comment. History keeps the original stream address
   and refreshes its displayed positions when opened. Playlist refreshes them
   when media changes or stops. Reopening a history row uses the position mpv
-  finds when it loads the file.
+  finds when it loads the file. New History visits retain the saved-position
+  key used at playback. With mpv's filename-only setting, playing a same-named
+  file in a different folder updates the existing row to the newer location.
   Clearing saved progress in Utilities updates the open History window and
   preserves its entries.
   Date headings and played-at timestamps use the system locale and local

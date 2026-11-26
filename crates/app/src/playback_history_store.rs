@@ -1,7 +1,7 @@
 //! Versioned, atomic persistence for playback history independent of preferences.
 
 use md5::{Digest, Md5};
-use riina_core::playback_history::Entry;
+use riina_core::playback_history::{Entry, WatchLaterKey};
 use serde::{Deserialize, Serialize};
 use std::borrow::Cow;
 use std::io::{BufRead, BufReader, ErrorKind, Read};
@@ -27,19 +27,19 @@ pub(crate) fn progress_from_watch_later(
     watch_later_directory: &Path,
     ignore_path: bool,
 ) -> Option<f64> {
-    let watch_later_path =
-        watch_later_file_path(media_reference, watch_later_directory, ignore_path)?;
+    let key = watch_later_key(media_reference, ignore_path)?;
+    progress_for_key(&key, watch_later_directory)
+}
+
+pub(super) fn progress_for_key(key: &WatchLaterKey, watch_later_directory: &Path) -> Option<f64> {
+    let watch_later_path = watch_later_directory.join(key.as_str());
     let file = std::fs::File::open(&watch_later_path)
         .or_else(|error| {
             if error.kind() != ErrorKind::NotFound {
                 return Err(error);
             }
             // Keep reading files from case-insensitive profiles migrated to a case-sensitive host.
-            let lowercase = watch_later_path
-                .file_name()
-                .unwrap_or_default()
-                .to_ascii_lowercase();
-            std::fs::File::open(watch_later_path.with_file_name(lowercase))
+            std::fs::File::open(watch_later_directory.join(key.as_str().to_ascii_lowercase()))
         })
         .ok()?;
     // mpv can prefix its options with a 1023-byte filename comment. The
@@ -75,11 +75,7 @@ pub(crate) fn progress_from_watch_later(
     (value.is_finite() && value >= 0.0).then_some(value)
 }
 
-fn watch_later_file_path(
-    media_reference: &str,
-    watch_later_directory: &Path,
-    ignore_path: bool,
-) -> Option<PathBuf> {
+pub(super) fn watch_later_key(media_reference: &str, ignore_path: bool) -> Option<WatchLaterKey> {
     let identifier = if media_reference
         .split_once(':')
         .is_some_and(|(scheme, _)| scheme.eq_ignore_ascii_case("file"))
@@ -96,7 +92,9 @@ fn watch_later_file_path(
     } else {
         Cow::Borrowed(local_path_identifier(media_reference, ignore_path)?)
     };
-    Some(watch_later_directory.join(md5_hex(identifier.as_bytes()).to_ascii_uppercase()))
+    Some(WatchLaterKey::from_digest(
+        Md5::digest(identifier.as_bytes()).into(),
+    ))
 }
 
 pub(super) fn mpv_url_scheme(reference: &str) -> Option<&str> {
@@ -108,11 +106,11 @@ pub(super) fn mpv_url_scheme(reference: &str) -> Option<&str> {
         .then_some(scheme)
 }
 
+#[cfg(test)]
 pub(crate) fn md5_hex(input: &[u8]) -> String {
-    Md5::digest(input)
-        .iter()
-        .map(|byte| format!("{byte:02x}"))
-        .collect()
+    WatchLaterKey::from_digest(Md5::digest(input).into())
+        .as_str()
+        .to_ascii_lowercase()
 }
 
 fn local_path_identifier(media_reference: &str, ignore_path: bool) -> Option<&str> {
@@ -165,10 +163,15 @@ mod tests {
     use super::*;
     use riina_test_support::TempDir;
 
+    fn watch_later_file_path(media: &str, directory: &Path, ignore_path: bool) -> Option<PathBuf> {
+        watch_later_key(media, ignore_path).map(|key| directory.join(key.as_str()))
+    }
+
     fn entry(path: &str, date_ms: u64) -> Entry {
         Entry {
             path: path.into(),
             title: None,
+            watch_later_key: None,
             date_ms,
             progress: None,
             duration: 0.0,
@@ -204,6 +207,34 @@ mod tests {
         )
         .unwrap();
         assert!(load(&path, &[]).unwrap_err().contains("invalid"));
+    }
+
+    #[test]
+    fn old_entries_need_no_key_and_a_key_cannot_name_an_arbitrary_file() {
+        let directory = TempDir::new("riina-history-key-archive").unwrap();
+        let path = directory.path().join("history.json");
+        let mut document = serde_json::json!({
+            "schema_version": 1,
+            "entries": [{"path": "sample.mkv", "date_ms": 1, "progress": null, "duration": 90.0}]
+        });
+        std::fs::write(&path, document.to_string()).unwrap();
+        assert!(load(&path, &[]).unwrap()[0].watch_later_key.is_none());
+
+        document["entries"][0]["watch_later_key"] = "5d41402abc4b2a76b9719d911017c592".into();
+        std::fs::write(&path, document.to_string()).unwrap();
+        let loaded = load(&path, &[]).unwrap();
+        assert_eq!(
+            loaded[0].watch_later_key.as_ref().unwrap().as_str(),
+            "5D41402ABC4B2A76B9719D911017C592"
+        );
+
+        document["entries"][0]["watch_later_key"] = "../history.json".into();
+        std::fs::write(&path, document.to_string()).unwrap();
+        assert!(
+            load(&path, &[])
+                .unwrap_err()
+                .contains("invalid watch-later key")
+        );
     }
 
     #[test]

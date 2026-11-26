@@ -403,6 +403,7 @@ mod tests {
         let make_entry = |path: &std::path::Path| Entry {
             path: url::Url::from_file_path(path).unwrap().into(),
             title: Some("Chroniques de Montréal".into()),
+            watch_later_key: None,
             progress: Some(12.0),
             duration: 60.0,
             date_ms: 0,
@@ -448,6 +449,7 @@ mod tests {
         let entry = |name: &str, day, hour| Entry {
             path: format!("https://example.test/{name}.mkv"),
             title: Some(name.into()),
+            watch_later_key: None,
             date_ms: Local
                 .with_ymd_and_hms(2025, 1, day, hour, 10, 15)
                 .single()

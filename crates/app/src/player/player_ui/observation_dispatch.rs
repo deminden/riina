@@ -196,6 +196,12 @@ impl HistoryObservation {
     }
 }
 
+impl Drop for HistoryObservation {
+    fn drop(&mut self) {
+        lock(&self.history).release_session(self.session_id);
+    }
+}
+
 #[derive(Clone)]
 pub(super) struct WindowDelivery {
     pub(super) app: slint::Weak<PlayerWindow>,

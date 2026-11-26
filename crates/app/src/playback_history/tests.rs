@@ -9,6 +9,7 @@ fn entries() -> Vec<riina_core::playback_history::Entry> {
         .map(|name| riina_core::playback_history::Entry {
             path: format!("https://media.example/{name}.mkv"),
             title: None,
+            watch_later_key: None,
             date_ms: 1,
             progress: None,
             duration: 60.0,
@@ -179,4 +180,84 @@ fn playback_history_fills_late_metadata_without_resetting_visit_or_progress() {
     playback.duration = Some(90.0);
     history.observe(1, &playback, false);
     assert_eq!(history.revision(), revision + 1);
+}
+
+fn visit(filename: String, generation: u64, ignore_path: bool) -> Playback {
+    Playback {
+        generation,
+        phase: Phase::Playing,
+        active_playlist_entry: Some(1),
+        ignore_path_in_watch_later_config: Some(ignore_path),
+        playlist: vec![PlaylistEntry {
+            id: 1,
+            filename,
+            title: None,
+            current: true,
+            playing: true,
+        }]
+        .into(),
+        ..Playback::default()
+    }
+}
+
+#[test]
+fn history_uses_the_native_key_to_match_moved_files_only_when_mpv_does() {
+    let temp = TempDir::new("riina-history-native-key").unwrap();
+    let archive = temp.path().join("history.json");
+    let original = temp.path().join("original/clip.mkv");
+    let moved = temp.path().join("moved/clip.mkv");
+    let original_name = original.to_str().unwrap();
+    let moved_name = moved.to_str().unwrap();
+    for ignore_path in [false, true] {
+        let mut history =
+            PlaybackHistoryState::with_persistence(Vec::new(), Some(archive.clone()), None);
+        history.observe(1, &visit(original_name.into(), 1, ignore_path), true);
+        let original_key = history.entries()[0].watch_later_key.clone();
+        history.observe(1, &visit(moved_name.into(), 2, ignore_path), true);
+        assert_eq!(history.entries().len(), if ignore_path { 1 } else { 2 });
+        let newest = &history.entries()[0];
+        assert_eq!(
+            newest.path,
+            url::Url::from_file_path(&moved).unwrap().as_str()
+        );
+        assert_eq!(newest.watch_later_key == original_key, ignore_path);
+        let entries = playback_history_store::load(&archive, &[]).unwrap();
+        assert_eq!(entries, history.entries());
+    }
+}
+
+#[test]
+fn active_decoder_associates_metadata_with_its_own_latest_visit() {
+    let media = "https://media.example/active.mkv";
+    let mut old = visit(media.into(), 1, false);
+    let playlist = Arc::make_mut(&mut old.playlist);
+    playlist[0].current = false;
+    playlist.push(PlaylistEntry {
+        id: 2,
+        filename: "https://media.example/next.mkv".into(),
+        title: None,
+        current: true,
+        playing: false,
+    });
+    let mut history = PlaybackHistoryState::default();
+    history.observe(1, &old, true);
+    assert_eq!(history.entries()[0].path, media);
+
+    let mut latest = visit(media.into(), 1, false);
+    latest.duration = Some(80.0);
+    latest.title = "The newest visit".into();
+    history.observe(2, &latest, true);
+    let revision = history.revision();
+    old.duration = Some(45.0);
+    old.title = "Metadata from a different player".into();
+    history.observe(1, &old, true);
+    assert_eq!(history.revision(), revision);
+    assert_eq!(history.entries().len(), 1);
+    assert_eq!(history.entries()[0].duration, 80.0);
+    assert_eq!(
+        history.entries()[0].title.as_deref(),
+        Some("The newest visit")
+    );
+    history.release_session(1);
+    assert_eq!(history.observed_sessions.len(), 1);
 }

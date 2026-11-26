@@ -60,6 +60,7 @@ fn playback_history_api_values_use_iina_field_names() {
     let entries = playback_history_values(&[riina_core::playback_history::Entry {
         path: "https://media.example/sample.mp4".into(),
         title: None,
+        watch_later_key: None,
         date_ms: 1_750_000_000_000,
         progress: Some(12.5),
         duration: 80.0,

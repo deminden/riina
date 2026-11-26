@@ -517,6 +517,7 @@ mod tests {
         let entry = Entry {
             path: "saved-film.mkv".into(),
             title: Some("Saved Film".into()),
+            watch_later_key: None,
             date_ms: 42,
             progress: None,
             duration: 8.0,

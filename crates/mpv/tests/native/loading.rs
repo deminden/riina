@@ -251,6 +251,10 @@ fn resume_last_position_saves_on_stop_and_restores_only_when_enabled() {
         .to_string_lossy()
         .into_owned();
     let scratch = riina_test_support::TempDir::new("resume-native").unwrap();
+    let moved_directory = scratch.path().join("moved");
+    std::fs::create_dir(&moved_directory).unwrap();
+    let moved_media = moved_directory.join("catalog.mkv");
+    std::fs::copy(&media, &moved_media).unwrap();
     let enabled_watch_later = scratch.path().join("enabled");
     let disabled_watch_later = scratch.path().join("disabled");
     std::fs::create_dir_all(&enabled_watch_later).unwrap();
@@ -266,6 +270,10 @@ fn resume_last_position_saves_on_stop_and_restores_only_when_enabled() {
             ("save-position-on-quit".to_owned(), value.clone()),
             ("resume-playback".to_owned(), value),
             (
+                "ignore-path-in-watch-later-config".to_owned(),
+                "yes".to_owned(),
+            ),
+            (
                 "write-filename-in-watch-later-config".to_owned(),
                 "yes".to_owned(),
             ),
@@ -280,28 +288,25 @@ fn resume_last_position_saves_on_stop_and_restores_only_when_enabled() {
     });
     player.send(Command::Stop).unwrap();
     wait_for(&receiver, |state| {
-        state.phase == Phase::Stopped && state.save_position_on_quit == Some(true)
+        state.phase == Phase::Stopped
+            && state.save_position_on_quit == Some(true)
+            && state.ignore_path_in_watch_later_config == Some(true)
     });
-    let saved_entries: Vec<_> = std::fs::read_dir(&enabled_watch_later)
-        .unwrap()
-        .map(|entry| entry.unwrap().path())
-        .collect();
+    let saved_path = enabled_watch_later.join("F6DD685BF8BFA5FBF8DE30C06C6575D3");
+    let bytes = std::fs::read(saved_path).unwrap();
+    let mut lines = bytes.split(|byte| *byte == b'\n');
     assert!(
-        saved_entries.iter().any(|path| {
-            let bytes = std::fs::read(path).unwrap();
-            let mut lines = bytes.split(|byte| *byte == b'\n');
-            lines
-                .next()
-                .is_some_and(|line| line.starts_with(b"# ") && line.ends_with(b"catalog.mkv"))
-                && lines.next().is_some_and(|line| line.starts_with(b"start="))
-        }),
+        lines.next() == Some(b"# catalog.mkv".as_slice())
+            && lines.next().is_some_and(|line| line.starts_with(b"start=")),
         "explicit Stop must write a filename comment followed by the position"
     );
     drop(player);
 
     let Harness { player, receiver } =
         Harness::with_options(&root, options(&enabled_watch_later, true)).unwrap();
-    player.send(Command::Load(media.clone())).unwrap();
+    player
+        .send(Command::Load(moved_media.to_str().unwrap().into()))
+        .unwrap();
     let restored = wait_for(&receiver, |state| {
         state.phase == Phase::Playing
             && state

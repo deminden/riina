@@ -835,6 +835,7 @@ fn playback_history_defaults_on_and_round_trips_independently_of_recent_media() 
     let item = playback_history::Entry {
         path: "file:///C:/media/movie.mkv".into(),
         title: None,
+        watch_later_key: None,
         date_ms: 1_750_000_000_000,
         progress: Some(12.5),
         duration: 90.0,

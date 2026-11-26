@@ -287,6 +287,7 @@ mod tests {
         let entries = paths.map(|path| Entry {
             path: path.into(),
             title: None,
+            watch_later_key: None,
             date_ms: 0,
             duration: 30.0,
             progress: None,
