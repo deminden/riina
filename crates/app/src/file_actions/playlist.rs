@@ -64,24 +64,53 @@ pub(crate) fn trash_playlist_files(
     files: Vec<PlaylistFile>,
     player: CommandSender,
 ) {
+    remove_playlist_files(app, files, player, FileRemoval::Trash);
+}
+
+#[derive(Clone, Copy)]
+pub(super) enum FileRemoval {
+    Trash,
+    Permanent,
+}
+
+impl FileRemoval {
+    fn label(self) -> String {
+        match self {
+            Self::Trash => format!("move to the {}", platform::system_trash_name()),
+            Self::Permanent => "permanently delete".to_owned(),
+        }
+    }
+
+    fn remove(self, path: &Path) -> Result<(), String> {
+        if !path.is_file() {
+            return Err("The file is no longer available".to_owned());
+        }
+        match self {
+            Self::Trash => trash::delete(path).map_err(|error| error.to_string()),
+            Self::Permanent => std::fs::remove_file(path).map_err(|error| error.to_string()),
+        }
+    }
+}
+
+pub(super) fn remove_playlist_files(
+    app: &PlayerWindow,
+    files: Vec<PlaylistFile>,
+    player: CommandSender,
+    removal: FileRemoval,
+) {
     let weak = app.as_weak();
-    let trash = platform::system_trash_name();
-    diagnostics::report(
-        app,
-        diagnostics::UserMessage::info(format!("Moving files to the {trash}…")),
-    );
-    if let Err(error) = background::spawn_named("riina-file-trash", move || {
-        let outcome = move_files(files, |path| {
-            if !path.is_file() {
-                return Err("The file is no longer available".to_owned());
-            }
-            trash::delete(path).map_err(|error| error.to_string())
-        });
-        let _ = background::to_ui(weak, move |app| outcome.finish(&app, &player, trash));
+    let pending = match removal {
+        FileRemoval::Trash => format!("Moving files to the {}…", platform::system_trash_name()),
+        FileRemoval::Permanent => "Permanently deleting file…".into(),
+    };
+    diagnostics::report(app, diagnostics::UserMessage::info(pending));
+    if let Err(error) = background::spawn_named("riina-file-removal", move || {
+        let outcome = remove_files(files, |path| removal.remove(path));
+        let _ = background::to_ui(weak, move |app| outcome.finish(&app, &player, removal));
     }) {
         diagnostics::report(
             app,
-            format!("Could not start the file Trash operation: {error}"),
+            format!("Could not {} selected files: {error}", removal.label()),
         );
     }
 }
@@ -95,56 +124,60 @@ fn group_paths(files: Vec<PlaylistFile>) -> BTreeMap<PathBuf, Vec<PlaylistFileRe
 }
 
 #[derive(Default)]
-struct TrashOutcome {
-    moved: usize,
+struct RemovalOutcome {
+    removed: usize,
     removed_entries: Vec<PlaylistFileReference>,
     failed: usize,
     first_error: Option<String>,
 }
 
-impl TrashOutcome {
-    fn finish(self, app: &PlayerWindow, player: &CommandSender, trash: &str) {
+impl RemovalOutcome {
+    fn finish(self, app: &PlayerWindow, player: &CommandSender, removal: FileRemoval) {
+        let success = match removal {
+            FileRemoval::Trash => format!(
+                "Moved {} files to the {}",
+                self.removed,
+                platform::system_trash_name()
+            ),
+            FileRemoval::Permanent => "Permanently deleted the current file".to_owned(),
+        };
         if !self.removed_entries.is_empty()
             && let Err(error) =
-                player.send(Command::RemoveTrashedPlaylistEntries(self.removed_entries))
+                player.send(Command::RemoveDeletedPlaylistEntries(self.removed_entries))
         {
             diagnostics::report(
                 app,
-                format!(
-                    "Files were moved to the {trash}, but the playlist could not be updated: {error}"
-                ),
+                format!("{success}. Could not update the playlist: {error}"),
             );
             return;
         }
         if let Some(error) = self.first_error {
-            diagnostics::report(
-                app,
-                format!(
-                    "Moved {} files to the {trash}. Could not move {} files. {error}",
-                    self.moved, self.failed
-                ),
+            let failure = format!(
+                "Could not {} {} files. {error}",
+                removal.label(),
+                self.failed
             );
-        } else if self.moved > 0 {
-            diagnostics::report(
-                app,
-                diagnostics::UserMessage::info(format!(
-                    "Moved {} files to the {trash}",
-                    self.moved
-                )),
-            );
+            let message = if self.removed == 0 {
+                failure
+            } else {
+                format!("{success}. {failure}")
+            };
+            diagnostics::report(app, message);
+        } else if self.removed > 0 {
+            diagnostics::report(app, diagnostics::UserMessage::info(success));
         }
     }
 }
 
-fn move_files(
+fn remove_files(
     files: Vec<PlaylistFile>,
-    mut move_one: impl FnMut(&Path) -> Result<(), String>,
-) -> TrashOutcome {
-    let mut outcome = TrashOutcome::default();
+    mut remove_one: impl FnMut(&Path) -> Result<(), String>,
+) -> RemovalOutcome {
+    let mut outcome = RemovalOutcome::default();
     for (path, mut entries) in group_paths(files) {
-        match move_one(&path) {
+        match remove_one(&path) {
             Ok(()) => {
-                outcome.moved += 1;
+                outcome.removed += 1;
                 outcome.removed_entries.append(&mut entries);
             }
             Err(error) => {
@@ -163,10 +196,10 @@ mod tests {
     use super::*;
 
     #[test]
-    fn trash_successes_keep_all_selected_identities_and_leave_failed_files() {
+    fn removal_successes_keep_all_selected_identities_and_leave_failed_files() {
         let file = |id, name: &str| PlaylistFile::new(id, name.into(), name.into());
         let mut visited = Vec::new();
-        let outcome = move_files(
+        let outcome = remove_files(
             vec![
                 file(7, "clip.mkv"),
                 file(8, "clip.mkv"),
@@ -193,7 +226,23 @@ mod tests {
                 .collect::<Vec<_>>(),
             [7, 8]
         );
-        assert_eq!(outcome.moved, 1);
+        assert_eq!(outcome.removed, 1);
         assert_eq!(outcome.failed, 1);
+    }
+
+    #[test]
+    fn permanent_removal_unlinks_only_an_existing_file() {
+        let directory = riina_test_support::TempDir::new("playlist-permanent-removal").unwrap();
+        let media = directory.path().join("Café.mkv");
+        std::fs::write(&media, b"test fixture").unwrap();
+        let outcome = remove_files(
+            vec![PlaylistFile::new(7, "Café.mkv".into(), media.clone())],
+            |path| FileRemoval::Permanent.remove(path),
+        );
+        assert!(!media.exists());
+        assert_eq!(outcome.removed_entries[0].id, 7);
+        assert!(FileRemoval::Permanent.remove(&media).is_err());
+        assert!(FileRemoval::Permanent.remove(directory.path()).is_err());
+        assert!(directory.path().is_dir());
     }
 }

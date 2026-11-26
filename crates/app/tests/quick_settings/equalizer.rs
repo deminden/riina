@@ -69,7 +69,7 @@ fn equalizer_fader_passes_modified_shortcuts_and_tab_reaches_the_profile_picker(
     let shortcuts = Rc::new(RefCell::new(Vec::new()));
     let recorded = shortcuts.clone();
     app.global::<riina_ui::PlayerControlActions>()
-        .on_dispatch_key_binding(move |text, control, _, _, _| {
+        .on_dispatch_key_binding(move |text, control, _, _, _, _| {
             let right: slint::SharedString = Key::RightArrow.into();
             let handled = control && text == right;
             recorded.borrow_mut().push((text.to_string(), control));
@@ -176,7 +176,7 @@ fn escape_cancels_a_profile_prompt_without_reaching_fullscreen_or_playback() {
         .on_toggle_fullscreen(move || recorded.set(recorded.get() + 1));
     let recorded = commands.clone();
     app.global::<riina_ui::PlayerControlActions>()
-        .on_dispatch_key_binding(move |_, _, _, _, _| {
+        .on_dispatch_key_binding(move |_, _, _, _, _, _| {
             recorded.set(recorded.get() + 1);
             true
         });

@@ -33,7 +33,7 @@ fn video_rails_reveal_focus_and_keep_one_tab_stop_per_group() {
     let playback_keys = Rc::new(std::cell::Cell::new(0));
     let received = playback_keys.clone();
     app.global::<PlayerControlActions>()
-        .on_dispatch_key_binding(move |_, _, _, _, _| {
+        .on_dispatch_key_binding(move |_, _, _, _, _, _| {
             received.set(received.get() + 1);
             false
         });
@@ -114,7 +114,7 @@ fn subtitle_size_menu_commits_once_and_keeps_engine_owned_values() {
     let shortcuts = Rc::new(std::cell::Cell::new(0));
     let received = shortcuts.clone();
     app.global::<PlayerControlActions>()
-        .on_dispatch_key_binding(move |text, control, _, _, _| {
+        .on_dispatch_key_binding(move |text, control, _, _, _, _| {
             let down: slint::SharedString = Key::DownArrow.into();
             let handled = control && text == down;
             if handled {

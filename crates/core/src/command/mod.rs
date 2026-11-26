@@ -185,7 +185,7 @@ pub enum Command {
     SelectPlaylistId(i64),
     RemovePlaylistId(i64),
     RemovePlaylistIds(Vec<i64>),
-    RemoveTrashedPlaylistEntries(Vec<crate::PlaylistFileReference>),
+    RemoveDeletedPlaylistEntries(Vec<crate::PlaylistFileReference>),
     QueuePlaylistIdsNext(Vec<i64>),
     MovePlaylistIdsBefore {
         ids: Vec<i64>,
@@ -332,7 +332,7 @@ impl Command {
                 | Self::RemovePlaylistEntry(_)
                 | Self::RemovePlaylistId(_)
                 | Self::RemovePlaylistIds(_)
-                | Self::RemoveTrashedPlaylistEntries(_)
+                | Self::RemoveDeletedPlaylistEntries(_)
                 | Self::QueuePlaylistIdsNext(_)
                 | Self::MovePlaylistIdsBefore { .. }
                 | Self::ClearPlaylist

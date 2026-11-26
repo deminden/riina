@@ -574,6 +574,13 @@ The desktop media adapters resolve transport buttons through that same
 profile and send the selected mapping to the shared action dispatcher. The
 native idle menu projects its shortcuts from the same ordered mappings.
 
+Application directives share player menu callbacks for file and URL opening,
+playlist and subtitle exports, file-manager reveal and both reflection axes.
+The keyboard path consumes repeats of both file-removal directives. The shared
+file worker captures the native playlist identity and filename before removing
+a local file. Successful removals submit those identities to libmpv and leave
+failed or superseded entries alone.
+
 ### Plugin sidebar surfaces
 
 Each player owns its plugin sidebar documents and selects one tab for display.

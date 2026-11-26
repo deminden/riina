@@ -4,7 +4,7 @@ use super::builtins::BUILTIN_PROFILES;
 use super::*;
 use super::{
     builtins::{SYSTEM_MEDIA_ROWS, builtin_mappings},
-    dispatch::{RuntimeAction, is_system_media_key, runtime_action},
+    dispatch::{RuntimeAction, install_dispatch, is_system_media_key, runtime_action},
     editor::{display_row, matches_query, visible_source_indices},
     keys::normalize_profile_key,
     menus::{MENU_SHORTCUT_ACTIONS, menu_shortcut_rows},
@@ -373,7 +373,7 @@ fn recorded_profile_keys_match_platform_primary_shortcuts() {
 fn menu_shortcuts_follow_the_active_profile_for_both_player_surfaces() {
     let mappings = builtin_mappings("IINA Default");
     let rows = menu_shortcut_rows(&Bindings::new(mappings.to_vec()));
-    assert_eq!(rows.len(), 56);
+    assert_eq!(rows.len(), MENU_SHORTCUT_ACTIONS.len());
     assert_eq!(
         rows[0].shortcut.to_string(),
         slint::Keys::from_parts(["Space"]).unwrap().to_string()
@@ -426,7 +426,7 @@ fn menu_shortcuts_follow_the_active_profile_for_both_player_surfaces() {
 #[test]
 fn default_menu_hints_cover_bound_actions_and_prefer_primary_aliases() {
     let rows = menu_shortcut_rows(&Bindings::new(builtin_mappings("IINA Default")));
-    for (index, (_, action)) in MENU_SHORTCUT_ACTIONS.iter().enumerate() {
+    for (index, (_, action)) in MENU_SHORTCUT_ACTIONS[..57].iter().enumerate() {
         if index != 45 {
             assert!(
                 !rows[index].shortcut.to_string().is_empty(),
@@ -434,6 +434,11 @@ fn default_menu_hints_cover_bound_actions_and_prefer_primary_aliases() {
             );
         }
     }
+    assert!(
+        rows[57..]
+            .iter()
+            .all(|row| row.shortcut.to_string().is_empty())
+    );
     let primary = if cfg!(target_os = "macos") {
         "Meta"
     } else {
@@ -572,7 +577,7 @@ fn installed_profiles_dispatch_encoded_events_without_ui_fallbacks() {
     ] {
         assert!(
             app.global::<riina_ui::PlayerControlActions>()
-                .invoke_dispatch_key_binding(key.into(), false, false, false, false)
+                .invoke_dispatch_key_binding(key.into(), false, false, false, false, false)
         );
         assert_eq!(position.get(), expected);
     }
@@ -583,7 +588,8 @@ fn installed_profiles_dispatch_encoded_events_without_ui_fallbacks() {
                 false,
                 false,
                 false,
-                false
+                false,
+                false,
             )
     );
     assert!(app.get_fullscreen());
@@ -594,10 +600,97 @@ fn installed_profiles_dispatch_encoded_events_without_ui_fallbacks() {
                 false,
                 false,
                 false,
-                false
+                false,
+                false,
             )
     );
     assert!(!app.get_fullscreen());
+}
+
+#[test]
+fn custom_application_bindings_dispatch_through_player_actions_and_ignore_held_deletion_keys() {
+    use slint::ComponentHandle;
+    use std::{cell::RefCell, rc::Rc};
+
+    i_slint_backend_testing::init_no_event_loop();
+    let app = crate::PlayerWindow::new().unwrap();
+    let menu = app.global::<PlayerMenuActions>();
+    let actions = Rc::new(RefCell::new(Vec::new()));
+    macro_rules! record_actions {
+        ($($callback:ident => $event:literal),+ $(,)?) => {
+            $(
+                let recorded = actions.clone();
+                menu.$callback(move || recorded.borrow_mut().push($event));
+            )+
+        };
+    }
+    record_actions!(
+        on_open_file => "open file",
+        on_open_url_dialog => "open URL",
+        on_save_current_playlist => "save playlist",
+        on_save_downloaded_subtitle => "save subtitle",
+        on_reveal_current_media => "reveal",
+        on_delete_current_media => "trash",
+        on_delete_current_media_permanently => "delete",
+    );
+    let reflections = actions.clone();
+    menu.on_toggle_video_reflection(move |horizontal| {
+        reflections
+            .borrow_mut()
+            .push(if horizontal { "mirror" } else { "flip" });
+    });
+    let bindings = [
+        ("a", "open-file"),
+        ("b", "open-url"),
+        ("c", "save-playlist"),
+        ("d", "save-downloaded-sub"),
+        ("e", "show-current-file-in-finder"),
+        ("f", "delete-current-file"),
+        ("g", "delete-current-file-hard"),
+        ("h", "toggle-mirror"),
+        ("i", "toggle-flip"),
+    ]
+    .map(|(key, action)| Mapping {
+        key: key.into(),
+        action: action.into(),
+        kind: ActionKind::Riina,
+        comment: None,
+    });
+    let mappings = riina_core::key_bindings::serialize(&bindings).unwrap();
+    let bindings = Bindings::new(riina_core::key_bindings::parse(&mappings).unwrap());
+    let shortcuts = menu_shortcut_rows(&bindings);
+    for (index, key) in (56..=60).zip(["e", "c", "h", "i", "d"]) {
+        assert_eq!(shortcuts[index].shortcut, shortcut_keys(key).unwrap());
+    }
+    install_dispatch(&app, Rc::new(bindings), crate::PlaybackStore::default());
+    let controls = app.global::<riina_ui::PlayerControlActions>();
+    for key in ["a", "b", "c", "d", "e", "f", "g", "h", "i"] {
+        assert!(controls.invoke_dispatch_key_binding(
+            key.into(),
+            false,
+            false,
+            false,
+            false,
+            false
+        ));
+    }
+    for key in ["f", "g"] {
+        assert!(controls.invoke_dispatch_key_binding(key.into(), false, false, false, false, true));
+    }
+    assert_eq!(
+        *actions.borrow(),
+        [
+            "open file",
+            "open URL",
+            "save playlist",
+            "save subtitle",
+            "reveal",
+            "trash",
+            "delete",
+            "mirror",
+            "flip"
+        ]
+    );
 }
 
 #[test]

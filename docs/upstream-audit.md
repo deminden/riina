@@ -21,6 +21,7 @@ Use [parity.csv](parity.csv) for individual coverage and
 | Preferences | iina/Preference.swift; PreferenceWindowController.swift | defaultPreference; obsolete/internal settings require reachability classification |
 | New Settings | iina/SettingsWindow.swift; SettingsPage*.swift | old and new settings coexist behind enableNewSettings |
 | Menus/input | iina/MenuController.swift; config/iina-default-input.conf; Base.lproj/MainMenu.xib | shortcut resource includes IINA actions and mpv commands |
+| Application key commands | iina/IINACommand.swift; PlayerWindowController.swift; MenuController.swift; MainMenuActions.swift | The player handles file/URL opening and permanent deletion; key equivalents connect playlist export, subtitle saving, reveal, Trash, flip and mirror to existing menu actions. Permanent deletion has no default binding or menu item. |
 | History | iina/HistoryController.swift | history, grouping and resume policies |
 | Plugins | iina/JavascriptPlugin*.swift; JavascriptAPI*.swift | JavaScriptCore host and multiple public API surfaces |
 | Localization | iina/en.lproj; ru.lproj; ar.lproj | bundled translations; provenance and placeholders need audit |

@@ -82,7 +82,7 @@ export component PlayerKeyScope inherits FocusScope {
         let mapped = PlayerControlActions.activate-saved-filter-shortcut(event.text, event.modifiers.control,
             event.modifiers.alt, event.modifiers.shift, event.modifiers.meta)
             || PlayerControlActions.dispatch-key-binding(event.text, event.modifiers.control,
-                event.modifiers.alt, event.modifiers.shift, event.modifiers.meta);
+                event.modifiers.alt, event.modifiers.shift, event.modifiers.meta, event.repeat);
         let handled = route-to-plugins && PlayerControlActions.finish-plugin-key();
         if mapped || handled {
             return accept;

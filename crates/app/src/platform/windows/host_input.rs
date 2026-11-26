@@ -73,6 +73,7 @@ fn framed_key_down(app: &PlayerWindow, key: &Key, modifiers: ModifiersState) -> 
             modifiers.alt_key(),
             modifiers.shift_key(),
             false,
+            false,
         )
     {
         return true;
@@ -92,6 +93,7 @@ fn framed_key_down(app: &PlayerWindow, key: &Key, modifiers: ModifiersState) -> 
                     modifiers.alt_key(),
                     modifiers.shift_key(),
                     modifiers.super_key(),
+                    false,
                 )
             },
             || menu.invoke_toggle_fullscreen(),

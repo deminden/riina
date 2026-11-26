@@ -7,7 +7,7 @@ use riina_core::key_bindings::ActionKind;
 // This order is shared with the `menu-shortcut(index)` calls in the two player
 // menu surfaces. Keep it stable so profile changes update the same actions in
 // both the shared-renderer and native-video windows.
-pub(super) const MENU_SHORTCUT_ACTIONS: [(ActionKind, &str); 56] = [
+pub(super) const MENU_SHORTCUT_ACTIONS: [(ActionKind, &str); 61] = [
     (ActionKind::Mpv, "cycle pause"),
     (ActionKind::Mpv, "stop"),
     (ActionKind::Mpv, "seek 5"),
@@ -64,6 +64,11 @@ pub(super) const MENU_SHORTCUT_ACTIONS: [(ActionKind, &str); 56] = [
     (ActionKind::Mpv, "add sub-delay -0.1"),
     (ActionKind::Mpv, "cycle secondary-sub-visibility"),
     (ActionKind::Riina, "find-online-subs"),
+    (ActionKind::Riina, "show-current-file-in-finder"),
+    (ActionKind::Riina, "save-playlist"),
+    (ActionKind::Riina, "toggle-mirror"),
+    (ActionKind::Riina, "toggle-flip"),
+    (ActionKind::Riina, "save-downloaded-sub"),
 ];
 
 pub(crate) fn menu_shortcut_rows(mappings: &Bindings) -> Vec<MenuShortcutRow> {

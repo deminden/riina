@@ -13,10 +13,7 @@ use slint::ComponentHandle;
 
 pub(crate) use bindings::Bindings;
 pub(crate) use builtins::mappings_for;
-pub(crate) use dispatch::{
-    CurrentMediaLocation, current_media_location, dispatch_mapping, install_player,
-    reveal_current_media,
-};
+pub(crate) use dispatch::{dispatch_mapping, install_player};
 pub(crate) use editor::{
     activate_profile, current_player, current_window, install_window, mapping_for_row, refresh,
     remove_mapping, save_mapping, search, select_profile,

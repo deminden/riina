@@ -135,7 +135,7 @@ fn timing_fields_handle_accessibility_and_keep_playback_keys_out_of_text_edits()
     let shortcuts = Rc::new(Cell::new(0));
     let recorded = shortcuts.clone();
     app.global::<PlayerControlActions>()
-        .on_dispatch_key_binding(move |text, _, alt, _, _| {
+        .on_dispatch_key_binding(move |text, _, alt, _, _, _| {
             if text == "v" && alt {
                 recorded.set(recorded.get() + 1);
             }

@@ -226,17 +226,12 @@ fn update_media_actions(app: &PlayerWindow, state: &Playback) {
             .any(|track| track.kind == TrackKind::Video && track.is_primary_selected())
             && !matches!(state.phase, Phase::Loading | Phase::Stopped | Phase::Failed),
     );
-    app.set_reveal_current_media_available(
-        match crate::key_binding_preferences::current_media_location(state) {
-            crate::key_binding_preferences::CurrentMediaLocation::Local(_) => true,
-            crate::key_binding_preferences::CurrentMediaLocation::NoMedia
-            | crate::key_binding_preferences::CurrentMediaLocation::NonLocal => false,
-        },
+    let local_file = matches!(
+        crate::file_actions::current_media(state),
+        crate::file_actions::CurrentMedia::Local { .. }
     );
-    app.set_delete_current_media_available(matches!(
-        crate::key_binding_preferences::current_media_location(state),
-        crate::key_binding_preferences::CurrentMediaLocation::Local(_)
-    ));
+    app.set_reveal_current_media_available(local_file);
+    app.set_delete_current_media_available(local_file);
     app.set_save_current_playlist_available(!state.playlist.is_empty());
     app.set_reflection_known(
         state.video_filters.is_some()

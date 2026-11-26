@@ -111,7 +111,7 @@ impl Command {
                 return self.plan_playlist_id(state, *id);
             }
             Self::RemovePlaylistIds(_)
-            | Self::RemoveTrashedPlaylistEntries(_)
+            | Self::RemoveDeletedPlaylistEntries(_)
             | Self::QueuePlaylistIdsNext(_)
             | Self::MovePlaylistIdsBefore { .. } => playlist::edit_selection(state, self)?,
             Self::OpenFiles(paths)

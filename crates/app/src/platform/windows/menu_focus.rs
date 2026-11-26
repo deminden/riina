@@ -529,7 +529,7 @@ fn dispatch_system_media_shortcut(app: &PlayerWindow, lparam: LPARAM) -> bool {
         .get_key_binding_use_system_media_controls()
         && system_media_key(((lparam.0 as u32) >> 16) & 0x7ff).is_some_and(|key| {
             app.global::<riina_ui::PlayerControlActions>()
-                .invoke_dispatch_key_binding(key.into(), false, false, false, false)
+                .invoke_dispatch_key_binding(key.into(), false, false, false, false, false)
         })
 }
 

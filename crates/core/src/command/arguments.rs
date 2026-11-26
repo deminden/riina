@@ -138,7 +138,7 @@ impl Command {
             | Self::SelectPlaylistId(_)
             | Self::RemovePlaylistId(_)
             | Self::RemovePlaylistIds(_)
-            | Self::RemoveTrashedPlaylistEntries(_)
+            | Self::RemoveDeletedPlaylistEntries(_)
             | Self::QueuePlaylistIdsNext(_)
             | Self::MovePlaylistIdsBefore { .. }
             | Self::MovePlaylistId { .. }

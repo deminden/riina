@@ -246,14 +246,7 @@ fn install_external_file_actions(
     open_host: &OpenHost,
     latest_playback: &crate::PlaybackStore,
 ) {
-    let reveal_media_app = app.as_weak();
-    let reveal_media_playback = latest_playback.clone();
-    app.global::<PlayerMenuActions>()
-        .on_reveal_current_media(move || {
-            if let Some(app) = reveal_media_app.upgrade() {
-                crate::key_binding_preferences::reveal_current_media(&app, &reveal_media_playback);
-            }
-        });
+    crate::file_actions::install(app, commands, latest_playback);
     crate::playlist_export::install(app, open_host.clone(), latest_playback);
     let save_subtitle_app = app.as_weak();
     let save_subtitle_host = open_host.clone();
@@ -265,19 +258,6 @@ fn install_external_file_actions(
                     &app,
                     save_subtitle_host.clone(),
                     &save_subtitle_playback,
-                );
-            }
-        });
-    let delete_media_app = app.as_weak();
-    let delete_media_playback = latest_playback.clone();
-    let delete_media_player = commands.clone();
-    app.global::<PlayerMenuActions>()
-        .on_delete_current_media(move || {
-            if let Some(app) = delete_media_app.upgrade() {
-                crate::file_actions::delete_current_media(
-                    &app,
-                    &delete_media_playback,
-                    delete_media_player.clone(),
                 );
             }
         });

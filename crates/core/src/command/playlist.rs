@@ -113,22 +113,22 @@ pub(super) fn edit_selection(
 ) -> Result<Vec<Vec<String>>, CommandError> {
     match command {
         Command::RemovePlaylistIds(ids) => remove_ids(state, ids),
-        Command::RemoveTrashedPlaylistEntries(files) => Ok(remove_trashed(state, files)),
+        Command::RemoveDeletedPlaylistEntries(files) => Ok(remove_deleted(state, files)),
         Command::QueuePlaylistIdsNext(ids) => queue_next(state, ids),
         Command::MovePlaylistIdsBefore { ids, before_id } => move_before(state, ids, *before_id),
         _ => unreachable!(),
     }
 }
 
-fn remove_trashed(state: &Playback, files: &[PlaylistFileReference]) -> Vec<Vec<String>> {
-    let trashed = files
+fn remove_deleted(state: &Playback, files: &[PlaylistFileReference]) -> Vec<Vec<String>> {
+    let deleted = files
         .iter()
         .map(|file| (file.id, file.filename.as_str()))
         .collect::<HashSet<_>>();
     let mut current = None;
     let mut commands = Vec::new();
     for (index, entry) in state.playlist.iter().enumerate().rev() {
-        if !trashed.contains(&(entry.id, entry.filename.as_str())) {
+        if !deleted.contains(&(entry.id, entry.filename.as_str())) {
             continue;
         }
         if entry.current {
@@ -140,7 +140,7 @@ fn remove_trashed(state: &Playback, files: &[PlaylistFileReference]) -> Vec<Vec<
             }
         }
     }
-    // Let mpv advance after the remaining trashed entries have been removed.
+    // Let mpv advance after the remaining deleted entries have been removed.
     if let Some(index) = current {
         commands.push(vec!["playlist-remove".into(), index.to_string()]);
     }

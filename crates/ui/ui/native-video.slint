@@ -276,12 +276,14 @@ export component NativeVideoHost inherits Window {
                 activated => { root.show-playback-history(); } }
             MenuSeparator {}
             MenuItem { title: ApplicationMenuText.reveal-current(root.current-file-manager-name);
+                    shortcut: root.menu-shortcut(56);
                 enabled: root.reveal-current-media-available;
                 activated => { root.reveal-current-media(); } }
             MenuItem { title: ApplicationMenuText.delete-current;
                 enabled: root.delete-current-media-available;
                 activated => { root.delete-current-media(); } }
             MenuItem { title: ApplicationMenuText.save-current-playlist;
+                    shortcut: root.menu-shortcut(57);
                 enabled: root.save-current-playlist-available;
                 activated => { root.save-current-playlist(); } }
             MenuSeparator {}
@@ -484,9 +486,11 @@ export component NativeVideoHost inherits Window {
                     activated => { root.set-menu-video-rotation(270); } }
             }
             Menu { title: @tr("Flip"); enabled: root.reflection-menu-enabled;
-                MenuItem { title: @tr("Horizontal (Mirror)"); checkable: true; checked: root.video-mirrored;
+                MenuItem { title: @tr("Horizontal (Mirror)");
+                    shortcut: root.menu-shortcut(58); checkable: true; checked: root.video-mirrored;
                     activated => { root.toggle-video-reflection(true); } }
-                MenuItem { title: @tr("Vertical (Flip)"); checkable: true; checked: root.video-flipped;
+                MenuItem { title: @tr("Vertical (Flip)");
+                    shortcut: root.menu-shortcut(59); checkable: true; checked: root.video-flipped;
                     activated => { root.toggle-video-reflection(false); } }
             }
             MenuItem { title: @tr("Deinterlace"); checkable: true; checked: root.deinterlace-enabled;
@@ -616,6 +620,7 @@ export component NativeVideoHost inherits Window {
                 }
             }
             MenuItem { title: @tr("Save Downloaded Subtitle…");
+                    shortcut: root.menu-shortcut(60);
                 enabled: root.downloaded-subtitle-save-available;
                 activated => { root.save-downloaded-subtitle(); }
             }

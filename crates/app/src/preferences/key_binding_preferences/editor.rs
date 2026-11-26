@@ -53,6 +53,17 @@ pub(super) fn display_row(mapping: &Mapping, raw: bool) -> KeyBindingRow {
             "toggle-pip" => "Toggle Picture-in-Picture".into(),
             "toggle-music-mode" => "Toggle Music Mode".into(),
             "show-current-file-in-finder" => "Show current file in file manager".into(),
+            "open-file" => "Open file".into(),
+            "open-url" => "Open URL".into(),
+            "save-playlist" => "Save current playlist".into(),
+            "save-downloaded-sub" => "Save downloaded subtitle".into(),
+            "delete-current-file" => format!(
+                "Move current file to the {}",
+                crate::platform::system_trash_name()
+            ),
+            "delete-current-file-hard" => "Permanently delete current file".into(),
+            "toggle-flip" => "Flip vertically".into(),
+            "toggle-mirror" => "Mirror horizontally".into(),
             "live-text" => "Toggle Live Text".into(),
             "cycle video" => "Cycle Video track".into(),
             "cycle sub" => "Cycle Subtitle track".into(),

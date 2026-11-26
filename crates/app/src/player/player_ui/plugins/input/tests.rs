@@ -40,7 +40,7 @@ fn player_routes_keys_and_video_clicks_without_stealing_protected_input() {
         consume_key.get()
     });
     let binding_events = events.clone();
-    controls.on_dispatch_key_binding(move |_, _, _, _, _| {
+    controls.on_dispatch_key_binding(move |_, _, _, _, _, _| {
         binding_events.borrow_mut().push("binding");
         true
     });

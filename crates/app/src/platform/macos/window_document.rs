@@ -50,10 +50,10 @@ fn set_represented_file(window: &slint::Window, file: Option<&Path>) {
 }
 
 pub(crate) fn playback_title(window: &slint::Window, state: &riina_core::Playback) -> String {
-    use crate::key_binding_preferences::{CurrentMediaLocation, current_media_location};
-    let path = match current_media_location(state) {
-        CurrentMediaLocation::Local(path) => std::path::absolute(path).ok(),
-        CurrentMediaLocation::NoMedia | CurrentMediaLocation::NonLocal => None,
+    use crate::file_actions::{CurrentMedia, current_media};
+    let path = match current_media(state) {
+        CurrentMedia::Local { path, .. } => std::path::absolute(path).ok(),
+        CurrentMedia::None | CurrentMedia::NonLocal => None,
     };
     set_represented_file(window, path.as_deref());
     let title = path

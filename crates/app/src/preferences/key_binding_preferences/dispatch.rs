@@ -41,10 +41,17 @@ pub(crate) fn install_player(
         profile.get(&normalize_profile_key(key.as_str())).is_some()
     });
     crate::player_ui::refresh_plugin_menu_shortcuts(app);
+    install_dispatch(app, mappings, latest_playback);
+}
+
+pub(super) fn install_dispatch(
+    app: &PlayerWindow,
+    mappings: Rc<Bindings>,
+    observed_playback: crate::PlaybackStore,
+) {
     let player = app.as_weak();
-    let observed_playback = latest_playback;
     app.global::<riina_ui::PlayerControlActions>()
-        .on_dispatch_key_binding(move |text, control, alt, shift, meta| {
+        .on_dispatch_key_binding(move |text, control, alt, shift, meta, repeat| {
             let Some(key) = recorded_key(text.as_str(), control, alt, shift, meta) else {
                 return false;
             };
@@ -61,7 +68,18 @@ pub(crate) fn install_player(
             {
                 return false;
             }
-            dispatch_mapping(&app, mapping, &observed_playback);
+            let action = runtime_action(mapping);
+            if !repeat
+                || !matches!(
+                    action,
+                    Some(
+                        RuntimeAction::TrashCurrentMedia
+                            | RuntimeAction::DeleteCurrentMediaPermanently
+                    )
+                )
+            {
+                dispatch_action(&app, mapping, action, &observed_playback);
+            }
             true
         });
 }
@@ -111,7 +129,14 @@ pub(super) enum RuntimeAction {
     ResizeWindow(i32),
     TogglePluginsPanel,
     FindOnlineSubs,
+    OpenFile,
+    OpenUrl,
+    SaveCurrentPlaylist,
+    SaveDownloadedSubtitle,
     RevealCurrentMedia,
+    TrashCurrentMedia,
+    DeleteCurrentMediaPermanently,
+    ToggleVideoReflection { horizontal: bool },
     ToggleLiveText,
     AbLoop,
     Screenshot,
@@ -156,7 +181,15 @@ pub(super) fn runtime_action(mapping: &Mapping) -> Option<RuntimeAction> {
             "toggle-pip" => Some(RuntimeAction::TogglePictureInPicture),
             "toggle-music-mode" => Some(RuntimeAction::ToggleMusicMode),
             "find-online-subs" => Some(RuntimeAction::FindOnlineSubs),
+            "open-file" => Some(RuntimeAction::OpenFile),
+            "open-url" => Some(RuntimeAction::OpenUrl),
+            "save-playlist" => Some(RuntimeAction::SaveCurrentPlaylist),
+            "save-downloaded-sub" => Some(RuntimeAction::SaveDownloadedSubtitle),
             "show-current-file-in-finder" => Some(RuntimeAction::RevealCurrentMedia),
+            "delete-current-file" => Some(RuntimeAction::TrashCurrentMedia),
+            "delete-current-file-hard" => Some(RuntimeAction::DeleteCurrentMediaPermanently),
+            "toggle-mirror" => Some(RuntimeAction::ToggleVideoReflection { horizontal: true }),
+            "toggle-flip" => Some(RuntimeAction::ToggleVideoReflection { horizontal: false }),
             "live-text" => Some(RuntimeAction::ToggleLiveText),
             "plugin-panel" => Some(RuntimeAction::TogglePluginsPanel),
             _ => None,
@@ -219,7 +252,16 @@ pub(crate) fn dispatch_mapping(
     mapping: &Mapping,
     latest_playback: &crate::PlaybackStore,
 ) {
-    let Some(action) = runtime_action(mapping) else {
+    dispatch_action(app, mapping, runtime_action(mapping), latest_playback);
+}
+
+fn dispatch_action(
+    app: &PlayerWindow,
+    mapping: &Mapping,
+    action: Option<RuntimeAction>,
+    latest_playback: &crate::PlaybackStore,
+) {
+    let Some(action) = action else {
         crate::diagnostics::report(
             app,
             format!("Input action is not supported yet: {}", mapping.action),
@@ -310,7 +352,26 @@ pub(crate) fn dispatch_mapping(
         RuntimeAction::ToggleLiveText => {
             app.global::<PlayerMenuActions>().invoke_toggle_live_text()
         }
-        RuntimeAction::RevealCurrentMedia => reveal_current_media(app, latest_playback),
+        RuntimeAction::OpenFile => app.global::<PlayerMenuActions>().invoke_open_file(),
+        RuntimeAction::OpenUrl => app.global::<PlayerMenuActions>().invoke_open_url_dialog(),
+        RuntimeAction::SaveCurrentPlaylist => app
+            .global::<PlayerMenuActions>()
+            .invoke_save_current_playlist(),
+        RuntimeAction::SaveDownloadedSubtitle => app
+            .global::<PlayerMenuActions>()
+            .invoke_save_downloaded_subtitle(),
+        RuntimeAction::RevealCurrentMedia => app
+            .global::<PlayerMenuActions>()
+            .invoke_reveal_current_media(),
+        RuntimeAction::TrashCurrentMedia => app
+            .global::<PlayerMenuActions>()
+            .invoke_delete_current_media(),
+        RuntimeAction::DeleteCurrentMediaPermanently => app
+            .global::<PlayerMenuActions>()
+            .invoke_delete_current_media_permanently(),
+        RuntimeAction::ToggleVideoReflection { horizontal } => app
+            .global::<PlayerMenuActions>()
+            .invoke_toggle_video_reflection(horizontal),
         RuntimeAction::AbLoop => app.global::<PlayerMenuActions>().invoke_cycle_ab_loop(),
         RuntimeAction::Screenshot => app.global::<PlayerMenuActions>().invoke_take_screenshot(),
         RuntimeAction::MpvInputAction(action) => app
@@ -318,49 +379,4 @@ pub(crate) fn dispatch_mapping(
             .invoke_execute_mpv_input_action(action.into()),
         RuntimeAction::Ignore => {}
     }
-}
-
-pub(crate) enum CurrentMediaLocation {
-    NoMedia,
-    NonLocal,
-    Local(std::path::PathBuf),
-}
-
-pub(crate) fn reveal_current_media(app: &PlayerWindow, latest_playback: &crate::PlaybackStore) {
-    let location = current_media_location(&riina_core::sync::lock(latest_playback));
-    let path = match location {
-        CurrentMediaLocation::NoMedia => {
-            app.set_status("There is no current media file to reveal".into());
-            return;
-        }
-        CurrentMediaLocation::NonLocal => {
-            app.set_status("Only local media files can be revealed".into());
-            return;
-        }
-        CurrentMediaLocation::Local(path) => path,
-    };
-    if !path.is_file() {
-        app.set_status("The current media file is not available in the file manager".into());
-        return;
-    }
-    if let Err(error) = crate::platform::reveal_file(&path) {
-        crate::diagnostics::report(
-            app,
-            format!("Could not reveal the current media file: {error}"),
-        );
-    }
-}
-
-pub(crate) fn current_media_location(playback: &riina_core::Playback) -> CurrentMediaLocation {
-    let Some(filename) = playback
-        .playlist
-        .iter()
-        .find(|entry| entry.playing)
-        .or_else(|| playback.playlist.iter().find(|entry| entry.current))
-        .map(|entry| entry.filename.as_str())
-    else {
-        return CurrentMediaLocation::NoMedia;
-    };
-    crate::file_actions::local_media_path(filename)
-        .map_or(CurrentMediaLocation::NonLocal, CurrentMediaLocation::Local)
 }

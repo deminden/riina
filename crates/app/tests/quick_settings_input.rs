@@ -476,7 +476,7 @@ fn category_arrows_home_end_keep_focus_and_do_not_reach_playback() {
     let playback_keys = Rc::new(std::cell::Cell::new(0));
     let received = playback_keys.clone();
     app.global::<riina_ui::PlayerControlActions>()
-        .on_dispatch_key_binding(move |_, _, _, _, _| {
+        .on_dispatch_key_binding(move |_, _, _, _, _, _| {
             received.set(received.get() + 1);
             false
         });
@@ -548,7 +548,7 @@ fn layout_theme_uses_one_keyboard_stop_and_owns_unmodified_navigation() {
     let received = playback_keys.clone();
     let profile = menu_calls.clone();
     app.global::<riina_ui::PlayerControlActions>()
-        .on_dispatch_key_binding(move |text, control, _, _, _| {
+        .on_dispatch_key_binding(move |text, control, _, _, _, _| {
             let right: slint::SharedString = Key::RightArrow.into();
             if control && text == right {
                 profile.borrow_mut().push(5.0);
@@ -747,7 +747,7 @@ fn menu_return_clears_a_consumed_alt_release_before_category_navigation() {
     let modified_keys = Rc::new(RefCell::new(Vec::new()));
     let recorded = modified_keys.clone();
     app.global::<riina_ui::PlayerControlActions>()
-        .on_dispatch_key_binding(move |text, control, alt, shift, meta| {
+        .on_dispatch_key_binding(move |text, control, alt, shift, meta, _| {
             recorded
                 .borrow_mut()
                 .push((text.to_string(), control, alt, shift, meta));
@@ -787,7 +787,7 @@ fn menu_return_preserves_a_physically_held_alt_and_other_modifiers() {
     let modifiers = Rc::new(RefCell::new(Vec::new()));
     let recorded = modifiers.clone();
     app.global::<riina_ui::PlayerControlActions>()
-        .on_dispatch_key_binding(move |text, control, alt, shift, meta| {
+        .on_dispatch_key_binding(move |text, control, alt, shift, meta, _| {
             if text == "x" {
                 recorded.borrow_mut().push((control, alt, shift, meta));
             }

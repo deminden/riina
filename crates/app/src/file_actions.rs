@@ -1,10 +1,11 @@
-use crate::{PlayerWindow, key_binding_preferences::CurrentMediaLocation};
+use crate::PlayerWindow;
 use riina_core::{Playback, sync::lock};
-use riina_mpv::CommandSender;
 use slint::ComponentHandle;
 use slint::winit_030::WinitWindowAccessor;
 
+mod current;
 mod playlist;
+pub(crate) use current::{CurrentMedia, current_media, install};
 pub(crate) use playlist::{
     PlaylistFile, local_media_path, reveal_playlist_files, trash_playlist_files,
 };
@@ -98,50 +99,4 @@ pub(crate) fn save_downloaded_subtitle(
             .set_dialog_open(false);
         app.set_status(error.to_string().into());
     }
-}
-
-/// Moves the current local item to the platform trash, then removes its stable
-/// playlist identity only if that entry still exists in the observed session.
-pub(crate) fn delete_current_media(
-    app: &PlayerWindow,
-    latest_playback: &crate::PlaybackStore,
-    player: CommandSender,
-) {
-    // A destructive file action requires a current, intact playback snapshot.
-    let snapshot = latest_playback.lock().ok().map(|playback| playback.clone());
-    let Some(snapshot) = snapshot else {
-        app.set_status("Could not read the current media item".into());
-        return;
-    };
-    let Some(entry) = snapshot
-        .playlist
-        .iter()
-        .find(|entry| entry.playing)
-        .or_else(|| snapshot.playlist.iter().find(|entry| entry.current))
-    else {
-        app.set_status("There is no current media file to delete".into());
-        return;
-    };
-    let path = match crate::key_binding_preferences::current_media_location(&snapshot) {
-        CurrentMediaLocation::Local(path) => path,
-        CurrentMediaLocation::NoMedia => {
-            app.set_status("There is no current media file to delete".into());
-            return;
-        }
-        CurrentMediaLocation::NonLocal => {
-            crate::diagnostics::report(
-                app,
-                format!(
-                    "Only local media files can be moved to the {}",
-                    crate::platform::system_trash_name()
-                ),
-            );
-            return;
-        }
-    };
-    trash_playlist_files(
-        app,
-        vec![PlaylistFile::new(entry.id, entry.filename.clone(), path)],
-        player,
-    );
 }

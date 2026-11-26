@@ -5756,3 +5756,38 @@ isolated profile. The Settings and player windows closed normally.
 - Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
 - Linux application SHA-256 `a7e0ee93a48142c0220ea86061dee55b133de7aca282cf75a302e77fe6e2566b`
 - Linux libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`
+
+### Custom application shortcuts (2026-11-26)
+
+The Windows workspace gate passed strict Clippy, the player and Settings
+visual baselines, and the application shortcut regressions. A custom profile
+round-trips the IINA directives and dispatches them to the same callbacks as
+the player actions. The tests cover both reflection directions, matched menu
+hints, and repeated presses of either file-removal shortcut. Filesystem tests
+verify permanent removal of a disposable file, reject directories and missing
+files, and retain playlist entries for files that could not be removed.
+
+The locked Windows workspace and Linux application builds passed. The separate
+Windows native suite passed all 69 playback tests. The Apple Silicon and
+Intel application and test targets passed cross-Clippy. Native macOS
+interaction remains unverified.
+
+A private Windows desktop opened and cancelled the native playlist export
+picker, then ran File > Delete Current File.
+The first fixture left the filesystem and the same player advanced to the
+next paused entry. The exact test process exited normally. The Windows
+export check covered opening and cancellation. The export unit test covered
+writing ordered UTF-8 paths, including reuse of an existing destination.
+
+On isolated Linux X11, keyboard input from a custom profile opened and
+dismissed Open URL, toggled both reflection axes independently, and sent only
+the current path to a test FileManager1 service. Permanent deletion removed the
+first of three disposable files directly. The Trash shortcut moved the next
+file into the isolated Trash. Both actions advanced the same paused player,
+leaving the third file intact. The process exited normally. The isolated
+Wayland probe did not deliver the profile actions and did not verify this path.
+
+- Windows application SHA-256 `10916de9b16d99d8061df204687fce3dc07896c568711b03860a2f1e4c02d0f9`
+- Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
+- Linux application SHA-256 `e4093722a2bf3b68e8df4ae3322f0d7cc71850fb06bee3100765e7b256f8c197`
+- Linux libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`

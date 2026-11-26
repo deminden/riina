@@ -156,6 +156,7 @@ impl Runner {
                     false,
                     false,
                     false,
+                    false,
                 ) {
                     return Err("Encoded Return did not dispatch the active profile".into());
                 }
@@ -169,6 +170,7 @@ impl Runner {
                     .push("encoded_return_dispatches_profile_fullscreen");
                 if !actions.invoke_dispatch_key_binding(
                     slint::platform::Key::Escape.into(),
+                    false,
                     false,
                     false,
                     false,

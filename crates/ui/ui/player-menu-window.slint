@@ -175,12 +175,14 @@ export component PlayerMenuWindow inherits Window {
             MenuSeparator {}
             MenuItem {
                 title: ApplicationMenuText.reveal-current(root.menu-value-current-file-manager-name);
+                    shortcut: root.menu-shortcut(56);
                 enabled: root.menu-value-reveal-current-media-available;
                 activated => { PlayerMenuActions.reveal-current-media(); } }
             MenuItem { title: ApplicationMenuText.delete-current;
                 enabled: root.menu-value-delete-current-media-available;
                 activated => { PlayerMenuActions.delete-current-media(); } }
             MenuItem { title: ApplicationMenuText.save-current-playlist;
+                    shortcut: root.menu-shortcut(57);
                 enabled: root.menu-value-save-current-playlist-available;
                 activated => { PlayerMenuActions.save-current-playlist(); } }
             MenuSeparator {}
@@ -394,9 +396,11 @@ export component PlayerMenuWindow inherits Window {
                     activated => { PlayerMenuActions.set-menu-video-rotation(270); } }
             }
             Menu { title: @tr("Flip"); enabled: root.menu-value-loaded && root.menu-value-reflection-known && !root.menu-value-crop-editing;
-                MenuItem { title: @tr("Horizontal (Mirror)"); checkable: true; checked: root.menu-value-video-mirrored;
+                MenuItem { title: @tr("Horizontal (Mirror)");
+                    shortcut: root.menu-shortcut(58); checkable: true; checked: root.menu-value-video-mirrored;
                     activated => { PlayerMenuActions.toggle-video-reflection(true); } }
-                MenuItem { title: @tr("Vertical (Flip)"); checkable: true; checked: root.menu-value-video-flipped;
+                MenuItem { title: @tr("Vertical (Flip)");
+                    shortcut: root.menu-shortcut(59); checkable: true; checked: root.menu-value-video-flipped;
                     activated => { PlayerMenuActions.toggle-video-reflection(false); } }
             }
             MenuItem { title: @tr("Deinterlace"); checkable: true; checked: root.menu-value-deinterlace-enabled;
@@ -528,6 +532,7 @@ export component PlayerMenuWindow inherits Window {
                 }
             }
             MenuItem { title: @tr("Save Downloaded Subtitle…");
+                    shortcut: root.menu-shortcut(60);
                 enabled: root.menu-value-downloaded-subtitle-save-available && !root.menu-value-crop-editing;
                 activated => { PlayerMenuActions.save-downloaded-subtitle(); }
             }

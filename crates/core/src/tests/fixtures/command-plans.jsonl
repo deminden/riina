@@ -87,7 +87,7 @@
 {"command":"SelectPlaylistId","mpv":[["set","pause","yes"],["playlist-play-index","1"]],"resume_on_load":true}
 {"command":"RemovePlaylistId","mpv":[["playlist-remove","1"]],"resume_on_load":false}
 {"command":"RemovePlaylistIds","mpv":[["playlist-remove","1"],["playlist-remove","1"]],"resume_on_load":false}
-{"command":"RemoveTrashedPlaylistEntries","mpv":[["playlist-remove","1"],["playlist-remove","0"]],"resume_on_load":false}
+{"command":"RemoveDeletedPlaylistEntries","mpv":[["playlist-remove","1"],["playlist-remove","0"]],"resume_on_load":false}
 {"command":"QueuePlaylistIdsNext","mpv":[["playlist-move","2","1"]],"resume_on_load":false}
 {"command":"MovePlaylistIdsBefore","mpv":[["playlist-move","0","3"],["playlist-move","0","3"]],"resume_on_load":false}
 {"command":"MovePlaylistId","mpv":[["playlist-move","1","0"]],"resume_on_load":false}

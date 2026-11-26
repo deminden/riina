@@ -96,7 +96,7 @@ fn navigation(kind: i32) {
     let playback = Rc::new(std::cell::Cell::new(0));
     let received = playback.clone();
     app.global::<riina_ui::PlayerControlActions>()
-        .on_dispatch_key_binding(move |_, _, _, _, _| {
+        .on_dispatch_key_binding(move |_, _, _, _, _, _| {
             received.set(received.get() + 1);
             false
         });

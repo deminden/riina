@@ -1,6 +1,6 @@
 # Current status
 
-Updated 2026-11-25. Published release: **4.2.1**. Reference: **IINA v1.5.0**
+Updated 2026-11-26. Published release: **4.2.1**. Reference: **IINA v1.5.0**
 at `fbcff4df7183b335880396af0655f6bb89d46442`.
 
 Riina is a functioning media player. Full feature, behavior and visual parity
@@ -96,6 +96,12 @@ Implementation does not imply every state or platform is verified.
   Direct browser links and groups that begin with a network URL share
   its loading and retry controls. Retrying the first stream preserves the
   remaining playlist.
+- **Custom application shortcuts:** input profiles can open files and URLs,
+  save the playlist or a downloaded subtitle, flip and mirror the video, and
+  send the current local file to Trash or permanently delete it. File removal
+  runs off the interface thread and removes the confirmed file from the
+  playlist by its captured identity. The player ignores repeated key events
+  for both deletion commands.
 - **Recent activity:** player windows share Open Recent with Welcome and
   plugins. The macOS application menu also opens and clears recent documents
   while no player is open. Settings Utilities clears history, recent documents
