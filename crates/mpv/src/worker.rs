@@ -8,6 +8,7 @@ mod playlist_end_pause;
 mod playlist_resume;
 mod script_input;
 mod stream;
+mod timeline_queue;
 mod version_probe;
 pub use duration_probe::read_local_duration;
 pub use version_probe::{EngineVersions, read_engine_versions};
@@ -112,10 +113,14 @@ impl<N: Fn(Arc<Playback>)> Start<N> {
             record_notice(&mut state.playback, NoticeSeverity::Warning, message);
         }
 
-        while let Some(message) = state
-            .hooks
-            .next_message(&receiver, state.script_input.deadline())
-        {
+        let mut deferred = None;
+        while let Some(message) = deferred.take().or_else(|| {
+            state
+                .hooks
+                .next_message(&receiver, state.script_input.deadline())
+        }) {
+            let (message, next) = timeline_queue::latest(message, &receiver);
+            deferred = next;
             if accept_shutdown(&message) {
                 break;
             }
@@ -189,7 +194,7 @@ impl<N: Fn(Arc<Playback>)> Start<N> {
                 let _ = catch_unwind(AssertUnwindSafe(|| {
                     notify(Arc::new(state.playback.clone()))
                 }));
-                for queued in &receiver {
+                for queued in deferred.into_iter().chain(&receiver) {
                     if accept_shutdown(&queued) {
                         break;
                     }

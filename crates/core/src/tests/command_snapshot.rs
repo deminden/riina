@@ -41,6 +41,7 @@ command_samples! {
     PluginMpv[sample_plugin_command()];
     Stop;
     Seek { seconds: 4.25, absolute: false };
+    SeekTimeline[0.25];
     SeekWithType { seconds: 31.5, seek_type: control_preferences::SeekType::Exact };
     Volume[64.0];
     RestoreVolume[64.0];
@@ -180,6 +181,7 @@ command_samples! {
     ToggleSecondarySubtitleVisibility;
     CycleLoop;
     ToggleFileLoop;
+    ToggleLoopMode[LoopMode::Playlist];
     SetLoopMode[LoopMode::Playlist];
     CycleAbLoop;
     SetAbLoop { a: Some(11.5), b: Some(30.25) };

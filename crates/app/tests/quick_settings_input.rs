@@ -1042,12 +1042,12 @@ fn first_timeline_pointer_press_seeks_instead_of_only_focusing() {
         .set_controls_visible(true);
     let seeks = Rc::new(RefCell::new(Vec::new()));
     let recorded = seeks.clone();
-    app.global::<PlayerMenuActions>()
-        .on_seek(move |value| recorded.borrow_mut().push(value));
+    app.global::<riina_ui::PlayerControlActions>()
+        .on_seek_timeline(move |value| recorded.borrow_mut().push(value));
     flush();
     focus(&app, &field(&app, "Playback position"));
     assert_eq!(seeks.borrow().len(), 1);
-    assert!((seeks.borrow()[0] - 30.0).abs() < 0.5);
+    assert!((seeks.borrow()[0] - 0.5).abs() < 0.01);
 }
 
 #[test]

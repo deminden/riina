@@ -26,17 +26,23 @@ impl Command {
                 }
                 .into(),
             ],
+            Self::SeekTimeline(fraction) if fraction.is_finite() => {
+                // Seeking to 100% can advance the playlist. Match the reference's
+                // half-open slider range and leave absolute timestamp seeks intact.
+                let percent = (fraction * 100.0).clamp(0.0, 100.0_f64.next_down());
+                vec![
+                    "seek".into(),
+                    percent.to_string(),
+                    "absolute-percent+exact".into(),
+                ]
+            }
             Self::SelectChapter(index) => set("chapter", index.to_string()),
             Self::AdjustChapter(delta) => {
                 // Relative navigation keeps native restart-threshold and boundary
                 // semantics; selecting a sidebar chapter intentionally resumes.
                 vec!["add".into(), "chapter".into(), delta.to_string()]
             }
-            _ => {
-                return Err(CommandError::InvalidArgument {
-                    what: "The requested value is out of range or non-finite",
-                });
-            }
+            _ => return Err(CommandError::OUT_OF_RANGE),
         };
         Ok(args)
     }

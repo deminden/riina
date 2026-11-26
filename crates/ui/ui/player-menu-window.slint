@@ -262,15 +262,15 @@ export component PlayerMenuWindow inherits Window {
             MenuItem { title: @tr("File Loop"); checkable: true; checked: PlayerCatalogState.loop-label == "File";
                 enabled: root.menu-value-loaded && !root.menu-value-crop-editing;
                 shortcut: root.menu-shortcut(47);
-                activated => { PlayerMenuActions.toggle-file-loop(); } }
+                activated => { PlayerMenuActions.toggle-file-repeat(); } }
             MenuSeparator {}
             MenuItem { title: PlayerSidebarState.visible-catalog-pane == 4 ? @tr("Hide Playlist Panel") : @tr("Show Playlist Panel");
                 enabled: !root.menu-value-crop-editing;
                 shortcut: root.menu-shortcut(12);
                 activated => { PlayerMenuActions.toggle-playlist-pane(4); } }
-            MenuItem { title: @tr("Playlist Loop"); checkable: true; checked: PlayerCatalogState.loop-label == @tr("Playlist");
+            MenuItem { title: @tr("Playlist Loop"); checkable: true; checked: PlayerCatalogState.loop-label == "Playlist";
                 enabled: root.menu-value-loaded && !root.menu-value-crop-editing;
-                activated => { PlayerMenuActions.playlist-action(5, ""); } }
+                activated => { PlayerMenuActions.toggle-playlist-repeat(); } }
             Menu { title: @tr("Playlist"); enabled: root.menu-value-loaded && PlayerCatalogState.playlist.length > 0 && !root.menu-value-crop-editing;
                 for row in PlayerCatalogState.playlist : MenuItem {
                     title: row.label; checkable: true; checked: row.playing;

@@ -4,7 +4,7 @@ use crate::key_bindings;
 
 impl Command {
     pub fn mpv_args(&self) -> Result<Vec<String>, CommandError> {
-        let args: Vec<String> = match self {
+        Ok(match self {
             Self::MpvInputAction(action) => {
                 key_bindings::mpv_action_native_args(action).map_err(CommandError::InputBinding)?
             }
@@ -25,6 +25,7 @@ impl Command {
             | Self::CycleAbLoop
             | Self::ToggleFileLoop => self.playback_args()?,
             Self::Seek { .. }
+            | Self::SeekTimeline(_)
             | Self::SeekWithType { .. }
             | Self::SelectChapter(_)
             | Self::AdjustChapter(_) => self.seek_args()?,
@@ -128,6 +129,7 @@ impl Command {
             | Self::SubtitleEncoding(_)
             | Self::SubtitleAutoLoad(_)
             | Self::CycleLoop
+            | Self::ToggleLoopMode(_)
             | Self::SetLoopMode(_)
             | Self::SetAbLoop { .. }
             | Self::SetAbLoopPoint { .. }
@@ -147,13 +149,8 @@ impl Command {
                 return invalid_state("This intent requires a command plan");
             }
             Self::Shutdown => return invalid_state("Shutdown is a lifecycle command"),
-            _ => {
-                return Err(CommandError::InvalidArgument {
-                    what: "The requested value is out of range or non-finite",
-                });
-            }
-        };
-        Ok(args)
+            _ => return Err(CommandError::OUT_OF_RANGE),
+        })
     }
 }
 

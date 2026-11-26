@@ -439,19 +439,7 @@ fn compact_number(value: f64) -> String {
 }
 
 fn loop_mode(state: &Playback) -> Option<&'static str> {
-    let file = state.loop_file.as_deref()?;
-    let playlist = state.loop_playlist.as_deref()?;
-    if loop_enabled(file) {
-        Some("File")
-    } else if loop_enabled(playlist) {
-        Some("Playlist")
-    } else {
-        Some("Off")
-    }
-}
-
-fn loop_enabled(value: &str) -> bool {
-    !matches!(value, "no" | "0" | "")
+    (state.loop_file.is_some() && state.loop_playlist.is_some()).then(|| state.loop_mode().label())
 }
 
 fn selected_track(

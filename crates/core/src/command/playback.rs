@@ -56,11 +56,7 @@ impl Command {
                 // setting survives while file repeat temporarily takes priority.
                 cmd(["cycle-values", "loop-file", "inf", "no"])
             }
-            _ => {
-                return Err(CommandError::InvalidArgument {
-                    what: "The requested value is out of range or non-finite",
-                });
-            }
+            _ => return Err(CommandError::OUT_OF_RANGE),
         };
         Ok(args)
     }
@@ -91,6 +87,23 @@ pub(super) fn load(state: &Playback, intent: &Command) -> Result<Vec<Vec<String>
 pub(super) fn replay_from_eof() -> Vec<Vec<String>> {
     // Changing the pause flag at EOF leaves mpv on the last frame.
     vec![cmd(["seek", "0", "absolute+exact"]), set("pause", "no")]
+}
+
+pub(super) fn save_resume_positions(enabled: bool) -> Vec<Vec<String>> {
+    let value = flag(enabled);
+    vec![
+        set("save-position-on-quit", value),
+        set("resume-playback", value),
+    ]
+}
+
+pub(super) fn toggle_loop_mode(state: &Playback, requested: LoopMode) -> Vec<Vec<String>> {
+    let mode = if state.loop_mode() == requested {
+        LoopMode::Off
+    } else {
+        requested
+    };
+    set_loop_mode_commands(mode)
 }
 
 pub(super) fn set_loop_mode_commands(mode: LoopMode) -> Vec<Vec<String>> {

@@ -8,7 +8,7 @@ use crate::{
     player::presentation::playback_osd_allowed,
     seek_osd::{self, Change},
 };
-use riina_core::{LoopMode, Phase, Playback, TrackKind};
+use riina_core::{Phase, Playback, TrackKind};
 use slint::ComponentHandle;
 use std::{
     path::PathBuf,
@@ -97,14 +97,8 @@ pub(super) fn update_ui(
     update_transport(app, state);
     update_video_and_artwork(app, state);
     update_delays_and_subtitle_style(app, state);
-    app.global::<riina_ui::PlayerCatalogState>().set_loop_label(
-        match state.loop_mode() {
-            LoopMode::Off => "Off",
-            LoopMode::File => "File",
-            LoopMode::Playlist => "Playlist",
-        }
-        .into(),
-    );
+    app.global::<riina_ui::PlayerCatalogState>()
+        .set_loop_label(state.loop_mode().label().into());
     update_hdr_source(app, state, first_loaded);
     app.set_media_title(state.title.as_str().into());
     update_music_metadata(app, state);
@@ -460,7 +454,7 @@ fn notify_media_loaded(app: &PlayerWindow, state: &Playback) {
 
 fn update_transport(app: &PlayerWindow, state: &Playback) {
     let timeline = app.global::<riina_ui::PlaybackTimelineState>();
-    timeline.set_seekable(state.seekable && state.duration.is_some());
+    timeline.set_seekable(state.timeline_seekable());
     timeline.set_position(state.position.unwrap_or(0.0) as f32);
     timeline.set_duration(state.duration.unwrap_or(0.0) as f32);
     app.global::<riina_ui::PlaybackTimelineState>()

@@ -536,8 +536,13 @@ fn rotation_subtitle_scale_and_loop_feedback_use_observed_values() {
     old.loop_file = Some("no".into());
     old.loop_playlist = Some("no".into());
     state = old.clone();
-    state.loop_playlist = Some("inf".into());
+    state.loop_playlist = Some("2".into());
     let looping = changed(Some(&old), &state).unwrap();
     assert_eq!(looping.kind, Kind::LoopMode);
     assert_eq!(looping.text, "Loop: Playlist");
+    old = state.clone();
+    state.loop_playlist = Some("1".into());
+    assert!(changed(Some(&old), &state).is_none());
+    state.loop_file = Some("inf".into());
+    assert_eq!(changed(Some(&old), &state).unwrap().text, "Loop: File");
 }

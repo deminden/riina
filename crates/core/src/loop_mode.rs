@@ -40,6 +40,25 @@ impl DefaultRepeatMode {
     }
 }
 impl LoopMode {
+    pub(crate) fn observed(file: Option<&str>, playlist: Option<&str>) -> Self {
+        let finite = |value: &str| value.parse::<i64>().is_ok_and(|count| count != 0);
+        if file.is_some_and(|value| value == "inf" || finite(value)) {
+            Self::File
+        } else if playlist.is_some_and(|value| matches!(value, "inf" | "force") || finite(value)) {
+            Self::Playlist
+        } else {
+            Self::Off
+        }
+    }
+
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Off => "Off",
+            Self::File => "File",
+            Self::Playlist => "Playlist",
+        }
+    }
+
     pub fn next(self) -> Self {
         match self {
             Self::Off => Self::File,

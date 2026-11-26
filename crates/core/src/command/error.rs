@@ -11,6 +11,12 @@ pub enum CommandError {
     Crop(crate::crop::CropError),
 }
 
+impl CommandError {
+    pub(super) const OUT_OF_RANGE: Self = Self::InvalidArgument {
+        what: "The requested value is out of range or non-finite",
+    };
+}
+
 impl fmt::Display for CommandError {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         let text = match self {

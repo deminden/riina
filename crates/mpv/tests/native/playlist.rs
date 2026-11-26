@@ -272,6 +272,40 @@ fn file_repeat_wraps_and_preserves_playlist_repeat() {
     });
     assert!(all_off.paused);
     assert_eq!(all_off.error(), None);
+
+    // The menu toggles the effective mode. A profile shortcut still owns the
+    // raw file-repeat property and can reveal the saved playlist repeat again.
+    use riina_core::LoopMode;
+    harness
+        .send(Command::MpvInputAction("set loop-playlist 2".into()))
+        .unwrap();
+    harness.wait(|state| {
+        state.loop_playlist.as_deref() == Some("2") && state.loop_mode() == LoopMode::Playlist
+    });
+    harness
+        .send(Command::ToggleLoopMode(LoopMode::File))
+        .unwrap();
+    harness.wait(|state| {
+        state.loop_mode() == LoopMode::File && state.loop_playlist.as_deref() == Some("2")
+    });
+    harness
+        .send(Command::ToggleLoopMode(LoopMode::File))
+        .unwrap();
+    harness.wait(|state| {
+        state.loop_mode() == LoopMode::Off && state.loop_playlist.as_deref() == Some("no")
+    });
+    harness
+        .send(Command::ToggleLoopMode(LoopMode::Playlist))
+        .unwrap();
+    harness.wait(|state| {
+        state.loop_mode() == LoopMode::Playlist && state.loop_playlist.as_deref() == Some("inf")
+    });
+    harness
+        .send(Command::ToggleLoopMode(LoopMode::Playlist))
+        .unwrap();
+    let off = harness.wait(|state| state.loop_mode() == LoopMode::Off);
+    assert!(off.paused);
+    assert_eq!(off.error(), None);
 }
 
 #[test]

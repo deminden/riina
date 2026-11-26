@@ -61,13 +61,7 @@ impl Command {
             Self::SetVolumeBoost(boost) => audio::volume_adjustment(0.0, *boost),
             Self::SetPauseWhenOpen(_) => Vec::new(),
             Self::Stop => playback::stop(state),
-            Self::SetResumeLastPosition(enabled) => {
-                let value = flag(*enabled);
-                vec![
-                    set("save-position-on-quit", value),
-                    set("resume-playback", value),
-                ]
-            }
+            Self::SetResumeLastPosition(enabled) => playback::save_resume_positions(*enabled),
             Self::SetAbLoop { a, b } => seek::set_loop_points(*a, *b)?,
             Self::SetAbLoopPoint { point, value } => seek::set_loop_point(*point, *value)?,
             Self::SetToneMapping(settings) => settings
@@ -137,6 +131,7 @@ impl Command {
             Self::Load(_) | Self::LoadAtPosition { .. } => playback::load(state, self)?,
             Self::OpenMediaLink(link) => super::media_link::plan(state, link)?,
             Self::SelectChapter(index) => seek::select_chapter(state, *index)?,
+            Self::SeekTimeline(_) if !state.timeline_seekable() => Vec::new(),
             Self::SelectPlaylistEntry(_)
             | Self::PlaylistNext
             | Self::PlaylistPrevious
@@ -147,6 +142,7 @@ impl Command {
             | Self::AddSubtitlesWithoutSelection(_)
             | Self::AddMatchedSubtitles { .. } => subtitles::load(state, self)?,
             Self::CycleLoop => playback::set_loop_mode_commands(state.loop_mode().next()),
+            Self::ToggleLoopMode(mode) => playback::toggle_loop_mode(state, *mode),
             Self::SetLoopMode(mode) => playback::set_loop_mode_commands(*mode),
             _ => vec![self.mpv_args()?],
         };

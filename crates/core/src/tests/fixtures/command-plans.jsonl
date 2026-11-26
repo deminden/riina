@@ -15,6 +15,7 @@
 {"command":"PluginMpv","mpv":[["show-text","literal; stop"]],"resume_on_load":false}
 {"command":"Stop","mpv":[["write-watch-later-config"],["stop"]],"resume_on_load":false}
 {"command":"Seek","mpv":[["seek","4.25","relative"]],"resume_on_load":false}
+{"command":"SeekTimeline","mpv":[["seek","25","absolute-percent+exact"]],"resume_on_load":false}
 {"command":"SeekWithType","mpv":[["seek","31.5","relative+exact"]],"resume_on_load":false}
 {"command":"Volume","mpv":[["set","volume","64"]],"resume_on_load":false}
 {"command":"RestoreVolume","mpv":[["set","volume","64"]],"resume_on_load":false}
@@ -135,6 +136,7 @@
 {"command":"ToggleSecondarySubtitleVisibility","mpv":[["cycle","secondary-sub-visibility"]],"resume_on_load":false}
 {"command":"CycleLoop","mpv":[["set","loop-file","inf"]],"resume_on_load":false}
 {"command":"ToggleFileLoop","mpv":[["cycle-values","loop-file","inf","no"]],"resume_on_load":false}
+{"command":"ToggleLoopMode","mpv":[["set","loop-playlist","inf"],["set","loop-file","no"]],"resume_on_load":false}
 {"command":"SetLoopMode","mpv":[["set","loop-playlist","inf"],["set","loop-file","no"]],"resume_on_load":false}
 {"command":"CycleAbLoop","mpv":[["ab-loop"]],"resume_on_load":false}
 {"command":"SetAbLoop","mpv":[["set","ab-loop-a","11.5"],["set","ab-loop-b","30.25"]],"resume_on_load":false}

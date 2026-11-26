@@ -433,6 +433,7 @@ fn player_glue_worker() -> Result<(), Box<dyn std::error::Error>> {
     exercise_observation_and_volume(&harness)?;
     exercise_chapter_metadata_and_hover(&harness)?;
     exercise_controller_arrows(&harness);
+    exercise_timeline_generation(&profile)?;
     exercise_playlist_feedback(&profile)?;
     exercise_playlist_footer_menus(&profile)?;
     drop(harness);
@@ -675,6 +676,12 @@ fn exercise_transport_settings(harness: &Harness) {
     harness.expect(Command::CycleAbLoop);
     app.global::<PlayerMenuActions>().invoke_toggle_file_loop();
     harness.expect(Command::ToggleFileLoop);
+    app.global::<PlayerMenuActions>()
+        .invoke_toggle_file_repeat();
+    harness.expect(Command::ToggleLoopMode(riina_core::LoopMode::File));
+    app.global::<PlayerMenuActions>()
+        .invoke_toggle_playlist_repeat();
+    harness.expect(Command::ToggleLoopMode(riina_core::LoopMode::Playlist));
     app.global::<riina_ui::PlayerControlActions>()
         .invoke_execute_mpv_input_action("cycle pause".into());
     harness.expect(Command::MpvInputAction("cycle pause".into()));
@@ -999,6 +1006,10 @@ fn exercise_observation_and_volume(harness: &Harness) -> Result<(), Box<dyn std:
     assert_eq!(app.get_media_title(), "Headless fixture");
 
     app.global::<riina_ui::PlayerControlActions>()
+        .invoke_seek_timeline(0.25);
+    harness.expect(Command::SeekTimeline(0.25));
+
+    app.global::<riina_ui::PlayerControlActions>()
         .invoke_set_ab_loop_point(0, 1.25);
     harness.expect(Command::SetAbLoopPoint {
         point: riina_core::AbLoopPoint::A,
@@ -1013,6 +1024,40 @@ fn exercise_observation_and_volume(harness: &Harness) -> Result<(), Box<dyn std:
     app.global::<riina_ui::PlayerControlActions>()
         .invoke_set_volume(140.0);
     harness.expect(Command::Volume(140.0));
+    Ok(())
+}
+
+fn exercise_timeline_generation(
+    profile: &std::path::Path,
+) -> Result<(), Box<dyn std::error::Error>> {
+    let harness = Harness::start(profile.join("timeline-gesture/preferences.json"), false)?;
+    let snapshots = |generation| Playback {
+        generation,
+        phase: Phase::Paused,
+        paused: true,
+        seekable: true,
+        position: Some(2.0),
+        duration: Some(8.0),
+        ..Playback::default()
+    };
+    let hdr = Command::SetHdrEnabledWithIcc {
+        enabled: false,
+        load_icc_profile: true,
+    };
+    let actions = harness.app.global::<riina_ui::PlayerControlActions>();
+    harness.publish(snapshots(1))?;
+    harness.expect(hdr.clone());
+    actions.invoke_timeline_gesture(true);
+    actions.invoke_seek_timeline(0.5);
+    harness.expect(Command::SeekTimeline(0.5));
+    harness.publish(snapshots(2))?;
+    harness.expect(hdr);
+    actions.invoke_seek_timeline(0.75);
+    actions.invoke_set_ab_loop_point(0, 1.0);
+    harness.expect_idle();
+    actions.invoke_timeline_gesture(false);
+    actions.invoke_seek_timeline(0.25);
+    harness.expect(Command::SeekTimeline(0.25));
     Ok(())
 }
 

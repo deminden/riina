@@ -6201,3 +6201,39 @@ legacy encodings remain open.
 - Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
 - Linux application SHA-256 `9f02b64d7a48565101a0a5604815d722c5f70e0a65fc7c06fa4e9d0a45850c5f`
 - Linux libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`
+
+### Timeline seeking and repeat menus (2026-11-26)
+
+The Windows workspace gate passed with 1,138 Rust tests, 83 ignored cases,
+79 Python tests and four browser tests. The gate included the headless pointer
+and software-rendered UI checks. Command tests verified that a slider request
+uses an exact percentage and clamps the upper endpoint below 100%. The worker
+test checked that consecutive drags coalesce only for the same media, and that
+Stop and Shutdown keep their place. The player callback test verified that a
+drag already in progress cannot seek a replacement or change its A/B markers.
+
+In isolated X11 playback, the timeline midpoint reached 2.500 seconds of a
+five-second fixture. A pointer drag sought from 1.708 to 3.833 seconds without
+resuming or replacing the file. Dragging A moved it to 2.266 seconds while the
+B point and the paused playhead held their positions. The player closed normally.
+Native Wayland reached the same midpoint and two other positions by pointer.
+The five-second fixture stayed paused and the player closed normally.
+The locked Windows workspace and Linux application builds passed. Strict
+Linux Clippy and all seven selected native seeking and repeat tests passed
+with null audio output. Full application and test sources passed strict
+cross-Clippy for Apple Silicon and Intel. Native macOS timeline interaction
+remains open.
+
+On a private Windows desktop with the pinned DLL, the main timeline reached
+2.500 and 3.583 seconds while the fixture stayed paused. File Loop took
+priority over a finite playlist count, and turning File Loop off cleared both
+repeat settings. Playlist Loop turned playlist repeat on and off directly.
+The exact framed player exited normally. All 70 pinned Windows native tests
+passed, including the percentage-seek sequence, stale media commands, and
+the separate raw file-loop shortcut. Live compact timeline and right-edge
+behavior on long-keyframe media still need desktop verification.
+
+- Windows application SHA-256 `eff65f8aa152917ad006175353710ef245fabc2e0d2feb83774ed6ca7955c4a3`
+- Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
+- Linux application SHA-256 `f3a846ef73fbcb344ce89b93bdcf3c72e1123f8ff2e345a320c7e975b8a724c7`
+- Linux libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`

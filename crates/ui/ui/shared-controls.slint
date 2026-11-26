@@ -53,6 +53,7 @@ export component PlayerSlider inherits Rectangle {
     out property <bool> keyboard-focused: focus.has-focus && !root.pointer-focused;
     out property <bool> previewing: drag-value-active;
     callback changed(float);
+    callback gesture(bool);
     callback focus-entered(length, length);
     callback draft-changed(float);
     callback committed(float);
@@ -81,8 +82,16 @@ export component PlayerSlider inherits Rectangle {
     private property <bool> pointer-focused;
     private property <bool> drag-value-active: false;
     private property <bool> awaiting-native-commit: false;
+    private property <bool> gesture-active: false;
     private property <float> display-value: drag-value-active ? drag-value : value;
+    function set-gesture(active: bool) {
+        if root.gesture-active != active {
+            root.gesture-active = active;
+            root.gesture(active);
+        }
+    }
     public function cancel-gesture() {
+        root.set-gesture(false);
         root.is-dragging = false;
         root.awaiting-native-commit = false;
         root.drag-value-active = false;
@@ -213,11 +222,13 @@ export component PlayerSlider inherits Rectangle {
             else if event.button == PointerEventButton.left && event.kind == PointerEventKind.down {
                 root.pointer-focused = true;
                 root.is-dragging = true;
+                root.set-gesture(true);
                 root.awaiting-native-commit = false;
                 focus.focus();
                 root.move-thumb(root.pointer-value);
             } else if event.button == PointerEventButton.left && event.kind == PointerEventKind.up && root.is-dragging {
                 root.is-dragging = false;
+                root.set-gesture(false);
                 if root.commit-on-release && root.drag-value-active {
                     root.awaiting-native-commit = true;
                     root.committed(root.drag-value);
@@ -274,6 +285,10 @@ export component PlayerSlider inherits Rectangle {
                 // starts a drag without moving the A point on mouse-down.
                 loop-a-grab-offset =
                     self.x + self.mouse-x - root.loop-a-x - root.knob-width / 2;
+                root.set-gesture(true);
+            } else if event.kind == PointerEventKind.cancel
+                || (event.button == PointerEventButton.left && event.kind == PointerEventKind.up) {
+                root.set-gesture(false);
             }
         }
         moved => { if self.pressed {
@@ -293,6 +308,10 @@ export component PlayerSlider inherits Rectangle {
                 // the reference's marker priority; keep its initial value stable.
                 loop-b-grab-offset =
                     self.x + self.mouse-x - root.loop-b-x - root.knob-width / 2;
+                root.set-gesture(true);
+            } else if event.kind == PointerEventKind.cancel
+                || (event.button == PointerEventButton.left && event.kind == PointerEventKind.up) {
+                root.set-gesture(false);
             }
         }
         moved => { if self.pressed {

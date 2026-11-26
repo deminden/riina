@@ -70,6 +70,12 @@ See [visual metrics](visual-spec.md) for the controller and sidebar details.
   `SettingsPageSubtitles.chooseSubFontAction` edits the saved default through
   a sheet. Both use the same chooser owned by the application.
 - Loop cycling is off -> file -> playlist -> off.
+- The playback slider seeks by exact percentage by default. It bounds the
+  upper endpoint below 100% because libmpv can advance the playlist at EOF.
+  Jump to Time uses an absolute timestamp.
+- File Loop and Playlist Loop menu actions toggle the selected repeat mode.
+  Turning off the active mode clears both settings. The raw file-loop profile
+  action keeps a separate playlist setting intact.
 - Audio delay sliders cover -5 to 5 seconds in 0.05 steps; numeric input preserves
   finer/out-of-range values and blank entry resets zero.
 - Recent-file recording and all-played tracking are distinct default-on

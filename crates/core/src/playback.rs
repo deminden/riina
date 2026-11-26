@@ -436,20 +436,14 @@ impl Playback {
         }
     }
     pub fn loop_mode(&self) -> LoopMode {
-        fn active(value: &Option<String>) -> bool {
-            value.as_deref().is_some_and(|value| {
-                value == "inf"
-                    || value == "force"
-                    || value.parse::<i64>().is_ok_and(|count| count != 0)
-            })
-        }
-        if active(&self.loop_file) {
-            LoopMode::File
-        } else if active(&self.loop_playlist) {
-            LoopMode::Playlist
-        } else {
-            LoopMode::Off
-        }
+        LoopMode::observed(self.loop_file.as_deref(), self.loop_playlist.as_deref())
+    }
+
+    pub fn timeline_seekable(&self) -> bool {
+        self.seekable
+            && self
+                .duration
+                .is_some_and(|duration| duration.is_finite() && duration > 0.0)
     }
     pub fn begin_load(&mut self) {
         let outgoing_generation = self.generation;

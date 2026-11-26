@@ -398,11 +398,12 @@ pub(super) fn install_playback(host: &NativeVideoHost, app: &PlayerWindow) {
         app.global::<PlayerMenuActions>().invoke_cycle_ab_loop();
     });
     forward!(host, app, on_toggle_file_loop, || {
-        app.global::<PlayerMenuActions>().invoke_toggle_file_loop();
-    });
-    forward!(host, app, on_cycle_playlist_loop, || {
         app.global::<PlayerMenuActions>()
-            .invoke_playlist_action(5, "".into());
+            .invoke_toggle_file_repeat();
+    });
+    forward!(host, app, on_toggle_playlist_loop, || {
+        app.global::<PlayerMenuActions>()
+            .invoke_toggle_playlist_repeat();
     });
     forward!(host, app, on_playlist_next, || {
         app.global::<PlayerMenuActions>().invoke_playlist_next();

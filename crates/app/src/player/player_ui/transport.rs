@@ -2,8 +2,9 @@ use super::{PlayerContext, bind, playlist_subtitles::Assignments};
 use crate::PlayerWindow;
 use riina_core::Command;
 use riina_mpv::CommandSender;
-use riina_ui::PlayerMenuActions;
+use riina_ui::{PlayerControlActions, PlayerMenuActions};
 use slint::ComponentHandle;
+use std::{cell::Cell, rc::Rc};
 
 pub(super) fn install_seek(app: &PlayerWindow, command_sender: &CommandSender) {
     for absolute in [true, false] {
@@ -27,6 +28,64 @@ pub(super) fn install_seek(app: &PlayerWindow, command_sender: &CommandSender) {
         } else {
             app.global::<PlayerMenuActions>().on_seek_relative(seek);
         }
+    }
+}
+
+pub(super) fn install_timeline(app: &PlayerWindow, context: &PlayerContext) {
+    let actions = app.global::<PlayerControlActions>();
+    let grabbed = Rc::new(Cell::new(None::<u64>));
+    let press = grabbed.clone();
+    bind!(context, actions, on_timeline_gesture, |ctx, active| {
+        press.set(active.then(|| riina_core::sync::lock(ctx.playback()).generation));
+    });
+
+    let timeline = grabbed.clone();
+    bind!(context, actions, on_seek_timeline, |ctx, fraction| {
+        if fraction.is_finite() {
+            send_timeline(
+                &ctx,
+                timeline.get(),
+                Command::SeekTimeline(f64::from(fraction)),
+            );
+        }
+    });
+    bind!(
+        context,
+        actions,
+        on_set_ab_loop_point,
+        |ctx, point, value| {
+            let point = match point {
+                0 => riina_core::AbLoopPoint::A,
+                1 => riina_core::AbLoopPoint::B,
+                _ => return,
+            };
+            if value.is_finite() {
+                send_timeline(
+                    &ctx,
+                    grabbed.get(),
+                    Command::SetAbLoopPoint {
+                        point,
+                        value: Some(f64::from(value)),
+                    },
+                );
+            }
+        }
+    );
+}
+
+fn send_timeline(ctx: &PlayerContext, grabbed: Option<u64>, command: Command) {
+    let Some(app) = ctx.app() else { return };
+    if !app.get_loaded() {
+        return;
+    }
+    let current = riina_core::sync::lock(ctx.playback()).generation;
+    let generation = grabbed.unwrap_or(current);
+    if generation != current {
+        return;
+    }
+    ctx.activity();
+    if let Err(error) = ctx.commands().send_for_media(generation, command) {
+        ctx.report(error);
     }
 }
 
@@ -172,30 +231,20 @@ pub(super) fn install_loops(app: &PlayerWindow, context: &PlayerContext) {
     );
     bind!(
         context,
-        app.global::<riina_ui::PlayerControlActions>(),
-        on_set_ab_loop_point,
-        |ctx, point, value| {
-            let Some(app) = ctx.app() else { return };
-            if !app.get_loaded() || !value.is_finite() {
-                return;
-            }
-            let point = match point {
-                0 => riina_core::AbLoopPoint::A,
-                1 => riina_core::AbLoopPoint::B,
-                _ => return,
-            };
-            app.global::<riina_ui::PlayerControlActions>()
-                .invoke_activity();
-            ctx.send(Command::SetAbLoopPoint {
-                point,
-                value: Some(f64::from(value)),
-            });
-        }
+        app.global::<PlayerMenuActions>(),
+        on_toggle_file_loop,
+        Command::ToggleFileLoop
     );
     bind!(
         context,
         app.global::<PlayerMenuActions>(),
-        on_toggle_file_loop,
-        Command::ToggleFileLoop
+        on_toggle_file_repeat,
+        Command::ToggleLoopMode(riina_core::LoopMode::File)
+    );
+    bind!(
+        context,
+        app.global::<PlayerMenuActions>(),
+        on_toggle_playlist_repeat,
+        Command::ToggleLoopMode(riina_core::LoopMode::Playlist)
     );
 }

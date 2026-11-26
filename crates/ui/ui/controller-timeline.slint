@@ -2,7 +2,6 @@ import { ControllerTimeLabel } from "controller-time-label.slint";
 import { PlayerAppearance } from "player-appearance.slint";
 import { PlayerControlActions } from "player-control-actions.slint";
 import { PlayerControlsState } from "player-controls-state.slint";
-import { PlayerMenuActions } from "player-menu-actions.slint";
 import { PlayerPreferences } from "player-preferences.slint";
 import { PlaybackTimelineState } from "playback-timeline-state.slint";
 import { PlayerSlider } from "shared-controls.slint";
@@ -62,8 +61,11 @@ export component ControllerTimeline inherits HorizontalLayout {
         value: PlaybackTimelineState.position;
         enabled: PlaybackTimelineState.seekable;
         hint: "Playback position";
-        changed is-dragging => { PlayerControlsState.control-bar-dragging = self.is-dragging; }
-        changed(value) => { PlayerMenuActions.seek(value); }
+        gesture(active) => {
+            PlayerControlsState.control-bar-dragging = active;
+            PlayerControlActions.timeline-gesture(active);
+        }
+        changed(value) => { PlayerControlActions.seek-timeline(value / self.maximum); }
         loop-a-moved(value) => { PlayerControlActions.set-ab-loop-point(0, value); }
         loop-b-moved(value) => { PlayerControlActions.set-ab-loop-point(1, value); }
         preview-requested(value) => { PlayerControlActions.timeline-hovered(value); }

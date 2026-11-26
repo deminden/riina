@@ -116,22 +116,23 @@ fn media_scoped_scrub_seeks_and_cannot_resume_replacement_media() {
     let harness = Harness::start(&root).unwrap();
     let commands = harness.player.command_sender();
     let load = |fixture| Command::Load(root.join(fixture).to_string_lossy().into_owned());
-    let seek = Command::Seek {
-        seconds: 2.0,
-        absolute: true,
-    };
     harness.send(Command::SetPauseWhenOpen(true)).unwrap();
     harness.send(load("tests/fixtures/catalog.mkv")).unwrap();
-    let original = harness.wait(|state| state.phase == Phase::Paused && state.seekable);
-    commands
-        .send_for_media(original.generation, seek.clone())
-        .unwrap();
-    harness.wait(|state| {
+    let original = harness
+        .wait(|state| state.phase == Phase::Paused && state.seekable && state.duration.is_some());
+    let target = original.duration.unwrap() * 0.5;
+    for fraction in [0.2, 0.35, 0.5] {
+        commands
+            .send_for_media(original.generation, Command::SeekTimeline(fraction))
+            .unwrap();
+    }
+    let scrubbed = harness.wait(|state| {
         !state.seeking
             && state
                 .position
-                .is_some_and(|clock| (clock - 2.0).abs() < 0.1)
+                .is_some_and(|clock| (clock - target).abs() < 0.15)
     });
+    assert!(scrubbed.paused);
 
     harness
         .send(load("tests/fixtures/moving-square.avi"))
@@ -143,7 +144,18 @@ fn media_scoped_scrub_seeks_and_cannot_resume_replacement_media() {
             && !state.seeking
             && state.position.is_some()
     });
-    commands.send_for_media(original.generation, seek).unwrap();
+    commands
+        .send_for_media(original.generation, Command::SeekTimeline(0.75))
+        .unwrap();
+    commands
+        .send_for_media(
+            original.generation,
+            Command::SetAbLoopPoint {
+                point: riina_core::AbLoopPoint::A,
+                value: Some(1.0),
+            },
+        )
+        .unwrap();
     commands
         .send_for_media(original.generation, Command::SetPaused(false))
         .unwrap();
@@ -152,6 +164,7 @@ fn media_scoped_scrub_seeks_and_cannot_resume_replacement_media() {
     assert_eq!(observed.generation, replacement.generation);
     assert_eq!(observed.position, replacement.position);
     assert!(observed.paused);
+    assert!(observed.ab_loop_a.is_none());
     assert_eq!(
         observed.completed_navigation_seeks,
         replacement.completed_navigation_seeks

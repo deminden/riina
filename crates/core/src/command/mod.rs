@@ -76,6 +76,8 @@ pub enum Command {
         seconds: f64,
         absolute: bool,
     },
+    /// A position on the visible timeline, expressed as a fraction of its range.
+    SeekTimeline(f64),
     SeekWithType {
         seconds: f64,
         seek_type: control_preferences::SeekType,
@@ -269,6 +271,7 @@ pub enum Command {
     ToggleSecondarySubtitleVisibility,
     CycleLoop,
     ToggleFileLoop,
+    ToggleLoopMode(LoopMode),
     SetLoopMode(LoopMode),
     CycleAbLoop,
     SetAbLoop {

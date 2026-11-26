@@ -119,7 +119,7 @@ export component NativeVideoHost inherits Window {
     callback reset-speed();
     callback cycle-ab-loop();
     callback toggle-file-loop();
-    callback cycle-playlist-loop();
+    callback toggle-playlist-loop();
     callback playlist-next();
     callback playlist-previous();
     in property <[MenuCatalogRow]> playlist-menu-rows: [];
@@ -365,8 +365,8 @@ export component NativeVideoHost inherits Window {
             MenuItem { title: root.visible-catalog-pane == 4 ? @tr("Hide Playlist Panel") : @tr("Show Playlist Panel");
                 shortcut: root.menu-shortcut(12);
                 activated => { root.show-playlist-panel(); } }
-            MenuItem { title: @tr("Playlist Loop"); checkable: true; checked: root.loop-label == @tr("Playlist");
-                enabled: root.playback-loaded; activated => { root.cycle-playlist-loop(); } }
+            MenuItem { title: @tr("Playlist Loop"); checkable: true; checked: root.loop-label == "Playlist";
+                enabled: root.playback-loaded; activated => { root.toggle-playlist-loop(); } }
             Menu { title: @tr("Playlist"); enabled: root.playback-loaded && root.playlist-menu-rows.length > 0;
                 for row in root.playlist-menu-rows : MenuItem {
                     title: row.label;

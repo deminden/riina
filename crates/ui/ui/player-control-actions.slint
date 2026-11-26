@@ -6,6 +6,8 @@ export enum ControllerArrowPhase { pressed, released, cancelled, activated }
 export global PlayerControlActions {
     callback open-application-menu();
     callback timeline-hovered(float);
+    callback timeline-gesture(bool);
+    callback seek-timeline(float);
     callback toggle-time-display();
     callback select-time-precision(int);
     callback publish-controller-options();
