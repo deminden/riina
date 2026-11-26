@@ -6,6 +6,7 @@ use std::{
     io::{self, Write},
     path::{Path, PathBuf},
     process::{Command, ExitCode},
+    thread,
 };
 
 const UI_TEST_TARGETS: &[&str] = &[
@@ -59,8 +60,22 @@ fn run_task(arguments: &[OsString]) -> Result<(), String> {
 fn check(root: &Path) -> Result<(), String> {
     cargo(root, &["fmt", "--all", "--", "--check"])?;
     python(root, &["scripts/check-line-length.py"])?;
-    python(root, &["scripts/check-settings-navigation.py"])?;
-    browser_tests(root)?;
+    // The repository checks don't touch Cargo's build directory. Keep the two
+    // Cargo commands in order so they can reuse the same target cache.
+    thread::scope(|scope| {
+        let repository = scope.spawn(|| check_repository(root));
+        let rust = check_rust(root);
+        let repository = repository
+            .join()
+            .map_err(|_| "Repository checks stopped unexpectedly".to_owned())?;
+        match (rust, repository) {
+            (Err(rust), Err(repository)) => Err(format!("{rust}\n{repository}")),
+            (rust, repository) => rust.and(repository),
+        }
+    })
+}
+
+fn check_rust(root: &Path) -> Result<(), String> {
     cargo(
         root,
         &[
@@ -73,7 +88,12 @@ fn check(root: &Path) -> Result<(), String> {
             "warnings",
         ],
     )?;
-    cargo(root, &["test", "--workspace", "--locked"])?;
+    cargo(root, &["test", "--workspace", "--locked"])
+}
+
+fn check_repository(root: &Path) -> Result<(), String> {
+    python(root, &["scripts/check-settings-navigation.py"])?;
+    browser_tests(root)?;
     script_tests(root)?;
     for script in [
         "scripts/check-parity.py",

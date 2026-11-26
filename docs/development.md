@@ -243,7 +243,8 @@ workspace where it was invoked, so a shared Cargo target can serve multiple
 worktrees without reusing an earlier checkout's test scope. Runtime media
 fixtures and Windows pixel baselines also use the active worktree.
 Use `cargo xtask check` at integration points for the full local gate, including
-the Python, parity, fixture and asset checks. Run `cargo xtask native` for the native
+the browser, Python, parity, fixture and asset checks. This group runs alongside
+Rust linting and tests. Run `cargo xtask native` for the native
 engine suite with null audio output. It selects the native test target and reuses
 the harness built by the workspace gate. When selecting a Cargo build target
 explicitly, use the same `CARGO_BUILD_TARGET` for both batches to reuse that
@@ -254,6 +255,13 @@ DLL from the setup above unless `RIINA_TEST_MPV_LIBRARY` points to another
 provisioned build. Windows runs up to four native tests at a time and other
 platforms run them serially by default. `RUST_TEST_THREADS=1` forces a serial
 run anywhere. Failed tests show their captured output.
+
+The regular app suite tests staged plugin moves with disposable directories.
+To run the same operation through JavaScript across real volumes, set
+`RIINA_TEST_SECOND_VOLUME` to a writable directory on a filesystem different
+from the system temp directory and run
+`cargo test --workspace --locked cross_volume_plugin_moves -- --ignored`.
+This reuses the harness built by the full gate.
 
 Native capture tests use disposable directories by default. To keep files for
 the pixel and format checkers, set `RIINA_TEST_ARTIFACT_DIR` to an existing

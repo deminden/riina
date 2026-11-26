@@ -483,6 +483,10 @@ for a reply, within the deadline of its callback. Property replies stay out
 of the public playback event stream and global plugin entries have no
 player engine.
 
+Binary node properties arrive as arrays of unsigned numbers, including when
+the bytes are nested inside other native values. Each reply shares a byte
+copy budget before those values are expanded into JavaScript numbers.
+
 Playback options follow the pinned IINA property inventory. Transport
 options require a reviewed network grant. External file lists require a
 filesystem grant, and URL entries also use the plugin's allowed domains.
@@ -731,13 +735,20 @@ the requested directory alias. Recursive listings retain Riina's entry limit.
 Text writes and downloads stage the complete bytes beside the destination before
 publishing. Private writes replace the name while readers retain the version they
 opened. External writes publish only when the name is still vacant. A move uses
-the native no-replace operation. Moves and Trash preserve the final external
-directory entry, including when it points to a symbolic link. Common text
-encodings use the shared strict decoder. Additional legacy encodings use the
-runtime's native converter. Reveal uses the desktop file manager's item selection
-when available.
+the native no-replace operation. Across volumes, Riina reserves the original
+entry beside its source and copies to a temporary directory on the destination
+volume. The finished entry is placed with the same no-replace operation. If
+copying or publication fails, the original returns to its starting name unless
+another writer has claimed it. In that case the error identifies the retained
+source. If source cleanup fails after publication, the error identifies any
+remaining original data. Directory copies reject mounts and unsupported entries.
+Moves and Trash preserve the final external directory entry, including when it
+points to a symbolic link. Common text encodings use the shared strict decoder.
+Additional legacy encodings use the runtime's native converter. Reveal uses the
+desktop file manager's item selection when available.
 
 [Windows rename semantics](https://learn.microsoft.com/windows-hardware/drivers/ddi/ntifs/ns-ntifs-_file_rename_information)
+[Windows volume moves](https://learn.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-movefileexw)
 [FileManager1 item selection](https://wiki.freedesktop.org/www/Specifications/file-manager-interface/)
 
 ### Plugin video overlays

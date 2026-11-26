@@ -231,6 +231,50 @@ fn plugin_file_api_scopes_private_paths_and_checks_external_access_grants() {
 }
 
 #[test]
+#[ignore = "set RIINA_TEST_SECOND_VOLUME to a writable directory on another filesystem"]
+fn cross_volume_plugin_moves_files_and_directories() {
+    let volume = std::env::var_os("RIINA_TEST_SECOND_VOLUME")
+        .expect("set RIINA_TEST_SECOND_VOLUME to a different filesystem from the test temp root");
+    let destination = tempfile::tempdir_in(volume).unwrap();
+    let identifier = "org.example.cross-volume-files";
+    let permissions = vec!["file-system".to_owned()];
+    let files = PluginFiles::temporary(identifier);
+    let data = files.existing_path("@data/", false).unwrap();
+    std::fs::create_dir_all(data.join("tree/nested/empty")).unwrap();
+    std::fs::write(data.join("tree/nested/bytes.dat"), [0, 128, 255]).unwrap();
+    std::fs::write(destination.path().join("occupied.txt"), "keep").unwrap();
+    let destination_path = serde_json::to_string(destination.path().to_str().unwrap()).unwrap();
+    let source = format!(
+        r#"
+        const target = {destination_path};
+        iina.file.write('@data/source.txt', 'from plugin storage');
+        try {{
+            iina.file.move('@data/source.txt', target + '/occupied.txt');
+            throw new Error('move overwrote an existing destination');
+        }} catch (error) {{
+            if (!String(error).includes('Move destination already exists')) throw error;
+        }}
+        iina.file.move('@data/source.txt', target + '/moved.txt');
+        iina.file.move('@data/tree', target + '/moved-tree');
+        iina.file.move(target + '/moved.txt', '@tmp/round-trip.txt');
+        if (iina.file.read('@tmp/round-trip.txt') !== 'from plugin storage') {{
+            throw new Error('text round trip failed');
+        }}
+        "#
+    );
+    execute_with_files(&source, identifier, &permissions, files).unwrap();
+
+    let result = destination.path();
+    assert_eq!(std::fs::read(result.join("occupied.txt")).unwrap(), b"keep");
+    assert_eq!(
+        std::fs::read(result.join("moved-tree/nested/bytes.dat")).unwrap(),
+        [0, 128, 255]
+    );
+    assert!(result.join("moved-tree/nested/empty").is_dir());
+    assert_eq!(std::fs::read_dir(result).unwrap().count(), 2);
+}
+
+#[test]
 fn plugin_file_handles_expose_binary_seek_read_write_and_close() {
     let identifier = "org.example.file-handles";
     let files = PluginFiles::temporary(identifier);

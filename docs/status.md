@@ -281,6 +281,9 @@ Implementation does not imply every state or platform is verified.
   ordered native property values and the argument count for each event.
   Reload All replays the file-loaded and file-started signals during active
   playback. X11 and Wayland desktop checks covered startup, pause and shutdown.
+- **Plugin files and native values:** plugins can move files and directory trees
+  across volumes without overwriting a destination. Native mpv binary properties
+  reach JavaScript as arrays of unsigned numbers within a bounded reply.
 - **macOS plugin startup:** enabled global plugins can initialize without a
   player and request a tool window, prompt, picker or new player. The
   application Plugin menu shows global contributions and opens Plugins

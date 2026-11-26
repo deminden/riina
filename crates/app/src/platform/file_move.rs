@@ -1,6 +1,8 @@
 //! Move a file or directory without replacing a destination created by a concurrent writer.
 use std::{io, path::Path};
 
+mod across_volumes;
+
 #[cfg(windows)]
 mod windows;
 #[cfg(windows)]
@@ -9,10 +11,22 @@ pub(crate) use windows::replace;
 #[cfg(unix)]
 pub(crate) use std::fs::rename as replace;
 
-#[cfg(windows)]
 pub(crate) fn move_new(source: &Path, destination: &Path) -> io::Result<()> {
+    match rename_new(source, destination) {
+        Err(error) if error.kind() == io::ErrorKind::CrossesDevices => {
+            across_volumes::move_new(source, destination)
+        }
+        result => result,
+    }
+}
+
+#[cfg(windows)]
+fn rename_new(source: &Path, destination: &Path) -> io::Result<()> {
     use ::windows::{
-        Win32::Storage::FileSystem::{MOVE_FILE_FLAGS, MoveFileExW},
+        Win32::{
+            Foundation::{ERROR_ALREADY_EXISTS, ERROR_FILE_EXISTS, ERROR_NOT_SAME_DEVICE},
+            Storage::FileSystem::{MOVE_FILE_FLAGS, MoveFileExW},
+        },
         core::PCWSTR,
     };
     use std::os::windows::ffi::OsStrExt;
@@ -31,14 +45,20 @@ pub(crate) fn move_new(source: &Path, destination: &Path) -> io::Result<()> {
             MOVE_FILE_FLAGS(0),
         )
     }
-    .map_err(|error| match error.code().0 as u32 {
-        0x8007_0050 | 0x8007_00b7 => io::ErrorKind::AlreadyExists.into(),
-        _ => io::Error::other(error),
+    .map_err(|error| {
+        let code = error.code();
+        if code == ERROR_FILE_EXISTS.to_hresult() || code == ERROR_ALREADY_EXISTS.to_hresult() {
+            io::ErrorKind::AlreadyExists.into()
+        } else if code == ERROR_NOT_SAME_DEVICE.to_hresult() {
+            io::ErrorKind::CrossesDevices.into()
+        } else {
+            io::Error::other(error)
+        }
     })
 }
 
 #[cfg(unix)]
-pub(crate) fn move_new(source: &Path, destination: &Path) -> io::Result<()> {
+fn rename_new(source: &Path, destination: &Path) -> io::Result<()> {
     use std::{ffi::CString, os::unix::ffi::OsStrExt};
 
     let source = CString::new(source.as_os_str().as_bytes())?;

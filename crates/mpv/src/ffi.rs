@@ -114,6 +114,7 @@ pub struct NodeByteArray {
 pub(crate) enum NodeDecodeError {
     NestingLimit,
     InvalidCount,
+    BinaryLimit,
     MissingStorage,
     MissingKey,
     UnsupportedFormat(c_int),
@@ -124,6 +125,7 @@ impl std::fmt::Display for NodeDecodeError {
         match self {
             Self::NestingLimit => output.write_str("mpv property nesting exceeds 32 levels"),
             Self::InvalidCount => output.write_str("Invalid mpv node count"),
+            Self::BinaryLimit => output.write_str("mpv node byte arrays exceed the copy limit"),
             Self::MissingStorage => output.write_str("Missing mpv node storage"),
             Self::MissingKey => output.write_str("Missing mpv node key"),
             Self::UnsupportedFormat(format) => {
@@ -139,8 +141,9 @@ impl Node {
     /// Copy an event-owned node before the next wait_event invalidates its storage.
     /// Unsupported formats fail rather than interpreting an inactive union member.
     pub(crate) unsafe fn copy_json(&self) -> Result<serde_json::Value, NodeDecodeError> {
+        let mut remaining_bytes = MAX_NODE_ITEMS;
         // SAFETY: the caller keeps the mpv node and its referenced data live for the copy.
-        unsafe { self.copy_json_at(0) }
+        unsafe { self.copy_json_at(0, &mut remaining_bytes) }
     }
 
     /// Copies a screenshot-raw reply while its command event still owns the node.
@@ -248,7 +251,11 @@ impl Node {
         riina_core::CapturedFrame::new(width, height, stride, pixels).map_err(EngineError::Frame)
     }
 
-    unsafe fn copy_json_at(&self, depth: usize) -> Result<serde_json::Value, NodeDecodeError> {
+    unsafe fn copy_json_at(
+        &self,
+        depth: usize,
+        remaining_bytes: &mut usize,
+    ) -> Result<serde_json::Value, NodeDecodeError> {
         use serde_json::Value;
         if depth > 32 {
             return Err(NodeDecodeError::NestingLimit);
@@ -270,9 +277,10 @@ impl Node {
                     // target parameters. Preserve that as unknown, not a clock
                     // value or a playback failure. Command validation stays strict.
                     .unwrap_or(Value::Null),
+                format::BYTE_ARRAY => copy_node_bytes(self.value.byte_array, remaining_bytes)?,
                 format::NODE_ARRAY | format::NODE_MAP if !self.value.list.is_null() => {
                     let list = &*self.value.list;
-                    if !(0..=100_000).contains(&list.count) {
+                    if !(0..=MAX_NODE_ITEMS as c_int).contains(&list.count) {
                         return Err(NodeDecodeError::InvalidCount);
                     }
                     if list.count > 0
@@ -284,7 +292,8 @@ impl Node {
                     let mut array = Vec::new();
                     let mut map = serde_json::Map::new();
                     for index in 0..list.count as usize {
-                        let value = (&*list.values.add(index)).copy_json_at(depth + 1)?;
+                        let value =
+                            (&*list.values.add(index)).copy_json_at(depth + 1, remaining_bytes)?;
                         if self.format == format::NODE_ARRAY {
                             array.push(value);
                         } else {
@@ -305,6 +314,32 @@ impl Node {
             })
         }
     }
+}
+
+const MAX_NODE_ITEMS: usize = 100_000;
+
+unsafe fn copy_node_bytes(
+    descriptor: *const NodeByteArray,
+    remaining_bytes: &mut usize,
+) -> Result<serde_json::Value, NodeDecodeError> {
+    // SAFETY: the live mpv node's BYTE_ARRAY tag selects this descriptor pointer.
+    let descriptor = unsafe { descriptor.as_ref() }.ok_or(NodeDecodeError::MissingStorage)?;
+    if descriptor.size == 0 {
+        return Ok(serde_json::Value::Array(Vec::new()));
+    }
+    if descriptor.data.is_null() {
+        return Err(NodeDecodeError::MissingStorage);
+    }
+    // Each byte becomes a JSON number. Share the bound across a whole mpv reply.
+    *remaining_bytes = remaining_bytes
+        .checked_sub(descriptor.size)
+        .ok_or(NodeDecodeError::BinaryLimit)?;
+    // SAFETY: the live descriptor owns size readable bytes and the size is bounded above.
+    let bytes =
+        unsafe { std::slice::from_raw_parts(descriptor.data.cast::<u8>(), descriptor.size) };
+    Ok(serde_json::Value::Array(
+        bytes.iter().copied().map(serde_json::Value::from).collect(),
+    ))
 }
 
 #[repr(C)]
@@ -648,5 +683,50 @@ mod tests {
             result,
             Err(NodeDecodeError::UnsupportedFormat(unknown.format))
         );
+    }
+
+    #[test]
+    fn binary_nodes_copy_as_unsigned_arrays_and_share_a_copy_limit() {
+        fn binary(descriptor: &NodeByteArray) -> Node {
+            Node {
+                value: NodeValue {
+                    byte_array: descriptor,
+                },
+                format: format::BYTE_ARRAY,
+            }
+        }
+
+        let bytes = [0_u8, 128, 255];
+        let populated = NodeByteArray {
+            data: bytes.as_ptr().cast_mut().cast(),
+            size: bytes.len(),
+        };
+        let empty = NodeByteArray {
+            data: std::ptr::null_mut(),
+            size: 0,
+        };
+        let nodes = [binary(&populated), binary(&empty)];
+        let list = NodeList {
+            count: 2,
+            values: nodes.as_ptr(),
+            keys: std::ptr::null(),
+        };
+        let tree = Node {
+            value: NodeValue { list: &list },
+            format: format::NODE_ARRAY,
+        };
+        // SAFETY: the live array nodes reference both descriptors and their byte storage.
+        let value = unsafe { tree.copy_json() }.unwrap();
+        assert_eq!(value, serde_json::json!([[0, 128, 255], []]));
+
+        let missing = NodeByteArray { size: 1, ..empty };
+        // SAFETY: the live descriptor has a null buffer and the copy checks for it.
+        let value = unsafe { binary(&missing).copy_json() };
+        assert_eq!(value, Err(NodeDecodeError::MissingStorage));
+
+        let mut remaining = bytes.len() - 1;
+        // SAFETY: the populated descriptor references the local byte array.
+        let value = unsafe { copy_node_bytes(&populated, &mut remaining) };
+        assert_eq!(value, Err(NodeDecodeError::BinaryLimit));
     }
 }

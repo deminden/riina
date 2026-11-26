@@ -6463,3 +6463,30 @@ Silicon and Intel.
 
 - Linux application SHA-256 `55b92d7b6b7fe63037d277d7fac233186cf0e792f87909114cda781390c50cc6`
 - Linux libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`
+
+### Cross-volume plugin moves and native byte arrays (2026-11-26)
+
+The locked Windows workspace build, full source gate and all 72 native playback
+tests passed. The full gate ran repository checks alongside Clippy and workspace
+tests. It completed in 57 seconds on the development machine.
+
+The Windows QuickJS test moved a file and a nested directory between C: and D:,
+kept an occupied destination intact and moved the file back. In a private
+Windows desktop, an installed plugin moved its private files and directory
+tree in both directions and preserved a rejected move's source. The first
+desktop attempt reached its 15-second startup timeout. The retry verified the
+paused fixture and closed the exact app process normally.
+
+The locked Linux application build, strict Clippy and 23 focused tests passed.
+Another QuickJS test ran the move workflow across `/tmp` and `/dev/shm`.
+The Unix rollback test kept a socket at its original path after rejection,
+and the link test verified that a dangling link stayed a link.
+
+The native node decoder fixture covered nested unsigned byte arrays, empty
+arrays, missing storage and the cumulative byte limit. Locked workspace source
+checks passed for Apple Silicon and Intel. Native macOS filesystem verification
+and a live libmpv binary property reply remain open.
+
+- Windows application SHA-256 `d481fc0f734d566357d658479f3be7a427dca7869dbc22188c7dd68c92a72dc5`
+- Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
+- Linux application SHA-256 `db564ba5e8c9742e32da12415cde9272104b3e26475a504f207876c7fc906496`
