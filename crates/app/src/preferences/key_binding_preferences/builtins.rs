@@ -4,9 +4,8 @@ use riina_core::key_bindings::{ActionKind, Mapping};
 
 mod alternate;
 mod mpv;
-mod platform_keys;
 
-pub(super) use platform_keys::equivalent as platform_equivalent;
+pub(super) use crate::platform::key_presets::equivalent as platform_equivalent;
 type Row = (&'static str, &'static str, ActionKind);
 
 pub(super) const BUILTIN_PROFILES: [&str; 5] = [

@@ -24,6 +24,7 @@ pub(crate) mod folder_dialog;
 #[cfg(any(windows, target_os = "macos"))]
 pub(crate) mod font_picker_window;
 pub(crate) mod fullscreen_window;
+pub(crate) mod key_presets;
 pub(crate) mod language;
 mod pip_session;
 pub(crate) mod plugin_application;

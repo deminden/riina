@@ -6067,3 +6067,42 @@ native window reuse and normal shutdown.
 - Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
 - Linux application SHA-256 `1bb149d12e8102a49e8aa01d30e6b31b62b8886034f63cf60d30f6c548c7e6df`
 - Linux libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`
+
+### Wayland plugin sidebar surrounding-text edits (2026-11-26)
+
+The locked Linux build passed on private Sway with XWayland disabled. WebKitGTK
+2.54.3 passed contextual replacements and caret deletion in ordinary fields,
+including edits around emoji, over an existing selection and during active
+composition. A rich editable field accepted a trusted replacement. The input
+method received the password purpose without receiving the synthetic password.
+WebKitGTK 2.52.6 kept composition and cancellation working without advertising
+surrounding text.
+
+Both Wayland runs passed the combined browser and player scenario. It covered
+wheel behavior, modifier and pointer focus, resizing, form retention after hide
+and reopen, and plugin confirmation. Opening Jump to Time transferred text
+input to the player. Submitting the composed time sought the paused fixture to
+one second. Settings opened from the browser shortcut. The X11 run passed the
+combined sidebar scenario with a native browser child. All three player
+processes exited normally. The Linux application and test sources passed
+strict Clippy. Three focused regressions covered UTF-8 range validation,
+UTF-16 conversion and composition in a focused writable player field.
+
+Sway sent a Jump to Time composition reply to the disabled browser object.
+The guest queue now keeps that reply intact until its matching serial and
+hands it to the focused Slint editor. Deleting around a retained browser
+selection remains open. [Sway text-input routing](https://github.com/swaywm/sway/blob/master/sway/input/text_input.c)
+
+The grouped Windows workspace gate passed with 1,131 Rust test passes and
+79 Python tests, including the player and Settings pixel comparisons. The
+locked workspace build passed. A private Windows desktop passed playback,
+fullscreen, settings persistence and shutdown. The pinned DLL passed all 70
+native engine tests. Apple Silicon and Intel application and test sources
+passed strict cross-Clippy. Shortcut presets and the idle-menu refresh now
+enter through platform services. The hardening scan counted 30 target
+annotations outside the platform directory, down from 34.
+
+- Windows application SHA-256 `5e9408fa7080d830ca4ee13f6d19254c4edea1fd50a60cd7e8a3018e3a910b6d`
+- Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
+- Linux application SHA-256 `6ff185569d7b30aa108b3fa57baf1411878fef6fc181fa089d50aaedc357a07f`
+- Linux libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`

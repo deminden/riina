@@ -5,6 +5,8 @@ mod macos;
 pub(crate) use macos::{
     ApplicationEvents, refresh_idle_menu, refresh_idle_plugins, show_idle_menu,
 };
+#[cfg(not(target_os = "macos"))]
+pub(crate) fn refresh_idle_menu() {}
 #[cfg(any(target_os = "macos", test))]
 mod playback_menu_options;
 #[cfg(test)]

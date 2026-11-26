@@ -195,7 +195,6 @@ impl Profile {
         })?;
         if let Some(preferences) = committed {
             self.adopt(preferences);
-            #[cfg(target_os = "macos")]
             crate::platform::browser_activation::refresh_idle_menu();
         }
         Ok(())

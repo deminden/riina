@@ -162,7 +162,6 @@ impl ProfilePlayback {
             }
             refresh_key_binding_form(player, settings);
         });
-        #[cfg(target_os = "macos")]
         crate::platform::browser_activation::refresh_idle_menu();
     }
 
@@ -182,7 +181,6 @@ impl ProfilePlayback {
                 refresh_key_binding_form(player, &settings);
             }
         });
-        #[cfg(target_os = "macos")]
         crate::platform::browser_activation::refresh_idle_menu();
     }
 

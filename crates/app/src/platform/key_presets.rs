@@ -1,7 +1,7 @@
 //! Keep distinct macOS chords usable after mapping Command to Control.
 
 #[cfg(not(target_os = "macos"))]
-pub(in super::super) fn equivalent(profile: &str, key: &str) -> Option<&'static str> {
+pub(crate) fn equivalent(profile: &str, key: &str) -> Option<&'static str> {
     // Use spare chords in each preset where two or three source chords would
     // otherwise collapse. Keep the native seek, playback and playlist keys.
     match (profile, key) {
@@ -25,6 +25,6 @@ pub(in super::super) fn equivalent(profile: &str, key: &str) -> Option<&'static 
 }
 
 #[cfg(target_os = "macos")]
-pub(in super::super) fn equivalent(_: &str, _: &str) -> Option<&'static str> {
+pub(crate) fn equivalent(_: &str, _: &str) -> Option<&'static str> {
     None
 }
