@@ -6594,3 +6594,42 @@ Native macOS menu interaction and matched IINA captures remain open.
 - Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
 - Linux application SHA-256 `7f1b6b7dabca103934a10353c259ebfb3117414a9da16b96802d02a152cfd403`
 - Linux libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`
+
+### Confirmed playback feedback (2026-11-26)
+
+The locked Windows workspace build and full source gate passed, including
+714 application unit tests and the headless visual comparison. The new
+regressions cover pause and resume clock details, named filter feedback,
+and subtitle-save confirmation while optional messages are disabled.
+The latter also checks that an optional progress request leaves the save
+confirmation visible until its timeout.
+
+All 73 pinned libmpv native tests passed. The new native test checked that
+toggling a saved video filter removes it without changing a neighboring
+filter whose graph contains a comma. It also checked successful audio
+filter feedback, failed edits and requests from an obsolete media
+generation. The native object-list parser has no numeric delete operation.
+[Pinned libmpv option parser](https://github.com/mpv-player/mpv/blob/36abaa32d/options/m_option.c#L3272)
+
+On a private Windows desktop, Resume showed the clock below its title.
+Pause held the playhead on the current clip. The native Video and
+Audio menus added and removed their named filters while the clip stayed
+paused. Both additions showed the selected preset name, and removal showed
+its own confirmation. The exact player exited normally. A separate pair
+of rapid audio toggles left two copies active. Filter edits sent before
+the preceding native observation arrives still need ordered handling.
+
+The locked Linux application build, strict Clippy and 28 focused feedback
+and filter editor tests passed. In an isolated Wayland session, the Pause
+and Resume messages displayed the clock below their title. A saved-filter
+shortcut added and removed the named filter while playback stayed paused.
+The long title elided at the narrow window width, and the exact player
+exited normally. An earlier run also missed removal during a rapid toggle.
+
+Locked workspace source checks passed for Apple Silicon and Intel.
+Native macOS runtime and matched IINA visual comparisons remain open.
+
+- Windows application SHA-256 `5207b57f8bd4f743ab60de53cc7f02c33f2775c236e1bb88d9420b290b3da624`
+- Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
+- Linux application SHA-256 `a153891793751ee55b57fa5ed4309424eb413d2f34af9ac5beb3b2bb98012df3`
+- Linux libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`

@@ -196,10 +196,10 @@ export component NativeVideoHost inherits Window {
     in property <bool> delogo-active: false;
     callback toggle-delogo();
     in property <[SavedFilterMenuRow]> saved-video-filter-rows: [];
-    callback toggle-saved-video-filter(string);
+    callback toggle-saved-video-filter(string, string);
     callback open-video-filters();
     in property <[SavedFilterMenuRow]> saved-audio-filter-rows: [];
-    callback toggle-saved-audio-filter(string);
+    callback toggle-saved-audio-filter(string, string);
     callback open-audio-filters();
     in property <bool> aspect-menu-enabled: false;
     in property <[string]> aspect-menu-labels;
@@ -507,7 +507,7 @@ export component NativeVideoHost inherits Window {
                 for row in root.saved-video-filter-rows : MenuItem {
                     title: row.label; checkable: true; checked: row.selected;
                     shortcut: row.shortcut;
-                    activated => { root.toggle-saved-video-filter(row.token); }
+                    activated => { root.toggle-saved-video-filter(row.token, row.label); }
                 }
             }
         }
@@ -570,7 +570,7 @@ export component NativeVideoHost inherits Window {
                 for row in root.saved-audio-filter-rows : MenuItem {
                     title: row.label; checkable: true; checked: row.selected;
                     shortcut: row.shortcut;
-                    activated => { root.toggle-saved-audio-filter(row.token); }
+                    activated => { root.toggle-saved-audio-filter(row.token, row.label); }
                 }
             }
         }

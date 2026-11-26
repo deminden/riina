@@ -542,16 +542,7 @@ pub fn valid_filter_string(filter: &str) -> bool {
 }
 
 pub fn format_filter(filter: &VideoFilter) -> String {
-    let mut formatted = String::new();
-    if let Some(label) = filter.label.as_deref() {
-        formatted.push('@');
-        formatted.push_str(label);
-        formatted.push(':');
-    }
-    if filter.enabled == Some(false) {
-        formatted.push('!');
-    }
-    formatted.push_str(&filter.name);
+    let mut formatted = filter_prefix(filter);
     if filter.name == "lavfi"
         && let Some(graph) = filter.params.get("graph")
     {
@@ -563,8 +554,44 @@ pub fn format_filter(filter: &VideoFilter) -> String {
         }
         return formatted;
     }
+    append_parameters(&mut formatted, filter, str::to_owned, quote_value);
+    formatted
+}
+
+pub(crate) fn chain_argument(filter: &VideoFilter) -> String {
+    let mut formatted = filter_prefix(filter);
+    append_parameters(&mut formatted, filter, chain_value, chain_value);
+    formatted
+}
+
+fn chain_value(value: &str) -> String {
+    // A byte-count escape keeps commas, brackets and other option
+    // separators inside the value when libmpv parses the whole chain.
+    format!("%{}%{value}", value.len())
+}
+
+fn filter_prefix(filter: &VideoFilter) -> String {
+    let mut formatted = String::new();
+    if let Some(label) = filter.label.as_deref() {
+        formatted.push('@');
+        formatted.push_str(label);
+        formatted.push(':');
+    }
+    if filter.enabled == Some(false) {
+        formatted.push('!');
+    }
+    formatted.push_str(&filter.name);
+    formatted
+}
+
+fn append_parameters(
+    formatted: &mut String,
+    filter: &VideoFilter,
+    positional: impl Fn(&str) -> String,
+    named: impl Fn(&str) -> String,
+) {
     if filter.params.is_empty() {
-        return formatted;
+        return;
     }
     formatted.push('=');
     if filter.params.keys().all(|key| key.starts_with('@')) {
@@ -582,7 +609,7 @@ pub fn format_filter(filter: &VideoFilter) -> String {
         formatted.push_str(
             &values
                 .into_iter()
-                .map(|(_, value)| value.as_str())
+                .map(|(_, value)| positional(value))
                 .collect::<Vec<_>>()
                 .join(":"),
         );
@@ -591,12 +618,11 @@ pub fn format_filter(filter: &VideoFilter) -> String {
             &filter
                 .params
                 .iter()
-                .map(|(key, value)| format!("{key}={}", quote_value(value)))
+                .map(|(key, value)| format!("{key}={}", named(value)))
                 .collect::<Vec<_>>()
                 .join(":"),
         );
     }
-    formatted
 }
 
 fn quote_value(value: &str) -> String {

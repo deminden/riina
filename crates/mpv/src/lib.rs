@@ -68,7 +68,11 @@ pub use worker::{EngineVersions, decode_screenshot, read_engine_versions, read_l
 enum Message {
     Intent(Command),
     PlaylistEdit(Command),
-    MediaIntent { generation: u64, command: Command },
+    MediaIntent {
+        generation: u64,
+        command: Command,
+        filter_name: Option<String>,
+    },
     OpenStream(Command, StreamSource, StreamAttempt),
     Client(client_request::Request),
     RenderingReady,
@@ -80,6 +84,7 @@ enum IntentRoute {
     Global,
     Media(u64),
     PlaylistEdit,
+    FilterEdit { generation: u64, name: String },
 }
 
 struct WakeupContext {
@@ -167,6 +172,29 @@ impl CommandSender {
         self.enqueue(command, IntentRoute::Media(generation))
     }
 
+    /// Report successful user filter edits through the requesting playback session.
+    pub fn send_filter_edit(
+        &self,
+        generation: u64,
+        command: Command,
+        name: String,
+    ) -> Result<(), EngineError> {
+        if !matches!(
+            command,
+            Command::AddVideoFilter(_)
+                | Command::ToggleVideoFilter(_)
+                | Command::RemoveVideoFilter(_)
+                | Command::AddAudioFilter(_)
+                | Command::ToggleAudioFilter(_)
+                | Command::RemoveAudioFilter(_)
+        ) {
+            return Err(EngineError::InvalidArgument {
+                reason: "The command is not a user filter addition, removal or toggle",
+            });
+        }
+        self.enqueue(command, IntentRoute::FilterEdit { generation, name })
+    }
+
     fn enqueue(&self, command: Command, route: IntentRoute) -> Result<(), EngineError> {
         if command == Command::Shutdown {
             return Err(EngineError::ReservedShutdown);
@@ -181,8 +209,14 @@ impl CommandSender {
                     IntentRoute::Media(generation) => Message::MediaIntent {
                         generation,
                         command,
+                        filter_name: None,
                     },
                     IntentRoute::PlaylistEdit => Message::PlaylistEdit(command),
+                    IntentRoute::FilterEdit { generation, name } => Message::MediaIntent {
+                        generation,
+                        command,
+                        filter_name: Some(name),
+                    },
                 };
                 sender.try_send(message).map_err(send_error)
             }

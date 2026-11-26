@@ -2,7 +2,8 @@
 mod observations;
 
 use observations::changed_all;
-use riina_core::{Phase, Playback};
+use riina_core::{FilterChange, Phase, Playback};
+use slint::ComponentHandle;
 use std::collections::VecDeque;
 
 #[derive(Debug, PartialEq)]
@@ -34,6 +35,7 @@ pub(crate) enum Kind {
     PlaylistAdd,
     PlaylistClear,
     QuickLut,
+    FilterEdit,
     Track,
 }
 
@@ -41,7 +43,47 @@ pub(crate) enum Kind {
 pub(crate) struct Message {
     pub kind: Kind,
     pub text: String,
+    pub detail: String,
     pub progress: Option<f32>,
+}
+
+pub(crate) enum Visibility {
+    Normal,
+    KeepStopped,
+    Required,
+}
+
+pub(crate) fn present(
+    app: &crate::PlayerWindow,
+    text: impl Into<slint::SharedString>,
+    detail: impl Into<slint::SharedString>,
+    progress: Option<f32>,
+    visibility: Visibility,
+) {
+    if !matches!(visibility, Visibility::Required)
+        && !super::presentation::playback_osd_allowed(app)
+    {
+        return;
+    }
+    app.set_video_osd_request_feedback(matches!(visibility, Visibility::KeepStopped));
+    let osd = app.global::<riina_ui::PlayerOsdState>();
+    osd.set_video_osd_text(text.into());
+    osd.set_video_osd_detail(detail.into());
+    osd.set_video_osd_progress(progress.unwrap_or(-1.0));
+    osd.set_video_osd_required(matches!(visibility, Visibility::Required));
+    app.global::<riina_ui::PlayerControlActions>()
+        .invoke_show_video_osd();
+}
+
+impl Message {
+    pub(crate) fn present(self, app: &crate::PlayerWindow) {
+        let visibility = if self.kind == Kind::Aspect {
+            Visibility::KeepStopped
+        } else {
+            Visibility::Normal
+        };
+        present(app, self.text, self.detail, self.progress, visibility);
+    }
 }
 
 pub(crate) fn progress_message(position: Option<f64>, duration: Option<f64>) -> Option<Message> {
@@ -54,6 +96,7 @@ pub(crate) fn progress_message(position: Option<f64>, duration: Option<f64>) -> 
             precise_time_label(position),
             precise_time_label(duration)
         ),
+        detail: String::new(),
         progress: Some((position / duration).clamp(0.0, 1.0) as f32),
     })
 }
@@ -92,6 +135,7 @@ pub(crate) fn action_message(action: ActionFeedback) -> Message {
     Message {
         kind,
         text,
+        detail: String::new(),
         progress: None,
     }
 }
@@ -100,6 +144,7 @@ pub(crate) fn file_start_message(title: &str, enabled: bool, disabled: bool) -> 
     (enabled && !disabled && !title.is_empty()).then(|| Message {
         kind: Kind::FileStart,
         text: title.to_owned(),
+        detail: String::new(),
         progress: None,
     })
 }
@@ -186,6 +231,24 @@ impl VideoOsd {
                 feedback.title.to_string(),
             )));
         }
+        if let Some(previous) = &self.previous
+            && observations::same_playback(previous, state)
+            && let Some(feedback) = &state.filter_feedback
+            && previous
+                .filter_feedback
+                .as_ref()
+                .is_none_or(|old| old.sequence < feedback.sequence)
+        {
+            messages.push(Message {
+                kind: Kind::FilterEdit,
+                text: match &feedback.change {
+                    FilterChange::Added(name) => format!("Added Filter: {name}"),
+                    FilterChange::Removed => "Removed Filter".into(),
+                },
+                detail: String::new(),
+                progress: None,
+            });
+        }
         for message in &mut messages {
             if message.kind == Kind::Volume && state.volume.is_finite() {
                 message.progress = Some((state.volume / self.volume_limit).clamp(0.0, 1.0) as f32);
@@ -215,6 +278,7 @@ impl VideoOsd {
             ab_loop_a: state.ab_loop_a,
             ab_loop_b: state.ab_loop_b,
             chapter_feedback: state.chapter_feedback.clone(),
+            filter_feedback: state.filter_feedback.clone(),
             tracks: state.tracks.clone(),
             audio_delay: state.audio_delay,
             subtitle_delay: state.subtitle_delay,

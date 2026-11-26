@@ -141,11 +141,10 @@ impl<N: Fn(Arc<Playback>)> Start<N> {
                     Message::MediaIntent {
                         generation,
                         command,
+                        filter_name,
                     } => {
                         state.drain_events(&mut handle, &callback_sender);
-                        if state.accepts_media_intent(generation) {
-                            state.handle_intent(&handle, command);
-                        }
+                        state.handle_media_intent(&handle, generation, command, filter_name);
                     }
                     Message::OpenStream(command, source, attempt) => {
                         state.open_stream(&handle, command, source, attempt);
@@ -459,6 +458,26 @@ impl WorkerState {
                 .any(|pending| pending.generation == generation && pending.changes_media)
     }
 
+    fn handle_media_intent(
+        &mut self,
+        handle: &Handle,
+        generation: u64,
+        command: Command,
+        filter_name: Option<String>,
+    ) {
+        if !self.accepts_media_intent(generation) {
+            return;
+        }
+        if let Some(name) = filter_name {
+            if let Err(error) = self.issue_filter_edit(handle, command, name) {
+                record_notice(&mut self.playback, NoticeSeverity::Error, error);
+                self.mark_changed();
+            }
+        } else {
+            self.handle_intent(handle, command);
+        }
+    }
+
     fn handle_intent_with_stream(
         &mut self,
         handle: &Handle,
@@ -713,6 +732,23 @@ impl WorkerState {
             },
         );
         Ok(())
+    }
+
+    fn issue_filter_edit(
+        &mut self,
+        handle: &Handle,
+        command: Command,
+        name: String,
+    ) -> Result<(), String> {
+        let plan = command
+            .plan(&self.playback)
+            .map_err(|error| error.to_string())?;
+        let [args] = plan.commands.as_slice() else {
+            return Err("A filter edit must submit one native command".into());
+        };
+        let kind = ReplyKind::for_filter_edit(args, name)
+            .ok_or("A filter edit must add or remove a native filter")?;
+        self.issue(handle, args, kind)
     }
 
     fn volume_limit(&self) -> f64 {
@@ -1113,6 +1149,21 @@ impl WorkerState {
             ReplyKind::ChapterSelection { index, start } => {
                 self.publish_chapter_feedback(event.userdata(), index, start);
             }
+            ReplyKind::FilterEdit(change) => {
+                if self.accepts_media_intent(pending.generation)
+                    && self
+                        .playback
+                        .filter_feedback
+                        .as_ref()
+                        .is_none_or(|old| old.sequence < event.userdata())
+                {
+                    self.playback.filter_feedback = Some(riina_core::FilterFeedback {
+                        sequence: event.userdata(),
+                        change,
+                    });
+                    self.mark_changed();
+                }
+            }
             ReplyKind::RememberVolume(level) => {
                 self.remember_volume(NEXT_VOLUME_REVISION.fetch_add(1, Ordering::Relaxed), level);
             }
@@ -1199,6 +1250,7 @@ impl WorkerState {
             | ReplyKind::RememberAdjustedVolume
             | ReplyKind::PlaylistEdit { .. }
             | ReplyKind::ChapterSelection { .. }
+            | ReplyKind::FilterEdit(_)
             | ReplyKind::Screenshot { .. } => {
                 if let Some(error) = event.error() {
                     let message = format!("mpv {}: {error}", pending.label);
@@ -1270,6 +1322,7 @@ impl WorkerState {
             | ReplyKind::RememberAdjustedVolume
             | ReplyKind::PlaylistEdit { .. }
             | ReplyKind::ChapterSelection { .. }
+            | ReplyKind::FilterEdit(_)
             | ReplyKind::Screenshot { .. } => {}
         }
     }

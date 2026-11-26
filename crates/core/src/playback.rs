@@ -68,6 +68,18 @@ pub struct ChapterFeedback {
     pub title: Arc<str>,
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum FilterChange {
+    Added(Arc<str>),
+    Removed,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FilterFeedback {
+    pub sequence: u64,
+    pub change: FilterChange,
+}
+
 #[derive(Debug, Clone, Default)]
 pub struct Playback {
     /// File-opening policy is intent; `paused` remains native observed state.
@@ -172,6 +184,7 @@ pub struct Playback {
     pub chapters: Arc<Vec<Chapter>>,
     pub chapter_index: Option<usize>,
     pub chapter_feedback: Option<ChapterFeedback>,
+    pub filter_feedback: Option<FilterFeedback>,
     pub chapter_performer: Option<String>,
     pub playlist: Arc<Vec<PlaylistEntry>>,
     /// ID from the decoder's start event, independent of playlist observation order.
@@ -487,6 +500,7 @@ impl Playback {
         self.chapters = Arc::default();
         self.chapter_index = None;
         self.chapter_feedback = None;
+        self.filter_feedback = None;
         self.chapter_performer = None;
         self.subtitle_text = None;
         self.secondary_subtitle_text = None;

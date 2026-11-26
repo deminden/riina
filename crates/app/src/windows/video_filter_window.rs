@@ -60,6 +60,17 @@ impl Target {
             .upgrade()
             .is_some_and(|registered| std::ptr::eq(registered.window(), app.window()))
     }
+
+    fn toggle_filter(
+        &self,
+        kind: Kind,
+        raw: String,
+        name: String,
+    ) -> Result<(), riina_mpv::EngineError> {
+        let generation = lock(&self.playback).generation;
+        self.player
+            .send_filter_edit(generation, kind.toggle(raw), name)
+    }
 }
 
 pub(crate) fn install(
@@ -75,16 +86,16 @@ pub(crate) fn install(
         player,
     });
     profile.register(&target);
-    bind_shortcuts(app, &target.player, profile);
+    bind_shortcuts(app, &target, profile);
     bind_menu(app, &target, profile, history, Kind::Video);
     bind_menu(app, &target, profile, history, Kind::Audio);
     Registration { _target: target }
 }
 
-fn bind_shortcuts(app: &PlayerWindow, player: &riina_mpv::CommandSender, profile: &Profile) {
+fn bind_shortcuts(app: &PlayerWindow, target: &Rc<Target>, profile: &Profile) {
     let shortcut_video_settings = profile.settings(Kind::Video);
     let shortcut_audio_settings = profile.settings(Kind::Audio);
-    let shortcut_player = player.clone();
+    let target = Rc::downgrade(target);
     app.global::<riina_ui::PlayerControlActions>()
         .on_activate_saved_filter_shortcut(move |key, control, alt, shift, meta| {
             let modifiers = (if control {
@@ -109,14 +120,17 @@ fn bind_shortcuts(app: &PlayerWindow, player: &riina_mpv::CommandSender, profile
                     .find(|saved| {
                         saved.shortcut_key == key.as_str() && saved.shortcut_modifiers == modifiers
                     })
-                    .map(|saved| saved.filter.clone())
+                    .cloned()
             };
-            let command = matches(&shortcut_video_settings)
-                .map(riina_core::Command::ToggleVideoFilter)
-                .or_else(|| {
-                    matches(&shortcut_audio_settings).map(riina_core::Command::ToggleAudioFilter)
-                });
-            command.is_some_and(|command| shortcut_player.send(command).is_ok())
+            let selection = matches(&shortcut_video_settings)
+                .map(|saved| (Kind::Video, saved))
+                .or_else(|| matches(&shortcut_audio_settings).map(|saved| (Kind::Audio, saved)));
+            match (target.upgrade(), selection) {
+                (Some(target), Some((kind, saved))) => {
+                    target.toggle_filter(kind, saved.filter, saved.name).is_ok()
+                }
+                _ => false,
+            }
         });
 }
 
@@ -128,10 +142,10 @@ fn bind_menu(
     kind: Kind,
 ) {
     let weak = Rc::downgrade(target);
-    let toggle = move |filter: slint::SharedString| {
+    let toggle = move |filter: slint::SharedString, name: slint::SharedString| {
         if let Some(target) = weak.upgrade()
             && let Some(app) = target.app.upgrade()
-            && let Err(error) = target.player.send(kind.toggle(filter.to_string()))
+            && let Err(error) = target.toggle_filter(kind, filter.to_string(), name.to_string())
         {
             crate::diagnostics::report(&app, error);
         }

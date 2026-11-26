@@ -115,15 +115,19 @@ export component FullscreenInfoOsd inherits Rectangle {
 
 export component PlaybackOsd inherits Rectangle {
     in property <OsdMaterial> material;
+    in property <length> viewport-width;
     in property <bool> osd-enabled;
     in property <float> osd-text-size;
     in property <color> progress-color;
     in property <duration> osd-fade-duration;
 
     clip: true;
-    x: Theme.playback-osd-left; y: Theme.playback-osd-top; width: video-message.preferred-width + 32px;
-    height: PlayerOsdState.video-osd-progress >= 0 ? 50px : 41px;
-    opacity: PlayerOsdState.video-osd-visible && root.osd-enabled ? 1 : 0;
+    x: Theme.playback-osd-left; y: Theme.playback-osd-top;
+    width: min(max(0px, root.viewport-width - self.x),
+        max(video-message.preferred-width, video-detail.preferred-width) + 32px);
+    height: PlayerOsdState.video-osd-detail != "" ? video-detail.y + video-detail.preferred-height + 9px
+        : PlayerOsdState.video-osd-progress >= 0 ? 50px : 41px;
+    opacity: PlayerOsdState.video-osd-visible && (root.osd-enabled || PlayerOsdState.video-osd-required) ? 1 : 0;
     animate opacity { duration: root.osd-fade-duration; }
     border-radius: Theme.playback-osd-corner;
     background: Theme.playback-osd-surface(root.material.active, root.material.native-tint);
@@ -133,7 +137,14 @@ export component PlaybackOsd inherits Rectangle {
         card-y: parent.y;
     }
     video-message := Text { x: 16px; y: 8px; text: PlayerOsdState.video-osd-text;
+        width: max(0px, parent.width - 32px); overflow: elide;
         color: white; font-size: root.osd-text-size * 1px; font-weight: 600; }
+    video-detail := Text {
+        x: 16px; y: video-message.y + video-message.preferred-height + 2px;
+        width: max(0px, parent.width - 32px);
+        text: PlayerOsdState.video-osd-detail; overflow: elide;
+        color: #ffffffd9; font-size: clamp(root.osd-text-size * 0.5px, 11px, 25px);
+    }
     if PlayerOsdState.video-osd-progress >= 0 : Rectangle { x: 16px; y: 35px;
         width: (parent.width - 32px) * clamp(PlayerOsdState.video-osd-progress, 0, 1);
         height: 2px; background: root.progress-color; border-radius: 1px; }

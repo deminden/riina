@@ -70,6 +70,7 @@ export component PlayerFeedbackLayer inherits Rectangle {
     }
     if loaded : PlaybackOsd {
         material: root.osd-material;
+        viewport-width: parent.width;
         progress-color: PlayerAppearance.platform-windows ? PlayerAppearance.windows-accent-color : Theme.playback-progress-accent;
         osd-enabled: PlayerPreferences.osd-enabled;
         osd-text-size: PlayerPreferences.osd-text-size;

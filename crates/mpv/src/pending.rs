@@ -1,5 +1,5 @@
 //! Classify native replies while retaining the media generation at submission.
-use riina_core::{Command, Playback};
+use riina_core::{Command, FilterChange, Playback};
 
 pub(super) struct PendingCommand {
     pub(super) generation: u64,
@@ -15,6 +15,7 @@ pub(super) enum ReplyKind {
     RememberAdjustedVolume,
     PlaylistEdit { batch: u64, lead: bool },
     ChapterSelection { index: usize, start: f64 },
+    FilterEdit(FilterChange),
     Screenshot { path: Option<String> },
     FrameCapture,
     TransitionCapture,
@@ -23,6 +24,17 @@ pub(super) enum ReplyKind {
 }
 
 impl ReplyKind {
+    pub(super) fn for_filter_edit(args: &[String], name: String) -> Option<Self> {
+        match args {
+            [chain, edit, _] if matches!(chain.as_str(), "vf" | "af") => match edit.as_str() {
+                "add" => Some(Self::FilterEdit(FilterChange::Added(name.into()))),
+                "set" => Some(Self::FilterEdit(FilterChange::Removed)),
+                _ => None,
+            },
+            _ => None,
+        }
+    }
+
     pub(super) fn for_command(command: &Command, native_command: Option<&str>) -> Self {
         match command {
             Command::ScreenshotToFile { path, .. } => Self::Screenshot {

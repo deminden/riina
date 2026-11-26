@@ -22,6 +22,7 @@ pub(super) fn changed_all(previous: Option<&Playback>, state: &Playback) -> Vec<
         messages.push(Message {
             kind: Kind::QuickLut,
             text: "Added Filter: 3D LUT".into(),
+            detail: String::new(),
             progress: None,
         });
     }
@@ -87,6 +88,7 @@ fn advance_baseline(baseline: &mut Playback, state: &Playback, kind: &Kind) {
         | Kind::Chapter
         | Kind::PlaylistAdd
         | Kind::QuickLut
+        | Kind::FilterEdit
         | Kind::PlaylistClear => {}
     }
 }
@@ -123,13 +125,19 @@ fn immediate_feedback(previous: &Playback, state: &Playback) -> Option<Message> 
         return Some(Message {
             kind: Kind::Aspect,
             text: format!("Aspect Ratio: {}", state.video_aspect.requested_text()),
+            detail: String::new(),
             progress: None,
         });
     }
     if previous.paused != state.paused {
         return Some(Message {
             kind: Kind::PauseResume,
-            text: if state.paused { "Paused" } else { "Resumed" }.into(),
+            text: if state.paused { "Pause" } else { "Resume" }.into(),
+            detail: format!(
+                "{} / {}",
+                crate::seek_osd::clock(state.position),
+                crate::seek_osd::clock(state.duration)
+            ),
             progress: None,
         });
     }
@@ -137,6 +145,7 @@ fn immediate_feedback(previous: &Playback, state: &Playback) -> Option<Message> 
         return Some(Message {
             kind: Kind::Mute,
             text: if state.muted { "Mute" } else { "Unmute" }.into(),
+            detail: String::new(),
             progress: None,
         });
     }
@@ -144,6 +153,7 @@ fn immediate_feedback(previous: &Playback, state: &Playback) -> Option<Message> 
         return Some(Message {
             kind: Kind::Volume,
             text: format!("Volume: {:.0}", state.volume),
+            detail: String::new(),
             progress: Some((state.volume / 100.0).clamp(0.0, 1.0) as f32),
         });
     }
@@ -157,6 +167,7 @@ fn picture_feedback(previous: &Playback, state: &Playback) -> Option<Message> {
         return Some(Message {
             kind: Kind::Deinterlace,
             text: format!("Deinterlace: {}", if enabled { "On" } else { "Off" }),
+            detail: String::new(),
             progress: None,
         });
     }
@@ -175,6 +186,7 @@ fn picture_feedback(previous: &Playback, state: &Playback) -> Option<Message> {
             return Some(Message {
                 kind: Kind::Equalizer,
                 text: format!("{label}: {value}"),
+                detail: String::new(),
                 progress: Some((value as f32 + 100.0) / 200.0),
             });
         }
@@ -183,6 +195,7 @@ fn picture_feedback(previous: &Playback, state: &Playback) -> Option<Message> {
         return Some(Message {
             kind: Kind::Speed,
             text: format!("Speed: {}x", speed_controls::text(state.speed)),
+            detail: String::new(),
             progress: None,
         });
     }
@@ -195,6 +208,7 @@ fn picture_feedback(previous: &Playback, state: &Playback) -> Option<Message> {
                 "Hardware Decoding: {}",
                 if mode == "no" { "Off" } else { "On" }
             ),
+            detail: String::new(),
             progress: None,
         });
     }
@@ -204,6 +218,7 @@ fn picture_feedback(previous: &Playback, state: &Playback) -> Option<Message> {
         return Some(Message {
             kind: Kind::Rotation,
             text: format!("Rotate: {rotation}°"),
+            detail: String::new(),
             progress: None,
         });
     }
@@ -218,6 +233,7 @@ fn picture_feedback(previous: &Playback, state: &Playback) -> Option<Message> {
         return Some(Message {
             kind: Kind::SubtitleScale,
             text: format!("Subtitle Scale: {}x", compact_number(display)),
+            detail: String::new(),
             progress: None,
         });
     }
@@ -228,6 +244,7 @@ fn picture_feedback(previous: &Playback, state: &Playback) -> Option<Message> {
         return Some(Message {
             kind: Kind::Crop,
             text: format!("Crop: {label}"),
+            detail: String::new(),
             progress: None,
         });
     }
@@ -241,6 +258,7 @@ fn loop_feedback(previous: &Playback, state: &Playback) -> Option<Message> {
         return Some(Message {
             kind: Kind::LoopMode,
             text: format!("Loop: {current}"),
+            detail: String::new(),
             progress: None,
         });
     }
@@ -263,6 +281,7 @@ fn loop_feedback(previous: &Playback, state: &Playback) -> Option<Message> {
         return Some(Message {
             kind: Kind::AbLoop,
             text,
+            detail: String::new(),
             progress: None,
         });
     }
@@ -316,6 +335,7 @@ fn timing_feedback(previous: &Playback, state: &Playback) -> Option<Message> {
                 "Subtitles Hidden"
             }
             .into(),
+            detail: String::new(),
             progress: None,
         });
     }
@@ -332,6 +352,7 @@ fn timing_feedback(previous: &Playback, state: &Playback) -> Option<Message> {
                 "Second Subtitles Hidden"
             }
             .into(),
+            detail: String::new(),
             progress: None,
         });
     }
@@ -352,6 +373,7 @@ fn track_feedback(previous: &Playback, state: &Playback) -> Option<Message> {
             return Some(Message {
                 kind: Kind::Track,
                 text: format!("{label}: {}", readable_track_title(current, &languages)),
+                detail: String::new(),
                 progress: None,
             });
         }
@@ -411,6 +433,7 @@ fn delay_message(label: &str, value: f64) -> Message {
             _ => Kind::SecondarySubtitleDelay,
         },
         text,
+        detail: String::new(),
         progress: Some(((value + 10.0).clamp(0.0, 20.0) / 20.0) as f32),
     }
 }
@@ -423,6 +446,7 @@ fn position_message(label: &str, value: f64) -> Message {
             Kind::SecondarySubtitlePosition
         },
         text: format!("{label}: {}", compact_number(value)),
+        detail: String::new(),
         progress: Some((value / 100.0) as f32),
     }
 }

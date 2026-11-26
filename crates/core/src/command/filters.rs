@@ -65,12 +65,11 @@ impl FilterChain {
         let selected = filters.iter().position(|candidate| {
             video_filters::is_active(filter, std::slice::from_ref(candidate))
         });
-        let action = if let Some(index) = selected {
-            cmd([self.property(), "del", &index.to_string()])
+        if let Some(index) = selected {
+            Ok(self.remove_at(filters, index))
         } else {
-            cmd([self.property(), "add", filter])
-        };
-        Ok(vec![action])
+            self.add(filter)
+        }
     }
 
     pub(super) fn add(self, filter: &str) -> Result<Vec<Vec<String>>, CommandError> {
@@ -87,14 +86,27 @@ impl FilterChain {
         state: &Playback,
         selected: &VideoFilter,
     ) -> Result<Vec<Vec<String>>, CommandError> {
-        let index = self
-            .filters(state)?
+        let filters = self.filters(state)?;
+        let index = filters
             .iter()
             .position(|candidate| candidate == selected)
             .ok_or(CommandError::Unavailable {
                 what: self.inactive(),
             })?;
-        Ok(vec![cmd([self.property(), "del", &index.to_string()])])
+        Ok(self.remove_at(filters, index))
+    }
+
+    fn remove_at(self, filters: &[VideoFilter], index: usize) -> Vec<Vec<String>> {
+        // The native object-list parser has no numeric delete. Replacing the
+        // chain without the selected slot leaves the other entries in order.
+        let chain = filters
+            .iter()
+            .enumerate()
+            .filter(|(candidate, _)| *candidate != index)
+            .map(|(_, filter)| video_filters::chain_argument(filter))
+            .collect::<Vec<_>>()
+            .join(",");
+        vec![cmd([self.property(), "set", &chain])]
     }
 
     pub(super) fn replace(
@@ -114,7 +126,7 @@ impl FilterChain {
                 what: self.inactive(),
             });
         }
-        let mut chain: Vec<_> = filters.iter().map(video_filters::format_filter).collect();
+        let mut chain: Vec<_> = filters.iter().map(video_filters::chain_argument).collect();
         chain[index] = filter.to_owned();
         Ok(vec![cmd([self.property(), "set", &chain.join(",")])])
     }

@@ -196,6 +196,12 @@ Implementation does not imply every state or platform is verified.
   tied to the requesting media. Canceling or replacing a search retires its
   pending replies. Save Downloaded Subtitle exports the selected cached
   subtitle under the provider's filename through an owned native dialog.
+  The current player confirms the completed save even when optional
+  playback messages are disabled.
+- **Playback feedback:** pause and resume show the current and total time.
+  User filter edits show the added filter's name or confirm removal after
+  the engine accepts the change. The confirmation belongs to the media
+  that received the edit.
 - **Subtitle font chooser:** the player applies the chosen font to its
   current playback session. Settings opens the same chooser with the saved
   default and shares a committed change with players using that profile.

@@ -360,13 +360,7 @@ fn dispatch_action(
                 crate::video_osd::progress_message(playback.position, playback.duration)
             };
             if let Some(message) = message {
-                app.set_video_osd_request_feedback(false);
-                app.global::<riina_ui::PlayerOsdState>()
-                    .set_video_osd_text(message.text.into());
-                app.global::<riina_ui::PlayerOsdState>()
-                    .set_video_osd_progress(message.progress.unwrap_or(-1.0));
-                app.global::<riina_ui::PlayerControlActions>()
-                    .invoke_show_video_osd();
+                message.present(app);
             }
         }
         RuntimeAction::Seek(seconds) => app

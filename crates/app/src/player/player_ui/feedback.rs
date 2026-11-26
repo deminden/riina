@@ -201,14 +201,20 @@ fn install_osd_policy(
         // Disabling OSD is an immediate visibility policy, so dismiss an
         // already-visible message instead of leaving it until its old deadline.
         disable_seek_timer.stop();
-        disable_video_timer.stop();
         disable_screenshot_timer.stop();
         disable_video_osd.borrow_mut().clear_pending();
-        app.global::<riina_ui::PlayerOsdState>()
-            .set_seek_osd_visible(false);
-        app.global::<riina_ui::PlayerOsdState>()
-            .set_video_osd_visible(false);
-        app.set_video_osd_request_feedback(false);
+        let osd = app.global::<riina_ui::PlayerOsdState>();
+        osd.set_seek_osd_visible(false);
+        if !osd.get_video_osd_required()
+            || app
+                .global::<riina_ui::PlayerMusicModeState>()
+                .get_music_mode()
+        {
+            disable_video_timer.stop();
+            osd.set_video_osd_visible(false);
+            osd.set_video_osd_required(false);
+            app.set_video_osd_request_feedback(false);
+        }
         clear_screenshot_preview(&app);
     });
 }
@@ -412,14 +418,13 @@ fn install_video_osd(
     app.global::<riina_ui::PlayerControlActions>()
         .on_show_video_osd(move || {
             let Some(app) = weak.upgrade() else { return };
-            if !playback_osd_allowed(&app) {
+            let osd = app.global::<riina_ui::PlayerOsdState>();
+            if !playback_osd_allowed(&app) && !osd.get_video_osd_required() {
                 return;
             }
-            app.global::<riina_ui::PlayerOsdState>()
-                .set_seek_osd_visible(false);
+            osd.set_seek_osd_visible(false);
             clear_screenshot_preview(&app);
-            app.global::<riina_ui::PlayerOsdState>()
-                .set_video_osd_visible(true);
+            osd.set_video_osd_visible(true);
             let weak = weak.clone();
             let pending_video_osd = pending_video_osd.clone();
             video_timer.start(
@@ -427,32 +432,72 @@ fn install_video_osd(
                 configured_osd_timeout(&app),
                 move || {
                     let Some(app) = weak.upgrade() else { return };
+                    let osd = app.global::<riina_ui::PlayerOsdState>();
                     if !playback_osd_allowed(&app) {
                         pending_video_osd.borrow_mut().clear_pending();
-                        app.global::<riina_ui::PlayerOsdState>()
-                            .set_video_osd_visible(false);
+                        osd.set_video_osd_visible(false);
+                        osd.set_video_osd_required(false);
                         app.set_video_osd_request_feedback(false);
                         return;
                     }
                     let next = pending_video_osd.borrow_mut().take_pending();
                     if let Some(message) = next {
-                        app.set_video_osd_request_feedback(
-                            message.kind == crate::video_osd::Kind::Aspect,
-                        );
-                        app.global::<riina_ui::PlayerOsdState>()
-                            .set_video_osd_text(message.text.into());
-                        app.global::<riina_ui::PlayerOsdState>()
-                            .set_video_osd_progress(message.progress.unwrap_or(-1.0));
-                        app.global::<riina_ui::PlayerControlActions>()
-                            .invoke_show_video_osd();
+                        message.present(&app);
                     } else {
-                        app.global::<riina_ui::PlayerOsdState>()
-                            .set_video_osd_visible(false);
+                        osd.set_video_osd_visible(false);
+                        osd.set_video_osd_required(false);
                         app.set_video_osd_request_feedback(false);
                     }
                 },
             );
         });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use riina_ui::{PlayerOsdState, PlayerPreferences};
+
+    #[test]
+    fn saved_subtitle_feedback_survives_disabled_osd_until_its_deadline()
+    -> Result<(), slint::PlatformError> {
+        i_slint_backend_testing::init_no_event_loop();
+        let app = PlayerWindow::new()?;
+        app.set_loaded(true);
+        let preferences = app.global::<PlayerPreferences>();
+        preferences.set_osd_timeout_secs(1.0);
+        preferences.set_osd_enabled(false);
+        let timer = Rc::new(slint::Timer::default());
+        let pending = Rc::new(RefCell::new(crate::video_osd::VideoOsd::default()));
+        install_osd_policy(
+            &app,
+            &Rc::new(slint::Timer::default()),
+            &timer,
+            &Rc::new(slint::Timer::default()),
+            pending.clone(),
+        );
+        install_video_osd(&app, timer, pending);
+        let osd = app.global::<PlayerOsdState>();
+
+        super::super::show_osd_message(&app, "Optional", false);
+        assert!(!osd.get_video_osd_visible());
+        super::super::show_subtitle_saved(&app);
+        assert!(osd.get_video_osd_visible());
+        assert!(osd.get_video_osd_required());
+        assert_eq!(osd.get_video_osd_text(), "Subtitle saved");
+        crate::video_osd::progress_message(Some(1.0), Some(5.0))
+            .unwrap()
+            .present(&app);
+        assert_eq!(osd.get_video_osd_text(), "Subtitle saved");
+
+        i_slint_backend_testing::mock_elapsed_time(Duration::from_millis(1100));
+        assert!(!osd.get_video_osd_visible());
+        assert!(!osd.get_video_osd_required());
+        super::super::show_subtitle_saved(&app);
+        crate::player::presentation::set_music_mode(&app, true);
+        assert!(!osd.get_video_osd_visible());
+        Ok(())
+    }
 }
 
 fn install_controls_deadline(app: &PlayerWindow) {

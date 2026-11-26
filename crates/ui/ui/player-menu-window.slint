@@ -418,7 +418,7 @@ export component PlayerMenuWindow inherits Window {
                 for row in root.menu-value-saved-video-filter-rows : MenuItem {
                     title: row.label; shortcut: root.player-shortcut(row.shortcut);
                     checkable: true; checked: row.selected;
-                    activated => { PlayerMenuActions.toggle-saved-video-filter(row.token); }
+                    activated => { PlayerMenuActions.toggle-saved-video-filter(row.token, row.label); }
                 }
             }
         }
@@ -481,7 +481,7 @@ export component PlayerMenuWindow inherits Window {
                 for row in root.menu-value-saved-audio-filter-rows : MenuItem {
                     title: row.label; shortcut: root.player-shortcut(row.shortcut);
                     checkable: true; checked: row.selected;
-                    activated => { PlayerMenuActions.toggle-saved-audio-filter(row.token); }
+                    activated => { PlayerMenuActions.toggle-saved-audio-filter(row.token, row.label); }
                 }
             }
         }

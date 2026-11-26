@@ -11,7 +11,8 @@ use riina_core::{
     video_filters::{self, SavedFilter},
 };
 use slint::{
-    CloseRequestResponse, ComponentHandle, ModelRc, Timer, VecModel, winit_030::WinitWindowAccessor,
+    CloseRequestResponse, ComponentHandle, Model, ModelRc, Timer, VecModel,
+    winit_030::WinitWindowAccessor,
 };
 use std::{
     cell::RefCell,
@@ -256,6 +257,7 @@ impl Editor {
         &self,
         profile: &Profile,
         chain_sensitive: bool,
+        feedback_name: Option<String>,
         command: impl FnOnce(&LiveView) -> Result<Command, String>,
     ) -> Result<(), String> {
         let (target, live) = self
@@ -270,10 +272,14 @@ impl Editor {
         if chain_sensitive && expected.filters != live.filters {
             return Err("The active filters changed. Select the filter again.".into());
         }
-        target
-            .player
-            .send(command(&live)?)
-            .map_err(|error| error.to_string())
+        let command = command(&live)?;
+        match feedback_name {
+            Some(name) => target
+                .player
+                .send_filter_edit(live.generation, command, name),
+            None => target.player.send_for_media(live.generation, command),
+        }
+        .map_err(|error| error.to_string())
     }
 
     fn action(
@@ -294,7 +300,13 @@ impl Editor {
             window,
             on_add_filter,
             |editor, profile, window, raw| {
-                editor.send(profile, false, |_| Ok(editor.kind.add(valid_raw(&raw)?)))?;
+                let raw = valid_raw(&raw)?;
+                let name = usize::try_from(window.get_preset_index())
+                    .ok()
+                    .and_then(|index| window.get_presets().row_data(index))
+                    .filter(|_| window.get_preset_index() > 0)
+                    .map_or_else(|| raw.clone(), |label| label.to_string());
+                editor.send(profile, false, Some(name), |_| Ok(editor.kind.add(raw)))?;
                 window.set_filter_string("".into());
                 Ok(())
             }
@@ -304,7 +316,7 @@ impl Editor {
             window,
             on_remove_current_filter,
             |editor, profile, _window, token| {
-                editor.send(profile, true, |live| {
+                editor.send(profile, true, Some(String::new()), |live| {
                     let filter = token
                         .parse::<usize>()
                         .ok()
@@ -320,7 +332,7 @@ impl Editor {
             window,
             on_apply_current_filter,
             |editor, profile, window, index, raw| {
-                editor.send(profile, true, |live| {
+                editor.send(profile, true, None, |live| {
                     let index = usize::try_from(index)
                         .ok()
                         .filter(|index| *index < live.filters.len())
@@ -335,8 +347,15 @@ impl Editor {
             self,
             window,
             on_toggle_saved_filter,
-            |editor, profile, _window, raw| {
-                editor.send(profile, false, |_| Ok(editor.kind.toggle(valid_raw(&raw)?)))
+            |editor, profile, window, raw| {
+                let raw = valid_raw(&raw)?;
+                let name = window.get_editing_saved_name();
+                let name = if name.trim().is_empty() {
+                    raw.clone()
+                } else {
+                    name.to_string()
+                };
+                editor.send(profile, false, Some(name), |_| Ok(editor.kind.toggle(raw)))
             }
         );
         self.bind_presets(window);

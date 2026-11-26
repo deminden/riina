@@ -70,6 +70,47 @@ fn chapter_feedback_is_consumed_once_and_scoped_to_active_media() {
 }
 
 #[test]
+fn pause_and_resume_keep_the_clock_values_at_the_confirmed_transition() {
+    let mut feedback = VideoOsd::default();
+    let mut state = loaded();
+    feedback.observe(&state);
+    state.paused = true;
+    state.position = Some(71.1);
+    state.duration = Some(3603.9);
+    let paused = feedback.observe(&state).unwrap();
+    assert_eq!(paused.text, "Pause");
+    assert_eq!(paused.detail, "01:11 / 1:00:03");
+    state.paused = false;
+    state.position = Some(72.1);
+    state.duration = None;
+    let resumed = feedback.observe(&state).unwrap();
+    assert_eq!(resumed.text, "Resume");
+    assert_eq!(resumed.detail, "01:12 / --:--");
+}
+
+#[test]
+fn accepted_filter_feedback_is_consumed_once_and_keeps_its_display_name() {
+    let mut feedback = VideoOsd::default();
+    let mut state = loaded();
+    feedback.observe(&state);
+    state.filter_feedback = Some(riina_core::FilterFeedback {
+        sequence: 1,
+        change: FilterChange::Added("Named preset".into()),
+    });
+    let added = feedback.observe(&state).unwrap();
+    assert_eq!(added.kind, Kind::FilterEdit);
+    assert_eq!(added.text, "Added Filter: Named preset");
+    assert_eq!(feedback.observe(&state), None);
+    state.filter_feedback = Some(riina_core::FilterFeedback {
+        sequence: 2,
+        change: FilterChange::Removed,
+    });
+    assert_eq!(feedback.observe(&state).unwrap().text, "Removed Filter");
+    state.generation += 1;
+    assert_eq!(feedback.observe(&state), None);
+}
+
+#[test]
 fn disabling_speed_feedback_removes_only_queued_speed_messages() {
     let mut feedback = VideoOsd::default();
     let mut state = loaded();
@@ -164,6 +205,7 @@ fn feedback_requires_confirmed_changes_in_the_same_media_generation() {
         Some(Message {
             kind: Kind::Speed,
             text: "Speed: 1.234567x".into(),
+            detail: String::new(),
             progress: None
         })
     );
@@ -268,9 +310,9 @@ fn pause_resume_messages_follow_confirmed_playback_state_and_can_be_suppressed()
     let mut state = loaded();
     assert_eq!(feedback.observe(&state), None);
     state.paused = true;
-    assert_eq!(feedback.observe(&state).unwrap().text, "Paused");
+    assert_eq!(feedback.observe(&state).unwrap().text, "Pause");
     state.paused = false;
-    assert_eq!(feedback.observe(&state).unwrap().text, "Resumed");
+    assert_eq!(feedback.observe(&state).unwrap().text, "Resume");
 
     feedback.set_disable_pause_resume(true);
     state.paused = true;
@@ -323,6 +365,7 @@ fn equalizer_progress_and_hardware_policy_keep_distinct_semantics() {
             Some(Message {
                 kind: Kind::Equalizer,
                 text: format!("Brightness: {value}"),
+                detail: String::new(),
                 progress: Some(progress)
             })
         );
@@ -359,6 +402,7 @@ fn aspect_feedback_retains_raw_text_repeats_and_native_failures() {
             Some(Message {
                 kind: Kind::Aspect,
                 text: format!("Aspect Ratio: {text}"),
+                detail: String::new(),
                 progress: None,
             })
         );
@@ -383,6 +427,7 @@ fn deinterlace_feedback_uses_confirmed_changes_not_filter_activity() {
             Some(Message {
                 kind: Kind::Deinterlace,
                 text: format!("Deinterlace: {label}"),
+                detail: String::new(),
                 progress: None,
             })
         );

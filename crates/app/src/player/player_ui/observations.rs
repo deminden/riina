@@ -262,6 +262,7 @@ fn update_feedback(
         || (state.error().is_some() && !keep_stopped_feedback)
     {
         osd.set_video_osd_visible(false);
+        osd.set_video_osd_required(false);
         app.set_video_osd_request_feedback(false);
     }
     match last_seek.observe_with_suppression(state, player_preferences.get_disable_osd_seek()) {
@@ -289,11 +290,7 @@ fn update_feedback(
         }
     };
     if let Some(message) = video_message {
-        app.set_video_osd_request_feedback(message.kind == crate::video_osd::Kind::Aspect);
-        osd.set_video_osd_text(message.text.into());
-        osd.set_video_osd_progress(message.progress.unwrap_or(-1.0));
-        app.global::<riina_ui::PlayerControlActions>()
-            .invoke_show_video_osd();
+        message.present(app);
     }
     if osd.get_screenshot_preview_visible()
         && (crate::screenshot_osd::should_clear(state, displayed)
@@ -389,12 +386,7 @@ fn notify_media_loaded(app: &PlayerWindow, state: &Playback) {
         app.global::<riina_ui::PlayerPreferences>()
             .get_disable_osd_file_start(),
     ) {
-        let osd = app.global::<riina_ui::PlayerOsdState>();
-        app.set_video_osd_request_feedback(false);
-        osd.set_video_osd_text(message.text.into());
-        osd.set_video_osd_progress(message.progress.unwrap_or(-1.0));
-        app.global::<riina_ui::PlayerControlActions>()
-            .invoke_show_video_osd();
+        message.present(app);
     }
 }
 

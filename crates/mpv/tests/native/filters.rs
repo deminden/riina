@@ -1,6 +1,111 @@
 use super::*;
 
 #[test]
+#[ignore = "requires provisioned libmpv; checks native filter replies and media ownership"]
+fn user_filter_feedback_requires_native_success_for_the_current_media() {
+    use riina_core::FilterChange;
+
+    let root = fixture_root();
+    let harness = Harness::start(&root).unwrap();
+    let media = |name: &str| {
+        Command::Load(
+            root.join("tests/fixtures")
+                .join(name)
+                .to_string_lossy()
+                .into_owned(),
+        )
+    };
+    harness.send(Command::SetPauseWhenOpen(true)).unwrap();
+    harness.send(media("catalog.mkv")).unwrap();
+    let initial = harness.wait(|state| {
+        state.phase == Phase::Paused
+            && state.video_filters.is_some()
+            && state.audio_filters.is_some()
+    });
+    let sender = harness.player.command_sender();
+    harness
+        .send(Command::AddVideoFilter("@keep:lavfi=[hflip,vflip]".into()))
+        .unwrap();
+    let untouched = harness
+        .wait(|state| {
+            state.video_filters.as_ref().is_some_and(|filters| {
+                filters.len() == 1 && filters[0].label.as_deref() == Some("keep")
+            })
+        })
+        .video_filters
+        .unwrap();
+    let acknowledged = |predicate: fn(&FilterChange) -> bool| {
+        harness.wait(|state| {
+            state
+                .filter_feedback
+                .as_ref()
+                .is_some_and(|reply| predicate(&reply.change))
+        })
+    };
+
+    sender
+        .send_filter_edit(
+            initial.generation,
+            Command::ToggleVideoFilter("hflip".into()),
+            "Mirror".into(),
+        )
+        .unwrap();
+    acknowledged(|change| matches!(change, FilterChange::Added(name) if name.as_ref() == "Mirror"));
+    harness.wait(|state| {
+        state
+            .video_filters
+            .as_ref()
+            .is_some_and(|filters| filters.len() == 2)
+    });
+    sender
+        .send_filter_edit(
+            initial.generation,
+            Command::ToggleVideoFilter("hflip".into()),
+            "Mirror".into(),
+        )
+        .unwrap();
+    acknowledged(|change| *change == FilterChange::Removed);
+    harness.wait(|state| state.video_filters.as_ref() == Some(&untouched));
+
+    sender
+        .send_filter_edit(
+            initial.generation,
+            Command::AddAudioFilter("lavfi=[volume=0.5]".into()),
+            "Attenuate".into(),
+        )
+        .unwrap();
+    let accepted = acknowledged(
+        |change| matches!(change, FilterChange::Added(name) if name.as_ref() == "Attenuate"),
+    );
+    sender
+        .send_filter_edit(
+            initial.generation,
+            Command::AddVideoFilter("riina_no_such_filter".into()),
+            "Invalid".into(),
+        )
+        .unwrap();
+    let rejected = harness.wait(|state| state.error().is_some());
+    assert_eq!(rejected.filter_feedback, accepted.filter_feedback);
+    assert!(rejected.paused);
+
+    harness.send(media("moving-square.avi")).unwrap();
+    let replacement = harness
+        .wait(|state| state.generation != initial.generation && state.phase == Phase::Paused);
+    assert_eq!(replacement.filter_feedback, None);
+    sender
+        .send_filter_edit(
+            initial.generation,
+            Command::AddVideoFilter("vflip".into()),
+            "Stale".into(),
+        )
+        .unwrap();
+    harness.send(Command::Speed(1.25)).unwrap();
+    let observed = harness.wait(|state| state.speed == 1.25);
+    assert_eq!(observed.filter_feedback, None);
+    assert_eq!(observed.video_filters, replacement.video_filters);
+}
+
+#[test]
 #[ignore = "requires provisioned libmpv; applies and replaces a 3D LUT during playback"]
 fn dropped_luts_with_delimiters_replace_only_the_labelled_filter() {
     use riina_core::video_filters::{QUICK_LUT_LABEL, format_filter, quick_lut_filter};

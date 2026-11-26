@@ -309,17 +309,17 @@ pub(super) fn install_playback(host: &NativeVideoHost, app: &PlayerWindow) {
     forward!(host, app, on_toggle_delogo, || {
         app.global::<PlayerMenuActions>().invoke_toggle_delogo();
     });
-    forward!(host, app, on_toggle_saved_video_filter, |filter| {
+    forward!(host, app, on_toggle_saved_video_filter, |filter, name| {
         app.global::<PlayerMenuActions>()
-            .invoke_toggle_saved_video_filter(filter);
+            .invoke_toggle_saved_video_filter(filter, name);
     });
     forward!(host, app, on_open_video_filters, || {
         app.global::<PlayerMenuActions>()
             .invoke_open_video_filters();
     });
-    forward!(host, app, on_toggle_saved_audio_filter, |filter| {
+    forward!(host, app, on_toggle_saved_audio_filter, |filter, name| {
         app.global::<PlayerMenuActions>()
-            .invoke_toggle_saved_audio_filter(filter);
+            .invoke_toggle_saved_audio_filter(filter, name);
     });
     forward!(host, app, on_open_audio_filters, || {
         app.global::<PlayerMenuActions>()

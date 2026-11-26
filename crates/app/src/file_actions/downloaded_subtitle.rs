@@ -32,10 +32,14 @@ pub(crate) fn save_downloaded_subtitle(
     host: Option<slint::Weak<NativeVideoHost>>,
     latest_playback: &PlaybackStore,
 ) {
-    let Some(path) = downloaded_subtitle_path(&lock(latest_playback)) else {
+    let playback = lock(latest_playback);
+    let Some(path) = downloaded_subtitle_path(&playback) else {
         app.set_status("Select a subtitle downloaded by Riina before saving it".into());
         return;
     };
+    let generation = playback.generation;
+    drop(playback);
+    let playback = latest_playback.clone();
     let name = suggested_name(&path).to_owned();
     let extension = Path::new(&name)
         .extension()
@@ -52,7 +56,7 @@ pub(crate) fn save_downloaded_subtitle(
             extension,
         },
         move |app, chosen| match chosen {
-            Ok(Some(destination)) => export(app, path, destination),
+            Ok(Some(destination)) => export(app, path, destination, playback, generation),
             Ok(None) => {}
             Err(error) => report(app, &error),
         },
@@ -76,7 +80,13 @@ fn suggested_name(path: &Path) -> &str {
     leaf
 }
 
-fn export(app: &PlayerWindow, source: PathBuf, destination: PathBuf) {
+fn export(
+    app: &PlayerWindow,
+    source: PathBuf,
+    destination: PathBuf,
+    playback: PlaybackStore,
+    generation: u64,
+) {
     let weak = app.as_weak();
     if let Err(error) = background::spawn_named("subtitle-export", move || {
         let result = open_subtitles::download_cache_root()
@@ -84,8 +94,10 @@ fn export(app: &PlayerWindow, source: PathBuf, destination: PathBuf) {
             .and_then(|root| copy_download(&root, &source, &destination));
         _ = background::to_ui(weak, move |app| match result {
             Ok(()) => {
-                app.set_status("Subtitle saved".into());
-                crate::player_ui::show_osd_message(&app, "Subtitle saved", false);
+                if lock(&playback).generation == generation {
+                    app.set_status("Subtitle saved".into());
+                    crate::player_ui::show_subtitle_saved(&app);
+                }
             }
             Err(error) => report(&app, &error.to_string()),
         });

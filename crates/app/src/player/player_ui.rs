@@ -142,12 +142,29 @@ pub(crate) fn show_osd_message(
     {
         return;
     }
-    app.set_video_osd_request_feedback(keep_stopped);
-    let osd = app.global::<riina_ui::PlayerOsdState>();
-    osd.set_video_osd_text(text.into());
-    osd.set_video_osd_progress(-1.0);
-    app.global::<riina_ui::PlayerControlActions>()
-        .invoke_show_video_osd();
+    let visibility = if keep_stopped {
+        crate::video_osd::Visibility::KeepStopped
+    } else {
+        crate::video_osd::Visibility::Normal
+    };
+    crate::video_osd::present(app, text, "", None, visibility);
+}
+
+pub(crate) fn show_subtitle_saved(app: &PlayerWindow) {
+    if app.get_loaded()
+        && !app
+            .global::<riina_ui::PlayerMusicModeState>()
+            .get_music_mode()
+        && !app.global::<riina_ui::PlayerCropState>().get_crop_editing()
+    {
+        crate::video_osd::present(
+            app,
+            "Subtitle saved",
+            "",
+            None,
+            crate::video_osd::Visibility::Required,
+        );
+    }
 }
 
 fn window_video_geometry(state: &Playback) -> Option<(f32, f32, i32)> {
