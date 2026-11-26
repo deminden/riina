@@ -1,10 +1,11 @@
 //! Presents plugin results and applies downloaded files to the originating media.
+use super::media::Media;
 use crate::plugin_runtime::subtitles::{Description, Job, Operation};
 use crate::{
     OnlineSubtitleRow, OnlineSubtitlesWindow, PlaybackStore, PlayerWindow, background,
     plugin_host::PluginHostHandle,
 };
-use riina_core::{Command, online_subtitles::ResultSelection, sync::lock};
+use riina_core::{online_subtitles::ResultSelection, sync::lock};
 use riina_mpv::CommandSender;
 use slint::{ComponentHandle, ModelRc, VecModel, Weak};
 use std::{
@@ -41,8 +42,7 @@ struct Owner {
 #[derive(Clone)]
 struct Request {
     ticket: u64,
-    generation: u64,
-    media_request: i32,
+    media: Media,
     provider: String,
     label: String,
 }
@@ -89,21 +89,24 @@ impl Search {
             app.set_status("The selected subtitle provider is no longer available".into());
             return;
         };
-        let playback = lock(&self.owner.playback).clone();
-        if !matches!(
-            playback.phase,
-            riina_core::Phase::Playing | riina_core::Phase::Paused
-        ) {
+        let Some(media) = Media::capture(&app, &lock(&self.owner.playback)) else {
             app.set_status("Open media before searching for subtitles".into());
             return;
-        }
+        };
         let existing = self
             .window
             .borrow()
             .as_ref()
             .map(ComponentHandle::clone_strong);
         let window = match existing {
-            Some(window) if window.get_searching() || window.get_downloading() => return,
+            Some(window)
+                if (window.get_searching() || window.get_downloading())
+                    && lock(&self.owner.active).as_ref().is_some_and(|results| {
+                        results.request.media == media && results.request.provider == key
+                    }) =>
+            {
+                return;
+            }
             Some(window) => window,
             None => match OnlineSubtitlesWindow::new() {
                 Ok(window) => {
@@ -123,8 +126,7 @@ impl Search {
         _ = window.hide();
         let request = Request {
             ticket: NEXT.fetch_add(1, Ordering::Relaxed),
-            generation: playback.generation,
-            media_request: app.get_media_request_generation(),
+            media,
             provider: key.into(),
             label: label.to_string(),
         };
@@ -134,6 +136,7 @@ impl Search {
             selection: ResultSelection::default(),
         });
         window.set_searching(true);
+        window.set_downloading(false);
         window.set_query(label);
         window.set_results(ModelRc::default());
         window.set_selected_count(0);
@@ -192,6 +195,8 @@ impl Owner {
         window.on_cancel(move || {
             lock(&active).take();
             if let Some(window) = handle.upgrade() {
+                window.set_searching(false);
+                window.set_downloading(false);
                 _ = window.hide();
             }
         });
@@ -297,7 +302,16 @@ impl Owner {
                 .recv_timeout(TIMEOUT)
                 .map_err(|_| "The subtitle download timed out or the plugin closed".to_owned())
                 .and_then(|result| result)
-                .and_then(|paths| paths.iter().map(|path| cache_file(path)).collect());
+                .and_then(|paths| {
+                    paths
+                        .iter()
+                        .map_while(|path| {
+                            (owner.has_ticket(request.ticket)
+                                && request.media.is_observed(&lock(&owner.playback)))
+                            .then(|| cache_file(path))
+                        })
+                        .collect()
+                });
             _ = background::to_ui(weak, move |window| owner.attach(&window, request, paths));
         }) {
             window.set_downloading(false);
@@ -326,11 +340,9 @@ impl Owner {
             if count == 0 {
                 return Err("The plugin returned no subtitle files".into());
             }
-            self.player
-                .send(Command::AddSubtitlesForMedia {
-                    generation: request.generation,
-                    paths,
-                })
+            request
+                .media
+                .attach(&self.player, paths)
                 .map_err(|error| error.to_string())?;
             Ok(count)
         });
@@ -354,8 +366,7 @@ impl Owner {
 
     fn current_player(&self, request: &Request) -> Option<PlayerWindow> {
         let app = self.app.upgrade()?;
-        (app.get_media_request_generation() == request.media_request
-            && lock(&self.playback).generation == request.generation
+        (request.media.is_current(&app, &lock(&self.playback))
             && crate::online_subtitles_preferences::plugin_label(&app, &request.provider).is_some())
         .then_some(app)
     }
@@ -372,7 +383,7 @@ impl Request {
         Job {
             operation,
             ticket: self.ticket,
-            media_generation: self.generation,
+            media_generation: self.media.generation,
             deadline: Instant::now() + TIMEOUT,
         }
     }

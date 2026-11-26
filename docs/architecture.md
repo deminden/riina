@@ -515,9 +515,14 @@ result indices reach the chooser.
 
 Downloads use the same realm that produced the selected results. The plugin
 file scope resolves returned paths, and the download worker copies subtitle
-files into the application cache. Search and download results carry the media
-generation through to the playback worker, which checks it before attaching
-the files.
+files into the application cache. Built-in and plugin requests carry the
+player's open request and native media generation. The chooser retires old
+callbacks on cancellation, provider changes and player close. The worker
+checks the generation again before attaching downloads.
+
+Export uses the owning player's native Save dialog with the provider's filename.
+The selected cache file is read on a worker and the destination is replaced
+after the complete byte stream reaches disk.
 
 ### Plugin WebSocket servers
 

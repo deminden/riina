@@ -6404,3 +6404,33 @@ macOS interaction and matched IINA appearance remain open.
 - Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
 - Linux application SHA-256 `aa520dccc84be298c96fa3bb4ce428acf28757426a0165fcb1d8799de39f44e0`
 - Linux libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`
+
+### Online subtitle ownership and export (2026-11-26)
+
+The locked Windows workspace build, full source gate and 72 native
+playback tests passed. A recording-engine test delivered the same subtitle
+download across a changed open request, a changed native generation and
+a canceled chooser. It queued one media-scoped attachment when the original
+media remained current. The widget test invoked Cancel during a download.
+The export test checked the provider filename and byte-for-byte replacement,
+and kept the existing destination after a rejected source.
+
+In a private Windows desktop, the built-in chooser reopened with the
+replacement file's query. Save Downloaded Subtitle stayed disabled for an
+ordinary external subtitle. A cached selection opened the native Save panel
+with the provider's Unicode filename. The exported file matched the cached
+bytes. Cancel restored the player, which stayed paused and then exited
+normally.
+
+The locked Linux application build, strict Clippy and six focused tests
+passed. In an isolated native Wayland session, a delayed plugin download
+stayed off the replacement file. A new search loaded its selected
+translation on that paused file, and MPRIS Quit closed the exact player.
+
+Locked workspace source checks passed for Apple Silicon and Intel. Native
+macOS operation and live responses from the subtitle services remain open.
+
+- Windows application SHA-256 `31674fd5d9bdc92a524252974d881d0a450b7d9489516765f970f65655514067`
+- Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
+- Linux application SHA-256 `e0c9cd06458548708f1d6c6453c9d825d3ab9e9930925c76b9b65f36f01920ba`
+- Linux libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`

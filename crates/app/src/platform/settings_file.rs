@@ -6,7 +6,11 @@ use std::{
 };
 
 pub(crate) fn save(path: &Path, contents: &str) -> std::io::Result<()> {
-    let pending = stage(path, contents.as_bytes(), false)?;
+    save_bytes(path, contents.as_bytes())
+}
+
+pub(crate) fn save_bytes(path: &Path, contents: &[u8]) -> std::io::Result<()> {
+    let pending = stage(path, contents, false)?;
     replace(&pending.0, path)?;
     sync_parent(path)
 }

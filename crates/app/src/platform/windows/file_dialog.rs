@@ -1,4 +1,5 @@
 //! The STA owns the Shell dialog; its owner token retains the actual native window.
+use crate::ui_dialogs::SaveFile;
 use slint::winit_030::winit::{
     raw_window_handle::{HasWindowHandle, RawWindowHandle},
     window::Window,
@@ -16,7 +17,7 @@ use windows::Win32::{
         IFileOpenDialog, IFileSaveDialog, IShellItem, SIGDN_FILESYSPATH,
     },
 };
-use windows::core::{PCWSTR, w};
+use windows::core::PCWSTR;
 
 pub struct DialogOwner {
     _window: Arc<Window>,
@@ -118,10 +119,18 @@ fn open_selection(
     }
 }
 
-pub(crate) fn playlist_destination(owner: &DialogOwner) -> Result<Option<PathBuf>, String> {
+pub(crate) fn save_destination(
+    owner: &DialogOwner,
+    file: &SaveFile,
+) -> Result<Option<PathBuf>, String> {
     let _apartment = Apartment::enter()?;
+    let title = wide_string(file.title);
+    let name = wide_string(&file.name);
+    let filter = wide_string(file.filter);
+    let pattern = wide_string(&format!("*.{}", file.extension));
+    let extension = wide_string(&file.extension);
     // SAFETY: the owner and the thread's apartment outlive the shell dialog.
-    // The filter and all strings point to static UTF-16 data.
+    // The terminated UTF-16 buffers live through configuration and Show.
     unsafe {
         let dialog: IFileSaveDialog = CoCreateInstance(&FileSaveDialog, None, CLSCTX_INPROC_SERVER)
             .map_err(|error| error.to_string())?;
@@ -131,13 +140,13 @@ pub(crate) fn playlist_destination(owner: &DialogOwner) -> Result<Option<PathBuf
                 | FOS_PATHMUSTEXIST
                 | FOS_OVERWRITEPROMPT;
             dialog.SetOptions(options)?;
-            dialog.SetTitle(w!("Save to Playlist"))?;
+            dialog.SetTitle(PCWSTR(title.as_ptr()))?;
             dialog.SetFileTypes(&[COMDLG_FILTERSPEC {
-                pszName: w!("M3U8 playlist"),
-                pszSpec: w!("*.m3u8"),
+                pszName: PCWSTR(filter.as_ptr()),
+                pszSpec: PCWSTR(pattern.as_ptr()),
             }])?;
-            dialog.SetDefaultExtension(w!("m3u8"))?;
-            dialog.SetFileName(w!("playlist.m3u8"))
+            dialog.SetDefaultExtension(PCWSTR(extension.as_ptr()))?;
+            dialog.SetFileName(PCWSTR(name.as_ptr()))
         };
         configure().map_err(|error| error.to_string())?;
         if !show(&dialog, owner)? {
@@ -146,6 +155,10 @@ pub(crate) fn playlist_destination(owner: &DialogOwner) -> Result<Option<PathBuf
         let item = dialog.GetResult().map_err(|error| error.to_string())?;
         file_path(&item).map(Some)
     }
+}
+
+fn wide_string(text: &str) -> Vec<u16> {
+    text.encode_utf16().chain(Some(0)).collect()
 }
 
 fn show(dialog: &IFileDialog, owner: &DialogOwner) -> Result<bool, String> {

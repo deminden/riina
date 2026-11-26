@@ -1,6 +1,6 @@
 use crate::{
     NativeVideoHost, PlayerWindow, WelcomeWindow,
-    ui_dialogs::{Purpose, dispatch_selection},
+    ui_dialogs::{Purpose, SaveFile, dispatch_selection},
 };
 use riina_mpv::CommandSender;
 use slint::{
@@ -60,20 +60,21 @@ pub fn open(
     );
 }
 
-pub(crate) fn save_playlist_dialog(
+pub(crate) fn save_file_dialog(
     app: &PlayerWindow,
     _host: Option<slint::Weak<NativeVideoHost>>,
+    file: SaveFile,
     complete: impl FnOnce(&PlayerWindow, Result<Option<PathBuf>, String>) + 'static,
 ) {
     start(
         app,
         None,
-        |owner| async move {
+        move |owner| async move {
             Ok(rfd::AsyncFileDialog::new()
                 .set_parent(owner.as_ref())
-                .set_title("Save to Playlist")
-                .set_file_name("playlist.m3u8")
-                .add_filter("M3U8 playlist", &["m3u8"])
+                .set_title(file.title)
+                .set_file_name(file.name)
+                .add_filter(file.filter, &[file.extension])
                 .save_file()
                 .await
                 .map(|file| file.path().to_path_buf()))

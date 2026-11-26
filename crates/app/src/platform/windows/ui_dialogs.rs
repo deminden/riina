@@ -9,7 +9,7 @@ use slint::{
 use std::{path::PathBuf, sync::Arc};
 use winit::{platform::windows::WindowExtWindows, window::Window};
 
-use crate::ui_dialogs::{Purpose, dispatch_selection};
+use crate::ui_dialogs::{Purpose, SaveFile, dispatch_selection};
 
 struct ModalWindows {
     app: slint::Weak<PlayerWindow>,
@@ -107,12 +107,19 @@ pub fn open(
     );
 }
 
-pub(crate) fn save_playlist_dialog(
+pub(crate) fn save_file_dialog(
     app: &PlayerWindow,
     host: Option<slint::Weak<NativeVideoHost>>,
+    file: SaveFile,
     complete: impl FnOnce(&PlayerWindow, Result<Option<PathBuf>, String>) + Send + 'static,
 ) {
-    start(app, host, None, file_dialog::playlist_destination, complete);
+    start(
+        app,
+        host,
+        None,
+        move |owner| file_dialog::save_destination(owner, &file),
+        complete,
+    );
 }
 
 fn start<T: Send + 'static>(

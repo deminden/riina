@@ -1,6 +1,6 @@
 //! Save the observed playlist as an M3U8 file from the File menu.
 
-use crate::{NativeVideoHost, PlayerWindow, background, platform};
+use crate::{NativeVideoHost, PlayerWindow, background, platform, ui_dialogs::SaveFile};
 use riina_core::PlaylistEntry;
 use slint::ComponentHandle;
 use std::{
@@ -42,7 +42,13 @@ fn save_current_playlist(
         Err(_) => return app.set_status("Could not read the current playlist".into()),
     }
     let playback = playback.clone();
-    platform::save_playlist_dialog(app, host, move |app, destination| {
+    let file = SaveFile {
+        title: "Save to Playlist",
+        name: "playlist.m3u8".into(),
+        filter: "M3U8 playlist",
+        extension: "m3u8".into(),
+    };
+    platform::save_file_dialog(app, host, file, move |app, destination| {
         let path = match destination {
             Ok(Some(path)) => path,
             Ok(None) => return,

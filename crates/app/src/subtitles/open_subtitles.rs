@@ -17,7 +17,7 @@ pub(crate) use window::{SearchWindowGuard, connect_player};
 
 const API_ROOT: &str = "https://api.opensubtitles.com/api/v1/";
 const MAX_JSON_BYTES: u64 = 8 * 1024 * 1024;
-const MAX_SUBTITLE_BYTES: u64 = 16 * 1024 * 1024;
+pub(crate) const MAX_SUBTITLE_BYTES: u64 = 16 * 1024 * 1024;
 const HASH_CHUNK_BYTES: usize = 64 * 1024;
 // The provider documents the "Application vVersion" form for its API.
 const API_USER_AGENT: &str = concat!("Riina v", env!("CARGO_PKG_VERSION"));
@@ -264,12 +264,13 @@ pub(crate) fn download(api_key: &str, file_id: u64) -> Result<(String, Vec<u8>),
     Ok((file_name, bytes))
 }
 
+pub(crate) fn download_cache_root() -> Option<PathBuf> {
+    Some(dirs::cache_dir()?.join("riina").join("online-subtitles"))
+}
+
 fn save_download(name: &str, bytes: &[u8]) -> Result<PathBuf, String> {
     static NEXT: AtomicU64 = AtomicU64::new(0);
-    let root = dirs::cache_dir()
-        .ok_or("The user cache directory is unavailable")?
-        .join("riina")
-        .join("online-subtitles");
+    let root = download_cache_root().ok_or("The user cache directory is unavailable")?;
     std::fs::create_dir_all(&root)
         .map_err(|error| format!("Could not prepare subtitle cache: {error}"))?;
     let name = safe_file_name(name);

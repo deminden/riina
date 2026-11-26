@@ -1156,7 +1156,7 @@ pub(crate) use unix::SessionExtras;
 pub(crate) use windows::SessionExtras;
 #[cfg(target_os = "windows")]
 pub(crate) use windows::{
-    NativePresentation, NativeVideoMaterialCapture, file_dialog, open_dialog, save_playlist_dialog,
+    NativePresentation, NativeVideoMaterialCapture, file_dialog, open_dialog, save_file_dialog,
     services::*, window_sizing::WindowSizing,
 };
 
@@ -1183,4 +1183,4 @@ pub(crate) fn system_font_family_name() -> String {
 #[cfg(any(target_os = "macos", target_os = "linux"))]
 mod unix;
 #[cfg(any(target_os = "macos", target_os = "linux"))]
-pub(crate) use unix::{NativePresentation, open_dialog, save_playlist_dialog, services::*};
+pub(crate) use unix::{NativePresentation, open_dialog, save_file_dialog, services::*};

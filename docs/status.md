@@ -185,6 +185,10 @@ Implementation does not imply every state or platform is verified.
   search paths. The controller's optional subtitle button also lists loaded
   tracks and offers None for the primary subtitle. Nearby files remain
   available when automatic subtitle loading is disabled.
+- **Online subtitle downloads:** built-in and plugin providers keep results
+  tied to the requesting media. Canceling or replacing a search retires its
+  pending replies. Save Downloaded Subtitle exports the selected cached
+  subtitle under the provider's filename through an owned native dialog.
 - **Subtitle font chooser:** the player applies the chosen font to its
   current playback session. Settings opens the same chooser with the saved
   default and shares a committed change with players using that profile.

@@ -1,39 +1,158 @@
 //! Player-owned subtitle search window and its provider callbacks.
+mod builtin_download;
+mod media;
 mod plugin_search;
-use super::{
-    ResultRow, download, provider_from_index, provider_index, provider_name, save_download,
-    search_provider,
-};
+use super::{ResultRow, provider_from_index, provider_index, provider_name, search_provider};
 use crate::{OnlineSubtitlesWindow, PlaybackStore, PlayerWindow, subtitle_discovery::Readiness};
+use media::Media;
 use riina_core::online_subtitles::{Provider, ResultSelection};
 use riina_mpv::CommandSender;
 use riina_ui::PlayerMenuActions;
-use slint::{ComponentHandle, ModelRc, Timer, VecModel};
+use slint::{ComponentHandle, ModelRc, Timer, VecModel, Weak};
 use std::{
     cell::{Cell, RefCell},
     path::PathBuf,
     rc::Rc,
-    sync::{Arc, Mutex},
+    sync::{
+        Arc, Mutex,
+        atomic::{AtomicU64, Ordering},
+    },
     time::Duration,
 };
 
-#[derive(Clone, Default)]
+#[derive(Clone)]
 struct SearchContext {
+    media: Media,
     media_path: PathBuf,
     languages: String,
     provider: Provider,
 }
 
-#[derive(Default)]
+impl SearchContext {
+    fn for_media(
+        app: &PlayerWindow,
+        state: &riina_core::Playback,
+        preferred: Option<Provider>,
+    ) -> Result<(Self, String), &'static str> {
+        let no_media = "Open media before searching for subtitles";
+        let media = Media::capture(app, state).ok_or(no_media)?;
+        let current = state
+            .playlist
+            .iter()
+            .find(|entry| {
+                state
+                    .active_playlist_entry
+                    .map_or(entry.current, |id| id == entry.id)
+            })
+            .ok_or(no_media)?;
+        let path = crate::file_actions::local_media_path(&current.filename)
+            .ok_or("Online subtitles require local media files")?;
+        let query = current
+            .title
+            .as_ref()
+            .filter(|title| !title.trim().is_empty())
+            .map_or_else(
+                || {
+                    path.file_stem()
+                        .and_then(|stem| stem.to_str())
+                        .unwrap_or_default()
+                        .to_owned()
+                },
+                String::clone,
+            );
+        let settings = app.global::<riina_ui::PlayerPreferences>();
+        let context = Self {
+            media,
+            media_path: path,
+            languages: settings.get_subtitle_preferred_languages().to_string(),
+            provider: preferred.unwrap_or_else(|| {
+                provider_from_index(settings.get_open_subtitles_provider_index())
+            }),
+        };
+        Ok((context, query))
+    }
+}
+
+#[derive(Clone, Default)]
 struct SearchState {
-    context: Rc<RefCell<SearchContext>>,
+    context: Rc<RefCell<Option<SearchContext>>>,
     rows: Arc<Mutex<Vec<ResultRow>>>,
     selection: Rc<RefCell<ResultSelection>>,
+    ticket: Arc<AtomicU64>,
+}
+
+impl SearchState {
+    fn retire(&self, window: &OnlineSubtitlesWindow) {
+        self.ticket.fetch_add(1, Ordering::AcqRel);
+        self.context.borrow_mut().take();
+        riina_core::sync::lock(&self.rows).clear();
+        self.selection.borrow_mut().clear();
+        window.set_searching(false);
+        window.set_downloading(false);
+        window.set_selected_count(0);
+        window.set_results(ModelRc::default());
+    }
+
+    fn request(&self) -> Option<Request> {
+        Some(Request {
+            context: self.context.borrow().as_ref()?.clone(),
+            counter: self.ticket.clone(),
+            ticket: self.ticket.load(Ordering::Acquire),
+        })
+    }
+}
+
+struct Request {
+    context: SearchContext,
+    counter: Arc<AtomicU64>,
+    ticket: u64,
+}
+
+impl Request {
+    fn active(&self) -> bool {
+        self.ticket == self.counter.load(Ordering::Acquire)
+    }
+
+    fn check(&self, owner: &Player, window: &OnlineSubtitlesWindow) -> Option<PlayerWindow> {
+        let app = owner.app.upgrade()?;
+        if self
+            .context
+            .media
+            .is_current(&app, &riina_core::sync::lock(&owner.playback))
+        {
+            Some(app)
+        } else {
+            window.set_status_text(
+                "Media changed. Open subtitle search for the current file.".into(),
+            );
+            None
+        }
+    }
+}
+
+#[derive(Clone)]
+struct Player {
+    app: Weak<PlayerWindow>,
+    playback: PlaybackStore,
 }
 
 pub(crate) struct SearchWindowGuard {
-    _window: Rc<RefCell<Option<OnlineSubtitlesWindow>>>,
+    window: Rc<RefCell<Option<OnlineSubtitlesWindow>>>,
+    builtin: SearchState,
+    plugin: Option<plugin_search::Search>,
     _automatic_search: Rc<Timer>,
+}
+
+impl Drop for SearchWindowGuard {
+    fn drop(&mut self) {
+        if let Some(window) = self.window.borrow_mut().take() {
+            self.builtin.retire(&window);
+            let _ = window.hide();
+        }
+        if let Some(plugin) = &self.plugin {
+            plugin.close();
+        }
+    }
 }
 
 pub(crate) fn connect_player(
@@ -49,14 +168,16 @@ pub(crate) fn connect_player(
     let requested_provider = Rc::new(Cell::new(None::<Provider>));
     let plugin_search =
         plugins.map(|host| plugin_search::Search::new(app, host, sender.clone(), playback.clone()));
-    if let Some(search) = plugin_search.clone() {
+    if let Some(plugin) = plugin_search.clone() {
         let built_in = window_slot.clone();
+        let search = search.clone();
         app.global::<PlayerMenuActions>()
             .on_find_online_subtitles_with_plugin(move |key| {
                 if let Some(window) = built_in.borrow().as_ref() {
+                    search.retire(window);
                     _ = window.hide();
                 }
-                search.open(key.as_str());
+                plugin.open(key.as_str());
             });
     }
     let app_weak = app.as_weak();
@@ -65,6 +186,8 @@ pub(crate) fn connect_player(
     let playback_callback = playback.clone();
     let auto_search_request_for_open = auto_search_request.clone();
     let requested_provider_for_open = requested_provider.clone();
+    let callback_search = search.clone();
+    let callback_plugin = plugin_search.clone();
     app.global::<PlayerMenuActions>()
         .on_find_online_subtitles(move || {
             let should_search_after_open = auto_search_request_for_open.replace(false);
@@ -72,7 +195,8 @@ pub(crate) fn connect_player(
             let Some(app) = app_weak.upgrade() else {
                 return;
             };
-            if let Some(search) = &plugin_search {
+            let search = &callback_search;
+            if let Some(plugin) = &callback_plugin {
                 let key = app
                     .global::<riina_ui::PlayerPreferences>()
                     .get_open_subtitles_plugin_provider();
@@ -81,51 +205,30 @@ pub(crate) fn connect_player(
                         .is_some()
                 {
                     if let Some(window) = window_slot_callback.borrow().as_ref() {
+                        search.retire(window);
                         _ = window.hide();
                     }
-                    search.open(key.as_str());
+                    plugin.open(key.as_str());
                     return;
                 }
-                search.close();
+                plugin.close();
             }
-            let current = riina_core::sync::lock(&playback_callback)
-                .playlist
-                .iter()
-                .find(|entry| entry.current)
-                .cloned();
-            let Some(current) = current else {
-                app.set_status("Open media before searching for subtitles".into());
-                return;
-            };
-            if current.filename.contains("://") {
-                app.set_status("Online subtitles require local media files".into());
-                return;
-            }
-            let path = PathBuf::from(&current.filename);
-            let fallback = path
-                .file_stem()
-                .and_then(|stem| stem.to_str())
-                .unwrap_or_default();
-            let title = current
-                .title
-                .filter(|title| !title.trim().is_empty())
-                .unwrap_or_else(|| fallback.to_owned());
-            let provider = requested_provider.unwrap_or_else(|| {
-                provider_from_index(
-                    app.global::<riina_ui::PlayerPreferences>()
-                        .get_open_subtitles_provider_index(),
-                )
-            });
-            *search.context.borrow_mut() = SearchContext {
-                media_path: path,
-                languages: app
-                    .global::<riina_ui::PlayerPreferences>()
-                    .get_subtitle_preferred_languages()
-                    .to_string(),
-                provider,
-            };
-            let window = if let Some(window) = window_slot_callback.borrow().as_ref() {
-                window.clone_strong()
+            let playback = riina_core::sync::lock(&playback_callback).clone();
+            let (context, query) =
+                match SearchContext::for_media(&app, &playback, requested_provider) {
+                    Ok(context) => context,
+                    Err(error) => {
+                        app.set_status(error.into());
+                        return;
+                    }
+                };
+            let provider = context.provider;
+            let existing = window_slot_callback
+                .borrow()
+                .as_ref()
+                .map(ComponentHandle::clone_strong);
+            let window = if let Some(window) = existing {
+                window
             } else {
                 let window = match OnlineSubtitlesWindow::new() {
                     Ok(window) => window,
@@ -137,18 +240,14 @@ pub(crate) fn connect_player(
                         return;
                     }
                 };
-                install_window_callbacks(&app, &window, &search, &sender);
+                install_window_callbacks(&app, &window, search, &sender, &playback_callback);
                 crate::platform::center_auxiliary_window(&window, &app);
                 *window_slot_callback.borrow_mut() = Some(window.clone_strong());
                 window
             };
-            window.set_query(title.into());
-            window.set_results(ModelRc::new(VecModel::from(
-                Vec::<crate::OnlineSubtitleRow>::new(),
-            )));
-            search.rows.lock().map(|mut rows| rows.clear()).ok();
-            search.selection.borrow_mut().clear();
-            window.set_selected_count(0);
+            search.retire(&window);
+            *search.context.borrow_mut() = Some(context);
+            window.set_query(query.into());
             window.set_provider_index(provider_index(provider));
             window.set_status_text(if provider == Provider::Shooter {
                 "Search Shooter.cn by the local video's sampled content hash.".into()
@@ -179,7 +278,9 @@ pub(crate) fn connect_player(
         });
 
     SearchWindowGuard {
-        _window: window_slot,
+        window: window_slot,
+        builtin: search,
+        plugin: plugin_search,
         _automatic_search: install_automatic_search(
             app,
             playback,
@@ -194,22 +295,30 @@ fn install_window_callbacks(
     window: &OnlineSubtitlesWindow,
     state: &SearchState,
     sender: &CommandSender,
+    playback: &PlaybackStore,
 ) {
+    let owner = Player {
+        app: app.as_weak(),
+        playback: playback.clone(),
+    };
     crate::appearance_preferences::install_system_typography(window);
-    install_search(app, window, state);
+    install_search(window, state, owner.clone());
     install_selection(window, state);
-    install_download(app, window, state, sender);
-    install_auxiliary_actions(app, window);
+    builtin_download::install(window, state, owner, sender);
+    install_auxiliary_actions(app, window, state);
 }
 
-fn install_search(app: &PlayerWindow, window: &OnlineSubtitlesWindow, state: &SearchState) {
+fn install_search(window: &OnlineSubtitlesWindow, state: &SearchState, owner: Player) {
     let weak_window = window.as_weak();
-    let weak_app = app.as_weak();
-    let search_context = state.context.clone();
-    let rows = state.rows.clone();
-    let selection = state.selection.clone();
+    let state = state.clone();
     window.on_search(move || {
-        let (Some(window), Some(app)) = (weak_window.upgrade(), weak_app.upgrade()) else {
+        let (Some(window), Some(request)) = (weak_window.upgrade(), state.request()) else {
+            return;
+        };
+        if window.get_searching() || window.get_downloading() {
+            return;
+        }
+        let Some(app) = request.check(&owner, &window) else {
             return;
         };
         let query = window.get_query().to_string();
@@ -221,35 +330,38 @@ fn install_search(app: &PlayerWindow, window: &OnlineSubtitlesWindow, state: &Se
             .global::<riina_ui::PlayerPreferences>()
             .get_assrt_token()
             .to_string();
-        let search_context = search_context.borrow().clone();
-        let provider = search_context.provider;
+        let provider = request.context.provider;
         window.set_searching(true);
-        window.set_provider_index(match provider {
-            Provider::OpenSubtitles => 0,
-            Provider::Assrt => 1,
-            Provider::Shooter => 2,
-        });
+        window.set_provider_index(provider_index(provider));
         window.set_status_text(format!("Searching {}…", provider_name(provider)).into());
         window.set_selected_count(0);
-        selection.borrow_mut().clear();
-        riina_core::sync::lock(&rows).clear();
-        window.set_results(ModelRc::new(VecModel::from(
-            Vec::<crate::OnlineSubtitleRow>::new(),
-        )));
+        state.selection.borrow_mut().clear();
+        riina_core::sync::lock(&state.rows).clear();
+        window.set_results(ModelRc::default());
         let weak_window = window.as_weak();
-        let rows = rows.clone();
+        let rows = state.rows.clone();
+        let owner = owner.clone();
         let started = crate::background::spawn_named("riina-subtitle-search", move || {
+            if !request.active() {
+                return;
+            }
             let result = search_provider(
                 provider,
                 &key,
                 &assrt_token,
-                &search_context.media_path,
+                &request.context.media_path,
                 &query,
-                &search_context.languages,
+                &request.context.languages,
             );
             // The result has no recipient once its window or event loop closes.
             let _ = crate::background::to_ui(weak_window, move |window| {
+                if !request.active() {
+                    return;
+                }
                 window.set_searching(false);
+                if request.check(&owner, &window).is_none() {
+                    return;
+                }
                 match result {
                     Ok(found) => {
                         let count = found.len();
@@ -329,115 +441,26 @@ fn install_selection(window: &OnlineSubtitlesWindow, state: &SearchState) {
     });
 }
 
-fn install_download(
+fn install_auxiliary_actions(
     app: &PlayerWindow,
     window: &OnlineSubtitlesWindow,
     state: &SearchState,
-    player: &CommandSender,
 ) {
     let weak_window = window.as_weak();
-    let weak_app = app.as_weak();
-    let rows = state.rows.clone();
-    let selection = state.selection.clone();
-    let sender = player.clone();
-    window.on_download_selected(move || {
-        let (Some(window), Some(app)) = (weak_window.upgrade(), weak_app.upgrade()) else {
-            return;
-        };
-        let selected = selection.borrow().indices();
-        let selected_rows = {
-            let rows = riina_core::sync::lock(&rows);
-            selected
-                .iter()
-                .filter_map(|index| rows.get(*index).cloned())
-                .collect::<Vec<_>>()
-        };
-        if selected_rows.is_empty() {
-            return;
-        }
-        let key = app.global::<riina_ui::PlayerPreferences>().get_open_subtitles_api_key().to_string();
-        let assrt_token = app.global::<riina_ui::PlayerPreferences>().get_assrt_token().to_string();
-        let total = selected_rows.len();
-        window.set_downloading(true);
-        window.set_status_text(format!("Downloading {total} selected subtitle{}…", if total == 1 { "" } else { "s" }).into());
-        let weak_window = window.as_weak();
-        let weak_app = app.as_weak();
-        let sender = sender.clone();
-        let started = crate::background::spawn_named("riina-subtitle-download", move || {
-            let mut paths = Vec::with_capacity(total);
-            let mut failure = None;
-            for (index, row) in selected_rows.iter().enumerate() {
-                let downloaded = match row.provider {
-                    Provider::OpenSubtitles => download(&key, row.file_id),
-                    Provider::Assrt => {
-                        crate::assrt_subtitles::download(&assrt_token, row.file_id)
-                    }
-                    Provider::Shooter => row
-                        .download_url
-                        .as_deref()
-                        .ok_or_else(|| "Shooter.cn result has no download link.".to_owned())
-                        .and_then(|url| {
-                            crate::shooter_subtitles::download(
-                                row.file_id,
-                                row.release.trim_start_matches('.'),
-                                url,
-                            )
-                        }),
-                };
-                match downloaded
-                    .and_then(|(name, bytes)| save_download(&name, &bytes))
-                {
-                    Ok(path) => paths.push(path),
-                    Err(error) => {
-                        failure = Some(format!("Subtitle {} of {total}: {error}", index + 1));
-                        break;
-                    }
-                }
-            }
-            // The result has no recipient once its window or event loop closes.
-            let _ = crate::background::to_ui(weak_window, move |window| {
-                let mut queued = 0_usize;
-                let mut load_error = None;
-                for path in paths {
-                    match sender.send(riina_core::Command::AddSubtitle(
-                        path.to_string_lossy().into_owned(),
-                    )) {
-                        Ok(()) => queued += 1,
-                        Err(error) => {
-                            load_error = Some(error.to_string());
-                            break;
-                        }
-                    }
-                }
-                window.set_downloading(false);
-                if let Some(error) = load_error {
-                    window.set_status_text(format!("Downloaded {queued} of {total}; could not load the remaining subtitles: {error}").into());
-                } else if let Some(error) = failure {
-                    window.set_status_text(format!("Downloaded and queued {queued} of {total}. {error}").into());
-                } else {
-                    window.set_status_text(format!("Downloaded and queued {queued} subtitle{}.", if queued == 1 { "" } else { "s" }).into());
-                    // Continue releasing session resources if the window is closing.
-                    let _ = window.hide();
-                }
-                if let Some(app) = weak_app.upgrade() {
-                    app.window().request_redraw();
-                }
-            });
-        });
-        if let Err(error) = started {
-            window.set_downloading(false);
-            window.set_status_text(format!("Could not start subtitle download: {error}").into());
-        }
-    });
-}
-
-fn install_auxiliary_actions(app: &PlayerWindow, window: &OnlineSubtitlesWindow) {
-    let weak_window = window.as_weak();
+    let cancel = state.clone();
     window.on_cancel(move || {
         if let Some(window) = weak_window.upgrade() {
-            // Continue releasing session resources if the window is closing.
+            cancel.retire(&window);
             let _ = window.hide();
         }
+    });
+    let weak_window = window.as_weak();
+    let close = state.clone();
+    window.window().on_close_requested(move || {
+        if let Some(window) = weak_window.upgrade() {
+            close.retire(&window);
+        }
+        slint::CloseRequestResponse::HideWindow
     });
     let weak_app = app.as_weak();
     window.on_open_assrt_site(move || {
@@ -660,6 +683,12 @@ mod tests {
         assert_eq!(window.get_selected_count(), 1);
         click(555.0, 400.0);
         assert_eq!(downloads.get(), Some(0));
+        let cancelled = Rc::new(Cell::new(false));
+        let cancel = cancelled.clone();
+        window.on_cancel(move || cancel.set(true));
+        window.set_downloading(true);
+        click(452.0, 400.0);
+        assert!(cancelled.get());
         window.hide()?;
         Ok(())
     }

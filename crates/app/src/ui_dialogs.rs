@@ -2,6 +2,13 @@
 use crate::{NativeVideoHost, PlayerWindow, WelcomeWindow, media_open};
 use riina_core::Command;
 
+pub(crate) struct SaveFile {
+    pub(crate) title: &'static str,
+    pub(crate) name: String,
+    pub(crate) filter: &'static str,
+    pub(crate) extension: String,
+}
+
 pub(crate) fn open(
     app: &PlayerWindow,
     host: Option<slint::Weak<NativeVideoHost>>,

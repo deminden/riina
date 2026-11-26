@@ -117,7 +117,7 @@ export component OnlineSubtitlesWindow inherits Window {
     }
     Button {
         x: parent.width - 214px; y: parent.height - 44px; width: 90px; height: 28px;
-        text: "Cancel"; enabled: !root.downloading; clicked => { root.cancel(); }
+        text: "Cancel"; clicked => { root.cancel(); }
     }
     Button {
         x: parent.width - 112px; y: parent.height - 44px; width: 94px; height: 28px;
@@ -142,6 +142,9 @@ export component OnlineSubtitlesWindow inherits Window {
     }
 
     key-pressed(event) => {
+        if event.text == Key.Escape {
+            root.cancel(); return accept;
+        }
         if (event.modifiers.control || event.modifiers.meta) && (event.text == "a" || event.text == "A") {
             root.selection-action(0); return accept;
         }
