@@ -5,6 +5,17 @@ use slint::winit_030::WinitWindowAccessor;
 
 pub(crate) const USES_NATIVE_RESIZE_FILTER: bool = cfg!(target_os = "windows");
 
+#[cfg(windows)]
+pub(crate) fn auxiliary_work_area(
+    native: &slint::winit_030::winit::window::Window,
+    position: Option<[i32; 2]>,
+) -> Option<riina_core::window_resize::ScreenRect> {
+    use super::windows::window_position::{work_area, work_area_near_point};
+    position
+        .and_then(|[x, y]| work_area_near_point(x.saturating_add(64), y.saturating_add(20)))
+        .or_else(|| work_area(native))
+}
+
 #[derive(Clone, Copy)]
 pub(crate) enum ResizeAnchor {
     WindowCenter,

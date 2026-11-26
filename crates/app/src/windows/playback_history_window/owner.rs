@@ -1,6 +1,7 @@
 //! Own the History window and resolve live playback destinations at activation.
 use super::{
-    CollapsedGroups, HistoryState, availability::Availability, open_request, report, revision,
+    CollapsedGroups, HistoryState, availability::Availability, layout::Layout, open_request,
+    report, revision,
 };
 use crate::{
     PlaybackHistoryWindow, PlayerWindow, player::surface::PlayerDisplay, player_ui::InitialMedia,
@@ -57,6 +58,7 @@ impl Archive {
 #[derive(Default)]
 pub(crate) struct ApplicationHistory {
     window: RefCell<Option<PlaybackHistoryWindow>>,
+    layout: RefCell<Option<Layout>>,
     timer: Rc<Timer>,
     groups: CollapsedGroups,
     availability: Availability,
@@ -361,11 +363,14 @@ impl ApplicationHistory {
             .borrow()
             .as_ref()
             .map(ComponentHandle::clone_strong);
-        let window = if let Some(window) = existing {
-            window
+        let (window, creating) = if let Some(window) = existing {
+            (window, false)
         } else {
             let window = PlaybackHistoryWindow::new()?;
             crate::appearance_preferences::install_system_typography(&window);
+            let layout = Layout::load(&archive.preferences_path);
+            layout.restore_columns(&window);
+            *self.layout.borrow_mut() = Some(layout);
             super::connect_window(
                 &window,
                 super::WindowConnection {
@@ -376,17 +381,17 @@ impl ApplicationHistory {
                     availability: self.availability.clone(),
                 },
             );
-            if let Some(app) = app {
-                crate::platform::center_auxiliary_window(&window, app);
-            }
             self.connect_close(&window);
             *self.window.borrow_mut() = Some(window.clone_strong());
-            window
+            (window, true)
         };
         self.availability.clear();
         self.refresh_destinations(&window);
         let mut last_revision = (revision(&archive.history), self.availability.revision());
         crate::platform::show_window(&window)?;
+        if creating {
+            self.place_window(&window, app);
+        }
         crate::playback_history::progress::refresh_on_open(&archive.history);
         super::refresh(&window, &archive.history, &self.groups, &self.availability);
         crate::platform::enable_history_acrylic(&window);
@@ -405,6 +410,9 @@ impl ApplicationHistory {
             move |window| {
                 if let Some(owner) = owner.upgrade() {
                     owner.refresh_destinations(window);
+                    if let Some(layout) = owner.layout.borrow_mut().as_mut() {
+                        layout.sample(window.window());
+                    }
                 }
                 let current_revision = (revision(&history), availability.revision());
                 if last_revision != current_revision {
@@ -414,6 +422,31 @@ impl ApplicationHistory {
             },
         );
         Ok(())
+    }
+
+    fn place_window(self: &Rc<Self>, window: &PlaybackHistoryWindow, app: Option<&PlayerWindow>) {
+        let owner = Rc::downgrade(self);
+        let history = window.as_weak();
+        let player = app.map(ComponentHandle::as_weak);
+        let _ = slint::spawn_local(async move {
+            let Some(window) = history.upgrade() else {
+                return;
+            };
+            let Ok(native) = window.window().winit_window().await else {
+                return;
+            };
+            let Some(owner) = owner.upgrade().filter(|_| window.window().is_visible()) else {
+                return;
+            };
+            let positioned = owner
+                .layout
+                .borrow()
+                .as_ref()
+                .is_some_and(|layout| layout.restore_frame(window.window(), &native));
+            if !positioned && let Some(player) = player.and_then(|player| player.upgrade()) {
+                crate::platform::center_auxiliary_window(&window, &player);
+            }
+        });
     }
 
     fn connect_close(self: &Rc<Self>, window: &PlaybackHistoryWindow) {
@@ -457,6 +490,12 @@ impl ApplicationHistory {
         self.timer.stop();
         self.availability.clear();
         if let Some(window) = self.window.borrow().as_ref() {
+            if window.window().is_visible()
+                && let Some(layout) = self.layout.borrow_mut().as_mut()
+                && let Err(error) = layout.save(window)
+            {
+                crate::diagnostics::warn!("Could not save the Playback History layout: {error}");
+            }
             window.set_status_text(Default::default());
             window.invoke_answer_confirmation(false);
             let _ = window.hide();
@@ -500,8 +539,9 @@ mod tests {
     }
     #[test]
     fn history_retains_one_window_and_releases_closed_player_routes()
-    -> Result<(), slint::PlatformError> {
+    -> Result<(), Box<dyn std::error::Error>> {
         i_slint_backend_testing::init_no_event_loop();
+        let profile = riina_test_support::TempDir::new("history-window-routes")?;
         let owner = Rc::new(ApplicationHistory::default());
         let launches = Rc::new(RefCell::new(Vec::new()));
         let launched = launches.clone();
@@ -514,7 +554,7 @@ mod tests {
         );
         let archive = Archive {
             history: Arc::default(),
-            preferences_path: PathBuf::new(),
+            preferences_path: profile.path().join("preferences.json"),
             cleared: Arc::default(),
         };
         owner.show(None, &archive)?;

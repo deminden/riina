@@ -6813,3 +6813,27 @@ identity, legacy Windows file URL decoding, bounded filename comments and
 playlist refresh after a load or stop. Strict workspace cross-Clippy passed
 for Apple Silicon and Intel. All 26 focused Linux tests passed. Desktop and
 native macOS checks for these changes remain open.
+
+### Playback History window layout (2026-11-26)
+
+The Windows workspace source gate passed with strict Clippy, 720 application
+unit tests, and the player and Settings pixel comparisons. The History input
+test drags the Progress column divider, adjusts it with the keyboard, sets
+Played At through accessibility, and checks that narrow layouts retain the
+chosen widths for reopening. The frame tests cover negative monitor
+coordinates and a saved position on a disconnected display.
+
+The locked Windows workspace build passed. In a private Windows desktop,
+native accessibility set the column widths to 182 and 220 logical pixels.
+Closing History saved the window and both widths. A fresh process reopened
+History with the same outer position `(72, 135)`, outer size `3696 × 1872`,
+client size `3660 × 1769` and column widths. Closing the player and then
+History exited that exact process normally. The restart test confirmed the
+fix after the first attempt reopened at the default size.
+
+All 14 focused Linux History tests passed for the column changes. The final
+Linux application passed strict Clippy. Strict workspace cross-Clippy for the
+final changes passed on Apple Silicon and Intel. Native macOS and Wayland
+layout restoration still need desktop verification.
+
+- Windows application SHA-256 `3e86dbbb851f4ea2281f36f80fb319113a34beb212b21569aa7202dd22e3c9f7`

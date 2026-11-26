@@ -183,6 +183,9 @@ Implementation does not imply every state or platform is verified.
   preserves its entries.
   Date headings and played-at timestamps use the system locale and local
   time zone. Collapse and chronological ordering use local calendar days.
+  The History window remembers its normal size and position where the desktop
+  allows placement. Progress and Played At widths support drag, arrow keys
+  and accessibility actions, and are saved per profile.
 - In **Quick Settings Layout**, the selected Theme option is one Tab stop.
   Arrow keys, Home and End choose a theme. Tab navigation scrolls narrow
   Layout panes to reveal the focused switch or controller choice.

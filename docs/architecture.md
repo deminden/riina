@@ -391,6 +391,12 @@ discards the action when the window closes. The application owns one History
 window. Each live player registers a weak window reference and its command
 sender. Focus changes update the playback destination, and player teardown
 removes its registration.
+The History owner saves the last normal window bounds and the chosen column
+widths in the profile. The table clamps widths to the current viewport while
+keeping the saved preferences available for larger windows. Restore keeps a
+position on an attached display and leaves placement to the Wayland
+compositor. Window bounds are sampled while the outline is visible and written
+only when it closes or hides.
 History checks selected local references on a background worker when playback
 is requested. A newer History playback action or closing the outline retires
 the pending check. When the files are ready, the outline finds the most
