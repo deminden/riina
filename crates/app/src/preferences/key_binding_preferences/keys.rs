@@ -73,6 +73,7 @@ fn event_key(text: &str) -> Option<String> {
         }
     }
     let key = match text {
+        "#" => "SHARP".to_owned(),
         " " | "Space" => "SPACE".to_owned(),
         "←" | "LeftArrow" | "ArrowLeft" => "LEFT".to_owned(),
         "→" | "RightArrow" | "ArrowRight" => "RIGHT".to_owned(),

@@ -12,7 +12,7 @@ use riina_core::{Preferences, key_bindings::Settings};
 use slint::ComponentHandle;
 
 pub(crate) use bindings::Bindings;
-pub(crate) use builtins::{mappings_for, stored_mappings_for};
+pub(crate) use builtins::{editable_mappings_for, mappings_for};
 pub(crate) use dispatch::{install_bindings, install_player, load_bindings};
 pub(crate) use editor::{
     MappingDraft, activate_profile, current_player, current_window, install_window, refresh,

@@ -2,6 +2,13 @@
 use super::keys::normalize_profile_key;
 use riina_core::key_bindings::{ActionKind, Mapping};
 
+mod alternate;
+mod mpv;
+mod platform_keys;
+
+pub(super) use platform_keys::equivalent as platform_equivalent;
+type Row = (&'static str, &'static str, ActionKind);
+
 pub(super) const BUILTIN_PROFILES: [&str; 5] = [
     "IINA Default",
     "mpv Default",
@@ -97,110 +104,8 @@ const IINA_DEFAULT_ROWS: [(&str, &str, ActionKind); 76] = [
     ("E", "cycle edition", ActionKind::Mpv),
 ];
 
-const MPV_DEFAULT_ROWS: [(&str, &str, ActionKind); 27] = [
-    ("RIGHT", "seek 5", ActionKind::Mpv),
-    ("LEFT", "seek -5", ActionKind::Mpv),
-    ("UP", "seek 60", ActionKind::Mpv),
-    ("DOWN", "seek -60", ActionKind::Mpv),
-    ("Shift+RIGHT", "seek 1 exact", ActionKind::Mpv),
-    ("Shift+LEFT", "seek -1 exact", ActionKind::Mpv),
-    ("Shift+UP", "seek 5 exact", ActionKind::Mpv),
-    ("Shift+DOWN", "seek -5 exact", ActionKind::Mpv),
-    ("Ctrl+LEFT", "sub-seek -1", ActionKind::Mpv),
-    ("Ctrl+RIGHT", "sub-seek 1", ActionKind::Mpv),
-    ("SPACE", "cycle pause", ActionKind::Mpv),
-    ("p", "cycle pause", ActionKind::Mpv),
-    ("f", "cycle fullscreen", ActionKind::Mpv),
-    ("m", "cycle mute", ActionKind::Mpv),
-    ("v", "cycle sub-visibility", ActionKind::Mpv),
-    ("j", "cycle sub", ActionKind::Mpv),
-    ("Alt+RIGHT", "frame-step", ActionKind::Mpv),
-    ("Alt+LEFT", "frame-back-step", ActionKind::Mpv),
-    (".", "frame-step", ActionKind::Mpv),
-    (",", "frame-back-step", ActionKind::Mpv),
-    ("9", "add volume -2", ActionKind::Mpv),
-    ("0", "add volume 2", ActionKind::Mpv),
-    ("[", "multiply speed 0.9091", ActionKind::Mpv),
-    ("]", "multiply speed 1.1", ActionKind::Mpv),
-    ("{", "multiply speed 0.5", ActionKind::Mpv),
-    ("}", "multiply speed 2", ActionKind::Mpv),
-    ("l", "ab-loop", ActionKind::Mpv),
-];
-
-const VLC_DEFAULT_ROWS: [(&str, &str, ActionKind); 19] = [
-    ("Meta+f", "cycle fullscreen", ActionKind::Mpv),
-    ("ESC", "set fullscreen no", ActionKind::Mpv),
-    ("SPACE", "cycle pause", ActionKind::Mpv),
-    ("Meta+=", "multiply speed 1.5", ActionKind::Mpv),
-    ("Meta+-", "multiply speed 0.6667", ActionKind::Mpv),
-    ("Meta+RIGHT", "playlist-next", ActionKind::Mpv),
-    ("Meta+LEFT", "playlist-prev", ActionKind::Mpv),
-    ("Meta+.", "stop", ActionKind::Mpv),
-    ("Ctrl+Meta+LEFT", "seek -3", ActionKind::Mpv),
-    ("Ctrl+Meta+RIGHT", "seek 3", ActionKind::Mpv),
-    ("Alt+Meta+LEFT", "seek -10", ActionKind::Mpv),
-    ("Alt+Meta+RIGHT", "seek 10", ActionKind::Mpv),
-    ("Shift+Meta+LEFT", "seek -60", ActionKind::Mpv),
-    ("Shift+Meta+RIGHT", "seek 60", ActionKind::Mpv),
-    ("Shift+Alt+Meta+LEFT", "seek -300", ActionKind::Mpv),
-    ("Shift+Alt+Meta+RIGHT", "seek 300", ActionKind::Mpv),
-    ("e", "frame-step", ActionKind::Mpv),
-    ("Meta+l", "ab-loop", ActionKind::Mpv),
-    ("m", "cycle mute", ActionKind::Mpv),
-];
-
-const MOVIST_DEFAULT_ROWS: [(&str, &str, ActionKind); 21] = [
-    ("Alt+Meta+RIGHT", "playlist-next", ActionKind::Mpv),
-    ("Alt+Meta+LEFT", "playlist-prev", ActionKind::Mpv),
-    ("Alt+Meta+s", "playlist-shuffle", ActionKind::Mpv),
-    ("SPACE", "cycle pause", ActionKind::Mpv),
-    ("LEFT", "seek -10", ActionKind::Mpv),
-    ("Alt+LEFT", "seek -60", ActionKind::Mpv),
-    ("Shift+Alt+LEFT", "seek -300", ActionKind::Mpv),
-    ("RIGHT", "seek 10", ActionKind::Mpv),
-    ("Alt+RIGHT", "seek 60", ActionKind::Mpv),
-    ("Shift+Alt+RIGHT", "seek 300", ActionKind::Mpv),
-    ("Ctrl+Alt+LEFT", "cycle sub down", ActionKind::Mpv),
-    ("Ctrl+Alt+RIGHT", "cycle sub up", ActionKind::Mpv),
-    ("Meta+|", "set speed 1", ActionKind::Mpv),
-    ("Shift+Meta+LEFT", "multiply speed 0.9", ActionKind::Mpv),
-    ("Shift+Meta+RIGHT", "multiply speed 1.1", ActionKind::Mpv),
-    ("z", "set speed 1", ActionKind::Mpv),
-    ("x", "multiply speed 0.9", ActionKind::Mpv),
-    ("c", "multiply speed 1.1", ActionKind::Mpv),
-    ("f", "cycle fullscreen", ActionKind::Mpv),
-    ("m", "cycle mute", ActionKind::Mpv),
-    ("Meta+.", "stop", ActionKind::Mpv),
-];
-
-const MOVIST_V2_DEFAULT_ROWS: [(&str, &str, ActionKind); 24] = [
-    ("Meta+RIGHT", "playlist-next", ActionKind::Mpv),
-    ("Meta+LEFT", "playlist-prev", ActionKind::Mpv),
-    ("Alt+Meta+s", "playlist-shuffle", ActionKind::Mpv),
-    ("Alt+Meta+r", "cycle-values loop inf no", ActionKind::Mpv),
-    ("Ctrl+Meta+v", "cycle video up", ActionKind::Mpv),
-    ("Ctrl+Meta+V", "cycle video down", ActionKind::Mpv),
-    ("SPACE", "cycle pause", ActionKind::Mpv),
-    ("LEFT", "seek -5", ActionKind::Mpv),
-    ("Alt+LEFT", "seek -30", ActionKind::Mpv),
-    ("Shift+Alt+LEFT", "seek -300", ActionKind::Mpv),
-    ("RIGHT", "seek 5", ActionKind::Mpv),
-    ("Alt+RIGHT", "seek 30", ActionKind::Mpv),
-    ("Shift+Alt+RIGHT", "seek 300", ActionKind::Mpv),
-    (",", "frame-back-step", ActionKind::Mpv),
-    (".", "frame-step", ActionKind::Mpv),
-    ("Alt+1", "set speed 1", ActionKind::Mpv),
-    ("Alt+2", "set speed 2", ActionKind::Mpv),
-    ("Alt+4", "set speed 4", ActionKind::Mpv),
-    ("m", "cycle mute", ActionKind::Mpv),
-    ("f", "cycle fullscreen", ActionKind::Mpv),
-    ("v", "cycle sub-visibility", ActionKind::Mpv),
-    ("j", "cycle sub", ActionKind::Mpv),
-    ("Meta+.", "stop", ActionKind::Mpv),
-    ("Meta+s", "screenshot", ActionKind::Mpv),
-];
-
 pub(super) const SYSTEM_MEDIA_ROWS: [(&str, &str); 15] = [
+    ("POWER", "quit"),
     ("PLAY", "cycle pause"),
     ("PAUSE", "cycle pause"),
     ("PLAYPAUSE", "cycle pause"),
@@ -214,48 +119,78 @@ pub(super) const SYSTEM_MEDIA_ROWS: [(&str, &str); 15] = [
     ("VOLUME_UP", "add volume 2"),
     ("VOLUME_DOWN", "add volume -2"),
     ("MUTE", "cycle mute"),
-    ("POWER", "quit"),
     ("CLOSE_WIN", "quit"),
 ];
 
 pub(super) fn builtin_mappings(name: &str) -> Vec<Mapping> {
     let rows = match name {
-        "IINA Default" => &IINA_DEFAULT_ROWS[..],
-        "mpv Default" => &MPV_DEFAULT_ROWS[..],
-        "VLC Default" => &VLC_DEFAULT_ROWS[..],
-        "Movist Default" => &MOVIST_DEFAULT_ROWS[..],
-        "Movist v2 Default" => &MOVIST_V2_DEFAULT_ROWS[..],
+        "IINA Default" => IINA_DEFAULT_ROWS.as_slice(),
+        "mpv Default" => mpv::BEFORE_MEDIA,
+        "VLC Default" => alternate::VLC,
+        "Movist Default" => alternate::MOVIST,
+        "Movist v2 Default" => alternate::MOVIST_V2,
         _ => return Vec::new(),
     };
-    rows.iter()
-        .map(|(key, action, kind)| Mapping {
-            key: (*key).into(),
-            action: (*action).into(),
-            kind: *kind,
-            comment: None,
-        })
-        .collect()
+    let mut mappings: Vec<_> = rows
+        .iter()
+        .map(|&(key, action, kind)| mapping(key, action, kind))
+        .collect();
+    let alternate = name != "IINA Default";
+    mappings.extend(SYSTEM_MEDIA_ROWS.map(|(key, default)| {
+        let action = match (alternate, key) {
+            (true, "STOP") => "quit",
+            (true, "FORWARD") => "seek 60",
+            (true, "REWIND") => "seek -60",
+            _ => default,
+        };
+        mapping(key, action, ActionKind::Mpv)
+    }));
+    if name == "mpv Default" {
+        mappings.extend(
+            mpv::AFTER_MEDIA
+                .iter()
+                .map(|&(key, action, kind)| mapping(key, action, kind)),
+        );
+    }
+    mappings
+}
+
+fn mapping(key: &str, action: &str, kind: ActionKind) -> Mapping {
+    Mapping {
+        key: key.into(),
+        action: action.into(),
+        kind,
+        comment: None,
+    }
 }
 
 pub(crate) fn mappings_for(name: &str) -> Result<Vec<Mapping>, String> {
-    let mut mappings = stored_mappings_for(name)?;
+    let mut mappings = editable_mappings_for(name)?;
+    if BUILTIN_PROFILES.contains(&name) {
+        return Ok(mappings);
+    }
     for (key, action) in SYSTEM_MEDIA_ROWS {
         if !mappings
             .iter()
             .any(|mapping| normalize_profile_key(&mapping.key) == key)
         {
-            mappings.push(Mapping {
-                key: key.into(),
-                action: action.into(),
-                kind: ActionKind::Mpv,
-                comment: None,
-            });
+            mappings.push(mapping(key, action, ActionKind::Mpv));
         }
     }
     Ok(mappings)
 }
 
-pub(crate) fn stored_mappings_for(name: &str) -> Result<Vec<Mapping>, String> {
+pub(crate) fn editable_mappings_for(name: &str) -> Result<Vec<Mapping>, String> {
+    let mut rows = stored_mappings_for(name)?;
+    for row in &mut rows {
+        if let Some(chord) = platform_equivalent(name, &row.key) {
+            row.key = chord.into();
+        }
+    }
+    Ok(rows)
+}
+
+pub(super) fn stored_mappings_for(name: &str) -> Result<Vec<Mapping>, String> {
     if BUILTIN_PROFILES.contains(&name) {
         Ok(builtin_mappings(name))
     } else {

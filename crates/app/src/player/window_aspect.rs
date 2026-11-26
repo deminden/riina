@@ -9,7 +9,9 @@ use crate::{
 };
 use riina_core::{
     window_aspect::{self as policy, PixelSize},
-    window_resize::{ManualSizeCommand, ManualSizeContext, ResizeTiming, manual_size_target},
+    window_resize::{
+        ManualSizeCommand, ManualSizeContext, ProfileWindowScale, ResizeTiming, manual_size_target,
+    },
 };
 use riina_ui::PlayerMenuActions;
 use slint::{
@@ -58,6 +60,7 @@ pub(crate) fn connect_with_target(
     );
     register_fit_to_video(app, target.clone(), previous_size.clone());
     register_resize_command(app, target.clone(), previous_size.clone());
+    register_profile_window_scale(app, target.clone(), previous_size.clone());
     resize_filter(app, previous_size, target)
 }
 
@@ -391,24 +394,9 @@ fn register_resize_command(
                 if !can_resize {
                     return;
                 }
-                let scale = f64::from(window.scale_factor());
                 let Some(size) = manual_size_target(
                     command,
-                    ManualSizeContext {
-                        current,
-                        video_width: f64::from(app.get_video_window_width()),
-                        video_height: f64::from(app.get_video_window_height()),
-                        rotation: Some(i64::from(app.get_video_window_rotation())),
-                        display_scale: scale,
-                        use_physical_resolution: app
-                            .global::<riina_ui::PlayerPreferences>()
-                            .get_use_physical_resolution(),
-                        maximum,
-                        minimum: PixelSize {
-                            width: (285.0 * scale).round() as u32,
-                            height: (120.0 * scale).round() as u32,
-                        },
-                    },
+                    manual_size_context(&app, window, current, maximum),
                 ) else {
                     return;
                 };
@@ -448,6 +436,59 @@ fn register_resize_command(
             });
         }
     });
+}
+
+fn register_profile_window_scale(
+    app: &PlayerWindow,
+    target: WindowTarget,
+    last_size: Rc<Cell<PixelSize>>,
+) {
+    let weak = app.as_weak();
+    app.on_profile_window_scale_requested(move |action| {
+        let Some(app) = weak.upgrade() else { return };
+        let Some(scale) = ProfileWindowScale::parse(action.as_str()) else {
+            crate::diagnostics::report(&app, format!("Invalid window scale command: {action}"));
+            return;
+        };
+        if app
+            .global::<riina_ui::PlayerMusicModeState>()
+            .get_music_mode()
+        {
+            return;
+        }
+        with_target_window(&target, &app, |window| {
+            let Some((maximum, true)) = window_limits(&app, window) else {
+                return;
+            };
+            let current = pixel_size(window.size());
+            let context = manual_size_context(&app, window, current, maximum);
+            if let Some(size) = scale.target(&context) {
+                resize_centered(window, current, size, resize_overlay(&target, &app));
+                last_size.set(size);
+            }
+        });
+    });
+}
+
+fn manual_size_context(
+    app: &PlayerWindow,
+    window: &slint::Window,
+    current: PixelSize,
+    maximum: Option<PixelSize>,
+) -> ManualSizeContext {
+    let scale = f64::from(window.scale_factor());
+    ManualSizeContext {
+        current,
+        video_width: f64::from(app.get_video_window_width()),
+        video_height: f64::from(app.get_video_window_height()),
+        rotation: Some(i64::from(app.get_video_window_rotation())),
+        display_scale: scale,
+        use_physical_resolution: app
+            .global::<riina_ui::PlayerPreferences>()
+            .get_use_physical_resolution(),
+        maximum,
+        minimum: minimum_content_size(window),
+    }
 }
 
 fn media_resize_applies(

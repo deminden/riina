@@ -112,6 +112,12 @@ Implementation does not imply every state or platform is verified.
   menus and plugin input. Two editors on the same set cannot overwrite each
   other's changes. The editor shows the mappings written to a custom file;
   system media defaults still apply when the file leaves those keys unbound.
+- **Built-in key binding sets:** mpv, VLC, Movist and Movist v2 include their
+  explicit keyboard and media mappings from IINA 1.5.0. Windows and Linux assign
+  spare chords where the normal modifier conversion would shadow another action.
+  Settings shows the active chords and can display the original configuration.
+  Editable copies retain the keys used on the current platform. Window-scale
+  cycles and multipliers resize the native video window.
 - **Recent activity:** player windows share Open Recent with Welcome and
   plugins. The macOS application menu also opens and clears recent documents
   while no player is open. Settings Utilities clears history, recent documents

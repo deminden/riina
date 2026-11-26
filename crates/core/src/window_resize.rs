@@ -3,6 +3,9 @@ use serde::{Deserialize, Serialize};
 
 use crate::window_aspect::PixelSize;
 
+mod profile_scale;
+pub use profile_scale::ProfileWindowScale;
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ResizeOption {
@@ -594,6 +597,26 @@ pub struct ManualSizeContext {
     pub minimum: PixelSize,
 }
 
+impl ManualSizeContext {
+    fn video_size(&self) -> Option<(f64, f64)> {
+        if !self.video_width.is_finite()
+            || !self.video_height.is_finite()
+            || self.video_width <= 0.0
+            || self.video_height <= 0.0
+        {
+            return None;
+        }
+        if self
+            .rotation
+            .is_some_and(|value| value.rem_euclid(180) == 90)
+        {
+            Some((self.video_height, self.video_width))
+        } else {
+            Some((self.video_width, self.video_height))
+        }
+    }
+}
+
 /// Calculate a user-invoked Video-menu resize without changing the automatic
 /// sizing preference. Sizes use physical pixels; `display_scale` converts
 /// IINA's 25-point Bigger/Smaller increment on the current display.
@@ -601,15 +624,14 @@ pub fn manual_size_target(
     command: ManualSizeCommand,
     context: ManualSizeContext,
 ) -> Option<PixelSize> {
+    let video = context.video_size();
     let ManualSizeContext {
         current,
-        video_width,
-        video_height,
-        rotation,
         display_scale,
         use_physical_resolution,
         maximum,
         minimum,
+        ..
     } = context;
     if !current.valid() || !display_scale.is_finite() || display_scale <= 0.0 {
         return None;
@@ -618,19 +640,7 @@ pub fn manual_size_target(
     if command == ManualSizeCommand::FitScreen {
         return fit_screen(current, maximum);
     }
-    if !video_width.is_finite()
-        || !video_height.is_finite()
-        || video_width <= 0.0
-        || video_height <= 0.0
-    {
-        return None;
-    }
-
-    let (width, height) = if rotation.is_some_and(|value| value.rem_euclid(180) == 90) {
-        (video_height, video_width)
-    } else {
-        (video_width, video_height)
-    };
+    let (width, height) = video?;
     let scale = if use_physical_resolution {
         1.0
     } else {

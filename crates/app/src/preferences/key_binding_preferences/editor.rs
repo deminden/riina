@@ -1,5 +1,5 @@
 //! Preferences rows and edits use one loaded profile per operation.
-use super::builtins::{BUILTIN_PROFILES, mappings_for, stored_mappings_for};
+use super::builtins::{BUILTIN_PROFILES, platform_equivalent, stored_mappings_for};
 use super::keys::shortcut_keys;
 use crate::{KeyBindingRow, PlayerWindow, PreferencesWindow, key_binding_profiles::ProfileStore};
 use riina_core::key_bindings::{ActionKind, Mapping, Settings};
@@ -88,6 +88,10 @@ pub(super) fn matches_query(mapping: &Mapping, raw: bool, query: &str) -> bool {
         return true;
     }
     let row = display_row(mapping, raw);
+    row_matches_query(mapping, &row, query)
+}
+
+fn row_matches_query(mapping: &Mapping, row: &KeyBindingRow, query: &str) -> bool {
     [
         row.key.as_str(),
         row.action.as_str(),
@@ -99,15 +103,29 @@ pub(super) fn matches_query(mapping: &Mapping, raw: bool, query: &str) -> bool {
     .any(|part| part.to_lowercase().contains(query))
 }
 
-fn set_rows(window: &PreferencesWindow, mappings: &[Mapping], raw: bool, query: &str) {
+fn set_rows(
+    window: &PreferencesWindow,
+    profile: &str,
+    mappings: &[Mapping],
+    raw: bool,
+    query: &str,
+) {
     let query = query.trim().to_lowercase();
     window
         .global::<riina_ui::KeyBindingSettingsState>()
         .set_key_binding_rows(ModelRc::new(VecModel::from(
             mappings
                 .iter()
-                .filter(|mapping| matches_query(mapping, raw, &query))
-                .map(|mapping| display_row(mapping, raw))
+                .filter_map(|mapping| {
+                    let mut row = display_row(mapping, raw);
+                    if !raw
+                        && let Some(chord) = platform_equivalent(profile, &mapping.key)
+                        && let Some(keys) = shortcut_keys(chord)
+                    {
+                        row.key = keys.to_string().into();
+                    }
+                    (query.is_empty() || row_matches_query(mapping, &row, &query)).then_some(row)
+                })
                 .collect::<Vec<_>>(),
         )));
 }
@@ -227,7 +245,7 @@ impl MappingDraft {
         ProfileStore::for_current_user()
             .and_then(|store| store.replace_mappings(&self.profile, &self.file, &updated))
             .map_err(|error| error.to_string())?;
-        project_rows(window, &updated);
+        project_rows(window, &self.profile, &updated);
         window
             .global::<riina_ui::KeyBindingSettingsState>()
             .invoke_profile_file_changed(self.profile.as_str().into());
@@ -245,18 +263,11 @@ pub(crate) fn remove_mapping(window: &PreferencesWindow, row: i32) -> Result<(),
     })
 }
 
-fn listed_mappings_for(name: &str) -> Result<Vec<Mapping>, String> {
-    if is_builtin_profile(name) {
-        mappings_for(name)
-    } else {
-        stored_mappings_for(name)
-    }
-}
-
-fn project_rows(window: &PreferencesWindow, mappings: &[Mapping]) {
+fn project_rows(window: &PreferencesWindow, profile: &str, mappings: &[Mapping]) {
     let state = window.global::<riina_ui::KeyBindingSettingsState>();
     set_rows(
         window,
+        profile,
         mappings,
         state.get_key_binding_display_raw_values(),
         &state.get_key_binding_search_query(),
@@ -321,9 +332,10 @@ pub(crate) fn install_window(
     window
         .global::<riina_ui::KeyBindingSettingsState>()
         .set_key_binding_display_raw_values(settings.display_raw_values);
-    let mappings = listed_mappings_for(&settings.current_profile)?;
+    let mappings = stored_mappings_for(&settings.current_profile)?;
     set_rows(
         window,
+        &settings.current_profile,
         &mappings,
         settings.display_raw_values,
         &window
@@ -351,15 +363,17 @@ pub(crate) fn current_window(window: &PreferencesWindow) -> Result<Settings, Str
 }
 
 pub(crate) fn select_profile(window: &PreferencesWindow, name: &str) -> Result<(), String> {
-    project_rows(window, &listed_mappings_for(name)?);
+    project_rows(window, name, &stored_mappings_for(name)?);
     Ok(())
 }
 
 pub(crate) fn search(window: &PreferencesWindow, query: &str) -> Result<(), String> {
-    let mappings = listed_mappings_for(&profile_name(window))?;
+    let profile = profile_name(window);
+    let mappings = stored_mappings_for(&profile)?;
     let form = window.global::<riina_ui::KeyBindingSettingsState>();
     set_rows(
         window,
+        &profile,
         &mappings,
         form.get_key_binding_display_raw_values(),
         query,

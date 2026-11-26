@@ -68,7 +68,16 @@ pub(super) fn install_dispatch(
             let Some(key) = recorded_key(text.as_str(), control, alt, shift, meta) else {
                 return false;
             };
-            let Some(mapping) = mappings.get(&key) else {
+            let mapping = mappings.get(&key).or_else(|| {
+                // Shift can be needed to produce a punctuation symbol on the current layout.
+                // An explicit Shift binding still wins over a binding to the symbol alone.
+                let text = text.as_str();
+                if !shift || text.len() != 1 || !"!@#$%^&*()_+{}|:\"<>?~".contains(text) {
+                    return None;
+                }
+                mappings.get(&recorded_key(text, control, alt, false, meta)?)
+            });
+            let Some(mapping) = mapping else {
                 return false;
             };
             let Some(app) = player.upgrade() else {
@@ -116,7 +125,7 @@ fn plugin_input_bindings(mappings: &Bindings) -> String {
 pub(super) enum RuntimeAction {
     TogglePause,
     SetPaused(bool),
-    Quit,
+    Quit { save_position: bool },
     Stop,
     ShowProgress,
     Seek(f32),
@@ -140,6 +149,9 @@ pub(super) enum RuntimeAction {
     TogglePictureInPicture,
     FitToScreen,
     ResizeWindow(i32),
+    ResizeProfileWindow(String),
+    ToggleWindowLevel,
+    ToggleFileLoop,
     TogglePluginsPanel,
     FindOnlineSubs,
     OpenFile,
@@ -214,17 +226,28 @@ pub(super) fn runtime_action(mapping: &Mapping) -> Option<RuntimeAction> {
         ["cycle", "pause"] => Some(RuntimeAction::TogglePause),
         ["set", "pause", "yes"] => Some(RuntimeAction::SetPaused(true)),
         ["set", "pause", "no"] => Some(RuntimeAction::SetPaused(false)),
-        ["quit"] => Some(RuntimeAction::Quit),
+        ["quit"] => Some(RuntimeAction::Quit {
+            save_position: false,
+        }),
+        ["quit-watch-later"] => Some(RuntimeAction::Quit {
+            save_position: true,
+        }),
+        [command @ ("quit" | "quit-watch-later"), code] if code.parse::<i32>().is_ok() => {
+            Some(RuntimeAction::Quit {
+                save_position: *command == "quit-watch-later",
+            })
+        }
         ["stop"] => Some(RuntimeAction::Stop),
         ["show-progress"] => Some(RuntimeAction::ShowProgress),
         ["cycle", "mute"] => Some(RuntimeAction::Mute),
+        ["cycle", "ontop"] => Some(RuntimeAction::ToggleWindowLevel),
         ["cycle", "sub-visibility"] => Some(RuntimeAction::SubtitleVisibility),
         ["cycle", "fullscreen"] => Some(RuntimeAction::Fullscreen(None)),
         ["set", "fullscreen", "yes"] => Some(RuntimeAction::Fullscreen(Some(true))),
         ["set", "fullscreen", "no"] => Some(RuntimeAction::Fullscreen(Some(false))),
-        ["cycle", "audio"] => Some(RuntimeAction::CycleAudio),
-        ["cycle", "sub"] => Some(RuntimeAction::CycleSubtitle),
-        ["cycle", "video"] => Some(RuntimeAction::CycleVideo),
+        ["cycle", "audio"] | ["cycle", "audio", "up"] => Some(RuntimeAction::CycleAudio),
+        ["cycle", "sub"] | ["cycle", "sub", "up"] => Some(RuntimeAction::CycleSubtitle),
+        ["cycle", "video"] | ["cycle", "video", "up"] => Some(RuntimeAction::CycleVideo),
         ["frame-step"] => Some(RuntimeAction::FrameStep),
         ["frame-back-step"] => Some(RuntimeAction::FrameBackStep),
         ["playlist-next"] => Some(RuntimeAction::PlaylistNext),
@@ -236,8 +259,18 @@ pub(super) fn runtime_action(mapping: &Mapping) -> Option<RuntimeAction> {
             "0.5" => Some(RuntimeAction::ResizeWindow(0)),
             "1" | "1.0" => Some(RuntimeAction::ResizeWindow(1)),
             "2" | "2.0" => Some(RuntimeAction::ResizeWindow(2)),
-            _ => None,
+            _ => Some(RuntimeAction::ResizeProfileWindow(action.to_owned())),
         },
+        ["multiply", "window-scale", _]
+        | ["cycle-values", "window-scale", ..]
+        | ["cycle-values", "!reverse", "window-scale", ..] => {
+            Some(RuntimeAction::ResizeProfileWindow(action.to_owned()))
+        }
+        ["cycle-values", "loop" | "loop-file", enabled, disabled]
+            if enabled.trim_matches('"') == "inf" && disabled.trim_matches('"') == "no" =>
+        {
+            Some(RuntimeAction::ToggleFileLoop)
+        }
         ["seek", seconds] => seconds
             .parse::<f32>()
             .ok()
@@ -278,7 +311,13 @@ fn dispatch_action(
         RuntimeAction::SetPaused(paused) => app
             .global::<riina_ui::PlayerControlActions>()
             .invoke_set_paused(paused),
-        RuntimeAction::Quit => app.global::<PlayerMenuActions>().invoke_quit_riina(),
+        RuntimeAction::Quit { save_position } => {
+            if save_position {
+                app.global::<riina_ui::PlayerControlActions>()
+                    .invoke_execute_mpv_input_action("write-watch-later-config".into());
+            }
+            app.global::<PlayerMenuActions>().invoke_quit_riina();
+        }
         RuntimeAction::Stop => app.global::<PlayerMenuActions>().invoke_stop(),
         RuntimeAction::ShowProgress => {
             let message = {
@@ -348,6 +387,16 @@ fn dispatch_action(
         RuntimeAction::ResizeWindow(command) => app
             .global::<PlayerMenuActions>()
             .invoke_resize_window_command(command),
+        RuntimeAction::ResizeProfileWindow(action) => {
+            app.invoke_profile_window_scale_requested(action.into())
+        }
+        RuntimeAction::ToggleWindowLevel => {
+            let layout = app.global::<riina_ui::PlayerLayoutState>();
+            layout.set_always_float_on_top(!layout.get_always_float_on_top());
+        }
+        RuntimeAction::ToggleFileLoop => {
+            app.global::<PlayerMenuActions>().invoke_toggle_file_loop()
+        }
         RuntimeAction::TogglePluginsPanel => app
             .global::<PlayerMenuActions>()
             .invoke_toggle_plugins_pane(),

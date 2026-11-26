@@ -399,7 +399,7 @@ mod plugin_menu_row_tests {
         install_profile("IINA Default");
 
         let mut capture = menu_item("capture", "Plugin capture");
-        capture.key_binding = Some("Cmd+s".into());
+        capture.key_binding = Some("Cmd+D".into());
         let mut playback = menu_item("playback", "Plugin play");
         playback.key_binding = Some("Space".into());
         let mut tools = menu_item("tools", "Tools");
@@ -420,7 +420,7 @@ mod plugin_menu_row_tests {
         assert_eq!(app.get_plugin_menu_conflicts(), 1);
         assert_eq!(
             capture_row().shortcut,
-            crate::key_binding_preferences::shortcut_keys("Cmd+s").unwrap()
+            crate::key_binding_preferences::shortcut_keys("Cmd+D").unwrap()
         );
 
         remove_plugin_menu_rows(&app, "org.example.test");

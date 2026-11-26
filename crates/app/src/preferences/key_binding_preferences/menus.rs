@@ -79,10 +79,35 @@ pub(crate) fn menu_shortcut_rows(mappings: &Bindings) -> Vec<MenuShortcutRow> {
             // An overridden entry must not install a conflicting menu accelerator.
             let shortcut = mappings
                 .effective()
-                .find(|mapping| mapping.kind == *kind && mapping.action.trim() == *action)
-                .and_then(|mapping| shortcut_keys(&mapping.key))
+                .filter(|mapping| {
+                    mapping.kind == *kind && menu_action_matches(action, mapping.action.trim())
+                })
+                .find_map(|mapping| shortcut_keys(&mapping.key))
                 .unwrap_or_default();
             MenuShortcutRow { shortcut }
         })
         .collect()
+}
+
+fn menu_action_matches(expected: &str, candidate: &str) -> bool {
+    if expected == candidate {
+        return true;
+    }
+    if matches!(expected, "cycle audio" | "cycle sub" | "cycle video") {
+        return candidate.strip_suffix(" up") == Some(expected);
+    }
+    if expected == "cycle-values loop \"inf\" \"no\"" {
+        return matches!(
+            candidate,
+            "cycle-values loop-file \"inf\" \"no\"" | "cycle-values loop inf no"
+        );
+    }
+    let Some((expected_command, expected_value)) = expected.rsplit_once(' ') else {
+        return false;
+    };
+    candidate
+        .strip_prefix(expected_command)
+        .and_then(|suffix| suffix.strip_prefix(' '))
+        .and_then(|value| value.parse::<f64>().ok())
+        .is_some_and(|value| expected_value.parse::<f64>() == Ok(value))
 }

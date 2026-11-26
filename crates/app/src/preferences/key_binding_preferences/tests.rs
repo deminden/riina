@@ -129,7 +129,7 @@ fn captured_iina_defaults_begin_with_the_panel_and_track_actions() {
 }
 
 #[test]
-fn iina_default_profile_includes_both_mute_shortcuts() {
+fn iina_default_profile_includes_keyboard_and_media_mute_shortcuts() {
     let mappings = builtin_mappings("IINA Default");
     let mute_keys: Vec<_> = mappings
         .iter()
@@ -137,7 +137,7 @@ fn iina_default_profile_includes_both_mute_shortcuts() {
         .map(|mapping| mapping.key.as_str())
         .collect();
 
-    assert_eq!(mute_keys, ["Meta+/", "m"]);
+    assert_eq!(mute_keys, ["Meta+/", "m", "MUTE"]);
     assert_eq!(
         normalize_profile_key("Meta+/"),
         if cfg!(target_os = "macos") {
@@ -605,6 +605,118 @@ fn installed_profiles_dispatch_encoded_events_without_ui_fallbacks() {
             )
     );
     assert!(!app.get_fullscreen());
+}
+
+#[test]
+fn builtin_presets_keep_explicit_rows_media_actions_and_duplicate_precedence() {
+    for (name, count, unique) in [
+        ("IINA Default", 91, 91),
+        ("mpv Default", 134, 134),
+        ("VLC Default", 66, 66),
+        ("Movist Default", 79, 76),
+        ("Movist v2 Default", 81, 81),
+    ] {
+        let rows = builtin_mappings(name);
+        assert_eq!(rows.len(), count, "{name}");
+        assert_eq!(
+            riina_core::key_bindings::parse(&riina_core::key_bindings::serialize(&rows).unwrap())
+                .unwrap(),
+            rows
+        );
+        assert!(rows.iter().all(|row| runtime_action(row).is_some()));
+        let runtime = Bindings::new(mappings_for(name).unwrap());
+        assert_eq!(runtime.effective().count(), unique, "{name}");
+        let iina = name == "IINA Default";
+        assert_eq!(
+            runtime.get("STOP").unwrap().action,
+            if iina { "stop" } else { "quit" }
+        );
+        for (key, interval) in [("FORWARD", 1.0), ("REWIND", -1.0)] {
+            let expected = if iina { 15.0 } else { 60.0 };
+            assert!(matches!(runtime_action(runtime.get(key).unwrap()),
+                Some(RuntimeAction::Seek(seconds)) if seconds == interval * expected));
+        }
+    }
+
+    let movist = Bindings::new(mappings_for("Movist Default").unwrap());
+    for (key, action) in [
+        ("Meta++", "multiply window-scale 1.1"),
+        ("Meta+-", "multiply window-scale 0.9"),
+    ] {
+        assert_eq!(
+            movist.get(&normalize_profile_key(key)).unwrap().action,
+            action
+        );
+    }
+    let vlc = Bindings::new(mappings_for("VLC Default").unwrap());
+    let short = shortcut("Ctrl+Meta+LEFT", "Alt+LEFT");
+    for (key, action) in [
+        (short.as_str(), "seek -3"),
+        ("Alt+Meta+LEFT", "seek -10"),
+        ("Meta+LEFT", "playlist-prev"),
+    ] {
+        assert_eq!(vlc.get(&normalize_profile_key(key)).unwrap().action, action);
+    }
+    let mpv = Bindings::new(builtin_mappings("mpv Default"));
+    let menu = menu_shortcut_rows(&mpv);
+    assert_eq!(menu[21].shortcut, shortcut_keys("Alt+1").unwrap());
+    assert_eq!(menu[47].shortcut, shortcut_keys("L").unwrap());
+    assert_eq!(mpv.get("ENTER").unwrap().action, "playlist-next");
+}
+
+#[test]
+fn alternate_preset_events_resize_float_and_quit_through_player_owners() {
+    use slint::ComponentHandle;
+    use std::{cell::RefCell, rc::Rc};
+
+    i_slint_backend_testing::init_no_event_loop();
+    let app = crate::PlayerWindow::new().unwrap();
+    let events = Rc::new(RefCell::new(Vec::new()));
+    let resize = events.clone();
+    app.on_profile_window_scale_requested(move |action| resize.borrow_mut().push(action));
+    let execute = events.clone();
+    let controls = app.global::<riina_ui::PlayerControlActions>();
+    controls.on_execute_mpv_input_action(move |action| execute.borrow_mut().push(action));
+    let quit = events.clone();
+    app.global::<PlayerMenuActions>()
+        .on_quit_riina(move || quit.borrow_mut().push("quit".into()));
+
+    let install_preset = |name: &str| {
+        let settings = riina_core::key_bindings::Settings {
+            current_profile: name.into(),
+            ..Default::default()
+        };
+        install_player(&app, &settings, crate::PlaybackStore::default());
+    };
+    install_preset("VLC Default");
+    assert!(controls.invoke_dispatch_key_binding("z".into(), false, false, false, false, false));
+    assert!(controls.invoke_dispatch_key_binding("Z".into(), false, false, true, false, false));
+    install_preset("Movist Default");
+    assert!(controls.invoke_dispatch_key_binding(
+        "+".into(),
+        !cfg!(target_os = "macos"),
+        false,
+        true,
+        cfg!(target_os = "macos"),
+        false,
+    ));
+    install_preset("mpv Default");
+    assert!(controls.invoke_dispatch_key_binding("T".into(), false, false, true, false, false));
+    assert!(
+        app.global::<riina_ui::PlayerLayoutState>()
+            .get_always_float_on_top()
+    );
+    assert!(controls.invoke_dispatch_key_binding("Q".into(), false, false, true, false, false));
+    assert_eq!(
+        *events.borrow(),
+        [
+            "cycle-values window-scale 0.25 0.5 1 2",
+            "cycle-values window-scale 2 1 0.5 0.25",
+            "multiply window-scale 1.1",
+            "write-watch-later-config",
+            "quit",
+        ]
+    );
 }
 
 #[test]

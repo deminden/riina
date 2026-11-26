@@ -4,6 +4,7 @@ import { PlayerCropState } from "player-crop-state.slint";
 import { PlayerControlsState } from "player-controls-state.slint";
 import { PlayerSidebarState } from "player-sidebar-state.slint";
 import { PlayerMenuActions } from "player-menu-actions.slint";
+import { PlayerPreferences } from "player-preferences.slint";
 import { MusicModeVolumePanel, PlayerMusicModeState } from "player-music-mode-state.slint";
 import { PlaylistPluginPopupState } from "playlist-plugin-popup.slint";
 
@@ -88,10 +89,30 @@ export component PlayerKeyScope inherits FocusScope {
             return accept;
         }
         PlayerControlsState.controls-visible = true; PlayerControlActions.activity();
-        if (primary-shortcut-is-meta ? event.modifiers.meta : event.modifiers.control) {
-            if event.text == "," && !event.modifiers.shift && !event.modifiers.alt {
+        let primary = primary-shortcut-is-meta ? event.modifiers.meta : event.modifiers.control;
+        let alternate = PlayerPreferences.key-binding-current-profile == "mpv Default"
+            || PlayerPreferences.key-binding-current-profile == "VLC Default"
+            || PlayerPreferences.key-binding-current-profile == "Movist Default"
+            || PlayerPreferences.key-binding-current-profile == "Movist v2 Default";
+        if primary && !event.modifiers.shift && !event.modifiers.alt {
+            if event.text == "," {
                 PlayerMenuActions.open-preferences(); return accept;
             }
+            if event.text == "o" && alternate {
+                PlayerMenuActions.open-file(); return accept;
+            }
+        }
+        if alternate {
+            if event.text == Key.Escape && !event.modifiers.shift && !event.modifiers.alt
+                && !event.modifiers.control && !event.modifiers.meta {
+                if root.fullscreen { PlayerMenuActions.toggle-fullscreen(); return accept; }
+                if PlayerSidebarState.sidebar != 0 || PlayerSidebarState.leading-sidebar != 0 {
+                    PlayerSidebarState.sidebar = 0; PlayerSidebarState.leading-sidebar = 0; return accept;
+                }
+            }
+            return reject;
+        }
+        if primary {
             if event.modifiers.shift {
                 if event.modifiers.alt || (primary-shortcut-is-meta && event.modifiers.control) { return reject; }
                 if event.text == "L" { PlayerMenuActions.toggle-file-loop(); return accept; }

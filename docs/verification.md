@@ -5849,3 +5849,38 @@ the exact process exited normally.
 
 - Linux application SHA-256 `4507015d22e885ef233209eaad12e268594187742256961184128e6b85155dea`
 - Linux libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`
+
+### Built-in shortcut presets (2026-11-26)
+
+The four alternate preset tables match the pinned setting rows in order,
+with whitespace normalized. The mpv preset contains 134 rows, VLC 66,
+Movist 79 and Movist v2 81. The IINA preset contains all 91 mappings and keeps
+Riina's existing display order. The workspace gate passed strict Clippy, the
+player and Settings pixel baselines, and the preset and window-sizing tests.
+The tests verify that only Movist's three intentional duplicates share an
+effective key, that the shortcut editor can round-trip the source declarations,
+and that the alternate media-key skips are 60 seconds.
+
+The locked Windows workspace build and all 69 native playback tests passed.
+On a private Windows desktop, the VLC `z` shortcut reached the framed player
+and resized its physical client from 960 x 540 to 1920 x 1080. Playback
+stayed paused and the exact process exited normally. The smaller fixture
+used in the first probe reached the player's minimum size on this display.
+
+The locked Linux build passed. On isolated X11, VLC moved the paused client
+between 320 x 180 and 640 x 360 in both directions using its scale cycle.
+Alt+Left triggered the reassigned short seek, an unbound `m` left mute
+unchanged, and `a` advanced the aspect ratio. Movist resized using
+Ctrl+Plus and Ctrl+Minus. Movist v2 resized with Equals and selected 2x speed
+with Alt+2. The mpv preset changed brightness and Q saved the observed playback
+position even with automatic resume disabled. All four processes exited
+normally.
+
+Application and test sources passed strict cross-Clippy for Apple Silicon and
+Intel. Embedded mpv console and statistics interaction and native macOS
+shortcut interaction still need coverage.
+
+- Windows application SHA-256 `d7822ea733e825301d26cdd45c68c4f049b74728502c37c0f315624a4519637c`
+- Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
+- Linux application SHA-256 `4c2d24f73c4b04f03dba8ae443b8fa4e19c9ad9d204626d0535d6def6c1b60b7`
+- Linux libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`

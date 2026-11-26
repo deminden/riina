@@ -70,7 +70,7 @@ fn install_profile_editor(window: &PreferencesWindow, owner: &Owner) {
             match mode {
                 0 => store.create(&name).map_err(|error| error.to_string())?,
                 1 => {
-                    let mappings = crate::key_binding_preferences::stored_mappings_for(&source)?;
+                    let mappings = crate::key_binding_preferences::editable_mappings_for(&source)?;
                     store
                         .create_with_mappings(&name, &mappings)
                         .map_err(|error| error.to_string())?;

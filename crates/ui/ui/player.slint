@@ -375,6 +375,7 @@ export component PlayerWindow inherits PlayerMenuWindow {
     callback window-aspect-changed();
     callback window-level-changed();
     callback window-level-toggle-requested(bool);
+    callback profile-window-scale-requested(string);
     callback resize-window-for-media();
     public function request-media-window-resize(real-video: bool) {
         if root.music-mode || root.compact-frame-active {
