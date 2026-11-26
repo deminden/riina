@@ -39,6 +39,7 @@ impl OffscreenWebView {
     pub(in crate::platform) fn build(
         builder: WebViewBuilder,
         bounds: Rect,
+        url: &str,
     ) -> Result<Self, String> {
         gtk::init().map_err(|error| error.to_string())?;
         let window = gtk::OffscreenWindow::new();
@@ -47,9 +48,11 @@ impl OffscreenWebView {
             .map_err(|error| error.to_string())?;
         let widget = view.webview();
         if let Some(settings) = webkit2gtk::WebViewExt::settings(&widget) {
-            // Accelerated WebKit layers require an onscreen GTK surface.
+            // The first navigation chooses WebKit's scrolling pipeline. An
+            // offscreen GTK window needs software rendering from that point.
             settings.set_hardware_acceleration_policy(HardwareAccelerationPolicy::Never);
         }
+        view.load_url(url).map_err(|error| error.to_string())?;
         let capture = Rc::new(RefCell::new(Capture::default()));
         let damage = Rc::downgrade(&capture);
         window.connect_damage_event(move |_, _| {

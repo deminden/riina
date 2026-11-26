@@ -100,7 +100,6 @@ impl Page {
     pub(super) fn builder<'a>(
         &self,
         root: Option<PathBuf>,
-        initial_url: &str,
         receive: impl Fn(u64, String, serde_json::Value) + 'static,
         loaded: impl Fn() + 'static,
     ) -> WebViewBuilder<'a> {
@@ -112,7 +111,6 @@ impl Page {
         let page_origin = self.authority.clone();
         let message_origin = self.authority.clone();
         WebViewBuilder::new()
-            .with_url(initial_url)
             .with_initialization_script(BRIDGE)
             .with_custom_protocol(SCHEME.into(), move |_, request| {
                 if !trusted_origin(&request.uri().to_string(), &protocol_origin) {

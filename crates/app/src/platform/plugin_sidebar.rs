@@ -257,7 +257,6 @@ impl PluginSidebarPresenter {
         let builder = page
             .builder(
                 Some(root.clone()),
-                &url,
                 move |_, name, data| {
                     if !name.is_empty() && name.len() <= MAX_IPC_NAME_BYTES {
                         let _ = ipc_host.deliver_sidebar_message(ipc_route.clone(), name, data);
@@ -272,7 +271,7 @@ impl PluginSidebarPresenter {
             .with_bounds(viewport)
             .with_transparent(true)
             .with_visible(false);
-        let view = View::new(builder, parent, viewport)?;
+        let view = View::new(builder, parent, viewport, &url)?;
         #[cfg(target_os = "linux")]
         view.bind_shortcuts(self.owner.clone());
         let visible =

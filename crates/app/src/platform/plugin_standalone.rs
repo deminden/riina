@@ -270,7 +270,6 @@ impl BrowserWindow {
         let browser = shell.build_webview(
             page.builder(
                 endpoint.package_root().map(std::path::Path::to_path_buf),
-                &url,
                 move |document, name, data| {
                     if let Some(owner) = owner.upgrade() {
                         owner.receive(document, name, data);
@@ -282,6 +281,7 @@ impl BrowserWindow {
                     }
                 },
             )
+            .with_url(&url)
             .with_focused(false),
         )?;
         shell.set_visible(view.visible)?;

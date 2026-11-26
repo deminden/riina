@@ -206,7 +206,6 @@ impl Entry {
         let builder = page
             .builder(
                 Some(root.clone()),
-                &url,
                 move |_, name, data| {
                     let _ = sender.deliver_overlay_message(receive_route.clone(), name, data);
                 },
@@ -222,10 +221,10 @@ impl Entry {
         #[cfg(target_os = "linux")]
         let native = {
             let _ = parent;
-            Surface::build(builder, bounds)?
+            Surface::build(builder, bounds, &url)?
         };
         #[cfg(not(target_os = "linux"))]
-        let native = Surface::build(builder, parent, bounds, hit_test.clone())?;
+        let native = Surface::build(builder.with_url(&url), parent, bounds, hit_test.clone())?;
         Ok(Self {
             native,
             root,

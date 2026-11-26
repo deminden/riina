@@ -22,6 +22,7 @@ impl View {
         builder: WebViewBuilder,
         parent: &Window,
         viewport: Rect,
+        url: &str,
     ) -> Result<Self, String> {
         #[cfg(target_os = "linux")]
         {
@@ -33,7 +34,7 @@ impl View {
             match handle.as_raw() {
                 RawWindowHandle::Wayland(_) => {
                     return Ok(Self::Composited(CompositedView {
-                        surface: OffscreenWebView::build(builder, viewport)?,
+                        surface: OffscreenWebView::build(builder, viewport, url)?,
                         held: Cell::default(),
                         focused: Cell::default(),
                     }));
@@ -47,6 +48,7 @@ impl View {
         #[cfg(not(target_os = "linux"))]
         let _ = viewport;
         builder
+            .with_url(url)
             .build_as_child(parent)
             .map(Self::Native)
             .map_err(super::webview_error)

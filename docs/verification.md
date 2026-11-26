@@ -6013,3 +6013,27 @@ native macOS verification remain open.
 - Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
 - Linux application SHA-256 `0b2af95bdcf0377cb31644b7ce55920a87abbde02fd0aa838d4b5e2bae982b5d`
 - Linux libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`
+
+### Wayland plugin sidebar wheel scrolling (2026-11-26)
+
+The offscreen browser now selects software rendering before its first
+navigation. The locked Linux application build passed. On isolated native
+Wayland and X11, the page received trusted wheel events and scrolled in both
+directions. A page handler canceled scrolling, and a nested pane scrolled
+independently of its document. The scenario also exercised text entry,
+confirmation dismissal, resize, hide and reopen while playback stayed paused.
+
+The same Linux application exercised plugin overlays on both desktops.
+Package content and Simple Mode loaded, CSS updates repainted, and trusted
+clicks reached both the overlay and exposed video. The test processes
+exited normally. The Windows workspace gate and locked build passed. Apple
+Silicon and Intel application and test sources passed strict cross-Clippy.
+
+On a private Windows desktop, a standalone plugin tool exchanged messages
+before first opening, navigated while hidden and reopened the same window.
+Playback stayed paused and the player exited normally.
+
+- Windows application SHA-256 `7ea8bbb3352e3a432796d73a3adc421e3136ce2139abb2c713266889e2d9f767`
+- Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
+- Linux application SHA-256 `39b5d379517c465148f091c93d33c15aa76645cf50014c3d0b2d646535c971ba`
+- Linux libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`
