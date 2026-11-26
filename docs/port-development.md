@@ -103,6 +103,14 @@ Open Recent inside Riina and confirm the system list stays empty on relaunch.
 [AppKit recent documents](https://developer.apple.com/documentation/appkit/nsdocumentcontroller/recentdocumenturls)
 [Foundation bookmark resolution](https://developer.apple.com/documentation/foundation/nsurl/bookmarkresolutionoptions)
 
+Plugin pointer checks on macOS need a physical mouse or pressure-capable
+trackpad. Use a local player plugin that records mouse-down, drag and mouse-up
+payloads. Check bottom-left window coordinates, a triple click, individual
+buttons, and pressure during a drag. A consumed release should suppress the
+player's configured click action. Switch focus mid-drag and confirm the old
+player retires its gesture. Include a menu, an open dialog and two players to
+exercise ownership across native surfaces.
+
 Legacy fullscreen needs a native macOS check. On an isolated profile, verify
 normal fullscreen opens a separate Space and the General preference keeps
 legacy fullscreen in the current Space. Test Escape and Music Mode exits,

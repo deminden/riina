@@ -503,7 +503,7 @@ fn configure_with_engine(
             history: &session.history,
             history_window: &application.history,
             plugin_host: session.plugin_host_handle.as_ref(),
-            plugin_commands: &session.plugin_ui.plugin_command_sender,
+            plugin_ui: &session.plugin_ui,
             filters: &session.filters,
             automatic_music: &automatic_music,
             transition_release_generation: &transition_release_generation,

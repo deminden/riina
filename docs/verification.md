@@ -6689,3 +6689,30 @@ renaming, unavailable volumes, and clearing the backup through Open Recent.
 
 - Windows application SHA-256 `0d32490b9bed989ab934e29b7d8cf418f5e44518edd3a74d55a40928ab3b130d`
 - Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
+
+### Player plugin pointer details and gesture ownership (2026-11-26)
+
+The full Windows workspace gate passed, including strict Clippy, 716
+application unit tests, and the headless visual comparison. The new tests
+deliver a buffered native drag and a pending release for different buttons.
+They verify that each keeps its own coordinates, pressure, and click count.
+They also cover ordinary motion, cancellation, and mismatched button samples.
+The QuickJS test reads a triple-click count and fractional pressure from the
+listener's event object.
+
+The locked Windows workspace build passed. The private desktop probe opened
+the paused fixture and timed out waiting for the plugin's release record.
+The shared OpenGL probe timed out on both the new and previous builds. A
+probe using the native video controls also timed out on the new build.
+The isolated processes were closed after each run.
+
+Linux application Clippy and all 13 focused input tests passed. Strict
+workspace cross-Clippy passed for Apple Silicon and Intel. Native AppKit
+coordinates, mouse delivery and physical pressure still need the
+[macOS desktop checks](port-development.md).
+
+The pinned IINA player dispatches each keystroke separately to plugins. Its
+normalization source explicitly defers full key-sequence support.
+
+- Windows application SHA-256 `d416cfc2e882dfe60f8819578c32bfee0e80321097a2445264a4cb0be22abf5e`
+- Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`

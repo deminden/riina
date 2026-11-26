@@ -100,8 +100,8 @@ fn mouse_listeners_receive_clicks_and_read_the_current_profile_snapshot() {
     let position = Arguments::Mouse {
         x: 100.0,
         y: 150.0,
-        click_count: 2,
-        pressure: 0.0,
+        click_count: 3,
+        pressure: 0.625,
     };
     for action in ["loadfile", "cycle pause"] {
         primary.input.bindings.replace(
@@ -111,7 +111,7 @@ fn mouse_listeners_receive_clicks_and_read_the_current_profile_snapshot() {
             .to_string(),
         );
         assert!(event(&router, Kind::MouseUp, "*rightMouse", position).handled(true));
-        let suffix = format!("100,150,2,0;{action};true");
+        let suffix = format!("100,150,3,0.625;{action};true");
         assert!(logs(&primary).iter().any(|line| line.ends_with(&suffix)));
     }
     assert!(logs(&secondary).is_empty());

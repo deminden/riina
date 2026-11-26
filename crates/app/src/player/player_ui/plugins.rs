@@ -11,6 +11,7 @@ use crate::{
 };
 pub(crate) use application::ApplicationPlugins;
 use effects::PluginEffects;
+pub(super) use input::PointerInput;
 use riina_ui::PlayerMenuActions;
 use slint::{ComponentHandle, Model};
 use std::{
@@ -29,6 +30,7 @@ pub(super) struct InstalledPluginUi {
     standalone: Option<Rc<RefCell<platform::plugin_standalone::Presenter>>>,
     developer_tools: Option<Rc<RefCell<developer::Presenter>>>,
     dialog_owner: Option<platform::plugin_dialogs::OwnerRegistration>,
+    pub(super) pointer: Option<PointerInput>,
     pub(super) plugin_host_timer: Option<Rc<slint::Timer>>,
     pub(super) plugin_osd_timer: Option<Rc<slint::Timer>>,
     pub(super) plugin_command_sender: Arc<std::sync::Mutex<Option<riina_mpv::CommandSender>>>,
@@ -102,10 +104,7 @@ pub(super) fn install(
         pending_modes.clone(),
     );
     playlist_menu::install(app, plugin_host_handle.as_ref());
-    if let Some(handle) = &plugin_host_handle {
-        input::install(app, &handle.ui.input);
-        platform::plugin_dialogs::install(app, plugin_window_host.clone(), &handle.ui.dialogs);
-    }
+    let pointer = bind_input(app, plugin_host_handle.as_ref(), &plugin_window_host);
     {
         let weak = app.as_weak();
         let presenter = presenters.sidebar.clone();
@@ -224,10 +223,22 @@ pub(super) fn install(
         standalone,
         developer_tools,
         dialog_owner,
+        pointer,
         plugin_host_timer,
         plugin_osd_timer,
         plugin_command_sender,
     }
+}
+
+fn bind_input(
+    app: &PlayerWindow,
+    handle: Option<&crate::plugin_host::PluginHostHandle>,
+    native_host: &Option<slint::Weak<crate::NativeVideoHost>>,
+) -> Option<PointerInput> {
+    let handle = handle?;
+    let pointer = input::install(app, &handle.ui.input);
+    platform::plugin_dialogs::install(app, native_host.clone(), &handle.ui.dialogs);
+    Some(pointer)
 }
 
 fn bind_window_modes(

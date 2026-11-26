@@ -1,7 +1,7 @@
 //! Native focus ownership and optional gesture routing for one player window.
 use crate::PlayerWindow;
 use riina_mpv::CommandSender;
-use slint::winit_030::winit::event::{TouchPhase, WindowEvent};
+use slint::winit_030::winit::event::{MouseButton, TouchPhase, WindowEvent};
 use std::{
     cell::{Cell, RefCell},
     ffi::OsString,
@@ -13,6 +13,32 @@ mod drop_position;
 #[cfg(target_os = "macos")]
 mod mac_gestures;
 pub(crate) use drop_position::file_drop_position;
+
+#[derive(Clone, Copy, Debug)]
+pub(crate) struct NativeMouseEvent {
+    pub(crate) button: Option<MouseButton>,
+    pub(crate) window_position: (f32, f32),
+    pub(crate) click_count: Option<u32>,
+    pub(crate) pressure: f32,
+}
+
+pub(crate) fn native_mouse_details(
+    window: &slint::Window,
+    event: &WindowEvent,
+) -> Option<NativeMouseEvent> {
+    #[cfg(target_os = "macos")]
+    {
+        use slint::winit_030::WinitWindowAccessor;
+        window
+            .with_winit_window(|native| super::macos::pointer_events::mouse_details(native, event))
+            .flatten()
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = (window, event);
+        None
+    }
+}
 
 #[cfg(target_os = "macos")]
 fn controller_alignment_feedback() {

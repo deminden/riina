@@ -40,9 +40,9 @@ pub(crate) mod playlist_menu;
 mod plugin_overlay;
 mod plugin_page;
 pub(crate) use player_input::{
-    PlayerFocus, PlayerScrollMonitor, WinitWheelInput, batched_file_drops,
+    NativeMouseEvent, PlayerFocus, PlayerScrollMonitor, WinitWheelInput, batched_file_drops,
     bind_controller_alignment_feedback, bind_controller_arrow_pressure, file_drop_position,
-    player_gesture_handler, winit_wheel_input,
+    native_mouse_details, player_gesture_handler, winit_wheel_input,
 };
 mod plugin_presentation;
 pub(crate) use plugin_presentation::{

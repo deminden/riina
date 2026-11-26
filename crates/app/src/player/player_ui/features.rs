@@ -14,7 +14,7 @@ use riina_mpv::CommandSender;
 use std::{
     path::Path,
     rc::Rc,
-    sync::{Arc, Mutex, atomic::AtomicU64},
+    sync::{Arc, atomic::AtomicU64},
 };
 
 pub(super) struct PlaybackFeatures {
@@ -81,7 +81,7 @@ pub(super) struct Inputs<'a> {
     pub(super) history: &'a Tracking,
     pub(super) history_window: &'a Rc<crate::playback_history_window::ApplicationHistory>,
     pub(super) plugin_host: Option<&'a PluginHostHandle>,
-    pub(super) plugin_commands: &'a Mutex<Option<CommandSender>>,
+    pub(super) plugin_ui: &'a super::plugins::InstalledPluginUi,
     pub(super) filters: &'a Rc<crate::video_filter_window::Profile>,
     pub(super) automatic_music: &'a Rc<crate::automatic_music_mode::Controller>,
     pub(super) transition_release_generation: &'a Arc<AtomicU64>,
@@ -101,7 +101,7 @@ pub(super) fn install(app: &PlayerWindow, inputs: Inputs<'_>) -> Installed {
         history,
         history_window,
         plugin_host,
-        plugin_commands,
+        plugin_ui,
         filters,
         automatic_music,
         transition_release_generation,
@@ -133,7 +133,7 @@ pub(super) fn install(app: &PlayerWindow, inputs: Inputs<'_>) -> Installed {
         prefs_path,
         folder_series.clone(),
     );
-    *lock(plugin_commands) = Some(commands.clone());
+    *lock(&plugin_ui.plugin_command_sender) = Some(commands.clone());
     let subtitle_discovery_ready = Arc::new(crate::subtitle_discovery::Readiness::default());
     super::subtitle_menu::install(app, commands, playback);
     let subtitle_assignments = Assignments::default();
@@ -177,6 +177,7 @@ pub(super) fn install(app: &PlayerWindow, inputs: Inputs<'_>) -> Installed {
         resize_filter,
         fullscreen.clone(),
         native.map(platform::NativePresentation::host),
+        plugin_ui.pointer.clone(),
     );
     let thumbnail_preview = thumbnail_actions::install(app, playback, plugin_host.cloned());
     system_media.bind_timeline_samples(&thumbnail_preview.timeline_samples);

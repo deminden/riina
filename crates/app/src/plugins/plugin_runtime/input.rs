@@ -123,7 +123,7 @@ pub(crate) enum Arguments {
     Mouse {
         x: f32,
         y: f32,
-        click_count: u8,
+        click_count: u32,
         pressure: f32,
     },
 }

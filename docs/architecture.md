@@ -699,6 +699,17 @@ higher-priority key listeners before the normal binding and the lower-priority
 listeners afterward. A truthy reply stops propagation. Mouse-up listeners run
 before the configured click action.
 
+The existing window event filter captures macOS mouse data when AppKit's
+current event matches the player and its Winit event. Button transitions carry
+the native click count, window coordinates and pressure. Drag callbacks carry
+the native pointer coordinates and pressure with the associated press count.
+Separate move and button samples keep a buffered drag from taking data from
+the following release. The video surface remains the input owner. Focus loss
+and pointer cancellation discard the player's previous gesture and click state.
+Other platforms use Slint coordinates and the player's click recognition.
+[AppKit current event](https://developer.apple.com/documentation/appkit/nsapplication/currentevent)
+[AppKit pointer pressure](https://developer.apple.com/documentation/appkit/nsevent/pressure)
+
 The UI gives both priority groups one 16 ms deadline. Input with no matching
 listener proceeds immediately. Requests that expire before execution are
 discarded, and a reply that arrives after the player has moved on has no effect.

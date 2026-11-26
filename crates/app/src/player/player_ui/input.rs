@@ -229,6 +229,7 @@ pub(super) fn install(
     resize_filter: Option<crate::window_aspect::WindowEventFilter>,
     fullscreen: Rc<super::fullscreen::Controller>,
     native_host: Option<slint::Weak<crate::NativeVideoHost>>,
+    plugin_pointer: Option<super::plugins::PointerInput>,
 ) -> InstalledInput {
     let scroll_input = Rc::new(Cell::new(ScrollInputState::default()));
     let scroll_monitor = scroll::install_monitor(app, scroll_input.clone());
@@ -245,6 +246,9 @@ pub(super) fn install(
         scroll_input.clone(),
         native_host,
         move |window, event| {
+            if let Some(pointer) = &plugin_pointer {
+                pointer.observe(window, event);
+            }
             probe_fullscreen(event);
             gestures(event);
             resize_filter
