@@ -53,10 +53,10 @@ export component AudioEqualizerProfilePicker inherits FocusScope {
         }
     }
     key-pressed(event) => {
-        if event.modifiers.control || event.modifiers.meta || event.modifiers.shift { return reject; }
-        if ((event.text == Key.Return || event.text == " ") && !event.modifiers.alt)
-            || event.text == Key.DownArrow {
-            root.open-menu(); return accept;
+        if event.modifiers.alt || event.modifiers.control || event.modifiers.meta || event.modifiers.shift { return reject; }
+        if event.text == Key.Return || event.text == " " || event.text == Key.DownArrow {
+            if !event.repeat { root.open-menu(); }
+            return accept;
         }
         return reject;
     }

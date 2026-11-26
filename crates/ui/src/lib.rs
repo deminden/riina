@@ -36,3 +36,15 @@ mod generated {
 }
 
 pub use generated::*;
+
+/// Bind the shared track lists to stable engine IDs when their rows change.
+pub fn bind_track_list_lookup(player: &PlayerWindow) {
+    player
+        .global::<PlayerSidebarActions>()
+        .on_find_track_index(|rows, token| {
+            rows.iter()
+                .position(|row| row.token == token)
+                .and_then(|index| i32::try_from(index).ok())
+                .unwrap_or(-1)
+        });
+}

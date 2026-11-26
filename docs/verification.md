@@ -6769,3 +6769,32 @@ sequence remains in the [port checks](port-development.md).
 
 - Windows application SHA-256 `f69f5e863490a2891108f531463ad24904299c680296e68fc19f7745c7ccdfaa`
 - Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
+
+### Quick Settings keyboard and accessibility focus (2026-11-26)
+
+The locked Windows workspace build and full source gate passed. This includes
+strict Clippy, 717 application unit tests, 86 widget scenarios and the
+software-rendered comparisons. The test for a shortened track list caught
+a changed focus target in the first run. The passing group retains the
+former row position when a track disappears.
+
+The widget group checks stable focus across track model replacements in Audio,
+Video and both subtitle lanes. It also covers speed and delay reset focus,
+accessible action reveal during a pane switch, disabled actions, and modified
+shortcuts reaching the player.
+
+Linux application Clippy and all 83 widget scenarios passed. Strict workspace
+cross-Clippy passed for Apple Silicon and Intel. Native keyboard, accessibility
+and matched appearance on macOS remain in the [port checks](port-development.md).
+
+An isolated Windows D3D11 run invoked the four reset controls through native
+accessibility. The next Right Arrow changed primary subtitle delay to 0.1 s,
+secondary subtitle delay to 0.1 s, audio delay to 0.05 s and speed to 1.19×.
+The playback engine confirmed each value with the same fixture paused.
+The first profile left automatic quit off and the Close action did not
+establish normal exit. Follow-up runs with automatic quit enabled did not
+complete the first subtitle delay action. The exact test processes were
+ended, and no Riina instance remained.
+
+- Windows application SHA-256 `a134460093675f014d625d1bb13589dc9e9a02106a7ce0f909a1ed6896ebe893`
+- Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`

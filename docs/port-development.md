@@ -117,6 +117,14 @@ player's configured click action. Switch focus mid-drag and confirm the old
 player retires its gesture. Include a menu, an open dialog and two players to
 exercise ownership across native surfaces.
 
+For Quick Settings, open media with multiple tracks and use Tab to reach
+the Audio, Video and both subtitle lists. Change the track model while the
+list has focus and verify that the cursor follows the same stream. In a
+short player, use accessibility actions to reveal subtitle controls after
+a category switch. Reset speed and each delay, then use Right Arrow to
+verify that its slider has focus. Check a modified playback or window
+shortcut while a Quick Settings control has focus.
+
 Legacy fullscreen needs a native macOS check. On an isolated profile, verify
 normal fullscreen opens a separate Space and the General preference keeps
 legacy fullscreen in the current Space. Test Escape and Music Mode exits,

@@ -21,8 +21,12 @@ export component QuickSettingsScrollPage inherits PlaylistDropScrollView {
     private property <bool> restoring;
     private property <bool> user-scrolling;
     private property <int> active-kind: -1;
+    private property <int> pending-kind: -1;
+    private property <length> pending-top;
+    private property <length> pending-height;
     init => { root.active-kind = root.page-kind; root.restoring = true; }
     changed page-kind => {
+        if root.pending-kind != root.page-kind { root.pending-kind = -1; }
         root.restoring = true;
         root.user-scrolling = false;
         root.active-kind = root.page-kind;
@@ -32,7 +36,14 @@ export component QuickSettingsScrollPage inherits PlaylistDropScrollView {
     callback position-changed(int, length);
 
     public function reveal-control(top: length, height: length) {
-        if root.restoring || root.visible-height <= 0px { return; }
+        if root.restoring || root.active-kind != root.page-kind {
+            // Focus can arrive while the new pane is still restoring its saved offset.
+            root.pending-kind = root.page-kind;
+            root.pending-top = top - root.absolute-position.y - root.content-y;
+            root.pending-height = height;
+            return;
+        }
+        if root.visible-height <= 0px { return; }
         let previous = root.content-y;
         root.reveal-vertical(top, height);
         if previous != root.content-y && !root.user-scrolling {
@@ -61,6 +72,11 @@ export component QuickSettingsScrollPage inherits PlaylistDropScrollView {
             root.content-x = 0px;
             root.user-scrolling = false;
             root.restoring = false;
+            if root.pending-kind == root.page-kind {
+                root.reveal-control(
+                    root.absolute-position.y + root.pending-top + root.content-y, root.pending-height);
+            }
+            root.pending-kind = -1;
         }
     }
 }

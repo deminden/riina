@@ -186,6 +186,11 @@ Implementation does not imply every state or platform is verified.
   the focused choice. Custom aspect entry supports cancellation. The
   **Subtitles** page displays the engine's current font size and border
   width, including values outside the preset lists.
+- **Quick Settings focus:** Audio, Video and both subtitle selectors keep the
+  focused track by its engine ID when the list changes. Its former position
+  supplies the nearest available row when a track disappears. Speed and delay
+  resets return focus to their sliders. File and search actions can reveal
+  their controls during a pane switch, and modified keys reach the player.
 - **Subtitle color controls** use the shared AppKit panel on macOS in both
   Quick Settings and Settings. The portable popup opens with keyboard
   focus on its first channel and keeps changes applied before dismissal.

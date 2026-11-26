@@ -1,8 +1,11 @@
 import { DelayLane } from "delay-lane.slint";
 import { SubtitleColorTarget } from "subtitle-color-target.slint";
+import { CatalogRow } from "catalog-row.slint";
 
 // Every sidebar routes its control actions to the owning player session.
 export global PlayerSidebarActions {
+    callback find-track-index([CatalogRow], string) -> int;
+    find-track-index(_, _) => { return -1; }
     callback select-plugin-sidebar-tab(string);
     callback select-playlist-pane(int);
     callback select-settings-pane(int);

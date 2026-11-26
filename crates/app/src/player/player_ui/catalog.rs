@@ -8,6 +8,7 @@ use std::collections::HashSet;
 pub(super) mod playlist;
 
 pub(super) fn install_catalog_selection(app: &PlayerWindow, context: &PlayerContext) {
+    riina_ui::bind_track_list_lookup(app);
     bind!(
         context,
         app.global::<PlayerMenuActions>(),

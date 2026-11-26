@@ -192,3 +192,153 @@ fn numeric_editing_keeps_its_draft_while_a_modified_player_shortcut_runs() {
     assert_eq!(input.accessible_value().as_deref(), Some("1"));
     assert_eq!(edits.get(), 0);
 }
+
+#[test]
+fn disappearing_speed_and_delay_resets_hand_focus_back_to_their_slider() {
+    let app = player(6);
+    let timeline = app.global::<PlaybackTimelineState>();
+    timeline.set_speed_value(2.0);
+    timeline.set_speed_slider_position(8.0);
+    let edits = Rc::new(RefCell::new(Vec::new()));
+    let recorded = edits.clone();
+    let actions = app.global::<PlayerSidebarActions>();
+    actions.on_set_speed_slider(move |value| recorded.borrow_mut().push(value));
+    let weak = app.as_weak();
+    app.global::<PlayerMenuActions>().on_reset_speed(move || {
+        let window = weak.upgrade().unwrap();
+        let timeline = window.global::<PlaybackTimelineState>();
+        timeline.set_speed_value(1.0);
+        timeline.set_speed_slider_position(8.0);
+    });
+    flush();
+    button(&app, "Reset playback speed").invoke_accessible_default_action();
+    flush();
+    key(&app, Key::RightArrow);
+    assert_eq!(edits.take(), [9.0]);
+
+    let subtitles = app.global::<PlaybackSubtitleState>();
+    subtitles.set_secondary_subtitle_delay_known(true);
+    for (pane, secondary, reset, lane, expected) in [
+        (1, false, "Reset audio delay", DelayLane::Audio, 0.05),
+        (
+            2,
+            false,
+            "Reset subtitle delay",
+            DelayLane::PrimarySubtitle,
+            0.1,
+        ),
+        (
+            2,
+            true,
+            "Reset secondary subtitle delay",
+            DelayLane::SecondarySubtitle,
+            0.1,
+        ),
+    ] {
+        app.global::<PlayerSidebarState>().set_sidebar(pane);
+        subtitles.set_edit_secondary_subtitle(secondary);
+        app.global::<PlaybackAudioState>().set_audio_delay(1.0);
+        subtitles.set_subtitle_delay(1.0);
+        subtitles.set_secondary_subtitle_delay(1.0);
+        let weak = app.as_weak();
+        app.global::<PlayerMenuActions>()
+            .on_reset_audio_delay(move || {
+                weak.upgrade()
+                    .unwrap()
+                    .global::<PlaybackAudioState>()
+                    .set_audio_delay(0.0);
+            });
+        let weak = app.as_weak();
+        app.global::<PlayerMenuActions>()
+            .on_reset_subtitle_delay(move || {
+                weak.upgrade()
+                    .unwrap()
+                    .global::<PlaybackSubtitleState>()
+                    .set_subtitle_delay(0.0);
+            });
+        let values = Rc::new(RefCell::new(Vec::new()));
+        let recorded = values.clone();
+        let weak = app.as_weak();
+        actions.on_set_delay(move |lane, value| {
+            recorded.borrow_mut().push((lane, value));
+            if lane == DelayLane::SecondarySubtitle && value == 0.0 {
+                weak.upgrade()
+                    .unwrap()
+                    .global::<PlaybackSubtitleState>()
+                    .set_secondary_subtitle_delay(0.0);
+            }
+        });
+        flush();
+        button(&app, reset).invoke_accessible_default_action();
+        flush();
+        values.borrow_mut().clear();
+        key(&app, Key::RightArrow);
+        assert_eq!(values.take(), [(lane, expected)]);
+    }
+}
+
+#[test]
+fn accessible_actions_reveal_their_pane_and_leave_modified_keys_to_the_player() {
+    let app = player(1);
+    let menu = app.global::<PlayerMenuActions>();
+    let opened = Rc::new(Cell::new(0));
+    let recorded = opened.clone();
+    menu.on_find_online_subtitles(move || recorded.set(recorded.get() + 1));
+    let loaded = Rc::new(Cell::new(0));
+    let recorded = loaded.clone();
+    menu.on_browse_files(move |_| recorded.set(recorded.get() + 1));
+    let shortcuts = Rc::new(Cell::new(0));
+    let recorded = shortcuts.clone();
+    app.global::<PlayerControlActions>()
+        .on_dispatch_key_binding(move |text, _, alt, _, _, _| {
+            if alt
+                && (text == slint::SharedString::from(Key::Return)
+                    || text == slint::SharedString::from(Key::DownArrow))
+            {
+                recorded.set(recorded.get() + 1);
+                true
+            } else {
+                false
+            }
+        });
+    let alt_key = |text| {
+        app.window().dispatch_event(WindowEvent::KeyPressed {
+            text: Key::Alt.into(),
+        });
+        key(&app, text);
+        app.window().dispatch_event(WindowEvent::KeyReleased {
+            text: Key::Alt.into(),
+        });
+        flush();
+    };
+    button(&app, "Load external audio").invoke_accessible_default_action();
+    alt_key(Key::Return);
+    assert_eq!(loaded.get(), 1);
+    button(&app, "Equalizer profile: Manual").invoke_accessible_default_action();
+    flush();
+    key(&app, Key::Escape);
+    alt_key(Key::DownArrow);
+    assert_eq!(shortcuts.get(), 2);
+
+    app.window().set_size(LogicalSize::new(400.0, 280.0));
+    app.global::<PlayerSidebarState>().set_sidebar(2);
+    flush();
+    let search = button(&app, "Search online subtitles");
+    search.invoke_accessible_default_action();
+    i_slint_backend_testing::testing_backend::mock_elapsed_time(2);
+    flush();
+    let top = search.absolute_position().y;
+    assert!(
+        top >= 0.0 && top + search.size().height <= 280.0,
+        "Search at {top}"
+    );
+    alt_key(Key::Return);
+    assert_eq!(opened.get(), 1);
+    key(&app, Key::Return);
+    assert_eq!(opened.get(), 2);
+    assert_eq!(shortcuts.get(), 3);
+    app.set_loaded(false);
+    flush();
+    search.invoke_accessible_default_action();
+    assert_eq!(opened.get(), 2);
+}

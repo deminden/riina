@@ -1,6 +1,7 @@
 import { Theme } from "theme.slint";
 import { ScrollView } from "std-widgets.slint";
 import { CatalogRow } from "catalog-row.slint";
+import { PlayerSidebarActions } from "player-sidebar-actions.slint";
 
 // One keyboard owner survives asynchronous track observations. Selection remains
 // engine-owned; moving focus never paints an unconfirmed track as active.
@@ -19,6 +20,7 @@ export component QuickSettingsTrackList inherits Rectangle {
     callback selected(int, string);
     callback focus-entered(length, length);
     private property <int> cursor: 0;
+    private property <string> cursor-token;
     private property <int> accessible-cursor: -1;
     private property <bool> focus-pending: false;
     private property <bool> available: root.enabled && root.tracks.length > 0;
@@ -44,21 +46,33 @@ export component QuickSettingsTrackList inherits Rectangle {
         if !root.available { return; }
         root.accessible-cursor = -1;
         root.cursor = clamp(index, 0, root.tracks.length - 1);
+        root.cursor-token = root.tracks[root.cursor].token;
         root.reveal();
-        if select { root.selected(root.track-kind, root.tracks[root.cursor].token); }
+        if select { root.selected(root.track-kind, root.cursor-token); }
         root.focus-pending = keys.has-focus;
     }
-    changed observed-index => {
-        if !keys.has-focus { root.cursor = root.observed-index; }
+    function reconcile-cursor() {
+        if !keys.has-focus || !root.available { return; }
+        if root.cursor >= 0 && root.cursor < root.tracks.length
+            && root.tracks[root.cursor].token == root.cursor-token { return; }
+        let previous = root.cursor-token != ""
+            ? PlayerSidebarActions.find-track-index(root.tracks, root.cursor-token) : -1;
+        root.move(previous >= 0 ? previous : root.cursor-token == "" ? root.observed-index : root.cursor, false);
     }
     changed tracks => {
         root.accessible-cursor = -1;
-        root.cursor = clamp(keys.has-focus ? root.cursor : root.observed-index, 0, max(0, root.tracks.length - 1));
-        if keys.has-focus { root.reveal(); }
+        if keys.has-focus && root.available {
+            root.reconcile-cursor();
+            root.reveal();
+        }
         root.focus-pending = keys.has-focus && root.available;
     }
     changed available => {
-        if !root.available { root.accessible-cursor = -1; root.focus-pending = false; }
+        if !root.available {
+            root.cursor-token = "";
+            root.accessible-cursor = -1;
+            root.focus-pending = false;
+        }
     }
     // AccessKit row IDs are installed after a model replacement. Delegate only
     // after that rebuild, as in the shared font list, to avoid a stale focus ID.
@@ -134,6 +148,7 @@ export component QuickSettingsTrackList inherits Rectangle {
         }
         key-pressed(event) => {
             if event.modifiers.alt || event.modifiers.control || event.modifiers.meta || event.modifiers.shift { return reject; }
+            root.reconcile-cursor();
             if event.text == Key.Return || event.text == " " { root.move(root.cursor, true); return accept; }
             let page = max(1, floor(rows.visible-height / 27px));
             if event.text == Key.UpArrow { root.move(root.cursor - 1, true); return accept; }

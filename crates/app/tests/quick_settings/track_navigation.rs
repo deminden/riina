@@ -35,12 +35,20 @@ fn tracks(count: usize, selected: usize) -> slint::ModelRc<CatalogRow> {
     ))
 }
 
+fn set_tracks(app: &PlayerWindow, kind: i32, count: usize, selected: usize) {
+    set_track_model(app, kind, tracks(count, selected), selected);
+}
+
 #[expect(
     clippy::panic,
     reason = "An unknown track kind is a test fixture error"
 )]
-fn set_tracks(app: &PlayerWindow, kind: i32, count: usize, selected: usize) {
-    let model = tracks(count, selected);
+fn set_track_model(
+    app: &PlayerWindow,
+    kind: i32,
+    model: slint::ModelRc<CatalogRow>,
+    selected: usize,
+) {
     match kind {
         1 => {
             app.global::<riina_ui::PlaybackAudioState>()
@@ -163,6 +171,36 @@ fn navigation(kind: i32) {
         ]
     );
     assert_eq!(playback.get(), 0);
+
+    // Model updates can insert or reorder a stream while the keyboard owns it.
+    key(&app, Key::DownArrow);
+    key(&app, Key::DownArrow);
+    let source = tracks(8, 4);
+    let reordered = slint::ModelRc::new(slint::VecModel::from(
+        [0, 6, 4, 2, 3, 1, 5, 7]
+            .into_iter()
+            .filter_map(|index| slint::Model::row_data(&source, index))
+            .collect::<Vec<_>>(),
+    ));
+    set_track_model(&app, kind, reordered, 2);
+    selected.borrow_mut().clear();
+    key(&app, Key::Return);
+    key(&app, Key::DownArrow);
+    assert_eq!(
+        &*selected.borrow(),
+        &[(selection, "2".into()), (selection, "3".into())]
+    );
+
+    let remaining = slint::ModelRc::new(slint::VecModel::from(
+        [0, 6, 4, 2, 1, 5, 7]
+            .into_iter()
+            .filter_map(|index| slint::Model::row_data(&source, index))
+            .collect::<Vec<_>>(),
+    ));
+    set_track_model(&app, kind, remaining, 2);
+    selected.borrow_mut().clear();
+    key(&app, Key::Return);
+    assert_eq!(&*selected.borrow(), &[(selection, "1".into())]);
 }
 
 #[test]

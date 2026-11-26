@@ -1,5 +1,55 @@
 import { Theme } from "theme.slint";
 
+export component QuickSettingsAction inherits FocusScope {
+    in property <string> label;
+    in property <string> hint;
+    in property <bool> dark-theme;
+    in property <color> focus-accent-color;
+    in property <color> fill: transparent;
+    callback activated();
+    callback focus-entered(length, length);
+    height: 30px;
+    horizontal-stretch: 1;
+    focus-on-click: false;
+    accessible-role: button;
+    accessible-label: root.hint;
+    accessible-enabled: root.enabled;
+    accessible-action-default => { root.activate(); }
+    focus-changed-event => {
+        if root.has-focus { root.focus-entered(root.absolute-position.y, root.height); }
+    }
+    function activate() {
+        if root.enabled {
+            root.focus();
+            root.activated();
+        }
+    }
+    if root.fill != transparent : Rectangle { border-radius: 4px; background: root.fill; }
+    Text {
+        text: root.label;
+        color: Theme.sidebar-action-text(root.dark-theme, root.enabled);
+        font-size: 12px;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+        overflow: elide;
+    }
+    if root.has-focus : Rectangle {
+        border-width: 1px;
+        border-color: root.focus-accent-color;
+        border-radius: 4px;
+        background: transparent;
+    }
+    TouchArea { enabled: root.enabled; clicked => { root.activate(); } }
+    key-pressed(event) => {
+        if event.modifiers.alt || event.modifiers.control || event.modifiers.meta || event.modifiers.shift { return reject; }
+        if event.text == Key.Return || event.text == " " {
+            if !event.repeat { root.activate(); }
+            return accept;
+        }
+        return reject;
+    }
+}
+
 export component SidebarFocusRegion inherits FocusScope {
     in property <length> focus-left: root.absolute-position.x;
     in property <length> focus-width: root.width;
@@ -205,6 +255,7 @@ export component SubtitleVisibilityRow inherits FocusScope {
     in property <bool> checked;
     in property <bool> dark-theme: true;
     in property <color> accent-color: Theme.sidebar-layout-choice-accent;
+    in property <color> focus-accent-color: Theme.player-focus-accent;
     callback changed(bool);
     height: 16px;
     accessible-role: checkbox;
@@ -212,7 +263,13 @@ export component SubtitleVisibilityRow inherits FocusScope {
     accessible-enabled: root.enabled;
     accessible-checkable: true;
     accessible-checked: checked;
-    accessible-action-default => { if root.enabled { changed(!checked); } }
+    accessible-action-default => { root.activate(); }
+    function activate() {
+        if root.enabled {
+            root.focus();
+            root.changed(!root.checked);
+        }
+    }
     HorizontalLayout {
         spacing: 8px;
         Rectangle {
@@ -238,11 +295,18 @@ export component SubtitleVisibilityRow inherits FocusScope {
             }
         }
     }
-    TouchArea { enabled: root.enabled; clicked => { root.focus(); root.changed(!root.checked); } }
+    if root.has-focus : Rectangle {
+        border-width: 1px; border-radius: 3px;
+        border-color: root.focus-accent-color; background: transparent;
+    }
+    TouchArea { enabled: root.enabled; clicked => { root.activate(); } }
     key-pressed(event) => {
         if !root.enabled { return reject; }
-        if event.modifiers.alt || event.modifiers.control || event.modifiers.meta { return reject; }
-        if event.text == Key.Return || event.text == " " { changed(!checked); return accept; }
+        if event.modifiers.alt || event.modifiers.control || event.modifiers.meta || event.modifiers.shift { return reject; }
+        if event.text == Key.Return || event.text == " " {
+            if !event.repeat { root.activate(); }
+            return accept;
+        }
         return reject;
     }
 }
@@ -308,7 +372,7 @@ export component SubtitleLaneSegment inherits Rectangle {
     accessible-label: hint;
     accessible-checkable: true;
     accessible-checked: selected;
-    accessible-action-default => { activated(); }
+    accessible-action-default => { root.activated(); root.take-focus(); }
     Text { text: label; font-size: 12px;
         color: root.selected ? root.accent-foreground : Theme.sidebar-action-text(root.dark-theme, true);
         horizontal-alignment: center; vertical-alignment: center; }
@@ -322,7 +386,10 @@ export component SubtitleLaneSegment inherits Rectangle {
         key-pressed(event) => {
             // Lane choice is idempotent; modified player shortcuts still bubble.
             if event.modifiers.alt || event.modifiers.control || event.modifiers.meta || event.modifiers.shift { return reject; }
-            if event.text == Key.Return || event.text == " " { root.activated(); return accept; }
+            if event.text == Key.Return || event.text == " " {
+                if !event.repeat { root.activated(); }
+                return accept;
+            }
             if event.text == Key.LeftArrow || event.text == Key.Home { root.navigate(false); return accept; }
             if event.text == Key.RightArrow || event.text == Key.End { root.navigate(true); return accept; }
             return reject;

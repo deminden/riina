@@ -30,7 +30,7 @@ export component SubtitleSizePicker inherits SidebarFocusRegion {
     key-pressed(event) => {
         if event.modifiers.alt || event.modifiers.control || event.modifiers.meta || event.modifiers.shift { return reject; }
         if event.text == Key.DownArrow || event.text == Key.Return || event.text == " " {
-            root.open-menu();
+            if !event.repeat { root.open-menu(); }
             return accept;
         }
         return reject;

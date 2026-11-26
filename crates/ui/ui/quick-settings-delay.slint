@@ -28,6 +28,7 @@ export component QuickSettingsDelayEditor inherits HorizontalLayout {
         slider.cancel-gesture();
         input.discard-draft();
     }
+    public function focus-slider() { slider.take-focus(); }
     function apply-delay(value: float) {
         root.set-delay(root.lane, root.lane == DelayLane.audio ? round(value * 20) / 20 : value);
     }

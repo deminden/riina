@@ -260,8 +260,14 @@ Quick Settings timing controls keep a pointer draft inside the delay editor.
 Audio drags snap to 50 ms and subtitle drags snap to half-second ticks. Release
 sends one typed command to the selected lane. A lane change discards the old
 draft and cancels its drag. Keyboard and accessibility slider actions submit
-directly. The text editor consumes player shortcuts while it holds focus
-and lets Tab and Shift-Tab move between controls.
+directly. The text editor owns ordinary input and lets Tab and Shift-Tab
+move between controls. Unhandled Control or Command shortcuts reach the
+player. A reset that disappears gives focus to its slider before dispatch.
+
+The track lists retain the focused engine ID across model changes. When it
+vanishes, focus clamps its former position to the remaining rows. A page keeps
+the latest focus reveal requested during scroll restoration and applies it to
+the same pane after restoring its offset.
 
 Slint has one Winit event callback per window. The player combines file drops,
 focus, wheel input, trackpad gestures and shared-renderer resize events in that

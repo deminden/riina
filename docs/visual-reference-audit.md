@@ -66,6 +66,11 @@ point dimensions. Do not merge their OS versions or scale assumptions.
 - REF-26-45 include unrelated desktop content. Keep the originals local. Publish
   only reviewed app-surface crops with private content removed.
 - Green test video helps identify translucent menu boundaries; it is not a UI color.
+- The Audio, Video and Subtitles references (REF-23 through REF-25) are
+  2940 × 1898 pixels. The most frequent sampled color in the central video
+  region is RGB (101, 196, 102) in all three. Match the video behind the
+  translucent pane before measuring its tint. The Windows headless
+  baselines for these panes are 1000 × 640.
 - Audio devices, providers, plugins, tracks, recent files and checks are runtime
   examples, not a fixed menu inventory. The encoding menu is only partly visible.
 - REF-44/45 contain overlapping windows. Use them for ownership/context, not clean

@@ -102,12 +102,13 @@ export component VideoQuickSettingsPage inherits VerticalLayout {
                     icon-size: 14px;
                     icon: @image-url("../../../assets/icons/reset.svg");
                     hint: "Reset playback speed";
-                    activated => { root.reset-speed(); }
+                    enabled: root.loaded;
+                    activated => { speed-slider.take-focus(); root.reset-speed(); }
                 }
             }
             Rectangle { height: 18px; background: transparent; }
             HorizontalLayout { spacing: 8px; height: 20px;
-                PlayerSlider { dark-theme: root.dark-theme; height: 20px;
+                speed-slider := PlayerSlider { dark-theme: root.dark-theme; height: 20px;
                     focus-entered(top, height) => { root.focus-entered(top, height); }
                     minimum: 0; maximum: 24; step: 1;
                     value: root.speed-slider-position; hint: "Playback speed";

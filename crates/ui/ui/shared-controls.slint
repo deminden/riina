@@ -90,6 +90,12 @@ export component PlayerSlider inherits Rectangle {
             root.gesture(active);
         }
     }
+    public function take-focus() {
+        if root.enabled {
+            root.pointer-focused = false;
+            focus.focus();
+        }
+    }
     public function cancel-gesture() {
         root.set-gesture(false);
         root.is-dragging = false;

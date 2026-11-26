@@ -71,6 +71,7 @@ fn sidebar_and_controller_open_the_subtitle_chooser_without_cycling_tracks() {
 fn player(pane: i32) -> PlayerWindow {
     i_slint_backend_testing::init_no_event_loop();
     let app = PlayerWindow::new().unwrap();
+    bind_track_list_lookup(&app);
     app.global::<riina_ui::PlayerPreferences>()
         .set_disable_animations(true);
     app.set_loaded(true);

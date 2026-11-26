@@ -8,6 +8,7 @@ import { QuickSettingsDelayEditor } from "quick-settings-delay.slint";
 import { DelayLane } from "delay-lane.slint";
 import { QuickSettingsTrackList } from "quick-settings-tracks.slint";
 import { AudioEqualizerProfilePicker } from "equalizer-profile-picker.slint";
+import { QuickSettingsAction } from "player-sidebar-controls.slint";
 
 export component AudioQuickSettingsPage inherits VerticalLayout {
     in property <length> card-width;
@@ -65,29 +66,17 @@ export component AudioQuickSettingsPage inherits VerticalLayout {
         background: root.sidebar-card-material-fill;
         HorizontalLayout { padding-left: 12px; padding-right: 12px;
             padding-top: 11px; padding-bottom: 11px;
-        Rectangle { height: 24px; horizontal-stretch: 1; border-radius: 4px;
-            background: root.sidebar-control-material-fill;
-            accessible-role: button; accessible-label: "Load external audio";
-            accessible-enabled: root.loaded;
-            accessible-action-default => { if root.loaded { root.load-external-audio(); } }
-            Text { text: "Load External Audio Track…";
-                color: Theme.sidebar-action-text(root.dark-theme, root.loaded);
-                font-size: 12px; horizontal-alignment: center; vertical-alignment: center; }
-            if load-focus.has-focus : Rectangle { border-width: 1px; border-color: root.interactive-accent-color; border-radius: 4px; background: transparent; }
-            TouchArea { enabled: root.loaded; clicked => { load-focus.focus(); root.load-external-audio(); } }
-            load-focus := FocusScope {
-                focus-changed-event => {
-                    if self.has-focus { root.focus-entered(parent.absolute-position.y, parent.height); }
-                }
-                focus-on-click: false;
+            QuickSettingsAction {
+                height: 24px;
+                label: "Load External Audio Track…";
+                hint: "Load external audio";
+                fill: root.sidebar-control-material-fill;
+                dark-theme: root.dark-theme;
+                focus-accent-color: root.interactive-accent-color;
                 enabled: root.loaded;
-                key-pressed(event) => {
-                    if event.modifiers.alt || event.modifiers.control || event.modifiers.meta || event.modifiers.shift { return reject; }
-                    if event.text == Key.Return || event.text == " " { root.load-external-audio(); return accept; }
-                    return reject;
-                }
+                focus-entered(top, height) => { root.focus-entered(top, height); }
+                activated => { root.load-external-audio(); }
             }
-        }
         }
     }
     Rectangle {
@@ -111,9 +100,9 @@ export component AudioQuickSettingsPage inherits VerticalLayout {
                 focus-entered(top, height) => { root.focus-entered(top, height); }
                 visible: PlaybackAudioState.audio-delay != 0;
                 enabled: root.loaded && PlaybackAudioState.audio-delay != 0;
-                activated => { root.reset-audio-delay(); } }
+                activated => { delay-editor.focus-slider(); root.reset-audio-delay(); } }
         }
-        QuickSettingsDelayEditor {
+        delay-editor := QuickSettingsDelayEditor {
             lane: DelayLane.audio;
             label: "Audio delay";
             delay: PlaybackAudioState.audio-delay;
@@ -153,7 +142,7 @@ export component AudioQuickSettingsPage inherits VerticalLayout {
         accessible-label: "Allow volume boost (up to 200%)";
         accessible-checkable: true;
         accessible-checked: root.volume-boost;
-        accessible-action-default => { root.set-volume-boost(!root.volume-boost); }
+        accessible-action-default => { delay-editor.focus-slider(); root.set-volume-boost(false); }
         Rectangle { x: 2px; y: 6px; width: 16px; height: 16px;
             border-radius: 3px; border-width: 1px; border-color: Theme.sidebar-boost-checkbox-border;
             background: root.volume-boost
@@ -168,15 +157,17 @@ export component AudioQuickSettingsPage inherits VerticalLayout {
             font-size: 12px; vertical-alignment: center; }
         if boost-focus.has-focus : Rectangle { border-width: 1px;
             border-color: root.interactive-accent-color; border-radius: 4px; background: transparent; }
-        TouchArea { clicked => { boost-focus.focus(); root.set-volume-boost(!root.volume-boost); } }
+        TouchArea { clicked => { delay-editor.focus-slider(); root.set-volume-boost(false); } }
         boost-focus := FocusScope {
             focus-changed-event => {
                 if self.has-focus { root.focus-entered(parent.absolute-position.y, parent.height); }
             }
             focus-on-click: false;
             key-pressed(event) => {
+                if event.modifiers.alt || event.modifiers.control || event.modifiers.meta || event.modifiers.shift { return reject; }
                 if event.text == " " || event.text == Key.Return {
-                    root.set-volume-boost(!root.volume-boost); return accept;
+                    if !event.repeat { delay-editor.focus-slider(); root.set-volume-boost(false); }
+                    return accept;
                 }
                 return reject;
             }

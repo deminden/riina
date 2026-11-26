@@ -5,7 +5,7 @@ import { Tool } from "player-tool.slint";
 import { QuickSettingsDelayEditor } from "quick-settings-delay.slint";
 import { QuickSettingsTrackList } from "quick-settings-tracks.slint";
 import { DelayLane } from "delay-lane.slint";
-import { SubtitleVisibilityRow, SubtitleLaneSegment } from "player-sidebar-controls.slint";
+import { QuickSettingsAction, SubtitleVisibilityRow, SubtitleLaneSegment } from "player-sidebar-controls.slint";
 import { SubtitleSizePicker } from "subtitle-size-picker.slint";
 import { SubtitleColorWell } from "shared-controls.slint";
 import { SubtitleColorTarget } from "subtitle-color-target.slint";
@@ -66,6 +66,7 @@ export component SubtitleQuickSettingsPage inherits VerticalLayout {
             focus-entered(top, height) => { root.focus-entered(top, height); }
             checked: PlaybackSubtitleState.subtitle-visible; enabled: root.loaded;
             dark-theme: root.dark-theme;
+            focus-accent-color: root.interactive-accent-color;
             accent-color: root.platform-windows ? root.windows-accent-color : Theme.sidebar-catalog-accent;
             changed(value) => { root.toggle-subtitle-visibility(); } }
         QuickSettingsTrackList { width: parent.width; tracks: PlaybackSubtitleState.subtitle-tracks;
@@ -85,6 +86,7 @@ export component SubtitleQuickSettingsPage inherits VerticalLayout {
             checked: PlaybackSubtitleState.secondary-subtitle-visible;
             enabled: root.loaded && PlaybackSubtitleState.secondary-subtitle-visibility-known;
             dark-theme: root.dark-theme;
+            focus-accent-color: root.interactive-accent-color;
             accent-color: root.platform-windows ? root.windows-accent-color : Theme.sidebar-catalog-accent;
             changed(value) => { root.toggle-secondary-subtitle-visibility(); } }
         QuickSettingsTrackList { width: parent.width;
@@ -109,35 +111,14 @@ export component SubtitleQuickSettingsPage inherits VerticalLayout {
                 background: root.sidebar-control-material-fill;
                 HorizontalLayout {
                     alignment: stretch;
-                    Rectangle {
-                        horizontal-stretch: 1;
-                        accessible-role: button; accessible-label: "Load subtitle";
-                        accessible-enabled: root.loaded;
-                        accessible-action-default => { if root.loaded { root.load-subtitle(); } }
-                        Text { text: "Load Subtitle…"; overflow: elide;
-                            color: Theme.sidebar-action-text(root.dark-theme, root.loaded);
-                            font-size: 12px; horizontal-alignment: center; vertical-alignment: center; }
-                        if subtitle-load-focus.has-focus : Rectangle { border-width: 1px;
-                            border-color: root.interactive-accent-color; border-radius: 4px; background: transparent; }
-                        TouchArea { enabled: root.loaded;
-                            clicked => { subtitle-load-focus.focus(); root.load-subtitle(); } }
-                        subtitle-load-focus := FocusScope {
-                            focus-changed-event => {
-                                if self.has-focus {
-                                    root.focus-entered(parent.absolute-position.y, parent.height);
-                                }
-                            }
-                            focus-on-click: false;
-                            enabled: root.loaded;
-                            key-pressed(event) => {
-                                if event.modifiers.alt || event.modifiers.control
-                                    || event.modifiers.meta || event.modifiers.shift { return reject; }
-                                if event.text == Key.Return || event.text == " " {
-                                    root.load-subtitle(); return accept;
-                                }
-                                return reject;
-                            }
-                        }
+                    QuickSettingsAction {
+                        label: "Load Subtitle…";
+                        hint: "Load subtitle";
+                        dark-theme: root.dark-theme;
+                        focus-accent-color: root.interactive-accent-color;
+                        enabled: root.loaded;
+                        focus-entered(top, height) => { root.focus-entered(top, height); }
+                        activated => { root.load-subtitle(); }
                     }
                     Rectangle {
                         width: 1px;
@@ -161,30 +142,15 @@ export component SubtitleQuickSettingsPage inherits VerticalLayout {
                     }
                 }
             }
-            Rectangle { horizontal-stretch: 1; height: 30px; border-radius: 4px;
-                background: root.sidebar-control-material-fill;
-                accessible-role: button; accessible-label: "Search online subtitles";
-                accessible-enabled: root.loaded;
-                accessible-action-default => { if root.loaded { root.find-online-subtitles(); } }
-                Text { text: "Search Online…";
-                    color: Theme.sidebar-action-text(root.dark-theme, root.loaded);
-                    font-size: 12px; horizontal-alignment: center; vertical-alignment: center; }
-                if online-subtitle-focus.has-focus : Rectangle { border-width: 1px;
-                    border-color: root.interactive-accent-color; border-radius: 4px; background: transparent; }
-                TouchArea { enabled: root.loaded;
-                    clicked => { online-subtitle-focus.focus(); root.find-online-subtitles(); } }
-                online-subtitle-focus := FocusScope {
-                    focus-changed-event => {
-                        if self.has-focus { root.focus-entered(parent.absolute-position.y, parent.height); }
-                    }
-                    focus-on-click: false;
-                    enabled: root.loaded;
-                    key-pressed(event) => {
-                        if event.modifiers.alt || event.modifiers.control || event.modifiers.meta || event.modifiers.shift { return reject; }
-                        if event.text == Key.Return || event.text == " " { root.find-online-subtitles(); return accept; }
-                        return reject;
-                    }
-                }
+            QuickSettingsAction {
+                label: "Search Online…";
+                hint: "Search online subtitles";
+                fill: root.sidebar-control-material-fill;
+                dark-theme: root.dark-theme;
+                focus-accent-color: root.interactive-accent-color;
+                enabled: root.loaded;
+                focus-entered(top, height) => { root.focus-entered(top, height); }
+                activated => { root.find-online-subtitles(); }
             }
         }
     }
@@ -232,6 +198,7 @@ export component SubtitleQuickSettingsPage inherits VerticalLayout {
                     enabled: self.visible;
                     windows-acrylic-surface: root.windows-sidebar-material-active;
                     activated => {
+                        delay-editor.focus-slider();
                         if root.secondary { root.set-delay(DelayLane.secondary-subtitle, 0); }
                         else { root.reset-subtitle-delay(); }
                     } }
