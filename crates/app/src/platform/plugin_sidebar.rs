@@ -226,7 +226,10 @@ impl PluginSidebarPresenter {
             // alive while the player owns an in-window modal editor.
             self.owner.upgrade().is_some_and(|app| {
                 let dialog = app.global::<riina_ui::PlayerDialogState>();
-                !dialog.get_jump_time_dialog_visible() && !dialog.get_url_dialog_visible()
+                !dialog.get_dialog_open()
+                    && !dialog.get_jump_time_dialog_visible()
+                    && !dialog.get_url_dialog_visible()
+                    && !dialog.get_plugin_interaction_visible()
             })
         }
         #[cfg(not(target_os = "linux"))]

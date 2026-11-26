@@ -167,12 +167,19 @@ impl OffscreenWebView {
         point: (f64, f64),
         button: u32,
         held: u32,
+        modifiers: u32,
     ) {
-        pointer::dispatch(&self.view.webview(), kind, point, button, held);
+        pointer::dispatch(&self.view.webview(), kind, point, button, held, modifiers);
     }
 
-    pub(in crate::platform) fn scroll(&self, point: (f64, f64), delta: (f64, f64)) {
-        pointer::scroll(&self.view.webview(), point, delta);
+    pub(in crate::platform) fn scroll(
+        &self,
+        point: (f64, f64),
+        delta: (f64, f64),
+        held: u32,
+        modifiers: u32,
+    ) {
+        pointer::scroll(&self.view.webview(), point, delta, held, modifiers);
     }
 
     pub(in crate::platform) fn focus(&self, focused: bool) {

@@ -14,29 +14,38 @@ impl PluginSidebarPresenter {
         let actions = app.global::<PlayerPluginSidebarState>();
         let owner = Rc::downgrade(presenter);
         let pointer = owner.clone();
-        actions.on_pointer_input(move |phase, button, x, y| {
+        actions.on_pointer_input(move |phase, button, x, y, control, alt, shift, meta| {
             with_view(&pointer, |view| {
-                view.pointer(phase, button, (f64::from(x), f64::from(y)));
+                view.pointer(
+                    phase,
+                    button,
+                    (f64::from(x), f64::from(y)),
+                    modifiers(control, alt, shift, meta),
+                );
             });
         });
+        let pointer = owner.clone();
+        actions.on_pointer_left(move || with_view(&pointer, CompositedView::pointer_left));
         let wheel = owner.clone();
-        actions.on_scroll_input(move |x, y, dx, dy| {
+        actions.on_scroll_input(move |x, y, dx, dy, control, alt, shift, meta| {
             with_view(&wheel, |view| {
-                view.surface
-                    .scroll((f64::from(x), f64::from(y)), (f64::from(dx), f64::from(dy)));
+                view.scroll(
+                    (f64::from(x), f64::from(y)),
+                    (f64::from(dx), f64::from(dy)),
+                    modifiers(control, alt, shift, meta),
+                );
             });
         });
         let focus = owner.clone();
         actions.on_focus_input(move |focused| with_view(&focus, |view| view.focus(focused)));
         actions.on_key_input(move |text, control, alt, shift, meta, released| {
             with_view(&owner, |view| {
-                let mut modifiers = ModifierType::empty();
-                modifiers.set(ModifierType::CONTROL_MASK, control);
-                modifiers.set(ModifierType::MOD1_MASK, alt);
-                modifiers.set(ModifierType::SHIFT_MASK, shift);
-                modifiers.set(ModifierType::SUPER_MASK, meta);
                 view.focus(true);
-                view.surface.key(text.as_str(), modifiers.bits(), released);
+                view.surface.key(
+                    text.as_str(),
+                    modifiers(control, alt, shift, meta),
+                    released,
+                );
             });
         });
     }
@@ -71,6 +80,15 @@ impl PluginSidebarPresenter {
             state.set_frame(slint::Image::default());
         }
     }
+}
+
+fn modifiers(control: bool, alt: bool, shift: bool, meta: bool) -> u32 {
+    let mut modifiers = ModifierType::empty();
+    modifiers.set(ModifierType::CONTROL_MASK, control);
+    modifiers.set(ModifierType::MOD1_MASK, alt);
+    modifiers.set(ModifierType::SHIFT_MASK, shift);
+    modifiers.set(ModifierType::SUPER_MASK, meta);
+    modifiers.bits()
 }
 
 fn with_view(

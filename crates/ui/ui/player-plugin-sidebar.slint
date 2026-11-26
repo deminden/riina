@@ -4,8 +4,9 @@ export global PlayerPluginSidebarState {
     in property <bool> composited;
     in-out property <bool> keyboard-focused;
     in property <image> frame;
-    callback pointer-input(PlayerPluginPointerPhase, int, float, float);
-    callback scroll-input(float, float, float, float);
+    callback pointer-input(PlayerPluginPointerPhase, int, float, float, bool, bool, bool, bool);
+    callback pointer-left();
+    callback scroll-input(float, float, float, float, bool, bool, bool, bool);
     callback focus-input(bool);
     callback key-input(string, bool, bool, bool, bool, bool);
 }
@@ -38,6 +39,9 @@ export component PlayerPluginSidebarView inherits Rectangle {
 
         TouchArea {
             width: parent.width; height: parent.height;
+            changed has-hover => {
+                if !self.has-hover { PlayerPluginSidebarState.pointer-left(); }
+            }
             pointer-event(event) => {
                 let phase = event.kind == PointerEventKind.down ? PlayerPluginPointerPhase.down
                     : event.kind == PointerEventKind.up ? PlayerPluginPointerPhase.up
@@ -47,11 +51,13 @@ export component PlayerPluginSidebarView inherits Rectangle {
                     : event.button == PointerEventButton.middle ? 2
                     : event.button == PointerEventButton.right ? 3 : 0;
                 if phase == PlayerPluginPointerPhase.down { web-focus.focus(); }
-                PlayerPluginSidebarState.pointer-input(phase, button, self.mouse-x / 1px, self.mouse-y / 1px);
+                PlayerPluginSidebarState.pointer-input(phase, button, self.mouse-x / 1px, self.mouse-y / 1px,
+                    event.modifiers.control, event.modifiers.alt, event.modifiers.shift, event.modifiers.meta);
             }
             scroll-event(event) => {
                 PlayerPluginSidebarState.scroll-input(self.mouse-x / 1px, self.mouse-y / 1px,
-                    event.delta-x / 1px, event.delta-y / 1px);
+                    event.delta-x / 1px, event.delta-y / 1px, event.modifiers.control,
+                    event.modifiers.alt, event.modifiers.shift, event.modifiers.meta);
                 return accept;
             }
         }

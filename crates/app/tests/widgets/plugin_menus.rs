@@ -14,7 +14,7 @@ use std::{
 };
 
 #[test]
-fn focused_plugin_sidebar_keeps_space_from_the_playback_menu()
+fn plugin_sidebar_owns_keys_and_pointer_input_until_they_return_to_playback()
 -> Result<(), Box<dyn std::error::Error>> {
     let app = player(7);
     app.set_native_video(false);
@@ -34,6 +34,14 @@ fn focused_plugin_sidebar_keeps_space_from_the_playback_menu()
             recorded.borrow_mut().push(text);
         }
     });
+    let wheel = Rc::new(Cell::new(None));
+    let recorded = wheel.clone();
+    sidebar.on_scroll_input(move |_, _, dx, dy, _, _, shift, _| {
+        recorded.set(Some((dx, dy, shift)));
+    });
+    let pointer_left = Rc::new(Cell::new(0));
+    let recorded = pointer_left.clone();
+    sidebar.on_pointer_left(move || recorded.set(recorded.get() + 1));
 
     slint::platform::update_timers_and_animations();
     let position = LogicalPosition::new(app.get_plugin_sidebar_view_x() + 40.0, 190.0);
@@ -53,6 +61,24 @@ fn focused_plugin_sidebar_keeps_space_from_the_playback_menu()
         browser_keys.borrow().as_slice(),
         &[slint::SharedString::from(Key::Space)]
     );
+    app.window().dispatch_event(WindowEvent::KeyPressed {
+        text: Key::Shift.into(),
+    });
+    app.window()
+        .dispatch_event(WindowEvent::PointerMoved { position });
+    app.window().dispatch_event(WindowEvent::PointerScrolled {
+        position,
+        delta_x: 8.0,
+        delta_y: -60.0,
+    });
+    assert_eq!(wheel.get(), Some((8.0, -60.0, true)));
+    app.window().dispatch_event(WindowEvent::KeyReleased {
+        text: Key::Shift.into(),
+    });
+    app.window().dispatch_event(WindowEvent::PointerMoved {
+        position: LogicalPosition::new(20.0, 190.0),
+    });
+    assert_eq!(pointer_left.get(), 1);
 
     app.invoke_focus_player();
     slint::platform::update_timers_and_animations();

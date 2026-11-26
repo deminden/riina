@@ -128,6 +128,9 @@ Implementation does not imply every state or platform is verified.
   returns the keyboard to playback. Statistics receives its active page keys
   while ordinary playback shortcuts remain available. These workflows require
   an engine with the built-in Lua scripts.
+- **Linux plugin sidebars:** Wayland passes pointer modifiers and pointer exits
+  into the package page. Plugin confirmations temporarily hide the browser on
+  X11 and Wayland. Browser wheel scrolling on Wayland remains open.
 - **Standalone plugin tools:** a plugin can load a page, exchange messages and
   update its document while its tool window is hidden. The native close
   action hides the tool, and reopening retains the current page.

@@ -69,6 +69,7 @@ impl Presenter {
                         (-1.0, -1.0),
                         (index + 1) as u32,
                         input.held_buttons(entry),
+                        0,
                     );
                 }
             }
@@ -87,7 +88,7 @@ impl Presenter {
                 && input.held_buttons(old) == 0
             {
                 old.native
-                    .pointer(EventType::MotionNotify, (-1.0, -1.0), 0, 0);
+                    .pointer(EventType::MotionNotify, (-1.0, -1.0), 0, 0, 0);
             }
             input.hovered = hovered;
             for entry in entries.values() {
@@ -96,7 +97,7 @@ impl Presenter {
                 if held != 0 || Some(entry.stacking_order) == hovered {
                     entry
                         .native
-                        .pointer(EventType::MotionNotify, entry.local(point), 0, held);
+                        .pointer(EventType::MotionNotify, entry.local(point), 0, held, 0);
                 }
             }
             return hovered.is_some() || input.pressed.iter().any(Option::is_some);
@@ -114,6 +115,7 @@ impl Presenter {
                 local,
                 button as u32,
                 input.held_buttons(entry),
+                0,
             );
             input.pressed[index] = Some(entry.press());
             return true;
@@ -132,6 +134,7 @@ impl Presenter {
                 local,
                 button as u32,
                 input.held_buttons(entry),
+                0,
             );
         }
         input.pressed[index] = None;

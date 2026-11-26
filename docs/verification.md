@@ -5985,3 +5985,31 @@ windowless lifecycle checks remain open.
 - Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
 - Linux application SHA-256 `1d0775f1507e9eff0bfb36dc9b9d2c22ce857495146d6a188dc2c65770ebb2c9`
 - Linux libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`
+
+### Linux plugin sidebar input and modal ownership (2026-11-26)
+
+The Windows workspace gate and locked workspace build passed. The gate
+included strict Clippy, interaction tests and the player and Settings pixel
+baselines. The sidebar widget regression checks Space isolation, two-axis
+wheel routing with Shift held, and pointer exit. All 70 native libmpv tests
+passed. Apple Silicon and Intel application and test sources passed strict
+cross-Clippy.
+
+The locked Linux application build passed. In isolated Wayland with XWayland
+disabled, the browser delivered a trusted Ctrl+Shift click and pointer exit.
+Tab, text entry and Space stayed in the browser while playback remained paused.
+Ctrl+Comma opened Settings from browser focus. X11 delivered a trusted wheel
+event and scrolled the page in both directions. On both desktops the page
+resized, preserved typed text across hide and reopen, yielded to a plugin
+confirmation and reappeared after Escape. Both exact test processes exited
+normally.
+
+In an instrumented Wayland run the wheel event reached the offscreen GTK
+widget and stopped before reaching the page. Scrolling over the pane left
+playback volume and pause unchanged. Wayland browser wheel scrolling and
+native macOS verification remain open.
+
+- Windows application SHA-256 `e34ecf973b3dabdc07331060ee8b2cf04d732a6ee58808a44428b459a7b12bf`
+- Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
+- Linux application SHA-256 `0b2af95bdcf0377cb31644b7ce55920a87abbde02fd0aa838d4b5e2bae982b5d`
+- Linux libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`

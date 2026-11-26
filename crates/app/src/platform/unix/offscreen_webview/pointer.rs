@@ -14,6 +14,7 @@ pub(super) fn dispatch(
     (x, y): (f64, f64),
     button: u32,
     held: u32,
+    modifiers: u32,
 ) {
     let Some(target) = view.window() else {
         return;
@@ -22,19 +23,7 @@ pub(super) fn dispatch(
     let raw: *mut ffi::GdkEvent = event.to_glib_none_mut().0;
     let window: *mut ffi::GdkWindow = target.to_glib_none().0;
     let time = (glib::monotonic_time() / 1000) as u32;
-    let state = if held & 1 != 0 {
-        ffi::GDK_BUTTON1_MASK
-    } else {
-        0
-    } | if held & 2 != 0 {
-        ffi::GDK_BUTTON2_MASK
-    } else {
-        0
-    } | if held & 4 != 0 {
-        ffi::GDK_BUTTON3_MASK
-    } else {
-        0
-    };
+    let state = button_state(held) | modifiers;
     // SAFETY: gdk allocated the union variant matching kind. The event owns one
     // window reference and releases it when dropped. Remaining fields are initialized by gdk.
     unsafe {
@@ -75,7 +64,13 @@ pub(super) fn dispatch(
     view.event(&event);
 }
 
-pub(super) fn scroll(view: &webkit2gtk::WebView, (x, y): (f64, f64), (dx, dy): (f64, f64)) {
+pub(super) fn scroll(
+    view: &webkit2gtk::WebView,
+    (x, y): (f64, f64),
+    (dx, dy): (f64, f64),
+    held: u32,
+    modifiers: u32,
+) {
     let Some(target) = view.window() else {
         return;
     };
@@ -93,6 +88,7 @@ pub(super) fn scroll(view: &webkit2gtk::WebView, (x, y): (f64, f64), (dx, dy): (
         scroll.y = y;
         scroll.x_root = x;
         scroll.y_root = y;
+        scroll.state = button_state(held) | modifiers;
         // Slint supplies movement in logical pixels. GDK uses signed wheel steps.
         scroll.delta_x = -dx / 40.0;
         scroll.delta_y = -dy / 40.0;
@@ -105,4 +101,15 @@ pub(super) fn scroll(view: &webkit2gtk::WebView, (x, y): (f64, f64), (dx, dy): (
         event.set_device(Some(&device));
     }
     view.event(&event);
+}
+
+fn button_state(held: u32) -> u32 {
+    [
+        (1, ffi::GDK_BUTTON1_MASK),
+        (2, ffi::GDK_BUTTON2_MASK),
+        (4, ffi::GDK_BUTTON3_MASK),
+    ]
+    .into_iter()
+    .filter(|(button, _)| held & button != 0)
+    .fold(0, |state, (_, mask)| state | mask)
 }

@@ -75,6 +75,7 @@ impl View {
             Self::Composited(view) => {
                 if !visible {
                     view.focus(false);
+                    view.pointer_left();
                     view.surface.invalidate();
                 }
                 Ok(())
@@ -124,31 +125,46 @@ impl CompositedView {
         }
     }
 
-    pub(super) fn pointer(&self, phase: Phase, button: i32, point: (f64, f64)) {
+    pub(super) fn pointer(&self, phase: Phase, button: i32, point: (f64, f64), modifiers: u32) {
         use gdk::EventType;
         let held = self.held.get();
         let button = u32::try_from(button).unwrap_or_default();
         match phase {
             Phase::Move => self
                 .surface
-                .pointer(EventType::MotionNotify, point, 0, held),
+                .pointer(EventType::MotionNotify, point, 0, held, modifiers),
             Phase::Cancel => self.cancel_press(),
             Phase::Down if (1..=3).contains(&button) => {
                 self.focus(true);
                 self.surface
-                    .pointer(EventType::ButtonPress, point, button, held);
+                    .pointer(EventType::ButtonPress, point, button, held, modifiers);
                 self.held.set(held | (1 << (button - 1)));
             }
             Phase::Up if (1..=3).contains(&button) => {
                 let mask = 1 << (button - 1);
                 if held & mask != 0 {
                     self.surface
-                        .pointer(EventType::ButtonRelease, point, button, held);
+                        .pointer(EventType::ButtonRelease, point, button, held, modifiers);
                     self.held.set(held & !mask);
                 }
             }
             _ => {}
         }
+    }
+
+    pub(super) fn pointer_left(&self) {
+        self.surface.pointer(
+            gdk::EventType::MotionNotify,
+            (-1.0, -1.0),
+            0,
+            self.held.get(),
+            0,
+        );
+    }
+
+    pub(super) fn scroll(&self, point: (f64, f64), delta: (f64, f64), modifiers: u32) {
+        self.surface
+            .scroll(point, delta, self.held.get(), modifiers);
     }
 
     fn cancel_press(&self) {
@@ -157,7 +173,7 @@ impl CompositedView {
             let mask = 1 << (button - 1);
             if held & mask != 0 {
                 self.surface
-                    .pointer(gdk::EventType::ButtonRelease, (-1.0, -1.0), button, held);
+                    .pointer(gdk::EventType::ButtonRelease, (-1.0, -1.0), button, held, 0);
                 held &= !mask;
             }
         }
