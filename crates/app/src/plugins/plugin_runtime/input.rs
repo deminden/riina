@@ -112,6 +112,8 @@ impl Endpoint {
 pub(crate) struct Router {
     endpoints: Arc<RwLock<Vec<Weak<Endpoint>>>>,
     pub(crate) bindings: Bindings,
+    #[cfg(test)]
+    test_budget: Option<Duration>,
 }
 
 #[derive(Clone, Copy, Serialize)]
@@ -134,6 +136,12 @@ struct Input {
 }
 
 impl Router {
+    #[cfg(test)]
+    pub(crate) fn with_test_budget(mut self, budget: Duration) -> Self {
+        self.test_budget = Some(budget);
+        self
+    }
+
     pub(crate) fn add(&self, endpoint: &Arc<Endpoint>) {
         if let Ok(mut endpoints) = self.endpoints.write() {
             endpoints.retain(|endpoint| endpoint.strong_count() > 0);
@@ -164,10 +172,13 @@ impl Router {
             return None;
         }
         listeners.sort_by_key(|(priority, _)| std::cmp::Reverse(*priority));
+        let budget = INPUT_BUDGET;
+        #[cfg(test)]
+        let budget = self.test_budget.unwrap_or(budget);
         Some(Dispatch {
             input: Arc::new(Input { key, arguments }),
             listeners,
-            deadline: Instant::now() + INPUT_BUDGET,
+            deadline: Instant::now() + budget,
         })
     }
 }

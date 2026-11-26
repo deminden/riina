@@ -289,7 +289,8 @@ Implementation does not imply every state or platform is verified.
 - **Plugin pointer events:** a video-surface drag follows its own button.
   macOS adds the matching AppKit window coordinates, click count and pressure.
   Losing focus or cancelling the pointer gesture clears the player's tracking
-  state. Native macOS pointer and pressure testing remains open.
+  state. Each button's release ends its gesture even when a control handles
+  that release. Native macOS pointer and pressure testing remains open.
 - **Plugin packages:** the macOS bundle registers `.iinaplgz` for Finder.
   Finder and Settings share the permission review and replacement flow.
   Supported packages enable after approval, and unsupported packages stay

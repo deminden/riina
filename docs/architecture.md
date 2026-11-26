@@ -706,6 +706,9 @@ the native pointer coordinates and pressure with the associated press count.
 Separate move and button samples keep a buffered drag from taking data from
 the following release. The video surface remains the input owner. Focus loss
 and pointer cancellation discard the player's previous gesture and click state.
+When another control handles a mouse release, the next native pointer event
+retires that button's gesture. Slint can still deliver a buffered final drag
+before the release.
 Other platforms use Slint coordinates and the player's click recognition.
 [AppKit current event](https://developer.apple.com/documentation/appkit/nsapplication/currentevent)
 [AppKit pointer pressure](https://developer.apple.com/documentation/appkit/nsevent/pressure)

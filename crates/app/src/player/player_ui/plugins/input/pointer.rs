@@ -21,11 +21,11 @@ impl PointerInput {
         match event {
             WindowEvent::CursorMoved { .. } => {
                 let sample = platform::native_mouse_details(window, event);
-                self.0.borrow_mut().native_motion = sample;
+                self.0.borrow_mut().note_motion(sample);
             }
-            WindowEvent::MouseInput { state, .. } => {
+            WindowEvent::MouseInput { state, button, .. } => {
                 let sample = platform::native_mouse_details(window, event);
-                self.0.borrow_mut().native_button = sample.map(|sample| (*state, sample));
+                self.0.borrow_mut().note_button(*state, *button, sample);
             }
             WindowEvent::Focused(false) => self.reset(),
             _ => {}
@@ -56,6 +56,7 @@ struct MouseState {
     // Slint can deliver a buffered move just before the following button event.
     native_motion: Option<platform::NativeMouseEvent>,
     native_button: Option<(ElementState, platform::NativeMouseEvent)>,
+    pending_release: Option<usize>,
 }
 
 #[derive(Default)]
@@ -66,6 +67,30 @@ struct Button {
 }
 
 impl MouseState {
+    fn note_motion(&mut self, sample: Option<platform::NativeMouseEvent>) {
+        self.retire_release();
+        self.native_motion = sample;
+    }
+
+    fn note_button(
+        &mut self,
+        state: ElementState,
+        button: MouseButton,
+        sample: Option<platform::NativeMouseEvent>,
+    ) {
+        self.retire_release();
+        self.native_button = sample.map(|sample| (state, sample));
+        self.pending_release = (!state.is_pressed()).then(|| button_index(button));
+    }
+
+    fn retire_release(&mut self) {
+        // A control can consume the release before the video surface sees it.
+        // Wait until the next native pointer event so a buffered final drag can run.
+        if let Some(index) = self.pending_release.take() {
+            self.buttons[index].pressed = false;
+        }
+    }
+
     fn event(
         &mut self,
         phase: PlayerPluginPointerPhase,
@@ -109,6 +134,9 @@ impl MouseState {
             button.press(position, native_clicks);
             (Kind::MouseDown, button.clicks)
         } else {
+            if self.pending_release == Some(index) {
+                self.pending_release = None;
+            }
             let recognized = u32::try_from(recognized_clicks).unwrap_or_default().max(1);
             let pressed = std::mem::take(&mut button.pressed);
             let fallback = if pressed {
@@ -307,5 +335,33 @@ mod tests {
         assert!(input.event(Move, CODES[2], (36.0, 40.0), 0).is_some());
         input.event(Cancel, "", position, 0);
         assert!(input.event(Move, CODES[2], (37.0, 40.0), 0).is_none());
+    }
+
+    #[test]
+    fn release_outside_the_video_retires_only_its_gesture_after_the_buffered_move() {
+        let mut input = MouseState::default();
+        input.event(Down, CODES[0], (10.0, 10.0), 0);
+        input.note_motion(Some(sample(Some(MouseButton::Left), None, 0.5)));
+        input.note_button(ElementState::Released, MouseButton::Left, None);
+        assert_eq!(
+            payload(
+                input.event(Move, "", (11.0, 10.0), 0),
+                Kind::MouseDrag,
+                CODES[0]
+            )["pressure"],
+            0.5
+        );
+        input.note_button(ElementState::Pressed, MouseButton::Right, None);
+        input.event(Down, CODES[1], (15.0, 10.0), 0);
+        input.note_motion(None);
+        assert_eq!(
+            input
+                .event(Move, "", (16.0, 10.0), 0)
+                .map(|(kind, button, _)| (kind, button)),
+            Some((Kind::MouseDrag, CODES[1]))
+        );
+        input.note_button(ElementState::Released, MouseButton::Right, None);
+        input.note_motion(None);
+        assert!(input.event(Move, "", (17.0, 10.0), 0).is_none());
     }
 }

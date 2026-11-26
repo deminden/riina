@@ -6716,3 +6716,31 @@ normalization source explicitly defers full key-sequence support.
 
 - Windows application SHA-256 `d416cfc2e882dfe60f8819578c32bfee0e80321097a2445264a4cb0be22abf5e`
 - Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
+
+### Plugin pointer delivery and release ownership (2026-11-26)
+
+The locked Windows workspace build and full source gate passed, including
+strict Clippy, 718 application unit tests and the headless visual comparison.
+The video-surface regression sends actual Slint pointer events to a QuickJS
+entry. It checks event ordering and that a consumed release skips the normal
+click action. A separate test retires a button whose release went to another
+control, preserving its buffered final drag and the state of another button.
+
+The earlier private desktop fixture multiplied coordinates by the desktop
+scale. A diagnostic key callback showed that those clicks landed at or below
+the player's video edge. With coordinates inside the video, the native Windows
+controls delivered exactly one down and one up for a stationary click. A
+second gesture delivered down, two drag updates and up. The plugin recorded
+these events after its callbacks returned. Playback stayed paused after the
+consumed releases and resumed on the third, unhandled click. The exact test
+player exited normally.
+
+Linux application Clippy and all 15 focused input tests passed, including the
+video-surface entry and release ownership tests.
+
+Strict workspace cross-Clippy passed for Apple Silicon and Intel. Native
+AppKit mouse delivery and physical pressure still need the
+[macOS desktop checks](port-development.md).
+
+- Windows application SHA-256 `9d74e027a88db16b99c8a3124be7cd764e5269c6fef2a09e33361225b9e0de61`
+- Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
