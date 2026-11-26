@@ -114,6 +114,68 @@ impl Harness {
     }
 }
 
+#[test]
+fn screenshot_bindings_use_the_players_capture_settings_and_ignore_key_repeat()
+-> Result<(), Box<dyn std::error::Error>> {
+    use riina_core::screenshot::{Binding, Content, Encoding, Settings};
+    use riina_ui::{PlayerControlActions, PlayerPreferences};
+
+    i_slint_backend_testing::init_no_event_loop();
+    let scratch = TempDir::new("screenshot-bindings")?;
+    let player = Harness::start(scratch.path().join("preferences.json"), false)?;
+    let directory = scratch.path().join("captures");
+    let settings = Settings {
+        directory: Some(directory.to_string_lossy().into_owned()),
+        include_subtitles: false,
+        ..Settings::default()
+    };
+    crate::screenshot_preferences::install(&player.app, &settings);
+    crate::key_binding_preferences::install_player(
+        &player.app,
+        &riina_core::key_bindings::Settings {
+            current_profile: "mpv Default".into(),
+            ..Default::default()
+        },
+        crate::PlaybackStore::default(),
+    );
+    player.app.set_screenshot_available(true);
+    let controls = player.app.global::<PlayerControlActions>();
+    let dispatch = |ctrl, alt, shift, repeat| {
+        assert!(controls.invoke_dispatch_key_binding("s".into(), ctrl, alt, shift, false, repeat));
+    };
+    let directory = crate::platform::screenshot_directory(settings.directory.as_deref())?
+        .to_string_lossy()
+        .into_owned();
+    dispatch(false, false, false, false);
+    player.expect(Command::Screenshot {
+        directory: directory.clone(),
+        content: Content::Video,
+        encoding: Encoding::default(),
+    });
+    for (ctrl, alt, shift, action) in [
+        (true, false, false, "screenshot window"),
+        (false, false, true, "screenshot video"),
+        (false, true, false, "screenshot each-frame"),
+    ] {
+        dispatch(ctrl, alt, shift, false);
+        player.expect(Command::ScreenshotBinding {
+            directory: directory.clone(),
+            default_content: Content::Video,
+            encoding: Encoding::default(),
+            binding: Binding::parse(action).unwrap(),
+        });
+        dispatch(ctrl, alt, shift, true);
+        player.expect_idle();
+    }
+    player
+        .app
+        .global::<PlayerPreferences>()
+        .set_screenshot_save_to_file(false);
+    dispatch(true, false, false, false);
+    player.expect_idle();
+    Ok(())
+}
+
 pub(super) struct DropProbe(&'static str, Rc<RefCell<Vec<&'static str>>>);
 
 impl Drop for DropProbe {

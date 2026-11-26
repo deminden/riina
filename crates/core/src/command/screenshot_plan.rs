@@ -1,12 +1,33 @@
-use super::CommandError;
-use super::set;
+use super::{Command, CommandError, set};
 use crate::{screenshot, valid_path};
 
-pub(super) fn plan(
-    directory: &str,
-    content: screenshot::Content,
-    encoding: &screenshot::Encoding,
-) -> Result<Vec<Vec<String>>, CommandError> {
+pub(super) fn plan(command: &Command) -> Result<Vec<Vec<String>>, CommandError> {
+    let (directory, encoding, capture) = match command {
+        Command::Screenshot {
+            directory,
+            content,
+            encoding,
+        } => (
+            directory,
+            encoding,
+            vec!["screenshot".into(), content.native_value().into()],
+        ),
+        Command::ScreenshotBinding {
+            directory,
+            default_content,
+            encoding,
+            binding,
+        } => (
+            directory,
+            encoding,
+            binding.clone().native_arguments(*default_content),
+        ),
+        _ => {
+            return Err(CommandError::InvalidArgument {
+                what: "Expected a screenshot command",
+            });
+        }
+    };
     if !valid_path(directory) || encoding.template.contains('\0') {
         return Err(CommandError::InvalidArgument {
             what: "Screenshot directory is empty or settings contain a NUL byte",
@@ -34,6 +55,6 @@ pub(super) fn plan(
                 .to_string_lossy()
                 .into_owned(),
         ),
-        vec!["screenshot".into(), content.native_value().into()],
+        capture,
     ])
 }

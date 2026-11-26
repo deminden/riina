@@ -26,6 +26,7 @@ use crate::{
 };
 use riina_core::{
     CapturedFrame, Command, CommandPlan, NoticeSeverity, Phase, Playback, RememberedVolume,
+    key_bindings::{mpv_command_prefix_len, mpv_command_suppresses_osd},
 };
 use std::{
     collections::{BTreeMap, HashMap},
@@ -502,7 +503,9 @@ impl WorkerState {
         );
         // The complete intent is planned before native submission begins.
         for mut args in plan.commands {
-            let mut reply = ReplyKind::for_command(command, args.first().map(String::as_str));
+            let prefix_len = mpv_command_prefix_len(&args);
+            let mut reply =
+                ReplyKind::for_command(command, args.get(prefix_len).map(String::as_str));
             if let (Command::Volume(volume) | Command::RestoreVolume(volume), [_, _, value]) =
                 (command, args.as_mut_slice())
             {
@@ -520,19 +523,22 @@ impl WorkerState {
             {
                 *value = volume.min(self.volume_limit()).to_string();
             }
-            let rewriting_seek = is_auto_seek && args.first().is_some_and(|arg| arg == "seek");
-            if rewriting_seek && args.len() >= 3 {
-                args[2] = self.auto_seek.flags().into();
-            } else if seek_feedback::navigation(&args, &self.playback) {
+            let rewriting_seek =
+                is_auto_seek && args.get(prefix_len).is_some_and(|arg| arg == "seek");
+            let navigation = seek_feedback::navigation(&args[prefix_len..], &self.playback);
+            if rewriting_seek && args.len() >= prefix_len + 3 {
+                args[prefix_len + 2] = self.auto_seek.flags().into();
+            } else if navigation {
                 self.auto_seek.interrupt_measurement();
             }
             if command.restarts_decoder() {
                 self.seek_feedback.clear();
                 self.auto_seek.interrupt_measurement();
             }
+            let (prefixes, action) = args.split_at(prefix_len);
             let reporting_edit =
-                playlist_edit.filter(|edit| args.first().is_some_and(|verb| edit.tracks(verb)));
-            let replaces_file = is_replacement(&args);
+                playlist_edit.filter(|edit| action.first().is_some_and(|verb| edit.tracks(verb)));
+            let replaces_file = is_replacement(action);
             if let Some(edit) = reporting_edit {
                 let lead = replaces_file && matches!(edit, Edit::OpenGroup);
                 reply = ReplyKind::PlaylistEdit {
@@ -545,8 +551,8 @@ impl WorkerState {
                 // A reply can arrive before the new audio-device observation.
                 self.pending_audio_change = Some((self.next_id, device.clone()));
             }
-            let changes_media = changes_media(&args);
-            if changes_media || args.first().is_some_and(|verb| verb == "playlist-clear") {
+            let changes_media = changes_media(action);
+            if changes_media || action.first().is_some_and(|verb| verb == "playlist-clear") {
                 self.playlist_edits.retire_open();
             }
             if let Some(edit) = reporting_edit {
@@ -569,7 +575,7 @@ impl WorkerState {
                 }
             }
             if matches!(
-                args.first().map(String::as_str),
+                action.first().map(String::as_str),
                 Some("stop" | "playlist-clear")
             ) {
                 // Clearing the queue also retires any sibling scan still in flight.
@@ -577,7 +583,9 @@ impl WorkerState {
                 self.playback.folder_discovery_allowed = false;
             }
             if matches!(command, Command::OpenShuffledPlaylist(_))
-                && args.first().is_some_and(|name| name == "playlist-shuffle")
+                && action
+                    .first()
+                    .is_some_and(|name| name == "playlist-shuffle")
             {
                 self.playback.explicit_playlist = true;
                 self.playback.playlist_shuffled = true;
@@ -598,26 +606,31 @@ impl WorkerState {
                 self.playback.playlist_shuffled = false;
                 self.mark_changed();
             }
-            if seek_feedback::navigation(&args, &self.playback) {
-                self.seek_feedback.submitted(self.next_id);
+            if navigation {
+                if mpv_command_suppresses_osd(prefixes) {
+                    self.seek_feedback.clear();
+                } else {
+                    self.seek_feedback.submitted(self.next_id);
+                }
             }
         }
         Ok(())
     }
 
     fn issue(&mut self, handle: &Handle, args: &[String], kind: ReplyKind) -> Result<(), String> {
-        let changes_media = changes_media(args);
+        let prefix_len = mpv_command_prefix_len(args);
+        let changes_media = changes_media(&args[prefix_len..]);
         let args: Vec<_> = args
             .iter()
             .map(|arg| CString::new(arg.as_str()))
             .collect::<Result<_, _>>()
             .map_err(|error| error.to_string())?;
         self.next_id += 1;
-        let label = command_label(&args);
+        let label = command_label(&args[prefix_len..]);
         handle
             .command(self.next_id, &args)
             .map_err(|error| format!("mpv {label}: {error}"))?;
-        if let [action, property, value] = args.as_slice()
+        if let [action, property, value] = &args[prefix_len..]
             && action.as_c_str() == c"set"
             && property.as_c_str() == c"volume-max"
         {

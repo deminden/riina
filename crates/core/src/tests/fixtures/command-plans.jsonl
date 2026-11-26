@@ -10,7 +10,7 @@
 {"command":"SetResumeLastPosition","mpv":[["set","save-position-on-quit","yes"],["set","resume-playback","yes"]],"resume_on_load":false}
 {"command":"SetPaused","mpv":[["set","pause","no"]],"resume_on_load":false}
 {"command":"TogglePause","mpv":[["cycle","pause"]],"resume_on_load":false}
-{"command":"MpvInputAction","mpv":[["seek","5"],["set","pause","yes"]],"resume_on_load":false}
+{"command":"MpvInputAction","mpv":[["osd-auto","seek","5"],["osd-auto","set","pause","yes"]],"resume_on_load":false}
 {"command":"PluginMpv","mpv":[["show-text","literal; stop"]],"resume_on_load":false}
 {"command":"Stop","mpv":[["write-watch-later-config"],["stop"]],"resume_on_load":false}
 {"command":"Seek","mpv":[["seek","4.25","relative"]],"resume_on_load":false}
@@ -34,6 +34,7 @@
 {"command":"CaptureMaterialFrame","mpv":[["screenshot-raw","video","rgba"]],"resume_on_load":false}
 {"command":"ObserveMpvProperty","mpv":[],"resume_on_load":false}
 {"command":"Screenshot","mpv":[["set","screenshot-format","png"],["set","screenshot-template","%F-%n"],["set","screenshot-sw","no"],["set","screenshot-dir","screenshots<separator>"],["screenshot","subtitles"]],"resume_on_load":false}
+{"command":"ScreenshotBinding","mpv":[["set","screenshot-format","png"],["set","screenshot-template","%F-%n"],["set","screenshot-sw","no"],["set","screenshot-dir","screenshots<separator>"],["osd-auto","screenshot","window"]],"resume_on_load":false}
 {"command":"ScreenshotToFile","mpv":[["screenshot-to-file","still.png","video"]],"resume_on_load":false}
 {"command":"VideoAspect","mpv":[["set","video-aspect-override","4:3"]],"resume_on_load":false}
 {"command":"VideoRotation","mpv":[["set","video-rotate","90"]],"resume_on_load":false}

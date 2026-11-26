@@ -1,5 +1,10 @@
 //! Capture content is distinct from the eventual file/clipboard destination.
-use crate::PreferenceError;
+use crate::{
+    PreferenceError,
+    key_bindings::{
+        InputCommand, mpv_command_prefix_len, mpv_command_suppresses_osd, parse_mpv_input,
+    },
+};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
@@ -127,6 +132,43 @@ impl Content {
             Self::Subtitles => "subtitles",
             Self::Window => "window",
         }
+    }
+}
+
+/// A validated single screenshot command from input.conf.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Binding(InputCommand);
+
+impl Binding {
+    pub fn parse(action: &str) -> Option<Self> {
+        let mut commands = parse_mpv_input(action).ok()?;
+        if commands.len() != 1 {
+            return None;
+        }
+        let command = commands.pop()?;
+        (command.arguments().first()?.as_str() == "screenshot").then_some(Self(command))
+    }
+
+    pub fn reports_completion(&self) -> bool {
+        let args = self.0.arguments();
+        let flags = args.get(1).map_or("", String::as_str);
+        (args.len() <= 2 || (args.len() == 3 && args[2] == "single"))
+            && !mpv_command_suppresses_osd(self.0.prefixes())
+            && (flags.is_empty()
+                || flags
+                    .split('+')
+                    .all(|flag| matches!(flag, "video" | "subtitles" | "window")))
+    }
+
+    pub(crate) fn native_arguments(self, default_content: Content) -> Vec<String> {
+        let mut args = self.0.into_native();
+        let flags = mpv_command_prefix_len(&args) + 1;
+        match args.get_mut(flags) {
+            None => args.push(default_content.native_value().into()),
+            Some(value) if value.is_empty() => *value = default_content.native_value().into(),
+            Some(_) => {}
+        }
+        args
     }
 }
 

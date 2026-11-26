@@ -64,6 +64,12 @@ command_samples! {
         content: screenshot::Content::Subtitles,
         encoding: screenshot::Encoding::default(),
     };
+    ScreenshotBinding {
+        directory: "screenshots".into(),
+        default_content: screenshot::Content::Subtitles,
+        encoding: screenshot::Encoding::default(),
+        binding: screenshot::Binding::parse("screenshot window").unwrap(),
+    };
     ScreenshotToFile { path: "still.png".into(), content: screenshot::Content::Video };
     VideoAspect[video_controls::AspectRatio::from_text("4:3")];
     VideoRotation[video_controls::Rotation::Clockwise90];

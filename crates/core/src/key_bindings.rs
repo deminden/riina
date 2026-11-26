@@ -4,6 +4,13 @@ use crate::PreferenceError;
 mod action_error;
 pub use action_error::InputActionError;
 
+mod mpv_input;
+pub(crate) use mpv_input::mpv_action_native_commands;
+pub use mpv_input::{
+    InputCommand, mpv_action_commands, mpv_action_native_args, mpv_command_prefix_len,
+    mpv_command_suppresses_osd, parse_mpv_input,
+};
+
 mod builder;
 pub use builder::build_action;
 
@@ -182,173 +189,6 @@ pub fn serialize(mappings: &[Mapping]) -> Result<String, ParseError> {
         output.push('\n');
     }
     Ok(output)
-}
-
-/// Convert one user profile action to the argument vector passed to libmpv.
-/// Input flags describe mpv's input layer rather than a command and are removed
-/// here; shell parsing is deliberately avoided so profile text is never executed
-/// by the operating system.
-pub fn mpv_action_args(action: &str) -> Result<Vec<String>, InputActionError> {
-    if action.is_empty() || action.len() > 8192 || action.contains('\0') {
-        return Err(InputActionError::InvalidAction);
-    }
-
-    let mut args = Vec::new();
-    let mut current = String::new();
-    let mut quote = None;
-    let mut escaped = false;
-    let mut token_started = false;
-    for character in action.chars() {
-        if escaped {
-            current.push(character);
-            escaped = false;
-            token_started = true;
-            continue;
-        }
-        if character == '\\' {
-            escaped = true;
-            token_started = true;
-            continue;
-        }
-        if let Some(delimiter) = quote {
-            if character == delimiter {
-                quote = None;
-            } else {
-                current.push(character);
-            }
-            token_started = true;
-            continue;
-        }
-        match character {
-            '"' | '\'' => {
-                quote = Some(character);
-                token_started = true;
-            }
-            value if value.is_whitespace() => {
-                if token_started {
-                    args.push(std::mem::take(&mut current));
-                    token_started = false;
-                    if args.len() > 64 {
-                        return Err(InputActionError::TooManyArguments);
-                    }
-                }
-            }
-            value => {
-                current.push(value);
-                token_started = true;
-            }
-        }
-        if current.len() > 4096 {
-            return Err(InputActionError::ArgumentTooLarge);
-        }
-    }
-    if escaped || quote.is_some() {
-        return Err(InputActionError::UnfinishedEscapeOrQuote);
-    }
-    if token_started {
-        args.push(current);
-    }
-    if args.len() > 64 {
-        return Err(InputActionError::TooManyArguments);
-    }
-    if args.iter().any(|argument| argument.len() > 4096) {
-        return Err(InputActionError::ArgumentTooLarge);
-    }
-
-    while args.first().is_some_and(|argument| {
-        matches!(
-            argument.as_str(),
-            "{default}"
-                | "no-osd"
-                | "osd-bar"
-                | "osd-msg"
-                | "osd-auto"
-                | "repeatable"
-                | "raw"
-                | "async"
-        )
-    }) {
-        args.remove(0);
-    }
-    if args
-        .first()
-        .is_some_and(|argument| argument.starts_with('{') && argument.ends_with('}'))
-    {
-        return Err(InputActionError::UnsupportedInputSection);
-    }
-    if args.is_empty() {
-        return Err(InputActionError::NoMpvCommand);
-    }
-    if matches!(args[0].as_str(), "run" | "subprocess") {
-        return Err(InputActionError::ExternalProcess);
-    }
-    Ok(args)
-}
-
-/// Convert an input mapping that chains commands with semicolons into separate
-/// libmpv command argument lists. A semicolon inside a quoted or escaped token
-/// remains data, matching input.conf's command separator behavior.
-pub fn mpv_action_commands(action: &str) -> Result<Vec<Vec<String>>, InputActionError> {
-    if action.is_empty() || action.len() > 8192 || action.contains('\0') {
-        return Err(InputActionError::InvalidAction);
-    }
-
-    let mut commands = Vec::new();
-    let mut current = String::new();
-    let mut quote = None;
-    let mut escaped = false;
-    for character in action.chars() {
-        if escaped {
-            current.push(character);
-            escaped = false;
-            continue;
-        }
-        if character == '\\' {
-            current.push(character);
-            escaped = true;
-            continue;
-        }
-        if let Some(delimiter) = quote {
-            current.push(character);
-            if character == delimiter {
-                quote = None;
-            }
-            continue;
-        }
-        match character {
-            '"' | '\'' => {
-                quote = Some(character);
-                current.push(character);
-            }
-            ';' => {
-                push_mpv_action_command(&mut commands, &mut current)?;
-            }
-            _ => current.push(character),
-        }
-    }
-    if escaped || quote.is_some() {
-        return Err(InputActionError::UnfinishedEscapeOrQuote);
-    }
-    push_mpv_action_command(&mut commands, &mut current)?;
-    if commands.is_empty() {
-        return Err(InputActionError::NoMpvCommand);
-    }
-    Ok(commands)
-}
-
-fn push_mpv_action_command(
-    commands: &mut Vec<Vec<String>>,
-    current: &mut String,
-) -> Result<(), InputActionError> {
-    if current.trim().is_empty() {
-        return Err(InputActionError::EmptyCommand);
-    }
-    if commands.len() >= 32 {
-        return Err(InputActionError::TooManyCommands);
-    }
-    commands.push(mpv_action_args(current.trim())?);
-    current.clear();
-    Ok(())
 }
 
 #[cfg(test)]

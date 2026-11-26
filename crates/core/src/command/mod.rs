@@ -105,6 +105,12 @@ pub enum Command {
         content: screenshot::Content,
         encoding: screenshot::Encoding,
     },
+    ScreenshotBinding {
+        directory: String,
+        default_content: screenshot::Content,
+        encoding: screenshot::Encoding,
+        binding: screenshot::Binding,
+    },
     ScreenshotToFile {
         path: String,
         content: screenshot::Content,

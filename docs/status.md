@@ -118,6 +118,11 @@ Implementation does not imply every state or platform is verified.
   Settings shows the active chords and can display the original configuration.
   Editable copies retain the keys used on the current platform. Window-scale
   cycles and multipliers resize the native video window.
+- **Shortcut command flags:** native input commands retain their OSD, repeat
+  and property-expansion prefixes. Screenshot shortcuts use the player's
+  screenshot destinations and encoding, including explicit video, subtitle
+  and window captures. The native repeated-capture mode uses the configured
+  directory and toggles off on the next press.
 - **Recent activity:** player windows share Open Recent with Welcome and
   plugins. The macOS application menu also opens and clears recent documents
   while no player is open. Settings Utilities clears history, recent documents

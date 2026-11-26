@@ -72,6 +72,41 @@ fn navigation_completions_follow_explicit_seek_and_same_position_reseek() {
         assert!(completed.error().is_none(), "{:?}", completed.error());
         previous = completed;
     }
+    for (action, position, visible) in [
+        ("no-osd seek 1 absolute+exact", 1.0, false),
+        ("no-osd osd-auto seek 3 absolute+exact", 3.0, true),
+    ] {
+        harness
+            .send(Command::MpvInputAction(action.into()))
+            .unwrap();
+        let completed = harness.wait(|state| {
+            state.completed_seeks > previous.completed_seeks
+                && !state.seeking
+                && state
+                    .position
+                    .is_some_and(|clock| (clock - position).abs() < 0.1)
+        });
+        assert_eq!(
+            completed.completed_navigation_seeks - previous.completed_navigation_seeks,
+            u64::from(visible)
+        );
+        assert!(completed.paused);
+        previous = completed;
+    }
+    harness
+        .send(Command::ObserveMpvProperty("screenshot-template".into()))
+        .unwrap();
+    for (prefix, expected) in [("raw ", "${filename}"), ("", "catalog.mkv")] {
+        let action = format!("{prefix}set screenshot-template '${{filename}}'");
+        harness.send(Command::MpvInputAction(action)).unwrap();
+        harness.wait(|state| {
+            state
+                .observed_mpv_properties
+                .get("screenshot-template")
+                .and_then(serde_json::Value::as_str)
+                == Some(expected)
+        });
+    }
 }
 
 #[test]

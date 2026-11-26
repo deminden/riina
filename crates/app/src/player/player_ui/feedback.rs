@@ -220,42 +220,59 @@ fn install_screenshot_actions(
 ) {
     let screenshot_player = player.clone();
     let weak = app.as_weak();
-    app.global::<PlayerMenuActions>()
-        .on_take_screenshot(move || {
-            let Some(app) = weak.upgrade() else { return };
-            if !app.get_screenshot_available()
-                || app.global::<riina_ui::PlayerCropState>().get_crop_editing()
-                || app
-                    .global::<riina_ui::PlayerDialogState>()
-                    .get_dialog_open()
-            {
-                return;
+    let capture = move |binding: Option<riina_core::screenshot::Binding>| {
+        let Some(app) = weak.upgrade() else { return };
+        if !app.get_screenshot_available()
+            || app.global::<riina_ui::PlayerCropState>().get_crop_editing()
+            || app
+                .global::<riina_ui::PlayerDialogState>()
+                .get_dialog_open()
+        {
+            return;
+        }
+        app.global::<riina_ui::PlayerControlActions>()
+            .invoke_activity();
+        let result = crate::screenshot_preferences::current(&app).and_then(|screenshot_settings| {
+            if !screenshot_settings.destinations.enabled() {
+                return Ok(());
             }
-            app.global::<riina_ui::PlayerControlActions>()
-                .invoke_activity();
-            let result =
-                crate::screenshot_preferences::current(&app).and_then(|screenshot_settings| {
-                    if !screenshot_settings.destinations.enabled() {
-                        return Ok(());
-                    }
-                    (if screenshot_settings.destinations.save_to_file {
-                        platform::screenshot_directory(screenshot_settings.directory.as_deref())
-                    } else {
-                        screenshot_scratch.directory()
-                    })
-                    .map_err(|error| error.to_string())
-                    .and_then(|directory| {
-                        screenshot_player
-                            .send(Command::Screenshot {
-                                directory: directory.to_string_lossy().into_owned(),
-                                content: screenshot_settings.content(),
-                                encoding: screenshot_settings.encoding.clone(),
-                            })
-                            .map_err(String::from)
-                    })
-                });
-            if let Err(error) = result {
-                app.set_status(error.into());
+            (if screenshot_settings.destinations.save_to_file {
+                platform::screenshot_directory(screenshot_settings.directory.as_deref())
+            } else {
+                screenshot_scratch.directory()
+            })
+            .map_err(|error| error.to_string())
+            .and_then(|directory| {
+                let directory = directory.to_string_lossy().into_owned();
+                let content = screenshot_settings.content();
+                let encoding = screenshot_settings.encoding.clone();
+                let command = match binding {
+                    Some(binding) => Command::ScreenshotBinding {
+                        directory,
+                        default_content: content,
+                        encoding,
+                        binding,
+                    },
+                    None => Command::Screenshot {
+                        directory,
+                        content,
+                        encoding,
+                    },
+                };
+                screenshot_player.send(command).map_err(String::from)
+            })
+        });
+        if let Err(error) = result {
+            app.set_status(error.into());
+        }
+    };
+    let menu_capture = capture.clone();
+    app.global::<PlayerMenuActions>()
+        .on_take_screenshot(move || menu_capture(None));
+    app.global::<riina_ui::PlayerControlActions>()
+        .on_take_key_screenshot(move |action| {
+            if let Some(binding) = riina_core::screenshot::Binding::parse(action.as_str()) {
+                capture(Some(binding));
             }
         });
     let weak = app.as_weak();

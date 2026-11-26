@@ -39,6 +39,29 @@ impl Scratch {
             }
         }
     }
+
+    pub(crate) fn remove_completed(&self, paths: &[String]) {
+        if paths.is_empty() {
+            return;
+        }
+        let Ok(Some(directory)) = self.directory.lock().map(|owned| owned.clone()) else {
+            return;
+        };
+        let Ok(directory) = directory.canonicalize() else {
+            return;
+        };
+        // Settings can change while a screenshot is being written. Remove
+        // only completed output inside the directory this player owns.
+        for path in paths {
+            if let Ok(path) = std::path::Path::new(path).canonicalize()
+                && path.starts_with(&directory)
+                && let Err(error) = std::fs::remove_file(path)
+                && error.kind() != std::io::ErrorKind::NotFound
+            {
+                crate::diagnostics::warn!("Could not remove a clipboard-only screenshot: {error}");
+            }
+        }
+    }
 }
 impl Drop for Scratch {
     fn drop(&mut self) {
@@ -93,34 +116,6 @@ pub(crate) fn copy(app: &crate::PlayerWindow, paths: &[String]) -> Option<String
     }
     error
 }
-pub(crate) fn cleanup(app: &crate::PlayerWindow, paths: &[String]) {
-    cleanup_paths(
-        riina_core::screenshot::Destinations {
-            save_to_file: app
-                .global::<riina_ui::PlayerPreferences>()
-                .get_screenshot_save_to_file(),
-            copy_to_clipboard: app
-                .global::<riina_ui::PlayerPreferences>()
-                .get_screenshot_copy_to_clipboard(),
-        },
-        paths,
-    );
-}
-
-fn cleanup_paths(destinations: riina_core::screenshot::Destinations, paths: &[String]) {
-    if destinations.save_to_file || !destinations.copy_to_clipboard {
-        return;
-    }
-    // Native completion supplies each exact filename. Decode/preview/copy must
-    // precede removal; never find the "latest" file in a user's screenshot folder.
-    for path in paths {
-        if let Err(error) = std::fs::remove_file(path)
-            && error.kind() != std::io::ErrorKind::NotFound
-        {
-            crate::diagnostics::warn!("Could not remove a clipboard-only screenshot: {error}");
-        }
-    }
-}
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -148,40 +143,23 @@ mod tests {
         assert!(!other.exists());
     }
     #[test]
-    fn clipboard_only_cleanup_removes_confirmed_files_and_preserves_unrelated_files() {
-        use riina_core::screenshot::Destinations;
-        let directory = riina_test_support::TempDir::new("screenshot-cleanup").unwrap();
-        let capture = directory.path().join("confirmed.png");
-        let other = directory.path().join("unrelated.png");
+    fn cleanup_removes_only_confirmed_files_owned_by_that_players_scratch() {
+        let scratch = Scratch::default();
+        let own_directory = scratch.directory().unwrap();
+        let other_scratch = Scratch::default();
+        let other_directory = other_scratch.directory().unwrap();
+        let capture = own_directory.join("confirmed.png");
+        let unrelated = own_directory.join("unreported.png");
+        let other = other_directory.join("saved.png");
         std::fs::write(&capture, b"confirmed").unwrap();
+        std::fs::write(&unrelated, b"unreported").unwrap();
         std::fs::write(&other, b"preserve").unwrap();
-        let paths = vec![capture.to_string_lossy().into_owned()];
-        for copy_to_clipboard in [false, true] {
-            cleanup_paths(
-                Destinations {
-                    save_to_file: true,
-                    copy_to_clipboard,
-                },
-                &paths,
-            );
-            assert!(capture.is_file());
-        }
-        cleanup_paths(
-            Destinations {
-                save_to_file: false,
-                copy_to_clipboard: false,
-            },
-            &paths,
-        );
-        assert!(capture.is_file());
-        cleanup_paths(
-            Destinations {
-                save_to_file: false,
-                copy_to_clipboard: true,
-            },
-            &paths,
-        );
+        scratch.remove_completed(&[
+            capture.to_string_lossy().into_owned(),
+            other.to_string_lossy().into_owned(),
+        ]);
         assert!(!capture.exists());
+        assert!(unrelated.is_file());
         assert_eq!(std::fs::read(other).unwrap(), b"preserve");
     }
     #[test]

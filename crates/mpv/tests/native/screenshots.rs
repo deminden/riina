@@ -3,7 +3,7 @@ use super::*;
 #[test]
 #[ignore = "requires provisioned libmpv; verifies active subtitle composition in saved frames"]
 fn screenshot_content_respects_active_subtitle_visibility() {
-    use riina_core::screenshot::Content;
+    use riina_core::screenshot::{Binding, Content, Encoding};
     let root = fixture_root();
     let output_dir = CaptureOutput::new("screenshot-subtitles").unwrap();
     let output = output_dir.path().to_path_buf();
@@ -63,9 +63,14 @@ fn screenshot_content_respects_active_subtitle_visibility() {
             .to_string_lossy()
             .into_owned();
         harness
-            .send(Command::ScreenshotToFile {
-                path: path.clone(),
-                content,
+            .send(Command::ScreenshotBinding {
+                directory: output.to_string_lossy().into_owned(),
+                default_content: Content::Window,
+                encoding: Encoding {
+                    template: name.into(),
+                    ..Default::default()
+                },
+                binding: Binding::parse(&format!("screenshot {}", content.native_value())).unwrap(),
             })
             .unwrap();
         let saved = harness.wait(|state| {

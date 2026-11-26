@@ -5,7 +5,9 @@ use super::{
     mappings_for, menu_shortcut_rows,
 };
 use crate::{PlayerWindow, preferences::model::PreferenceSection};
-use riina_core::key_bindings::{ActionKind, Mapping, Settings, normalize_mpv_key};
+use riina_core::key_bindings::{
+    ActionKind, InputCommand, Mapping, Settings, normalize_mpv_key, parse_mpv_input,
+};
 use riina_ui::PlayerMenuActions;
 use slint::{ComponentHandle, ModelRc, VecModel};
 use std::rc::Rc;
@@ -90,20 +92,23 @@ pub(super) fn install_dispatch(
             {
                 return false;
             }
-            let action = runtime_action(mapping);
-            if !repeat
-                || !matches!(
-                    action,
-                    Some(
-                        RuntimeAction::TrashCurrentMedia
-                            | RuntimeAction::DeleteCurrentMediaPermanently
-                    )
-                )
-            {
+            let (action, repeat_override) = resolve_action(mapping);
+            if !repeat || allows_repeat(action.as_ref(), repeat_override) {
                 dispatch_action(&app, mapping, action, &observed_playback);
             }
             true
         });
+}
+
+fn allows_repeat(action: Option<&RuntimeAction>, override_value: Option<bool>) -> bool {
+    match action {
+        Some(RuntimeAction::TrashCurrentMedia | RuntimeAction::DeleteCurrentMediaPermanently)
+        | None => false,
+        Some(RuntimeAction::Screenshot | RuntimeAction::Quit { .. }) => {
+            override_value.unwrap_or(false)
+        }
+        Some(_) => override_value.unwrap_or(true),
+    }
 }
 
 fn plugin_input_bindings(mappings: &Bindings) -> String {
@@ -150,7 +155,7 @@ pub(super) enum RuntimeAction {
     FitToScreen,
     ResizeWindow(i32),
     ResizeProfileWindow(String),
-    ToggleWindowLevel,
+    WindowLevel(Option<bool>),
     ToggleFileLoop,
     TogglePluginsPanel,
     FindOnlineSubs,
@@ -191,9 +196,13 @@ pub(super) fn is_system_media_key(key: &str) -> bool {
 }
 
 pub(super) fn runtime_action(mapping: &Mapping) -> Option<RuntimeAction> {
+    resolve_action(mapping).0
+}
+
+fn resolve_action(mapping: &Mapping) -> (Option<RuntimeAction>, Option<bool>) {
     let action = mapping.action.trim();
     if mapping.kind == ActionKind::Riina {
-        return match action {
+        let action = match action {
             "video-panel" => Some(RuntimeAction::SettingsPane(6)),
             "audio-panel" => Some(RuntimeAction::SettingsPane(1)),
             "sub-panel" => Some(RuntimeAction::SettingsPane(2)),
@@ -219,8 +228,31 @@ pub(super) fn runtime_action(mapping: &Mapping) -> Option<RuntimeAction> {
             "plugin-panel" => Some(RuntimeAction::TogglePluginsPanel),
             _ => None,
         };
+        return (action, None);
     }
-    let words = action.split_whitespace().collect::<Vec<_>>();
+    let Ok(commands) = parse_mpv_input(action) else {
+        return (None, None);
+    };
+    let repeat = commands.first().and_then(InputCommand::repeat_override);
+    let command = match commands.as_slice() {
+        [command] => mpv_runtime_action(action, command),
+        _ => Some(RuntimeAction::MpvInputAction(action.to_owned())),
+    };
+    (command, repeat)
+}
+
+fn mpv_runtime_action(action: &str, command: &InputCommand) -> Option<RuntimeAction> {
+    let words: Vec<_> = command.arguments().iter().map(String::as_str).collect();
+    if !command.prefixes().is_empty()
+        && !matches!(
+            words.as_slice(),
+            ["screenshot" | "quit" | "quit-watch-later", ..]
+                | ["cycle" | "set", "fullscreen" | "ontop", ..]
+        )
+        && !words.contains(&"window-scale")
+    {
+        return Some(RuntimeAction::MpvInputAction(action.to_owned()));
+    }
     match words.as_slice() {
         ["ignore"] => Some(RuntimeAction::Ignore),
         ["cycle", "pause"] => Some(RuntimeAction::TogglePause),
@@ -240,7 +272,9 @@ pub(super) fn runtime_action(mapping: &Mapping) -> Option<RuntimeAction> {
         ["stop"] => Some(RuntimeAction::Stop),
         ["show-progress"] => Some(RuntimeAction::ShowProgress),
         ["cycle", "mute"] => Some(RuntimeAction::Mute),
-        ["cycle", "ontop"] => Some(RuntimeAction::ToggleWindowLevel),
+        ["cycle", "ontop"] => Some(RuntimeAction::WindowLevel(None)),
+        ["set", "ontop", "yes"] => Some(RuntimeAction::WindowLevel(Some(true))),
+        ["set", "ontop", "no"] => Some(RuntimeAction::WindowLevel(Some(false))),
         ["cycle", "sub-visibility"] => Some(RuntimeAction::SubtitleVisibility),
         ["cycle", "fullscreen"] => Some(RuntimeAction::Fullscreen(None)),
         ["set", "fullscreen", "yes"] => Some(RuntimeAction::Fullscreen(Some(true))),
@@ -254,7 +288,7 @@ pub(super) fn runtime_action(mapping: &Mapping) -> Option<RuntimeAction> {
         ["playlist-prev"] => Some(RuntimeAction::PlaylistPrevious),
         ["playlist-shuffle"] => Some(RuntimeAction::PlaylistShuffle),
         ["ab-loop"] => Some(RuntimeAction::AbLoop),
-        ["screenshot"] => Some(RuntimeAction::Screenshot),
+        ["screenshot", ..] => Some(RuntimeAction::Screenshot),
         ["set", "window-scale", scale] => match *scale {
             "0.5" => Some(RuntimeAction::ResizeWindow(0)),
             "1" | "1.0" => Some(RuntimeAction::ResizeWindow(1)),
@@ -267,7 +301,7 @@ pub(super) fn runtime_action(mapping: &Mapping) -> Option<RuntimeAction> {
             Some(RuntimeAction::ResizeProfileWindow(action.to_owned()))
         }
         ["cycle-values", "loop" | "loop-file", enabled, disabled]
-            if enabled.trim_matches('"') == "inf" && disabled.trim_matches('"') == "no" =>
+            if *enabled == "inf" && *disabled == "no" =>
         {
             Some(RuntimeAction::ToggleFileLoop)
         }
@@ -286,10 +320,7 @@ pub(super) fn runtime_action(mapping: &Mapping) -> Option<RuntimeAction> {
             .ok()
             .filter(|value| value.is_finite())
             .map(RuntimeAction::SubtitlePosition),
-        _ if riina_core::key_bindings::mpv_action_commands(action).is_ok() => {
-            Some(RuntimeAction::MpvInputAction(action.to_owned()))
-        }
-        _ => None,
+        _ => Some(RuntimeAction::MpvInputAction(action.to_owned())),
     }
 }
 
@@ -390,9 +421,11 @@ fn dispatch_action(
         RuntimeAction::ResizeProfileWindow(action) => {
             app.invoke_profile_window_scale_requested(action.into())
         }
-        RuntimeAction::ToggleWindowLevel => {
+        RuntimeAction::WindowLevel(value) => {
             let layout = app.global::<riina_ui::PlayerLayoutState>();
-            layout.set_always_float_on_top(!layout.get_always_float_on_top());
+            layout.set_always_float_on_top(
+                value.unwrap_or_else(|| !layout.get_always_float_on_top()),
+            );
         }
         RuntimeAction::ToggleFileLoop => {
             app.global::<PlayerMenuActions>().invoke_toggle_file_loop()
@@ -427,7 +460,12 @@ fn dispatch_action(
             .global::<PlayerMenuActions>()
             .invoke_toggle_video_reflection(horizontal),
         RuntimeAction::AbLoop => app.global::<PlayerMenuActions>().invoke_cycle_ab_loop(),
-        RuntimeAction::Screenshot => app.global::<PlayerMenuActions>().invoke_take_screenshot(),
+        RuntimeAction::Screenshot if mapping.action.trim() == "screenshot" => {
+            app.global::<PlayerMenuActions>().invoke_take_screenshot()
+        }
+        RuntimeAction::Screenshot => app
+            .global::<riina_ui::PlayerControlActions>()
+            .invoke_take_key_screenshot(mapping.action.as_str().into()),
         RuntimeAction::MpvInputAction(action) => app
             .global::<riina_ui::PlayerControlActions>()
             .invoke_execute_mpv_input_action(action.into()),

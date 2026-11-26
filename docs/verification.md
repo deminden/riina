@@ -5884,3 +5884,42 @@ shortcut interaction still need coverage.
 - Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
 - Linux application SHA-256 `4c2d24f73c4b04f03dba8ae443b8fa4e19c9ad9d204626d0535d6def6c1b60b7`
 - Linux libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`
+
+### Screenshot shortcuts and mpv command prefixes (2026-11-26)
+
+The Windows workspace gate passed, including the command plan snapshots,
+strict Clippy, and the player and Settings pixel baselines. The player test
+routes the plain, video, window and repeated modes through the same
+destination preferences. It checks that key repeat does not issue another
+screenshot and that an inactive destination blocks capture. Capture cleanup
+removes only paths reported by the native command inside the invoking
+player's temporary folder, even if settings change before the reply.
+
+The locked Windows workspace build and the 69-test native suite passed.
+The native seek test observed a silent exact seek without a navigation
+notification, then a normal notification after a later OSD prefix overrode
+silence. It also observed a literal property expression with `raw` and an
+expanded filename with the input.conf default. Native subtitle captures
+exercised the explicit video and subtitle bindings. Application and test
+sources passed strict cross-Clippy for Apple Silicon and Intel.
+
+On a private Windows desktop, two configured shortcuts saved a 960 x 540
+window screenshot and a 1920 x 1080 source-frame screenshot under the selected
+PNG template. Playback remained paused and the exact process exited normally.
+
+The locked Linux build passed. On isolated X11, the plain and explicit
+video shortcuts both saved 640 x 360 frames. The window shortcut gave
+320 x 140, matching the native video surface inside the 320 x 180 client.
+Repeated capture saved another frame during frame stepping. A second shortcut
+press stopped it, and another frame step left the file count unchanged.
+The player exited normally.
+
+The Windows engine exposes the built-in console and statistics options.
+An engine-only probe observed the console's open property after invoking
+its binding. The Linux test engine lacks both options. Console text entry
+and interactive statistics remain open.
+
+- Windows application SHA-256 `2a8e00ed8b1af0303f86672ebd8582c90ca53ab653020f24977ec4e03d7b3808`
+- Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
+- Linux application SHA-256 `1fe74d39c17d0971465847ed098d2e956fe11aac5e326a1c2d5ad4fee1bb172c`
+- Linux libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`

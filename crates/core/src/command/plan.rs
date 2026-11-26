@@ -14,9 +14,8 @@ impl Command {
                     what: "Invalid mpv property name",
                 });
             }
-            Self::MpvInputAction(action) => {
-                key_bindings::mpv_action_commands(action).map_err(CommandError::InputBinding)?
-            }
+            Self::MpvInputAction(action) => key_bindings::mpv_action_native_commands(action)
+                .map_err(CommandError::InputBinding)?,
             Self::AudioEqualizer(gains) => audio::equalizer(state, gains)?,
             Self::SetReplayGain(options) => audio::replay_gain(*options)?,
             Self::SubtitleLetterboxMargins(enabled) => {
@@ -35,11 +34,9 @@ impl Command {
                 preferences.commands().map_err(CommandError::Preference)?
             }
             Self::NetworkOnlineVideos(preferences) => network::online_videos(preferences)?,
-            Self::Screenshot {
-                directory,
-                content,
-                encoding,
-            } => screenshot_plan::plan(directory, *content, encoding)?,
+            Self::Screenshot { .. } | Self::ScreenshotBinding { .. } => {
+                screenshot_plan::plan(self)?
+            }
             Self::VideoViewport(viewport) => video_viewport::Viewport::commands(*viewport),
             Self::VideoReflection { axis, enabled } => axis.commands(*enabled, state)?,
             Self::EnterCrop(session) => session.enter_commands(state)?,

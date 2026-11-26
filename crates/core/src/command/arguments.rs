@@ -6,7 +6,7 @@ impl Command {
     pub fn mpv_args(&self) -> Result<Vec<String>, CommandError> {
         let args: Vec<String> = match self {
             Self::MpvInputAction(action) => {
-                key_bindings::mpv_action_args(action).map_err(CommandError::InputBinding)?
+                key_bindings::mpv_action_native_args(action).map_err(CommandError::InputBinding)?
             }
             Self::PluginMpv(command) => command.arguments(),
             Self::ObserveMpvProperty(_) => {
@@ -98,6 +98,7 @@ impl Command {
             | Self::SetPauseWhenOpen(_)
             | Self::SetResumeLastPosition(_)
             | Self::Screenshot { .. }
+            | Self::ScreenshotBinding { .. }
             | Self::VideoCrop(_)
             | Self::VideoCropRectangle(_)
             | Self::RemoveDelogo

@@ -97,9 +97,9 @@ pub(super) fn prepare_observation(app: &PlayerWindow, inputs: Inputs<'_>) -> Pre
             transition_overlay: notify_transition_overlay,
             transition_release_generation: notify_transition_release_generation,
             managed_visibility,
+            screenshot_scratch: screenshot_scratch.clone(),
         },
         picture_in_picture_state_dirty,
-        _screenshot_scratch: screenshot_scratch.clone(),
     };
     PreparedObservation {
         notification,
@@ -119,8 +119,6 @@ pub(super) struct PlaybackNotification {
     history: HistoryObservation,
     delivery: WindowDelivery,
     picture_in_picture_state_dirty: Option<Arc<AtomicBool>>,
-    // The engine callback keeps the capture scratch alive until native destruction.
-    _screenshot_scratch: Arc<Scratch>,
 }
 
 impl PlaybackNotification {
@@ -198,6 +196,8 @@ pub(super) struct WindowDelivery {
     pub(super) transition_overlay: Arc<AtomicU64>,
     pub(super) transition_release_generation: Arc<AtomicU64>,
     managed_visibility: Option<ManagedVisibility>,
+    // The engine callback keeps this owner alive through native destruction.
+    screenshot_scratch: Arc<Scratch>,
 }
 
 #[derive(Clone)]
@@ -280,7 +280,7 @@ impl WindowDelivery {
             if first_loaded {
                 app.invoke_initial_media_loaded();
             }
-            crate::screenshot_output::cleanup(&app, &captures);
+            self.screenshot_scratch.remove_completed(&captures);
             if let Some(presentation) = startup_presentation {
                 apply_startup_presentation(&app, presentation);
             } else if enter_fullscreen {

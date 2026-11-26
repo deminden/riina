@@ -30,6 +30,11 @@ impl ReplyKind {
             Command::Screenshot { .. } if native_command == Some("screenshot") => {
                 Self::Screenshot { path: None }
             }
+            Command::ScreenshotBinding { binding, .. }
+                if native_command == Some("screenshot") && binding.reports_completion() =>
+            {
+                Self::Screenshot { path: None }
+            }
             Command::AdjustVolume { .. } if native_command == Some("add") => {
                 Self::RememberAdjustedVolume
             }
