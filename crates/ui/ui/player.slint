@@ -337,7 +337,7 @@ export component PlayerWindow inherits PlayerMenuWindow {
     callback pause-when-open-changed(bool);
     callback resume-last-position-changed(bool);
     callback record-playback-history-changed(bool);
-    callback remember-recent-path(string);
+    callback remember-recent-paths([string]);
     in property <bool> primary-shortcut-is-meta: false;
     in property <string> status: "Open a file to begin";
     in property <string> startup-status;
@@ -437,7 +437,7 @@ export component PlayerWindow inherits PlayerMenuWindow {
     changed settings-at-leading => { PlayerMenuActions.video-menu-changed(); }
     changed leading-sidebar-width => { root.crop-viewport-changed(); }
     changed trailing-sidebar-width => { root.crop-viewport-changed(); }
-    callback open-recent(int);
+    callback open-recent(string, bool);
     callback recent-files-visibility-changed();
     callback dismiss-font-picker();
     callback refresh-fullscreen-info();

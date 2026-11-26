@@ -368,9 +368,7 @@ impl PlayerManager {
         let result = display.reveal(&app).map(|()| {
             display.focus(&app);
             if origin.records_selection() {
-                for path in paths {
-                    app.invoke_remember_recent_path(path.clone().into());
-                }
+                crate::ui_dialogs::remember_selected_paths(&app, paths);
             }
             media_open::file_dialog_selection(&app, paths.to_vec(), origin.alternative(), sender);
         });

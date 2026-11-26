@@ -12,6 +12,7 @@ fn bundled_languages_render_labels_and_preserve_actions_in_narrow_dialogs()
     i_slint_backend_testing::init_no_event_loop();
     let welcome = WelcomeWindow::new()?;
     welcome.set_recent_media(ModelRc::new(VecModel::from(vec![RecentMediaRow {
+        token: "localized.mkv".into(),
         title: "مقطع اختبار".into(),
         position_label: "01:23".into(),
     }])));
@@ -92,7 +93,64 @@ fn bundled_languages_render_labels_and_preserve_actions_in_narrow_dialogs()
     );
 
     select_bundled_translation("en")?;
+    exercise_welcome_documents()?;
     stream.hide()?;
+    welcome.hide()?;
+    Ok(())
+}
+
+fn exercise_welcome_documents() -> Result<(), Box<dyn std::error::Error>> {
+    use slint::platform::{Key, PointerEventButton, WindowEvent};
+    use std::cell::RefCell;
+
+    let welcome = WelcomeWindow::new()?;
+    let rows = (1..=10)
+        .map(|index| RecentMediaRow {
+            token: format!("directory/recording {index}.mkv").into(),
+            title: format!("Recording {index}").into(),
+            ..RecentMediaRow::default()
+        })
+        .collect::<Vec<_>>();
+    welcome.set_recent_documents(ModelRc::new(VecModel::from(rows.clone())));
+    welcome.set_selection_index(0);
+    let received = Rc::new(RefCell::new(Vec::new()));
+    let events = received.clone();
+    welcome.on_open_recent(move |token, resume| events.borrow_mut().push((token, resume)));
+    welcome.show()?;
+    super::flush();
+    let press = |key: Key| {
+        let text: slint::SharedString = key.into();
+        welcome
+            .window()
+            .dispatch_event(WindowEvent::KeyPressed { text: text.clone() });
+        welcome
+            .window()
+            .dispatch_event(WindowEvent::KeyReleased { text });
+    };
+    for _ in 1..rows.len() {
+        press(Key::DownArrow);
+    }
+    press(Key::Return);
+    super::flush();
+    let last = ElementHandle::find_by_accessible_label(&welcome, "Recording 10")
+        .next()
+        .ok_or("Welcome hid recent documents without a Resume entry")?;
+    assert!(last.absolute_position().y + last.size().height <= 440.0);
+    for _ in 1..rows.len() {
+        press(Key::UpArrow);
+    }
+    super::flush();
+    let first = ElementHandle::find_by_accessible_label(&welcome, "Recording 1")
+        .next()
+        .ok_or("Missing first recording")?;
+    first.mock_single_click(PointerEventButton::Left);
+    assert_eq!(
+        *received.borrow(),
+        [
+            (rows[9].token.clone(), false),
+            (rows[0].token.clone(), false)
+        ]
+    );
     welcome.hide()?;
     Ok(())
 }

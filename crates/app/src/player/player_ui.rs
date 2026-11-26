@@ -620,6 +620,10 @@ mod welcome_tests {
                 position: 0.0,
             },
             history[0].clone(),
+            RecentMedia {
+                path: url::Url::from_file_path(&file).unwrap().to_string(),
+                ..history[0].clone()
+            },
         ];
         let resume = resumable(&history, true);
         assert_eq!(resume, Some(&history[0]));
@@ -630,7 +634,7 @@ mod welcome_tests {
         assert!(resumable(&history, false).is_none());
         std::fs::remove_file(file).unwrap();
         assert!(resumable(&history, true).is_none());
-        assert_eq!(visible_documents(&documents, None).count(), 2);
+        assert_eq!(visible_documents(&documents, None).count(), 3);
     }
 
     #[test]

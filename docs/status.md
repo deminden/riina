@@ -140,9 +140,12 @@ Implementation does not imply every state or platform is verified.
   update its document while its tool window is hidden. The native close
   action hides the tool, and reopening retains the current page.
 - **Recent activity:** player windows share Open Recent with Welcome and
-  plugins. The macOS application menu also opens and clears recent documents
-  while no player is open. Settings Utilities clears history, recent documents
-  and the saved Welcome resume item together after confirmation.
+  plugins. Welcome lists recent documents whenever recording is enabled, and
+  keeps the highlighted file when another player changes the order. The macOS
+  application menu opens and clears recent documents while no player is open.
+  Linux registers local files with the desktop and preserves registrations by
+  other applications when clearing. Settings Utilities clears history, recent
+  documents and the saved Welcome resume item together after confirmation.
 - **Playback History:** the macOS application menu can open the shared history
   window and launch playback from it before any player window has opened.
   Visible local files are checked in the background. Unavailable files hide

@@ -765,20 +765,28 @@ pub(crate) fn initialize_recent_documents() {
     }
 }
 
-/// Add a locally opened media file to the platform's native recent documents.
-pub(crate) fn remember_recent_document(path: &str) -> std::io::Result<()> {
-    #[cfg(target_os = "windows")]
-    {
-        windows::recent_documents::remember(path)
-    }
-    #[cfg(target_os = "macos")]
-    {
-        unix::services::remember_recent_document(path)
-    }
+/// Add locally opened files to the platform's recent documents.
+pub(crate) fn remember_recent_documents<'a>(
+    references: impl IntoIterator<Item = &'a str>,
+) -> std::io::Result<()> {
+    let paths = references
+        .into_iter()
+        .filter_map(crate::file_actions::local_media_path);
     #[cfg(target_os = "linux")]
     {
-        let _ = path;
-        Ok(())
+        unix::recent_documents::remember(paths)
+    }
+    #[cfg(any(target_os = "windows", target_os = "macos"))]
+    {
+        let mut result = Ok(());
+        for path in paths {
+            #[cfg(target_os = "windows")]
+            let updated = windows::recent_documents::remember(&path);
+            #[cfg(target_os = "macos")]
+            let updated = unix::services::remember_recent_document(&path);
+            result = result.and(updated);
+        }
+        result
     }
 }
 
@@ -794,7 +802,7 @@ pub(crate) fn clear_recent_documents() -> std::io::Result<()> {
     }
     #[cfg(target_os = "linux")]
     {
-        Ok(())
+        unix::recent_documents::clear()
     }
 }
 

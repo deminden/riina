@@ -6265,3 +6265,34 @@ remain open.
 - Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
 - Linux application SHA-256 `4e4bf3d635a1bb43dfa64d0d5ba2a563c86e96b10d7c7e99f8196d6e6f8dad70`
 - Linux libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`
+
+### Welcome and Open Recent (2026-11-26)
+
+The Windows workspace gate passed with 1,139 Rust test passes including
+isolated app subprocesses, 84 ignored cases, 79 Python tests and four browser
+tests. It included the software-rendered player and Settings checks. A widget
+test opened recent documents by keyboard and pointer with Resume unavailable,
+and checked that the tenth item scrolled into view. The application tests
+covered preserving selection across changes from another player, rejecting a
+retired selection after Clear Menu, and suppressing a duplicate Resume entry
+addressed by file URL.
+
+On a private Windows desktop with Resume disabled, Down and Return in Welcome
+opened the second recording paused. The Welcome window disappeared and Open
+Recent moved the selected recording to the top. The locked workspace build
+and the exact player's normal shutdown passed. All 71 Windows native playback
+tests passed.
+
+The Linux bookmark tests preserved other applications on shared entries,
+preserved malformed input on a failed read, and reread the store after a
+concurrent change before applying the update. The locked Linux build opened
+a Unicode path from Welcome on an isolated X11 desktop. GTK's recent manager
+read the new Riina registration and the preexisting entry from a different
+application. The player closed normally. Apple Silicon and Intel source
+checks passed under strict Clippy. Native macOS verification and a clean
+matched Welcome capture remain open.
+
+- Windows application SHA-256 `ebe5cf9af1f1d2d726b46008b5b8090d43391d2b7c5e894bc0ba1be7015f6a6e`
+- Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
+- Linux application SHA-256 `4729c4c05f2c5736d508e9616237bfb1cc96e4e69d61b5dac74510db1a90d14f`
+- Linux libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`

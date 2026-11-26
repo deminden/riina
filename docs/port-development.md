@@ -58,6 +58,11 @@ Linux desktop media controls use MPRIS over the session bus. They follow the
 active player and honor the system media controls preference. Opening media
 through MPRIS uses the normal file and URL opening rules. [MPRIS player interface](https://specifications.freedesktop.org/mpris/latest/Player_Interface.html)
 
+Linux registers local recent media in the per-user GTK bookmark store.
+Clearing Open Recent removes Riina's registration from each bookmark and
+retains media registered by another application. Updates reread the store
+when GIO detects a simultaneous change. [GLib desktop bookmarks](https://docs.gtk.org/glib/struct.BookmarkFile.html)
+
 Picture-in-Picture uses the same playback session on Linux. The X11 preview
 requests always-on-top and supports the player's hide, minimize and restore
 policies. On Wayland it is a regular toplevel, and entering keeps the player

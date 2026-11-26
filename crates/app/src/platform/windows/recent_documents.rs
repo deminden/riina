@@ -26,7 +26,7 @@ pub fn initialize() -> io::Result<()> {
         .map_err(io::Error::other)
 }
 
-pub fn remember(path: &str) -> io::Result<()> {
+pub fn remember(path: &Path) -> io::Result<()> {
     let Some(path) = recent_media_file_path(path) else {
         return Ok(());
     };
@@ -40,8 +40,7 @@ pub fn remember(path: &str) -> io::Result<()> {
     Ok(())
 }
 
-fn recent_media_file_path(path: &str) -> Option<PathBuf> {
-    let path = Path::new(path);
+fn recent_media_file_path(path: &Path) -> Option<PathBuf> {
     if path.is_file() {
         path.canonicalize().ok()
     } else {
@@ -101,14 +100,11 @@ mod tests {
     fn recent_document_tracking_ignores_urls_and_missing_paths() {
         let directory = TempDir::new("recent-document").unwrap();
         let temp = directory.path().join("recent.mkv");
-        let path = temp.to_string_lossy().into_owned();
-
-        assert!(super::recent_media_file_path("https://example.com/video.mkv").is_none());
-        assert!(super::recent_media_file_path(&path).is_none());
+        assert!(super::recent_media_file_path(&temp).is_none());
 
         fs::write(&temp, b"fixture").unwrap();
         assert_eq!(
-            super::recent_media_file_path(&path),
+            super::recent_media_file_path(&temp),
             Some(temp.canonicalize().unwrap())
         );
     }

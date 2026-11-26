@@ -10,7 +10,7 @@ use riina_core::{Command, sync::lock};
 use riina_mpv::CommandSender;
 use riina_ui::PlayerMenuActions;
 use slint::{
-    ComponentHandle,
+    ComponentHandle, Model,
     winit_030::{EventResult, WinitWindowAccessor},
 };
 use std::{
@@ -310,13 +310,15 @@ fn install_open_recent_menu(app: &PlayerWindow, context: &Context<'_>) {
     let recent = &context.recent.activity;
     let remember = recent.clone();
     let weak = app.as_weak();
-    app.on_remember_recent_path(move |path| {
-        if let Some(app) = weak.upgrade() {
-            let title = PathBuf::from(path.as_str()).file_name().map_or_else(
-                || path.to_string(),
-                |name| name.to_string_lossy().into_owned(),
-            );
-            remember.remember_document(&app, path.to_string(), title);
+    app.on_remember_recent_paths(move |paths| {
+        if let Some(app) = weak.upgrade()
+            && app
+                .global::<riina_ui::PlayerPreferences>()
+                .get_record_recent_files()
+            && let Err(error) =
+                remember.record_selections(paths.iter().map(|path| path.to_string()))
+        {
+            crate::diagnostics::report(&app, error);
         }
     });
     let documents = recent.clone();
@@ -390,12 +392,11 @@ fn install_welcome_recent(
     let weak = app.as_weak();
     let recent_welcome = welcome_window.clone();
     let recent_pending = pending_welcome_open.clone();
-    app.on_open_recent(move |index| {
+    app.on_open_recent(move |token, resume| {
         let Some(app) = weak.upgrade() else {
             return;
         };
-        if let Some(media) = recent_media_for_open.welcome_selection(&app, index) {
-            let resume = index == -1;
+        if let Some(media) = recent_media_for_open.welcome_selection(&app, token.as_str(), resume) {
             recent_media_for_open.remember_document(&app, media.path.clone(), media.title.clone());
             let from_welcome = recent_welcome
                 .as_ref()

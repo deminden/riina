@@ -62,9 +62,7 @@ pub(crate) fn dispatch_selection(
 ) -> Result<(), String> {
     match purpose {
         Purpose::Media | Purpose::MediaAlternative => {
-            for path in &paths {
-                app.invoke_remember_recent_path(path.clone().into());
-            }
+            remember_selected_paths(app, &paths);
             media_open::file_dialog_selection(
                 app,
                 paths,
@@ -81,4 +79,12 @@ pub(crate) fn dispatch_selection(
             .command(paths)
             .map_or(Ok(()), |command| sender.send(command).map_err(String::from)),
     }
+}
+
+pub(crate) fn remember_selected_paths(app: &PlayerWindow, paths: &[String]) {
+    let rows = paths
+        .iter()
+        .map(|path| slint::SharedString::from(path.as_str()))
+        .collect::<Vec<_>>();
+    app.invoke_remember_recent_paths(slint::ModelRc::new(slint::VecModel::from(rows)));
 }

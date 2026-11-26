@@ -130,15 +130,7 @@ impl ApplicationServices {
             return;
         }
         let recents = self.recents.for_profile(profile, preferences, true);
-        let documents = paths.iter().map(|path| {
-            let title = std::path::Path::new(path)
-                .file_name()
-                .and_then(std::ffi::OsStr::to_str)
-                .unwrap_or(path)
-                .to_owned();
-            (path.clone(), title)
-        });
-        if let Err(error) = recents.record_documents(documents) {
+        if let Err(error) = recents.record_selections(paths.iter().cloned()) {
             crate::diagnostics::warn!("{error}");
         }
     }

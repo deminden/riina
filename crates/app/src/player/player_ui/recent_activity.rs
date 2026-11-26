@@ -103,7 +103,12 @@ impl RecentActivity {
         );
     }
 
-    pub(super) fn welcome_selection(&self, app: &PlayerWindow, index: i32) -> Option<RecentMedia> {
+    pub(super) fn welcome_selection(
+        &self,
+        app: &PlayerWindow,
+        token: &str,
+        resume_selected: bool,
+    ) -> Option<RecentMedia> {
         let prefs = app.global::<PlayerPreferences>();
         if !prefs.get_record_recent_files() {
             return None;
@@ -111,11 +116,11 @@ impl RecentActivity {
         let resume = self.resume.borrow();
         let last =
             super::media_actions::recent::resumable(&resume, prefs.get_resume_last_position());
-        if index == -1 {
-            return last.cloned();
+        if resume_selected {
+            return last.filter(|entry| entry.path == token).cloned();
         }
         super::media_actions::recent::visible_documents(&lock(&self.documents), last)
-            .nth(usize::try_from(index).ok()?)
+            .find(|entry| entry.path == token)
             .cloned()
     }
 
@@ -132,6 +137,20 @@ impl RecentActivity {
         {
             crate::diagnostics::report(app, error);
         }
+    }
+
+    pub(super) fn record_selections(
+        &self,
+        paths: impl IntoIterator<Item = String>,
+    ) -> Result<(), String> {
+        self.record_documents(paths.into_iter().map(|path| {
+            let local = crate::file_actions::local_media_path(&path);
+            let title = local
+                .as_deref()
+                .and_then(Path::file_name)
+                .map_or_else(|| path.clone(), |name| name.to_string_lossy().into_owned());
+            (path, title)
+        }))
     }
 
     pub(super) fn record_documents(
@@ -177,14 +196,14 @@ impl RecentActivity {
             .sync_plugins()
             .err()
             .map(|error| format!("Could not update plugin recent files: {error}"));
-        if self.use_system_services {
-            for document in &documents {
-                if let Err(error) = platform::remember_recent_document(&document.path) {
-                    failure.get_or_insert_with(|| {
-                        format!("Could not update system recent documents: {error}")
-                    });
-                }
-            }
+        if self.use_system_services
+            && let Err(error) = platform::remember_recent_documents(
+                documents.iter().map(|entry| entry.path.as_str()),
+            )
+        {
+            failure.get_or_insert_with(|| {
+                format!("Could not update system recent documents: {error}")
+            });
         }
         failure.map_or(Ok(()), Err)
     }

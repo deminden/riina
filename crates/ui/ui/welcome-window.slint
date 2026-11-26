@@ -2,7 +2,7 @@ import { Theme } from "theme.slint";
 import { ScrollView } from "std-widgets.slint";
 import { NativeTypography } from "shared-controls.slint";
 
-export struct RecentMediaRow { title: string, position-label: string }
+export struct RecentMediaRow { token: string, title: string, position-label: string }
 
 component WelcomeAction inherits Rectangle {
     in property <string> label;
@@ -37,7 +37,6 @@ component WelcomeAction inherits Rectangle {
 
 component RecentMediaEntry inherits Rectangle {
     in property <string> label;
-    in property <string> detail;
     in property <bool> prominent: false;
     in property <bool> selected: false;
     callback activated();
@@ -46,14 +45,12 @@ component RecentMediaEntry inherits Rectangle {
     border-radius: 4px;
     background: Theme.welcome-history-surface(touch.has-hover, selected, prominent);
     accessible-role: button;
-    accessible-label: detail == "" ? label : label + ", " + detail;
+    accessible-label: label;
     accessible-action-default => { activated(); }
     HorizontalLayout {
         padding-left: 8px; padding-right: 8px; spacing: 8px;
         Text { text: root.label; color: Theme.welcome-history-title; font-size: 12px;
             vertical-alignment: center; overflow: elide; horizontal-stretch: 1; }
-        Text { text: root.detail; color: Theme.welcome-history-detail; font-size: 11px;
-            vertical-alignment: center; }
     }
     touch := TouchArea { clicked => { focus.focus(); root.activated(); } }
     focus := FocusScope {
@@ -123,9 +120,17 @@ export component WelcomeWindow inherits Window {
     in-out property <int> selection-index: -1;
     callback open-file();
     callback open-url();
-    callback open-recent(int);
+    callback open-recent(string, bool);
     callback show-playback-history();
     init => { keys.focus(); }
+
+    function activate-selection() {
+        if root.selection-index < 0 && root.recent-media.length > 0 {
+            root.open-recent(root.recent-media[0].token, true);
+        } else if root.selection-index >= 0 && root.selection-index < root.recent-documents.length {
+            root.open-recent(root.recent-documents[root.selection-index].token, false);
+        }
+    }
 
     keys := FocusScope {
         width: root.width; height: root.height;
@@ -163,21 +168,29 @@ export component WelcomeWindow inherits Window {
                 wrap: word-wrap;
             }
             Rectangle { height: 16px; }
-            if root.recent-media.length > 0 : VerticalLayout {
+            if root.recent-media.length > 0 || root.recent-documents.length > 0 : VerticalLayout {
                 spacing: 2px; vertical-stretch: 1;
-                ResumeMediaEntry {
+                if root.recent-media.length > 0 : ResumeMediaEntry {
                     media-title: root.recent-media[0].title;
                     position-label: root.recent-media[0].position-label;
                     selected: root.selection-index < 0;
-                    activated => { root.selection-index = -1; root.open-recent(-1); }
+                    activated => { root.selection-index = -1; root.activate-selection(); }
                 }
                 if root.recent-documents.length > 0 : ScrollView {
                     horizontal-stretch: 1; vertical-stretch: 1;
+                    property <int> selected-row: root.selection-index;
+                    changed selected-row => {
+                        if self.selected-row >= 0 {
+                            let top = self.selected-row * 29px;
+                            let offset = min(max(self.content-y, self.visible-height - top - 28px), -top);
+                            self.content-y = clamp(offset, min(0px, self.visible-height - self.content-height), 0px);
+                        }
+                    }
                     VerticalLayout { spacing: 1px;
                         for row[index] in root.recent-documents : RecentMediaEntry {
-                            label: row.title; detail: row.position-label;
+                            label: row.title;
                             selected: root.selection-index == index;
-                            activated => { root.selection-index = index; root.open-recent(index); }
+                            activated => { root.selection-index = index; root.open-recent(row.token, false); }
                         }
                     }
                 }
@@ -205,9 +218,7 @@ export component WelcomeWindow inherits Window {
                 return accept;
             }
             if event.text == Key.Return {
-                if root.recent-media.length > 0 || root.recent-documents.length > 0 {
-                    root.open-recent(root.selection-index);
-                }
+                root.activate-selection();
                 return accept;
             }
             return reject;

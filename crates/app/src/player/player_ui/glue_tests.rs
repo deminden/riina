@@ -508,13 +508,28 @@ fn exercise_shared_recents(profile: &std::path::Path) -> Result<(), Box<dyn std:
     };
     assert_eq!(welcome.get_recent_media().row_count(), 1);
     assert_eq!(welcome.get_recent_documents().row_count(), 0);
-    second
-        .app
-        .invoke_remember_recent_path(new_media.clone().into());
+    crate::ui_dialogs::remember_selected_paths(&second.app, std::slice::from_ref(&new_media));
     assert_eq!(menu_rows(&first.app).row_count(), 2);
     assert_eq!(
         welcome.get_recent_documents().row_data(0).unwrap().title,
         "second.mkv"
+    );
+    let third = directory.join("third.mkv");
+    std::fs::write(&third, b"third")?;
+    welcome.set_selection_index(0);
+    crate::ui_dialogs::remember_selected_paths(
+        &second.app,
+        &[third.to_string_lossy().into_owned()],
+    );
+    assert_eq!(welcome.get_selection_index(), 1);
+    assert_eq!(
+        welcome
+            .get_recent_documents()
+            .row_data(1)
+            .unwrap()
+            .token
+            .as_str(),
+        new_media
     );
     first
         .app
@@ -522,6 +537,10 @@ fn exercise_shared_recents(profile: &std::path::Path) -> Result<(), Box<dyn std:
         .invoke_clear_open_recent();
     assert_eq!(menu_rows(&second.app).row_count(), 0);
     assert_eq!(welcome.get_recent_media().row_count(), 1);
+    first
+        .app
+        .invoke_open_recent(new_media.as_str().into(), false);
+    first.expect_idle();
 
     let paused = |id, generation, filename, position| Playback {
         generation,

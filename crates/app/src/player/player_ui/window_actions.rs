@@ -77,9 +77,9 @@ pub(super) fn install_lifecycle(app: &PlayerWindow, welcome: Option<&WelcomeWind
             }
         });
         let weak = app.as_weak();
-        welcome.on_open_recent(move |index| {
+        welcome.on_open_recent(move |token, resume| {
             if let Some(app) = weak.upgrade() {
-                app.invoke_open_recent(index);
+                app.invoke_open_recent(token, resume);
             }
         });
     }

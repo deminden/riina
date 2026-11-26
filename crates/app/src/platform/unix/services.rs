@@ -4,12 +4,12 @@ use std::{
 };
 
 #[cfg(target_os = "macos")]
-pub fn remember_recent_document(path: &str) -> std::io::Result<()> {
+pub fn remember_recent_document(path: &Path) -> std::io::Result<()> {
     use objc2::MainThreadMarker;
     use objc2_app_kit::NSDocumentController;
     use objc2_foundation::{NSString, NSURL};
 
-    let Ok(path) = Path::new(path).canonicalize() else {
+    let Ok(path) = path.canonicalize() else {
         return Ok(());
     };
     if !path.is_file() {

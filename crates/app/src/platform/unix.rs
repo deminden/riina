@@ -18,6 +18,8 @@ pub(super) mod offscreen_webview;
 pub(super) mod pip;
 #[cfg(target_os = "linux")]
 pub(crate) mod plugin_shortcuts;
+#[cfg(target_os = "linux")]
+pub(super) mod recent_documents;
 pub(crate) mod services;
 #[cfg(target_os = "linux")]
 pub(crate) mod visibility;
