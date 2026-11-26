@@ -5923,3 +5923,35 @@ and interactive statistics remain open.
 - Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
 - Linux application SHA-256 `1fe74d39c17d0971465847ed098d2e956fe11aac5e326a1c2d5ad4fee1bb172c`
 - Linux libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`
+
+### Embedded mpv console and statistics input (2026-11-26)
+
+The Windows workspace gate passed, including strict Clippy, the player and
+Settings software-rendered baselines, and the app regression for buffering
+text until the console's forced bindings become active. The locked Windows
+workspace build passed. The native suite passed all 70 playback tests, with
+one scenario covering an edited command, a Unicode media title, console
+dismissal and statistics ownership.
+
+On a private Windows desktop, an isolated profile bound F8 to the console
+and F7 to statistics. Typed Backspace and Enter submitted `set speed 1.25`
+while playback stayed paused. Escape restored the profile's Pause shortcut.
+Statistics claimed `4`, left Pause available, and returned `4` to the
+profile after Escape. The player closed normally and its exact process exited.
+
+The locked Linux build passed. On isolated X11, the Lua-enabled mpv 0.41.0
+build at `41f6a645068483470267271e1d09966ca3b9f413` passed the same console
+and statistics workflow. The profile's Pause menu shortcut had consumed
+the `p` in `speed` during the first probe. The final window input handler
+prevented that activation and restored the shortcut on Escape. With the
+engine without Lua, pressing the unavailable console binding left playback
+shortcuts active. Both exact processes exited normally.
+
+Apple Silicon and Intel application and test sources passed strict cross-Clippy.
+Native macOS interaction and matched console and statistics pixels remain open.
+
+- Windows application SHA-256 `6a966c65be204ea4c25f9566f47e8411923ac9fdddf58ec193fc510c5611623f`
+- Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
+- Linux application SHA-256 `8c7c6b922298338231f2654de83e110818f10ed42f8b6a18972b3ef32ae0ef88`
+- Linux libmpv with Lua SHA-256 `4b4c5d73705aab8628c89653e0000eb68d774a5290ff93efc0ca1222f1e0fd87`
+- Linux libmpv without Lua SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`

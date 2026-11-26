@@ -14,6 +14,7 @@ import { PlaybackSubtitleState } from "playback-subtitle-state.slint";
 import { PlaybackVideoState } from "playback-video-state.slint";
 import { PlayerPreferences } from "player-preferences.slint";
 import { PlayerMenuActions, PlayerEdit } from "player-menu-actions.slint";
+import { PlayerControlActions } from "player-control-actions.slint";
 import { CatalogRow, CatalogSelection } from "catalog-row.slint";
 import { MenuCatalogRow, MenuShortcutRow, PluginMenuDisplay, PluginMenuRow, SavedFilterMenuRow } from "native-video.slint";
 
@@ -73,7 +74,7 @@ export component PlayerMenuWindow inherits Window {
     function player-shortcut(shortcut: keys) -> keys {
         let playlist-visible = PlayerMusicModeState.music-mode ? PlayerSidebarState.visible-catalog-pane == 4
             : PlayerSidebarState.sidebar == 4 || PlayerSidebarState.leading-sidebar == 4;
-        return PlaylistPluginPopupState.shown ||
+        return PlayerControlActions.mpv-console-ready || PlaylistPluginPopupState.shown ||
             (PlayerPluginSidebarState.composited && PlayerPluginSidebarState.keyboard-focused) ||
             (playlist-visible && PlaylistInteraction.owns-navigation-shortcut(shortcut)) ||
             (!root.menu-value-snapshot-shortcuts &&

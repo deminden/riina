@@ -19,6 +19,31 @@ pub use plugin_keys::normalize_mpv_key;
 
 use std::fmt;
 
+pub const SCRIPT_KEY_LIMIT: usize = 64;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MpvInputOwner {
+    Console,
+    Statistics,
+}
+
+pub(crate) fn script_keypresses(keys: &[String]) -> Result<Vec<Vec<String>>, crate::CommandError> {
+    if keys.is_empty()
+        || keys.len() > SCRIPT_KEY_LIMIT
+        || keys
+            .iter()
+            .any(|key| key.is_empty() || key.len() > 64 || key.contains('\0'))
+    {
+        return Err(crate::CommandError::InvalidArgument {
+            what: "Invalid mpv script input",
+        });
+    }
+    Ok(keys
+        .iter()
+        .map(|key| vec!["keypress".into(), key.clone()])
+        .collect())
+}
+
 const APP_DIRECTIVE: &str = "#@iina";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

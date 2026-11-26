@@ -93,8 +93,18 @@ impl Hooks {
         });
     }
 
-    pub(super) fn next_message(&self, receiver: &Receiver<Message>) -> Option<Message> {
-        let Some(deadline) = self.pending.values().map(|hook| hook.deadline).min() else {
+    pub(super) fn next_message(
+        &self,
+        receiver: &Receiver<Message>,
+        script_deadline: Option<Instant>,
+    ) -> Option<Message> {
+        let Some(deadline) = self
+            .pending
+            .values()
+            .map(|hook| hook.deadline)
+            .chain(script_deadline)
+            .min()
+        else {
             return receiver.recv().ok();
         };
         match receiver.recv_timeout(deadline.saturating_duration_since(Instant::now())) {

@@ -123,6 +123,11 @@ Implementation does not imply every state or platform is verified.
   screenshot destinations and encoding, including explicit video, subtitle
   and window captures. The native repeated-capture mode uses the configured
   directory and toggles off on the next press.
+- **Embedded mpv console and statistics:** the player hands off keyboard input
+  once mpv's console bindings are active. Enter submits commands and Escape
+  returns the keyboard to playback. Statistics receives its active page keys
+  while ordinary playback shortcuts remain available. These workflows require
+  an engine with the built-in Lua scripts.
 - **Recent activity:** player windows share Open Recent with Welcome and
   plugins. The macOS application menu also opens and clears recent documents
   while no player is open. Settings Utilities clears history, recent documents

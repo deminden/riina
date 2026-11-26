@@ -2,8 +2,8 @@
 use super::{
     PendingNavigation, audio_controls, catalog,
     context::{PlayerContext, bind},
-    controller_arrows, delays, dialogs, feedback, hdr_output, input, playlist_actions,
-    playlist_subtitles, subtitle_controls, transport, video_controls,
+    controller_arrows, delays, dialogs, embedded_input, feedback, hdr_output, input,
+    playlist_actions, playlist_subtitles, subtitle_controls, transport, video_controls,
 };
 use crate::{
     PlayerWindow, crop_editor::Editor, platform, screenshot_output::Scratch, video_osd::VideoOsd,
@@ -49,6 +49,7 @@ pub(super) fn install(app: &PlayerWindow, inputs: Inputs<'_>) {
     video_controls::install_deinterlace(app, command_sender);
     transport::install_pause(app, context);
     input::install_mpv_input_action(app, context);
+    embedded_input::install(app, context);
     bind!(
         context,
         app.global::<PlayerMenuActions>(),

@@ -11,6 +11,7 @@ pub(crate) use profile_playback::ProfilePlaybackBinding;
 mod delays;
 mod dialogs;
 mod discovery;
+pub(crate) mod embedded_input;
 mod engine_start;
 mod features;
 mod feedback;

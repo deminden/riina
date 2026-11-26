@@ -2,7 +2,7 @@
 mod scroll;
 
 use self::scroll::ScrollInputState;
-use super::{playlist_drop, playlist_hover::PlaylistHover};
+use super::{embedded_input, playlist_drop, playlist_hover::PlaylistHover};
 use crate::{PlayerWindow, platform};
 use riina_core::Command;
 use riina_ui::PlayerMenuActions;
@@ -147,8 +147,13 @@ fn install_window_events(
     let playlist_hover = Rc::new(PlaylistHover::new(app));
     let native_drop = playlist_drop::register_desktop(app, &event_player, playlist_hover.clone());
     native_drop.attach_owner(native_host);
+    let mut script_keys = embedded_input::WindowKeys::default();
     app.window().on_winit_window_event(move |window, event| {
         native_drop.attach(window);
+        // The native event arrives before Slint can match a menu accelerator.
+        if script_keys.handle(&event_app, event) {
+            return EventResult::PreventDefault;
+        }
         if handle_window_event(window, event) == EventResult::PreventDefault {
             return EventResult::PreventDefault;
         }

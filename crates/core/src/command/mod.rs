@@ -66,6 +66,10 @@ pub enum Command {
     TogglePause,
     /// A validated mpv input.conf action from the active key binding profile.
     MpvInputAction(String),
+    MpvScriptKeys {
+        owner: crate::key_bindings::MpvInputOwner,
+        keys: Vec<String>,
+    },
     PluginMpv(PluginMpvCommand),
     Stop,
     Seek {

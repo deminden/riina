@@ -77,6 +77,10 @@ pub struct Playback {
     pub mpv_version: Option<String>,
     /// FFmpeg version reported by the loaded libmpv runtime, when available.
     pub ffmpeg_version: Option<String>,
+    pub mpv_console_available: bool,
+    pub mpv_console_open: bool,
+    pub mpv_console_keys_active: bool,
+    pub mpv_statistics_keys: Arc<Vec<String>>,
     /// Observed libmpv filename-hashing policy for its watch-later files.
     pub ignore_path_in_watch_later_config: Option<bool>,
     /// Observed save-on-stop/quit policy; Stop writes watch-later only when enabled.

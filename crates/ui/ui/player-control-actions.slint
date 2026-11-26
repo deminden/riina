@@ -23,6 +23,10 @@ export global PlayerControlActions {
     callback plugin-pointer-location(float, float);
     callback set-paused(bool);
     callback execute-mpv-input-action(string);
+    callback open-mpv-console();
+    callback forward-mpv-script-key(string, bool, bool, bool, bool, bool) -> bool;
+    callback mpv-console-keys-ready();
+    in-out property <bool> mpv-console-ready;
     callback take-key-screenshot(string);
     callback set-volume(float);
     callback subtitle-seek(int);

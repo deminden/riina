@@ -104,9 +104,9 @@ fn allows_repeat(action: Option<&RuntimeAction>, override_value: Option<bool>) -
     match action {
         Some(RuntimeAction::TrashCurrentMedia | RuntimeAction::DeleteCurrentMediaPermanently)
         | None => false,
-        Some(RuntimeAction::Screenshot | RuntimeAction::Quit { .. }) => {
-            override_value.unwrap_or(false)
-        }
+        Some(
+            RuntimeAction::Screenshot | RuntimeAction::Quit { .. } | RuntimeAction::OpenMpvConsole,
+        ) => override_value.unwrap_or(false),
         Some(_) => override_value.unwrap_or(true),
     }
 }
@@ -170,6 +170,7 @@ pub(super) enum RuntimeAction {
     ToggleLiveText,
     AbLoop,
     Screenshot,
+    OpenMpvConsole,
     MpvInputAction(String),
     Ignore,
 }
@@ -243,6 +244,9 @@ fn resolve_action(mapping: &Mapping) -> (Option<RuntimeAction>, Option<bool>) {
 
 fn mpv_runtime_action(action: &str, command: &InputCommand) -> Option<RuntimeAction> {
     let words: Vec<_> = command.arguments().iter().map(String::as_str).collect();
+    if words == ["script-binding", "console/enable"] {
+        return Some(RuntimeAction::OpenMpvConsole);
+    }
     if !command.prefixes().is_empty()
         && !matches!(
             words.as_slice(),
@@ -466,6 +470,9 @@ fn dispatch_action(
         RuntimeAction::Screenshot => app
             .global::<riina_ui::PlayerControlActions>()
             .invoke_take_key_screenshot(mapping.action.as_str().into()),
+        RuntimeAction::OpenMpvConsole => app
+            .global::<riina_ui::PlayerControlActions>()
+            .invoke_open_mpv_console(),
         RuntimeAction::MpvInputAction(action) => app
             .global::<riina_ui::PlayerControlActions>()
             .invoke_execute_mpv_input_action(action.into()),

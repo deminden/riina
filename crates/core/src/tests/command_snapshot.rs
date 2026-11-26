@@ -37,6 +37,7 @@ command_samples! {
     SetPaused[false];
     TogglePause;
     MpvInputAction["seek 5; set pause yes".into()];
+    MpvScriptKeys { owner: key_bindings::MpvInputOwner::Console, keys: vec!["É".into(), "ENTER".into()] };
     PluginMpv[sample_plugin_command()];
     Stop;
     Seek { seconds: 4.25, absolute: false };

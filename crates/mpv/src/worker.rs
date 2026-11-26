@@ -6,6 +6,7 @@ mod handle;
 mod hooks;
 mod playlist_end_pause;
 mod playlist_resume;
+mod script_input;
 mod stream;
 mod version_probe;
 pub use duration_probe::read_local_duration;
@@ -26,7 +27,7 @@ use crate::{
 };
 use riina_core::{
     CapturedFrame, Command, CommandPlan, NoticeSeverity, Phase, Playback, RememberedVolume,
-    key_bindings::{mpv_command_prefix_len, mpv_command_suppresses_osd},
+    key_bindings::{MpvInputOwner, mpv_command_prefix_len, mpv_command_suppresses_osd},
 };
 use std::{
     collections::{BTreeMap, HashMap},
@@ -111,7 +112,10 @@ impl<N: Fn(Arc<Playback>)> Start<N> {
             record_notice(&mut state.playback, NoticeSeverity::Warning, message);
         }
 
-        while let Some(message) = state.hooks.next_message(&receiver) {
+        while let Some(message) = state
+            .hooks
+            .next_message(&receiver, state.script_input.deadline())
+        {
             if accept_shutdown(&message) {
                 break;
             }
@@ -161,6 +165,7 @@ impl<N: Fn(Arc<Playback>)> Start<N> {
                     Message::Shutdown => return,
                 }
                 state.drain_events(&mut handle, &callback_sender);
+                state.script_input.request_due(&handle);
                 state.repair_audio_output(&handle);
                 state.stop_cancelled_stream(&handle);
                 state.hooks.continue_ready(&handle);
@@ -220,6 +225,11 @@ fn configure(
     for (name, value) in [
         ("config", "no"),
         ("load-scripts", "no"),
+        // The app owns the selected profile. Older engines also check their
+        // standalone shortcuts before the console's text fallback.
+        ("input-default-bindings", "no"),
+        // Forwarded text can contain up to 64 characters in one UI event.
+        ("input-key-fifo-size", "128"),
         ("idle", "yes"),
         ("vo", if headless { "null" } else { "libmpv" }),
         ("volume-max", "100"),
@@ -299,6 +309,7 @@ struct WorkerState {
     playlist_edits: PendingEdits,
     client_requests: HashMap<u64, Pending>,
     hooks: hooks::Hooks,
+    script_input: script_input::Watch,
     volume_boost: bool,
     adjusted_volume_read: Option<(u64, u64)>,
     pending_drop_subtitles: Vec<String>,
@@ -396,6 +407,26 @@ impl WorkerState {
     }
 
     fn handle_intent(&mut self, handle: &Handle, command: Command) {
+        if let Command::MpvScriptKeys { owner, keys } = &command {
+            // Escape may close a script between UI submission and worker delivery.
+            let active = match owner {
+                MpvInputOwner::Console => {
+                    self.playback.mpv_console_open && self.playback.mpv_console_keys_active
+                }
+                MpvInputOwner::Statistics => {
+                    !self.playback.mpv_console_open
+                        && keys
+                            .iter()
+                            .all(|key| self.playback.mpv_statistics_keys.contains(key))
+                }
+            };
+            if !active {
+                return;
+            }
+            if *owner == MpvInputOwner::Statistics {
+                self.script_input.schedule();
+            }
+        }
         self.handle_intent_with_stream(handle, command, None, None);
     }
 
@@ -547,6 +578,9 @@ impl WorkerState {
                 };
             }
             self.issue(handle, &args, reply)?;
+            if script_input::changes_statistics(action) {
+                self.script_input.schedule();
+            }
             if let Command::AudioDevice(device) = command {
                 // A reply can arrive before the new audio-device observation.
                 self.pending_audio_change = Some((self.next_id, device.clone()));
@@ -713,6 +747,12 @@ impl WorkerState {
 
     fn drain_events(&mut self, handle: &mut Handle, wake: &SyncSender<Message>) {
         while let Some(event) = handle.wait() {
+            if script_input::Watch::is_reply(&event) {
+                if self.script_input.apply_reply(&event, &mut self.playback) {
+                    self.mark_changed();
+                }
+                continue;
+            }
             if let Some((hook, entry, failed)) = self.stream_auth.take_reply(&event) {
                 self.finish_stream_auth(handle, hook, entry, failed);
                 continue;
@@ -825,6 +865,7 @@ impl WorkerState {
                 self.auto_seek.seek_started(Instant::now());
             }
             event_id::PROPERTY_CHANGE => {
+                let console_open = self.playback.mpv_console_open;
                 let observer = self.observers.get(&event.userdata()).cloned();
                 if let Some(name) = observer.as_ref()
                     && self.stream_auth.protects(name)
@@ -835,8 +876,12 @@ impl WorkerState {
                 } else {
                     event.apply_property(&mut self.playback, observer);
                 }
+                if console_open != self.playback.mpv_console_open {
+                    self.script_input.schedule();
+                }
             }
             event_id::QUEUE_OVERFLOW => {
+                self.script_input.recover();
                 self.stream = None;
                 self.folder_discovery = folder_discovery::FolderDiscovery::default();
                 self.playback.folder_discovery_allowed = false;

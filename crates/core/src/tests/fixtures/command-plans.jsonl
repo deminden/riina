@@ -11,6 +11,7 @@
 {"command":"SetPaused","mpv":[["set","pause","no"]],"resume_on_load":false}
 {"command":"TogglePause","mpv":[["cycle","pause"]],"resume_on_load":false}
 {"command":"MpvInputAction","mpv":[["osd-auto","seek","5"],["osd-auto","set","pause","yes"]],"resume_on_load":false}
+{"command":"MpvScriptKeys","mpv":[["keypress","É"],["keypress","ENTER"]],"resume_on_load":false}
 {"command":"PluginMpv","mpv":[["show-text","literal; stop"]],"resume_on_load":false}
 {"command":"Stop","mpv":[["write-watch-later-config"],["stop"]],"resume_on_load":false}
 {"command":"Seek","mpv":[["seek","4.25","relative"]],"resume_on_load":false}

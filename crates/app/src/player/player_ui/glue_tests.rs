@@ -115,6 +115,73 @@ impl Harness {
 }
 
 #[test]
+fn script_keys_follow_native_ownership_and_preserve_playback_shortcuts()
+-> Result<(), Box<dyn std::error::Error>> {
+    use riina_core::key_bindings::MpvInputOwner;
+    use riina_ui::PlayerControlActions;
+
+    i_slint_backend_testing::init_integration_test_with_mock_time();
+    let directory = TempDir::new("mpv-console-routing")?;
+    let player = Harness::start(directory.path().join("preferences.json"), false)?;
+    crate::key_binding_preferences::install_player(
+        &player.app,
+        &riina_core::key_bindings::Settings {
+            current_profile: "mpv Default".into(),
+            ..Default::default()
+        },
+        crate::PlaybackStore::default(),
+    );
+    let controls = player.app.global::<PlayerControlActions>();
+    let route = |key: &str| {
+        controls.invoke_forward_mpv_script_key(key.into(), false, false, false, false, false)
+    };
+    assert!(!route("s"));
+    controls.invoke_open_mpv_console();
+    player.expect_idle();
+    assert!(!route("s"));
+
+    let mut state = Playback {
+        mpv_console_available: true,
+        ..Playback::default()
+    };
+    player.publish(state.clone())?;
+    assert!(controls.invoke_dispatch_key_binding("`".into(), false, false, false, false, false));
+    player.expect(Command::MpvInputAction(
+        "script-binding console/enable".into(),
+    ));
+    assert!(route("H"));
+    assert!(route("é"));
+    assert!(controls.invoke_forward_mpv_script_key("é".into(), false, false, false, false, true));
+    player.expect_idle();
+    state.mpv_console_open = true;
+    player.publish(state.clone())?;
+    player.expect_idle();
+    state.mpv_console_keys_active = true;
+    player.publish(state.clone())?;
+    player.expect(Command::MpvScriptKeys {
+        owner: MpvInputOwner::Console,
+        keys: vec!["H".into(), "é".into()],
+    });
+
+    assert!(route("Escape"));
+    player.expect(Command::MpvScriptKeys {
+        owner: MpvInputOwner::Console,
+        keys: vec!["ESC".into()],
+    });
+    state.mpv_console_open = false;
+    state.mpv_console_keys_active = false;
+    state.mpv_statistics_keys = std::sync::Arc::new(vec!["2".into(), "ESC".into()]);
+    player.publish(state)?;
+    assert!(!route("s"));
+    assert!(route("2"));
+    player.expect(Command::MpvScriptKeys {
+        owner: MpvInputOwner::Statistics,
+        keys: vec!["2".into()],
+    });
+    Ok(())
+}
+
+#[test]
 fn screenshot_bindings_use_the_players_capture_settings_and_ignore_key_repeat()
 -> Result<(), Box<dyn std::error::Error>> {
     use riina_core::screenshot::{Binding, Content, Encoding, Settings};

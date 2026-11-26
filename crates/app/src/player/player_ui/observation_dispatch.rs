@@ -246,6 +246,7 @@ impl WindowDelivery {
                 );
             let startup_presentation = observer.borrow_mut().startup_presentation(&app, &state);
             let clipboard_error = crate::screenshot_output::copy(&app, &captures);
+            super::embedded_input::observe(&app, &state);
             self.crop_editor.observe(&app, &state);
             let enter_fullscreen = lock(&self.opening_fullscreen).observe(
                 &state,

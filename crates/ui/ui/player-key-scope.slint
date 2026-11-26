@@ -33,9 +33,22 @@ export component PlayerKeyScope inherits FocusScope {
             PlaylistPluginPopupState.handle-key(event.text);
             return accept;
         }
+        if !PlayerCropState.crop-editing && !PlayerDialogState.dialog-open
+            && PlayerControlActions.forward-mpv-script-key(event.text, event.modifiers.control,
+                event.modifiers.alt, event.modifiers.shift, event.modifiers.meta, false) {
+            return accept;
+        }
         return reject;
     }
-    capture-key-released(_) => { return PlaylistPluginPopupState.shown ? accept : reject; }
+    capture-key-released(event) => {
+        if PlaylistPluginPopupState.shown { return accept; }
+        if !PlayerCropState.crop-editing && !PlayerDialogState.dialog-open
+            && PlayerControlActions.forward-mpv-script-key(event.text, event.modifiers.control,
+                event.modifiers.alt, event.modifiers.shift, event.modifiers.meta, true) {
+            return accept;
+        }
+        return reject;
+    }
 
     key-released(event) => {
         if (event.text == Key.Alt || !event.modifiers.alt) && menu-alternates-visible {

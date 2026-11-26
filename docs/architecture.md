@@ -40,6 +40,21 @@ until a caller needs a message for the user or plugin. The engine returns
 distinct errors when its command queue is full or its worker has stopped.
 See [Add a playback command](recipes/add-a-command.md).
 
+## Embedded mpv script input
+
+The engine owns the console overlay, history, statistics pages and their
+bindings. The player observes the console's availability, open state and active
+bindings. A bounded queue retains early console keystrokes until the engine
+installs the script's key handlers. libmpv does not notify clients when
+bindings change, so the worker refreshes only during a script transition.
+It provisions room for the batch and checks ownership again before delivery.
+The app owns the ordinary key profile and disables mpv's standalone defaults,
+which can otherwise claim printable console keys on older engines.
+The window's input handler runs before Slint dispatches menu shortcuts, so the
+console receives text that matches the ordinary profile.
+The player gives active statistics bindings priority over plugin and playback
+shortcuts while leaving other keys available to the application.
+
 ## Playback and threading
 
 ```mermaid

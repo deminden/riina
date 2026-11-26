@@ -9,8 +9,8 @@ impl Command {
                 key_bindings::mpv_action_native_args(action).map_err(CommandError::InputBinding)?
             }
             Self::PluginMpv(command) => command.arguments(),
-            Self::ObserveMpvProperty(_) => {
-                return invalid_state("mpv property observation is handled by the player worker");
+            Self::ObserveMpvProperty(_) | Self::MpvScriptKeys { .. } => {
+                return invalid_state("This intent is handled by the mpv worker");
             }
             Self::Load(_)
             | Self::LoadAtPosition { .. }

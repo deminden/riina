@@ -1,4 +1,62 @@
 use super::*;
+
+#[cfg(target_os = "windows")]
+#[test]
+#[ignore = "requires the pinned Windows libmpv with its built-in Lua scripts"]
+fn native_scripts_claim_keys_and_release_them_on_escape() {
+    use riina_core::key_bindings::MpvInputOwner;
+
+    let root = fixture_root();
+    let harness = Harness::start(&root).unwrap();
+    let send_keys = |owner, keys| {
+        harness
+            .send(Command::MpvScriptKeys { owner, keys })
+            .unwrap()
+    };
+    harness.send(Command::SetPauseWhenOpen(true)).unwrap();
+    harness
+        .send(Command::Load(
+            root.join("tests/fixtures/catalog.mkv")
+                .to_string_lossy()
+                .into_owned(),
+        ))
+        .unwrap();
+    harness.wait(|state| state.mpv_console_available && state.paused && state.seekable);
+    harness
+        .send(Command::MpvInputAction(
+            "script-binding console/enable".into(),
+        ))
+        .unwrap();
+    harness.wait(|state| state.mpv_console_open && state.mpv_console_keys_active);
+
+    let mut keys: Vec<_> = "set speed 1.26".chars().map(|ch| ch.to_string()).collect();
+    keys.extend(["BS".into(), "5".into(), "ENTER".into()]);
+    send_keys(MpvInputOwner::Console, keys);
+    let changed = harness.wait(|state| (state.speed - 1.25).abs() < 0.001);
+    assert!(changed.mpv_console_open);
+    assert!(changed.paused);
+
+    let mut keys: Vec<_> = "set force-media-title Héllo"
+        .chars()
+        .map(|ch| ch.to_string())
+        .collect();
+    keys.push("ENTER".into());
+    send_keys(MpvInputOwner::Console, keys);
+    harness.wait(|state| state.title == "Héllo");
+    send_keys(MpvInputOwner::Console, vec!["ESC".into()]);
+    harness.wait(|state| !state.mpv_console_open && !state.mpv_console_keys_active);
+
+    harness
+        .send(Command::MpvInputAction(
+            "script-binding stats/display-stats-toggle".into(),
+        ))
+        .unwrap();
+    harness.wait(|state| state.mpv_statistics_keys.iter().any(|key| key == "4"));
+    send_keys(MpvInputOwner::Statistics, vec!["4".into(), "ESC".into()]);
+    let closed = harness.wait(|state| state.mpv_statistics_keys.is_empty());
+    assert!(closed.paused);
+    assert_eq!(closed.error(), None);
+}
 use riina_mpv::{CommandSender, EngineError, MpvPropertyFormat};
 
 #[test]

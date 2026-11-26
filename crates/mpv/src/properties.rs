@@ -150,6 +150,26 @@ macro_rules! property {
 
 pub(super) static OBSERVED: &[ObservedProperty] = &[
     property!(
+        c"options/load-console",
+        Flag,
+        |state, flag| {
+            state.mpv_console_available = flag;
+        },
+        |state| {
+            state.mpv_console_available = false;
+        }
+    ),
+    property!(
+        c"user-data/mpv/console/open",
+        Flag,
+        |state, flag| {
+            state.mpv_console_open = flag;
+        },
+        |state| {
+            state.mpv_console_open = false;
+        }
+    ),
+    property!(
         c"time-pos",
         Double,
         |state, value| {

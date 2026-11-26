@@ -98,6 +98,7 @@ included in this repository. Check their licenses before packaging.
 Custom libmpv builds need a scripting or C-plugin backend to expose the
 `load-scripts` option. Riina sets that option to `no` during startup.
 [libmpv option definition](https://github.com/mpv-player/mpv/blob/v0.41.0/options/options.c#L551-L557).
+The embedded console and statistics shortcuts require a Lua-enabled build.
 
 Use a Linux runtime with mpv's scaler-padding and float-option fixes. An
 affected runtime can show black video on Mesa llvmpipe or reject the native

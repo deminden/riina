@@ -1,5 +1,5 @@
 //! Keyboard intent arriving on the framed owner instead of the controls popup.
-use crate::PlayerWindow;
+use crate::{PlayerWindow, player::player_ui::embedded_input::route_window_key};
 use riina_ui::{PlayerControlActions, PlayerMenuActions};
 use slint::ComponentHandle;
 use slint::winit_030::{
@@ -32,6 +32,9 @@ impl HostInput {
                 let modifiers = self.modifiers.get();
                 let controls = app.global::<PlayerControlActions>();
                 let released = event.state == ElementState::Released;
+                if route_window_key(app, event, modifiers) {
+                    return EventResult::PreventDefault;
+                }
                 let text = binding_text(&event.logical_key);
                 if controls.invoke_begin_plugin_key(
                     text.clone(),

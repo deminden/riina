@@ -16,6 +16,7 @@ impl Command {
             }
             Self::MpvInputAction(action) => key_bindings::mpv_action_native_commands(action)
                 .map_err(CommandError::InputBinding)?,
+            Self::MpvScriptKeys { keys, .. } => key_bindings::script_keypresses(keys)?,
             Self::AudioEqualizer(gains) => audio::equalizer(state, gains)?,
             Self::SetReplayGain(options) => audio::replay_gain(*options)?,
             Self::SubtitleLetterboxMargins(enabled) => {
