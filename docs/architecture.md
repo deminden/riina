@@ -505,6 +505,15 @@ changes to those sessions and waits for their acknowledgements before an
 installer can replace an active package. Closing the application retires the
 global entries.
 
+The mpv worker copies values for requested property changes into the same
+sequenced history as raw engine events. A property callback precedes the
+generic notification for the same native change. Snapshots retain up to 256
+records and 4 MiB of encoded property values so UI coalescing preserves
+intermediate notifications within those limits. The plugin host uses each
+sequence once. Startup entries read the latest available snapshot while the
+host retains the queued notifications for delivery after registration.
+Callbacks preserve the distinction between no argument and a JSON null.
+
 The same coordinator delivers global menu actions from players and the
 application. The application attaches a windowless presenter on macOS.
 That presenter opts into its own menu snapshot and tracks changes to global

@@ -276,11 +276,7 @@ pub(crate) fn player_file_context(
     PluginPlayerFileContext::from_playback(playback)
         .with_playlist(playback)
         .with_media_generation(playback.generation)
-        .with_media_ready(matches!(
-            playback.phase,
-            Phase::Playing | Phase::Paused | Phase::Buffering | Phase::Seeking | Phase::Ended
-        ))
-        .with_observed_mpv_properties(playback.observed_mpv_properties.clone())
+        .with_media_phase(playback.phase)
         .with_mpv_events(playback.mpv_events.clone())
         .with_core_version(version_snapshot(playback.mpv_version.as_deref()))
         .with_recent_documents(recent_document_values(recent_documents))

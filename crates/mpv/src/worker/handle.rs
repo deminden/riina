@@ -13,7 +13,6 @@ use riina_core::{CapturedFrame, Playback};
 use std::{
     ffi::{CStr, CString, c_int, c_void},
     ptr::{self, NonNull},
-    sync::Arc,
 };
 
 pub(super) struct Handle {
@@ -291,21 +290,24 @@ impl EventRef<'_> {
             .map(String::from)
     }
 
-    pub(super) fn apply_property(&self, state: &mut Playback, observer: Option<String>) {
+    pub(super) fn apply_property(&self, state: &mut Playback) {
         let Some(property) = self.payload::<Property>(event_id::PROPERTY_CHANGE) else {
             return;
         };
-        if let Some(name) = observer {
-            // SAFETY: the event owns this property and all node data during the copy.
-            match unsafe { observed_property_value(property) } {
-                Ok(value) => {
-                    Arc::make_mut(&mut state.observed_mpv_properties).insert(name, value);
-                }
-                Err(error) => diagnostic!("Could not copy observed mpv plugin property: {error}"),
-            }
-        }
         // SAFETY: the live property payload stays borrowed until projection finishes.
         unsafe { apply_property(state, property) };
+    }
+
+    pub(super) fn plugin_property(&self) -> Option<(serde_json::Value, usize)> {
+        let property = self.payload::<Property>(event_id::PROPERTY_CHANGE)?;
+        // SAFETY: the event owns this property and all node data during the copy.
+        match unsafe { observed_property_value(property) } {
+            Ok(value) => Some(value),
+            Err(error) => {
+                diagnostic!("Could not copy observed mpv plugin property: {error}");
+                None
+            }
+        }
     }
 
     pub(super) fn frame(&self) -> Option<Result<CapturedFrame, EngineError>> {

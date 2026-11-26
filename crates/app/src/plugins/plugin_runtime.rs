@@ -104,7 +104,7 @@ enum RuntimeCommand {
     },
     ActivatePlaylistMenuItem(u64, String),
     DeliverPluginMessage(String, serde_json::Value, Option<String>),
-    DeliverPlayerEvent(String, serde_json::Value),
+    DeliverPlayerEvent(String, Option<Arc<serde_json::Value>>),
     DeliverWindowModeEvent(&'static str, bool, crate::plugin_files::WindowModes),
     DeliverStandaloneMessage(u64, String, serde_json::Value),
     DeliverInput(input::Request),
@@ -496,22 +496,33 @@ impl PluginRuntimeSession {
             .unwrap_or_default()
     }
 
+    #[cfg(test)]
     pub(crate) fn deliver_player_event(
         &self,
         name: String,
         data: serde_json::Value,
     ) -> Result<(), String> {
-        validate_player_event_name(&name)?;
-        if !self.is_subscribed_to_player_event(&name) {
+        self.deliver_event(&name, Some(data.into()))
+    }
+
+    pub(crate) fn deliver_event(
+        &self,
+        name: &str,
+        data: Option<Arc<serde_json::Value>>,
+    ) -> Result<(), String> {
+        validate_player_event_name(name)?;
+        if !self.is_subscribed_to_player_event(name) {
             return Ok(());
         }
-        let bytes = serde_json::to_vec(&data)
-            .map_err(|error| format!("Plugin event data is not valid JSON: {error}"))?;
-        if bytes.len() > MAX_PLUGIN_MESSAGE_BYTES {
-            return Err("Plugin event data exceeds the 1 MiB limit".into());
+        if let Some(value) = &data {
+            let bytes = serde_json::to_vec(value.as_ref())
+                .map_err(|error| format!("Plugin event data is not valid JSON: {error}"))?;
+            if bytes.len() > MAX_PLUGIN_MESSAGE_BYTES {
+                return Err("Plugin event data exceeds the 1 MiB limit".into());
+            }
         }
         self.commands
-            .try_send(RuntimeCommand::DeliverPlayerEvent(name, data))
+            .try_send(RuntimeCommand::DeliverPlayerEvent(name.into(), data))
             .map_err(player_event_queue_error)
     }
 

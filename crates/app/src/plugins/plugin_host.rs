@@ -5,7 +5,7 @@ mod playlist_menu;
 mod ui_activity;
 
 use crate::{
-    plugin_files::PluginPlayerFileContext,
+    plugin_files::{PlayerEvent, PluginPlayerFileContext},
     plugin_runtime::{HostEvent, PluginRuntimeSession, PluginUi, UiEffect},
     plugin_snapshot::{playback_history_values, recent_document_values, version_snapshot},
     plugins::plugin_players::Ticket,
@@ -35,6 +35,7 @@ use ui_activity::UiActivity;
 pub(crate) type WindowModeChange = (PlayerWindowMode, bool);
 
 const MAX_PENDING_MESSAGES: usize = 256;
+const HOST_COMMAND_CAPACITY: usize = 64;
 // Timers and cross-context callbacks produce events while no host command arrives.
 const HOST_EVENT_POLL_INTERVAL: Duration = Duration::from_millis(25);
 
@@ -308,7 +309,7 @@ impl PluginHost {
         let plugins_directory = preferences_path.with_file_name("Plugins");
         let permissions_path = preferences_path.with_file_name("plugin-permissions.json");
         let enabled_path = preferences_path.with_file_name("plugin-enabled.json");
-        let (commands, receiver) = mpsc::sync_channel(64);
+        let (commands, receiver) = mpsc::sync_channel(HOST_COMMAND_CAPACITY);
         let (player_start, player_ready) = mpsc::sync_channel(1);
         let messages = Arc::new(Mutex::new(Vec::new()));
         let ui_activity = Arc::new(UiActivity::new());
@@ -474,23 +475,26 @@ fn run_host(
     let mut plugin_directories = BTreeMap::<String, PluginDirectory>::new();
     let mut player_context = initial_player_context;
     let mut window_loaded = false;
+    let mut activation_context = player_context.clone();
     let mut deferred = Vec::new();
+    // New entries start with the current read state. Keep the input commands
+    // as well so their events can reach the listeners registered by startup.
+    for command in commands.try_iter().take(HOST_COMMAND_CAPACITY) {
+        match &command {
+            PluginCommand::Shutdown => return,
+            PluginCommand::UpdatePlayerFileContext(context) => {
+                activation_context.replace_playback_snapshot(context.clone());
+            }
+            PluginCommand::UpdateWindowProperties(properties) => {
+                activation_context.set_core_window_properties(properties.clone());
+            }
+            _ => {}
+        }
+        deferred.push(command);
+    }
     for plugin in enabled_packages(&paths.plugins_directory, &paths.enabled_path) {
         if !port.allows(&plugin.manifest.identifier) {
             continue;
-        }
-        loop {
-            match commands.try_recv() {
-                Ok(PluginCommand::Shutdown) => return,
-                Ok(PluginCommand::UpdatePlayerFileContext(context)) => {
-                    player_context.replace_playback_snapshot(context);
-                }
-                Ok(PluginCommand::UpdateWindowProperties(properties)) => {
-                    player_context.set_core_window_properties(properties);
-                }
-                Ok(command) => deferred.push(command),
-                Err(mpsc::TryRecvError::Empty | mpsc::TryRecvError::Disconnected) => break,
-            }
         }
         let activated = paths
             .global
@@ -503,7 +507,7 @@ fn run_host(
                     &messages,
                     &mut sessions,
                     &mut plugin_directories,
-                    &player_context,
+                    &activation_context,
                 )
             });
         if let Err(error) = activated {
@@ -785,16 +789,14 @@ fn remove_plugin_ui(identifier: String, messages: &Mutex<Vec<PluginHostMessage>>
 
 fn update_player_sessions(
     player_context: &PluginPlayerFileContext,
-    events: &[(String, serde_json::Value)],
+    events: &[PlayerEvent],
     messages: &Mutex<Vec<PluginHostMessage>>,
     sessions: &BTreeMap<PluginInstanceKey, PluginRuntimeSession>,
 ) {
     for session in sessions.values() {
         session.update_player_file_context(player_context.clone());
         for (name, data) in events {
-            if session.is_subscribed_to_player_event(name)
-                && let Err(error) = session.deliver_player_event(name.clone(), data.clone())
-            {
+            if let Err(error) = session.deliver_event(name, data.clone()) {
                 record(messages, PluginHostMessage::Status(error));
             }
         }
@@ -828,9 +830,7 @@ fn broadcast_player_event(
     sessions: &BTreeMap<PluginInstanceKey, PluginRuntimeSession>,
 ) {
     for session in sessions.values() {
-        if session.is_subscribed_to_player_event(name)
-            && let Err(error) = session.deliver_player_event(name.into(), serde_json::Value::Null)
-        {
+        if let Err(error) = session.deliver_event(name, None) {
             record(messages, PluginHostMessage::Status(error));
         }
     }
@@ -877,6 +877,18 @@ fn reload_enabled_plugins(
                     messages,
                     sessions,
                 );
+                if player_context.media_playing()
+                    && let Some(session) =
+                        sessions.get(&PluginInstanceKey::player(&plugin.manifest.identifier))
+                {
+                    // Reload All replays the loaded signal without a URL and
+                    // then the started signal while playback is active.
+                    for name in ["iina.file-loaded", "iina.file-started"] {
+                        if let Err(error) = session.deliver_event(name, None) {
+                            record(messages, PluginHostMessage::Status(error));
+                        }
+                    }
+                }
             }
             Err(error) => record(messages, PluginHostMessage::Status(error)),
         }
@@ -894,9 +906,7 @@ fn flush_closing_sessions(
     let mut notified_sessions = Vec::new();
     for session in sessions.values() {
         if session.is_subscribed_to_player_event("iina.window-will-close") {
-            match session
-                .deliver_player_event("iina.window-will-close".into(), serde_json::Value::Null)
-            {
+            match session.deliver_event("iina.window-will-close", None) {
                 Ok(()) => notified_sessions.push(session),
                 Err(error) => record(messages, PluginHostMessage::Status(error)),
             }
@@ -916,9 +926,7 @@ fn deliver_window_loaded(
 ) {
     let key = PluginInstanceKey::player(identifier);
     if let Some(session) = sessions.get(&key)
-        && session.is_subscribed_to_player_event("iina.window-loaded")
-        && let Err(error) =
-            session.deliver_player_event("iina.window-loaded".into(), serde_json::Value::Null)
+        && let Err(error) = session.deliver_event("iina.window-loaded", None)
     {
         record(messages, PluginHostMessage::Status(error));
     }
@@ -936,9 +944,7 @@ fn deliver_activation_events(
     }
     if player_context.mpv_initialized()
         && let Some(session) = sessions.get(&PluginInstanceKey::player(identifier))
-        && session.is_subscribed_to_player_event("iina.mpv-initialized")
-        && let Err(error) =
-            session.deliver_player_event("iina.mpv-initialized".into(), serde_json::Value::Null)
+        && let Err(error) = session.deliver_event("iina.mpv-initialized", None)
     {
         record(messages, PluginHostMessage::Status(error));
     }

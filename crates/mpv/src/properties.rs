@@ -56,9 +56,9 @@ impl std::error::Error for ObservedPropertyError {
 
 pub(super) unsafe fn observed_property_value(
     property: &Property,
-) -> Result<serde_json::Value, ObservedPropertyError> {
+) -> Result<(serde_json::Value, usize), ObservedPropertyError> {
     if property.data.is_null() {
-        return Ok(serde_json::Value::Null);
+        return Ok((serde_json::Value::Null, 4));
     }
     if property.format != format::NODE {
         return Err(ObservedPropertyError::UnexpectedFormat(property.format));
@@ -88,16 +88,17 @@ pub(super) unsafe fn queried_property_value(
         Some(PropertyValue::Text(value)) => Value::String(value),
         None => Value::Null,
     })
+    .map(|(value, _)| value)
 }
 
 fn bounded_plugin_value(
     value: serde_json::Value,
-) -> Result<serde_json::Value, ObservedPropertyError> {
+) -> Result<(serde_json::Value, usize), ObservedPropertyError> {
     let encoded = serde_json::to_vec(&value).map_err(ObservedPropertyError::Serialize)?;
     if encoded.len() > 1024 * 1024 {
         return Err(ObservedPropertyError::PluginLimit);
     }
-    Ok(value)
+    Ok((value, encoded.len()))
 }
 
 fn metadata_value(value: &serde_json::Value, key: &str) -> Option<String> {
@@ -1125,7 +1126,7 @@ mod dynamic_property_tests {
         };
         // SAFETY: the node and name remain valid while the helper copies them.
         let value = unsafe { observed_property_value(&property) }.unwrap();
-        assert_eq!(value, serde_json::json!(42));
+        assert_eq!(value, (serde_json::json!(42), 2));
     }
 
     #[test]
@@ -1138,7 +1139,7 @@ mod dynamic_property_tests {
         };
         // SAFETY: null property data is explicitly represented as JSON null.
         let value = unsafe { observed_property_value(&property) }.unwrap();
-        assert_eq!(value, serde_json::Value::Null);
+        assert_eq!(value, (serde_json::Value::Null, 4));
     }
 }
 

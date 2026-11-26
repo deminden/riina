@@ -792,9 +792,7 @@ impl WorkerState {
                     .name()
                     .map(|name| Arc::from(name.to_string_lossy().as_ref()))
             });
-            if let Some(name) = name {
-                self.playback.record_mpv_event(name.clone());
-            }
+            let name = name.clone();
             if let Some(id) = event.hook_id() {
                 let slot = event.userdata();
                 if slot == stream::AUTH_HOOK_SLOT {
@@ -831,6 +829,9 @@ impl WorkerState {
                     self.finish_end_pause(handle, id);
                 }
             }
+            if let Some(name) = name {
+                self.playback.record_mpv_event(name);
+            }
         }
     }
 
@@ -865,20 +866,7 @@ impl WorkerState {
                 self.auto_seek.seek_started(Instant::now());
             }
             event_id::PROPERTY_CHANGE => {
-                let console_open = self.playback.mpv_console_open;
-                let observer = self.observers.get(&event.userdata()).cloned();
-                if let Some(name) = observer.as_ref()
-                    && self.stream_auth.protects(name)
-                    && let Some(address) = &self.stream_auth.public_address
-                {
-                    Arc::make_mut(&mut self.playback.observed_mpv_properties)
-                        .insert(name.clone(), serde_json::Value::String(address.clone()));
-                } else {
-                    event.apply_property(&mut self.playback, observer);
-                }
-                if console_open != self.playback.mpv_console_open {
-                    self.script_input.schedule();
-                }
+                self.apply_property_event(event);
             }
             event_id::QUEUE_OVERFLOW => {
                 self.script_input.recover();
@@ -901,6 +889,37 @@ impl WorkerState {
             _ => {}
         }
         None
+    }
+
+    fn apply_property_event(&mut self, event: &EventRef<'_>) {
+        if let Some(name) = self.observers.get(&event.userdata()) {
+            // The transport may have credentials that never belong in a
+            // player snapshot or in the retained plugin event history.
+            let value = self
+                .stream_auth
+                .public_address
+                .as_ref()
+                .filter(|_| self.stream_auth.protects(name))
+                .map_or_else(
+                    || event.plugin_property(),
+                    |address| {
+                        let value = serde_json::Value::String(address.clone());
+                        let size = value.to_string().len();
+                        Some((value, size))
+                    },
+                );
+            if let Some((value, bytes)) = value {
+                self.playback
+                    .record_mpv_property(name.clone(), value, bytes);
+            }
+            return;
+        }
+
+        let console_open = self.playback.mpv_console_open;
+        event.apply_property(&mut self.playback);
+        if console_open != self.playback.mpv_console_open {
+            self.script_input.schedule();
+        }
     }
 
     fn read_adjusted_volume(&mut self, handle: &Handle, revision: u64) {

@@ -6106,3 +6106,32 @@ annotations outside the platform directory, down from 34.
 - Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
 - Linux application SHA-256 `6ff185569d7b30aa108b3fa57baf1411878fef6fc181fa089d50aaedc357a07f`
 - Linux libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`
+
+### Plugin playback event order and startup (2026-11-26)
+
+The pinned Windows libmpv suite passed all 70 tests. Its observations group
+verified that a subscribed native pause value precedes the generic
+property-change event and that three consecutive pause transitions survive.
+The shared host regression queued events before enabling the player worker.
+It checked callback order, zero-argument signals, an explicit null property
+value and a normal file-loaded URL. Reload All replayed file signals during
+active playback and omitted them while paused. The same host regression
+passed in Linux.
+
+A locked Linux application delivered window-loaded, mpv-initialized and both
+file-started events to an installed fixture plugin on private X11 and Wayland.
+The plugin reported the file URL and both file-loaded callbacks. Four native
+pause transitions each reached the plugin before their generic notification.
+The closing callback ran with no argument and both exact processes exited
+normally. The Wayland compositor ran with XWayland disabled.
+
+Windows passed the locked workspace build, the full workspace gate with 1,133
+Rust test passes and 79 Python tests, and the private desktop playback and
+shutdown smoke. Linux passed strict workspace Clippy. Apple Silicon and Intel
+application and test sources passed strict cross-Clippy. Exact window-event
+timing and desktop delivery on macOS remain open.
+
+- Windows application SHA-256 `7ff9311520d96d719f3eb32849605b577ffb08bc3612c06b727c56033830c25a`
+- Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
+- Linux application SHA-256 `947d5fc165a048b8124bbb876f3e643a779c5fc6a06242f49380495b7ce1ce76`
+- Linux libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`

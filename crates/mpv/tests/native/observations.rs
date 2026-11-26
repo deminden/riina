@@ -168,8 +168,36 @@ fn dynamic_mpv_property_observation_publishes_generic_node_values() -> Result<()
         "unexpected native error: {:?}",
         observed.error()
     );
-    harness.send(Command::SetPaused(true)).unwrap();
-    harness.wait(|state| state.paused);
+    harness
+        .send(Command::ObserveMpvProperty("pause".into()))
+        .unwrap();
+    let initial_pause = harness.wait(|state| {
+        state.observed_mpv_properties.get("pause") == Some(&serde_json::json!(false))
+    });
+    let mut after = initial_pause.mpv_event_sequence;
+    for paused in [true, false, true] {
+        let expected = serde_json::json!(paused);
+        harness.send(Command::SetPaused(paused)).unwrap();
+        let state = harness.wait(|state| {
+            state.paused == paused
+                && state.mpv_events.iter().any(|event| {
+                    event.sequence > after
+                        && event.name.as_ref() == "pause.changed"
+                        && event.value.as_deref() == Some(&expected)
+                })
+        });
+        let mut notifications = state.mpv_events.iter().skip_while(|event| {
+            event.sequence <= after
+                || event.name.as_ref() != "pause.changed"
+                || event.value.as_deref() != Some(&expected)
+        });
+        let sequence = notifications.next().unwrap().sequence;
+        assert_eq!(
+            notifications.next().unwrap().name.as_ref(),
+            "property-change"
+        );
+        after = sequence;
+    }
     verify_property_requests(&commands)?;
     drop(harness);
     Ok(())

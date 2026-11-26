@@ -46,9 +46,9 @@ const PLUGIN_EVENT_API: &str = r#"(() => {
                 iina.__unsubscribePlayerEvent(name);
             }
         },
-        __dispatch(name, data) {
+        __dispatch(name, ...args) {
             for (const callback of [...(listeners.get(name)?.values() || [])]) {
-                try { callback(data); }
+                try { callback(...args); }
                 catch (error) { iina.log(`Event callback failed for ${name}: ${String(error)}`); }
             }
         }
@@ -84,9 +84,7 @@ pub(super) fn install<'js>(
                         "Plugin event subscriptions were poisoned",
                     )
                 })?;
-                if let Some(property) = mpv_property_for_changed_event(&name)
-                    && !player_snapshot_mpv_property(property)
-                {
+                if let Some(property) = mpv_property_for_changed_event(&name) {
                     let mut observed = observed_properties.lock().map_err(|_| {
                         rquickjs::Error::new_from_js_message(
                             "mpv property",
@@ -153,25 +151,4 @@ pub(super) fn validate_player_event_name(name: &str) -> Result<(), String> {
 fn mpv_property_for_changed_event(name: &str) -> Option<&str> {
     let property = name.strip_prefix("mpv.")?.strip_suffix(".changed")?;
     (!property.is_empty() && !property.contains('.')).then_some(property)
-}
-
-fn player_snapshot_mpv_property(name: &str) -> bool {
-    matches!(
-        name,
-        "pause"
-            | "idle-active"
-            | "time-pos"
-            | "duration"
-            | "speed"
-            | "width"
-            | "height"
-            | "media-title"
-            | "aid"
-            | "audio-delay"
-            | "volume"
-            | "mute"
-            | "sid"
-            | "secondary-sid"
-            | "sub-delay"
-    )
 }

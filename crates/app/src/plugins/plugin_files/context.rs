@@ -1,10 +1,13 @@
 //! Owned player snapshot and event diffs exposed to plugin APIs.
+use riina_core::Phase;
 use riina_ui::PlayerWindowMode;
 use std::{
     collections::{BTreeMap, VecDeque},
     path::PathBuf,
     sync::Arc,
 };
+
+pub(crate) type PlayerEvent = (String, Option<Arc<serde_json::Value>>);
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) struct WindowModes {
@@ -51,11 +54,10 @@ pub(crate) struct PluginPlaylist {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct PluginPlayerFileContext {
     media_generation: u64,
-    media_ready: bool,
+    phase: Phase,
     pub(super) current_directory: Option<PathBuf>,
     pub(super) external_tracks: BTreeMap<String, PathBuf>,
     pub(super) core_properties: BTreeMap<String, serde_json::Value>,
-    observed_mpv_properties: Arc<BTreeMap<String, serde_json::Value>>,
     mpv_events: Arc<VecDeque<riina_core::MpvEventRecord>>,
     pub(super) chapters: Vec<serde_json::Value>,
     pub(super) playlist: PluginPlaylist,
@@ -79,11 +81,10 @@ impl PluginPlayerFileContext {
     ) -> Self {
         Self {
             media_generation: 0,
-            media_ready: false,
+            phase: Phase::Stopped,
             current_directory,
             external_tracks,
             core_properties: BTreeMap::new(),
-            observed_mpv_properties: Arc::default(),
             mpv_events: Arc::default(),
             chapters: Vec::new(),
             playlist: PluginPlaylist::default(),
@@ -117,13 +118,29 @@ impl PluginPlayerFileContext {
         self.media_generation == generation
     }
 
-    pub(crate) fn with_media_ready(mut self, ready: bool) -> Self {
-        self.media_ready = ready;
+    pub(crate) fn with_media_phase(mut self, phase: Phase) -> Self {
+        self.phase = phase;
         self
     }
 
+    fn media_ready(&self) -> bool {
+        matches!(
+            self.phase,
+            Phase::Playing | Phase::Paused | Phase::Buffering | Phase::Seeking | Phase::Ended
+        )
+    }
+
+    pub(crate) fn media_playing(&self) -> bool {
+        self.phase == Phase::Playing
+            || (matches!(self.phase, Phase::Buffering | Phase::Seeking)
+                && self
+                    .core_properties
+                    .get("paused")
+                    .and_then(serde_json::Value::as_bool)
+                    == Some(false))
+    }
+
     pub(crate) fn with_playlist(mut self, playback: &riina_core::Playback) -> Self {
-        use riina_core::Phase;
         self.playlist = PluginPlaylist {
             active: matches!(
                 playback.phase,
@@ -146,60 +163,26 @@ impl PluginPlayerFileContext {
         *self = playback;
     }
 
-    pub(crate) fn player_events_to(&self, next: &Self) -> Vec<(String, serde_json::Value)> {
+    pub(crate) fn player_events_to(&self, next: &Self) -> Vec<PlayerEvent> {
         let mut events = Vec::new();
-        if self
-            .core_version
-            .get("mpv")
-            .and_then(serde_json::Value::as_str)
-            .is_none()
-            && next
-                .core_version
-                .get("mpv")
-                .and_then(serde_json::Value::as_str)
-                .is_some()
-        {
-            events.push(("iina.mpv-initialized".into(), serde_json::Value::Null));
+        if !self.mpv_initialized() && next.mpv_initialized() {
+            events.push(("iina.mpv-initialized".into(), None));
         }
         if self.media_generation != next.media_generation {
-            events.push(("iina.file-started".into(), serde_json::Value::Null));
+            events.push(("iina.file-started".into(), None));
         }
-        if next.media_ready
-            && (self.media_generation != next.media_generation || !self.media_ready)
-            && let Some(url) = next
+        if next.media_ready()
+            && (self.media_generation != next.media_generation || !self.media_ready())
+        {
+            let url = next
                 .core_properties
                 .get("url")
                 .and_then(serde_json::Value::as_str)
-        {
-            events.push(("iina.file-loaded".into(), serde_json::json!(url)));
-        }
-        for (context_property, mpv_property) in [
-            ("paused", "pause"),
-            ("idle", "idle-active"),
-            ("position", "time-pos"),
-            ("duration", "duration"),
-            ("speed", "speed"),
-            ("videoWidth", "width"),
-            ("videoHeight", "height"),
-            ("title", "media-title"),
-            ("audio.id", "aid"),
-            ("audio.delay", "audio-delay"),
-            ("audio.volume", "volume"),
-            ("audio.muted", "mute"),
-            ("subtitle.id", "sid"),
-            ("subtitle.secondID", "secondary-sid"),
-            ("subtitle.delay", "sub-delay"),
-        ] {
-            if let Some(value) = next.core_properties.get(context_property)
-                && self.core_properties.get(context_property) != Some(value)
-            {
-                events.push((format!("mpv.{mpv_property}.changed"), value.clone()));
-            }
-        }
-        for (property, value) in next.observed_mpv_properties.iter() {
-            if self.observed_mpv_properties.get(property) != Some(value) {
-                events.push((format!("mpv.{property}.changed"), value.clone()));
-            }
+                .unwrap_or_default();
+            events.push((
+                "iina.file-loaded".into(),
+                Some(serde_json::json!(url).into()),
+            ));
         }
         let last_event_sequence = self.mpv_events.back().map_or(0, |event| event.sequence);
         for event in next
@@ -207,7 +190,7 @@ impl PluginPlayerFileContext {
             .iter()
             .filter(|event| event.sequence > last_event_sequence)
         {
-            events.push((format!("mpv.{}", event.name), serde_json::Value::Null));
+            events.push((format!("mpv.{}", event.name), event.value.clone()));
         }
         events
     }
@@ -215,7 +198,7 @@ impl PluginPlayerFileContext {
     pub(crate) fn window_events_to(
         &self,
         next: &BTreeMap<String, serde_json::Value>,
-    ) -> Vec<(String, serde_json::Value)> {
+    ) -> Vec<PlayerEvent> {
         let mut events = Vec::new();
         let previous_frame = self.core_window_properties.get("frame");
         let next_frame = next.get("frame");
@@ -225,10 +208,10 @@ impl PluginPlayerFileContext {
         {
             let changed = |key| previous.get(key) != current.get(key);
             if ["x", "y"].into_iter().any(changed) {
-                events.push(("iina.window-moved".into(), current.clone()));
+                events.push(("iina.window-moved".into(), Some(current.clone().into())));
             }
             if ["width", "height"].into_iter().any(changed) {
-                events.push(("iina.window-resized".into(), current.clone()));
+                events.push(("iina.window-resized".into(), Some(current.clone().into())));
             }
         }
         if let (Some(previous), Some(current)) = (
@@ -238,7 +221,10 @@ impl PluginPlayerFileContext {
         ) && previous != current
             && let Some(frame) = next.get("frame").filter(|frame| frame.is_object())
         {
-            events.push(("iina.window-size-adjusted".into(), frame.clone()));
+            events.push((
+                "iina.window-size-adjusted".into(),
+                Some(frame.clone().into()),
+            ));
         }
         if let (Some(previous), Some(current)) = (
             self.core_window_properties
@@ -249,7 +235,7 @@ impl PluginPlayerFileContext {
         {
             events.push((
                 "iina.window-main.changed".into(),
-                serde_json::json!(current),
+                Some(serde_json::json!(current).into()),
             ));
         }
         if let (Some(previous), Some(current)) = (
@@ -267,7 +253,7 @@ impl PluginPlayerFileContext {
                     "iina.window-deminiaturized"
                 }
                 .into(),
-                serde_json::Value::Null,
+                None,
             ));
         }
         if let Some(previous) = self
@@ -282,17 +268,9 @@ impl PluginPlayerFileContext {
                 .get("screens")
                 .is_some_and(|current| current != previous)
         {
-            events.push(("iina.window-screen.changed".into(), serde_json::Value::Null));
+            events.push(("iina.window-screen.changed".into(), None));
         }
         events
-    }
-
-    pub(crate) fn with_observed_mpv_properties(
-        mut self,
-        properties: Arc<BTreeMap<String, serde_json::Value>>,
-    ) -> Self {
-        self.observed_mpv_properties = properties;
-        self
     }
 
     pub(crate) fn with_mpv_events(
@@ -374,25 +352,28 @@ mod mpv_event_bridge_tests {
     #[test]
     fn player_context_delivers_each_native_mpv_event_once_across_coalesced_updates() {
         let initial = PluginPlayerFileContext::default();
-        let playback = PluginPlayerFileContext::default().with_mpv_events(
-            VecDeque::from([
-                riina_core::MpvEventRecord {
-                    sequence: 1,
-                    name: "start-file".into(),
-                },
-                riina_core::MpvEventRecord {
-                    sequence: 2,
-                    name: "file-loaded".into(),
-                },
-            ])
-            .into(),
-        );
+        let mut state = riina_core::Playback::default();
+        state.record_mpv_event("start-file".into());
+        state.record_mpv_property("pause".into(), serde_json::json!(true), 4);
+        state.record_mpv_event("property-change".into());
+        state.record_mpv_property("pause".into(), serde_json::json!(false), 5);
+        state.record_mpv_event("file-loaded".into());
+        let playback = PluginPlayerFileContext::default().with_mpv_events(state.mpv_events);
 
         assert_eq!(
             initial.player_events_to(&playback),
             vec![
-                ("mpv.start-file".into(), serde_json::Value::Null),
-                ("mpv.file-loaded".into(), serde_json::Value::Null),
+                ("mpv.start-file".into(), None),
+                (
+                    "mpv.pause.changed".into(),
+                    Some(serde_json::json!(true).into())
+                ),
+                ("mpv.property-change".into(), None),
+                (
+                    "mpv.pause.changed".into(),
+                    Some(serde_json::json!(false).into())
+                ),
+                ("mpv.file-loaded".into(), None),
             ]
         );
         assert!(playback.player_events_to(&playback).is_empty());

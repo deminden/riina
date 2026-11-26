@@ -70,60 +70,32 @@ fn text_reads_enforce_the_size_boundary() {
 }
 
 #[test]
-fn player_context_reports_file_loaded_and_changed_mpv_properties() {
+fn player_context_reports_file_started_and_loaded_with_the_incoming_url() {
     let previous = PluginPlayerFileContext::default()
         .with_media_generation(4)
-        .with_media_ready(true)
+        .with_media_phase(riina_core::Phase::Playing)
         .with_core_version(serde_json::json!({"mpv": null}))
         .with_core_snapshot(
-            BTreeMap::from([
-                ("url".into(), serde_json::json!("file:///media/old.mkv")),
-                ("paused".into(), serde_json::json!(false)),
-                ("position".into(), serde_json::json!(4.0)),
-            ]),
+            BTreeMap::from([("url".into(), serde_json::json!("file:///media/old.mkv"))]),
             Vec::new(),
-        )
-        .with_observed_mpv_properties(
-            BTreeMap::from([(
-                "cache-buffering-state".into(),
-                serde_json::json!({"total-bytes": 256}),
-            )])
-            .into(),
         );
     let next = PluginPlayerFileContext::default()
         .with_media_generation(5)
-        .with_media_ready(true)
+        .with_media_phase(riina_core::Phase::Paused)
         .with_core_version(serde_json::json!({"mpv": "mpv 0.41.0-git"}))
         .with_core_snapshot(
-            BTreeMap::from([
-                ("url".into(), serde_json::json!("file:///media/new.mkv")),
-                ("paused".into(), serde_json::json!(true)),
-                ("position".into(), serde_json::json!(0.0)),
-            ]),
+            BTreeMap::from([("url".into(), serde_json::json!("file:///media/new.mkv"))]),
             Vec::new(),
-        )
-        .with_observed_mpv_properties(
-            BTreeMap::from([(
-                "cache-buffering-state".into(),
-                serde_json::json!({"total-bytes": 512}),
-            )])
-            .into(),
         );
 
     assert_eq!(
         previous.player_events_to(&next),
         [
-            ("iina.mpv-initialized".into(), serde_json::Value::Null),
-            ("iina.file-started".into(), serde_json::Value::Null),
+            ("iina.mpv-initialized".into(), None),
+            ("iina.file-started".into(), None),
             (
                 "iina.file-loaded".into(),
-                serde_json::json!("file:///media/new.mkv"),
-            ),
-            ("mpv.pause.changed".into(), serde_json::json!(true)),
-            ("mpv.time-pos.changed".into(), serde_json::json!(0.0)),
-            (
-                "mpv.cache-buffering-state.changed".into(),
-                serde_json::json!({"total-bytes": 512}),
+                Some(serde_json::json!("file:///media/new.mkv").into()),
             ),
         ]
     );
@@ -136,14 +108,14 @@ fn player_context_reports_file_loaded_and_changed_mpv_properties() {
         );
     assert_eq!(
         previous.player_events_to(&loading),
-        [("iina.file-started".into(), serde_json::Value::Null)]
+        [("iina.file-started".into(), None)]
     );
-    let loaded = loading.clone().with_media_ready(true);
+    let loaded = loading.clone().with_media_phase(riina_core::Phase::Paused);
     assert_eq!(
         loading.player_events_to(&loaded),
         [(
             "iina.file-loaded".into(),
-            serde_json::json!("file:///media/new.mkv"),
+            Some(serde_json::json!("file:///media/new.mkv").into()),
         )]
     );
 }
@@ -184,17 +156,20 @@ fn player_context_reports_observed_window_geometry_and_focus_changes() {
         [
             (
                 "iina.window-moved".into(),
-                serde_json::json!({"x":35,"y":42,"width":800,"height":450}),
+                Some(serde_json::json!({"x":35,"y":42,"width":800,"height":450}).into()),
             ),
             (
                 "iina.window-resized".into(),
-                serde_json::json!({"x":35,"y":42,"width":800,"height":450}),
+                Some(serde_json::json!({"x":35,"y":42,"width":800,"height":450}).into()),
             ),
             (
                 "iina.window-size-adjusted".into(),
-                serde_json::json!({"x":35,"y":42,"width":800,"height":450}),
+                Some(serde_json::json!({"x":35,"y":42,"width":800,"height":450}).into()),
             ),
-            ("iina.window-main.changed".into(), serde_json::json!(true)),
+            (
+                "iina.window-main.changed".into(),
+                Some(serde_json::json!(true).into())
+            ),
         ]
     );
 
@@ -209,7 +184,7 @@ fn player_context_reports_observed_window_geometry_and_focus_changes() {
         settled.window_events_to(&adjusted_without_frame_change),
         [(
             "iina.window-size-adjusted".into(),
-            serde_json::json!({"x":10,"y":20,"width":640,"height":360}),
+            Some(serde_json::json!({"x":10,"y":20,"width":640,"height":360}).into()),
         )]
     );
 
@@ -230,8 +205,8 @@ fn player_context_reports_observed_window_geometry_and_focus_changes() {
     assert_eq!(
         with_screen.window_events_to(&next_screen),
         [
-            ("iina.window-miniaturized".into(), serde_json::Value::Null,),
-            ("iina.window-screen.changed".into(), serde_json::Value::Null,),
+            ("iina.window-miniaturized".into(), None),
+            ("iina.window-screen.changed".into(), None),
         ]
     );
 }

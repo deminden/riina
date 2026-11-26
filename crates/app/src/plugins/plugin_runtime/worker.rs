@@ -396,7 +396,7 @@ fn run_callbacks(
                 "message callback",
             ),
             Some(RuntimeCommand::DeliverPlayerEvent(name, data)) => (
-                message_script("iina.event.__dispatch", &name, &data),
+                event_script(&name, data.as_deref()),
                 "player event callback",
             ),
             Some(RuntimeCommand::DeliverNetworkResult(id, result)) => (
@@ -452,7 +452,7 @@ fn dispatch_typed_callback(
     match command {
         RuntimeCommand::DeliverWindowModeEvent(name, active, modes) => {
             super::core_api::EVENT_WINDOW_MODES.set(Some(modes));
-            let script = message_script("iina.event.__dispatch", name, &active.into());
+            let script = event_script(name, Some(&active.into()));
             ("window mode callback", evaluate_callback(context, script))
         }
         RuntimeCommand::DeliverUtility(delivery) => {
@@ -541,6 +541,13 @@ fn finish_turn(
 
 fn message_script(function: &str, name: &str, data: &serde_json::Value) -> String {
     format!("{function}({}, {data})", serde_json::json!(name))
+}
+
+fn event_script(name: &str, data: Option<&serde_json::Value>) -> String {
+    match data {
+        Some(data) => message_script("iina.event.__dispatch", name, data),
+        None => format!("iina.event.__dispatch({})", serde_json::json!(name)),
+    }
 }
 
 fn network_result_script(

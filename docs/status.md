@@ -252,6 +252,10 @@ Implementation does not imply every state or platform is verified.
   Finder and Settings share the permission review and replacement flow.
   Supported packages enable after approval, and unsupported packages stay
   installed and disabled. Finder delivery still needs native verification.
+- **Plugin playback events:** listeners receive queued startup notifications,
+  ordered native property values and the argument count for each event.
+  Reload All replays the file-loaded and file-started signals during active
+  playback. X11 and Wayland desktop checks covered startup, pause and shutdown.
 - **macOS plugin startup:** enabled global plugins can initialize without a
   player and request a tool window, prompt, picker or new player. The
   application Plugin menu shows global contributions and opens Plugins

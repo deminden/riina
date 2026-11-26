@@ -884,7 +884,7 @@ fn persistent_session_delivers_player_events_and_unregisters_listeners() {
     assert!(session.is_subscribed_to_player_event("mpv.cache-buffering-state.changed"));
     assert_eq!(
         session.take_mpv_property_observation_requests(),
-        ["cache-buffering-state"]
+        ["cache-buffering-state", "pause"]
     );
     assert!(session.take_mpv_property_observation_requests().is_empty());
     session

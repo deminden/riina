@@ -146,11 +146,13 @@ pub struct Playback {
     pub material_frame: FrameSlot,
     /// Properties requested by active player-scoped plugin event listeners.
     pub observed_mpv_properties: Arc<BTreeMap<String, serde_json::Value>>,
-    /// Recent native mpv event names, retained so coalesced UI snapshots do not
-    /// drop event callbacks before the plugin worker can receive them.
+    /// Ordered native signals and requested property values retained across UI
+    /// snapshot coalescing.
     pub mpv_events: Arc<VecDeque<MpvEventRecord>>,
     /// Monotonic sequence for native mpv event records in `mpv_events`.
     pub mpv_event_sequence: u64,
+    /// Combined encoded size of property values retained in `mpv_events`.
+    pub mpv_event_bytes: usize,
     pub video_equalizer: [Option<i64>; 5],
     /// Decoded gain curve for Riina's labeled native audio equalizer filter.
     pub audio_equalizer: Option<[f64; 10]>,
@@ -234,11 +236,14 @@ impl FrameSlot {
 }
 
 pub const MAX_RETAINED_MPV_EVENTS: usize = 256;
+const MAX_RETAINED_MPV_EVENT_BYTES: usize = 4 * 1024 * 1024;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct MpvEventRecord {
     pub sequence: u64,
     pub name: Arc<str>,
+    pub value: Option<Arc<serde_json::Value>>,
+    bytes: usize,
 }
 
 impl Playback {
@@ -247,14 +252,38 @@ impl Playback {
     }
 
     pub fn record_mpv_event(&mut self, name: Arc<str>) {
+        self.record_engine_notification(name, None, 0);
+    }
+
+    pub fn record_mpv_property(&mut self, name: String, value: serde_json::Value, bytes: usize) {
+        let event: Arc<str> = format!("{name}.changed").into();
+        Arc::make_mut(&mut self.observed_mpv_properties).insert(name, value.clone());
+        self.record_engine_notification(event, Some(Arc::new(value)), bytes);
+    }
+
+    fn record_engine_notification(
+        &mut self,
+        name: Arc<str>,
+        value: Option<Arc<serde_json::Value>>,
+        bytes: usize,
+    ) {
+        if bytes > MAX_RETAINED_MPV_EVENT_BYTES {
+            return;
+        }
         self.mpv_event_sequence = self.mpv_event_sequence.wrapping_add(1).max(1);
         let events = Arc::make_mut(&mut self.mpv_events);
-        if events.len() >= MAX_RETAINED_MPV_EVENTS {
-            events.pop_front();
+        while (events.len() >= MAX_RETAINED_MPV_EVENTS
+            || self.mpv_event_bytes.saturating_add(bytes) > MAX_RETAINED_MPV_EVENT_BYTES)
+            && let Some(oldest) = events.pop_front()
+        {
+            self.mpv_event_bytes = self.mpv_event_bytes.saturating_sub(oldest.bytes);
         }
+        self.mpv_event_bytes += bytes;
         events.push_back(MpvEventRecord {
             sequence: self.mpv_event_sequence,
             name,
+            value,
+            bytes,
         });
     }
 }
@@ -275,6 +304,22 @@ mod mpv_event_record_tests {
         assert_eq!(
             playback.mpv_events.back().unwrap().name.as_ref(),
             "event-256"
+        );
+    }
+
+    #[test]
+    fn plugin_property_retention_evicts_old_payloads_without_discarding_the_latest_value() {
+        let mut playback = Playback::default();
+        let payload = serde_json::Value::String("x".repeat(1024 * 1024 - 2));
+        for _ in 0..5 {
+            playback.record_mpv_property("metadata".into(), payload.clone(), 1024 * 1024);
+        }
+        assert_eq!(playback.mpv_event_bytes, MAX_RETAINED_MPV_EVENT_BYTES);
+        assert_eq!(playback.mpv_events.len(), 4);
+        assert_eq!(playback.mpv_events.front().unwrap().sequence, 2);
+        assert_eq!(
+            playback.observed_mpv_properties.get("metadata"),
+            Some(&payload)
         );
     }
 }

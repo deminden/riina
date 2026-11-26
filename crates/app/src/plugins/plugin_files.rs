@@ -3,7 +3,7 @@
 mod context;
 mod encoding;
 
-pub(crate) use context::{PluginPlayerFileContext, PluginPlaylist, WindowModes};
+pub(crate) use context::{PlayerEvent, PluginPlayerFileContext, PluginPlaylist, WindowModes};
 use encoding::decode_text;
 use serde::Serialize;
 use std::{

@@ -229,17 +229,13 @@ fn plugins_enabled_after_window_and_mpv_initialization_receive_events_once() {
         .unwrap();
     wakes.recv_timeout(Duration::from_secs(3)).unwrap();
     assert!(handle.has_active_sessions());
+    let mut native = riina_core::Playback::default();
+    native.record_mpv_event("start-file".into());
     handle
         .update_player_file_context(
             PluginPlayerFileContext::default()
                 .with_core_version(serde_json::json!({"mpv": "mpv 0.41.0-git"}))
-                .with_mpv_events(
-                    std::collections::VecDeque::from([riina_core::MpvEventRecord {
-                        sequence: 1,
-                        name: "start-file".into(),
-                    }])
-                    .into(),
-                ),
+                .with_mpv_events(native.mpv_events),
         )
         .unwrap();
     handle.notify_plugin_overlay_loaded().unwrap();
@@ -916,6 +912,115 @@ fn wait_for_host_message<T>(
         );
         std::thread::sleep(Duration::from_millis(5));
     }
+}
+
+#[test]
+fn plugin_events_preserve_native_order_and_distinguish_reload_from_a_file_load() {
+    let scratch = TempDir::new("plugin-event-order").unwrap();
+    let root = scratch.path();
+    let package = root.join("Plugins/org.example.event-order.iinaplugin");
+    fs::create_dir_all(&package).unwrap();
+    fs::write(
+        package.join("Info.json"),
+        r#"{"name":"Event Order","identifier":"org.example.event-order","version":"1.0.0","author":{"name":"Test"},"entry":"main.js","permissions":[]}"#,
+    )
+    .unwrap();
+    fs::write(
+        package.join("main.js"),
+        r"
+        const pending = [];
+        for (const name of [
+            'iina.window-loaded', 'iina.mpv-initialized', 'iina.file-loaded', 'iina.file-started',
+            'mpv.start-file', 'mpv.pause.changed', 'mpv.property-change', 'mpv.unavailable.changed'
+        ]) {
+            iina.event.on(name, (...args) => pending.push([name, args]));
+        }
+        iina.event.on('iina.menu-update', () => iina.log(JSON.stringify(pending.splice(0))));
+        ",
+    )
+    .unwrap();
+    fs::write(
+        root.join("plugin-enabled.json"),
+        r#"["org.example.event-order"]"#,
+    )
+    .unwrap();
+
+    let mut host = PluginHost::prepare(&root.join("preferences.json"), &[], &[]).unwrap();
+    let handle = host.handle();
+    handle.notify_window_loaded().unwrap();
+    let mut state = riina_core::Playback::default();
+    state.record_mpv_event("start-file".into());
+    state.record_mpv_property("pause".into(), serde_json::json!(true), 4);
+    state.record_mpv_event("property-change".into());
+    state.record_mpv_property("pause".into(), serde_json::json!(false), 5);
+    state.record_mpv_event("property-change".into());
+    state.record_mpv_property("unavailable".into(), serde_json::Value::Null, 4);
+    state.record_mpv_event("property-change".into());
+    let context = PluginPlayerFileContext::default()
+        .with_media_generation(1)
+        .with_media_phase(riina_core::Phase::Playing)
+        .with_core_version(serde_json::json!({"mpv": "mpv 0.41.0"}))
+        .with_core_snapshot(
+            BTreeMap::from([("url".into(), serde_json::json!("file:///media/clip.mkv"))]),
+            Vec::new(),
+        )
+        .with_mpv_events(state.mpv_events);
+    handle.update_player_file_context(context.clone()).unwrap();
+    host.start_player(None);
+    let read_events = || {
+        handle.notify_menu_update().unwrap();
+        wait_for_host_message(&handle, |message| {
+            let PluginHostMessage::Log(text) = message else {
+                return None;
+            };
+            serde_json::from_str::<serde_json::Value>(
+                text.strip_prefix("org.example.event-order: ")?,
+            )
+            .ok()
+        })
+    };
+    assert_eq!(
+        read_events(),
+        serde_json::json!([
+            ["iina.window-loaded", []],
+            ["iina.mpv-initialized", []],
+            ["iina.file-started", []],
+            ["iina.file-loaded", ["file:///media/clip.mkv"]],
+            ["mpv.start-file", []],
+            ["mpv.pause.changed", [true]],
+            ["mpv.property-change", []],
+            ["mpv.pause.changed", [false]],
+            ["mpv.property-change", []],
+            ["mpv.unavailable.changed", [null]],
+            ["mpv.property-change", []]
+        ]),
+    );
+
+    let reload = || {
+        handle
+            .global
+            .change_and_wait(PackageChange::Reload(BTreeSet::new()))
+            .unwrap()
+    };
+    reload();
+    assert_eq!(
+        read_events(),
+        serde_json::json!([
+            ["iina.window-loaded", []],
+            ["iina.mpv-initialized", []],
+            ["iina.file-loaded", []],
+            ["iina.file-started", []]
+        ]),
+    );
+
+    handle
+        .update_player_file_context(context.with_media_phase(riina_core::Phase::Paused))
+        .unwrap();
+    reload();
+    assert_eq!(
+        read_events(),
+        serde_json::json!([["iina.window-loaded", []], ["iina.mpv-initialized", []]])
+    );
 }
 
 #[test]
