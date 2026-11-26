@@ -33,6 +33,9 @@ impl Backend {
         slint::BackendSelector::new()
             .backend_name("winit".into())
             .renderer_name("femtovg".into())
+            .with_winit_custom_application_handler(
+                crate::platform::plugin_standalone::NativeWindowEvents,
+            )
             .with_winit_window_attributes_hook(move |window| {
                 let window = window.with_drag_and_drop(false).with_transparent(true);
                 // Only the controls adapter receives this frame's HWND.

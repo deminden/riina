@@ -128,6 +128,9 @@ Implementation does not imply every state or platform is verified.
   returns the keyboard to playback. Statistics receives its active page keys
   while ordinary playback shortcuts remain available. These workflows require
   an engine with the built-in Lua scripts.
+- **Standalone plugin tools:** a plugin can load a page, exchange messages and
+  update its document while its tool window is hidden. The native close
+  action hides the tool, and reopening retains the current page.
 - **Recent activity:** player windows share Open Recent with Welcome and
   plugins. The macOS application menu also opens and clears recent documents
   while no player is open. Settings Utilities clears history, recent documents

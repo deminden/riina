@@ -55,6 +55,19 @@ console receives text that matches the ordinary profile.
 The player gives active statistics bindings priority over plugin and playback
 shortcuts while leaving other keys available to the application.
 
+## Standalone plugin windows
+
+The realm owns the document, queued messages, frame requests and visibility.
+Loading a package page or entering Simple Mode creates a hidden native host.
+The page can exchange messages before Open and after a native close. Open
+raises the existing window and preserves the current document. Loading another
+page advances the document identity and retires the previous message listeners.
+
+GTK owns the Linux host. On Windows and macOS, Winit creates the hidden
+host inside the application's existing event loop. The presenter drops the
+WebView before the native window. On macOS, native creation and page-load
+callbacks wake the windowless presenter so a hidden page can finish starting.
+
 ## Playback and threading
 
 ```mermaid

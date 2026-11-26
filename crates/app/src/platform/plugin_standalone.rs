@@ -1,7 +1,15 @@
 //! Standalone native WebViews track the lifetime and document of their own realm.
+#[cfg(target_os = "macos")]
+#[path = "plugin_standalone/appkit.rs"]
+mod appkit;
+#[cfg(not(target_os = "linux"))]
+#[path = "plugin_standalone/native_window.rs"]
+mod native;
 #[cfg_attr(target_os = "linux", path = "plugin_standalone/gtk_window.rs")]
 #[cfg_attr(not(target_os = "linux"), path = "plugin_standalone/slint_window.rs")]
 pub(super) mod shell;
+#[cfg(not(target_os = "linux"))]
+pub(crate) use native::Events as NativeWindowEvents;
 
 use super::plugin_page::{self as page, Page};
 #[cfg(target_os = "linux")]
@@ -10,7 +18,10 @@ use crate::{
     PlayerWindow,
     plugin_runtime::standalone::{Endpoint, Hub},
 };
+#[cfg(not(target_os = "linux"))]
+use native::Shell;
 use riina_core::plugin_window::{Document, Presentation, Properties};
+#[cfg(target_os = "linux")]
 use shell::Shell;
 #[cfg(target_os = "macos")]
 use std::cell::Cell;
@@ -31,6 +42,7 @@ fn title(name: &str, properties: &Properties) -> String {
 pub(crate) struct Presenter {
     hub: Hub,
     entries: BTreeMap<u64, Entry>,
+    wake: Option<Arc<dyn Fn() + Send + Sync>>,
     #[cfg(target_os = "linux")]
     application_owner: Option<ShortcutOwner>,
     #[cfg(target_os = "macos")]
@@ -44,6 +56,7 @@ impl Presenter {
         Self {
             hub,
             entries: BTreeMap::new(),
+            wake: None,
             #[cfg(target_os = "linux")]
             application_owner: None,
             #[cfg(target_os = "macos")]
@@ -55,6 +68,11 @@ impl Presenter {
 
     pub(crate) fn update(&mut self, app: &PlayerWindow) {
         self.present(Some(app));
+    }
+
+    #[cfg(target_os = "macos")]
+    pub(crate) fn bind_wake(&mut self, wake: Arc<dyn Fn() + Send + Sync>) {
+        self.wake = Some(wake);
     }
 
     #[cfg(target_os = "linux")]
@@ -97,12 +115,15 @@ impl Presenter {
                 owner: Arc::downgrade(&endpoint),
                 revision: None,
                 pending: None,
+                request: None,
+                failed: None,
                 shell: None,
                 window: None,
             });
             if let Err(error) = entry.update(
                 app,
                 &endpoint,
+                self.wake.as_ref(),
                 #[cfg(target_os = "linux")]
                 self.application_owner.as_ref(),
                 #[cfg(target_os = "macos")]
@@ -111,6 +132,8 @@ impl Presenter {
                 if let Some(revision) = entry.revision {
                     endpoint.presentation_failed(revision);
                 }
+                entry.failed = entry.request;
+                entry.pending = None;
                 entry.shell = None;
                 entry.window = None;
                 crate::diagnostics::warn!("{} standalone window: {error}", endpoint.name);
@@ -133,6 +156,8 @@ struct Entry {
     owner: Weak<Endpoint>,
     revision: Option<u64>,
     pending: Option<Presentation>,
+    request: Option<(u64, u64)>,
+    failed: Option<(u64, u64)>,
     shell: Option<Shell>,
     window: Option<BrowserWindow>,
 }
@@ -140,17 +165,16 @@ struct Entry {
 impl Entry {
     #[cfg(target_os = "macos")]
     fn is_visible(&self) -> bool {
-        self.shell.as_ref().is_some_and(Shell::is_visible)
-            || self
-                .window
-                .as_ref()
-                .is_some_and(|window| window.shell.is_visible())
+        self.window
+            .as_ref()
+            .is_some_and(|window| window.shell.is_visible())
     }
 
     fn update(
         &mut self,
         app: Option<&PlayerWindow>,
         endpoint: &Arc<Endpoint>,
+        wake: Option<&Arc<dyn Fn() + Send + Sync>>,
         #[cfg(target_os = "linux")] application_owner: Option<&ShortcutOwner>,
         #[cfg(target_os = "macos")] closed: Option<
             &std::rc::Rc<crate::windows::close_observer::CloseObserver>,
@@ -158,13 +182,11 @@ impl Entry {
     ) -> Result<(), String> {
         if let Some(next) = endpoint.snapshot(self.revision) {
             self.revision = Some(next.revision);
+            self.request = Some((next.document_id, next.open_revision));
             if let Some(window) = &mut self.window {
                 window.apply(next, &endpoint.name)?;
             } else {
-                if !next.visible {
-                    self.shell = None;
-                }
-                self.pending = next.visible.then_some(next);
+                self.pending = (next.created && self.request != self.failed).then_some(next);
             }
         }
         if let Some(view) = self.pending.as_ref()
@@ -175,7 +197,7 @@ impl Entry {
                 let title = title(&endpoint.name, &view.properties);
                 #[cfg(target_os = "macos")]
                 let closed = closed.cloned();
-                self.shell = Some(Shell::new(app, &title, move || {
+                let on_close = move || {
                     if let Some(owner) = owner.upgrade() {
                         owner.user_closed();
                     }
@@ -183,15 +205,21 @@ impl Entry {
                     if let Some(closed) = &closed {
                         closed.notify();
                     }
+                };
+                #[cfg(target_os = "linux")]
+                let shell = Shell::new(app, &title, move || {
+                    on_close();
                     slint::CloseRequestResponse::HideWindow
-                })?);
+                })?;
+                #[cfg(not(target_os = "linux"))]
+                let shell = Shell::new(app, &title, on_close, wake.cloned())?;
+                self.shell = Some(shell);
             }
-            // Slint realizes a new Winit window after returning to the event
-            // loop. Keep its shell alive until the native WebView can attach.
+            // Winit creates a hidden parent in its active event loop.
             if self.shell.as_ref().is_some_and(Shell::can_build)
                 && let (Some(shell), Some(view)) = (self.shell.take(), self.pending.take())
             {
-                let window = BrowserWindow::new(shell, endpoint, view)?;
+                let window = BrowserWindow::new(shell, endpoint, view, wake.cloned())?;
                 #[cfg(target_os = "linux")]
                 {
                     use slint::ComponentHandle;
@@ -228,25 +256,38 @@ struct BrowserWindow {
 }
 
 impl BrowserWindow {
-    fn new(shell: Shell, endpoint: &Arc<Endpoint>, view: Presentation) -> Result<Self, String> {
+    fn new(
+        shell: Shell,
+        endpoint: &Arc<Endpoint>,
+        view: Presentation,
+        wake: Option<Arc<dyn Fn() + Send + Sync>>,
+    ) -> Result<Self, String> {
         let page = Page::standalone(view.document_id, endpoint.origin);
         let url = page.url(view.document_id, &view.document)?;
         shell.set_properties(&title(&endpoint.name, &view.properties), &view.properties);
         shell.set_frame(view.frame);
         let owner = Arc::downgrade(endpoint);
-        let browser = shell.build_webview(page.builder(
-            endpoint.package_root().map(std::path::Path::to_path_buf),
-            &url,
-            move |document, name, data| {
-                if let Some(owner) = owner.upgrade() {
-                    owner.receive(document, name, data);
-                }
-            },
-            || {},
-        ))?;
+        let browser = shell.build_webview(
+            page.builder(
+                endpoint.package_root().map(std::path::Path::to_path_buf),
+                &url,
+                move |document, name, data| {
+                    if let Some(owner) = owner.upgrade() {
+                        owner.receive(document, name, data);
+                    }
+                },
+                move || {
+                    if let Some(wake) = &wake {
+                        wake();
+                    }
+                },
+            )
+            .with_focused(false),
+        )?;
         shell.set_visible(view.visible)?;
-        #[cfg(target_os = "macos")]
-        let _ = browser.focus();
+        if view.visible {
+            let _ = browser.focus();
+        }
         Ok(Self {
             browser,
             shell,
@@ -275,7 +316,6 @@ impl BrowserWindow {
         let raise = next.visible && next.open_revision != self.view.open_revision;
         if next.visible != self.shell.is_visible() || raise {
             self.shell.set_visible(next.visible)?;
-            #[cfg(target_os = "macos")]
             if next.visible {
                 let _ = self.browser.focus();
             }

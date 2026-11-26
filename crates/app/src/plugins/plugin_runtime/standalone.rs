@@ -3,7 +3,9 @@
 mod tests;
 
 use super::{ExecutionControl, RuntimeCommand};
-use riina_core::plugin_window::{Frame, Intent, Presentation, Properties, State, validate_message};
+use riina_core::plugin_window::{
+    Frame, Intent, Presentation, Properties, State, WindowError, validate_message,
+};
 use rquickjs::{Context, Function, Object, Value, function::Func};
 use std::{
     path::{Path, PathBuf},
@@ -52,6 +54,7 @@ impl Hub {
             execution,
             commands,
             state: Mutex::default(),
+            document: AtomicU64::default(),
             revision: self.revision.clone(),
         });
         registry.entries.push(Arc::downgrade(&endpoint));
@@ -96,7 +99,25 @@ pub(crate) struct Endpoint {
     execution: Arc<ExecutionControl>,
     commands: SyncSender<RuntimeCommand>,
     state: Mutex<State>,
+    document: AtomicU64,
     revision: Option<Arc<AtomicU64>>,
+}
+
+#[derive(Debug)]
+enum EndpointError {
+    Stopped,
+    Unavailable,
+    Request(WindowError),
+}
+
+impl std::fmt::Display for EndpointError {
+    fn fmt(&self, out: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Stopped => out.write_str("The standalone window's plugin has stopped"),
+            Self::Unavailable => out.write_str("Standalone window state is unavailable"),
+            Self::Request(error) => std::fmt::Display::fmt(error, out),
+        }
+    }
 }
 
 impl Endpoint {
@@ -124,6 +145,7 @@ impl Endpoint {
         let mut state = riina_core::sync::lock(&self.state);
         if state.presentation().revision == revision {
             let _ = state.apply(Intent::Close);
+            drop(state);
             self.record_change();
         }
     }
@@ -131,10 +153,7 @@ impl Endpoint {
     pub(crate) fn receive(&self, document: u64, name: String, data: serde_json::Value) {
         // Check the document again when the realm consumes a queued message.
         if self.is_live()
-            && self
-                .state
-                .try_lock()
-                .is_ok_and(|state| state.presentation().document_id == document)
+            && self.document.load(Ordering::Acquire) == document
             && validate_message(&name, &data).is_ok()
         {
             let _ = self
@@ -162,8 +181,7 @@ impl Endpoint {
         context
             .with(|ctx| {
                 let callback: Function<'_> = ctx.globals().get("__riinaStandaloneMessage")?;
-                let json =
-                    serde_json::to_string(&data).map_err(|error| js_error(error.to_string()))?;
+                let json = serde_json::to_string(&data).map_err(js_error)?;
                 let argument: Value<'_> = ctx.json_parse(json)?;
                 callback
                     .call::<_, ()>((name, argument))
@@ -180,15 +198,15 @@ impl Endpoint {
         !self.execution.is_cancelled()
     }
 
-    fn apply(&self, intent: Intent) -> Result<(), String> {
+    fn apply(&self, intent: Intent) -> Result<(), EndpointError> {
         if !self.is_live() {
-            return Err("The standalone window's plugin has stopped".into());
+            return Err(EndpointError::Stopped);
         }
-        let mut state = self
-            .state
-            .lock()
-            .map_err(|_| "Standalone window state is unavailable")?;
-        state.apply(intent)?;
+        let mut state = self.state.lock().map_err(|_| EndpointError::Unavailable)?;
+        state.apply(intent).map_err(EndpointError::Request)?;
+        self.document
+            .store(state.presentation().document_id, Ordering::Release);
+        drop(state);
         self.record_change();
         Ok(())
     }
@@ -244,8 +262,7 @@ pub(super) fn install<'js>(api: &Object<'js>, endpoint: &Arc<Endpoint>) -> rquic
     native.set(
         "setProperty",
         Func::from(move |json: String| {
-            let value: Properties =
-                serde_json::from_str(&json).map_err(|error| js_error(error.to_string()))?;
+            let value: Properties = serde_json::from_str(&json).map_err(js_error)?;
             properties
                 .apply(Intent::SetProperties(value))
                 .map_err(js_error)
@@ -255,8 +272,7 @@ pub(super) fn install<'js>(api: &Object<'js>, endpoint: &Arc<Endpoint>) -> rquic
     native.set(
         "setFrame",
         Func::from(move |json: String| {
-            let value: Frame =
-                serde_json::from_str(&json).map_err(|error| js_error(error.to_string()))?;
+            let value: Frame = serde_json::from_str(&json).map_err(js_error)?;
             frame.apply(Intent::SetFrame(value)).map_err(js_error)
         }),
     )?;
@@ -264,7 +280,7 @@ pub(super) fn install<'js>(api: &Object<'js>, endpoint: &Arc<Endpoint>) -> rquic
     native.set(
         "postMessage",
         Func::from(move |name: String, json: String| {
-            let data = serde_json::from_str(&json).map_err(|error| js_error(error.to_string()))?;
+            let data = serde_json::from_str(&json).map_err(js_error)?;
             endpoint
                 .apply(Intent::PostMessage(name, data))
                 .map_err(js_error)
@@ -279,6 +295,6 @@ fn load_file(value: String) -> Intent {
     Intent::LoadFile(value.into())
 }
 
-fn js_error(message: String) -> rquickjs::Error {
-    rquickjs::Error::new_from_js_message("iina.standaloneWindow", "window", message)
+fn js_error(message: impl std::fmt::Display) -> rquickjs::Error {
+    rquickjs::Error::new_from_js_message("iina.standaloneWindow", "window", message.to_string())
 }

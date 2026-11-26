@@ -1,6 +1,6 @@
 //! Portable state of a realm-owned standalone WebView window.
 use crate::plugin::{
-    validate_message_data, validate_message_name, validate_overlay_text,
+    PluginSurfaceError, checked_message_size, validate_message_name, validate_overlay_text,
     validate_plugin_relative_path,
 };
 use serde::Deserialize;
@@ -9,6 +9,42 @@ use std::{path::PathBuf, sync::Arc};
 
 const MAX_QUEUED_MESSAGES: usize = 128;
 const MAX_QUEUED_BYTES: usize = 4 * 1024 * 1024;
+
+#[derive(Debug)]
+pub enum WindowError {
+    Path,
+    SimpleModeRequired,
+    ContentSize,
+    Title,
+    Frame,
+    MessageName,
+    MessageData(PluginSurfaceError),
+    MessageQueueFull,
+}
+
+impl std::fmt::Display for WindowError {
+    fn fmt(&self, out: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        out.write_str(match self {
+            Self::Path => "Expected a safe relative plugin path",
+            Self::SimpleModeRequired => "Style and content require standalone simple mode",
+            Self::ContentSize => "Standalone style or content exceeds 1 MiB",
+            Self::Title => "The standalone window title is invalid",
+            Self::Frame => "The standalone window frame is outside the supported range",
+            Self::MessageName => "Expected a message name of 1–256 UTF-8 bytes",
+            Self::MessageData(error) => return std::fmt::Display::fmt(error, out),
+            Self::MessageQueueFull => "The standalone window message queue is full",
+        })
+    }
+}
+
+impl std::error::Error for WindowError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            Self::MessageData(error) => Some(error),
+            _ => None,
+        }
+    }
+}
 
 #[derive(Debug, Clone, PartialEq)]
 pub enum Intent {
@@ -57,6 +93,7 @@ pub struct Presentation {
     pub revision: u64,
     pub document_id: u64,
     pub visible: bool,
+    pub created: bool,
     pub open_revision: u64,
     pub document: Document,
     pub properties: Properties,
@@ -79,7 +116,6 @@ impl Presentation {
 #[derive(Default)]
 pub struct State {
     presentation: Presentation,
-    created: bool,
     messages: Vec<(String, Value)>,
     message_bytes: usize,
 }
@@ -89,19 +125,18 @@ impl State {
         &self.presentation
     }
 
-    pub fn apply(&mut self, intent: Intent) -> Result<(), String> {
+    pub fn apply(&mut self, intent: Intent) -> Result<(), WindowError> {
         let revision = self.presentation.revision.wrapping_add(1);
         match intent {
             Intent::Open | Intent::Close => {
-                self.created = true;
+                self.presentation.created = true;
                 self.presentation.visible = matches!(intent, Intent::Open);
                 if self.presentation.visible {
                     self.presentation.open_revision = revision;
                 }
             }
             Intent::LoadFile(path) => {
-                validate_plugin_relative_path(&path)
-                    .map_err(|_| "Expected a safe relative plugin path")?;
+                validate_plugin_relative_path(&path).map_err(|_| WindowError::Path)?;
                 self.replace_document(Document::Package(path));
             }
             Intent::SimpleMode => self.replace_document(Document::Simple {
@@ -110,7 +145,7 @@ impl State {
             }),
             Intent::SetStyle(value) => self.update_simple(true, value)?,
             Intent::SetContent(value) => self.update_simple(false, value)?,
-            Intent::SetProperties(overrides) if self.created => {
+            Intent::SetProperties(overrides) if self.presentation.created => {
                 self.presentation.properties.merge(overrides)?;
             }
             Intent::SetProperties(_) => return Ok(()),
@@ -128,10 +163,10 @@ impl State {
                         *stamp = revision;
                     }
                 }
-                self.created = true;
+                self.presentation.created = true;
             }
             Intent::PostMessage(name, data) => {
-                if self.created {
+                if self.presentation.created {
                     self.queue_message(name, data)?;
                 }
                 return Ok(());
@@ -150,33 +185,29 @@ impl State {
     }
 
     fn replace_document(&mut self, document: Document) {
-        self.created = true;
+        self.presentation.created = true;
         self.presentation.document_id = self.presentation.document_id.wrapping_add(1);
         self.presentation.document = document;
         self.messages.clear();
         self.message_bytes = 0;
     }
 
-    fn update_simple(&mut self, is_style: bool, value: String) -> Result<(), String> {
+    fn update_simple(&mut self, is_style: bool, value: String) -> Result<(), WindowError> {
         let Document::Simple { style, content } = &mut self.presentation.document else {
-            return Err("Style and content require standalone simple mode".into());
+            return Err(WindowError::SimpleModeRequired);
         };
-        validate_overlay_text(&value).map_err(|_| "Standalone style or content exceeds 1 MiB")?;
+        validate_overlay_text(&value).map_err(|_| WindowError::ContentSize)?;
         let slot = if is_style { style } else { content };
         *slot = Some(value.into());
         Ok(())
     }
 
-    fn queue_message(&mut self, name: String, data: Value) -> Result<(), String> {
-        validate_message(&name, &data)?;
-        let bytes = name.len()
-            + serde_json::to_vec(&data)
-                .map_err(|error| error.to_string())?
-                .len();
+    fn queue_message(&mut self, name: String, data: Value) -> Result<(), WindowError> {
+        let bytes = name.len() + message_size(&name, &data)?;
         if self.messages.len() >= MAX_QUEUED_MESSAGES
             || self.message_bytes.saturating_add(bytes) > MAX_QUEUED_BYTES
         {
-            return Err("The standalone window message queue is full".into());
+            return Err(WindowError::MessageQueueFull);
         }
         self.message_bytes += bytes;
         self.messages.push((name, data));
@@ -185,13 +216,13 @@ impl State {
 }
 
 impl Properties {
-    fn merge(&mut self, pending: Self) -> Result<(), String> {
+    fn merge(&mut self, pending: Self) -> Result<(), WindowError> {
         if pending
             .title
             .as_ref()
             .is_some_and(|value| value.len() > 1024 || value.contains('\0'))
         {
-            return Err("The standalone window title is invalid".into());
+            return Err(WindowError::Title);
         }
         self.title = pending.title.or(self.title.take());
         self.resizable = pending.resizable.or(self.resizable);
@@ -204,7 +235,7 @@ impl Properties {
 }
 
 impl Frame {
-    fn merge(&mut self, pending: Self) -> Result<(), String> {
+    fn merge(&mut self, pending: Self) -> Result<(), WindowError> {
         if [pending.width, pending.height]
             .into_iter()
             .flatten()
@@ -214,7 +245,7 @@ impl Frame {
                 .flatten()
                 .any(|value| !(-100_000.0..=100_000.0).contains(&value))
         {
-            return Err("The standalone window frame is outside the supported range".into());
+            return Err(WindowError::Frame);
         }
         self.width = pending.width.or(self.width);
         self.height = pending.height.or(self.height);
@@ -224,9 +255,13 @@ impl Frame {
     }
 }
 
-pub fn validate_message(name: &str, data: &Value) -> Result<(), String> {
-    validate_message_name(name).map_err(|_| "Expected a message name of 1–256 UTF-8 bytes")?;
-    validate_message_data(data).map_err(|error| error.to_string())
+pub fn validate_message(name: &str, data: &Value) -> Result<(), WindowError> {
+    message_size(name, data).map(drop)
+}
+
+fn message_size(name: &str, data: &Value) -> Result<usize, WindowError> {
+    validate_message_name(name).map_err(|_| WindowError::MessageName)?;
+    checked_message_size(data).map_err(WindowError::MessageData)
 }
 
 #[cfg(test)]
@@ -259,7 +294,10 @@ mod tests {
             height: Some(-1.0),
             ..Frame::default()
         };
-        assert!(state.apply(Intent::SetFrame(invalid)).is_err());
+        assert!(matches!(
+            state.apply(Intent::SetFrame(invalid)),
+            Err(WindowError::Frame)
+        ));
         assert_eq!(
             state.presentation().frame_changes_since(&prior),
             Frame {

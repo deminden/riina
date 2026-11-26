@@ -73,13 +73,17 @@ impl ApplicationPlugins {
     ) {
         let owner = Rc::downgrade(self);
         let host = global.clone();
-        let wake = self.platform.bind_windowless(move || {
-            let Some(service) = owner.upgrade().filter(|_| is_windowless()) else {
-                return false;
-            };
-            service.present_windowless(&host)
-        });
-        global.set_ui_waker(wake);
+        let wake: Arc<dyn Fn() + Send + Sync> =
+            Arc::new(self.platform.bind_windowless(move || {
+                let Some(service) = owner.upgrade().filter(|_| is_windowless()) else {
+                    return false;
+                };
+                service.present_windowless(&host)
+            }));
+        if let Some(services) = self.services.borrow().as_ref() {
+            services.standalone.borrow_mut().bind_wake(wake.clone());
+        }
+        global.set_ui_waker(move || wake());
     }
 
     pub(crate) fn request_windowless(&self) {

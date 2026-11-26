@@ -28,8 +28,11 @@ fn player_and_global_windows_have_independent_documents_and_retirement() {
         view.setProperty({ title: 'Child window', resizable: false });
         view.setFrame(640, null, 20, 35);
         view.postMessage('ready', { value: 7 });
-        view.open();
         iina.log(String(view.isOpen()));
+        view.onMessage('ready', () => {
+            iina.log(String(view.isOpen()));
+            view.open();
+        });
         iina.event.on('iina.file-loaded', () => {
             view.simpleMode();
             view.setStyle('body { color: green; }');
@@ -67,7 +70,8 @@ fn player_and_global_windows_have_independent_documents_and_retirement() {
     };
     assert_ne!(controller.origin, child.origin);
     let standalone = child.snapshot(None).unwrap();
-    assert!(standalone.visible);
+    assert!(standalone.created);
+    assert!(!standalone.visible);
     assert_eq!(standalone.frame.width, Some(640.0));
     assert_eq!(standalone.frame.height, None);
     assert_eq!(standalone.properties.resizable, Some(false));
@@ -79,7 +83,16 @@ fn player_and_global_windows_have_independent_documents_and_retirement() {
     assert!(matches!(controller.snapshot(None).unwrap().document,
         Document::Simple { content: Some(ref content), .. } if content.as_ref() == "Global content"
     ));
-    assert_eq!(logs(&player), ["confined", "true"]);
+    assert_eq!(logs(&player), ["confined", "false"]);
+    child.receive(
+        standalone.document_id,
+        "ready".into(),
+        serde_json::Value::Null,
+    );
+    assert_eq!(logs(&player), ["false"]);
+    let opened = child.snapshot(Some(standalone.revision)).unwrap();
+    assert!(opened.visible);
+    assert_eq!(opened.document_id, standalone.document_id);
 
     player
         .deliver_player_event("iina.file-loaded".into(), serde_json::Value::Null)

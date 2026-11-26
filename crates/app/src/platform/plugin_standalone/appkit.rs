@@ -5,6 +5,12 @@ use riina_core::plugin_window::{Frame, Properties};
 use slint::winit_030::winit::window::Window;
 use wry::{Rect, dpi::LogicalPosition};
 
+pub(in crate::platform::plugin_standalone) fn center(window: &Window) {
+    if let Some(window) = content_view(window).and_then(|view| view.window()) {
+        window.center();
+    }
+}
+
 pub(super) fn content_bounds(window: &Window) -> Rect {
     Rect {
         position: LogicalPosition::new(0.0, 0.0).into(),

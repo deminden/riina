@@ -5955,3 +5955,33 @@ Native macOS interaction and matched console and statistics pixels remain open.
 - Linux application SHA-256 `8c7c6b922298338231f2654de83e110818f10ed42f8b6a18972b3ef32ae0ef88`
 - Linux libmpv with Lua SHA-256 `4b4c5d73705aab8628c89653e0000eb68d774a5290ff93efc0ca1222f1e0fd87`
 - Linux libmpv without Lua SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`
+
+### Hidden standalone plugin documents (2026-11-26)
+
+The Windows workspace gate, locked workspace build and 70 native playback
+tests passed. The app regression exercises a hidden document replying
+before Open, retains its document identity on Open, and rejects messages
+from a replaced document. Standalone validation keeps typed errors until
+the JavaScript boundary, where the existing messages are preserved.
+
+On a private Windows desktop, a package page received a message before
+its tool was visible and replied with its page counter. Opening and closing
+the tool kept that counter. The plugin loaded a second page and exchanged
+messages again while hidden. Reopening reused the same window. A separate
+run of that binary exercised independent global and player tools, restored
+a scripted width while preserving the other three frame axes, and reopened
+the same global tool six times without a settle delay. Playback stayed
+paused and both test processes exited normally.
+
+The locked Linux build passed. The hidden message, navigation, close and
+reopen sequence also passed on isolated X11 and on native Wayland with
+XWayland disabled. X11 preserved the native window ID. On Wayland, the
+compositor remapped the tool and the browser kept the second page's counter.
+Both test processes exited normally. Apple Silicon and Intel app and test
+sources passed strict cross-Clippy. Native macOS standalone WebView and
+windowless lifecycle checks remain open.
+
+- Windows application SHA-256 `7ce91965d49f6be7b5774a2d44d584268f7f8223c28ecb26c58e11bf13a95750`
+- Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
+- Linux application SHA-256 `1d0775f1507e9eff0bfb36dc9b9d2c22ce857495146d6a188dc2c65770ebb2c9`
+- Linux libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`

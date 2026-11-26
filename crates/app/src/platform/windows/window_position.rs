@@ -156,6 +156,13 @@ where
     }
 }
 
+pub(crate) fn center_auxiliary_native(
+    child: &winit::window::Window,
+    owner: &winit::window::Window,
+) {
+    place_child(child, hwnd(owner), FrameSizing::Interface);
+}
+
 /// Center a newly shown top-level player window in the work area of its display.
 pub(crate) fn center_window<W>(window: &W)
 where

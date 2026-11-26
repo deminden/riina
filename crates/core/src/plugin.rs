@@ -278,12 +278,16 @@ pub(crate) fn validate_message_name(name: &str) -> Result<(), PluginSurfaceError
 }
 
 pub(crate) fn validate_message_data(data: &serde_json::Value) -> Result<(), PluginSurfaceError> {
+    checked_message_size(data).map(drop)
+}
+
+pub(crate) fn checked_message_size(data: &serde_json::Value) -> Result<usize, PluginSurfaceError> {
     let bytes = serde_json::to_vec(data)
         .map_err(|error| PluginSurfaceError::MessageEncoding(error.to_string()))?;
     if bytes.len() > MAX_OVERLAY_TEXT_BYTES {
         return Err(PluginSurfaceError::MessageSize);
     }
-    Ok(())
+    Ok(bytes.len())
 }
 
 impl Permission {
