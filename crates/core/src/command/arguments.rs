@@ -124,6 +124,8 @@ impl Command {
             | Self::AddSubtitlesForMedia { .. }
             | Self::AddMatchedSubtitles { .. }
             | Self::InsertPlaylistFiles { .. }
+            | Self::InsertPlaylistTrack { .. }
+            | Self::SetPlaylistShuffle(_)
             | Self::InsertPlaylistFilesBefore { .. }
             | Self::SubtitleLetterboxMargins(_)
             | Self::SubtitleEncoding(_)

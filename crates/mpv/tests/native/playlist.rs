@@ -1,6 +1,63 @@
 use super::*;
 
 #[test]
+#[ignore = "requires provisioned libmpv; verifies stable external queue editing"]
+fn confirmed_playlist_insertion_selects_the_new_native_entry() {
+    let root = fixture_root();
+    let harness = Harness::start(&root).unwrap();
+    let path = root
+        .join("tests/fixtures/catalog.mkv")
+        .to_string_lossy()
+        .into_owned();
+    harness.send(Command::SetPauseWhenOpen(true)).unwrap();
+    harness
+        .send(Command::OpenPlaylist(vec![path.clone()]))
+        .unwrap();
+    let loaded = harness.wait(|state| state.phase == Phase::Paused && state.playlist.len() == 1);
+    let original = loaded.playlist[0].id;
+    assert_eq!(loaded.active_playlist_entry, Some(original));
+
+    harness
+        .send(Command::InsertPlaylistTrack {
+            path: path.clone(),
+            after_id: None,
+            make_current: false,
+        })
+        .unwrap();
+    let expanded = harness.wait(|state| state.playlist.len() == 2);
+    let leading = expanded.playlist[0].id;
+    assert_eq!(expanded.playlist[1].id, original);
+    assert_eq!(expanded.generation, loaded.generation);
+    assert_eq!(expanded.active_playlist_entry, Some(original));
+
+    harness
+        .send(Command::InsertPlaylistTrack {
+            path,
+            after_id: Some(leading),
+            make_current: true,
+        })
+        .unwrap();
+    let selected = harness.wait(|state| {
+        state.generation > loaded.generation
+            && state.phase == Phase::Paused
+            && state.playlist.len() == 3
+    });
+    let inserted = selected.playlist[1].id;
+    assert_ne!(inserted, leading);
+    assert_ne!(inserted, original);
+    assert_eq!(selected.playlist[2].id, original);
+    assert_eq!(selected.active_playlist_entry, Some(inserted));
+    assert_eq!(selected.error(), None);
+
+    harness.send(Command::SetPlaylistShuffle(true)).unwrap();
+    harness.send(Command::SetPlaylistShuffle(true)).unwrap();
+    harness.send(Command::SubtitleDelay(0.25)).unwrap();
+    let shuffled = harness.wait(|state| (state.subtitle_delay - 0.25).abs() < 0.001);
+    assert!(shuffled.playlist_shuffled);
+    assert_eq!(shuffled.active_playlist_entry, Some(inserted));
+}
+
+#[test]
 #[ignore = "requires provisioned libmpv; verifies media-scoped chapter actions"]
 fn chapter_actions_resume_and_only_menu_selection_confirms() {
     let root = fixture_root();

@@ -4,6 +4,7 @@ use super::{
         Endpoint, OBJECT, PLAYER, PlayerInterface, ROOT, Request, RootInterface, loop_label,
     },
     projection::{Snapshot, Status, text},
+    track_list::{self, NO_TRACK, TRACK_LIST, TrackListInterface},
 };
 use riina_core::sync::lock;
 use std::{
@@ -11,7 +12,12 @@ use std::{
     sync::{Arc, Mutex},
 };
 use tokio::sync::{mpsc, watch};
-use zbus::{Connection, connection::Builder, zvariant::OwnedValue};
+use zbus::{
+    Connection,
+    connection::Builder,
+    object_server::SignalEmitter,
+    zvariant::{ObjectPath, OwnedValue},
+};
 
 pub(super) fn start(
     id: u64,
@@ -45,7 +51,8 @@ async fn serve(
     let endpoint = Endpoint::new(current.clone(), requests);
     let connection = Builder::session()?
         .serve_at(OBJECT, RootInterface(endpoint.clone()))?
-        .serve_at(OBJECT, PlayerInterface(endpoint))?
+        .serve_at(OBJECT, PlayerInterface(endpoint.clone()))?
+        .serve_at(OBJECT, TrackListInterface(endpoint))?
         .build()
         .await?;
     let name = format!(
@@ -79,10 +86,13 @@ async fn publish(
     published: &mut Option<Snapshot>,
     snapshot: Snapshot,
 ) -> zbus::Result<()> {
-    if snapshot.media.is_none() {
+    if snapshot.media.is_none() && snapshot.loading.is_none() {
         if published.take().is_some() {
             connection.release_name(name).await?;
         }
+        return Ok(());
+    }
+    if published.is_none() && snapshot.media.is_none() {
         return Ok(());
     }
     let Some(prior) = published.replace(snapshot.clone()) else {
@@ -90,15 +100,17 @@ async fn publish(
         return Ok(());
     };
     let changed = properties_changed(&snapshot, &prior)?;
-    emit_properties(connection, PLAYER, changed).await?;
+    emit_properties(connection, PLAYER, changed, &[]).await?;
     if prior.fullscreen != snapshot.fullscreen {
         emit_properties(
             connection,
             ROOT,
             HashMap::from([("Fullscreen", snapshot.fullscreen.into())]),
+            &[],
         )
         .await?;
     }
+    publish_queue(connection, &snapshot, &prior).await?;
     if snapshot.seeked_from(&prior) {
         connection
             .emit_signal(
@@ -109,6 +121,41 @@ async fn publish(
                 &(snapshot.position,),
             )
             .await?;
+    }
+    Ok(())
+}
+
+async fn publish_queue(
+    connection: &Connection,
+    snapshot: &Snapshot,
+    prior: &Snapshot,
+) -> zbus::Result<()> {
+    if snapshot.queue == prior.queue && snapshot.media == prior.media {
+        return Ok(());
+    }
+    let current = snapshot.media.as_ref().and_then(|media| media.track_id());
+    let previous = prior.media.as_ref().and_then(|media| media.track_id());
+    let tracks_changed = !snapshot.queue.same_tracks(&prior.queue);
+    let emitter = SignalEmitter::new(connection, OBJECT)?;
+    if tracks_changed {
+        emit_properties(connection, TRACK_LIST, HashMap::new(), &["Tracks"]).await?;
+    }
+    if tracks_changed || current != previous {
+        let current = current.unwrap_or(ObjectPath::try_from(NO_TRACK)?);
+        return TrackListInterface::track_list_replaced(&emitter, snapshot.queue.tracks(), current)
+            .await;
+    }
+    for (entry, old) in snapshot.queue.entries().iter().zip(prior.queue.entries()) {
+        let path = snapshot.queue.path(entry.id)?;
+        let changed = if current.as_ref() == Some(&path) {
+            (snapshot.media != prior.media).then(|| snapshot.metadata())
+        } else {
+            (track_list::title(entry) != track_list::title(old))
+                .then(|| track_list::metadata(path.clone(), entry))
+        };
+        if let Some(changed) = changed {
+            TrackListInterface::track_metadata_changed(&emitter, path, changed).await?;
+        }
     }
     Ok(())
 }
@@ -127,6 +174,9 @@ fn properties_changed(
     if snapshot.status != prior.status {
         changed.insert("PlaybackStatus", text(snapshot.status.as_str()));
         changed.insert("CanPause", (snapshot.status != Status::Stopped).into());
+    }
+    if snapshot.media.is_some() != prior.media.is_some() {
+        changed.insert("CanPlay", snapshot.media.is_some().into());
     }
     if snapshot.loop_status != prior.loop_status {
         changed.insert("LoopStatus", text(loop_label(snapshot.loop_status)));
@@ -156,8 +206,9 @@ async fn emit_properties(
     connection: &Connection,
     interface: &str,
     changed: HashMap<&'static str, OwnedValue>,
+    invalidated: &[&str],
 ) -> zbus::Result<()> {
-    if changed.is_empty() {
+    if changed.is_empty() && invalidated.is_empty() {
         return Ok(());
     }
     connection
@@ -166,7 +217,7 @@ async fn emit_properties(
             OBJECT,
             "org.freedesktop.DBus.Properties",
             "PropertiesChanged",
-            &(interface, changed, Vec::<&str>::new()),
+            &(interface, changed, invalidated),
         )
         .await
 }

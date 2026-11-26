@@ -95,6 +95,8 @@ impl Command {
                 }
                 .into(),
             ]],
+            Self::SetPlaylistShuffle(enabled) if *enabled == state.playlist_shuffled => Vec::new(),
+            Self::SetPlaylistShuffle(_) => return Self::TogglePlaylistShuffle.plan(state),
             Self::SortPlaylist(sort) => playlist::reorder(&state.playlist, *sort)?,
             Self::SelectPlaylistId(id)
             | Self::RemovePlaylistId(id)
@@ -115,6 +117,9 @@ impl Command {
             }
             Self::InsertPlaylistFiles { paths, index } => {
                 playlist::insert_files(state, paths, *index)?
+            }
+            Self::InsertPlaylistTrack { path, after_id, .. } => {
+                playlist::insert_track(state, path, *after_id)?
             }
             Self::InsertPlaylistFilesBefore { paths, before_id } => {
                 playlist::insert_files_before(state, paths, *before_id)?

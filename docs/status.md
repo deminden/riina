@@ -50,6 +50,10 @@ Implementation does not imply every state or platform is verified.
   playhead. Music Mode and desktop media controls for audio use the chapter's
   title and performer when available. The timeline shows the hovered chapter
   and time even when thumbnail images are disabled or unavailable.
+- **Linux desktop media queue:** MPRIS shows the entries around the active
+  track. Desktop controllers can read their metadata, select a track, add
+  and remove entries, or open a file or stream in the same queue. Duplicate
+  files retain distinct identities when the playlist changes order.
 - **Music Mode catalog:** the compact player opens Playlist and Chapters in
   the same panel. The toolbar remembers the active tab, and both lists keep
   their scroll positions when switching between the main and compact player.

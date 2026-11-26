@@ -177,7 +177,12 @@ Linux publishes one MPRIS service per application with an eligible player.
 It follows the focused player while retaining the last focus when such
 observations are available. Without a keyboard seat it selects the newest
 ready player. The bus worker exposes a playback snapshot and queues requests.
-The UI verifies the player and media generation again before dispatch.
+The UI verifies the player and media generation again before dispatch. The
+TrackList interface exposes up to 24 entries around the current track. Object
+paths include the window and native queue entry IDs, so repeated copies of a
+file have distinct identities. The service keeps its name while the selected
+window loads another track. An insertion that also selects the new track uses
+the entry ID returned by libmpv and waits for it to appear in the observed queue.
 
 Manual playlist navigation applies a temporary pause. The worker associates it
 with the native command reply and the media generation that starts next. It

@@ -251,6 +251,35 @@ pub(super) fn open_files(
     Ok(commands)
 }
 
+pub(super) fn insert_track(
+    state: &Playback,
+    path: &str,
+    after_id: Option<i64>,
+) -> Result<Vec<Vec<String>>, CommandError> {
+    if !valid_path(path) {
+        return Err(CommandError::InvalidArgument {
+            what: "Invalid playlist item",
+        });
+    }
+    let index = match after_id {
+        None => 0,
+        Some(id) => {
+            state
+                .playlist
+                .iter()
+                .position(|entry| entry.id == id)
+                .ok_or(CommandError::Unavailable {
+                    what: "The playlist anchor is no longer available",
+                })?
+                + 1
+        }
+    };
+    Ok(vec![add_file(
+        path,
+        (index < state.playlist.len()).then_some(index),
+    )])
+}
+
 pub(super) fn insert_files(
     state: &Playback,
     paths: &[String],

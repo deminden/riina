@@ -174,6 +174,8 @@ pub struct Playback {
     pub chapter_feedback: Option<ChapterFeedback>,
     pub chapter_performer: Option<String>,
     pub playlist: Arc<Vec<PlaylistEntry>>,
+    /// ID from the decoder's start event, independent of playlist observation order.
+    pub active_playlist_entry: Option<i64>,
     /// Latest completed user playlist edit for the player's transient OSD.
     pub playlist_feedback: Option<PlaylistFeedback>,
     /// libmpv does not expose whether its native shuffle order is active.
@@ -468,6 +470,7 @@ impl Playback {
         self.generation += 1;
         self.incoming_transition_started_at = Some(Instant::now());
         self.phase = Phase::Loading;
+        self.active_playlist_entry = None;
         self.file_feedback = FileFeedback::Loading;
         self.position = None;
         self.duration = None;

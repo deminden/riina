@@ -1,5 +1,8 @@
 //! Serve the MPRIS interfaces from the latest immutable player projection.
-use super::projection::{Snapshot, Status};
+use super::{
+    projection::{Snapshot, Status},
+    track_list,
+};
 use riina_core::{LoopMode, sync::lock};
 use std::{
     collections::HashMap,
@@ -29,7 +32,13 @@ pub(super) enum Operation {
     Previous,
     Seek(i64),
     Position(i64),
-    OpenUri(String),
+    SelectTrack(i64),
+    RemoveTrack(i64),
+    AddTrack {
+        path: String,
+        after_id: Option<i64>,
+        make_current: bool,
+    },
     Loop(LoopMode),
     Rate(f64),
     Shuffle(bool),
@@ -54,7 +63,7 @@ impl Endpoint {
         Self { snapshot, requests }
     }
 
-    fn with<R>(&self, read: impl FnOnce(&Snapshot) -> R) -> R {
+    pub(super) fn with<R>(&self, read: impl FnOnce(&Snapshot) -> R) -> R {
         read(&lock(&self.snapshot))
     }
 
@@ -67,8 +76,18 @@ impl Endpoint {
         operation: Operation,
         accepts: impl FnOnce(&Snapshot) -> bool,
     ) -> fdo::Result<()> {
+        self.send_projected(|snapshot| Ok(accepts(snapshot).then_some(operation)))
+    }
+
+    pub(super) fn send_projected(
+        &self,
+        project: impl FnOnce(&Snapshot) -> fdo::Result<Option<Operation>>,
+    ) -> fdo::Result<()> {
         self.with(|snapshot| {
-            let Some(media) = snapshot.media.as_ref().filter(|_| accepts(snapshot)) else {
+            let Some(media) = snapshot.media.as_ref() else {
+                return Ok(());
+            };
+            let Some(operation) = project(snapshot)? else {
                 return Ok(());
             };
             self.requests
@@ -123,7 +142,7 @@ impl RootInterface {
 
     #[zbus(property(emits_changed_signal = "const"))]
     fn has_track_list(&self) -> bool {
-        false
+        true
     }
 
     #[zbus(property(emits_changed_signal = "const"))]
@@ -163,19 +182,12 @@ pub(super) struct PlayerInterface(pub(super) Endpoint);
 #[zbus::interface(name = "org.mpris.MediaPlayer2.Player")]
 impl PlayerInterface {
     fn next(&self) -> fdo::Result<()> {
-        if self.can_go_next() {
-            self.0.send(Operation::Next)
-        } else {
-            Ok(())
-        }
+        self.0.send_when(Operation::Next, |snapshot| snapshot.next)
     }
 
     fn previous(&self) -> fdo::Result<()> {
-        if self.can_go_previous() {
-            self.0.send(Operation::Previous)
-        } else {
-            Ok(())
-        }
+        self.0
+            .send_when(Operation::Previous, |snapshot| snapshot.previous)
     }
 
     fn pause(&self) -> fdo::Result<()> {
@@ -200,11 +212,8 @@ impl PlayerInterface {
     }
 
     fn seek(&self, offset: i64) -> fdo::Result<()> {
-        if self.can_seek() {
-            self.0.send(Operation::Seek(offset))
-        } else {
-            Ok(())
-        }
+        self.0
+            .send_when(Operation::Seek(offset), |snapshot| snapshot.seekable)
     }
 
     fn set_position(&self, track_id: ObjectPath<'_>, position: i64) -> fdo::Result<()> {
@@ -212,20 +221,21 @@ impl PlayerInterface {
             snapshot.seekable
                 && position >= 0
                 && snapshot.media.as_ref().is_some_and(|media| {
-                    media.track_id() == track_id.as_str()
+                    media.track_id().is_some_and(|current| current == track_id)
                         && media.length.is_none_or(|length| position <= length)
                 })
         })
     }
 
-    fn open_uri(&self, uri: String) -> fdo::Result<()> {
-        let supported = uri
-            .split_once(':')
-            .is_some_and(|(scheme, _)| matches!(scheme, "file" | "http" | "https"));
-        if !supported {
-            return Err(fdo::Error::InvalidArgs("Unsupported media URI".into()));
-        }
-        self.0.send(Operation::OpenUri(uri))
+    fn open_uri(&self, uri: &str) -> fdo::Result<()> {
+        let path = track_list::media_reference(uri)?;
+        self.0.send_projected(|snapshot| {
+            Ok(Some(Operation::AddTrack {
+                path,
+                after_id: snapshot.media.as_ref().and_then(|media| media.entry),
+                make_current: true,
+            }))
+        })
     }
 
     #[zbus(signal)]

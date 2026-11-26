@@ -6325,3 +6325,25 @@ macOS interaction and matched reference appearance remain open.
 - Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
 - Linux application SHA-256 `7d64d8baa3faaeccf061fdcc242af15c110de0d8d33374f8bd685842f7254a55`
 - Linux libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`
+
+### Linux desktop media queue (2026-11-26)
+
+The locked Windows workspace build, full source gate and 72 native playback
+tests passed. The added native test inserted two copies of the same file and
+confirmed that only the returned native entry ID became current. The Linux
+application build, strict Clippy and three focused projection tests passed.
+Locked workspace source checks passed for Apple Silicon and Intel.
+
+A D-Bus client drove the same Linux build in isolated X11 and native Wayland
+sessions. It checked TrackList introspection, ordered metadata, distinct IDs
+for duplicate files, and queue notifications. It inserted tracks at the start
+and after an existing entry, selected and removed entries by ID, and confirmed
+that two concurrent removals affected the two addressed entries. SetPosition
+accepted the current ID and ignored another entry's ID. OpenUri added both a
+local file and a loopback HTTP stream to the queue. Repeated shuffle requests
+left shuffle enabled and preserved the current entry. Both players exited
+normally through MPRIS Quit.
+
+- Linux application SHA-256 `8e625a0d79b012a3a7089b637a9cf9fad294f2f7e43c7932e1cffbfcab7748d1`
+- Linux libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`
+- Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`

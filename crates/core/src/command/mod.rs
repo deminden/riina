@@ -184,6 +184,7 @@ pub enum Command {
     PlaylistNext,
     PlaylistPrevious,
     TogglePlaylistShuffle,
+    SetPlaylistShuffle(bool),
     SortPlaylist(crate::playlist::PlaylistSort),
     SelectTrack {
         kind: TrackKind,
@@ -217,6 +218,11 @@ pub enum Command {
         before_id: i64,
     },
     AppendFiles(Vec<String>),
+    InsertPlaylistTrack {
+        path: String,
+        after_id: Option<i64>,
+        make_current: bool,
+    },
     InsertPlaylistFiles {
         paths: Vec<String>,
         index: usize,
@@ -355,6 +361,7 @@ impl Command {
                 | Self::MovePlaylistIdsBefore { .. }
                 | Self::ClearPlaylist
                 | Self::AppendFiles(_)
+                | Self::InsertPlaylistTrack { .. }
                 | Self::InsertPlaylistFiles { .. }
                 | Self::InsertPlaylistFilesBefore { .. }
                 | Self::OpenFiles(_)

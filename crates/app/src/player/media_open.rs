@@ -465,32 +465,6 @@ fn startup_selection(
     }
 }
 
-#[cfg(target_os = "linux")]
-pub fn url(app: &PlayerWindow, value: &str, sender: CommandSender) {
-    let value = match validate_url(value) {
-        Ok(value) => value,
-        Err(error) => {
-            app.set_status(error.to_string().into());
-            return;
-        }
-    };
-    match open_single_in_separate_player(app, value, None) {
-        Ok(true) => return,
-        Ok(false) => {}
-        Err(error) => {
-            app.set_status(error.into());
-            return;
-        }
-    }
-    invalidate(app);
-    app.set_status("Opening…".into());
-    if let Err(error) = sender.send(Command::Load(value.to_owned())) {
-        crate::diagnostics::report(app, error);
-    } else if let Err(error) = apply_manual_open_repeat(app, &sender) {
-        app.set_status(error.into());
-    }
-}
-
 pub fn resume(app: &PlayerWindow, media: riina_core::RecentMedia, sender: CommandSender) {
     match open_single_in_separate_player(app, &media.path, Some(media.position)) {
         Ok(true) => return,

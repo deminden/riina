@@ -321,6 +321,7 @@ struct WorkerState {
     folder_discovery: folder_discovery::FolderDiscovery,
     playlist_end_pause: playlist_end_pause::EndPause,
     playlist_resume: PlaylistResume,
+    playlist_insertion: Option<PlaylistInsertion>,
     seek_pending: bool,
     event_names: HashMap<c_int, Option<Arc<str>>>,
     revision: u64,
@@ -330,6 +331,11 @@ struct WorkerState {
     stream: Option<stream::StreamLoad>,
     active_entry: Option<i64>,
     stream_auth: stream::AuthenticationHook,
+}
+
+enum PlaylistInsertion {
+    Submitted(u64),
+    Confirmed(i64),
 }
 
 impl WorkerState {
@@ -583,6 +589,17 @@ impl WorkerState {
                 };
             }
             self.issue(handle, &args, reply)?;
+            if action.first().is_some_and(|verb| verb == "loadfile")
+                && matches!(
+                    command,
+                    Command::InsertPlaylistTrack {
+                        make_current: true,
+                        ..
+                    }
+                )
+            {
+                self.playlist_insertion = Some(PlaylistInsertion::Submitted(self.next_id));
+            }
             if script_input::changes_statistics(action) {
                 self.script_input.schedule();
             }
@@ -593,6 +610,7 @@ impl WorkerState {
             let changes_media = changes_media(action);
             if changes_media || action.first().is_some_and(|verb| verb == "playlist-clear") {
                 self.playlist_edits.retire_open();
+                self.playlist_insertion = None;
             }
             if let Some(edit) = reporting_edit {
                 self.playlist_edits
@@ -635,6 +653,9 @@ impl WorkerState {
             }
             if matches!(command, Command::TogglePlaylistShuffle) {
                 self.playback.playlist_shuffled = !self.playback.playlist_shuffled;
+                self.mark_changed();
+            } else if let Command::SetPlaylistShuffle(enabled) = command {
+                self.playback.playlist_shuffled = *enabled;
                 self.mark_changed();
             } else if let Command::PluginMpv(native) = command
                 && matches!(native.name(), "playlist-shuffle" | "playlist-unshuffle")
@@ -838,11 +859,26 @@ impl WorkerState {
                 self.playback.record_mpv_event(name);
             }
         }
+        if let Some(PlaylistInsertion::Confirmed(id)) = self.playlist_insertion
+            && self.playback.playlist.iter().any(|entry| entry.id == id)
+        {
+            self.playlist_insertion = None;
+            self.handle_intent(handle, Command::SelectPlaylistId(id));
+        }
     }
 
     fn on_event(&mut self, event: &EventRef<'_>) -> Option<u64> {
         match event.id() {
             event_id::COMMAND_REPLY => {
+                if matches!(self.playlist_insertion, Some(PlaylistInsertion::Submitted(id)) if id == event.userdata())
+                {
+                    // Resolve the returned ID against the observed queue after draining events.
+                    self.playlist_insertion = if event.failed() {
+                        None
+                    } else {
+                        event.loaded_entry().map(PlaylistInsertion::Confirmed)
+                    };
+                }
                 self.on_stream_reply(event);
                 return self.on_command_reply(event);
             }
@@ -860,6 +896,8 @@ impl WorkerState {
                 self.seek_feedback.clear();
                 self.auto_seek = AutoSeek::default();
                 self.playback.begin_load();
+                self.playback.active_playlist_entry = self.active_entry;
+                self.playlist_insertion = None;
                 self.playback.folder_discovery_allowed =
                     self.folder_discovery.take_for(self.active_entry);
                 self.playlist_resume.file_started(self.playback.generation);
@@ -885,6 +923,7 @@ impl WorkerState {
                 self.adjusted_volume_read = None;
                 self.pending_audio_change = None;
                 self.playlist_resume = PlaylistResume::Idle;
+                self.playlist_insertion = None;
                 record_notice(
                     &mut self.playback,
                     NoticeSeverity::Error,
@@ -973,6 +1012,7 @@ impl WorkerState {
             _ => Phase::Stopped,
         };
         if matches!(self.playback.phase, Phase::Stopped | Phase::Failed) {
+            self.playback.active_playlist_entry = None;
             self.playback.ab_loop_a = None;
             self.playback.ab_loop_b = None;
         }

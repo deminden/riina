@@ -3,6 +3,7 @@ mod actions;
 mod broker;
 mod interface;
 mod projection;
+mod track_list;
 
 use super::{CommandSender, NativeVideoHost, PlaybackStore, PlayerWindow};
 use interface::Request;
@@ -68,14 +69,25 @@ impl Application {
 
     fn refresh(&self) {
         let routes = self.routes.borrow();
+        let previous_route = {
+            let snapshot = self.snapshots.borrow();
+            snapshot
+                .media
+                .as_ref()
+                .map(|media| media.route)
+                .or(snapshot.loading)
+        };
         let selected = routes
             .iter()
             .filter_map(|route| {
                 let app = route.app.upgrade()?;
                 let prefs = app.global::<PlayerPreferences>();
-                if route.sender.is_none()
-                    || !app.get_loaded()
-                    || !prefs.get_key_binding_use_system_media_controls()
+                if route.sender.is_none() || !prefs.get_key_binding_use_system_media_controls() {
+                    return None;
+                }
+                if !app.get_loaded()
+                    && !(previous_route == Some(route.id)
+                        && lock(&route.playback).phase == riina_core::Phase::Loading)
                 {
                     return None;
                 }
@@ -152,7 +164,13 @@ impl Application {
             Some((app, route.playback.clone(), route.sender.clone()?))
         });
         if let Some((app, latest, sender)) = recipient {
-            actions::apply(&app, &latest, &sender, request.operation);
+            actions::apply(
+                &app,
+                &latest,
+                &sender,
+                request.generation,
+                request.operation,
+            );
         }
     }
 }

@@ -1,4 +1,5 @@
 //! Convert playback observations to MPRIS without consulting the decoder from D-Bus.
+use super::track_list::{NO_TRACK, Queue, track_path};
 use riina_core::{LoopMode, Phase, Playback};
 use std::collections::HashMap;
 use zbus::zvariant::{ObjectPath, OwnedValue, Str, Value};
@@ -7,6 +8,7 @@ use zbus::zvariant::{ObjectPath, OwnedValue, Str, Value};
 pub(super) struct Media {
     pub(super) route: u64,
     pub(super) generation: u64,
+    pub(super) entry: Option<i64>,
     pub(super) title: String,
     pub(super) artist: Option<String>,
     pub(super) album: Option<String>,
@@ -14,13 +16,15 @@ pub(super) struct Media {
 }
 
 impl Media {
-    pub(super) fn track_id(&self) -> String {
-        format!("/org/riina/player/{}/media/{}", self.route, self.generation)
+    pub(super) fn track_id(&self) -> Option<ObjectPath<'static>> {
+        self.entry.and_then(|id| track_path(self.route, id).ok())
     }
 
     pub(super) fn metadata(&self) -> HashMap<&'static str, OwnedValue> {
-        let id = self.track_id();
-        let Ok(path) = ObjectPath::try_from(id) else {
+        let Some(path) = self
+            .track_id()
+            .or_else(|| ObjectPath::try_from(NO_TRACK).ok())
+        else {
             return HashMap::new();
         };
         let mut result = HashMap::from([
@@ -63,6 +67,8 @@ impl Status {
 #[derive(Clone, Debug, PartialEq)]
 pub(super) struct Snapshot {
     pub(super) media: Option<Media>,
+    pub(super) loading: Option<u64>,
+    pub(super) queue: Queue,
     pub(super) status: Status,
     pub(super) position: i64,
     pub(super) completed_seeks: u64,
@@ -80,6 +86,8 @@ impl Default for Snapshot {
     fn default() -> Self {
         Self {
             media: None,
+            loading: None,
+            queue: Queue::default(),
             status: Status::Stopped,
             position: 0,
             completed_seeks: 0,
@@ -108,7 +116,9 @@ impl Snapshot {
         } else {
             Status::Playing
         };
-        let current = playback.playlist.iter().position(|entry| entry.current);
+        let current = playback
+            .active_playlist_entry
+            .and_then(|id| playback.playlist.iter().position(|entry| entry.id == id));
         let length = playback.duration.and_then(microseconds);
         let position = playback.position.and_then(microseconds).unwrap_or_default();
         let loop_status = playback.loop_mode();
@@ -122,11 +132,18 @@ impl Snapshot {
             media: active.then(|| Media {
                 route,
                 generation: playback.generation,
+                entry: playback.active_playlist_entry,
                 title: metadata.title.to_owned(),
                 artist: metadata.artist.map(str::to_owned),
                 album: metadata.album.map(str::to_owned),
                 length,
             }),
+            loading: (playback.phase == Phase::Loading).then_some(route),
+            queue: if active || playback.phase == Phase::Loading {
+                Queue::read(route, playback.playlist.clone(), current)
+            } else {
+                Queue::default()
+            },
             status,
             position: length.map_or(position, |length| position.min(length)),
             completed_seeks: playback.completed_navigation_seeks,

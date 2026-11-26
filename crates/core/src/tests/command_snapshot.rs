@@ -118,6 +118,7 @@ command_samples! {
     PlaylistNext;
     PlaylistPrevious;
     TogglePlaylistShuffle;
+    SetPlaylistShuffle[true];
     SortPlaylist[playlist::PlaylistSort::FilenameAscending];
     SelectTrack { kind: TrackKind::Audio, id: Some(2) };
     CycleTrack[TrackKind::Audio];
@@ -141,6 +142,7 @@ command_samples! {
     MovePlaylistIdBefore { id: 10, before_id: 30 };
     AppendFiles[vec!["bonus.mkv".into()]];
     InsertPlaylistFiles { paths: vec!["bonus.mkv".into()], index: 1 };
+    InsertPlaylistTrack { path: "bonus.mkv".into(), after_id: None, make_current: true };
     InsertPlaylistFilesBefore { paths: vec!["bonus.mkv".into()], before_id: Some(20) };
     InsertPlaylistFilesAroundCurrent { before: vec!["intro.mkv".into()], after: vec!["outro.mkv".into()] };
     RemovePlaylistEntry[1];
@@ -349,6 +351,7 @@ fn worker_routes_every_command_to_the_expected_lifecycle() {
         "ClearPlaylist",
         "AppendFiles",
         "InsertPlaylistFiles",
+        "InsertPlaylistTrack",
         "InsertPlaylistFilesBefore",
         "OpenFiles",
         "OpenPlaylist",

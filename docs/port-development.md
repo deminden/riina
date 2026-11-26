@@ -55,8 +55,11 @@ height. In narrow windows, a submenu can overlap its parent. Left Arrow
 returns to the parent. Both presenters keep the player event loop active.
 
 Linux desktop media controls use MPRIS over the session bus. They follow the
-active player and honor the system media controls preference. Opening media
-through MPRIS uses the normal file and URL opening rules. [MPRIS player interface](https://specifications.freedesktop.org/mpris/latest/Player_Interface.html)
+active player and honor the system media controls preference. Desktop clients
+can browse and edit the portion of the playlist around the playing track.
+Opening a local file or an HTTP(S) media URL through MPRIS adds it to that
+playlist and starts the new entry. [MPRIS player interface](https://specifications.freedesktop.org/mpris/latest/Player_Interface.html),
+[MPRIS TrackList interface](https://specifications.freedesktop.org/mpris/latest/Track_List_Interface.html)
 
 Linux registers local recent media in the per-user GTK bookmark store.
 Clearing Open Recent removes Riina's registration from each bookmark and

@@ -10,6 +10,7 @@ pub(super) fn apply(
     app: &PlayerWindow,
     latest: &PlaybackStore,
     sender: &CommandSender,
+    generation: u64,
     operation: Operation,
 ) {
     let controls = app.global::<PlayerControlActions>();
@@ -35,15 +36,32 @@ pub(super) fn apply(
         Operation::Stop => menu.invoke_stop(),
         Operation::Next => menu.invoke_playlist_next(),
         Operation::Previous => menu.invoke_playlist_previous(),
-        Operation::Seek(offset) => seek(app, latest, offset),
-        Operation::Position(position) => menu.invoke_seek((position as f64 / 1e6) as f32),
-        Operation::OpenUri(uri) => open(app, sender, &uri),
+        Operation::Seek(offset) => seek(app, latest, sender, generation, offset),
+        Operation::Position(position) => seek_to(app, sender, generation, position as f64 / 1e6),
+        Operation::SelectTrack(id) => {
+            submit_for_media(app, sender, generation, Command::SelectPlaylistId(id))
+        }
+        Operation::RemoveTrack(id) => {
+            submit_for_media(app, sender, generation, Command::RemovePlaylistId(id))
+        }
+        Operation::AddTrack {
+            path,
+            after_id,
+            make_current,
+        } => submit_for_media(
+            app,
+            sender,
+            generation,
+            Command::InsertPlaylistTrack {
+                path,
+                after_id,
+                make_current,
+            },
+        ),
         Operation::Loop(mode) => submit(app, sender, Command::SetLoopMode(mode)),
         Operation::Rate(rate) => submit(app, sender, Command::Speed(rate)),
         Operation::Shuffle(value) => {
-            if lock(latest).playlist_shuffled != value {
-                submit(app, sender, Command::TogglePlaylistShuffle);
-            }
+            submit_for_media(app, sender, generation, Command::SetPlaylistShuffle(value))
         }
         Operation::Volume(value) => {
             let boost = app.global::<PlayerPreferences>().get_volume_boost();
@@ -68,34 +86,47 @@ fn transport_key(operation: &Operation) -> Option<&'static str> {
     }
 }
 
-fn seek(app: &PlayerWindow, latest: &PlaybackStore, offset: i64) {
-    let target = {
+fn seek(
+    app: &PlayerWindow,
+    latest: &PlaybackStore,
+    sender: &CommandSender,
+    generation: u64,
+    offset: i64,
+) {
+    let (target, beyond_end) = {
         let state = lock(latest);
-        if !state.seekable {
+        if !state.seekable || state.generation != generation {
             return;
         }
-        state.position.unwrap_or(0.0) + offset as f64 / 1e6
+        let target = state.position.unwrap_or(0.0) + offset as f64 / 1e6;
+        (
+            target,
+            state.duration.is_some_and(|duration| target > duration),
+        )
     };
-    let menu = app.global::<PlayerMenuActions>();
-    if lock(latest)
-        .duration
-        .is_some_and(|duration| target > duration)
-    {
-        menu.invoke_playlist_next();
+    if beyond_end {
+        submit_for_media(app, sender, generation, Command::PlaylistNext);
     } else {
-        menu.invoke_seek(target.max(0.0) as f32);
+        seek_to(app, sender, generation, target.max(0.0));
     }
 }
 
-fn open(app: &PlayerWindow, sender: &CommandSender, reference: &str) {
-    if let Ok(uri) = url::Url::parse(reference)
-        && uri.scheme() == "file"
-        && let Ok(path) = uri.to_file_path()
-        && let Some(path) = path.to_str()
-    {
-        crate::media_open::selection(app, vec![path.to_owned()], false, sender.clone());
-    } else {
-        crate::media_open::url(app, reference, sender.clone());
+fn seek_to(app: &PlayerWindow, sender: &CommandSender, generation: u64, seconds: f64) {
+    app.global::<PlayerControlActions>().invoke_activity();
+    submit_for_media(
+        app,
+        sender,
+        generation,
+        Command::Seek {
+            seconds,
+            absolute: true,
+        },
+    );
+}
+
+fn submit_for_media(app: &PlayerWindow, sender: &CommandSender, generation: u64, command: Command) {
+    if let Err(error) = sender.send_for_media(generation, command) {
+        crate::diagnostics::report(app, error);
     }
 }
 
