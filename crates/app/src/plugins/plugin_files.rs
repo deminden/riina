@@ -3,7 +3,9 @@
 mod context;
 mod encoding;
 
-pub(crate) use context::{PlayerEvent, PluginPlayerFileContext, PluginPlaylist, WindowModes};
+pub(crate) use context::{
+    PlayerEvent, PluginPlayerFileContext, PluginPlaylist, WindowModes, WindowProperties,
+};
 use encoding::decode_text;
 use serde::Serialize;
 use std::{
@@ -199,7 +201,14 @@ impl PluginFiles {
         Ok(context
             .window_modes
             .property(name)
-            .or_else(|| context.core_window_properties.get(name).cloned()))
+            .or_else(|| context.core_window_properties.values.get(name).cloned()))
+    }
+
+    pub(crate) fn player_window_loaded(&self) -> Result<bool, String> {
+        self.player_context
+            .lock()
+            .map(|context| context.core_window_properties.loaded())
+            .map_err(|_| "Player file context was poisoned".to_owned())
     }
 
     pub(crate) fn exists(&self, path: &str, file_system_granted: bool) -> Result<bool, String> {

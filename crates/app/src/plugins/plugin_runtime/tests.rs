@@ -344,28 +344,63 @@ fn core_ui_visibility_emits_the_iina_disable_ui_flag() {
 
 #[test]
 fn core_window_proxy_exposes_window_state_and_typed_mutations() {
-    let events = execute_entry(
-        r#"
-            iina.log(String(iina.core.window.loaded));
-            iina.log(String(iina.core.window.frame));
-            iina.core.window.frame = {x: 12, y: 34, width: 640, height: 360};
-            iina.core.window.fullscreen = true;
-            iina.core.window.pip = false;
-            iina.core.window.ontop = true;
-            iina.core.window.sidebar = 'playlist';
-            iina.core.window.sidebar = null;
-            iina.core.window.miniaturized = false;
-        "#,
-        "org.example.core-window",
+    let pending = execute_entry(
+        "iina.log(String(iina.core.window.loaded)); iina.log(String(iina.core.window.screens)); iina.core.window.ontop = true;",
+        "org.example.core-window-pending",
         &[],
         &[],
     )
     .unwrap();
     assert_eq!(
-        events,
+        pending,
         [
             HostEvent::Ui(UiEffect::Log("false".into())),
             HostEvent::Ui(UiEffect::Log("null".into())),
+        ]
+    );
+    let identifier = "org.example.core-window";
+    let execute_loaded = |source| {
+        let files = PluginFiles::temporary(identifier);
+        let mut context = crate::plugin_files::PluginPlayerFileContext::default();
+        context.set_core_window_properties(
+            BTreeMap::from([("loaded".into(), serde_json::json!(true))]).into(),
+        );
+        files.set_player_context(context);
+        PluginRuntimeSession::start_entry_with_context(
+            source,
+            identifier,
+            &[],
+            &[],
+            None,
+            None,
+            PluginStorageContext {
+                ui: PluginUi::default(),
+                plugin_name: identifier.into(),
+                file_system: files,
+                player_mpv: None,
+                allowed_domains: Vec::new(),
+                preferences: PluginPreferences::temporary(),
+            },
+        )?
+        .drain_events()
+    };
+    let events = execute_loaded(
+        r#"
+            iina.log(String(iina.core.window.loaded));
+            iina.core.window.frame = {x: 12, y: 34, width: 640, height: 360};
+            iina.core.window.fullscreen = true;
+            iina.core.window.pip = false;
+            iina.core.window.ontop = true;
+            iina.core.window.sidebar = 'playlist';
+            iina.core.window.sidebar = undefined;
+            iina.core.window.miniaturized = false;
+        "#,
+    )
+    .unwrap();
+    assert_eq!(
+        events,
+        [
+            HostEvent::Ui(UiEffect::Log("true".into())),
             HostEvent::Ui(UiEffect::WindowAction(WindowAction::SetFrame {
                 x: 12.0,
                 y: 34.0,
@@ -385,23 +420,10 @@ fn core_window_proxy_exposes_window_state_and_typed_mutations() {
         ]
     );
     assert!(
-        execute_entry(
-            "iina.core.window.frame = {x: 0, y: 0, width: Infinity, height: 10};",
-            "org.example.core-window-invalid",
-            &[],
-            &[],
-        )
-        .is_err()
+        execute_loaded("iina.core.window.frame = {x: 0, y: 0, width: Infinity, height: 10};")
+            .is_err()
     );
-    assert!(
-        execute_entry(
-            "iina.core.window.fullscreen = 'yes';",
-            "org.example.core-window-invalid-type",
-            &[],
-            &[],
-        )
-        .is_err()
-    );
+    assert!(execute_loaded("iina.core.window.fullscreen = 'yes';").is_err());
 }
 
 #[test]

@@ -9,6 +9,45 @@ use std::{
 
 pub(crate) type PlayerEvent = (String, Option<Arc<serde_json::Value>>);
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) struct WindowProperties {
+    pub(crate) values: BTreeMap<String, serde_json::Value>,
+    pub(crate) current_screen: Option<String>,
+}
+
+impl From<BTreeMap<String, serde_json::Value>> for WindowProperties {
+    fn from(values: BTreeMap<String, serde_json::Value>) -> Self {
+        Self {
+            values,
+            current_screen: None,
+        }
+    }
+}
+
+impl Default for WindowProperties {
+    fn default() -> Self {
+        Self::from(BTreeMap::from([
+            ("loaded".into(), serde_json::Value::Bool(false)),
+            ("frame".into(), serde_json::Value::Null),
+            ("ontop".into(), serde_json::Value::Null),
+            ("visible".into(), serde_json::Value::Null),
+            ("main".into(), serde_json::json!(false)),
+            ("sidebar".into(), serde_json::Value::Null),
+            ("screens".into(), serde_json::Value::Null),
+            ("miniaturized".into(), serde_json::Value::Null),
+        ]))
+    }
+}
+
+impl WindowProperties {
+    pub(crate) fn loaded(&self) -> bool {
+        self.values
+            .get("loaded")
+            .and_then(serde_json::Value::as_bool)
+            == Some(true)
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) struct WindowModes {
     fullscreen: Option<bool>,
@@ -62,7 +101,7 @@ pub(crate) struct PluginPlayerFileContext {
     pub(super) chapters: Vec<serde_json::Value>,
     pub(super) playlist: PluginPlaylist,
     pub(super) core_version: serde_json::Value,
-    pub(super) core_window_properties: BTreeMap<String, serde_json::Value>,
+    pub(super) core_window_properties: WindowProperties,
     pub(super) window_modes: WindowModes,
     pub(super) recent_documents: Vec<serde_json::Value>,
     pub(super) playback_history: Vec<serde_json::Value>,
@@ -89,16 +128,7 @@ impl PluginPlayerFileContext {
             chapters: Vec::new(),
             playlist: PluginPlaylist::default(),
             core_version: serde_json::Value::Null,
-            core_window_properties: BTreeMap::from([
-                ("loaded".into(), serde_json::Value::Bool(false)),
-                ("frame".into(), serde_json::Value::Null),
-                ("ontop".into(), serde_json::Value::Null),
-                ("visible".into(), serde_json::Value::Null),
-                ("main".into(), serde_json::json!(false)),
-                ("sidebar".into(), serde_json::Value::Null),
-                ("screens".into(), serde_json::Value::Null),
-                ("miniaturized".into(), serde_json::Value::Null),
-            ]),
+            core_window_properties: WindowProperties::default(),
             window_modes: WindowModes {
                 fullscreen: None,
                 pip: None,
@@ -195,12 +225,17 @@ impl PluginPlayerFileContext {
         events
     }
 
-    pub(crate) fn window_events_to(
-        &self,
-        next: &BTreeMap<String, serde_json::Value>,
-    ) -> Vec<PlayerEvent> {
+    pub(crate) fn window_events_to(&self, next: &WindowProperties) -> Vec<PlayerEvent> {
         let mut events = Vec::new();
-        let previous_frame = self.core_window_properties.get("frame");
+        let previous = &self.core_window_properties.values;
+        let screen_changed = self
+            .core_window_properties
+            .current_screen
+            .as_ref()
+            .zip(next.current_screen.as_ref())
+            .is_some_and(|(old, new)| old != new);
+        let next = &next.values;
+        let previous_frame = previous.get("frame");
         let next_frame = next.get("frame");
         if let (Some(previous), Some(current)) = (previous_frame, next_frame)
             && previous.is_object()
@@ -215,8 +250,7 @@ impl PluginPlayerFileContext {
             }
         }
         if let (Some(previous), Some(current)) = (
-            self.core_window_properties
-                .get("window-size-adjusted-event"),
+            previous.get("window-size-adjusted-event"),
             next.get("window-size-adjusted-event"),
         ) && previous != current
             && let Some(frame) = next.get("frame").filter(|frame| frame.is_object())
@@ -227,9 +261,7 @@ impl PluginPlayerFileContext {
             ));
         }
         if let (Some(previous), Some(current)) = (
-            self.core_window_properties
-                .get("main")
-                .and_then(serde_json::Value::as_bool),
+            previous.get("main").and_then(serde_json::Value::as_bool),
             next.get("main").and_then(serde_json::Value::as_bool),
         ) && previous != current
         {
@@ -239,7 +271,7 @@ impl PluginPlayerFileContext {
             ));
         }
         if let (Some(previous), Some(current)) = (
-            self.core_window_properties
+            previous
                 .get("miniaturized")
                 .and_then(serde_json::Value::as_bool),
             next.get("miniaturized")
@@ -256,18 +288,7 @@ impl PluginPlayerFileContext {
                 None,
             ));
         }
-        if let Some(previous) = self
-            .core_window_properties
-            .get("screens")
-            .filter(|screens| {
-                screens
-                    .as_array()
-                    .is_some_and(|screens| !screens.is_empty())
-            })
-            && next
-                .get("screens")
-                .is_some_and(|current| current != previous)
-        {
+        if screen_changed {
             events.push(("iina.window-screen.changed".into(), None));
         }
         events
@@ -319,17 +340,13 @@ impl PluginPlayerFileContext {
             .is_some()
     }
 
-    pub(crate) fn set_core_window_properties(
-        &mut self,
-        properties: BTreeMap<String, serde_json::Value>,
-    ) {
-        if properties
-            .get("loaded")
-            .and_then(serde_json::Value::as_bool)
-            == Some(true)
-        {
+    pub(crate) fn set_core_window_properties(&mut self, mut properties: WindowProperties) {
+        if properties.loaded() {
             self.window_modes.fullscreen.get_or_insert(false);
             self.window_modes.pip.get_or_insert(false);
+            if properties.current_screen.is_none() {
+                properties.current_screen = self.core_window_properties.current_screen.take();
+            }
         }
         self.core_window_properties = properties;
     }

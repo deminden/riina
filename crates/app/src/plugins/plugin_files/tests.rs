@@ -70,7 +70,9 @@ fn text_reads_enforce_the_size_boundary() {
 }
 
 #[test]
-fn player_context_reports_file_started_and_loaded_with_the_incoming_url() {
+fn player_context_reports_file_loaded_and_changed_mpv_properties() {
+    let mut native = riina_core::Playback::default();
+    native.record_mpv_property("pause".into(), serde_json::json!(true), 4);
     let previous = PluginPlayerFileContext::default()
         .with_media_generation(4)
         .with_media_phase(riina_core::Phase::Playing)
@@ -86,7 +88,8 @@ fn player_context_reports_file_started_and_loaded_with_the_incoming_url() {
         .with_core_snapshot(
             BTreeMap::from([("url".into(), serde_json::json!("file:///media/new.mkv"))]),
             Vec::new(),
-        );
+        )
+        .with_mpv_events(native.mpv_events);
 
     assert_eq!(
         previous.player_events_to(&next),
@@ -96,6 +99,10 @@ fn player_context_reports_file_started_and_loaded_with_the_incoming_url() {
             (
                 "iina.file-loaded".into(),
                 Some(serde_json::json!("file:///media/new.mkv").into()),
+            ),
+            (
+                "mpv.pause.changed".into(),
+                Some(serde_json::json!(true).into())
             ),
         ]
     );
@@ -121,7 +128,7 @@ fn player_context_reports_file_started_and_loaded_with_the_incoming_url() {
 }
 
 #[test]
-fn player_context_reports_observed_window_geometry_and_focus_changes() {
+fn player_context_reports_window_geometry_and_mode_changes() {
     let previous = PluginPlayerFileContext::default();
     let initial = BTreeMap::from([
         (
@@ -132,12 +139,14 @@ fn player_context_reports_observed_window_geometry_and_focus_changes() {
         ("main".into(), serde_json::json!(false)),
         ("window-size-adjusted-event".into(), serde_json::json!(0)),
         ("screens".into(), serde_json::json!([])),
-    ]);
+    ])
+    .into();
     assert!(previous.window_events_to(&initial).is_empty());
 
     let mut settled = PluginPlayerFileContext::default();
     settled.set_core_window_properties(initial);
-    let changed = BTreeMap::from([
+    let mut changed = WindowProperties::from(BTreeMap::from([
+        ("loaded".into(), serde_json::json!(true)),
         (
             "frame".into(),
             serde_json::json!({"x": 35, "y": 42, "width": 800, "height": 450}),
@@ -149,7 +158,8 @@ fn player_context_reports_observed_window_geometry_and_focus_changes() {
             "screens".into(),
             serde_json::json!([{"frame":{"x":0,"y":0,"width":1920,"height":1080}}]),
         ),
-    ]);
+    ]));
+    changed.current_screen = Some("first".into());
 
     assert_eq!(
         settled.window_events_to(&changed),
@@ -179,7 +189,8 @@ fn player_context_reports_observed_window_geometry_and_focus_changes() {
             serde_json::json!({"x":10,"y":20,"width":640,"height":360}),
         ),
         ("window-size-adjusted-event".into(), serde_json::json!(1)),
-    ]);
+    ])
+    .into();
     assert_eq!(
         settled.window_events_to(&adjusted_without_frame_change),
         [(
@@ -190,7 +201,8 @@ fn player_context_reports_observed_window_geometry_and_focus_changes() {
 
     let mut with_screen = PluginPlayerFileContext::default();
     with_screen.set_core_window_properties(changed);
-    let next_screen = BTreeMap::from([
+    let mut next_screen = WindowProperties::from(BTreeMap::from([
+        ("loaded".into(), serde_json::json!(true)),
         (
             "frame".into(),
             serde_json::json!({"x": 35, "y": 42, "width": 800, "height": 450}),
@@ -201,13 +213,18 @@ fn player_context_reports_observed_window_geometry_and_focus_changes() {
             "screens".into(),
             serde_json::json!([{"frame":{"x":0,"y":0,"width":2560,"height":1440}}]),
         ),
-    ]);
+    ]));
+    next_screen.current_screen = Some("first".into());
     assert_eq!(
         with_screen.window_events_to(&next_screen),
-        [
-            ("iina.window-miniaturized".into(), None),
-            ("iina.window-screen.changed".into(), None),
-        ]
+        [("iina.window-miniaturized".into(), None)],
+    );
+    next_screen.current_screen = None;
+    with_screen.set_core_window_properties(next_screen.clone());
+    next_screen.current_screen = Some("second".into());
+    assert_eq!(
+        with_screen.window_events_to(&next_screen),
+        [("iina.window-screen.changed".into(), None)],
     );
 }
 

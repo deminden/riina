@@ -1,8 +1,7 @@
 //! Project typed plugin messages onto the player or the native presenters.
 use super::super::plugin_menus::{remove_plugin_menu_rows, replace_plugin_menu_rows};
 use super::{
-    apply_plugin_window_action, plugin_sidebar_tab_added, plugin_sidebar_tab_removed,
-    select_plugin_sidebar_tab,
+    plugin_sidebar_tab_added, plugin_sidebar_tab_removed, select_plugin_sidebar_tab, window,
 };
 use crate::{
     NativeVideoHost, PlayerWindow, platform,
@@ -48,7 +47,12 @@ impl PluginEffects {
                 .global::<riina_ui::PlayerControlsState>()
                 .set_plugin_ui_disabled(disabled),
             PluginHostMessage::WindowAction(action) => {
-                apply_plugin_window_action(app, self.window_host.as_ref(), action);
+                let host = self.window_host.clone();
+                // Native frame and minimize requests can dispatch window events.
+                // Leave the presenter timer before applying any window action.
+                let _ = crate::background::to_ui(app.as_weak(), move |app| {
+                    window::apply(&app, host.as_ref(), action);
+                });
             }
             PluginHostMessage::ShowOsd(text) => self.show_osd(app, text),
             PluginHostMessage::ShowAlert(title, text) => {

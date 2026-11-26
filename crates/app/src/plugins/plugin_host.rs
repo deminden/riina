@@ -5,7 +5,7 @@ mod playlist_menu;
 mod ui_activity;
 
 use crate::{
-    plugin_files::{PlayerEvent, PluginPlayerFileContext},
+    plugin_files::{PlayerEvent, PluginPlayerFileContext, WindowProperties},
     plugin_runtime::{HostEvent, PluginRuntimeSession, PluginUi, UiEffect},
     plugin_snapshot::{playback_history_values, recent_document_values, version_snapshot},
     plugins::plugin_players::Ticket,
@@ -127,10 +127,10 @@ impl PluginHostHandle {
 
     pub(crate) fn update_window_properties(
         &self,
-        properties: BTreeMap<String, serde_json::Value>,
+        properties: impl Into<WindowProperties>,
     ) -> Result<(), String> {
         self.commands
-            .try_send(PluginCommand::UpdateWindowProperties(properties))
+            .try_send(PluginCommand::UpdateWindowProperties(properties.into()))
             .map_err(command_error)
     }
 
@@ -420,7 +420,7 @@ enum PluginCommand {
     FromGlobal(String, String, serde_json::Value),
     GlobalMenu(PluginHostMessage),
     UpdatePlayerFileContext(PluginPlayerFileContext),
-    UpdateWindowProperties(BTreeMap<String, serde_json::Value>),
+    UpdateWindowProperties(WindowProperties),
     WindowModes(Vec<WindowModeChange>),
     WindowLoaded,
     PluginOverlayLoaded(Option<PlayerPluginRoute>),

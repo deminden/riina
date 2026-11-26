@@ -50,6 +50,7 @@ pub(crate) use plugin_presentation::{
 mod plugin_resources;
 pub(crate) mod plugin_settings;
 pub(crate) mod plugin_standalone;
+pub(crate) mod plugin_window;
 pub(crate) mod preferences;
 pub(crate) mod settings_file;
 mod shared_video;

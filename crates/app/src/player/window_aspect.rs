@@ -587,7 +587,9 @@ fn resize_filter(
         };
         let changed = requested != previous_size.get();
         native_sizing.observe_resize(&app, window, requested);
-        if !window_sizing::USES_NATIVE_RESIZE_FILTER
+        let plugin_frame = crate::platform::plugin_window::accepts_frame_resize(window, requested);
+        if !plugin_frame
+            && !window_sizing::USES_NATIVE_RESIZE_FILTER
             && changed
             && aspect_lock_enabled(&app)
             && let Some((maximum, true)) = window_limits(&app, window)

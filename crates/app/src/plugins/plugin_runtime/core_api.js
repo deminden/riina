@@ -33,7 +33,7 @@
         },
         set(_target, property, value) {
             if (typeof property !== 'string') return false;
-            return writeWindowProperty(property, JSON.stringify(value));
+            return writeWindowProperty(property, JSON.stringify(value ?? null));
         }
     });
     for (const namespace of ['audio', 'subtitle', 'video']) {

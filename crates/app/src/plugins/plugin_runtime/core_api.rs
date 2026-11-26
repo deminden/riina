@@ -333,10 +333,14 @@ fn install_window_actions(
         }),
     )?;
     let window_events = events.clone();
+    let window_files = files.clone();
     core_api.set(
         "__writeWindowProperty",
         Func::from(
             move |name: String, serialized: String| -> rquickjs::Result<bool> {
+                if !window_files.player_window_loaded().map_err(core_js_error)? {
+                    return Ok(true);
+                }
                 let value: serde_json::Value = serde_json::from_str(&serialized)
                     .map_err(|_| core_js_error("Window property value is not valid JSON".into()))?;
                 let Some(action) = plugin_window_action(&name, value)? else {
@@ -403,11 +407,11 @@ fn plugin_window_action(
         "ontop" => WindowAction::SetOnTop(value.as_bool().ok_or_else(|| invalid("ontop"))?),
         "sidebar" => {
             let name = match value {
-                serde_json::Value::Null => None,
                 serde_json::Value::String(name) if name.len() <= 128 && !name.contains('\0') => {
                     Some(name)
                 }
-                _ => return Err(invalid("sidebar")),
+                serde_json::Value::String(_) => return Err(invalid("sidebar")),
+                _ => None,
             };
             WindowAction::SetSidebar(name)
         }

@@ -3,6 +3,7 @@ mod application;
 mod developer;
 mod effects;
 mod input;
+mod window;
 use super::playlist_menu;
 
 use crate::{
@@ -11,10 +12,9 @@ use crate::{
 pub(crate) use application::ApplicationPlugins;
 use effects::PluginEffects;
 use riina_ui::PlayerMenuActions;
-use slint::{ComponentHandle, Model, winit_030::WinitWindowAccessor};
+use slint::{ComponentHandle, Model};
 use std::{
     cell::{Cell, RefCell},
-    collections::BTreeMap,
     rc::Rc,
     sync::Arc,
     time::{Duration, Instant},
@@ -386,7 +386,7 @@ struct WindowEvents {
     host: crate::plugin_host::PluginHostHandle,
     window: Option<slint::Weak<crate::NativeVideoHost>>,
     announced: bool,
-    last_properties: Option<BTreeMap<String, serde_json::Value>>,
+    last_properties: Option<crate::plugin_files::WindowProperties>,
     last_update: Instant,
 }
 
@@ -405,19 +405,26 @@ impl WindowEvents {
     }
 
     fn observe(&mut self, app: &PlayerWindow, window_properties_tick: bool) {
-        if !self.announced && self.host.notify_window_loaded().is_ok() {
-            self.announced = true;
-        }
-        if window_properties_tick || self.last_update.elapsed() >= WINDOW_PROPERTIES_INTERVAL {
+        if !self.announced
+            || window_properties_tick
+            || self.last_update.elapsed() >= WINDOW_PROPERTIES_INTERVAL
+        {
             self.last_update = Instant::now();
-            let properties = plugin_window_properties(app, self.window.as_ref());
-            if self.last_properties.as_ref() != Some(&properties)
-                && self
+            let Some(properties) = window::properties(app, self.window.as_ref()) else {
+                return;
+            };
+            if self.last_properties.as_ref() != Some(&properties) {
+                if self
                     .host
                     .update_window_properties(properties.clone())
-                    .is_ok()
-            {
+                    .is_err()
+                {
+                    return;
+                }
                 self.last_properties = Some(properties);
+            }
+            if !self.announced && self.host.notify_window_loaded().is_ok() {
+                self.announced = true;
             }
         }
     }
@@ -568,198 +575,6 @@ fn select_plugin_sidebar_tab(app: &PlayerWindow, identifier: &str) {
         .map_or(-1, |row| row as i32);
     app.global::<riina_ui::PlayerSidebarState>()
         .set_plugin_sidebar_selected_index(index);
-}
-
-fn plugin_sidebar_name(index: i32) -> Option<&'static str> {
-    match index {
-        1 => Some("audio"),
-        2 => Some("subtitles"),
-        3 => Some("chapter"),
-        4 => Some("playlist"),
-        5 => Some("layout"),
-        6 => Some("video"),
-        7 => Some("plugins"),
-        _ => None,
-    }
-}
-
-fn plugin_sidebar_index(name: &str) -> Option<i32> {
-    match name {
-        "audio" => Some(1),
-        "subtitles" => Some(2),
-        "chapter" => Some(3),
-        "playlist" => Some(4),
-        "layout" => Some(5),
-        "video" => Some(6),
-        "plugins" => Some(7),
-        _ => None,
-    }
-}
-
-fn plugin_window_properties(
-    app: &PlayerWindow,
-    native_host: Option<&slint::Weak<crate::NativeVideoHost>>,
-) -> BTreeMap<String, serde_json::Value> {
-    let mut properties = BTreeMap::from([
-        ("loaded".into(), serde_json::Value::Bool(false)),
-        (
-            "ontop".into(),
-            serde_json::json!(
-                app.global::<riina_ui::PlayerLayoutState>()
-                    .get_always_float_on_top()
-            ),
-        ),
-        (
-            "sidebar".into(),
-            plugin_sidebar_name(app.global::<riina_ui::PlayerSidebarState>().get_sidebar())
-                .or_else(|| {
-                    plugin_sidebar_name(
-                        app.global::<riina_ui::PlayerSidebarState>()
-                            .get_leading_sidebar(),
-                    )
-                })
-                .map_or(serde_json::Value::Null, |name| serde_json::json!(name)),
-        ),
-        ("visible".into(), serde_json::Value::Null),
-        ("main".into(), serde_json::Value::Null),
-        ("miniaturized".into(), serde_json::Value::Null),
-        ("frame".into(), serde_json::Value::Null),
-        (
-            "window-size-adjusted-event".into(),
-            serde_json::json!(app.get_window_size_adjusted_event()),
-        ),
-        ("screens".into(), serde_json::Value::Array(Vec::new())),
-    ]);
-    let read = |window: &slint::Window| {
-        window.with_winit_window(|native| {
-            let scale = native.scale_factor().max(0.1);
-            let position = native.outer_position().ok().unwrap_or_default();
-            let size = native.outer_size();
-            let current = native.current_monitor();
-            let primary = native.primary_monitor();
-            let screens = native
-                .available_monitors()
-                .map(|monitor| {
-                    let origin = monitor.position();
-                    let size = monitor.size();
-                    let monitor_scale = monitor.scale_factor().max(0.1);
-                    serde_json::json!({
-                        "frame": {
-                            "x": origin.x as f64 / monitor_scale,
-                            "y": origin.y as f64 / monitor_scale,
-                            "width": size.width as f64 / monitor_scale,
-                            "height": size.height as f64 / monitor_scale,
-                        },
-                        "main": primary.as_ref().is_some_and(|primary| primary == &monitor),
-                        "current": current.as_ref().is_some_and(|current| current == &monitor),
-                    })
-                })
-                .collect::<Vec<_>>();
-            (
-                serde_json::json!({
-                    "x": position.x as f64 / scale,
-                    "y": position.y as f64 / scale,
-                    "width": size.width as f64 / scale,
-                    "height": size.height as f64 / scale,
-                }),
-                native
-                    .is_visible()
-                    .map(serde_json::Value::Bool)
-                    .unwrap_or(serde_json::Value::Null),
-                native
-                    .is_minimized()
-                    .map(serde_json::Value::Bool)
-                    .unwrap_or(serde_json::Value::Null),
-                screens,
-                native.has_focus(),
-            )
-        })
-    };
-    let state = native_host
-        .and_then(slint::Weak::upgrade)
-        .and_then(|host| read(host.window()))
-        .or_else(|| read(app.window()))
-        .unwrap_or_else(|| {
-            (
-                serde_json::Value::Null,
-                serde_json::Value::Null,
-                serde_json::Value::Null,
-                Vec::new(),
-                false,
-            )
-        });
-    properties.insert("loaded".into(), serde_json::Value::Bool(true));
-    properties.insert("frame".into(), state.0);
-    properties.insert("visible".into(), state.1);
-    properties.insert("miniaturized".into(), state.2);
-    properties.insert("screens".into(), serde_json::Value::Array(state.3));
-    properties.insert("main".into(), serde_json::json!(state.4));
-    properties
-}
-
-fn set_plugin_window_frame(window: &slint::Window, x: f64, y: f64, width: f64, height: f64) {
-    let scale = f64::from(window.scale_factor()).max(0.1);
-    window.set_position(slint::PhysicalPosition::new(
-        (x * scale).round() as i32,
-        (y * scale).round() as i32,
-    ));
-    window.set_size(slint::PhysicalSize::new(
-        (width * scale).round() as u32,
-        (height * scale).round() as u32,
-    ));
-}
-
-fn apply_plugin_window_action(
-    app: &PlayerWindow,
-    native_host: Option<&slint::Weak<crate::NativeVideoHost>>,
-    action: riina_core::plugin::WindowAction,
-) {
-    use riina_core::plugin::WindowAction;
-
-    match action {
-        WindowAction::Quit => app.global::<PlayerMenuActions>().invoke_quit_riina(),
-        WindowAction::SetFrame {
-            x,
-            y,
-            width,
-            height,
-        } => {
-            set_plugin_window_frame(app.window(), x, y, width, height);
-            if let Some(host) = native_host.and_then(slint::Weak::upgrade) {
-                set_plugin_window_frame(host.window(), x, y, width, height);
-            }
-        }
-        WindowAction::SetFullscreen(fullscreen) => {
-            app.global::<PlayerMenuActions>()
-                .invoke_request_fullscreen(fullscreen);
-        }
-        WindowAction::SetPictureInPicture(pip) => {
-            if app.get_picture_in_picture_active() != pip {
-                app.global::<PlayerMenuActions>()
-                    .invoke_toggle_picture_in_picture();
-            }
-        }
-        WindowAction::SetOnTop(ontop) => app
-            .global::<riina_ui::PlayerLayoutState>()
-            .set_always_float_on_top(ontop),
-        WindowAction::SetSidebar(name) => {
-            let index = name.as_deref().map_or(Some(0), plugin_sidebar_index);
-            if let Some(index) = index {
-                app.global::<riina_ui::PlayerSidebarState>()
-                    .set_sidebar(index);
-            } else {
-                app.set_status("Plugin requested an unsupported sidebar name".into());
-            }
-        }
-        WindowAction::SetMiniaturized(miniaturized) => {
-            app.window()
-                .with_winit_window(|window| window.set_minimized(miniaturized));
-            if let Some(host) = native_host.and_then(slint::Weak::upgrade) {
-                host.window()
-                    .with_winit_window(|window| window.set_minimized(miniaturized));
-            }
-        }
-    }
 }
 
 #[cfg(test)]

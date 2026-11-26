@@ -1037,9 +1037,18 @@ The worker blocks on the compositor socket and the owner's wake socket.
 [Wayland layer-shell protocol](https://github.com/swaywm/wlr-protocols/blob/master/unstable/wlr-layer-shell-unstable-v1.xml)
 
 Fullscreen, Music Mode, and Picture-in-Picture confirmations enter the player's
-plugin command queue in order. The periodic window snapshot tracks geometry,
-focus, minimization, and displays. During each mode callback and its Promise
+plugin command queue in order. The window proxy publishes the owning native
+window's first snapshot before `iina.window-loaded`. Later snapshots report the
+outer frame, focus, minimization, and displays. Screen-change callbacks track the
+active display's native identifier. During each mode callback and its Promise
 jobs, the plugin sees the presentation state from that transition.
+
+Frame and minimize requests reach the same owner after the presenter timer returns.
+Native Windows resizes its framed owner and realigns the controls and video. AppKit
+uses the `NSWindow` frame directly. X11 adapts the bottom-left logical coordinates
+to the desktop coordinates. Wayland can request a size and leaves placement with
+the compositor. An acknowledged frame request bypasses interactive aspect locking.
+Sidebar requests use the same pane placement and tab selection as player controls.
 
 The Windows framed player owns native file pickers. Both player surfaces are
 blocked until the picker result reaches its caller, then the controls regain

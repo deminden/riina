@@ -96,7 +96,9 @@ fn belongs_to(notification: &NSNotification, app: &PlayerWindow) -> bool {
         .is_some_and(|window| Retained::as_ptr(&window).cast() == Retained::as_ptr(&source))
 }
 
-pub(super) fn native_window(window: &slint::Window) -> Option<Retained<objc2_app_kit::NSWindow>> {
+pub(in crate::platform) fn native_window(
+    window: &slint::Window,
+) -> Option<Retained<objc2_app_kit::NSWindow>> {
     window.with_winit_window(appkit_window)?
 }
 

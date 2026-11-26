@@ -6135,3 +6135,34 @@ timing and desktop delivery on macOS remain open.
 - Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
 - Linux application SHA-256 `947d5fc165a048b8124bbb876f3e643a779c5fc6a06242f49380495b7ce1ce76`
 - Linux libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`
+
+### Plugin window frame, display and sidebar ownership (2026-11-26)
+
+A private Windows desktop at 300% scaling checked that `window-loaded`
+provided a real frame. After the file opened, the plugin requested a
+640 × 420 logical outer frame and read it back from the native framed player.
+The Win32 rectangle measured 1920 × 1260 physical pixels. The plugin selected
+Chapters and Subtitles, then closed the sidebars. Its minimize and restore
+requests changed native visibility and delivered both callbacks. The player
+closed normally.
+
+On private Linux X11, a 700 × 460 outer-frame request matched native position
+and size and delivered the resize event with the player paused. On native
+Wayland, the same size was applied and the plugin frame had null coordinates.
+Moving the window between two Sway outputs delivered exactly one screen-change
+callback with no arguments. Adding a third output changed the screen catalog
+without producing a player screen-change event. Both Linux runs checked the
+loaded frame and sidebar selection and closed normally.
+
+Windows passed the locked workspace build and full workspace gate with 1,135
+Rust test passes, 83 ignored cases and 79 Python tests. The Windows gate also
+ran the software-rendered UI comparisons. Linux passed strict application
+Clippy with all test targets. Apple Silicon and Intel passed strict cross-Clippy
+on those targets. Native macOS window behavior, mixed-DPI positioning and
+remaining presentation-event timing still require desktop checks. Wayland
+keeps absolute placement and window restoration under compositor control.
+
+- Windows application SHA-256 `a5b925995a89bf1e71012942e47a5ca1e54ecc5f1cfd763394d957be69ed3d63`
+- Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
+- Linux application SHA-256 `64f0aaab984af2c8f3aca10b3ecbff6c79521f114714f373ee8229f3395ef6bd`
+- Linux libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`
