@@ -5,11 +5,17 @@ use super::{
     playback_mailbox::{Delivery, Mailbox},
 };
 use crate::{
-    NativeVideoHost, PlaybackStore, PlayerWindow, background::CoalescedUiCallback,
-    crop_editor::Editor, opening_fullscreen::OpeningFullscreen,
-    playback_history::PlaybackHistoryState, plugin_files::PluginPlayerFileContext,
-    plugin_host::PluginHostHandle, plugins::plugin_players::Ticket, screenshot_output::Scratch,
-    video_osd::VideoOsd, window_aspect::MediaGeometry,
+    NativeVideoHost, PlaybackStore, PlayerWindow,
+    background::CoalescedUiCallback,
+    crop_editor::Editor,
+    opening_fullscreen::OpeningFullscreen,
+    playback_history::PlaybackHistoryState,
+    plugin_files::PluginPlayerFileContext,
+    plugin_host::PluginHostHandle,
+    plugins::plugin_players::Ticket,
+    screenshot_output::{Scratch, presentation::Output},
+    video_osd::VideoOsd,
+    window_aspect::MediaGeometry,
 };
 use riina_core::{Phase, Playback, Preferences, RecentMedia, sync::lock, video_filters};
 use riina_ui::PlayerMenuActions;
@@ -81,6 +87,11 @@ pub(super) fn prepare_observation(app: &PlayerWindow, inputs: Inputs<'_>) -> Pre
     let observer_state = ObserverRegistration::new(app, observer_state);
     let observer_id = observer_state.id();
     let screenshot_scratch = Arc::new(Scratch::default());
+    let screenshot_output = Arc::new(Output::new(
+        app,
+        reported_playback.clone(),
+        screenshot_scratch.clone(),
+    ));
     let opening_fullscreen = Arc::new(std::sync::Mutex::new(OpeningFullscreen::default()));
     let notification = PlaybackNotification {
         reported_playback,
@@ -97,7 +108,7 @@ pub(super) fn prepare_observation(app: &PlayerWindow, inputs: Inputs<'_>) -> Pre
             transition_overlay: notify_transition_overlay,
             transition_release_generation: notify_transition_release_generation,
             managed_visibility,
-            screenshot_scratch: screenshot_scratch.clone(),
+            screenshot_output,
         },
         picture_in_picture_state_dirty,
     };
@@ -197,7 +208,7 @@ pub(super) struct WindowDelivery {
     pub(super) transition_release_generation: Arc<AtomicU64>,
     managed_visibility: Option<ManagedVisibility>,
     // The engine callback keeps this owner alive through native destruction.
-    screenshot_scratch: Arc<Scratch>,
+    screenshot_output: Arc<Output>,
 }
 
 #[derive(Clone)]
@@ -245,7 +256,6 @@ impl WindowDelivery {
                     Phase::Playing | Phase::Paused | Phase::Buffering | Phase::Ended
                 );
             let startup_presentation = observer.borrow_mut().startup_presentation(&app, &state);
-            let clipboard_error = crate::screenshot_output::copy(&app, &captures);
             super::embedded_input::observe(&app, &state);
             self.crop_editor.observe(&app, &state);
             let enter_fullscreen = lock(&self.opening_fullscreen).observe(
@@ -281,7 +291,7 @@ impl WindowDelivery {
             if first_loaded {
                 app.invoke_initial_media_loaded();
             }
-            self.screenshot_scratch.remove_completed(&captures);
+            self.screenshot_output.submit(&app, captures);
             if let Some(presentation) = startup_presentation {
                 apply_startup_presentation(&app, presentation);
             } else if enter_fullscreen {
@@ -290,9 +300,6 @@ impl WindowDelivery {
             }
             let touch_bar = observer.borrow().touch_bar.clone();
             touch_bar.observe(&app, &state);
-            if let Some(error) = clipboard_error {
-                crate::diagnostics::report(&app, format!("Could not copy screenshot: {error}"));
-            }
         }
     }
 }

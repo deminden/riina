@@ -88,7 +88,7 @@ captures on exit.
 `preview-rgb16.png` contains eight original 16-bit RGB patches. Regenerate with
 `python scripts/generate-preview-fixture.py` (standard library only). The fixture
 is CC0-1.0, generator MIT; its manifest hash is verified. An app test loads it
-through Slint's actual preview decoder and checks dimensions, eight colors and
+through the shared screenshot decoder and checks dimensions, eight colors and
 opaque alpha. It validates decoding, not rendered UI, colorimetry or HDR output.
 
 The ignored `screenshots_complete_only_after_native_success` test writes a
@@ -96,8 +96,11 @@ The ignored `screenshots_complete_only_after_native_success` test writes a
 encoded files and decoded PNG round trips. Run
 `python scripts/check-screenshot-format-roundtrips.py <formats.json> --report <report.json>`
 (Pillow) to verify signatures, geometry and timestamp-aligned woven bar edges.
-The six-format pass uses original 4:2:0 media; native SVT AVIF rejection of 4:2:2
-input is separately checked. This does not validate GUI preview or HDR output.
+The six-format pass uses original 4:2:0 media. The AVIF capture of a 4:2:2
+source exercises the conversion to SVT's supported 10-bit 4:2:0 format.
+The test also exercises the screenshot accessory's
+separate native decoder for JPEG XL and AVIF. GUI presentation and HDR output
+require separate verification.
 
 Active subtitle capture comparison uses the original styled-captions.ass over
 catalog.mkv at a confirmed paused 0.5 seconds. Run the ignored native test

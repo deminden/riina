@@ -108,6 +108,17 @@ separately from temporary volume restoration. The profile keeps the newest
 acknowledgement and saves it after a short idle interval or when a player
 closes. Individual window saves leave this field under profile ownership.
 
+Screenshot completions retain their playback generation and sequence across
+the UI handoff. Background decoding shares one result between the preview
+and native clipboard. PNG, JPEG and WebP use the Rust image decoder. JPEG XL
+and AVIF use a separate local-only libmpv decoder with a bounded wait and no
+presentation surface. A newer request can supersede pending preview work.
+Clipboard-only files stay under the session's scratch ownership through
+decoding and are removed before the UI presents the result.
+AVIF defaults to 10-bit 4:2:0 input for the configured SVT encoder. This
+converts RGB from GPU-rendered captures and subsampled sources that the
+encoder otherwise rejects. Advanced mpv options can override the format.
+
 The playback worker checks a saved preferred audio device against libmpv's
 device list before the first file. The discovery wait is bounded and an
 unavailable preference leaves the engine on Automatic. An explicit mpv

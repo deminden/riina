@@ -4,13 +4,16 @@ mod duration_probe;
 mod folder_discovery;
 mod handle;
 mod hooks;
+mod local_probe;
 mod playlist_end_pause;
 mod playlist_resume;
+mod screenshot_decode;
 mod script_input;
 mod stream;
 mod timeline_queue;
 mod version_probe;
 pub use duration_probe::read_local_duration;
+pub use screenshot_decode::decode_screenshot;
 pub use version_probe::{EngineVersions, read_engine_versions};
 
 use self::handle::{EventRef, Handle};
@@ -252,6 +255,9 @@ fn configure(
         // the engine's default encoder/options can differ.
         ("screenshot-avif-encoder", "libsvtav1"),
         ("screenshot-avif-opts", "svtav1-params=avif=1"),
+        // mpv can otherwise select RGB or 4:2:2 from the rendered frame,
+        // including RGB from a GPU-rendered SDR screenshot. SVT needs 4:2:0.
+        ("screenshot-avif-pixfmt", "yuv420p10le"),
         ("sub-font-size", "55"),
         (
             "sub-font",

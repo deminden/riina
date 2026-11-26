@@ -13,10 +13,7 @@ mod x11;
 thread_local! {
     static CLIPBOARD: RefCell<Option<arboard::Clipboard>> = const { RefCell::new(None) };
 }
-pub(crate) fn copy_image(image: &slint::Image) -> Result<(), String> {
-    let pixels = image
-        .to_rgba8()
-        .ok_or("Screenshot pixels are unavailable")?;
+pub(crate) fn copy_pixels(pixels: &riina_core::CapturedFrame) -> Result<(), String> {
     CLIPBOARD.with(|provider| {
         let mut provider = provider.borrow_mut();
         if provider.is_none() {
@@ -26,9 +23,9 @@ pub(crate) fn copy_image(image: &slint::Image) -> Result<(), String> {
             .as_mut()
             .ok_or("Clipboard is unavailable")?
             .set_image(arboard::ImageData {
-                width: pixels.width() as usize,
-                height: pixels.height() as usize,
-                bytes: Cow::Borrowed(pixels.as_bytes()),
+                width: pixels.width as usize,
+                height: pixels.height as usize,
+                bytes: Cow::Borrowed(&pixels.rgba),
             })
             .map_err(|error| error.to_string())
     })
@@ -355,8 +352,15 @@ mod tests {
     fn native_clipboard_fixture_round_trip() {
         let path = riina_test_support::fixture("preview-rgb16.png").unwrap();
         let image = slint::Image::load_from_path(&path).unwrap();
-        super::copy_image(&image).unwrap();
         let expected = image.to_rgba8().unwrap();
+        let frame = riina_core::CapturedFrame::new(
+            expected.width(),
+            expected.height(),
+            expected.width() as usize * 4,
+            expected.as_bytes(),
+        )
+        .unwrap();
+        super::copy_pixels(&frame).unwrap();
         let actual = arboard::Clipboard::new().unwrap().get_image().unwrap();
         assert_eq!((actual.width, actual.height), (96, 64));
         assert!(

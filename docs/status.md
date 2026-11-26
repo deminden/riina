@@ -54,6 +54,11 @@ Implementation does not imply every state or platform is verified.
   track. Desktop controllers can read their metadata, select a track, add
   and remove entries, or open a file or stream in the same queue. Duplicate
   files retain distinct identities when the playlist changes order.
+- **Screenshot previews and clipboard:** PNG, JPEG, WebP, JPEG XL and AVIF
+  captures decode off the interface thread. The preview remains tied to the
+  capture's media and file actions appear only when a file was saved. A
+  clipboard-only capture shows the image without file actions and removes the
+  temporary encoded image after decoding.
 - **Music Mode catalog:** the compact player opens Playlist and Chapters in
   the same panel. The toolbar remembers the active tab, and both lists keep
   their scroll positions when switching between the main and compact player.

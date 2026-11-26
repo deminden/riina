@@ -1,5 +1,5 @@
 //! Drain owned observations before clipboard work, UI callbacks or native transitions.
-use crate::screenshot_output::Completions;
+use crate::screenshot_output::{Capture, Completions};
 use riina_core::{Playback, sync::lock};
 use std::sync::{Arc, Mutex};
 
@@ -14,7 +14,7 @@ pub(super) struct Mailbox(Mutex<Pending>);
 
 pub(super) struct Delivery {
     pub state: Arc<Playback>,
-    pub captures: Vec<String>,
+    pub captures: Vec<Capture>,
 }
 
 impl Mailbox {
@@ -50,7 +50,11 @@ mod tests {
         let update = mailbox.take().unwrap();
         assert_eq!(update.state.completed_screenshots, 3);
         assert_eq!(
-            update.captures,
+            update
+                .captures
+                .iter()
+                .map(|capture| capture.path.as_str())
+                .collect::<Vec<_>>(),
             ["capture-1.png", "capture-2.png", "capture-3.png"]
         );
         assert!(mailbox.take().is_none());

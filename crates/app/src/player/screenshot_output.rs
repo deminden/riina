@@ -1,6 +1,7 @@
 //! Capture side effects cannot be coalesced with disposable playback snapshots.
 use riina_core::Playback;
-use slint::ComponentHandle;
+pub(super) mod decode;
+pub(crate) mod presentation;
 /// The worker retains this owner through native teardown, including captures
 /// whose completion never reaches a closing UI event loop.
 #[derive(Default)]
@@ -62,6 +63,18 @@ impl Scratch {
             }
         }
     }
+
+    fn owns(&self, path: &std::path::Path) -> bool {
+        let Ok(Some(directory)) = self.directory.lock().map(|owned| owned.clone()) else {
+            return false;
+        };
+        path.starts_with(&directory)
+            || directory
+                .canonicalize()
+                .ok()
+                .zip(path.canonicalize().ok())
+                .is_some_and(|(directory, path)| path.starts_with(directory))
+    }
 }
 impl Drop for Scratch {
     fn drop(&mut self) {
@@ -81,40 +94,31 @@ impl Drop for Scratch {
 #[derive(Default)]
 pub(crate) struct Completions {
     count: u64,
-    paths: Vec<String>,
+    completed: Vec<Capture>,
+}
+
+#[derive(Debug)]
+pub(crate) struct Capture {
+    pub(crate) generation: u64,
+    pub(crate) sequence: u64,
+    pub(crate) path: String,
 }
 impl Completions {
     pub(crate) fn observe(&mut self, state: &Playback) {
         if self.count != state.completed_screenshots {
             self.count = state.completed_screenshots;
             if let Some(path) = &state.screenshot_file {
-                self.paths.push(path.clone());
+                self.completed.push(Capture {
+                    generation: state.generation,
+                    sequence: self.count,
+                    path: path.clone(),
+                });
             }
         }
     }
-    pub(crate) fn take(&mut self) -> Vec<String> {
-        std::mem::take(&mut self.paths)
+    pub(crate) fn take(&mut self) -> Vec<Capture> {
+        std::mem::take(&mut self.completed)
     }
-}
-pub(crate) fn copy(app: &crate::PlayerWindow, paths: &[String]) -> Option<String> {
-    if !app
-        .global::<riina_ui::PlayerPreferences>()
-        .get_screenshot_copy_to_clipboard()
-    {
-        return None;
-    }
-    let mut error = None;
-    for path in paths {
-        // Unsupported image decoding uses the normal screenshot feedback path;
-        // it must not introduce an extra error message absent from the reference.
-        let Ok(image) = slint::Image::load_from_path(std::path::Path::new(path)) else {
-            continue;
-        };
-        if let Err(reason) = crate::platform::clipboard::copy_image(&image) {
-            error = Some(reason);
-        }
-    }
-    error
 }
 #[cfg(test)]
 mod tests {
@@ -180,11 +184,18 @@ mod tests {
         queue.observe(&state);
         state.begin_load();
         queue.observe(&state);
-        assert_eq!(queue.take(), ["first.png", "second.png"]);
+        let captures = queue.take();
+        assert_eq!(
+            captures.iter().map(|c| c.path.as_str()).collect::<Vec<_>>(),
+            ["first.png", "second.png"]
+        );
+        assert_eq!(captures[1].sequence, 2);
         assert!(queue.take().is_empty());
         state.completed_screenshots = 3;
         state.screenshot_file = Some("new-source.png".into());
         queue.observe(&state);
-        assert_eq!(queue.take(), ["new-source.png"]);
+        let captures = queue.take();
+        assert_eq!(captures[0].path, "new-source.png");
+        assert_eq!(captures[0].generation, state.generation);
     }
 }

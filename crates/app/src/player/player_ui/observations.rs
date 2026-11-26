@@ -37,7 +37,6 @@ pub(super) fn update_ui(
         opened_media,
         seek: last_seek,
         video: last_video,
-        screenshot: last_screenshot,
         timers,
         ..
     } = observer;
@@ -47,14 +46,7 @@ pub(super) fn update_ui(
     let title = platform::window_document::playback_title(app.window(), state);
     app.set_document_title(title.into());
     update_media_actions(app, state);
-    update_feedback(
-        app,
-        state,
-        displayed.as_deref(),
-        last_seek,
-        last_video,
-        last_screenshot,
-    );
+    update_feedback(app, state, displayed.as_deref(), last_seek, last_video);
     let timeline = app.global::<riina_ui::PlaybackTimelineState>();
     timeline.set_seek_position_label(seek_osd::clock(state.position).into());
     timeline.set_seek_duration_label(seek_osd::clock(state.duration).into());
@@ -260,7 +252,6 @@ fn update_feedback(
     displayed: Option<&Playback>,
     last_seek: &mut seek_osd::SeekOsd,
     last_video: &std::cell::RefCell<crate::video_osd::VideoOsd>,
-    last_screenshot: &mut crate::screenshot_osd::ScreenshotOsd,
 ) {
     let player_preferences = app.global::<riina_ui::PlayerPreferences>();
     let osd = app.global::<riina_ui::PlayerOsdState>();
@@ -304,53 +295,10 @@ fn update_feedback(
         app.global::<riina_ui::PlayerControlActions>()
             .invoke_show_video_osd();
     }
-    match last_screenshot.observe(state) {
-        crate::screenshot_osd::Change::Hide => {
-            clear_screenshot_preview(app);
-        }
-        crate::screenshot_osd::Change::Show(path)
-            if playback_osd_allowed(app)
-                && !app.global::<riina_ui::PlayerCropState>().get_crop_editing() =>
-        {
-            if !player_preferences.get_screenshot_show_preview() {
-                app.set_video_osd_request_feedback(false);
-                osd.set_video_osd_text("Screenshot Captured".into());
-                osd.set_video_osd_progress(-1.0);
-                app.global::<riina_ui::PlayerControlActions>()
-                    .invoke_show_video_osd();
-            } else {
-                match slint::Image::load_from_path(std::path::Path::new(&path)) {
-                    Ok(image) => {
-                        let size = image.size();
-                        let (width, height) =
-                            crate::screenshot_osd::preview_size(size.width, size.height);
-                        osd.set_screenshot_preview_image(image);
-                        osd.set_screenshot_preview_width(width);
-                        osd.set_screenshot_preview_height(height);
-                        osd.set_screenshot_preview_path(
-                            if player_preferences.get_screenshot_save_to_file() {
-                                path.into()
-                            } else {
-                                "".into()
-                            },
-                        );
-                        app.invoke_show_screenshot_preview();
-                    }
-                    Err(_) => {
-                        // Saving succeeded even if the preview decoder cannot open
-                        // this format; preserve reference normal-message fallback.
-                        app.set_video_osd_request_feedback(false);
-                        osd.set_video_osd_text("Screenshot Captured".into());
-                        osd.set_video_osd_progress(-1.0);
-                        app.global::<riina_ui::PlayerControlActions>()
-                            .invoke_show_video_osd();
-                    }
-                }
-            }
-        }
-        _ => {}
-    }
-    if app.global::<riina_ui::PlayerCropState>().get_crop_editing() {
+    if osd.get_screenshot_preview_visible()
+        && (crate::screenshot_osd::should_clear(state, displayed)
+            || app.global::<riina_ui::PlayerCropState>().get_crop_editing())
+    {
         clear_screenshot_preview(app);
     }
 }

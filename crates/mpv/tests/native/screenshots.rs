@@ -188,21 +188,22 @@ fn screenshots_complete_only_after_native_success() {
             content: riina_core::screenshot::Content::Video,
             encoding: riina_core::screenshot::Encoding {
                 format: riina_core::screenshot::Format::Avif,
-                template: "unsupported-422-%n".into(),
+                template: "converted-422-%n".into(),
             },
         })
         .unwrap();
-    let rejected = harness.wait(|state| state.error().is_some());
-    assert_eq!(rejected.completed_screenshots, 4);
-    assert!(
-        rejected
-            .screenshot_file
-            .as_ref()
-            .unwrap()
-            .ends_with("interlaced-tff-0003.png")
+    let converted =
+        harness.wait(|state| state.completed_screenshots == 5 || state.error().is_some());
+    assert_eq!(converted.error(), None);
+    let file = PathBuf::from(converted.screenshot_file.unwrap());
+    assert_eq!(file.parent(), Some(directory.as_path()));
+    assert_eq!(
+        file.extension().and_then(std::ffi::OsStr::to_str),
+        Some("avif")
     );
-    assert!(rejected.paused);
-    assert_eq!(rejected.position, paused.position);
+    assert!(file.is_file());
+    assert!(converted.paused);
+    assert_eq!(converted.position, paused.position);
     harness
         .send(Command::Load(
             root.join("tests/fixtures/interlaced-mpeg2-tff.mkv")
@@ -240,7 +241,7 @@ fn screenshots_complete_only_after_native_success() {
             })
             .unwrap();
         let saved = harness.wait(|state| {
-            state.completed_screenshots == index as u64 + 5 || state.error().is_some()
+            state.completed_screenshots == index as u64 + 6 || state.error().is_some()
         });
         assert_eq!(saved.error(), None, "{format:?}");
         let path = PathBuf::from(saved.screenshot_file.unwrap());
@@ -249,6 +250,20 @@ fn screenshots_complete_only_after_native_success() {
         assert!(saved.paused);
         assert_eq!(saved.position, format_paused.position);
         println!("{format:?}: {}", path.display());
+        if matches!(
+            format,
+            riina_core::screenshot::Format::Jxl | riina_core::screenshot::Format::Avif
+        ) {
+            let preview = riina_mpv::decode_screenshot(&test_library(&root), &path)
+                .unwrap_or_else(|| panic!("Screenshot preview could not decode {format:?}"));
+            assert_eq!((preview.width, preview.height), (96, 64));
+            assert_eq!(preview.rgba.len(), 96 * 64 * 4);
+            let (pixels, remainder) = preview.rgba.as_chunks::<4>();
+            assert!(remainder.is_empty());
+            assert!(pixels.iter().all(|pixel| pixel[3] == 255));
+            assert!(pixels.iter().any(|pixel| pixel[0] > 180));
+            assert!(pixels.iter().any(|pixel| pixel[0] < 70));
+        }
         let (decode_sender, decode_receiver) = mpsc::channel();
         let decoder = start_test_player(&test_library(&root), true, move |state| {
             let _ = decode_sender.send(state);

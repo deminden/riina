@@ -27,7 +27,7 @@ chrono = { version = "=0.4.45", default-features = false, features = ["clock"] }
 battery = "=0.7.8"
 fontdb = "=0.24.0"
 ttf-parser = "=0.25.1"
-image = { version = "=0.25.10", default-features = false, features = ["jpeg"] }
+image = { version = "=0.25.10", default-features = false, features = ["jpeg", "png", "webp"] }
 icu_casemap = "=2.3.0"
 icu_decimal = { version = "=2.3.0", features = ["alloc", "ryu"] }
 icu_experimental = "=0.6.0"

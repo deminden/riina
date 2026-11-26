@@ -1,13 +1,8 @@
 //! Read duration using a separate paused client without opening a presentation surface.
 
-use super::handle::Handle;
-use crate::{
-    MpvPropertyFormat,
-    client_request::Operation,
-    ffi::{Api, event_id},
-};
+use super::local_probe::LocalProbe;
+use crate::{MpvPropertyFormat, client_request::Operation, ffi::event_id};
 use std::{
-    ffi::CString,
     path::Path,
     time::{Duration, Instant},
 };
@@ -19,28 +14,11 @@ pub fn read_local_duration(
     file: &Path,
     cancelled: impl Fn() -> bool,
 ) -> Option<f64> {
-    if cancelled() || !file.is_absolute() || !file.is_file() {
+    if cancelled() {
         return None;
     }
-    #[cfg(windows)]
-    let _apartment = crate::windows_apartment::Apartment::initialize().ok()?;
-    let mut probe = Handle::new(Api::load(library).ok()?).ok()?;
-    for (key, value) in [
-        (c"config", c"no"),
-        (c"load-scripts", c"no"),
-        (c"autoload-files", c"no"),
-        (c"access-references", c"no"),
-        (c"demuxer-lavf-o", c"protocol_whitelist=file"),
-        (c"ao", c"null"),
-        (c"vo", c"null"),
-        (c"pause", c"yes"),
-    ] {
-        probe.set_option(key, value).ok()?;
-    }
-    probe.initialize().ok()?;
-    probe
-        .command(1, &[c"loadfile".into(), CString::new(file.to_str()?).ok()?])
-        .ok()?;
+    let mut decoder = LocalProbe::open(library, file, &[])?;
+    let probe = &mut decoder.handle;
 
     let deadline = Instant::now() + Duration::from_secs(3);
     while !cancelled() && Instant::now() < deadline {

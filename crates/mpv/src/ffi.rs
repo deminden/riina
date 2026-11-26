@@ -14,6 +14,7 @@ use std::{
 // Keep C discriminants as integers so unknown values from newer runtimes stay readable.
 pub(crate) mod event_id {
     pub const NONE: std::ffi::c_int = 0;
+    pub const SHUTDOWN: std::ffi::c_int = 1;
     pub const GET_PROPERTY_REPLY: std::ffi::c_int = 3;
     pub const SET_PROPERTY_REPLY: std::ffi::c_int = 4;
     pub const COMMAND_REPLY: std::ffi::c_int = 5;

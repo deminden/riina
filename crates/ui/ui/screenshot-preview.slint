@@ -30,7 +30,7 @@ export component ScreenshotPreview inherits Rectangle {
     callback edit-capture();
     callback reveal-capture();
     width: max(header.preferred-width, image-width) + 32px;
-    height: image-height + 85px;
+    height: image-height + (has-file ? 85px : 57px);
     border-radius: 14px; background: Theme.screenshot-preview-surface;
     header := Text { x: 16px; y: 8px; text: "Screenshot Captured";
         color: white; font-size: 20px; font-weight: 600; }

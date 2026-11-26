@@ -63,7 +63,7 @@ macro_rules! diagnostic {
 }
 
 mod worker;
-pub use worker::{EngineVersions, read_engine_versions, read_local_duration};
+pub use worker::{EngineVersions, decode_screenshot, read_engine_versions, read_local_duration};
 
 enum Message {
     Intent(Command),

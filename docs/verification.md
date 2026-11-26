@@ -6347,3 +6347,31 @@ normally through MPRIS Quit.
 - Linux application SHA-256 `8e625a0d79b012a3a7089b637a9cf9fad294f2f7e43c7932e1cffbfcab7748d1`
 - Linux libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`
 - Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
+
+### Screenshot preview formats (2026-11-26)
+
+The full Windows workspace gate, locked build and all 72 native playback
+tests passed. The native screenshot suite encoded all six settings choices,
+including the JPEG spelling alias, and checked opaque pixels and contrast
+from the JPEG XL and AVIF preview decoder. AVIF also saved from the 4:2:2
+fixture that previously failed with the default encoder.
+
+In two private Windows desktop runs using the normal Playback menu, JPEG XL
+and AVIF each saved the paused frame and showed Delete, Edit and Reveal.
+Invoking Delete removed the exact generated image and dismissed the preview.
+The playhead stayed paused and both player processes closed normally.
+The earlier AVIF attempt exposed GPU-generated RGB passed to SVT-AV1. With
+the 10-bit 4:2:0 default, the same GPU-rendered fixture saved and previewed.
+
+The locked Linux application build, strict Clippy and 12 screenshot-related
+tests passed. On native Wayland, an external clipboard reader received two
+distinct 320 x 180 PNG transfers from JPEG XL captures at two paused frames.
+Clipboard-only capture left no saved files or temporary images. On X11, the
+same Linux build saved two AVIF files and offered two distinct 320 x 180 PNG
+transfers. Both players stayed paused through capture and closed normally.
+Locked workspace source checks passed for Apple Silicon and Intel.
+
+- Windows application SHA-256 `3641059c3f1219ced5d49882cda121e25da192b5b027451eb333a84247e635ee`
+- Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
+- Linux application SHA-256 `50f8f92f2d254b54b98a353d5f98acbfef947e2c5569f725375f327b666b2421`
+- Linux libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`

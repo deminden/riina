@@ -1,7 +1,7 @@
 //! Snapshot projection state belongs to the UI thread for each player session.
 use super::features::PlaybackTimers;
 use crate::windows::open_url::ApplicationOpenUrl;
-use crate::{screenshot_osd::ScreenshotOsd, seek_osd::SeekOsd, video_osd::VideoOsd};
+use crate::{seek_osd::SeekOsd, video_osd::VideoOsd};
 use riina_core::Playback;
 use slint::ComponentHandle;
 use std::{
@@ -41,7 +41,6 @@ pub(super) struct UiObserverState {
     playlist_feedback_seen: Option<u64>,
     pub(super) seek: SeekOsd,
     pub(super) video: Rc<RefCell<VideoOsd>>,
-    pub(super) screenshot: ScreenshotOsd,
     pub(super) timers: Option<PlaybackTimers>,
     pub(super) startup_presentation: Option<(i32, crate::startup_arguments::Presentation)>,
     pub(super) open_url: Weak<ApplicationOpenUrl>,
@@ -64,7 +63,6 @@ impl UiObserverState {
             playlist_feedback_seen: None,
             seek: SeekOsd::default(),
             video: Rc::new(RefCell::new(video)),
-            screenshot: ScreenshotOsd::default(),
             timers: None,
             startup_presentation: None,
             open_url: Weak::new(),
