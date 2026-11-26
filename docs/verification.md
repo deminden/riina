@@ -6520,3 +6520,38 @@ Intel.
 - Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
 - Linux application SHA-256 `eb73277c615b9971a4e20f83df2c34ed93900733907dabc192f0fce2819dd878`
 - Linux libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`
+
+### Last window close on the native Windows player (2026-11-26)
+
+The locked Windows workspace build, full source gate and all 72 native playback
+tests passed. Locked source checks passed for Apple Silicon and Intel. The
+portable lifecycle tests cover the last-window preference, replacement players
+and the origin of a close deferred while another window is open.
+
+The private Windows package smoke passed playback, both fullscreen routes,
+controller reveal, minimize and restore, and shutdown on retry. The first run
+missed the controller reveal check. The preceding recorded executable also
+passed the same smoke.
+
+A private Windows startup matrix loaded media with and without an enabled
+plugin on the native backend and loaded the same fixture on the shared backend.
+Each exact process closed normally. On the updated build, the installed plugin
+also round-tripped binary XML-RPC data through the Python server while playback
+was paused. Closing that player with automatic quit enabled ended the process.
+
+With automatic quit disabled, closing the initial Welcome window ended the
+process. In a separate run, closing the first of two players left the other
+player open. Closing the last player kept Playback History visible. Closing
+History returned to Welcome in the same process, even with Open Panel selected
+as the startup action. Closing Welcome then exited normally. The first
+multi-window probe exceeded its six-second close observation window. The retry
+confirmed that both frames were responsive before testing closure and passed.
+
+The locked Linux application build, strict Clippy and eight focused lifecycle
+tests passed. A private X11 run closed the last paused player, returned to
+Welcome in the same process, and exited normally when Welcome closed.
+
+- Windows application SHA-256 `01e57255f0525c98e16ed6d8ddaae1cd7b30abe288519ddb581dac8841c74ace`
+- Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
+- Linux application SHA-256 `0f081d742185ae4a3f0ac5706a759e6fb89777f76aa8d2ac2c56f661d5f1fd41`
+- Linux libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`

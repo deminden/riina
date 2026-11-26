@@ -174,13 +174,11 @@ impl NativePlayer {
                 .then(crate::WelcomeWindow::new)
                 .transpose()?;
                 if let Some(welcome) = &welcome {
-                    keep_player_after_welcome_close(
-                        welcome,
-                        &host,
-                        &app,
-                        owner_center,
-                        actions.clone(),
-                    );
+                    let close = actions.clone();
+                    welcome.window().on_close_requested(move || {
+                        close.close_welcome();
+                        slint::CloseRequestResponse::KeepWindowShown
+                    });
                 }
                 // Slint stores one event hook per window. Return the aspect filter
                 // to our owner router so it cannot replace alignment/focus handling.
@@ -416,46 +414,6 @@ fn restore_recreated_chrome(
             }
         })
         .map_err(std::io::Error::other)
-}
-
-fn keep_player_after_welcome_close(
-    welcome: &crate::WelcomeWindow,
-    host: &NativeVideoHost,
-    app: &PlayerWindow,
-    owner_center: Option<(i32, i32)>,
-    actions: WindowActions,
-) {
-    let quit_preference = app.as_weak();
-    let close_welcome_app = app.as_weak();
-    let close_welcome_host = host.as_weak();
-    welcome.window().on_close_requested(move || {
-        let setting = quit_preference.upgrade().is_some_and(|app| {
-            app.global::<riina_ui::PlayerPreferences>()
-                .get_quit_when_no_opened_window()
-        });
-        if actions.opens_welcome() || setting {
-            actions.close();
-            return slint::CloseRequestResponse::KeepWindowShown;
-        } else if let (Some(app), Some(host)) =
-            (close_welcome_app.upgrade(), close_welcome_host.upgrade())
-        {
-            // The welcome surface is the only visible native window at
-            // startup. Keep a usable player window when the user closes
-            // it but has asked the application to remain available.
-            align(host.window(), &app);
-            host.window()
-                .with_winit_window(|window| window.set_visible(true));
-            if let Err(error) = app.show() {
-                crate::diagnostics::warn!(
-                    "Could not show the player after closing welcome: {error}"
-                );
-            }
-            host.window()
-                .with_winit_window(|window| center_host_in_work_area(window, owner_center));
-            align(host.window(), &app);
-        }
-        slint::CloseRequestResponse::HideWindow
-    });
 }
 
 fn install_menu_lifecycle(

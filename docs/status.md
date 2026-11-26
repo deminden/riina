@@ -299,6 +299,10 @@ Volume defaults to 0-100%; the optional boost setting allows 200%.
 
 ## Recent reliability work
 
+- **Windows last-window close:** the native player follows the automatic quit
+  preference. When automatic quit is disabled, closing the last playback window
+  returns to Welcome in the same process once remaining tools close. Closing
+  Welcome explicitly ends the session after the remaining tools close.
 - **Thumbnail extraction:** the isolated decoder can sample its retained final
   frame and finish a complete preview cache.
 - **Live Text:** paused video can be analyzed locally using Windows OCR,

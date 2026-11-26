@@ -4,6 +4,36 @@ use std::rc::Rc;
 
 pub(crate) const HAS_IDLE_MENU: bool = cfg!(target_os = "macos");
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum LastWindowAction {
+    Quit,
+    IdleMenu,
+    Welcome,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum ClosedWindow {
+    Player,
+    Welcome,
+    Retired,
+}
+
+pub(crate) const fn last_window_action(
+    quit_when_empty: bool,
+    closed: ClosedWindow,
+    has_idle_menu: bool,
+) -> LastWindowAction {
+    if quit_when_empty {
+        LastWindowAction::Quit
+    } else if has_idle_menu {
+        LastWindowAction::IdleMenu
+    } else if matches!(closed, ClosedWindow::Player) {
+        LastWindowAction::Welcome
+    } else {
+        LastWindowAction::Quit
+    }
+}
+
 pub(crate) fn bind_auxiliary_close(services: &ApplicationServices, callback: Rc<dyn Fn()>) {
     if HAS_IDLE_MENU {
         services.about.closed.bind(callback.clone());
@@ -122,6 +152,22 @@ fn profile_window_theme(window: &slint::Window, preferences: &riina_core::Prefer
 mod tests {
     use super::*;
     use slint::ComponentHandle;
+
+    #[test]
+    fn desktop_close_returns_to_welcome_only_after_a_player_close() {
+        use ClosedWindow::{Player, Retired, Welcome};
+
+        for (quit, closed, idle_menu, expected) in [
+            (false, Player, false, LastWindowAction::Welcome),
+            (false, Welcome, false, LastWindowAction::Quit),
+            (false, Retired, false, LastWindowAction::Quit),
+            (true, Player, false, LastWindowAction::Quit),
+            (false, Welcome, true, LastWindowAction::IdleMenu),
+            (true, Player, true, LastWindowAction::Quit),
+        ] {
+            assert_eq!(last_window_action(quit, closed, idle_menu), expected);
+        }
+    }
 
     #[test]
     fn about_participates_in_the_idle_menu_lifecycle() -> Result<(), slint::PlatformError> {

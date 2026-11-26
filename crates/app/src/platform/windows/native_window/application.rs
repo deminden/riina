@@ -1,10 +1,11 @@
 //! One Windows event loop owns the native player frames in this application.
 use super::{NativeLaunch, NativePlayer};
+use crate::platform::application_lifecycle::{ClosedWindow, LastWindowAction, last_window_action};
 use crate::player_ui::InitialMedia;
 use crate::plugins::plugin_players::Ticket;
 use crate::{PlayerWindow, media_open, preference_load};
 use riina_core::{Preferences, ThemeMaterial, sync::lock};
-use riina_ui::{PlayerDialogState, PlayerMenuActions};
+use riina_ui::{PlayerDialogState, PlayerMenuActions, PlayerPreferences};
 use slint::{
     CloseRequestResponse, ComponentHandle, Model, PlatformError,
     winit_030::{WinitWindowAccessor, winit},
@@ -82,6 +83,7 @@ pub(super) fn run(
         services: Default::default(),
         initial_error: RefCell::default(),
         quitting: Cell::default(),
+        pending_close: Cell::default(),
     });
     let owner = Rc::downgrade(&application);
     application
@@ -104,7 +106,7 @@ pub(super) fn run(
             let owner = owner.clone();
             Ok(Box::new(move || {
                 if let (Some(app), Some(player)) = (owner.upgrade(), player.upgrade()) {
-                    app.close(&player);
+                    app.close(&player, ClosedWindow::Retired);
                 }
             }))
         });
@@ -132,7 +134,7 @@ pub(super) fn run(
     let filters_closed = owner.clone();
     application.services.filters.closed.bind(Rc::new(move || {
         if let Some(application) = filters_closed.upgrade() {
-            application.quit_if_no_windows();
+            application.finish_when_empty();
         }
     }));
     application.services.history.bind(
@@ -155,7 +157,7 @@ pub(super) fn run(
         },
         move || {
             if let Some(application) = closed.upgrade() {
-                application.quit_if_no_windows();
+                application.finish_when_empty();
             }
         },
     );
@@ -188,6 +190,7 @@ struct Application {
     services: crate::player_ui::ApplicationServices,
     initial_error: RefCell<Option<Box<dyn std::error::Error>>>,
     quitting: Cell<bool>,
+    pending_close: Cell<Option<LastWindowAction>>,
 }
 
 impl Application {
@@ -245,9 +248,10 @@ impl Application {
         if let Err(error) =
             player.start(launch, self.backend.clone(), actions, self.services.clone())
         {
-            self.close(&player);
+            self.close(&player, ClosedWindow::Retired);
             return Err(error);
         }
+        self.pending_close.set(None);
         Ok(player)
     }
 
@@ -302,7 +306,7 @@ impl Application {
         .map(|_| ())
     }
 
-    fn close(&self, target: &Rc<NativePlayer>) {
+    fn close(self: &Rc<Self>, target: &Rc<NativePlayer>, closed: ClosedWindow) {
         let removed = {
             let mut players = self.players.borrow_mut();
             players
@@ -311,13 +315,22 @@ impl Application {
                 .map(|index| players.remove(index))
         };
         if let Some(player) = removed {
+            let quit = player.chrome.borrow().as_ref().is_none_or(|app| {
+                app.global::<PlayerPreferences>()
+                    .get_quit_when_no_opened_window()
+            });
             player.finish();
-            self.quit_if_no_windows();
+            if self.players.borrow().is_empty() {
+                self.pending_close
+                    .set(Some(last_window_action(quit, closed, false)));
+                self.finish_when_empty();
+            }
         }
     }
 
     fn finish(&self) {
         self.quitting.set(true);
+        self.pending_close.set(None);
         self.services.history.hide();
         self.services.filters.hide();
         let players = std::mem::take(&mut *self.players.borrow_mut());
@@ -333,15 +346,38 @@ impl Application {
             .any(|player| Rc::ptr_eq(player, target))
     }
 
-    fn quit_if_no_windows(&self) {
-        if !self.quitting.get()
-            && self.players.borrow().is_empty()
-            && !self.services.history.is_visible()
-            && !self.services.filters.is_visible()
+    fn finish_when_empty(self: &Rc<Self>) {
+        if self.quitting.get()
+            || !self.players.borrow().is_empty()
+            || self.services.history.is_visible()
+            || self.services.filters.is_visible()
         {
-            // Native Win32 has no application menu after its final window closes.
-            self.quit();
+            return;
         }
+        match self.pending_close.take() {
+            Some(LastWindowAction::Welcome) => {
+                if let Err(error) = self.return_to_welcome() {
+                    crate::diagnostics::warn!("Could not reopen the welcome window: {error}");
+                    self.quit();
+                }
+            }
+            Some(LastWindowAction::Quit) => self.quit(),
+            // A tool may close while the old player's session is being released.
+            Some(LastWindowAction::IdleMenu) | None => {}
+        }
+    }
+
+    fn return_to_welcome(self: &Rc<Self>) -> Result<(), Box<dyn std::error::Error>> {
+        let path = crate::platform::preferences_path()?;
+        self.launch(
+            NativeLaunch {
+                media: InitialMedia::default(),
+                owner_center: None,
+                loaded: preference_load::load(&path)?,
+            },
+            Some(Origin::ReturnToWelcome),
+        )?;
+        Ok(())
     }
 
     fn quit(&self) {
@@ -372,6 +408,7 @@ enum Origin {
     History(slint::Weak<crate::PlaybackHistoryWindow>),
     CommandLine,
     BrowserLink,
+    ReturnToWelcome,
 }
 
 #[derive(Clone)]
@@ -388,7 +425,10 @@ impl WindowActions {
     }
 
     pub(super) fn opens_welcome(&self) -> bool {
-        matches!(self.origin, Some(Origin::Welcome(_)))
+        matches!(
+            self.origin,
+            Some(Origin::Welcome(_) | Origin::ReturnToWelcome)
+        )
     }
 
     pub(super) fn bind(&self, app: &PlayerWindow) {
@@ -463,6 +503,14 @@ impl WindowActions {
     }
 
     pub(super) fn close(&self) {
+        self.close_for(ClosedWindow::Player);
+    }
+
+    pub(super) fn close_welcome(&self) {
+        self.close_for(ClosedWindow::Welcome);
+    }
+
+    fn close_for(&self, closed: ClosedWindow) {
         let application = self.application.clone();
         let player = self.player.clone();
         let managed = self.managed.clone();
@@ -471,7 +519,7 @@ impl WindowActions {
                 ticket.close();
             }
             if let (Some(application), Some(player)) = (application.upgrade(), player.upgrade()) {
-                application.close(&player);
+                application.close(&player, closed);
             }
         });
     }
@@ -504,13 +552,16 @@ impl WindowActions {
             Some(Origin::BrowserLink) => {
                 crate::diagnostics::warn!("Could not initialize the browser-link player: {error}");
             }
+            Some(Origin::ReturnToWelcome) => {
+                crate::diagnostics::warn!("Could not reopen the welcome window: {error}");
+            }
             None | Some(Origin::CommandLine) => {
                 *application.initial_error.borrow_mut() = Some(error);
                 application.quit();
                 return;
             }
         }
-        application.close(&player);
+        application.close(&player, ClosedWindow::Retired);
     }
 }
 

@@ -1066,10 +1066,11 @@ decision until these requests and any remaining tools have finished. A new
 player replaces the deferred close. Closing an idle tool or a hidden plugin
 player leaves the native application available.
 
-The shared renderer keeps its event loop running while the window manager
-resolves the last close. On Linux and the Windows shared renderer, closing
-the final player can reopen Welcome when automatic quit is disabled. Closing
-Welcome itself ends the session when no other player or tool remains.
+Windows and Linux keep the event loop running while resolving the last close.
+When automatic quit is disabled, closing the last playback window returns to
+Welcome in the same process. Closing Welcome explicitly ends the session once
+the remaining tools close. The pending decision retains the closing window's
+role while History or a filter editor is open. A new player clears that decision.
 The idle Playback, Video, Audio and Subtitles sections read the generated
 player menu catalog without showing a player or starting a decoder. Their
 profile shortcuts, static choices and saved filter names use the same models

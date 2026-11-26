@@ -6,7 +6,7 @@ mod lifecycle;
 use self::lifecycle::{EmptyAction, WindowLifecycle};
 use crate::{
     PlayerWindow, WelcomeWindow,
-    platform::application_lifecycle,
+    platform::application_lifecycle::{self, ClosedWindow, LastWindowAction},
     player_ui::{ApplicationServices, InitialMedia, UiSession},
     preference_load::LoadedPreferences,
 };
@@ -519,18 +519,23 @@ fn close_player(state: &Rc<RefCell<ManagerState>>, id: u64, source: PlayerClose)
     }
     let services = state.borrow().services.clone();
     application_lifecycle::after_last_player_closed(&services);
+    let tools_visible = application_lifecycle::auxiliary_is_visible(&services);
+    let closed = match source {
+        PlayerClose::Player { .. } => ClosedWindow::Player,
+        PlayerClose::Welcome => ClosedWindow::Welcome,
+        PlayerClose::FailedWelcome => ClosedWindow::Retired,
+    };
     let action = state.borrow_mut().lifecycle.after_last_player_close(
-        application_lifecycle::auxiliary_is_visible(&services),
+        tools_visible,
         player_was_visible,
+        closed,
         application_lifecycle::HAS_IDLE_MENU,
     );
     match action {
         EmptyAction::Wait | EmptyAction::IdleMenu => application_lifecycle::show_idle_menu(),
-        EmptyAction::FinishClose => finish_empty_application(
-            state,
-            quit_when_empty,
-            !matches!(source, PlayerClose::Player { .. }),
-        ),
+        EmptyAction::FinishClose(closed) => {
+            finish_empty_application(state, quit_when_empty, closed)
+        }
     }
 }
 
@@ -548,30 +553,36 @@ fn finish_after_auxiliary_close(state: &Rc<RefCell<ManagerState>>) {
     match action {
         EmptyAction::Wait => {}
         EmptyAction::IdleMenu => application_lifecycle::show_idle_menu(),
-        EmptyAction::FinishClose => finish_after_last_player(state),
+        EmptyAction::FinishClose(closed) => finish_after_last_player(state, closed),
     }
 }
 
-fn finish_after_last_player(state: &Rc<RefCell<ManagerState>>) {
+fn finish_after_last_player(state: &Rc<RefCell<ManagerState>>, closed: ClosedWindow) {
     let quit = crate::platform::preferences_path()
         .ok()
         .and_then(|path| crate::preference_load::load(&path).ok())
         .is_none_or(|loaded| loaded.preferences.quit_when_no_opened_window);
-    finish_empty_application(state, quit, false);
+    finish_empty_application(state, quit, closed);
 }
 
-fn finish_empty_application(state: &Rc<RefCell<ManagerState>>, quit: bool, from_welcome: bool) {
-    if quit || (from_welcome && !application_lifecycle::HAS_IDLE_MENU) {
-        state.borrow_mut().quitting = true;
-        let _ = slint::quit_event_loop();
-        return;
-    }
-    if application_lifecycle::HAS_IDLE_MENU {
-        application_lifecycle::show_idle_menu();
-    } else if let Err(error) = show_welcome(state, None) {
-        crate::diagnostics::warn!("Could not reopen the welcome window: {error}");
-        state.borrow_mut().quitting = true;
-        let _ = slint::quit_event_loop();
+fn finish_empty_application(state: &Rc<RefCell<ManagerState>>, quit: bool, closed: ClosedWindow) {
+    match application_lifecycle::last_window_action(
+        quit,
+        closed,
+        application_lifecycle::HAS_IDLE_MENU,
+    ) {
+        LastWindowAction::IdleMenu => application_lifecycle::show_idle_menu(),
+        LastWindowAction::Welcome => {
+            if let Err(error) = show_welcome(state, None) {
+                crate::diagnostics::warn!("Could not reopen the welcome window: {error}");
+                state.borrow_mut().quitting = true;
+                let _ = slint::quit_event_loop();
+            }
+        }
+        LastWindowAction::Quit => {
+            state.borrow_mut().quitting = true;
+            let _ = slint::quit_event_loop();
+        }
     }
 }
 
