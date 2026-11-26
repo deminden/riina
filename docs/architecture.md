@@ -68,6 +68,15 @@ host inside the application's existing event loop. The presenter drops the
 WebView before the native window. On macOS, native creation and page-load
 callbacks wake the windowless presenter so a hidden page can finish starting.
 
+## Wayland plugin sidebar input
+
+The visible player window owns the compositor's input method. The sidebar's
+offscreen WebKit view requests it when a browser editor gains focus and supplies
+the caret in sidebar coordinates. The player routes composition text only to
+that focused document. WebKit owns the draft, commit and cancellation, including
+DOM composition events and editing selection. A player dialog takes over the
+same native input method when it opens.
+
 ## Playback and threading
 
 ```mermaid

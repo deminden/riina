@@ -24,6 +24,9 @@ The platform count below uses `git grep -n -E 'cfg\((any\()?target_os'`
 with `crates/app/src` included and `crates/app/src/platform` excluded. The
 count includes matching declarations in test code and is a check on source
 organization. Native support also requires a linked build and runtime evidence.
+The November 26 follow-up counted 34 declarations outside the platform modules.
+The limit remains 30. The Wayland sidebar input hook uses the platform facade
+and leaves the count at 34.
 
 | Finding | Change | Local commits |
 |---|---|---|

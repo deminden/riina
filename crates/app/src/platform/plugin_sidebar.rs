@@ -1,7 +1,11 @@
 //! Confined plugin sidebar documents owned by their player.
+#[cfg(target_os = "linux")]
+mod input_method;
 mod view;
 #[cfg(target_os = "linux")]
 mod wayland;
+#[cfg(target_os = "linux")]
+pub(crate) use wayland::route_sidebar_window_event;
 
 use super::plugin_page::{self as page, Page};
 use crate::{
@@ -220,17 +224,11 @@ impl PluginSidebarPresenter {
     fn sidebar_can_show(&self) -> bool {
         #[cfg(target_os = "linux")]
         {
-            use slint::ComponentHandle;
-
             // Native children paint over the Slint surface. Keep their page
             // alive while the player owns an in-window modal editor.
-            self.owner.upgrade().is_some_and(|app| {
-                let dialog = app.global::<riina_ui::PlayerDialogState>();
-                !dialog.get_dialog_open()
-                    && !dialog.get_jump_time_dialog_visible()
-                    && !dialog.get_url_dialog_visible()
-                    && !dialog.get_plugin_interaction_visible()
-            })
+            self.owner
+                .upgrade()
+                .is_some_and(|app| sidebar_can_show(&app))
         }
         #[cfg(not(target_os = "linux"))]
         {
@@ -271,7 +269,14 @@ impl PluginSidebarPresenter {
             .with_bounds(viewport)
             .with_transparent(true)
             .with_visible(false);
-        let view = View::new(builder, parent, viewport, &url)?;
+        let view = View::new(
+            builder,
+            parent,
+            viewport,
+            &url,
+            #[cfg(target_os = "linux")]
+            self.owner.clone(),
+        )?;
         #[cfg(target_os = "linux")]
         view.bind_shortcuts(self.owner.clone());
         let visible =
@@ -293,6 +298,17 @@ impl PluginSidebarPresenter {
         );
         Ok(())
     }
+}
+
+#[cfg(target_os = "linux")]
+fn sidebar_can_show(app: &PlayerWindow) -> bool {
+    use slint::ComponentHandle;
+
+    let dialog = app.global::<riina_ui::PlayerDialogState>();
+    !dialog.get_dialog_open()
+        && !dialog.get_jump_time_dialog_visible()
+        && !dialog.get_url_dialog_visible()
+        && !dialog.get_plugin_interaction_visible()
 }
 
 #[cfg(target_os = "linux")]

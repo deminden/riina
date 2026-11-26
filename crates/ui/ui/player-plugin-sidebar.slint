@@ -1,5 +1,7 @@
 import { PlayerPluginPointerPhase } from "player-control-actions.slint";
 
+export enum PlayerPluginImePhase { preedit, commit, disabled }
+
 export global PlayerPluginSidebarState {
     in property <bool> composited;
     in-out property <bool> keyboard-focused;
@@ -9,6 +11,7 @@ export global PlayerPluginSidebarState {
     callback scroll-input(float, float, float, float, bool, bool, bool, bool);
     callback focus-input(bool);
     callback key-input(string, bool, bool, bool, bool, bool);
+    callback ime-input(PlayerPluginImePhase, string, int);
 }
 
 export component PlayerPluginSidebarView inherits Rectangle {
@@ -22,7 +25,8 @@ export component PlayerPluginSidebarView inherits Rectangle {
 
     web-focus := FocusScope {
         width: parent.width; height: parent.height;
-        changed has-focus => {
+        // Release the browser's input method before Slint focuses the next editor.
+        focus-changed-event => {
             PlayerPluginSidebarState.keyboard-focused = self.has-focus;
             PlayerPluginSidebarState.focus-input(self.has-focus);
         }

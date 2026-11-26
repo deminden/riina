@@ -5,6 +5,8 @@ use wry::{Rect, WebView, WebViewBuilder};
 #[cfg(target_os = "linux")]
 use super::super::unix::{offscreen_webview::OffscreenWebView, plugin_shortcuts};
 #[cfg(target_os = "linux")]
+use super::input_method::Context as InputMethod;
+#[cfg(target_os = "linux")]
 use gtk::gdk;
 #[cfg(target_os = "linux")]
 use riina_ui::PlayerPluginPointerPhase as Phase;
@@ -23,6 +25,7 @@ impl View {
         parent: &Window,
         viewport: Rect,
         url: &str,
+        #[cfg(target_os = "linux")] owner: slint::Weak<crate::PlayerWindow>,
     ) -> Result<Self, String> {
         #[cfg(target_os = "linux")]
         {
@@ -33,8 +36,13 @@ impl View {
                 .map_err(|error| format!("Could not inspect the Linux player window: {error}"))?;
             match handle.as_raw() {
                 RawWindowHandle::Wayland(_) => {
+                    use wry::WebViewExtUnix;
+
+                    let surface = OffscreenWebView::build(builder, viewport, url)?;
+                    let input_method = InputMethod::attach(&surface.browser().webview(), owner)?;
                     return Ok(Self::Composited(CompositedView {
-                        surface: OffscreenWebView::build(builder, viewport, url)?,
+                        surface,
+                        input_method,
                         held: Cell::default(),
                         focused: Cell::default(),
                     }));
@@ -66,7 +74,11 @@ impl View {
         match self {
             Self::Native(view) => view.set_bounds(bounds).map_err(super::webview_error),
             #[cfg(target_os = "linux")]
-            Self::Composited(view) => view.surface.set_bounds(bounds),
+            Self::Composited(view) => {
+                view.surface.set_bounds(bounds)?;
+                view.input_method.update_position();
+                Ok(())
+            }
         }
     }
 
@@ -112,6 +124,7 @@ impl Drop for View {
 #[cfg(target_os = "linux")]
 pub(super) struct CompositedView {
     pub(super) surface: OffscreenWebView,
+    pub(super) input_method: InputMethod,
     held: Cell<u32>,
     focused: Cell<bool>,
 }
@@ -124,6 +137,9 @@ impl CompositedView {
                 self.cancel_press();
             }
             self.surface.focus(focused);
+            if !focused {
+                self.input_method.release();
+            }
         }
     }
 
@@ -179,5 +195,13 @@ impl CompositedView {
                 held &= !mask;
             }
         }
+    }
+}
+
+#[cfg(target_os = "linux")]
+impl Drop for CompositedView {
+    fn drop(&mut self) {
+        self.focus(false);
+        self.input_method.release();
     }
 }

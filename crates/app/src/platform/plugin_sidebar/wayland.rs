@@ -2,8 +2,11 @@
 use super::{PluginSidebarPresenter, view::CompositedView};
 use crate::PlayerWindow;
 use gtk::gdk::ModifierType;
-use riina_ui::PlayerPluginSidebarState;
-use slint::ComponentHandle;
+use riina_ui::{PlayerPluginImePhase as ImePhase, PlayerPluginSidebarState};
+use slint::{
+    ComponentHandle,
+    winit_030::winit::event::{Ime, WindowEvent},
+};
 use std::{
     cell::RefCell,
     rc::{Rc, Weak},
@@ -38,6 +41,12 @@ impl PluginSidebarPresenter {
         });
         let focus = owner.clone();
         actions.on_focus_input(move |focused| with_view(&focus, |view| view.focus(focused)));
+        let ime = owner.clone();
+        actions.on_ime_input(move |phase, text, cursor| {
+            with_view(&ime, |view| {
+                view.input_method.update(phase, text.as_str(), cursor)
+            });
+        });
         actions.on_key_input(move |text, control, alt, shift, meta, released| {
             with_view(&owner, |view| {
                 view.focus(true);
@@ -79,6 +88,46 @@ impl PluginSidebarPresenter {
             state.set_keyboard_focused(false);
             state.set_frame(slint::Image::default());
         }
+    }
+}
+
+pub(crate) fn route_sidebar_window_event(
+    app: &slint::Weak<PlayerWindow>,
+    event: &WindowEvent,
+) -> bool {
+    if !matches!(event, WindowEvent::Ime(_) | WindowEvent::Focused(_)) {
+        return false;
+    }
+    let Some(app) = app.upgrade() else {
+        return false;
+    };
+    let state = app.global::<PlayerPluginSidebarState>();
+    if !state.get_composited() || !state.get_keyboard_focused() || !super::sidebar_can_show(&app) {
+        return false;
+    }
+    match event {
+        WindowEvent::Focused(focused) => {
+            state.invoke_focus_input(*focused);
+            false
+        }
+        WindowEvent::Ime(ime) => {
+            match ime {
+                Ime::Preedit(text, cursor) => state.invoke_ime_input(
+                    ImePhase::Preedit,
+                    text.as_str().into(),
+                    cursor
+                        .and_then(|(_, end)| i32::try_from(end).ok())
+                        .unwrap_or(-1),
+                ),
+                Ime::Commit(text) => {
+                    state.invoke_ime_input(ImePhase::Commit, text.as_str().into(), -1)
+                }
+                Ime::Disabled => state.invoke_ime_input(ImePhase::Disabled, "".into(), -1),
+                Ime::Enabled => {}
+            }
+            true
+        }
+        _ => false,
     }
 }
 

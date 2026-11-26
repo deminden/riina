@@ -6037,3 +6037,33 @@ Playback stayed paused and the player exited normally.
 - Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
 - Linux application SHA-256 `39b5d379517c465148f091c93d33c15aa76645cf50014c3d0b2d646535c971ba`
 - Linux libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`
+
+### Wayland plugin sidebar text composition (2026-11-26)
+
+The locked Linux application build passed. On private Sway with XWayland
+disabled, an input method supplied Japanese preedit and a supplementary-plane
+character through the compositor. The browser sent trusted composition events,
+committed the text once and discarded a second composition when canceled.
+The compositor received the password purpose. Clicking noneditable content
+released the input method. Returning to the editor reacquired it. Jump to
+Time took ownership, accepted a composed time and
+seeked the paused clip to one second. The sidebar preserved its form across
+hide and reopen. Its wheel, shortcut and confirmation checks also passed, and
+the exact player process exited normally.
+
+The same binary passed the X11 sidebar keyboard, wheel, confirmation, resize,
+hide and reopen checks and exited normally. The Linux application and test
+sources passed strict Clippy. The focused Linux test passed caret conversion
+across UTF-8 boundaries and supplementary-plane characters.
+
+The Windows workspace gate and locked build passed, including immediate
+sidebar focus handoff and the player and Settings pixel regressions. All 70
+Windows native playback tests passed. Apple Silicon and Intel application
+and test sources passed strict cross-Clippy.
+The private Windows playback run also exercised hidden standalone navigation,
+native window reuse and normal shutdown.
+
+- Windows application SHA-256 `24f3cf555ebefc636f4b9e1a966647aa8471491c01163697f30197a504fd9693`
+- Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
+- Linux application SHA-256 `1bb149d12e8102a49e8aa01d30e6b31b62b8886034f63cf60d30f6c548c7e6df`
+- Linux libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`

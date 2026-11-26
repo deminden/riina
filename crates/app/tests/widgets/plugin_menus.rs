@@ -42,6 +42,9 @@ fn plugin_sidebar_owns_keys_and_pointer_input_until_they_return_to_playback()
     let pointer_left = Rc::new(Cell::new(0));
     let recorded = pointer_left.clone();
     sidebar.on_pointer_left(move || recorded.set(recorded.get() + 1));
+    let browser_focus = Rc::new(Cell::new(None));
+    let recorded = browser_focus.clone();
+    sidebar.on_focus_input(move |focused| recorded.set(Some(focused)));
 
     slint::platform::update_timers_and_animations();
     let position = LogicalPosition::new(app.get_plugin_sidebar_view_x() + 40.0, 190.0);
@@ -53,8 +56,8 @@ fn plugin_sidebar_owns_keys_and_pointer_input_until_they_return_to_playback()
         position,
         button: PointerEventButton::Left,
     });
-    slint::platform::update_timers_and_animations();
     assert!(sidebar.get_keyboard_focused());
+    assert_eq!(browser_focus.get(), Some(true));
     key(&app, Key::Space);
     assert_eq!(pause.get(), 0);
     assert_eq!(
@@ -81,8 +84,8 @@ fn plugin_sidebar_owns_keys_and_pointer_input_until_they_return_to_playback()
     assert_eq!(pointer_left.get(), 1);
 
     app.invoke_focus_player();
-    slint::platform::update_timers_and_animations();
     assert!(!sidebar.get_keyboard_focused());
+    assert_eq!(browser_focus.get(), Some(false));
     key(&app, Key::Space);
     assert_eq!(pause.get(), 1);
     app.hide()?;

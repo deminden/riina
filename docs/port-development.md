@@ -23,6 +23,11 @@ native browser child on X11 and the shared compositing path on Wayland. Linux
 file selection needs an available XDG Desktop Portal backend with X11 or Wayland
 parent support.
 
+Wayland sidebar editors share the player window's input method. WebKit renders
+the interim text, commits composition and supplies the candidate-window anchor.
+The Winit backend supplies composition text and commit events. Input methods
+that need surrounding text or request deletion around the caret remain open.
+
 Slint 1.18.1 selects X11 when it detects WSL. An isolated native Wayland lab
 can hide those detection markers inside the test's private mount namespace.
 Record the actual surface protocol when reporting Wayland results.

@@ -131,7 +131,9 @@ Implementation does not imply every state or platform is verified.
 - **Linux plugin sidebars:** Wayland passes pointer modifiers and pointer exits
   into the package page. X11 and Wayland deliver wheel input to the browser,
   including nested scroll panes and page handlers that cancel scrolling.
-  Plugin confirmations temporarily hide the browser on both desktops.
+  Plugin confirmations temporarily hide the browser on both desktops. Focused
+  Wayland editors accept composed text and report the browser caret and
+  password-field purpose to the input method.
 - **Standalone plugin tools:** a plugin can load a page, exchange messages and
   update its document while its tool window is hidden. The native close
   action hides the tool, and reopening retains the current page.
