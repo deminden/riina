@@ -23,12 +23,15 @@ export global KeyBindingSettingsState {
     in-out property <bool> key-binding-profile-delete-confirm-open: false;
     in-out property <int> key-binding-profile-editor-mode: 0;
     in-out property <string> key-binding-profile-editor-name: "";
+    in-out property <string> key-binding-profile-target: "";
     in-out property <int> key-binding-editor-row: -1;
     in-out property <string> key-binding-editor-key: "";
     in-out property <string> key-binding-editor-action: "";
     in-out property <string> key-binding-editor-comment: "";
     in-out property <int> key-binding-editor-kind: 0;
+    in-out property <string> key-binding-editor-error;
     pure callback build-binding-action(string, string, string, string) -> string;
+    callback profile-file-changed(string);
 }
 
 export component KeyBindingActionRow inherits Rectangle {

@@ -1,66 +1,46 @@
 //! Translate the focused player's system media commands into existing actions.
-use crate::{PlaybackStore, PlayerWindow, platform::RemoteMediaAction as Action};
+use crate::{PlayerWindow, platform::RemoteMediaAction as Action};
 use riina_core::Command;
 use riina_mpv::CommandSender;
 use riina_ui::{PlayerControlActions, PlayerMenuActions, PlayerSidebarActions};
 use slint::ComponentHandle;
 
-pub(super) fn apply(
-    app: &PlayerWindow,
-    action: Action,
-    latest_playback: &PlaybackStore,
-    player: &CommandSender,
-) {
+pub(super) fn apply(app: &PlayerWindow, action: Action, player: &CommandSender) {
     match action {
         Action::Play => {
-            if !super::super::key_actions::dispatch_system_media_key(
-                app,
-                "PLAYONLY",
-                latest_playback,
-            ) {
+            if !super::super::key_actions::dispatch_system_media_key(app, "PLAYONLY") {
                 app.global::<PlayerControlActions>()
                     .invoke_set_paused(false);
             }
         }
         Action::Pause => {
-            if !super::super::key_actions::dispatch_system_media_key(
-                app,
-                "PAUSEONLY",
-                latest_playback,
-            ) {
+            if !super::super::key_actions::dispatch_system_media_key(app, "PAUSEONLY") {
                 app.global::<PlayerControlActions>().invoke_set_paused(true);
             }
         }
         Action::Toggle => {
-            if !super::super::key_actions::dispatch_system_media_key(
-                app,
-                "PLAYPAUSE",
-                latest_playback,
-            ) {
+            if !super::super::key_actions::dispatch_system_media_key(app, "PLAYPAUSE") {
                 app.global::<PlayerMenuActions>().invoke_toggle_pause();
             }
         }
         Action::Stop => {
-            if !super::super::key_actions::dispatch_system_media_key(app, "STOP", latest_playback) {
+            if !super::super::key_actions::dispatch_system_media_key(app, "STOP") {
                 app.global::<PlayerMenuActions>().invoke_stop();
             }
         }
         Action::Next => {
-            if !super::super::key_actions::dispatch_system_media_key(app, "NEXT", latest_playback) {
+            if !super::super::key_actions::dispatch_system_media_key(app, "NEXT") {
                 app.global::<PlayerMenuActions>().invoke_playlist_next();
             }
         }
         Action::Previous => {
-            if !super::super::key_actions::dispatch_system_media_key(app, "PREV", latest_playback) {
+            if !super::super::key_actions::dispatch_system_media_key(app, "PREV") {
                 app.global::<PlayerMenuActions>().invoke_playlist_previous();
             }
         }
         Action::Forward(seconds) => {
-            if !super::super::key_actions::dispatch_system_media_key(
-                app,
-                "FORWARD",
-                latest_playback,
-            ) && seconds.is_finite()
+            if !super::super::key_actions::dispatch_system_media_key(app, "FORWARD")
+                && seconds.is_finite()
                 && seconds > 0.0
             {
                 app.global::<PlayerControlActions>()
@@ -68,7 +48,7 @@ pub(super) fn apply(
             }
         }
         Action::Backward(seconds) => {
-            if !super::super::key_actions::dispatch_system_media_key(app, "REWIND", latest_playback)
+            if !super::super::key_actions::dispatch_system_media_key(app, "REWIND")
                 && seconds.is_finite()
                 && seconds > 0.0
             {

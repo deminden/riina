@@ -63,13 +63,15 @@ pub(super) fn create(
         &window,
         decoder_player.clone(),
         model.clone(),
-        latest_playback.clone(),
         move |edit| {
             if let Some(options) = edit.replay_gain {
                 profile.publish_replay_gain(options);
             }
             if let Some(font) = edit.subtitle_font {
                 profile.publish_subtitle_font(font);
+            }
+            if let Some(settings) = edit.key_bindings {
+                profile.publish_key_bindings(settings);
             }
         },
     );

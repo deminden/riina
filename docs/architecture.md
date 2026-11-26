@@ -570,9 +570,9 @@ The installed keyboard profile resolves conflicts for plugin menu shortcuts
 using the same platform key normalization as playback. The player retains the
 requested shortcut so it can restore the accelerator after a profile change.
 Both menu presenters receive the resolved shortcut and the conflict count.
-The desktop media adapters resolve transport buttons through that same
-profile and send the selected mapping to the shared action dispatcher. The
-native idle menu projects its shortcuts from the same ordered mappings.
+Desktop media adapters send transport buttons through the player's installed
+profile dispatcher. The native idle menu projects its shortcuts from the same
+ordered mappings.
 
 Application directives share player menu callbacks for file and URL opening,
 playlist and subtitle exports, file-manager reveal and both reflection axes.
@@ -585,6 +585,12 @@ The Settings shortcut editor keeps the recording, generated command and note
 in its draft. The portable builder emits one profile command from the chosen
 action or property inputs. The user can edit the resulting command through
 the same raw field used for imported profiles.
+The application publishes committed shortcut settings to players using the
+same preferences path. File edits reload the installed mappings for that set
+after the write succeeds. The editor captures the selected profile and file
+contents on open. A stable lock serializes profile writes and rejects a
+replacement based on older contents. System media defaults belong to runtime
+resolution and stay out of custom mapping files unless explicitly assigned.
 
 ### Plugin sidebar surfaces
 

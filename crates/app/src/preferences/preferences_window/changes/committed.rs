@@ -24,7 +24,6 @@ pub(super) fn project(
     window: &PreferencesWindow,
     model: &PreferenceModel,
     credentials: &CredentialStore,
-    playback: &crate::PlaybackStore,
     previous: PreviousValues<'_>,
     restart_notice: Option<&str>,
 ) {
@@ -83,7 +82,6 @@ pub(super) fn project(
         .set_always_show_on_top_icon(saved.always_show_on_top_icon);
     model.write_player::<riina_core::control_preferences::Settings>(app);
     model.write_player::<riina_core::liquid_glass::SurfaceSettings>(app);
-    crate::key_binding_preferences::install_player(app, &saved.key_bindings, playback.clone());
     if let Some(message) = restart_notice {
         app.set_status(message.into());
     }

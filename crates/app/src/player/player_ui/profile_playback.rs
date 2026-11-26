@@ -1,10 +1,11 @@
 //! Share live playback preferences among players using the same profile.
 
 use super::{PlayerContext, volume_preference::VolumePreference};
-use crate::{PlayerWindow, PreferencesWindow, osc_preferences};
+use crate::{PlayerWindow, PreferencesWindow, key_binding_preferences, osc_preferences};
 use riina_core::{
     Command, Playback, Preferences,
     audio_preferences::ReplayGainOptions,
+    key_bindings::Settings as KeyBindings,
     osc_preferences::{ControllerOptions, TimePrecision},
 };
 use riina_ui::{PlaybackTimelineState, PlayerControlActions};
@@ -96,6 +97,13 @@ pub(crate) struct ProfilePlaybackBinding {
 impl ProfilePlaybackBinding {
     pub(crate) fn attach(&self, form: &PreferencesWindow) {
         self.player.form.replace(form.as_weak());
+        self.profile
+            .connect_key_binding_files(self.player.context.preferences_path(), form);
+    }
+
+    pub(crate) fn publish_key_bindings(&self, settings: &KeyBindings) {
+        self.profile
+            .publish_key_bindings(self.player.context.preferences_path(), settings);
     }
 
     pub(crate) fn publish_replay_gain(&self, options: ReplayGainOptions) {
@@ -118,6 +126,66 @@ impl ProfilePlaybackBinding {
 }
 
 impl ProfilePlayback {
+    pub(super) fn connect_key_binding_files(
+        self: &Rc<Self>,
+        path: &Path,
+        form: &PreferencesWindow,
+    ) {
+        let profile = Rc::downgrade(self);
+        let path = path.to_owned();
+        form.global::<riina_ui::KeyBindingSettingsState>()
+            .on_profile_file_changed(move |name| {
+                if let Some(profile) = profile.upgrade() {
+                    profile.reload_key_bindings(&path, name.as_str());
+                }
+            });
+    }
+
+    pub(super) fn publish_key_bindings(&self, path: &Path, settings: &KeyBindings) {
+        let bindings = key_binding_preferences::load_bindings(&settings.current_profile);
+        self.for_each_player(path, |player, app| {
+            player.context.preferences().adopt_committed(|saved| {
+                saved.key_bindings.clone_from(settings);
+            });
+            match &bindings {
+                Ok(bindings) => key_binding_preferences::install_bindings(
+                    app,
+                    settings,
+                    bindings.clone(),
+                    player.context.playback().clone(),
+                ),
+                Err(_) => key_binding_preferences::install_player(
+                    app,
+                    settings,
+                    player.context.playback().clone(),
+                ),
+            }
+            refresh_key_binding_form(player, settings);
+        });
+        #[cfg(target_os = "macos")]
+        crate::platform::browser_activation::refresh_idle_menu();
+    }
+
+    fn reload_key_bindings(&self, path: &Path, name: &str) {
+        let Ok(bindings) = key_binding_preferences::load_bindings(name) else {
+            return;
+        };
+        self.for_each_player(path, |player, app| {
+            let settings = player.context.preferences().snapshot().key_bindings;
+            if settings.current_profile == name {
+                key_binding_preferences::install_bindings(
+                    app,
+                    &settings,
+                    bindings.clone(),
+                    player.context.playback().clone(),
+                );
+                refresh_key_binding_form(player, &settings);
+            }
+        });
+        #[cfg(target_os = "macos")]
+        crate::platform::browser_activation::refresh_idle_menu();
+    }
+
     pub(super) fn volume(&self, path: &Path, prefs: &Preferences) -> Rc<VolumePreference> {
         let mut volumes = self.volumes.borrow_mut();
         volumes.retain(|_, service| service.strong_count() > 0);
@@ -262,6 +330,14 @@ impl ProfilePlayback {
     }
 }
 
+fn refresh_key_binding_form(player: &PlayerPreferences, settings: &KeyBindings) {
+    if let Some(form) = player.form.borrow().upgrade()
+        && let Err(error) = key_binding_preferences::refresh(&form, settings)
+    {
+        player.context.report(error);
+    }
+}
+
 pub(super) fn update_labels(app: &PlayerWindow, state: &Playback) {
     let options = osc_preferences::player_controller_options(app);
     let timeline = app.global::<PlaybackTimelineState>();
@@ -322,9 +398,9 @@ mod tests {
             Ok((app, engine, model, binding, form))
         };
 
-        let (_source, source_engine, source_model, source, _source_form) = attach(&shared)?;
-        let (_peer, peer_engine, peer_model, _peer_binding, peer_form) = attach(&shared)?;
-        let (_other, other_engine, other_model, _other_binding, _other_form) = attach(&other)?;
+        let (source_app, source_engine, source_model, source, _source_form) = attach(&shared)?;
+        let (peer, peer_engine, peer_model, _peer_binding, peer_form) = attach(&shared)?;
+        let (other_app, other_engine, other_model, _other_binding, _other_form) = attach(&other)?;
         let mut selected = source_model.snapshot();
         let previous = selected.audio.replay_gain_options();
         let options = ReplayGainOptions {
@@ -365,6 +441,55 @@ mod tests {
             "Test family"
         );
         assert_eq!(other_engine.commands.try_recv(), Err(TryRecvError::Empty));
+
+        let settings = KeyBindings {
+            current_profile: "Movist Default".into(),
+            use_system_media_controls: false,
+            ..KeyBindings::default()
+        };
+        let mut selected = source_model.snapshot();
+        selected.key_bindings = settings.clone();
+        source_model.save(selected)?;
+        source.publish_key_bindings(&settings);
+        assert_eq!(peer_model.snapshot().key_bindings, settings);
+        assert_eq!(other_model.snapshot().key_bindings, KeyBindings::default());
+        assert_eq!(
+            peer_form
+                .global::<riina_ui::KeyBindingSettingsState>()
+                .get_key_binding_current_profile(),
+            "Movist Default"
+        );
+        for player in [&source_app, &peer] {
+            let seek = Rc::new(std::cell::Cell::new(0.0));
+            let captured = seek.clone();
+            player
+                .global::<riina_ui::PlayerMenuActions>()
+                .on_seek_relative(move |seconds| captured.set(seconds));
+            let controls = player.global::<PlayerControlActions>();
+            assert!(controls.invoke_dispatch_key_binding(
+                slint::platform::Key::LeftArrow.into(),
+                false,
+                false,
+                false,
+                false,
+                false,
+            ));
+            assert_eq!(seek.get(), -10.0);
+            assert!(!controls.invoke_dispatch_key_binding(
+                "PLAY".into(),
+                false,
+                false,
+                false,
+                false,
+                false
+            ));
+        }
+        assert_ne!(
+            other_app
+                .global::<riina_ui::PlayerPreferences>()
+                .get_key_binding_current_profile(),
+            "Movist Default"
+        );
         Ok(())
     }
 

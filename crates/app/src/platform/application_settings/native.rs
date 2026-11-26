@@ -22,6 +22,7 @@ pub(crate) struct ProfileChanges {
     pub(crate) controller: Option<ControllerOptions>,
     pub(crate) replay_gain: Option<ReplayGainOptions>,
     pub(crate) subtitle_font: Option<String>,
+    pub(crate) key_bindings: Option<riina_core::key_bindings::Settings>,
 }
 
 struct Profile {
@@ -117,6 +118,8 @@ impl Profile {
             replay_gain: (gain != self.displayed.audio.replay_gain_options()).then_some(gain),
             subtitle_font: (edit.subtitle_font != self.displayed.subtitle_font)
                 .then(|| edit.subtitle_font.clone()),
+            key_bindings: (edit.key_bindings != self.displayed.key_bindings)
+                .then(|| edit.key_bindings.clone()),
         });
         let previous = &self.displayed.online_subtitles;
         let selected = &mut edit.online_subtitles;

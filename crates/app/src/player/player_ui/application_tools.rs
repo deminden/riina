@@ -55,10 +55,15 @@ impl ApplicationServices {
             if let Some(font) = changes.subtitle_font {
                 profile.adopt_application_font(&profile_path, &font);
             }
+            if let Some(settings) = changes.key_bindings {
+                profile.publish_key_bindings(&profile_path, &settings);
+            }
         };
         settings.show(path, saved, clear, committed, |window| {
             self.settings.font_picker().connect_settings(window);
             self.profile_playback.form.register(path, window);
+            self.profile_playback
+                .connect_key_binding_files(path, window);
             if let Some(pane) = pane {
                 window.set_selected_pane(pane);
             }

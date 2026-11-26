@@ -83,6 +83,7 @@ export component KeyBindingMappingDialog inherits Rectangle {
     in-out property <string> mapping-comment;
     in-out property <int> mapping-kind;
     in property <int> mapping-row;
+    in property <string> edit-error;
     callback cancelled();
     callback key-recorded(string, bool, bool, bool, bool);
     callback submitted(string, string, string, int, int);
@@ -194,6 +195,11 @@ export component KeyBindingMappingDialog inherits Rectangle {
                 accepted => { root.submit(); }
             }
         }
+        if !root.edit-error.is-empty : Text {
+            x: 20px; y: parent.height - 53px; width: parent.width - 216px; height: 42px;
+            text: root.edit-error; font-size: 11px; wrap: word-wrap;
+            color: Theme.settings-modal-message; vertical-alignment: center;
+        }
         cancel-button := PreferenceActionButton {
             x: parent.width - 178px; y: parent.height - 40px; label: @tr("Cancel");
             activated => { root.cancelled(); }
@@ -238,6 +244,7 @@ export component KeyBindingDialogs inherits Rectangle {
         mapping-comment <=> KeyBindingSettingsState.key-binding-editor-comment;
         mapping-kind <=> KeyBindingSettingsState.key-binding-editor-kind;
         mapping-row: KeyBindingSettingsState.key-binding-editor-row;
+        edit-error: KeyBindingSettingsState.key-binding-editor-error;
         cancelled => { root.key-binding-editor-cancelled(); }
         key-recorded(key, control, alt, shift, meta) => {
             root.key-binding-key-recorded(key, control, alt, shift, meta);

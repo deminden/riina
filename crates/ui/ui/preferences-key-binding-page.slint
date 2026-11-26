@@ -71,7 +71,10 @@ export component KeyBindingsPreferencesPage inherits ScrollView {
             KeyBindingIconButton {
                 x: parent.width - 82px; y: 4px; label: @tr("Delete profile"); icon-kind: 0;
                 enabled: KeyBindingSettingsState.key-binding-profile-index >= 5;
-                activated => { KeyBindingSettingsState.key-binding-profile-delete-confirm-open = true; }
+                activated => {
+                    KeyBindingSettingsState.key-binding-profile-target = KeyBindingSettingsState.key-binding-current-profile;
+                    KeyBindingSettingsState.key-binding-profile-delete-confirm-open = true;
+                }
             }
             KeyBindingIconButton {
                 x: parent.width - 44px; y: 4px; label: @tr("Add key binding set"); icon-kind: 3;
@@ -157,6 +160,7 @@ export component KeyBindingsPreferencesPage inherits ScrollView {
                     activated => {
                         KeyBindingSettingsState.key-binding-profile-menu-open = false;
                         KeyBindingSettingsState.key-binding-profile-editor-mode = 1;
+                        KeyBindingSettingsState.key-binding-profile-target = KeyBindingSettingsState.key-binding-current-profile;
                         KeyBindingSettingsState.key-binding-profile-editor-name = "";
                         KeyBindingSettingsState.key-binding-profile-editor-open = true;
                     }
@@ -166,6 +170,7 @@ export component KeyBindingsPreferencesPage inherits ScrollView {
                     activated => {
                         KeyBindingSettingsState.key-binding-profile-menu-open = false;
                         KeyBindingSettingsState.key-binding-profile-editor-mode = 2;
+                        KeyBindingSettingsState.key-binding-profile-target = KeyBindingSettingsState.key-binding-current-profile;
                         KeyBindingSettingsState.key-binding-profile-editor-name = KeyBindingSettingsState.key-binding-current-profile;
                         KeyBindingSettingsState.key-binding-profile-editor-open = true;
                     }

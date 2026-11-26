@@ -39,7 +39,6 @@ impl Transaction {
             &window,
             player.sender.clone(),
             player.session.preference_model.clone(),
-            crate::PlaybackStore::default(),
             credentials,
             move |edit| {
                 if let Some(options) = edit.replay_gain {

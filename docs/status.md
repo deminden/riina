@@ -107,6 +107,11 @@ Implementation does not imply every state or platform is verified.
   player actions, playback, playlist, seeking and property commands. Choosing
   an action fills the editable command field. Existing raw commands and notes
   remain intact when opening the editor. Tab navigation stays in the dialog.
+- **Live key bindings:** selecting a set in Settings updates the open players
+  that use that settings profile. Saving a mapping refreshes their shortcuts,
+  menus and plugin input. Two editors on the same set cannot overwrite each
+  other's changes. The editor shows the mappings written to a custom file;
+  system media defaults still apply when the file leaves those keys unbound.
 - **Recent activity:** player windows share Open Recent with Welcome and
   plugins. The macOS application menu also opens and clears recent documents
   while no player is open. Settings Utilities clears history, recent documents

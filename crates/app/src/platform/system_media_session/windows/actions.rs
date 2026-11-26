@@ -84,7 +84,7 @@ impl Action {
             Button::Rewind => "REWIND",
             _ => return,
         };
-        if dispatch_system_media_key(app, key, latest) {
+        if dispatch_system_media_key(app, key) {
             return;
         }
         match button {

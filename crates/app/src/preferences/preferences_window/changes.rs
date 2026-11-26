@@ -18,6 +18,7 @@ use slint::ComponentHandle;
 pub(super) struct CommittedEdit<'a> {
     pub(super) replay_gain: Option<ReplayGainOptions>,
     pub(super) subtitle_font: Option<&'a str>,
+    pub(super) key_bindings: Option<&'a riina_core::key_bindings::Settings>,
 }
 
 pub(super) fn connect(
@@ -25,7 +26,6 @@ pub(super) fn connect(
     window: &PreferencesWindow,
     decoder_player: riina_mpv::CommandSender,
     model: PreferenceModel,
-    key_binding_playback: crate::PlaybackStore,
     committed_edit: impl Fn(CommittedEdit<'_>) + 'static,
 ) {
     connect_with_credentials(
@@ -33,7 +33,6 @@ pub(super) fn connect(
         window,
         decoder_player,
         model,
-        key_binding_playback,
         CredentialStore::system(),
         committed_edit,
     );
@@ -58,7 +57,6 @@ fn connect_with_credentials(
     window: &PreferencesWindow,
     decoder_player: riina_mpv::CommandSender,
     model: PreferenceModel,
-    key_binding_playback: crate::PlaybackStore,
     credentials: CredentialStore,
     committed_edit: impl Fn(CommittedEdit<'_>) + 'static,
 ) {
@@ -167,17 +165,19 @@ fn connect_with_credentials(
             });
         match result {
             Ok(()) => {
+                let current = model.snapshot();
                 committed_edit(CommittedEdit {
                     replay_gain: playback.committed_replay_gain(&playback_changes),
                     subtitle_font: (saved.subtitle_font != applied_subtitles.font)
                         .then_some(applied_subtitles.font.as_str()),
+                    key_bindings: (saved.key_bindings != current.key_bindings)
+                        .then_some(&current.key_bindings),
                 });
                 committed::project(
                     &app,
                     &window,
                     &model,
                     &credentials,
-                    &key_binding_playback,
                     committed::PreviousValues {
                         pause_when_open: general.previous.pause_when_open,
                         resume_last_position: general.previous.resume_last_position,

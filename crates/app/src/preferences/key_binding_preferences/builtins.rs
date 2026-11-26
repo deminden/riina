@@ -238,13 +238,7 @@ pub(super) fn builtin_mappings(name: &str) -> Vec<Mapping> {
 }
 
 pub(crate) fn mappings_for(name: &str) -> Result<Vec<Mapping>, String> {
-    let mut mappings = if BUILTIN_PROFILES.contains(&name) {
-        builtin_mappings(name)
-    } else {
-        crate::key_binding_profiles::ProfileStore::for_current_user()
-            .and_then(|store| store.load(name))
-            .map_err(|error| error.to_string())?
-    };
+    let mut mappings = stored_mappings_for(name)?;
     for (key, action) in SYSTEM_MEDIA_ROWS {
         if !mappings
             .iter()
@@ -259,4 +253,14 @@ pub(crate) fn mappings_for(name: &str) -> Result<Vec<Mapping>, String> {
         }
     }
     Ok(mappings)
+}
+
+pub(crate) fn stored_mappings_for(name: &str) -> Result<Vec<Mapping>, String> {
+    if BUILTIN_PROFILES.contains(&name) {
+        Ok(builtin_mappings(name))
+    } else {
+        crate::key_binding_profiles::ProfileStore::for_current_user()
+            .and_then(|store| store.load(name))
+            .map_err(|error| error.to_string())
+    }
 }

@@ -301,7 +301,7 @@ impl Window {
                 .get_key_binding_use_system_media_controls()
             && let Some(sender) = sender
         {
-            dispatch::apply(&self.app, action, &self.route.playback, &sender);
+            dispatch::apply(&self.app, action, &sender);
         }
     }
 }

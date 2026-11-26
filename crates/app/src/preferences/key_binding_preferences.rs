@@ -12,11 +12,11 @@ use riina_core::{Preferences, key_bindings::Settings};
 use slint::ComponentHandle;
 
 pub(crate) use bindings::Bindings;
-pub(crate) use builtins::mappings_for;
-pub(crate) use dispatch::{dispatch_mapping, install_player};
+pub(crate) use builtins::{mappings_for, stored_mappings_for};
+pub(crate) use dispatch::{install_bindings, install_player, load_bindings};
 pub(crate) use editor::{
-    activate_profile, current_player, current_window, install_window, mapping_for_row, refresh,
-    remove_mapping, save_mapping, search, select_profile,
+    MappingDraft, activate_profile, current_player, current_window, install_window, refresh,
+    remove_mapping, search, select_profile,
 };
 pub(crate) use keys::{plugin_event_key, plugin_key_binding, recorded_key, shortcut_keys};
 pub(crate) use menus::menu_shortcut_rows;

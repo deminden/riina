@@ -23,6 +23,7 @@ Use [parity.csv](parity.csv) for individual coverage and
 | Menus/input | iina/MenuController.swift; config/iina-default-input.conf; Base.lproj/MainMenu.xib | shortcut resource includes IINA actions and mpv commands |
 | Application key commands | iina/IINACommand.swift; PlayerWindowController.swift; MenuController.swift; MainMenuActions.swift | The player handles file/URL opening and permanent deletion; key equivalents connect playlist export, subtitle saving, reveal, Trash, flip and mirror to existing menu actions. Permanent deletion has no default binding or menu item. |
 | Key mapping editor | iina/PrefKeyBindingViewController.swift; KeyRecordViewController.swift; KeyBindingDataLoader.swift; KeyBindingTranslator.swift; PlayerCore.swift | The Settings sheet focuses key capture, offers three media keys and builds an editable raw command from grouped actions and property controls. IINA publishes effective mappings to one registry shared by all open players. |
+| Alternate input presets | iina/config/input.conf; vlc-default-input.conf; movist-default-input.conf; movist-v2-default-input.conf; PlayerCore.swift | VLC and both Movist presets assign Stop to Quit and use 60-second media-key seeks. Movist defines three keys twice. The runtime uses the last action for each normalized key and retains the key's first position for menu shortcuts. The mpv preset also includes pointer, wheel and keypad bindings. |
 | History | iina/HistoryController.swift | history, grouping and resume policies |
 | Plugins | iina/JavascriptPlugin*.swift; JavascriptAPI*.swift | JavaScriptCore host and multiple public API surfaces |
 | Localization | iina/en.lproj; ru.lproj; ar.lproj | bundled translations; provenance and placeholders need audit |
@@ -59,6 +60,10 @@ See [visual metrics](visual-spec.md) for the controller and sidebar details.
   index are separate concerns.
 - Loading an already loaded external subtitle reloads it rather than duplicating
   it. Playlist move operations retain mpv's target-index semantics.
+- `PlayerCore.windowScaleChanged` observes the mpv window-scale property and
+  updates the native window. The window reports its actual scale back after
+  resizing. This covers preset scale cycles and multipliers as well as exact
+  sizes.
 - `PlayerCore.chooseSubFont` reads and changes the current mpv font.
   `SettingsPageSubtitles.chooseSubFontAction` edits the saved default through
   a sheet. Both use the same chooser owned by the application.

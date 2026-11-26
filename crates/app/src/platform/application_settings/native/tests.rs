@@ -2,7 +2,7 @@ use super::*;
 use riina_core::{
     ActionAfterLaunch, ThemeMaterial, screenshot::Format, subtitle_controls::AssOverrideLevel,
 };
-use riina_ui::{GeneralSettingsState, NetworkSettingsState};
+use riina_ui::{GeneralSettingsState, KeyBindingSettingsState, NetworkSettingsState};
 use std::cell::Cell;
 
 fn credentials() -> Credentials {
@@ -46,6 +46,10 @@ fn settings_changes_before_playback_merge_with_an_independent_save() {
                 assert!(changes.controller.is_none());
                 assert_eq!(changes.replay_gain.unwrap().mode, gain);
                 assert_eq!(changes.subtitle_font.as_deref(), Some("Serif"));
+                assert_eq!(
+                    changes.key_bindings.unwrap().current_profile,
+                    "Movist Default"
+                );
                 counter.set(counter.get() + 1);
             },
         )
@@ -78,6 +82,9 @@ fn settings_changes_before_playback_merge_with_an_independent_save() {
     let subtitles = window.global::<crate::SubtitleSettingsState>();
     subtitles.set_subtitle_font("Serif".into());
     subtitles.set_subtitle_ass_override_primary_index(AssOverrideLevel::Force.slider_index());
+    window
+        .global::<KeyBindingSettingsState>()
+        .set_key_binding_current_profile("Movist Default".into());
     window.invoke_settings_changed();
     let saved = crate::preference_load::read_valid(&path).unwrap().unwrap();
     assert!(
@@ -97,6 +104,7 @@ fn settings_changes_before_playback_merge_with_an_independent_save() {
     assert!(saved.advanced.logging_enabled);
     assert_eq!(saved.subtitle_font, "Serif");
     assert_eq!(saved.subtitle_ass_override, AssOverrideLevel::Force);
+    assert_eq!(saved.key_bindings.current_profile, "Movist Default");
     assert_eq!(saved.theme_material, Some(ThemeMaterial::Dark));
     owner.hide();
     assert!(!window.window().is_visible());

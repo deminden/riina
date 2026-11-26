@@ -5821,3 +5821,31 @@ window, Open URL dialog and player closed normally.
 
 - Linux application SHA-256 `253526483d42db9d838ac4df7fdf7c387271f12a7e8cc17c0522f62b8ae92aa3`
 - Linux libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`
+
+### Shared shortcut profiles (2026-11-26)
+
+The Windows workspace gate passed, including strict Clippy, the player and
+Settings pixel baselines, and the shortcut regressions. The tests cover a
+committed profile selection updating existing players and Settings windows
+on the same profile, including a different seek interval and media-key setting.
+They also cover a Settings window opened before playback, an editor whose form
+switches profiles while a draft is open, and a save based on older file contents.
+
+The locked Windows workspace build passed. The separate Windows native suite
+passed all 69 playback tests. The Apple Silicon and Intel application and
+test targets passed cross-Clippy. Native macOS shortcut interaction remains
+unverified.
+
+The locked Linux application build passed. On isolated X11, two paused
+players used the same custom profile. An F8 binding saved in the first
+Settings window immediately opened Open URL in the second player. On
+submission, the earlier F9 draft in the second Settings window reported a
+conflict and preserved the saved F8 mapping.
+
+The first probe of this binary timed out waiting for exit after sending the
+last close request. The rerun waited for the X server to process each request,
+verified both Settings windows and both player windows closed, and confirmed
+the exact process exited normally.
+
+- Linux application SHA-256 `4507015d22e885ef233209eaad12e268594187742256961184128e6b85155dea`
+- Linux libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`

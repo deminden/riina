@@ -1,7 +1,7 @@
 //! Preferences rows and edits use one loaded profile per operation.
-use super::builtins::{BUILTIN_PROFILES, mappings_for};
+use super::builtins::{BUILTIN_PROFILES, mappings_for, stored_mappings_for};
 use super::keys::shortcut_keys;
-use crate::{KeyBindingRow, PlayerWindow, PreferencesWindow};
+use crate::{KeyBindingRow, PlayerWindow, PreferencesWindow, key_binding_profiles::ProfileStore};
 use riina_core::key_bindings::{ActionKind, Mapping, Settings};
 use slint::ComponentHandle;
 use slint::{ModelRc, SharedString, VecModel};
@@ -145,113 +145,123 @@ fn selected_mapping_index(
         .ok_or_else(|| "Select a key binding first".to_owned())
 }
 
-pub(crate) fn mapping_for_row(window: &PreferencesWindow, row: i32) -> Result<Mapping, String> {
-    let profile = window
-        .global::<riina_ui::KeyBindingSettingsState>()
-        .get_key_binding_current_profile()
-        .to_string();
-    if is_builtin_profile(&profile) {
-        return Err("Built-in key binding sets are read-only".into());
-    }
-    let mappings = mappings_for(&profile)?;
-    let index = selected_mapping_index(window, &mappings, row)?;
-    mappings
-        .get(index)
-        .cloned()
-        .ok_or_else(|| "The selected key binding no longer exists".into())
-}
-
-pub(crate) fn save_mapping(
-    window: &PreferencesWindow,
-    row: i32,
-    key: &str,
-    action: &str,
-    comment: &str,
-    kind_index: i32,
-) -> Result<(), String> {
-    let profile = window
-        .global::<riina_ui::KeyBindingSettingsState>()
-        .get_key_binding_current_profile()
-        .to_string();
-    if is_builtin_profile(&profile) {
-        return Err("Built-in key binding sets are read-only".into());
-    }
-    let key = key.trim();
-    let action = action.trim();
-    if key.is_empty() || action.is_empty() {
-        return Err("Enter both a key and an action".into());
-    }
-    let kind = match kind_index {
-        0 => ActionKind::Mpv,
-        1 => ActionKind::Riina,
-        _ => return Err("Choose a valid action type".into()),
-    };
-    let mut mappings = mappings_for(&profile)?;
-    let mapping = Mapping {
-        key: key.to_owned(),
-        action: action.to_owned(),
-        kind,
-        comment: (!comment.trim().is_empty()).then(|| comment.trim().to_owned()),
-    };
-    if row < 0 {
-        mappings.push(mapping);
-    } else {
-        let index = selected_mapping_index(window, &mappings, row)?;
-        let target = mappings
-            .get_mut(index)
-            .ok_or_else(|| "The selected key binding no longer exists".to_owned())?;
-        *target = mapping;
-    }
-    crate::key_binding_profiles::ProfileStore::for_current_user()
-        .and_then(|store| store.save(&profile, &mappings))
-        .map_err(|error| error.to_string())?;
-    set_rows(
-        window,
-        &mappings,
-        window
-            .global::<riina_ui::KeyBindingSettingsState>()
-            .get_key_binding_display_raw_values(),
-        &window
-            .global::<riina_ui::KeyBindingSettingsState>()
-            .get_key_binding_search_query(),
-    );
+fn profile_name(window: &PreferencesWindow) -> String {
     window
         .global::<riina_ui::KeyBindingSettingsState>()
-        .set_key_binding_selected_row(-1);
-    Ok(())
+        .get_key_binding_current_profile()
+        .to_string()
+}
+
+pub(crate) struct MappingDraft {
+    profile: String,
+    file: Vec<Mapping>,
+    index: Option<usize>,
+}
+
+impl MappingDraft {
+    pub(crate) fn open(window: &PreferencesWindow, row: Option<i32>) -> Result<Self, String> {
+        let profile = profile_name(window);
+        if is_builtin_profile(&profile) {
+            return Err("Built-in key binding sets are read-only".into());
+        }
+        let file = stored_mappings_for(&profile)?;
+        let index = row
+            .map(|row| selected_mapping_index(window, &file, row))
+            .transpose()?;
+        Ok(Self {
+            profile,
+            file,
+            index,
+        })
+    }
+
+    pub(crate) fn original(&self) -> Option<&Mapping> {
+        self.index.and_then(|index| self.file.get(index))
+    }
+
+    pub(crate) fn save(
+        &self,
+        window: &PreferencesWindow,
+        key: &str,
+        action: &str,
+        comment: &str,
+        kind_index: i32,
+    ) -> Result<(), String> {
+        let key = key.trim();
+        let action = action.trim();
+        if key.is_empty() || action.is_empty() {
+            return Err("Enter both a key and an action".into());
+        }
+        let kind = match kind_index {
+            0 => ActionKind::Mpv,
+            1 => ActionKind::Riina,
+            _ => return Err("Choose a valid action type".into()),
+        };
+        let mapping = Mapping {
+            key: key.to_owned(),
+            action: action.to_owned(),
+            kind,
+            comment: (!comment.trim().is_empty()).then(|| comment.trim().to_owned()),
+        };
+        self.commit(window, |file| {
+            if let Some(index) = self.index {
+                file[index] = mapping;
+            } else {
+                file.push(mapping);
+            }
+        })
+    }
+
+    fn commit(
+        &self,
+        window: &PreferencesWindow,
+        edit: impl FnOnce(&mut Vec<Mapping>),
+    ) -> Result<(), String> {
+        if profile_name(window) != self.profile {
+            return Err(
+                "The active key binding set changed. Reopen the editor to continue.".into(),
+            );
+        }
+        let mut updated = self.file.clone();
+        edit(&mut updated);
+        ProfileStore::for_current_user()
+            .and_then(|store| store.replace_mappings(&self.profile, &self.file, &updated))
+            .map_err(|error| error.to_string())?;
+        project_rows(window, &updated);
+        window
+            .global::<riina_ui::KeyBindingSettingsState>()
+            .invoke_profile_file_changed(self.profile.as_str().into());
+        Ok(())
+    }
 }
 
 pub(crate) fn remove_mapping(window: &PreferencesWindow, row: i32) -> Result<(), String> {
-    let profile = window
-        .global::<riina_ui::KeyBindingSettingsState>()
-        .get_key_binding_current_profile()
-        .to_string();
-    if is_builtin_profile(&profile) {
-        return Err("Built-in key binding sets are read-only".into());
+    let draft = MappingDraft::open(window, Some(row))?;
+    let Some(index) = draft.index else {
+        return Err("Select a key binding first".into());
+    };
+    draft.commit(window, |file| {
+        file.remove(index);
+    })
+}
+
+fn listed_mappings_for(name: &str) -> Result<Vec<Mapping>, String> {
+    if is_builtin_profile(name) {
+        mappings_for(name)
+    } else {
+        stored_mappings_for(name)
     }
-    let mut mappings = mappings_for(&profile)?;
-    let index = selected_mapping_index(window, &mappings, row)?;
-    if index >= mappings.len() {
-        return Err("The selected key binding no longer exists".into());
-    }
-    mappings.remove(index);
-    crate::key_binding_profiles::ProfileStore::for_current_user()
-        .and_then(|store| store.save(&profile, &mappings))
-        .map_err(|error| error.to_string())?;
+}
+
+fn project_rows(window: &PreferencesWindow, mappings: &[Mapping]) {
+    let state = window.global::<riina_ui::KeyBindingSettingsState>();
     set_rows(
         window,
-        &mappings,
-        window
-            .global::<riina_ui::KeyBindingSettingsState>()
-            .get_key_binding_display_raw_values(),
-        &window
-            .global::<riina_ui::KeyBindingSettingsState>()
-            .get_key_binding_search_query(),
+        mappings,
+        state.get_key_binding_display_raw_values(),
+        &state.get_key_binding_search_query(),
     );
-    window
-        .global::<riina_ui::KeyBindingSettingsState>()
-        .set_key_binding_selected_row(-1);
-    Ok(())
+    state.set_key_binding_selected_row(-1);
 }
 
 fn profile_names(settings: &Settings) -> Result<Vec<String>, String> {
@@ -311,7 +321,7 @@ pub(crate) fn install_window(
     window
         .global::<riina_ui::KeyBindingSettingsState>()
         .set_key_binding_display_raw_values(settings.display_raw_values);
-    let mappings = mappings_for(&settings.current_profile)?;
+    let mappings = listed_mappings_for(&settings.current_profile)?;
     set_rows(
         window,
         &mappings,
@@ -341,40 +351,20 @@ pub(crate) fn current_window(window: &PreferencesWindow) -> Result<Settings, Str
 }
 
 pub(crate) fn select_profile(window: &PreferencesWindow, name: &str) -> Result<(), String> {
-    let mappings = mappings_for(name)?;
-    set_rows(
-        window,
-        &mappings,
-        window
-            .global::<riina_ui::KeyBindingSettingsState>()
-            .get_key_binding_display_raw_values(),
-        &window
-            .global::<riina_ui::KeyBindingSettingsState>()
-            .get_key_binding_search_query(),
-    );
-    window
-        .global::<riina_ui::KeyBindingSettingsState>()
-        .set_key_binding_selected_row(-1);
+    project_rows(window, &listed_mappings_for(name)?);
     Ok(())
 }
 
 pub(crate) fn search(window: &PreferencesWindow, query: &str) -> Result<(), String> {
-    let mappings = mappings_for(
-        &window
-            .global::<riina_ui::KeyBindingSettingsState>()
-            .get_key_binding_current_profile(),
-    )?;
+    let mappings = listed_mappings_for(&profile_name(window))?;
+    let form = window.global::<riina_ui::KeyBindingSettingsState>();
     set_rows(
         window,
         &mappings,
-        window
-            .global::<riina_ui::KeyBindingSettingsState>()
-            .get_key_binding_display_raw_values(),
+        form.get_key_binding_display_raw_values(),
         query,
     );
-    window
-        .global::<riina_ui::KeyBindingSettingsState>()
-        .set_key_binding_selected_row(-1);
+    form.set_key_binding_selected_row(-1);
     Ok(())
 }
 
@@ -388,4 +378,25 @@ pub(crate) fn activate_profile(window: &PreferencesWindow, name: &str) -> Result
     refresh(window, &settings)?;
     window.invoke_settings_changed();
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_draft_does_not_follow_the_form_to_a_different_profile() {
+        i_slint_backend_testing::init_no_event_loop();
+        let window = PreferencesWindow::new().unwrap();
+        let state = window.global::<riina_ui::KeyBindingSettingsState>();
+        state.set_key_binding_current_profile("Another set".into());
+        let draft = MappingDraft {
+            profile: "Original set".into(),
+            file: Vec::new(),
+            index: None,
+        };
+        let result = draft.save(&window, "F8", "open-url", "", 1);
+        assert!(result.unwrap_err().contains("set changed"));
+        assert_eq!(state.get_key_binding_current_profile(), "Another set");
+    }
 }

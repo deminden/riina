@@ -1,9 +1,8 @@
 //! Install and execute typed profile actions without retaining playback owners.
 use super::{
     Bindings,
-    builtins::mappings_for,
     keys::{normalize_profile_key, recorded_key},
-    menu_shortcut_rows,
+    mappings_for, menu_shortcut_rows,
 };
 use crate::{PlayerWindow, preferences::model::PreferenceSection};
 use riina_core::key_bindings::{ActionKind, Mapping, Settings, normalize_mpv_key};
@@ -16,15 +15,29 @@ pub(crate) fn install_player(
     settings: &Settings,
     latest_playback: crate::PlaybackStore,
 ) {
-    settings.write_player(app);
-    let mappings = match mappings_for(&settings.current_profile) {
-        Ok(mappings) => mappings,
+    let bindings = match load_bindings(&settings.current_profile) {
+        Ok(bindings) => bindings,
         Err(error) => {
             crate::diagnostics::report(app, format!("Could not load input profile: {error}"));
-            Vec::new()
+            let defaults = Settings::default();
+            load_bindings(&defaults.current_profile)
+                .unwrap_or_else(|_| Rc::new(Bindings::new(Vec::new())))
         }
     };
-    let mappings = Rc::new(Bindings::new(mappings));
+    install_bindings(app, settings, bindings, latest_playback);
+}
+
+pub(crate) fn load_bindings(profile: &str) -> Result<Rc<Bindings>, String> {
+    mappings_for(profile).map(|mappings| Rc::new(Bindings::new(mappings)))
+}
+
+pub(crate) fn install_bindings(
+    app: &PlayerWindow,
+    settings: &Settings,
+    mappings: Rc<Bindings>,
+    latest_playback: crate::PlaybackStore,
+) {
+    settings.write_player(app);
     crate::platform::player_touch_bar::bind_escape(app, || {
         matches!(
             mappings.get("ESC").and_then(runtime_action),
@@ -245,14 +258,6 @@ pub(super) fn runtime_action(mapping: &Mapping) -> Option<RuntimeAction> {
         }
         _ => None,
     }
-}
-
-pub(crate) fn dispatch_mapping(
-    app: &PlayerWindow,
-    mapping: &Mapping,
-    latest_playback: &crate::PlaybackStore,
-) {
-    dispatch_action(app, mapping, runtime_action(mapping), latest_playback);
 }
 
 fn dispatch_action(

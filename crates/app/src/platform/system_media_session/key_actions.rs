@@ -1,38 +1,17 @@
 //! Project the active key profile into desktop media actions.
-#[cfg(any(target_os = "linux", target_os = "macos", target_os = "windows"))]
-use crate::{
-    PlayerWindow,
-    key_binding_preferences::{Bindings, dispatch_mapping, mappings_for},
-};
+#[cfg(any(target_os = "macos", target_os = "windows", target_os = "linux"))]
+use crate::PlayerWindow;
+#[cfg(any(target_os = "macos", target_os = "windows"))]
+use crate::key_binding_preferences::{Bindings, mappings_for};
 #[cfg(any(target_os = "macos", target_os = "windows", test))]
 use riina_core::key_bindings::{ActionKind, Mapping};
 #[cfg(any(target_os = "linux", target_os = "macos", target_os = "windows"))]
 use slint::ComponentHandle;
 
 #[cfg(any(target_os = "linux", target_os = "macos", target_os = "windows"))]
-pub(in crate::platform) fn dispatch_system_media_key(
-    app: &PlayerWindow,
-    key: &str,
-    latest_playback: &crate::PlaybackStore,
-) -> bool {
-    if !app
-        .global::<riina_ui::PlayerPreferences>()
-        .get_key_binding_use_system_media_controls()
-    {
-        return false;
-    }
-    let Ok(mappings) = mappings_for(
-        &app.global::<riina_ui::PlayerPreferences>()
-            .get_key_binding_current_profile(),
-    ) else {
-        return false;
-    };
-    let mappings = Bindings::new(mappings);
-    let Some(mapping) = mappings.get(key) else {
-        return false;
-    };
-    dispatch_mapping(app, mapping, latest_playback);
-    true
+pub(in crate::platform) fn dispatch_system_media_key(app: &PlayerWindow, key: &str) -> bool {
+    app.global::<riina_ui::PlayerControlActions>()
+        .invoke_dispatch_key_binding(key.into(), false, false, false, false, false)
 }
 
 #[cfg(any(target_os = "macos", target_os = "windows", test))]

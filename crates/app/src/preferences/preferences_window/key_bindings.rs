@@ -1,7 +1,10 @@
 //! Profile and mapping actions for the Key Bindings pane.
 use super::owner::Owner;
 use crate::PreferencesWindow;
+use crate::key_binding_preferences::MappingDraft;
+use riina_ui::KeyBindingSettingsState;
 use slint::{ComponentHandle, winit_030::WinitWindowAccessor};
+use std::{cell::RefCell, rc::Rc};
 
 pub(super) fn connect(window: &PreferencesWindow, owner: &Owner) {
     install_selection(window, owner);
@@ -55,17 +58,19 @@ fn install_profile_editor(window: &PreferencesWindow, owner: &Owner) {
             return;
         };
         let name = name.to_string();
-        let source = window
-            .global::<riina_ui::KeyBindingSettingsState>()
-            .get_key_binding_current_profile()
-            .to_string();
+        let state = window.global::<KeyBindingSettingsState>();
+        let source = state.get_key_binding_profile_target();
+        if mode == 2 && source != state.get_key_binding_current_profile() {
+            return profile_action_owner
+                .report("The active key binding set changed. Reopen Rename to continue.".into());
+        }
         let result = (|| {
             let store = crate::key_binding_profiles::ProfileStore::for_current_user()
                 .map_err(|error| error.to_string())?;
             match mode {
                 0 => store.create(&name).map_err(|error| error.to_string())?,
                 1 => {
-                    let mappings = crate::key_binding_preferences::mappings_for(&source)?;
+                    let mappings = crate::key_binding_preferences::stored_mappings_for(&source)?;
                     store
                         .create_with_mappings(&name, &mappings)
                         .map_err(|error| error.to_string())?;
@@ -132,10 +137,12 @@ fn install_profile_files(window: &PreferencesWindow, owner: &Owner) {
         let Some(window) = delete_window.upgrade() else {
             return;
         };
-        let profile = window
-            .global::<riina_ui::KeyBindingSettingsState>()
-            .get_key_binding_current_profile()
-            .to_string();
+        let state = window.global::<KeyBindingSettingsState>();
+        let profile = state.get_key_binding_profile_target();
+        if profile != state.get_key_binding_current_profile() {
+            return delete_owner
+                .report("The active key binding set changed. Reopen Delete to continue.".into());
+        }
         let result = crate::key_binding_profiles::ProfileStore::for_current_user()
             .and_then(|store| store.delete(&profile))
             .map_err(|error| error.to_string());
@@ -215,75 +222,42 @@ fn install_mapping_actions(window: &PreferencesWindow, owner: &Owner) {
                 .unwrap_or_default()
                 .into()
         });
-    let add_window = window.as_weak();
-    window.on_key_binding_add_requested(move || {
-        let Some(window) = add_window.upgrade() else {
-            return;
-        };
-        if window
-            .global::<riina_ui::KeyBindingSettingsState>()
-            .get_key_binding_profile_index()
-            < 5
-        {
-            return;
+    let active = Rc::new(RefCell::new(None::<MappingDraft>));
+    let edit = {
+        let active = active.clone();
+        let parent = window.as_weak();
+        let owner = owner.clone();
+        move |row: Option<i32>| {
+            let Some(window) = parent.upgrade() else {
+                return;
+            };
+            let draft = match MappingDraft::open(&window, row) {
+                Ok(draft) => draft,
+                Err(error) => return owner.report(error),
+            };
+            let state = window.global::<KeyBindingSettingsState>();
+            let original = draft.original();
+            state.set_key_binding_editor_error("".into());
+            state.set_key_binding_editor_row(row.unwrap_or(-1));
+            state.set_key_binding_editor_key(original.map_or("", |row| &row.key).into());
+            state.set_key_binding_editor_action(original.map_or("", |row| &row.action).into());
+            state.set_key_binding_editor_comment(
+                original
+                    .and_then(|row| row.comment.as_deref())
+                    .unwrap_or("")
+                    .into(),
+            );
+            state.set_key_binding_editor_kind(i32::from(
+                original.is_some_and(|row| row.kind == riina_core::key_bindings::ActionKind::Riina),
+            ));
+            active.replace(Some(draft));
+            state.set_key_binding_editor_open(true);
         }
-        window
-            .global::<riina_ui::KeyBindingSettingsState>()
-            .set_key_binding_editor_row(-1);
-        window
-            .global::<riina_ui::KeyBindingSettingsState>()
-            .set_key_binding_editor_key("".into());
-        window
-            .global::<riina_ui::KeyBindingSettingsState>()
-            .set_key_binding_editor_action("".into());
-        window
-            .global::<riina_ui::KeyBindingSettingsState>()
-            .set_key_binding_editor_comment("".into());
-        window
-            .global::<riina_ui::KeyBindingSettingsState>()
-            .set_key_binding_editor_kind(0);
-        window
-            .global::<riina_ui::KeyBindingSettingsState>()
-            .set_key_binding_editor_open(true);
-    });
-    let edit_window = window.as_weak();
-    let edit_owner = owner.clone();
-    window.on_key_binding_edit_requested(move |row| {
-        let Some(window) = edit_window.upgrade() else {
-            return;
-        };
-        match crate::key_binding_preferences::mapping_for_row(&window, row) {
-            Ok(mapping) => {
-                window
-                    .global::<riina_ui::KeyBindingSettingsState>()
-                    .set_key_binding_editor_row(row);
-                window
-                    .global::<riina_ui::KeyBindingSettingsState>()
-                    .set_key_binding_editor_key(mapping.key.into());
-                window
-                    .global::<riina_ui::KeyBindingSettingsState>()
-                    .set_key_binding_editor_action(mapping.action.into());
-                window
-                    .global::<riina_ui::KeyBindingSettingsState>()
-                    .set_key_binding_editor_comment(mapping.comment.unwrap_or_default().into());
-                window
-                    .global::<riina_ui::KeyBindingSettingsState>()
-                    .set_key_binding_editor_kind(
-                        if mapping.kind == riina_core::key_bindings::ActionKind::Riina {
-                            1
-                        } else {
-                            0
-                        },
-                    );
-                window
-                    .global::<riina_ui::KeyBindingSettingsState>()
-                    .set_key_binding_editor_open(true);
-            }
-            Err(error) => {
-                edit_owner.report(error);
-            }
-        }
-    });
+    };
+    let add = edit.clone();
+    window.on_key_binding_add_requested(move || add(None));
+    window.on_key_binding_edit_requested(move |row| edit(Some(row)));
+
     let key_window = window.as_weak();
     window.on_key_binding_key_recorded(move |text, control, alt, shift, meta| {
         if let Some(window) = key_window.upgrade()
@@ -306,41 +280,42 @@ fn install_mapping_actions(window: &PreferencesWindow, owner: &Owner) {
         let Some(window) = remove_window.upgrade() else {
             return;
         };
-        match crate::key_binding_preferences::remove_mapping(&window, row) {
-            Ok(()) => window.invoke_settings_changed(),
-            Err(error) => {
-                remove_owner.report(error);
-            }
+        if let Err(error) = crate::key_binding_preferences::remove_mapping(&window, row) {
+            remove_owner.report(error);
         }
     });
     let submit_window = window.as_weak();
-    let submit_owner = owner.clone();
-    window.on_key_binding_mapping_submitted(move |key, action, comment, kind, row| {
+    let submit_draft = active.clone();
+    window.on_key_binding_mapping_submitted(move |key, action, comment, kind, _| {
         let Some(window) = submit_window.upgrade() else {
             return;
         };
-        match crate::key_binding_preferences::save_mapping(
-            &window,
-            row,
-            key.as_str(),
-            action.as_str(),
-            comment.as_str(),
-            kind,
-        ) {
+        let result = {
+            let draft = submit_draft.borrow();
+            let Some(draft) = draft.as_ref() else { return };
+            draft.save(
+                &window,
+                key.as_str(),
+                action.as_str(),
+                comment.as_str(),
+                kind,
+            )
+        };
+        match result {
             Ok(()) => {
+                submit_draft.take();
                 window
-                    .global::<riina_ui::KeyBindingSettingsState>()
+                    .global::<KeyBindingSettingsState>()
                     .set_key_binding_editor_open(false);
-                window.invoke_key_binding_settings_changed();
-                window.invoke_settings_changed();
             }
-            Err(error) => {
-                submit_owner.report(error);
-            }
+            Err(error) => window
+                .global::<KeyBindingSettingsState>()
+                .set_key_binding_editor_error(error.into()),
         }
     });
     let cancel_window = window.as_weak();
     window.on_key_binding_editor_cancelled(move || {
+        active.take();
         if let Some(window) = cancel_window.upgrade() {
             window
                 .global::<riina_ui::KeyBindingSettingsState>()

@@ -3,7 +3,7 @@
 use riina_core::key_bindings::{self, Mapping, ParseError};
 use std::{
     ffi::OsStr,
-    fs::{self, OpenOptions},
+    fs::{self, File, OpenOptions},
     io::Write,
     path::{Path, PathBuf},
 };
@@ -13,6 +13,7 @@ pub enum ProfileError {
     Io(std::io::Error),
     Parse(ParseError),
     InvalidName,
+    StaleMappings,
 }
 
 impl std::fmt::Display for ProfileError {
@@ -21,6 +22,9 @@ impl std::fmt::Display for ProfileError {
             Self::Io(error) => error.fmt(formatter),
             Self::Parse(error) => error.fmt(formatter),
             Self::InvalidName => formatter.write_str("Invalid profile name"),
+            Self::StaleMappings => formatter.write_str(
+                "The key bindings changed. Reopen the mapping to edit the current version.",
+            ),
         }
     }
 }
@@ -30,7 +34,7 @@ impl std::error::Error for ProfileError {
         match self {
             Self::Io(error) => Some(error),
             Self::Parse(error) => Some(error),
-            Self::InvalidName => None,
+            Self::InvalidName | Self::StaleMappings => None,
         }
     }
 }
@@ -69,7 +73,7 @@ impl ProfileStore {
         Self::at(directory)
     }
 
-    fn at(directory: PathBuf) -> Result<Self, ProfileError> {
+    pub(super) fn at(directory: PathBuf) -> Result<Self, ProfileError> {
         fs::create_dir_all(&directory)?;
         Ok(Self { directory })
     }
@@ -119,6 +123,7 @@ impl ProfileStore {
     ) -> Result<(), ProfileError> {
         let path = self.profile_path(name)?;
         let contents = key_bindings::serialize(mappings)?;
+        let _lock = self.lock_writes()?;
         write_new(&path, contents.as_bytes())?;
         Ok(())
     }
@@ -139,17 +144,21 @@ impl ProfileStore {
             .ok_or(ProfileError::InvalidName)?;
         let mappings = key_bindings::parse(&fs::read_to_string(source)?)?;
         let path = self.profile_path(name)?;
+        let _lock = self.lock_writes()?;
         write_new(&path, key_bindings::serialize(&mappings)?.as_bytes())?;
         Ok(name.to_owned())
     }
 
-    pub fn save(&self, name: &str, mappings: &[Mapping]) -> Result<(), ProfileError> {
+    pub fn replace_mappings(
+        &self,
+        name: &str,
+        expected: &[Mapping],
+        mappings: &[Mapping],
+    ) -> Result<(), ProfileError> {
         let path = self.profile_path(name)?;
-        reject_symlink(&path)?;
-        if !path.is_file() {
-            return Err(
-                std::io::Error::new(std::io::ErrorKind::NotFound, "Profile not found").into(),
-            );
+        let _lock = self.lock_writes()?;
+        if self.load(name)? != expected {
+            return Err(ProfileError::StaleMappings);
         }
         crate::platform::settings_file::save(&path, &key_bindings::serialize(mappings)?)?;
         Ok(())
@@ -157,6 +166,7 @@ impl ProfileStore {
 
     pub fn delete(&self, name: &str) -> Result<(), ProfileError> {
         let path = self.profile_path(name)?;
+        let _lock = self.lock_writes()?;
         reject_symlink(&path)?;
         fs::remove_file(path)?;
         Ok(())
@@ -168,6 +178,7 @@ impl ProfileStore {
         if source == target {
             return Ok(());
         }
+        let _lock = self.lock_writes()?;
         reject_symlink(&source)?;
         if !source.is_file() {
             return Err(
@@ -190,6 +201,20 @@ impl ProfileStore {
     fn profile_path(&self, name: &str) -> Result<PathBuf, ProfileError> {
         validate_name(name)?;
         Ok(self.directory.join(format!("{name}.conf")))
+    }
+
+    fn lock_writes(&self) -> Result<File, ProfileError> {
+        let path = self.directory.join(".profiles.lock");
+        reject_symlink(&path)?;
+        // Keep one stable lock while creating, replacing or renaming a profile.
+        let lock = OpenOptions::new()
+            .read(true)
+            .write(true)
+            .create(true)
+            .truncate(false)
+            .open(path)?;
+        lock.lock()?;
+        Ok(lock)
     }
 }
 
@@ -250,13 +275,31 @@ mod tests {
     use riina_test_support::TempDir;
 
     #[test]
+    fn a_second_writer_cannot_replace_a_mapping_from_a_stale_snapshot() {
+        let fixture = TempDir::new("key-profile-revision").unwrap();
+        let writer = ProfileStore::at(fixture.path().to_owned()).unwrap();
+        let peer = ProfileStore::at(fixture.path().to_owned()).unwrap();
+        writer.create("Cinema").unwrap();
+        let expected = writer.load("Cinema").unwrap();
+        let updated = key_bindings::parse("#@iina F8 open-url").unwrap();
+        peer.replace_mappings("Cinema", &expected, &updated)
+            .unwrap();
+        assert!(matches!(
+            writer.replace_mappings("Cinema", &expected, &[]),
+            Err(ProfileError::StaleMappings)
+        ));
+        assert_eq!(writer.load("Cinema").unwrap(), updated);
+    }
+
+    #[test]
     fn user_profiles_create_duplicate_edit_import_rename_and_delete_safely() {
         let fixture = TempDir::new("key-profiles").unwrap();
         let store = ProfileStore::at(fixture.path().join("profiles")).unwrap();
         store.create("Cinema").unwrap();
         store
-            .save(
+            .replace_mappings(
                 "Cinema",
+                &[],
                 &[Mapping {
                     key: "SPACE".into(),
                     action: "cycle pause".into(),

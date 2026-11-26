@@ -15,7 +15,7 @@ pub(super) fn apply(
     let controls = app.global::<PlayerControlActions>();
     let menu = app.global::<PlayerMenuActions>();
     if let Some(key) = transport_key(&operation)
-        && super::super::key_actions::dispatch_system_media_key(app, key, latest)
+        && super::super::key_actions::dispatch_system_media_key(app, key)
     {
         return;
     }
