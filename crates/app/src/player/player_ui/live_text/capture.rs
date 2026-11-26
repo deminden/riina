@@ -19,6 +19,10 @@ impl FrameKey {
             completed_seeks: state.completed_seeks,
         }
     }
+
+    pub(super) fn generation(self) -> u64 {
+        self.generation
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -30,6 +34,7 @@ pub(super) struct RecognitionKey {
 impl RecognitionKey {
     pub(super) fn is_current(self, state: &Playback) -> bool {
         state.phase == Phase::Paused
+            && !state.seeking
             && self.frame == FrameKey::from_playback(state)
             && self.capture == state.captured_frame.revision
     }

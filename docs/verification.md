@@ -6296,3 +6296,32 @@ matched Welcome capture remain open.
 - Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
 - Linux application SHA-256 `4729c4c05f2c5736d508e9616237bfb1cc96e4e69d61b5dac74510db1a90d14f`
 - Linux libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`
+
+### Paused-frame Live Text (2026-11-26)
+
+The Windows workspace gate passed with 1,139 Rust test passes including
+isolated app subprocesses, 84 ignored cases, 79 Python tests and four browser
+tests. The pixel gate included a selectable Live Text overlay. All 71 Windows
+native playback tests and the locked Windows workspace build passed. In a
+private Windows desktop, WinRT recognized the first paused line and replaced
+it with the second after an exact paused seek to eight seconds. The exact
+player process closed normally.
+
+Nine Linux Live Text tests passed with Tesseract 5.5.0 and an installed English
+model. The native test recognized two separated lines in a 3,200-pixel-wide
+frame and checked their bounds in original frame coordinates after downsampling.
+The shared tests covered paused-frame eligibility, stale replies, bounded
+capture scheduling, and holding an outstanding capture through replacement.
+
+The locked Linux app build was exercised on isolated X11 and native Wayland
+desktops. In each, the user could select and copy the first recognized line,
+seek to eight seconds while paused, and select and copy the second line. A
+separate X11 run omitted the optional library and played the paused fixture
+without publishing an overlay. All three Linux processes closed normally.
+Strict application cross-Clippy passed for Apple Silicon and Intel. Native
+macOS interaction and matched reference appearance remain open.
+
+- Windows application SHA-256 `53bbd0813bd0ac4438a48a2a4666f2f60168ad376715acbe2bb3046cafc123cf`
+- Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
+- Linux application SHA-256 `7d64d8baa3faaeccf061fdcc242af15c110de0d8d33374f8bd685842f7254a55`
+- Linux libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`

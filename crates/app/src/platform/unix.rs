@@ -22,6 +22,8 @@ pub(crate) mod plugin_shortcuts;
 pub(super) mod recent_documents;
 pub(crate) mod services;
 #[cfg(target_os = "linux")]
+pub(super) mod text_recognition;
+#[cfg(target_os = "linux")]
 pub(crate) mod visibility;
 pub(crate) use dialogs::{open as open_dialog, save_playlist_dialog};
 

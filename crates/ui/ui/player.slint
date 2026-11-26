@@ -5,7 +5,6 @@ export { SubtitleColorTarget } from "subtitle-color-target.slint";
 export { PluginReviewText } from "plugin-review-text.slint";
 export { PlayerDialogState } from "player-dialog-state.slint";
 import { PlayerDialogState } from "player-dialog-state.slint";
-import { PlayerVideoInput } from "player-video-input.slint";
 export { ControllerArrowPhase, PlayerPluginPointerPhase } from "player-control-actions.slint";
 export { PlayerControlActions } from "player-control-actions.slint";
 import { ControllerArrowPhase, PlayerControlActions } from "player-control-actions.slint";
@@ -223,7 +222,9 @@ export component PlayerWindow inherits PlayerMenuWindow {
     changed live-text-available => { PlayerMenuActions.video-menu-changed(); root.toolbar-settings-changed(); }
     in property <bool> live-text-selectable: false;
     in property <bool> live-text-frame-paused: false;
-    out property <bool> observe-live-text: live-text-enabled && live-text-available && loaded && live-text-frame-paused && !crop-editing && !music-mode;
+    out property <bool> observe-live-text: live-text-enabled && live-text-available && loaded
+        && live-text-frame-paused && !crop-editing && !music-mode && !picture-in-picture-active;
+    callback live-text-frame-changed();
     callback live-text-observation-changed(bool);
     changed observe-live-text => { root.live-text-observation-changed(root.observe-live-text); }
     callback copy-live-text(string);
@@ -465,12 +466,12 @@ export component PlayerWindow inherits PlayerMenuWindow {
             render-height: root.render-height;
             video-width: root.video-width;
             video-height: root.video-height;
-            live-text-enabled: root.live-text-enabled;
+            live-text-enabled: root.observe-live-text;
             paused: root.paused;
             live-text-selectable: root.live-text-selectable;
             copy-live-text(text) => { root.copy-live-text(text); }
+            restore-player-focus => { keys.focus(); }
         }
-        PlayerVideoInput { restore-player-focus => { keys.focus(); } }
 
         if root.show-player-title-row && PlayerControlsState.controls-rendered && loaded && !crop-editing && !music-mode : PlayerTitleBar {
             clip: true;

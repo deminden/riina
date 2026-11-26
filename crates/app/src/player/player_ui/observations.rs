@@ -81,7 +81,6 @@ pub(super) fn update_ui(
     {
         app.invoke_refresh_playlist_metadata();
     }
-    *displayed = Some(state.clone());
     let first_loaded = (!app.get_loaded() || previous_generation != Some(state.generation))
         && matches!(
             state.phase,
@@ -94,6 +93,8 @@ pub(super) fn update_ui(
     notify_current_media(app, state, opened_media);
     update_transport(app, state);
     update_video_and_artwork(app, state);
+    super::live_text::observe(app, displayed.as_deref(), state);
+    *displayed = Some(state.clone());
     update_delays_and_subtitle_style(app, state);
     app.global::<riina_ui::PlayerCatalogState>()
         .set_loop_label(state.loop_mode().label().into());
@@ -374,7 +375,6 @@ fn update_playback_phase(
         Phase::Stopped | Phase::Failed | Phase::Loading
     ));
     app.set_paused(state.paused);
-    app.set_live_text_frame_paused(state.phase == Phase::Paused);
     app.set_playing(state.phase == Phase::Playing);
     if matches!(state.phase, Phase::Paused | Phase::Ended | Phase::Failed) {
         app.global::<riina_ui::PlayerControlsState>()

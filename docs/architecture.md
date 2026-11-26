@@ -127,6 +127,16 @@ Chapter controls submit the observed media generation, chapter index, and
 start time. The worker retires stale selections before seeking. An accepted
 chapter menu seek publishes its title to the player's transient feedback.
 
+Live Text reacts to paused picture changes and capture replies. Each player
+debounces capture for the current media generation and holds one recognition
+task. Seeking, resuming, disabling Live Text, entering Picture in Picture or
+Music Mode, and editing the crop retire that task and clear its overlay. The
+decoder and rendering thread remain independent of text analysis. Linux sends
+the cancellation to Tesseract's progress monitor. Windows requests cancellation
+through WinRT. The macOS adapter discards results when a Vision call returns
+after its frame was retired. The overlay takes text input inside a recognized
+region and leaves the regular video gestures available elsewhere.
+
 Windows system media controls belong to the player's native toplevel. The
 session publishes observed titles, playback state and seek bounds. Native
 callbacks return to the UI thread and use the player's active key profile.

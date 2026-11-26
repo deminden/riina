@@ -63,6 +63,18 @@ Clearing Open Recent removes Riina's registration from each bookmark and
 retains media registered by another application. Updates reread the store
 when GIO detects a simultaneous change. [GLib desktop bookmarks](https://docs.gtk.org/glib/struct.BookmarkFile.html)
 
+Live Text on Linux uses the installed Tesseract 5 library and language data.
+Riina looks for `libtesseract.so.5`, prefers a model for the desktop language,
+and includes English when its model is available. `TESSDATA_PREFIX` can point
+to a directory containing the recognition data. The feature is off by default.
+With the runtime installed, enable it in Video settings or the Video menu and
+pause on a frame to select recognized text. [Tesseract 5 C API](https://github.com/tesseract-ocr/tesseract/blob/5.5.0/include/tesseract/capi.h)
+
+With the runtime and English model installed, run
+`cargo test -p riina --lib --locked native_tesseract_detects_selectable_lines_and_original_pixel_bounds -- --ignored`
+for the native recognition check. The fixture is drawn in memory and checks
+both text and geometry from a downsampled frame.
+
 Picture-in-Picture uses the same playback session on Linux. The X11 preview
 requests always-on-top and supports the player's hide, minimize and restore
 policies. On Wayland it is a regular toplevel, and entering keeps the player

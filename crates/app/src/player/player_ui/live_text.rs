@@ -1,32 +1,38 @@
 //! Paused-frame capture and asynchronous recognition are scoped to one frame identity.
-use crate::{LiveTextRegion, PlayerWindow, platform::text_recognition};
-#[cfg(test)]
-use riina_core::Playback;
-use riina_core::{Command, Phase, Preferences};
+use crate::{PlayerWindow, platform::text_recognition};
+use riina_core::{Phase, Playback, Preferences};
 use riina_mpv::CommandSender;
 use riina_ui::PlayerMenuActions;
 use slint::ComponentHandle;
-use std::{
-    path::Path,
-    rc::Rc,
-    sync::{
-        Arc,
-        atomic::{AtomicBool, Ordering},
-    },
-    time::Duration,
-};
+use std::{path::Path, rc::Rc};
 
 mod capture;
-#[cfg(test)]
-use capture::RecognitionKey;
-use capture::{CaptureAction, CaptureState, FrameKey};
+mod sampling;
+
+pub(super) fn observe(app: &PlayerWindow, previous: Option<&Playback>, state: &Playback) {
+    let eligible = can_sample(state);
+    app.set_live_text_frame_paused(eligible);
+    if eligible
+        && previous.is_none_or(|old| {
+            !can_sample(old)
+                || capture::FrameKey::from_playback(old) != capture::FrameKey::from_playback(state)
+                || old.finished_frame_capture_requests != state.finished_frame_capture_requests
+        })
+    {
+        app.invoke_live_text_frame_changed();
+    }
+}
+
+fn can_sample(state: &Playback) -> bool {
+    state.phase == Phase::Paused && !state.seeking && state.display_video_parameters().is_some()
+}
 
 pub(super) fn initialize(app: &PlayerWindow, enabled: bool, use_system_services: bool) {
     app.set_live_text_enabled(enabled);
     app.global::<riina_ui::PlayerRenderedVideo>()
         .set_live_text_regions(slint::ModelRc::new(slint::VecModel::from(Vec::new())));
     app.set_live_text_available(false);
-    if text_recognition::NATIVE_SELECTION {
+    if text_recognition::SELECTABLE {
         app.set_live_text_selectable(true);
     }
     if use_system_services && text_recognition::SUPPORTED {
@@ -90,140 +96,15 @@ pub(super) fn install(
     sender: CommandSender,
     latest: crate::PlaybackStore,
 ) -> Option<Rc<slint::Timer>> {
-    text_recognition::SUPPORTED.then(|| install_sampling(app, sender, latest))
-}
-
-fn install_sampling(
-    app: &PlayerWindow,
-    sender: CommandSender,
-    latest: crate::PlaybackStore,
-) -> Rc<slint::Timer> {
-    let mut capture_state = CaptureState::default();
-    let mut displayed_frame = None;
-    let mut recognized_capture = None;
-    let recognition_running = Arc::new(AtomicBool::new(false));
-    let timer = Rc::new(slint::Timer::default());
-    let weak = app.as_weak();
-    let weak_timer = Rc::downgrade(&timer);
-    timer.start(
-        slint::TimerMode::Repeated,
-        Duration::from_millis(300),
-        move || {
-            let Some(app) = weak.upgrade() else { return };
-            let state = latest.lock().map(|state| state.clone()).unwrap_or_default();
-            let enabled = app.get_observe_live_text();
-            if !enabled || state.phase != Phase::Paused {
-                capture_state.invalidate();
-                displayed_frame = None;
-                recognized_capture = None;
-                app.global::<riina_ui::PlayerRenderedVideo>()
-                    .set_live_text_regions(slint::ModelRc::new(slint::VecModel::from(Vec::new())));
-                if !enabled && let Some(timer) = weak_timer.upgrade() {
-                    timer.stop();
-                }
-                return;
-            }
-
-            let frame_key = FrameKey::from_playback(&state);
-            if displayed_frame != Some(frame_key) {
-                displayed_frame = Some(frame_key);
-                app.global::<riina_ui::PlayerRenderedVideo>()
-                    .set_live_text_regions(slint::ModelRc::new(slint::VecModel::from(Vec::new())));
-            }
-            let key = match capture_state.observe(&state) {
-                CaptureAction::Capture => {
-                    if let Err(error) = sender.send(Command::CaptureFrame) {
-                        capture_state.request_failed();
-                        crate::diagnostics::report(
-                            &app,
-                            format!("Could not capture frame for text recognition: {error}"),
-                        );
-                    }
-                    return;
-                }
-                CaptureAction::Wait => return,
-                CaptureAction::Recognize(key) => key,
-            };
-            if recognized_capture == Some(key) || recognition_running.load(Ordering::Acquire) {
-                return;
-            }
-            // Copy pixels only for a new recognition job, never on idle polling.
-            let Some(frame) = state.captured_frame.frame.as_deref().cloned() else {
-                return;
-            };
-            recognized_capture = Some(key);
-            recognition_running.store(true, Ordering::Release);
-            let latest_result = latest.clone();
-            let weak_result = app.as_weak();
-            let running = recognition_running.clone();
-            let width = frame.width as f32;
-            let height = frame.height as f32;
-            if let Err(error) = text_recognition::recognize(frame, move |result| {
-                let rejected = running.clone();
-                if slint::invoke_from_event_loop(move || {
-                    running.store(false, Ordering::Release);
-                    let Some(app) = weak_result.upgrade() else {
-                        return;
-                    };
-                    let current = latest_result
-                        .lock()
-                        .map(|state| state.clone())
-                        .unwrap_or_default();
-                    if !key.is_current(&current) || !app.get_observe_live_text() {
-                        return;
-                    }
-                    match result {
-                        Ok(regions) => app
-                            .global::<riina_ui::PlayerRenderedVideo>()
-                            .set_live_text_regions(slint::ModelRc::new(slint::VecModel::from(
-                                regions
-                                    .into_iter()
-                                    .map(|region| LiveTextRegion {
-                                        text: region.text.into(),
-                                        x: region.x / width,
-                                        y: region.y / height,
-                                        width: region.width / width,
-                                        height: region.height / height,
-                                    })
-                                    .collect::<Vec<_>>(),
-                            ))),
-                        Err(error) => crate::diagnostics::report(
-                            &app,
-                            format!("Text recognition failed: {error}"),
-                        ),
-                    }
-                })
-                .is_err()
-                {
-                    // The stopped event loop cannot clear the flag for us.
-                    rejected.store(false, Ordering::Release);
-                }
-            }) {
-                recognition_running.store(false, Ordering::Release);
-                recognized_capture = None;
-                crate::diagnostics::report(
-                    &app,
-                    format!("Could not start text recognition: {error}"),
-                );
-            }
-        },
-    );
-    if !app.get_observe_live_text() {
-        timer.stop();
-    }
-    let weak_timer = Rc::downgrade(&timer);
-    app.on_live_text_observation_changed(move |enabled| {
-        // An ineligible timer gets one final tick to clear its regions.
-        if enabled && let Some(timer) = weak_timer.upgrade() {
-            super::features::wake_timer(&timer);
-        }
-    });
-    timer
+    text_recognition::SUPPORTED.then(|| sampling::install(app, sender, latest))
 }
 
 #[cfg(test)]
 mod tests {
+    use super::capture::{CaptureAction, CaptureState, FrameKey, RecognitionKey};
     use super::*;
+    use riina_core::Command;
+    use std::{sync::Arc, time::Duration};
 
     #[test]
     fn sampling_runs_only_for_an_eligible_paused_frame() -> Result<(), slint::PlatformError> {
@@ -232,7 +113,7 @@ mod tests {
         let playback = crate::PlaybackStore::default();
         *riina_core::sync::lock(&playback) = Arc::new(paused());
         let (sender, recording) = CommandSender::recording(4);
-        let timer = install_sampling(&app, sender, playback);
+        let timer = sampling::install(&app, sender, playback);
         assert!(!timer.running());
 
         app.set_loaded(true);
@@ -241,11 +122,12 @@ mod tests {
         app.set_live_text_frame_paused(true);
         i_slint_backend_testing::mock_elapsed_time(Duration::ZERO);
         assert!(timer.running());
-        i_slint_backend_testing::mock_elapsed_time(Duration::from_millis(300));
+        i_slint_backend_testing::mock_elapsed_time(Duration::from_millis(160));
         assert_eq!(recording.commands.try_recv(), Ok(Command::CaptureFrame));
+        assert!(!timer.running());
 
-        app.set_live_text_frame_paused(false);
-        i_slint_backend_testing::mock_elapsed_time(Duration::from_millis(300));
+        app.set_picture_in_picture_active(true);
+        i_slint_backend_testing::mock_elapsed_time(Duration::from_millis(160));
         assert!(!timer.running());
         assert_eq!(
             recording.commands.try_recv(),
@@ -293,6 +175,10 @@ mod tests {
         };
         assert!(!key.is_current(&Playback {
             position: Some(2.0),
+            ..paused()
+        }));
+        assert!(!key.is_current(&Playback {
+            seeking: true,
             ..paused()
         }));
         assert!(!key.is_current(&Playback {

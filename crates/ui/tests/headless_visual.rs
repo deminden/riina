@@ -423,6 +423,8 @@ fn player_overlay_frames(baselines: &mut Baselines) -> Result<(), Box<dyn Error>
         }),
         ("player-live-text", |window| {
             window.set_live_text_enabled(true);
+            window.set_live_text_available(true);
+            window.set_live_text_frame_paused(true);
             window.set_live_text_selectable(true);
             window
                 .global::<riina_ui::PlayerRenderedVideo>()

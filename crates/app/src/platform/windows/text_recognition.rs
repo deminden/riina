@@ -1,4 +1,4 @@
-use crate::platform::text_recognition::Region;
+use crate::platform::text_recognition::{Cancellation, Region};
 use riina_core::CapturedFrame;
 use std::{
     future::Future,
@@ -32,10 +32,16 @@ pub(crate) fn check_availability(
 /// OCR starts independently of playback and rendering; callers reject stale results.
 pub(crate) fn recognize(
     frame: CapturedFrame,
+    cancellation: Cancellation,
     complete: impl FnOnce(Result<Vec<Region>, String>) + Send + 'static,
 ) -> std::io::Result<JoinHandle<()>> {
     crate::background::spawn_named("riina-live-text", move || {
-        complete(with_apartment(|| recognize_frame(&frame)))
+        let result = if cancellation.is_cancelled() {
+            Ok(Vec::new())
+        } else {
+            with_apartment(|| recognize_frame(&frame, &cancellation))
+        };
+        complete(result);
     })
 }
 
@@ -54,7 +60,10 @@ fn with_apartment<T>(operation: impl FnOnce() -> Result<T, String>) -> Result<T,
     operation()
 }
 
-fn recognize_frame(frame: &CapturedFrame) -> Result<Vec<Region>, String> {
+fn recognize_frame(
+    frame: &CapturedFrame,
+    cancellation: &Cancellation,
+) -> Result<Vec<Region>, String> {
     let engine =
         OcrEngine::TryCreateFromUserProfileLanguages().map_err(|error| error.to_string())?;
     let max_dimension = OcrEngine::MaxImageDimension().map_err(|error| error.to_string())?;
@@ -95,7 +104,14 @@ fn recognize_frame(frame: &CapturedFrame) -> Result<Vec<Region>, String> {
     let operation = engine
         .RecognizeAsync(&bitmap)
         .map_err(|error| error.to_string())?;
-    let result = block_on(async move { operation.await }).map_err(|error| error.to_string())?;
+    // Request cancellation on the same MTA worker that owns the WinRT operation.
+    let cancellable = operation.clone();
+    let Some(result) = block_on(async move { operation.await }, cancellation, || {
+        let _ = cancellable.Cancel();
+    }) else {
+        return Ok(Vec::new());
+    };
+    let result = result.map_err(|error| error.to_string())?;
     let lines = result.Lines().map_err(|error| error.to_string())?;
     let mut regions = Vec::with_capacity(lines.Size().map_err(|error| error.to_string())? as usize);
     for line_index in 0..lines.Size().map_err(|error| error.to_string())? {
@@ -136,7 +152,11 @@ fn recognize_frame(frame: &CapturedFrame) -> Result<Vec<Region>, String> {
     Ok(regions)
 }
 
-fn block_on<F: Future>(future: F) -> F::Output {
+fn block_on<F: Future>(
+    future: F,
+    cancellation: &Cancellation,
+    cancel: impl FnOnce(),
+) -> Option<F::Output> {
     struct ThreadWake(thread::Thread);
     impl Wake for ThreadWake {
         fn wake(self: Arc<Self>) {
@@ -148,9 +168,13 @@ fn block_on<F: Future>(future: F) -> F::Output {
     let mut context = Context::from_waker(&waker);
     let mut future = Box::pin(future);
     loop {
+        if cancellation.is_cancelled() {
+            cancel();
+            return None;
+        }
         match future.as_mut().poll(&mut context) {
-            Poll::Ready(value) => return value,
-            Poll::Pending => thread::park(),
+            Poll::Ready(value) => return Some(value),
+            Poll::Pending => thread::park_timeout(std::time::Duration::from_millis(50)),
         }
     }
 }

@@ -1,4 +1,4 @@
-use crate::platform::text_recognition::Region;
+use crate::platform::text_recognition::{Cancellation, Region};
 use objc2::{AnyThread, rc::Retained, rc::autoreleasepool, runtime::AnyObject};
 use objc2_core_graphics::{
     CGBitmapInfo, CGColorRenderingIntent, CGColorSpace, CGDataProvider, CGImage, CGImageAlphaInfo,
@@ -45,15 +45,23 @@ fn live_text_enabled_by_system() -> bool {
 /// Keep Vision's synchronous analysis away from playback and the window event loop.
 pub(crate) fn recognize(
     frame: CapturedFrame,
+    cancellation: Cancellation,
     complete: impl FnOnce(Result<Vec<Region>, String>) + Send + 'static,
 ) -> io::Result<JoinHandle<()>> {
     crate::background::spawn_named("riina-live-text", move || {
-        let result = autoreleasepool(|_| recognize_frame(&frame));
+        let result = if cancellation.is_cancelled() {
+            Ok(Vec::new())
+        } else {
+            autoreleasepool(|_| recognize_frame(&frame, &cancellation))
+        };
         complete(result);
     })
 }
 
-fn recognize_frame(frame: &CapturedFrame) -> Result<Vec<Region>, String> {
+fn recognize_frame(
+    frame: &CapturedFrame,
+    cancellation: &Cancellation,
+) -> Result<Vec<Region>, String> {
     let expected_bytes = (frame.width as usize)
         .checked_mul(frame.height as usize)
         .and_then(|pixels| pixels.checked_mul(4))
@@ -109,9 +117,15 @@ fn recognize_frame(frame: &CapturedFrame) -> Result<Vec<Region>, String> {
     request.setUsesLanguageCorrection(true);
     let requests: [Retained<VNRequest>; 1] = [request.clone().into_super().into_super()];
     let requests = objc2_foundation::NSArray::from_retained_slice(&requests);
+    if cancellation.is_cancelled() {
+        return Ok(Vec::new());
+    }
     handler
         .performRequests_error(&requests)
         .map_err(|error| error.to_string())?;
+    if cancellation.is_cancelled() {
+        return Ok(Vec::new());
+    }
 
     let Some(observations) = request.results() else {
         return Ok(Vec::new());
