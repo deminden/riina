@@ -284,6 +284,10 @@ Implementation does not imply every state or platform is verified.
 - **Plugin files and native values:** plugins can move files and directory trees
   across volumes without overwriting a destination. Native mpv binary properties
   reach JavaScript as arrays of unsigned numbers within a bounded reply.
+- **Plugin network and file selection:** XML-RPC preserves dates, byte views and
+  struct member names. Faults and HTTP errors reach the caller with distinct
+  rejection values. File reveal uses native item selection, and the player and
+  Key Bindings pane hand the shell request to a background worker.
 - **macOS plugin startup:** enabled global plugins can initialize without a
   player and request a tool window, prompt, picker or new player. The
   application Plugin menu shows global contributions and opens Plugins

@@ -382,7 +382,18 @@ fn install_screenshot_preview(app: &PlayerWindow, screenshot_timer: Rc<slint::Ti
                 Ok(())
             }
             1 => platform::open_directory(path),
-            2 => platform::reveal_file(path),
+            2 => {
+                let path = path.to_path_buf();
+                let weak = app.as_weak();
+                crate::background::spawn_named("riina-screenshot-reveal", move || {
+                    if let Err(error) = platform::reveal_file(&path) {
+                        let _ = crate::background::to_ui(weak, move |app| {
+                            crate::diagnostics::report(&app, error.to_string());
+                        });
+                    }
+                })
+                .map(|_| ())
+            }
             _ => return,
         };
         clear_screenshot_preview(&app);

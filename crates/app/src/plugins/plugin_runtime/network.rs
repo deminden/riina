@@ -174,13 +174,13 @@ fn register_xmlrpc_calls(
                 {
                     return Err(http_js_error("XML-RPC method name is invalid".into()));
                 }
-                let args: serde_json::Value = serde_json::from_str(&args)
-                    .map_err(|error| http_js_error(error.to_string()))?;
-                if !args.is_array() || args.to_string().len() > MAX_NETWORK_REQUEST_BYTES {
+                if args.len() > MAX_NETWORK_REQUEST_BYTES {
                     return Err(http_js_error(
                         "XML-RPC arguments must be an array no larger than 1 MiB".into(),
                     ));
                 }
+                let args: Vec<serde_json::Value> = serde_json::from_str(&args)
+                    .map_err(|error| http_js_error(error.to_string()))?;
                 let Some(slot) = NetworkRequestSlot::acquire(xmlrpc_active.clone()) else {
                     return Err(http_js_error(
                         "Plugin has reached the 8 active HTTP request limit".into(),

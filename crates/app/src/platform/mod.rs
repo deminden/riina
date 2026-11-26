@@ -1094,13 +1094,6 @@ pub(crate) fn open_associated_path(path: &std::path::Path) -> std::io::Result<()
 }
 
 pub fn reveal_file(path: &std::path::Path) -> std::io::Result<()> {
-    #[cfg(target_os = "linux")]
-    return open_directory(
-        path.parent()
-            .ok_or_else(|| std::io::Error::other("The file has no parent folder"))?,
-    );
-
-    #[cfg(not(target_os = "linux"))]
     reveal_files(&[path.to_path_buf()])
 }
 

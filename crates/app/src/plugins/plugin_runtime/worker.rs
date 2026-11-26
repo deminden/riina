@@ -413,7 +413,7 @@ fn run_callbacks(
                 )
             }
             Some(RuntimeCommand::DeliverXmlRpcResult(id, result)) => (
-                network_result_script("__riinaDeliverXmlrpc", id, result),
+                xmlrpc_result_script(id, &result),
                 "XML-RPC response callback",
             ),
             Some(
@@ -560,4 +560,18 @@ fn network_result_script(
         Err(error) => (serde_json::Value::Null, serde_json::Value::String(error)),
     };
     format!("{function}({id}, {response}, {error})")
+}
+
+fn xmlrpc_result_script(id: u32, reply: &crate::plugin_http::XmlrpcReply) -> String {
+    // Parsing a JSON string keeps member names such as __proto__ as data.
+    let json = serde_json::to_string(reply).unwrap_or_else(|error| {
+        crate::diagnostics::warn!("Could not encode XML-RPC reply: {error}");
+        serde_json::json!({ "state": "failed", "data": {
+            "httpCode": 0, "reason": "Could not encode response",
+            "description": "Could not encode XML-RPC response",
+        }})
+        .to_string()
+    });
+    let argument = serde_json::Value::String(json);
+    format!("__riinaDeliverXmlrpc({id}, {argument})")
 }

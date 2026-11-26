@@ -745,11 +745,26 @@ remaining original data. Directory copies reject mounts and unsupported entries.
 Moves and Trash preserve the final external directory entry, including when it
 points to a symbolic link. Common text encodings use the shared strict decoder.
 Additional legacy encodings use the runtime's native converter. Reveal uses the
-desktop file manager's item selection when available.
+desktop file manager's item selection for both individual files and groups.
+Windows converts a canonical drive or share path to a Shell path only when
+normal path resolution yields the same entry. Linux uses the file manager's
+D-Bus selection API and falls back to opening the containing folder.
+Player and Settings actions dispatch selection on a worker so the shell
+request can complete while the window continues responding.
 
 [Windows rename semantics](https://learn.microsoft.com/windows-hardware/drivers/ddi/ntifs/ns-ntifs-_file_rename_information)
 [Windows volume moves](https://learn.microsoft.com/en-us/windows/win32/api/winbase/nf-winbase-movefileexw)
+[Windows Explorer selection](https://learn.microsoft.com/en-us/windows/win32/api/shlobj_core/nf-shlobj_core-shopenfolderandselectitems)
 [FileManager1 item selection](https://wiki.freedesktop.org/www/Specifications/file-manager-interface/)
+
+### Plugin XML-RPC calls
+
+XML-RPC uses the shared HTTP worker and checks the same reviewed domains.
+Dates and byte sequences cross the worker boundary with type information.
+Ordinary structs preserve their member names, including names used by the
+internal encoding. A protocol fault rejects the plugin promise without a
+value. HTTP and response errors reject with the method's status, reason and
+description.
 
 ### Plugin video overlays
 

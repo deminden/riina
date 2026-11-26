@@ -6490,3 +6490,33 @@ and a live libmpv binary property reply remain open.
 - Windows application SHA-256 `d481fc0f734d566357d658479f3be7a427dca7869dbc22188c7dd68c92a72dc5`
 - Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
 - Linux application SHA-256 `db564ba5e8c9742e32da12415cde9272104b3e26475a504f207876c7fc906496`
+
+### Plugin XML-RPC replies and file selection (2026-11-26)
+
+The locked Windows workspace build and full source gate passed. The unchanged
+native engine passed all 72 playback tests. A Windows Shell regression
+resolved canonical Unicode file and directory paths to native item IDs and
+checked the paths returned from those IDs. It rejected a spelling that Windows
+would normalize to a different filesystem entry.
+
+The installed-plugin loopback test verified outgoing byte views, a date,
+escaped XML text and an ordinary struct with internal field names. It checked
+line-wrapped binary, mixed text and CDATA, null, a plain protocol fault, HTTP
+503 and malformed XML replies. Invalid XML input was rejected before sending.
+
+The locked Linux application build, strict Clippy and 12 focused tests passed.
+An installed plugin on a private X11 desktop round-tripped a byte view through a Python
+XML-RPC server while the fixture was paused. The session's FileManager1 service
+received the exact escaped URI for the plugin's Unicode file. The test closed
+the player's own X11 window normally and confirmed that its process exited.
+
+The private Windows native-video probe timed out before the file loaded, and
+the shared-GL retry exited before the plugin replied. The Windows Shell check
+covered item resolution. Interactive Explorer selection and native macOS
+runtime remain open. Locked macOS source checks passed for Apple Silicon and
+Intel.
+
+- Windows application SHA-256 `e0335fd97c6c6c531d1de96b05f6d76d32a4b7479ffe06a8d0fcd66af524e66d`
+- Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
+- Linux application SHA-256 `eb73277c615b9971a4e20f83df2c34ed93900733907dabc192f0fce2819dd878`
+- Linux libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`

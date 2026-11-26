@@ -112,7 +112,7 @@ enum RuntimeCommand {
     Barrier(mpsc::SyncSender<()>),
     DeliverNetworkResult(u32, Result<serde_json::Value, String>),
     DeliverNetworkDownload(u32, Result<(), String>),
-    DeliverXmlRpcResult(u32, Result<serde_json::Value, String>),
+    DeliverXmlRpcResult(u32, crate::plugin_http::XmlrpcReply),
     DeliverWebSocket(web_socket::Delivery),
     RunSubtitleProvider(subtitles::Job),
     DeliverUtility(utilities::Delivery),

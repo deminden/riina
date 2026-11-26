@@ -5,6 +5,52 @@
             const xmlrpcAllowed = __riinaHttp.__xmlrpcAllowed;
             const pending = new Map();
             let nextId = 0;
+            const xmlrpcTag = '__riinaXmlrpcType';
+            const encodeXmlrpcArgs = args => {
+                if (!Array.isArray(args)) throw new TypeError('XML-RPC arguments must be an array');
+                const path = new WeakSet();
+                const encode = (value, depth) => {
+                    if (depth > 65) throw new RangeError('XML-RPC value nesting exceeds 64 levels');
+                    if (value === null || typeof value !== 'object') return value;
+                    if (value instanceof Date) {
+                        return { [xmlrpcTag]: 'date', value: value.toISOString() };
+                    }
+                    if (value instanceof ArrayBuffer || ArrayBuffer.isView(value)) {
+                        const bytes = value instanceof ArrayBuffer
+                            ? new Uint8Array(value)
+                            : new Uint8Array(value.buffer, value.byteOffset, value.byteLength);
+                        return { [xmlrpcTag]: 'binary', value: Array.from(bytes) };
+                    }
+                    if (path.has(value)) throw new TypeError('XML-RPC arguments contain a cycle');
+                    path.add(value);
+                    try {
+                        if (Array.isArray(value)) return value.map(item => encode(item, depth + 1));
+                        const members = Object.fromEntries(Object.entries(value).map(
+                            ([key, item]) => [key, encode(item, depth + 1)]
+                        ));
+                        // A plugin struct can use any field name, including the internal tag.
+                        return Object.hasOwn(members, xmlrpcTag)
+                            ? { [xmlrpcTag]: 'struct', value: members }
+                            : members;
+                    } finally {
+                        path.delete(value);
+                    }
+                };
+                return JSON.stringify(encode(args, 0));
+            };
+            const hydrateMembers = members => Object.fromEntries(Object.entries(members).map(
+                ([key, value]) => [key, hydrateXmlrpc(value)]
+            ));
+            const hydrateXmlrpc = value => {
+                if (Array.isArray(value)) return value.map(hydrateXmlrpc);
+                if (value === null || typeof value !== 'object') return value;
+                switch (value[xmlrpcTag]) {
+                    case 'binary': return new Uint8Array(value.value);
+                    case 'date': return new Date(value.value);
+                    case 'struct': return hydrateMembers(value.value);
+                    default: return hydrateMembers(value);
+                }
+            };
             const request = (method, url, options = {}) => new Promise((resolve, reject) => {
                 nextId = (nextId + 1) >>> 0;
                 const id = nextId;
@@ -42,12 +88,7 @@
                             const id = nextId;
                             pending.set(id, { resolve, reject });
                             try {
-                                const json = JSON.stringify(args, function (key, value) {
-                                    const original = this && this[key];
-                                    if (original instanceof Date) return { __riinaXmlrpcDate: original.toISOString() };
-                                    if (ArrayBuffer.isView(original)) return { __riinaXmlrpcBinary: Array.from(original) };
-                                    return value;
-                                });
+                                const json = encodeXmlrpcArgs(args);
                                 nativeXmlrpc(id, endpoint, String(method), json);
                             } catch (error) {
                                 pending.delete(id);
@@ -72,22 +113,20 @@
                 if (error !== null) callbacks.reject(new Error(error));
                 else callbacks.resolve();
             };
-            globalThis.__riinaDeliverXmlrpc = (id, response, error) => {
+            globalThis.__riinaDeliverXmlrpc = (id, json) => {
                 const callbacks = pending.get(id);
                 if (!callbacks) return;
                 pending.delete(id);
-                if (error !== null) callbacks.reject(new Error(error));
-                else {
-                    const hydrate = value => {
-                        if (Array.isArray(value)) return value.map(hydrate);
-                        if (value && typeof value === 'object') {
-                            if (Array.isArray(value.__riinaXmlrpcBinary)) return new Uint8Array(value.__riinaXmlrpcBinary);
-                            if (typeof value.__riinaXmlrpcDate === 'string') return new Date(value.__riinaXmlrpcDate);
-                            for (const key of Object.keys(value)) value[key] = hydrate(value[key]);
-                        }
-                        return value;
-                    };
-                    callbacks.resolve(hydrate(response));
+                try {
+                    const reply = JSON.parse(json);
+                    switch (reply.state) {
+                        case 'value': callbacks.resolve(hydrateXmlrpc(reply.data)); break;
+                        case 'fault': callbacks.reject(); break;
+                        case 'failed': callbacks.reject(reply.data); break;
+                        default: throw new Error('Invalid XML-RPC reply');
+                    }
+                } catch (error) {
+                    callbacks.reject(error);
                 }
             };
             globalThis.__riinaHttp = undefined;

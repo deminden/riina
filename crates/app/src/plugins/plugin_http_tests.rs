@@ -127,6 +127,113 @@ fn run(download: bool, url: &str, options: &serde_json::Value) -> Result<(), Str
         perform_http_request("GET", url, options, &["127.0.0.1".into()]).map(|_| ())
     }
 }
+
+#[test]
+fn plugin_xmlrpc_round_trip_preserves_values_and_rejection_shapes() {
+    use crate::plugin_runtime::{HostEvent, PluginRuntimeSession, UiEffect};
+    use riina_core::plugin::Manifest;
+
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let address = listener.local_addr().unwrap();
+    let receiver = server(listener, 4, |request| {
+        let (status, body) = match request {
+            0 => ("200 OK", XMLRPC_SUCCESS),
+            1 => ("200 OK", "<methodResponse><fault/></methodResponse>"),
+            2 => ("503 Service Unavailable", "offline"),
+            _ => ("200 OK", "<outside><params/></outside>"),
+        };
+        format!(
+            "HTTP/1.1 {status}\r\nContent-Type: text/xml\r\nContent-Length: {}\r\n\
+             Connection: close\r\n\r\n{body}",
+            body.len()
+        )
+    });
+    let fixture = riina_test_support::TempDir::new("plugin-xmlrpc").unwrap();
+    let manifest = Manifest::parse(
+        r#"{"name":"XML-RPC Fixture","identifier":"org.example.xmlrpc","version":"1.0.0",
+             "author":{"name":"Fixture"},"entry":"main.js","permissions":["network-request"],
+             "allowedDomains":["127.0.0.1"]}"#,
+    )
+    .unwrap();
+    let package = fixture.path().join("package");
+    std::fs::create_dir(&package).unwrap();
+    std::fs::write(
+        package.join("main.js"),
+        format!("const endpoint = 'http://{address}/rpc';\n{XMLRPC_ENTRY}"),
+    )
+    .unwrap();
+    let session =
+        PluginRuntimeSession::start_package_entry(&package, &manifest, &manifest.permissions)
+            .unwrap();
+    let deadline = Instant::now() + Duration::from_secs(4);
+    let result = loop {
+        let events = session.drain_events().unwrap();
+        if let Some(message) = events.into_iter().find_map(|event| match event {
+            HostEvent::Ui(UiEffect::Log(message)) => Some(message),
+            _ => None,
+        }) {
+            break message;
+        }
+        assert!(Instant::now() < deadline, "XML-RPC plugin did not complete");
+        std::thread::sleep(Duration::from_millis(2));
+    };
+    assert_eq!(result, "xmlrpc passed");
+
+    let requests = receiver.join().unwrap();
+    assert!(requests.iter().all(|request| request.method() == "POST"));
+    assert_eq!(
+        requests[0].header("content-type"),
+        Some("text/xml; charset=utf-8")
+    );
+    let xml = std::str::from_utf8(&requests[0].body).unwrap();
+    assert!(xml.contains("<methodName>types&amp;values</methodName>"));
+    assert!(xml.contains("<base64>AID/</base64>"));
+    assert!(xml.contains("<base64>AAH/</base64>"));
+    assert!(xml.contains("<dateTime.iso8601>20240102T03:04:05</dateTime.iso8601>"));
+    assert!(xml.contains("<name>__riinaXmlrpcType</name>"));
+}
+
+const XMLRPC_SUCCESS: &str = r#"<methodResponse><params><param><value><struct>
+    <member><name>__riinaXmlrpcType</name><value>date</value></member>
+    <member><name>__proto__</name><value><string>original key</string></value></member>
+    <member><name>value</name><value><string> a<![CDATA[<&]]>b </string></value></member>
+    <member><name>items</name><value><array><data>
+        <value><base64>AI
+            D/</base64></value>
+        <value><dateTime.iso8601>20240102T03:04:05</dateTime.iso8601></value>
+        <value><nil/></value>
+    </data></array></value></member>
+    </struct></value></param></params></methodResponse>"#;
+
+const XMLRPC_ENTRY: &str = r#"
+    const assert = (condition, detail) => { if (!condition) throw new Error(detail); };
+    const reason = promise => promise.then(() => { throw new Error('expected rejection'); }, x => x);
+    async function run() {
+        const client = iina.http.xmlrpc(endpoint);
+        const date = new Date(2024, 0, 2, 3, 4, 5);
+        const storage = new Uint8Array([99, 0, 128, 255, 99]);
+        const result = await client.call('types&values', [
+            new DataView(storage.buffer, 1, 3), new Uint8Array([0, 1, 255]).buffer, date,
+            { __riinaXmlrpcType: 'date', value: 'actual struct' }
+        ]);
+        assert(result.__riinaXmlrpcType === 'date', 'struct parsed as extension');
+        assert(Object.hasOwn(result, '__proto__') && result.__proto__ === 'original key', 'own key');
+        assert(result.value === ' a<&b ', 'XML text and CDATA');
+        assert(result.items[0] instanceof Uint8Array && String(result.items[0]) === '0,128,255', 'bytes');
+        assert(result.items[1] instanceof Date && +result.items[1] === +date, 'date');
+        assert(result.items[2] === null, 'nil');
+        assert(await reason(client.call('fault')) === undefined, 'fault reason');
+        const unavailable = await reason(client.call('unavailable'));
+        assert(unavailable.httpCode === 503 && unavailable.reason === 'Service Unavailable', 'HTTP status');
+        assert(unavailable.description === 'unavailable: [503] Service Unavailable', 'description');
+        const malformed = await reason(client.call('malformed'));
+        assert(malformed.httpCode === 200 && malformed.reason === 'Bad response', 'bad response');
+        const invalid = await reason(client.call('invalid', ['\0']));
+        assert(invalid.httpCode === 0, 'invalid input');
+        iina.log('xmlrpc passed');
+    }
+    run().catch(error => iina.log(`xmlrpc failed: ${String(error)}`));
+"#;
 #[test]
 fn request_and_download_strip_credentials_on_port_change() {
     for download in [false, true] {

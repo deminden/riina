@@ -175,22 +175,30 @@ fn install_profile_files(window: &PreferencesWindow, owner: &Owner) {
             .global::<riina_ui::KeyBindingSettingsState>()
             .get_key_binding_current_profile()
             .to_string();
-        let result = crate::key_binding_profiles::ProfileStore::for_current_user()
-            .map_err(|error| error.to_string())
-            .and_then(|store| {
-                let profile = store.path_for(&name);
-                if let Ok(path) = profile
-                    && path.is_file()
-                {
-                    return crate::platform::reveal_file(&path).map_err(|error| error.to_string());
-                }
-                crate::platform::open_directory(store.directory())
-                    .map_err(|error| error.to_string())
-            });
+        let receiver = window.as_weak();
+        let report = reveal_owner.clone();
+        let result = crate::background::spawn_named("riina-key-bindings-reveal", move || {
+            if let Err(error) = reveal_profile(&name) {
+                let _ = crate::background::to_ui(receiver, move |_| report.report(error));
+            }
+        });
         if let Err(error) = result {
-            reveal_owner.report(error);
+            reveal_owner.report(error.to_string());
         }
     });
+}
+
+fn reveal_profile(name: &str) -> Result<(), String> {
+    let store = crate::key_binding_profiles::ProfileStore::for_current_user()
+        .map_err(|error| error.to_string())?;
+    let revealed = if let Ok(path) = store.path_for(name)
+        && path.is_file()
+    {
+        crate::platform::reveal_file(&path)
+    } else {
+        crate::platform::open_directory(store.directory())
+    };
+    revealed.map_err(|error| error.to_string())
 }
 
 async fn import_profile(window: &PreferencesWindow) -> Result<Option<String>, String> {
