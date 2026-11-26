@@ -101,6 +101,14 @@ struct DirectoryEntry {
     is_dir: bool,
 }
 
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum PathAccess {
+    Read,
+    Write,
+    RemoveEntry,
+    NewEntry,
+}
+
 impl PluginFiles {
     pub(super) fn storage_identity(&self) -> Option<&str> {
         self.data_root.file_name()?.to_str()
@@ -300,9 +308,7 @@ impl PluginFiles {
         let path = self
             .resolve(path, file_system_granted, true)?
             .ok_or_else(|| "File destination is invalid".to_owned())?;
-        self.open_destination(&path)?
-            .write_all(content.as_bytes())
-            .map_err(|error| format!("Could not write file: {error}"))
+        self.save_destination(&path, content.as_bytes())
     }
 
     pub(crate) fn write_download(
@@ -317,26 +323,35 @@ impl PluginFiles {
         let path = self
             .resolve(path, file_system_granted, true)?
             .ok_or_else(|| "Download destination is invalid".to_owned())?;
-        self.open_destination(&path)?
-            .write_all(content)
-            .map_err(|error| format!("Could not save download: {error}"))
+        self.save_destination(&path, content)
     }
 
-    fn open_destination(&self, path: &Path) -> Result<File, String> {
-        let mut options = OpenOptions::new();
-        options.write(true);
-        if self.is_private_path(path)? {
-            options.create(true).truncate(true);
+    fn save_destination(&self, path: &Path, bytes: &[u8]) -> Result<(), String> {
+        let private = self.is_private_path(path)?;
+        let parent = path.parent().ok_or("File destination has no parent")?;
+        let mut staged = tempfile::Builder::new()
+            .prefix(".riina-write-")
+            .tempfile_in(parent)
+            .map_err(|error| format!("Could not stage file contents: {error}"))?;
+        staged
+            .write_all(bytes)
+            .and_then(|()| staged.as_file().sync_all())
+            .map_err(|error| format!("Could not write file contents: {error}"))?;
+        let result = if private {
+            // Existing plugin readers keep their opened file when a new version is published.
+            let pending = staged.into_temp_path();
+            crate::platform::file_move::replace(&pending, path)
         } else {
-            // Checking existence before writing permits another writer to create
-            // the destination in between. The filesystem must enforce exclusivity.
-            options.create_new(true);
-        }
-        options.open(path).map_err(|error| {
+            staged
+                .persist_noclobber(path)
+                .map(|_| ())
+                .map_err(|failure| failure.error)
+        };
+        result.map_err(|error| {
             if error.kind() == std::io::ErrorKind::AlreadyExists {
                 "Cannot overwrite a file outside plugin storage".into()
             } else {
-                format!("Could not open file destination: {error}")
+                format!("Could not publish file destination: {error}")
             }
         })
     }
@@ -348,45 +363,43 @@ impl PluginFiles {
         file_system_granted: bool,
     ) -> Result<(), String> {
         let source = self
-            .resolve(source, file_system_granted, false)?
+            .resolve_with(source, file_system_granted, PathAccess::RemoveEntry)?
             .ok_or_else(|| "Move source does not exist".to_owned())?;
         let destination = self
-            .resolve(destination, file_system_granted, true)?
+            .resolve_with(destination, file_system_granted, PathAccess::NewEntry)?
             .ok_or_else(|| "Move destination is invalid".to_owned())?;
         if source == destination {
             return Err("Move source and destination are the same path".into());
-        }
-        if destination.exists() {
-            return Err("Move destination already exists".into());
         }
         if source == self.canonical_root(&self.data_root)?
             || source == self.canonical_root(&self.temp_root)?
         {
             return Err("Cannot move a plugin storage root".into());
         }
-        fs::rename(source, destination).map_err(|error| format!("Could not move file: {error}"))
+        crate::platform::file_move::move_new(&source, &destination).map_err(|error| {
+            if error.kind() == std::io::ErrorKind::AlreadyExists {
+                "Move destination already exists".into()
+            } else {
+                format!("Could not move file: {error}")
+            }
+        })
     }
 
     pub(crate) fn trash(&self, path: &str, file_system_granted: bool) -> Result<(), String> {
         let path = self
-            .resolve(path, file_system_granted, false)?
+            .resolve_with(path, file_system_granted, PathAccess::RemoveEntry)?
             .ok_or_else(|| "File does not exist".to_owned())?;
         if path == self.canonical_root(&self.data_root)?
             || path == self.canonical_root(&self.temp_root)?
         {
             return Err("Cannot trash a plugin storage root".into());
         }
-        let metadata = fs::symlink_metadata(&path)
-            .map_err(|error| format!("Could not inspect file: {error}"))?;
-        if metadata.file_type().is_symlink() {
-            return Err("Cannot trash a symbolic link through the plugin file API".into());
-        }
         trash::delete(&path).map_err(|error| format!("Could not move file to Trash: {error}"))
     }
 
     pub(crate) fn delete(&self, path: &str) -> Result<(), String> {
         let path = self
-            .resolve(path, false, true)?
+            .resolve_with(path, false, PathAccess::RemoveEntry)?
             .ok_or_else(|| "File does not exist".to_owned())?;
         if path == self.canonical_root(&self.data_root)?
             || path == self.canonical_root(&self.temp_root)?
@@ -426,30 +439,38 @@ impl PluginFiles {
 
         let mut pending = VecDeque::from([root.clone()]);
         let mut entries = Vec::new();
+        let mut visited = 0;
         while let Some(directory) = pending.pop_front() {
             for entry in fs::read_dir(&directory)
                 .map_err(|error| format!("Could not list directory: {error}"))?
             {
                 let entry =
                     entry.map_err(|error| format!("Could not read directory entry: {error}"))?;
+                visited += 1;
+                if visited > MAX_LIST_ENTRIES {
+                    return Err("Directory listing exceeds the 4096 entry limit".into());
+                }
                 let entry_path = entry.path();
-                let metadata = fs::symlink_metadata(&entry_path)
+                let kind = entry
+                    .file_type()
                     .map_err(|error| format!("Could not inspect directory entry: {error}"))?;
-                if metadata.file_type().is_symlink() {
+                if kind.is_symlink() {
                     continue;
                 }
-                let is_dir = metadata.is_dir();
+                let is_dir = kind.is_dir();
                 let relative = entry_path
                     .strip_prefix(&root)
                     .map_err(|error| format!("Directory entry escaped its root: {error}"))?;
+                let mut path = String::new();
+                for component in relative.components() {
+                    path.push('/');
+                    path.push_str(&component.as_os_str().to_string_lossy());
+                }
                 entries.push(DirectoryEntry {
                     filename: entry.file_name().to_string_lossy().into_owned(),
-                    path: relative.to_string_lossy().replace('\\', "/"),
+                    path,
                     is_dir,
                 });
-                if entries.len() > MAX_LIST_ENTRIES {
-                    return Err("Directory listing exceeds the 4096 entry limit".into());
-                }
                 if is_dir && include_subdirectories {
                     pending.push_back(entry_path);
                 }
@@ -465,6 +486,20 @@ impl PluginFiles {
         file_system_granted: bool,
         for_write: bool,
     ) -> Result<Option<PathBuf>, String> {
+        let access = if for_write {
+            PathAccess::Write
+        } else {
+            PathAccess::Read
+        };
+        self.resolve_with(value, file_system_granted, access)
+    }
+
+    fn resolve_with(
+        &self,
+        value: &str,
+        file_system_granted: bool,
+        access: PathAccess,
+    ) -> Result<Option<PathBuf>, String> {
         if let Some(relative) = value.strip_prefix("@current/") {
             if !file_system_granted {
                 return Err("The file-system permission is required for @current paths".into());
@@ -477,11 +512,11 @@ impl PluginFiles {
                 .current_directory
                 .as_ref()
                 .ok_or_else(|| "There is no current media file".to_owned())?;
-            let path = directory.join(relative);
+            let path = directory.join(relative.trim_start_matches('/'));
             if !path.is_absolute() {
                 return Err("The current media directory is unavailable".into());
             }
-            return self.resolve_external(&path, for_write);
+            return self.resolve_external(&path, access);
         }
         if let Some((alias, id)) = track_alias(value) {
             let context = self
@@ -492,13 +527,13 @@ impl PluginFiles {
                 .external_tracks
                 .get(&format!("{alias}/{id}"))
                 .ok_or_else(|| format!("No external track exists for {alias}/{id}"))?;
-            return self.resolve_external(path, for_write);
+            return self.resolve_external(path, access);
         }
         if let Some(relative) = value.strip_prefix("@data/") {
-            return self.resolve_local(&self.data_root, relative, for_write);
+            return self.resolve_local(&self.data_root, relative, access);
         }
         if let Some(relative) = value.strip_prefix("@tmp/") {
-            return self.resolve_local(&self.temp_root, relative, for_write);
+            return self.resolve_local(&self.temp_root, relative, access);
         }
         if value == "@data" || value == "@tmp" {
             return Err("Plugin paths must include a directory separator".into());
@@ -517,35 +552,49 @@ impl PluginFiles {
         if !expanded.is_absolute() {
             return Err("File paths must be absolute or use @data/ and @tmp/".into());
         }
-        self.resolve_external(&expanded, for_write)
+        self.resolve_external(&expanded, access)
     }
 
     fn resolve_local(
         &self,
         root: &Path,
         relative: &str,
-        for_write: bool,
+        access: PathAccess,
     ) -> Result<Option<PathBuf>, String> {
-        let relative = normalize_private_relative(Path::new(relative))?;
+        let relative = normalize_private_relative(Path::new(relative.trim_start_matches('/')))?;
         let root = self.canonical_root(root)?;
         let candidate = root.join(relative);
-        self.validate_containment(&candidate, &root, for_write)
+        self.validate_containment(&candidate, &root, access)
     }
 
-    fn resolve_external(&self, path: &Path, for_write: bool) -> Result<Option<PathBuf>, String> {
-        self.validate_containment(path, &PathBuf::new(), for_write)
+    fn resolve_external(&self, path: &Path, access: PathAccess) -> Result<Option<PathBuf>, String> {
+        self.validate_containment(path, Path::new(""), access)
     }
 
     fn validate_containment(
         &self,
         path: &Path,
         root: &Path,
-        for_write: bool,
+        access: PathAccess,
     ) -> Result<Option<PathBuf>, String> {
         if !root.as_os_str().is_empty()
             && fs::symlink_metadata(path).is_ok_and(|metadata| metadata.file_type().is_symlink())
         {
             return Err("Symbolic links are not supported in plugin storage".into());
+        }
+        if matches!(access, PathAccess::RemoveEntry | PathAccess::NewEntry) && path != root {
+            // A move or Trash request acts on the named entry. Canonicalizing the
+            // full path would instead move the target of an external symbolic link.
+            let entry = Self::entry_in_canonical_parent(path, root)?;
+            return if access == PathAccess::NewEntry {
+                Ok(Some(entry))
+            } else {
+                match fs::symlink_metadata(&entry) {
+                    Ok(_) => Ok(Some(entry)),
+                    Err(error) if error.kind() == std::io::ErrorKind::NotFound => Ok(None),
+                    Err(error) => Err(format!("Could not inspect file: {error}")),
+                }
+            };
         }
         if path.exists() {
             let canonical = path
@@ -556,7 +605,7 @@ impl PluginFiles {
             }
             return Ok(Some(canonical));
         }
-        if !for_write {
+        if access != PathAccess::Write {
             let mut ancestor = path;
             while !ancestor.exists() {
                 let Some(parent) = ancestor.parent() else {
@@ -573,6 +622,10 @@ impl PluginFiles {
             return Ok(None);
         }
 
+        Self::entry_in_canonical_parent(path, root).map(Some)
+    }
+
+    fn entry_in_canonical_parent(path: &Path, root: &Path) -> Result<PathBuf, String> {
         let parent = path
             .parent()
             .ok_or_else(|| "File path has no parent directory".to_owned())?;
@@ -585,7 +638,7 @@ impl PluginFiles {
         let name = path
             .file_name()
             .ok_or_else(|| "File path has no filename".to_owned())?;
-        Ok(Some(canonical_parent.join(name)))
+        Ok(canonical_parent.join(name))
     }
 
     fn canonical_root(&self, root: &Path) -> Result<PathBuf, String> {

@@ -21,24 +21,40 @@ fn destination_creation_is_exclusive_outside_private_storage() {
     let (files, directory) = temporary_files();
     let root = directory.path();
     let outside = root.join("outside.bin");
-    let mut first = files.open_destination(&outside).unwrap();
-    first.write_all(b"original").unwrap();
-    assert!(files.open_destination(&outside).is_err());
-    drop(first);
-    assert_eq!(fs::read(&outside).unwrap(), b"original");
+    let barrier = std::sync::Barrier::new(2);
+    let competing_write = |payload: &'static [u8]| {
+        barrier.wait();
+        files.write_download(outside.to_str().unwrap(), payload, true)
+    };
+    let first = std::thread::scope(|scope| {
+        let second = scope.spawn(|| competing_write(b"second complete payload"));
+        let first = competing_write(b"first complete payload");
+        assert_ne!(first.is_ok(), second.join().unwrap().is_ok());
+        if first.is_ok() {
+            b"first complete payload".as_slice()
+        } else {
+            b"second complete payload".as_slice()
+        }
+    });
+    assert_eq!(fs::read(&outside).unwrap(), first);
     files
         .write_download("@data/private.bin", b"original", false)
+        .unwrap();
+    let mut reader = files
+        .open_handle("@data/private.bin", "read", false)
         .unwrap();
     files
         .write_download("@data/private.bin", b"new", false)
         .unwrap();
+    assert_eq!(reader.read_to_end().unwrap(), b"original");
     assert_eq!(fs::read(root.join(".data/private.bin")).unwrap(), b"new");
     assert!(
         files
             .write_download(outside.to_str().unwrap(), b"replace", true)
             .is_err()
     );
-    assert_eq!(fs::read(outside).unwrap(), b"original");
+    assert_eq!(fs::read(outside).unwrap(), first);
+    assert_eq!(fs::read_dir(root).unwrap().count(), 3);
 }
 
 #[test]
@@ -230,7 +246,7 @@ fn player_context_reports_window_geometry_and_mode_changes() {
 
 #[test]
 fn plugin_data_paths_support_bounded_text_and_listing() {
-    let (files, _directory) = temporary_files();
+    let (files, directory) = temporary_files();
     files
         .write_text("@data/state.json", "{\"ready\":true}", false)
         .unwrap();
@@ -243,7 +259,23 @@ fn plugin_data_paths_support_bounded_text_and_listing() {
     let entries: serde_json::Value =
         serde_json::from_str(&files.list("@data/", "{}", false).unwrap()).unwrap();
     assert_eq!(entries[0]["filename"], "state.json");
-    assert_eq!(entries[0]["path"], "state.json");
+    assert_eq!(entries[0]["path"], "/state.json");
+    assert!(files.exists("@data//state.json", false).unwrap());
+
+    fs::create_dir(directory.path().join(".data/nested")).unwrap();
+    files
+        .write_text("@data/nested/movie.srt", "fixture", false)
+        .unwrap();
+    let shallow: serde_json::Value =
+        serde_json::from_str(&files.list("@data/", "{}", false).unwrap()).unwrap();
+    assert_eq!(shallow.as_array().unwrap().len(), 2);
+    let recursive: serde_json::Value = serde_json::from_str(
+        &files
+            .list("@data/", r#"{"includeSubDir":true}"#, false)
+            .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(recursive[1]["path"], "/nested/movie.srt");
 
     files.delete("@data/state.json").unwrap();
     assert!(!files.exists("@data/state.json", false).unwrap());
@@ -335,6 +367,18 @@ fn move_scopes_private_paths_and_requires_grant_for_external_paths() {
         .write_text("@data/source.txt", "saved", false)
         .unwrap();
     files
+        .write_text("@tmp/occupied.txt", "keep", false)
+        .unwrap();
+    assert!(
+        files
+            .move_path("@data/source.txt", "@tmp/occupied.txt", false)
+            .is_err()
+    );
+    assert_eq!(
+        files.read_text("@tmp/occupied.txt", "{}", false).unwrap(),
+        "keep"
+    );
+    files
         .move_path("@data/source.txt", "@data/destination.txt", false)
         .unwrap();
     assert!(!files.exists("@data/source.txt", false).unwrap());
@@ -374,6 +418,78 @@ fn move_scopes_private_paths_and_requires_grant_for_external_paths() {
         fs::read_to_string(&external_destination).unwrap(),
         "external"
     );
+}
+
+#[test]
+fn simultaneous_moves_preserve_the_destination_and_losing_source() {
+    let (files, directory) = temporary_files();
+    for name in ["first", "second"] {
+        let dir = directory.path().join(name);
+        fs::create_dir(&dir).unwrap();
+        fs::write(dir.join("marker"), name).unwrap();
+    }
+    let barrier = std::sync::Barrier::new(2);
+    let move_dir = |name: &str| {
+        let root = directory.path();
+        barrier.wait();
+        files.move_path(
+            root.join(name).to_str().unwrap(),
+            root.join("dest").to_str().unwrap(),
+            true,
+        )
+    };
+    let (winner, loser) = std::thread::scope(|scope| {
+        let second = scope.spawn(|| move_dir("second"));
+        let first = move_dir("first");
+        assert_ne!(first.is_ok(), second.join().unwrap().is_ok());
+        if first.is_ok() {
+            ("first", "second")
+        } else {
+            ("second", "first")
+        }
+    });
+    let root = directory.path();
+    assert_eq!(
+        fs::read_to_string(root.join("dest/marker")).unwrap(),
+        winner
+    );
+    assert_eq!(
+        fs::read_to_string(root.join(loser).join("marker")).unwrap(),
+        loser
+    );
+    assert!(!root.join(winner).exists());
+}
+
+#[cfg(unix)]
+#[test]
+fn external_moves_keep_symbolic_links_and_their_targets_distinct() {
+    let (files, directory) = temporary_files();
+    let root = directory.path();
+    let target = root.join("target.txt");
+    let source = root.join("source.txt");
+    let destination = root.join("moved.txt");
+    fs::write(&target, "unchanged").unwrap();
+    std::os::unix::fs::symlink(&target, &source).unwrap();
+    files
+        .move_path(
+            source.to_str().unwrap(),
+            destination.to_str().unwrap(),
+            true,
+        )
+        .unwrap();
+    assert_eq!(fs::read_link(&destination).unwrap(), target);
+    assert_eq!(fs::read_to_string(&target).unwrap(), "unchanged");
+    assert!(!source.exists());
+    assert!(
+        files
+            .move_path(
+                target.to_str().unwrap(),
+                destination.to_str().unwrap(),
+                true
+            )
+            .is_err()
+    );
+    assert_eq!(fs::read_link(destination).unwrap(), target);
 }
 
 #[test]
@@ -479,6 +595,10 @@ fn text_read_supports_iina_encoding_names_and_rejects_malformed_input() {
     );
 
     for (name, bytes, expected) in [
+        ("dosLatinUS", &[0xb3][..], "│"),
+        ("dosLatin1", &[0x9b][..], "ø"),
+        ("dosRussian", &[0x80][..], "А"),
+        ("EBCDIC_CP037", &[0xc1, 0x81][..], "Aa"),
         ("isoLatin5", &[0xd0][..], "Ğ"),
         ("isoLatinThai", &[0xa1][..], "ก"),
         ("KOI8_R", &[0xc1][..], "а"),
@@ -499,6 +619,14 @@ fn text_read_supports_iina_encoding_names_and_rejects_malformed_input() {
             "Foundation encoding name {name}"
         );
     }
+
+    fs::write(&path, [0x82]).unwrap();
+    assert!(
+        files
+            .read_text("@data/encoded.txt", r#"{"encoding":"dosJapanese"}"#, false)
+            .unwrap_err()
+            .contains("invalid dosJapanese")
+    );
 
     fs::write(&path, [0xff, 0xfe, b'h', 0, b'i', 0]).unwrap();
     assert_eq!(

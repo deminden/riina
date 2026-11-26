@@ -6163,6 +6163,41 @@ remaining presentation-event timing still require desktop checks. Wayland
 keeps absolute placement and window restoration under compositor control.
 
 - Windows application SHA-256 `a5b925995a89bf1e71012942e47a5ca1e54ecc5f1cfd763394d957be69ed3d63`
-- Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
+- Windows desktop libmpv SHA-256 `1749e6b5519afa383c88442e97026754e4e169bd46107ecc0ab0b08d205ad0af`
 - Linux application SHA-256 `64f0aaab984af2c8f3aca10b3ecbff6c79521f114714f373ee8229f3395ef6bd`
+- Linux libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`
+
+### Plugin file operations and legacy encodings (2026-11-26)
+
+The workspace tests raced two external file publications and two directory
+moves. Only one caller succeeded in each pair. The losing move retained its
+source. An already open reader finished reading the original contents after
+private replacement. An external symlink move on Linux left the target intact.
+Other checks covered private path containment, shallow and recursive list paths,
+malformed multibyte input, DOS and EBCDIC decoding, and the JavaScript API.
+
+On isolated X11 and native Wayland, an installed plugin read DOS Russian and
+EBCDIC CP037 fixtures, replaced a private file while its old reader was open,
+and moved it to a Unicode name. It read the replacement by concatenating the
+list entry with `@data` and retained the source of a conflicting move. A test
+FileManager1 service received exactly one selection request for the right file.
+The isolated Trash contained the disposable file and the corresponding metadata.
+Both paused playback fixtures remained selected and both players closed normally.
+The locked Linux application build, strict application Clippy and the 20-case
+plugin-file test group passed.
+
+Windows passed the locked workspace build and full workspace gate with 1,136
+Rust test passes, 83 ignored cases, 79 Python tests and four browser tests. The
+gate included the software-rendered player and Settings comparisons. A private
+Windows desktop ran the installed plugin workflow with the pinned libmpv DLL.
+It passed the decoding, replacement, old reader, listing and collision checks.
+The exact application process closed normally. Windows file selection and
+Recycle Bin interaction were outside this desktop check. The application and
+test targets passed strict cross-Clippy for Apple Silicon and Intel. Native
+macOS verification, cross-volume moves and exact handling of the remaining
+legacy encodings remain open.
+
+- Windows application SHA-256 `4ef061aee73bb40796beff3e6dd3688fc80af45ac98a8a5aee6e1e50ac0f4f47`
+- Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
+- Linux application SHA-256 `9f02b64d7a48565101a0a5604815d722c5f70e0a65fc7c06fa4e9d0a45850c5f`
 - Linux libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`

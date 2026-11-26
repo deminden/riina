@@ -198,10 +198,9 @@ fn plugin_file_api_scopes_private_paths_and_checks_external_access_grants() {
         if (iina.file.exists('@data/state.txt')) throw new Error('source remains after move');
         if (!iina.file.exists('@data/moved.txt')) throw new Error('missing moved file');
         if (iina.file.read('@data/moved.txt') !== 'saved') throw new Error('read mismatch');
-        if (!iina.file.list('@data/').some(entry => entry.filename === 'moved.txt')) {
-            throw new Error('listing mismatch');
-        }
-        iina.log(iina.file.read('@data/moved.txt'));
+        const entry = iina.file.list('@data/').find(entry => entry.filename === 'moved.txt');
+        if (entry?.path !== '/moved.txt') throw new Error('listing mismatch');
+        iina.log(iina.file.read('@data' + entry.path));
         iina.file.delete('@data/moved.txt');
     "#;
     let events = execute_entry(source, identifier, &requested, &requested).unwrap();

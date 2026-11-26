@@ -188,7 +188,7 @@ fn install_path_operations(
             let path = files
                 .existing_path(&path, file_system_granted)
                 .map_err(plugin_file_js_error)?;
-            crate::platform::reveal_file(&path)
+            crate::platform::reveal_files(&[path])
                 .map_err(|error| plugin_file_js_error(format!("Could not reveal file: {error}")))
         }),
     )?;

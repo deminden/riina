@@ -57,6 +57,7 @@ plist = { version = "=1.10.4", default-features = false, features = ["enable_uns
 roxmltree = "=0.20.0"
 base64 = "=0.23.1"
 keyring = "=4.2.0"
+tempfile = "=3.27.0"
 
 [build-dependencies]
 winresource = "=0.1.31"
@@ -69,7 +70,6 @@ icu_datetime = "=2.3.0"
 
 [target.'cfg(target_os = "windows")'.dependencies]
 clipboard-win = "=5.4.1"
-tempfile = "=3.27.0"
 windows = { workspace = true, features = ["Win32_UI_HiDpi", "Win32_UI_Accessibility", "Win32_UI_Controls", "Win32_System_Com_StructuredStorage", "Win32_System_Console", "Win32_System_DataExchange", "Win32_System_Memory", "Win32_System_Ole", "Win32_Networking_WinSock", "Win32_Security", "Win32_Security_Authorization", "Win32_System_JobObjects", "Win32_System_Pipes"] }
 windows-core = "=0.62.2"
 muda = { version = "=0.19.3", default-features = false }
@@ -96,7 +96,7 @@ objc2 = "=0.6.5"
 objc2-foundation = { version = "=0.3.2", default-features = false, features = ["std", "NSAppleEventDescriptor", "NSAppleEventManager", "NSArray", "NSDictionary", "NSData", "NSDate", "NSDateFormatter", "NSError", "NSFileManager", "NSFormatter", "NSObject", "NSString", "NSURL", "NSUserDefaults", "NSValue", "NSGeometry", "NSObjCRuntime", "NSLocale", "NSProcessInfo", "NSNotification", "NSOperation", "block2"] }
 objc2-app-kit = { version = "=0.3.2", default-features = false, features = ["NSWorkspace", "NSApplication", "NSResponder", "NSAccessibility", "NSFont", "NSFontDescriptor", "NSImage", "NSImageRep", "NSEvent", "NSHapticFeedback", "NSMenu", "NSView", "NSWindow", "NSPanel", "NSControl", "NSColor", "NSColorPanel", "NSScreen", "NSColorSpace", "NSPasteboard", "NSPasteboardItem", "NSDragging", "NSDocumentController", "NSOpenPanel", "NSSavePanel", "NSTouch", "NSTouchBar", "NSTouchBarItem", "NSSliderTouchBarItem", "NSCustomTouchBarItem", "NSButton", "NSSlider", "NSSliderCell", "NSCell", "NSActionCell", "NSTextField", "NSGraphics", "NSGraphicsContext", "NSBezierPath", "NSUserInterfaceLayout", "block2", "objc2-core-graphics"] }
 objc2-core-graphics = { version = "=0.3.2", default-features = false, features = ["CGColorSpace", "CGDataProvider", "CGGeometry", "CGImage"] }
-objc2-core-foundation = { version = "=0.3.2", default-features = false, features = ["CFArray", "CFData", "CFDictionary", "CFNumber", "CFString", "CFURL", "std"] }
+objc2-core-foundation = { version = "=0.3.2", default-features = false, features = ["CFArray", "CFData", "CFDictionary", "CFNumber", "CFString", "CFStringEncodingExt", "CFURL", "std"] }
 objc2-image-io = { version = "=0.3.2", default-features = false, features = ["std", "CGImageSource", "CGImageDestination", "objc2-core-graphics"] }
 objc2-quick-look-thumbnailing = { version = "=0.3.2", default-features = false, features = ["std", "QLThumbnailGenerationRequest", "QLThumbnailGenerator", "QLThumbnailRepresentation", "block2", "objc2-app-kit", "objc2-core-graphics", "objc2-core-foundation"] }
 objc2-vision = { version = "=0.3.2", default-features = false, features = ["VNObservation", "VNRecognizeTextRequest", "VNRequest", "VNRequestHandler", "VNTypes", "objc2-core-foundation", "objc2-core-graphics"] }

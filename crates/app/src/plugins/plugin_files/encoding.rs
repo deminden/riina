@@ -1,6 +1,14 @@
 //! Strict decoding for the plugin file API encoding names.
+use crate::platform::plugin_text_encoding::{self, DecodeError};
+
 pub(super) fn decode_text(bytes: &[u8], name: &str) -> Result<String, String> {
     let label = name.trim().to_ascii_lowercase().replace('_', "-");
+    if let Some(result) = plugin_text_encoding::decode(&label, bytes) {
+        return result.map_err(|error| match error {
+            DecodeError::Unsupported => format!("Unknown or unsupported text encoding: {name}"),
+            DecodeError::Invalid => format!("File contains invalid {name} text"),
+        });
+    }
     let label = match label.as_str() {
         "utf8" => "utf-8",
         "utf16" | "unicode" => "utf-16",

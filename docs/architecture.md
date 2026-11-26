@@ -656,6 +656,26 @@ focus, WebKit handles text editing and the GTK shortcut adapter routes reserved
 window actions to the owning player. Closing or switching tabs releases browser
 focus and pending captures while retaining the document.
 
+### Plugin file operations
+
+Player and global plugin entries use the same filesystem scope. Private paths
+are resolved inside the package's data and temporary directories. Current media
+paths require the reviewed filesystem grant. Scoped track aliases resolve through
+the player's observed external tracks. Listing paths can be appended directly to
+the requested directory alias. Recursive listings retain Riina's entry limit.
+
+Text writes and downloads stage the complete bytes beside the destination before
+publishing. Private writes replace the name while readers retain the version they
+opened. External writes publish only when the name is still vacant. A move uses
+the native no-replace operation. Moves and Trash preserve the final external
+directory entry, including when it points to a symbolic link. Common text
+encodings use the shared strict decoder. Additional legacy encodings use the
+runtime's native converter. Reveal uses the desktop file manager's item selection
+when available.
+
+[Windows rename semantics](https://learn.microsoft.com/windows-hardware/drivers/ddi/ntifs/ns-ntifs-_file_rename_information)
+[FileManager1 item selection](https://wiki.freedesktop.org/www/Specifications/file-manager-interface/)
+
 ### Plugin video overlays
 
 The player owns each overlay WebView. On native Windows it sits in the video

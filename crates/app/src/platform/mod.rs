@@ -19,6 +19,7 @@ pub(crate) mod clipboard;
 pub(crate) mod desktop_drop;
 pub(crate) mod display_blackout;
 pub(crate) mod file_associations;
+pub(crate) mod file_move;
 mod file_reveal;
 pub(crate) mod folder_dialog;
 #[cfg(any(windows, target_os = "macos"))]
@@ -50,6 +51,7 @@ pub(crate) use plugin_presentation::{
 mod plugin_resources;
 pub(crate) mod plugin_settings;
 pub(crate) mod plugin_standalone;
+pub(crate) mod plugin_text_encoding;
 pub(crate) mod plugin_window;
 pub(crate) mod preferences;
 pub(crate) mod settings_file;
