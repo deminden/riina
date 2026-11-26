@@ -6555,3 +6555,42 @@ Welcome in the same process, and exited normally when Welcome closed.
 - Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
 - Linux application SHA-256 `0f081d742185ae4a3f0ac5706a759e6fb89777f76aa8d2ac2c56f661d5f1fd41`
 - Linux libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`
+
+### Playlist menu headings and localization (2026-11-26)
+
+The locked Windows workspace build and full source gate passed, including
+711 application unit tests and the headless visual comparison. All 72 pinned
+libmpv native tests passed. The menu regressions cover single-row and
+mixed-selection headings, conditional groups, stale menu requests, keyboard
+traversal around headings, and the four Sort commands. The label test covers
+English, Russian and Arabic count forms. A Win32 menu test checked that a
+heading is grayed and retains a literal ampersand. The next command still
+receives the first available action ID.
+
+On a private Windows desktop, the row menu showed the selected filename,
+Playback, Edit, Subtitles, File Operations and Playlist headings for the
+paused local clip. The native Sort popup exposed its four commands. Win32
+could highlight the disabled heading as the arrow keys moved through the
+menu. Selecting Filename Descending reordered the three clips and kept the
+current clip paused. The player exited normally.
+
+The locked Linux application build, strict Clippy and seven focused playlist
+and menu tests passed. In an isolated Wayland session, the row and Sort
+popups showed their headings. Escape returned focus to the Sort control,
+Return reopened it, and File Path Descending retained the paused clip.
+Music Mode added a URL through the compact dialog and preserved the current
+clip, pause and volume. The application exited normally.
+
+In an isolated X11 session, the GTK menu showed both Network Resources and
+File Operations for a mixed selection. Copy URLs returned all three stream
+URLs in playlist order. Open in Browser delivered both web URLs to the test
+launcher. Clear Playlist in Music Mode kept the current paused clip, and the
+application exited normally.
+
+Locked macOS workspace source checks passed for Apple Silicon and Intel.
+Native macOS menu interaction and matched IINA captures remain open.
+
+- Windows application SHA-256 `71b83a6004249197b7496ca018ba2f1f633c261bd7d410e09ac8ca6c6ac55eaf`
+- Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
+- Linux application SHA-256 `7f1b6b7dabca103934a10353c259ebfb3117414a9da16b96802d02a152cfd403`
+- Linux libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`

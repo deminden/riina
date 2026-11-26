@@ -16,6 +16,53 @@ export struct PlaylistDropHover {
     y: float,
 }
 
+export global PlaylistMenuText {
+    out property <string> menu: @tr("Playlist menu");
+    out property <string> playback: @tr("Playback");
+    out property <string> sorting: @tr("Sorting");
+    out property <string> playlist: @tr("Playlist");
+    out property <string> plugin: @tr("Plugin");
+    out property <string> network: @tr("Network Resources");
+    out property <string> files: @tr("File Operations");
+
+    out property <string> add-file: @tr("Add File…");
+    out property <string> add-folder: @tr("Add Folder…");
+    out property <string> add-url: @tr("Add URL…");
+    out property <string> name-ascending: @tr("Filename Ascending");
+    out property <string> name-descending: @tr("Filename Descending");
+    out property <string> path-ascending: @tr("File Path Ascending");
+    out property <string> path-descending: @tr("File Path Descending");
+
+    out property <string> play: @tr("Play");
+    out property <string> play-next: @tr("Play Next");
+    out property <string> play-new: @tr("Play in New Window");
+    out property <string> remove: @tr("Remove");
+    out property <string> move-up: @tr("Move Up");
+    out property <string> move-down: @tr("Move Down");
+    out property <string> clear: @tr("Clear Playlist");
+    out property <string> add-subtitle: @tr("Add Subtitle…");
+    out property <string> wrong-subtitle: @tr("Wrong Subtitle");
+    out property <string> open-browser: @tr("Open in Browser");
+    out property <string> copy-url: @tr("Copy URL");
+    out property <string> copy-urls: @tr("Copy URLs");
+
+    public pure function selected-items(count: int) -> string {
+        return @tr("{n} Item" | "{n} Items" % count);
+    }
+    public pure function subtitles(count: int) -> string {
+        return @tr("Subtitles ({} loaded)", count);
+    }
+    public pure function move-files(multiple: bool, recycle: bool) -> string {
+        let destination = recycle ? @tr("Recycle Bin") : @tr("Trash");
+        return multiple ? @tr("Move Selected Files to {}", destination) : @tr("Move to {}", destination);
+    }
+    public pure function reveal(file-manager: string) -> string {
+        return file-manager == "Finder" ? @tr("Show in Finder")
+            : file-manager == "Explorer" ? @tr("Show in Explorer")
+            : @tr("Show in File Manager");
+    }
+}
+
 // Selection and keyboard focus belong to the player, not a recycled row.
 export global PlaylistInteraction {
     in-out property <int> playlist-menu-generation: 0;
@@ -25,7 +72,6 @@ export global PlaylistInteraction {
     callback subtitle-action(PlaylistSubtitleAction, string);
     callback toggle-series-prefix(string);
     callback edit(PlaylistEdit, bool) -> bool;
-    in property <string> reveal-action-label: "Show in File Manager";
     in-out property <string> selected-playlist-token: "";
     in-out property <[string]> selected-playlist-tokens: [];
     in-out property <string> focused-playlist-token: "";

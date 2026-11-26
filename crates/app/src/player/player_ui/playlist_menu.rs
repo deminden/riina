@@ -7,9 +7,9 @@ use crate::{
 };
 use riina_core::plugin_menu::PluginMenuItem;
 use riina_ui::{
-    PlayerCatalogState, PlayerMenuActions, PlayerMusicModeState, PlayerSidebarActions,
-    PlayerSidebarState, PlaylistFooterMenu, PlaylistInteraction, PlaylistMenuOrigin,
-    PlaylistSubtitleAction,
+    ApplicationMenuText, PlayerCatalogState, PlayerMenuActions, PlayerMusicModeState,
+    PlayerSidebarActions, PlayerSidebarState, PlaylistFooterMenu, PlaylistInteraction,
+    PlaylistMenuOrigin, PlaylistMenuText, PlaylistSubtitleAction,
 };
 use slint::{ComponentHandle, LogicalPosition, Model, SharedString};
 use std::sync::Arc;
@@ -44,11 +44,13 @@ impl FooterAction {
     }
 }
 
-fn additions() -> impl Iterator<Item = (&'static str, FooterAction)> {
+fn additions(
+    text: &PlaylistMenuText<'_>,
+) -> impl Iterator<Item = (SharedString, FooterAction)> + use<> {
     [
-        ("Add File…", FooterAction::AddFiles),
-        ("Add Folder…", FooterAction::AddFolders),
-        ("Add URL…", FooterAction::AddUrl),
+        (text.get_add_file(), FooterAction::AddFiles),
+        (text.get_add_folder(), FooterAction::AddFolders),
+        (text.get_add_url(), FooterAction::AddUrl),
     ]
     .into_iter()
     .filter(|(_, action)| {
@@ -56,20 +58,26 @@ fn additions() -> impl Iterator<Item = (&'static str, FooterAction)> {
     })
 }
 
-fn footer_entries(menu: PlaylistFooterMenu) -> Vec<Entry<FooterAction>> {
+fn footer_entries(app: &PlayerWindow, menu: PlaylistFooterMenu) -> Vec<Entry<FooterAction>> {
+    let text = app.global::<PlaylistMenuText>();
     match menu {
-        PlaylistFooterMenu::Add => additions()
-            .map(|(title, action)| item(title, action, true))
+        PlaylistFooterMenu::Add => additions(&text)
+            .map(|(title, action)| item(title.as_str(), action, true))
             .collect(),
-        PlaylistFooterMenu::Sort => [
-            ("Filename Ascending", 0),
-            ("Filename Descending", 1),
-            ("File Path Ascending", 2),
-            ("File Path Descending", 3),
-        ]
-        .into_iter()
-        .map(|(title, index)| item(title, FooterAction::Sort(index), true))
-        .collect(),
+        PlaylistFooterMenu::Sort => {
+            let mut entries = vec![Entry::Heading(text.get_sorting().to_string())];
+            entries.extend(
+                [
+                    (text.get_name_ascending(), 0),
+                    (text.get_name_descending(), 1),
+                    (text.get_path_ascending(), 2),
+                    (text.get_path_descending(), 3),
+                ]
+                .into_iter()
+                .map(|(title, index)| item(title.as_str(), FooterAction::Sort(index), true)),
+            );
+            entries
+        }
     }
 }
 
@@ -81,6 +89,7 @@ enum Surface {
 
 struct Row {
     index: usize,
+    title: SharedString,
     local_files: usize,
     urls: usize,
     open_in_browser: bool,
@@ -195,8 +204,8 @@ fn install_footer(app: &PlayerWindow) {
                 playlist_menu::popup(
                     &app,
                     LogicalPosition::new(x, y),
-                    "Playlist menu",
-                    footer_entries(menu),
+                    app.global::<PlaylistMenuText>().get_menu().as_str(),
+                    footer_entries(&app, menu),
                     move |action| {
                         if let Some(app) = owner.upgrade()
                             && request.current(&app)
@@ -271,7 +280,7 @@ impl Request {
         playlist_menu::popup(
             app,
             self.position,
-            "Playlist menu",
+            app.global::<PlaylistMenuText>().get_menu().as_str(),
             entries,
             move |action| {
                 if let Some(app) = owner.upgrade() {
@@ -311,30 +320,30 @@ impl Request {
         contributions: Vec<PlaylistMenuContribution>,
     ) -> Vec<Entry<Action>> {
         let interaction = app.global::<PlaylistInteraction>();
-        let mut entries = self
-            .row
-            .as_ref()
-            .map_or_else(Vec::new, |row| row.entries(self.playlist.len()));
+        let text = app.global::<PlaylistMenuText>();
+        let mut entries = self.row.as_ref().map_or_else(Vec::new, |row| {
+            let title = if self.selection.len() == 1 && !row.title.is_empty() {
+                row.title.clone()
+            } else {
+                text.invoke_selected_items(i32::try_from(self.selection.len()).unwrap_or(i32::MAX))
+            };
+            row.entries(app, &text, title, self.playlist.len())
+        });
         if self.owner.origin == PlaylistMenuOrigin::Sidebar && self.row.is_some() {
             let subtitles = interaction.invoke_subtitle_targets(self.token.clone());
             if subtitles.single || subtitles.matched > 0 {
-                separate(&mut entries);
-                entries.push(item(
-                    &format!("Subtitles ({} loaded)", subtitles.matched),
-                    Action::Player(0),
-                    false,
-                ));
+                section(&mut entries, text.invoke_subtitles(subtitles.matched));
             }
             if subtitles.single {
                 entries.push(item(
-                    "Add Subtitle…",
+                    text.get_add_subtitle().as_str(),
                     Action::Subtitle(PlaylistSubtitleAction::Add),
                     true,
                 ));
             }
             if subtitles.matched > 0 {
                 entries.push(item(
-                    "Wrong Subtitle",
+                    text.get_wrong_subtitle().as_str(),
                     Action::Subtitle(PlaylistSubtitleAction::Clear),
                     true,
                 ));
@@ -343,12 +352,13 @@ impl Request {
         if let Some(row) = &self.row {
             row.append_external_actions(
                 &mut entries,
-                interaction.get_reveal_action_label().as_str(),
+                &text,
+                text.invoke_reveal(app.get_current_file_manager_name())
+                    .as_str(),
             );
         }
         if !contributions.is_empty() {
-            separate(&mut entries);
-            entries.push(item("Plugin", Action::Player(0), false));
+            section(&mut entries, text.get_plugin());
             entries.extend(contributions.into_iter().flat_map(|group| {
                 group
                     .items
@@ -356,15 +366,17 @@ impl Request {
                     .map(move |item| plugin_item(&group.identifier, item))
             }));
         }
-        separate(&mut entries);
+        section(&mut entries, text.get_playlist());
         let has_queued_items = app
             .global::<PlayerCatalogState>()
             .get_playlist()
             .iter()
             .any(|row| !row.playing);
-        entries
-            .extend(additions().map(|(title, action)| item(title, Action::Footer(action), true)));
-        entries.push(item("Clear Playlist", Action::Player(4), has_queued_items));
+        entries.extend(
+            additions(&text)
+                .map(|(title, action)| item(title.as_str(), Action::Footer(action), true)),
+        );
+        entries.push(player(text.get_clear().as_str(), 4, has_queued_items));
         entries
     }
 }
@@ -391,11 +403,15 @@ impl Row {
     fn new(index: usize, rows: impl Iterator<Item = crate::CatalogRow>) -> Self {
         let mut targets = Self {
             index,
+            title: SharedString::default(),
             local_files: 0,
             urls: 0,
             open_in_browser: false,
         };
         for row in rows {
+            if targets.title.is_empty() {
+                targets.title = row.label.clone();
+            }
             if let Some(url) = playlist_network_url(&row) {
                 targets.urls += 1;
                 targets.open_in_browser |= crate::platform::is_http_url(url);
@@ -406,45 +422,55 @@ impl Row {
         targets
     }
 
-    fn entries(&self, count: usize) -> Vec<Entry<Action>> {
+    fn entries(
+        &self,
+        app: &PlayerWindow,
+        text: &PlaylistMenuText<'_>,
+        title: SharedString,
+        count: usize,
+    ) -> Vec<Entry<Action>> {
+        let edits = app.global::<ApplicationMenuText>();
         vec![
-            player("Play", 12, true),
-            player("Play Next", 13, count > 1),
-            player("Play in New Window", 9, true),
-            player("Remove", 1, true),
+            Entry::Heading(title.to_string()),
             Entry::Separator,
-            player("Cut", 7, true),
-            player("Copy", 6, true),
-            player("Paste", 8, true),
+            Entry::Heading(text.get_playback().to_string()),
+            player(text.get_play().as_str(), 12, true),
+            player(text.get_play_next().as_str(), 13, count > 1),
+            player(text.get_play_new().as_str(), 9, true),
+            player(text.get_remove().as_str(), 1, true),
             Entry::Separator,
-            player("Move Up", 2, self.index > 0),
-            player("Move Down", 3, self.index + 1 < count),
+            Entry::Heading(edits.get_edit_title().to_string()),
+            player(edits.get_cut().as_str(), 7, true),
+            player(edits.get_copy().as_str(), 6, true),
+            player(edits.get_paste().as_str(), 8, true),
+            player(text.get_move_up().as_str(), 2, self.index > 0),
+            player(text.get_move_down().as_str(), 3, self.index + 1 < count),
         ]
     }
 
-    fn append_external_actions(&self, entries: &mut Vec<Entry<Action>>, reveal_label: &str) {
+    fn append_external_actions(
+        &self,
+        entries: &mut Vec<Entry<Action>>,
+        text: &PlaylistMenuText<'_>,
+        reveal_label: &str,
+    ) {
         if self.urls > 0 {
-            separate(entries);
+            section(entries, text.get_network());
             if self.open_in_browser {
-                entries.push(player("Open in Browser", 10, true));
+                entries.push(player(text.get_open_browser().as_str(), 10, true));
             }
             let label = if self.urls == 1 {
-                "Copy URL"
+                text.get_copy_url()
             } else {
-                "Copy URLs"
+                text.get_copy_urls()
             };
-            entries.push(player(label, 11, true));
+            entries.push(player(label.as_str(), 11, true));
         }
         if self.local_files > 0 {
-            separate(entries);
-            let trash = crate::platform::system_trash_name();
-            let trash_label = if self.local_files == 1 {
-                format!("Move to {trash}")
-            } else {
-                format!("Move Selected Files to {trash}")
-            };
+            section(entries, text.get_files());
+            let trash_label = text.invoke_move_files(self.local_files > 1, cfg!(windows));
             entries.extend([
-                player(&trash_label, 14, true),
+                player(trash_label.as_str(), 14, true),
                 player(reveal_label, 15, true),
             ]);
         }
@@ -466,10 +492,11 @@ fn item<A>(title: &str, action: A, enabled: bool) -> Entry<A> {
     }
 }
 
-fn separate(entries: &mut Vec<Entry<Action>>) {
+fn section(entries: &mut Vec<Entry<Action>>, title: SharedString) {
     if matches!(entries.last(), Some(Entry::Item { .. })) {
         entries.push(Entry::Separator);
     }
+    entries.push(Entry::Heading(title.to_string()));
 }
 
 fn plugin_item(identifier: &str, item: PluginMenuItem) -> Entry<Action> {
@@ -504,12 +531,22 @@ mod tests {
     use super::*;
     use slint::{ModelRc, VecModel};
 
-    fn titles<A>(entries: Vec<Entry<A>>) -> Vec<String> {
+    fn titles<A>(entries: &[Entry<A>]) -> Vec<&str> {
         entries
-            .into_iter()
+            .iter()
             .filter_map(|entry| match entry {
-                Entry::Item { title, .. } => Some(title),
-                Entry::Separator => None,
+                Entry::Item { title, .. } => Some(title.as_str()),
+                _ => None,
+            })
+            .collect()
+    }
+
+    fn headings<A>(entries: &[Entry<A>]) -> Vec<&str> {
+        entries
+            .iter()
+            .filter_map(|entry| match entry {
+                Entry::Heading(title) => Some(title.as_str()),
+                _ => None,
             })
             .collect()
     }
@@ -519,6 +556,7 @@ mod tests {
     -> Result<(), slint::PlatformError> {
         i_slint_backend_testing::init_no_event_loop();
         let app = PlayerWindow::new()?;
+        slint::select_bundled_translation("en").unwrap();
         app.global::<PlayerSidebarState>().set_leading_sidebar(4);
         let catalog = app.global::<PlayerCatalogState>();
         catalog.set_playlist(ModelRc::new(VecModel::from(
@@ -532,6 +570,7 @@ mod tests {
             .map(|(token, path)| crate::CatalogRow {
                 token: token.into(),
                 path: path.into(),
+                label: path.into(),
                 ..Default::default()
             })
             .collect::<Vec<_>>(),
@@ -557,10 +596,22 @@ mod tests {
         );
         assert_eq!(mixed.selection, [0, 1, 2, 3]);
         assert!(mixed.current(&app));
-        let offered = titles(mixed.entries(&app, Vec::new()));
+        let mixed_entries = mixed.entries(&app, Vec::new());
+        assert_eq!(
+            headings(&mixed_entries),
+            [
+                "4 Items",
+                "Playback",
+                "Edit",
+                "Network Resources",
+                "File Operations",
+                "Playlist"
+            ]
+        );
+        let offered = titles(&mixed_entries);
         let external = offered
             .iter()
-            .position(|item| item == "Open in Browser")
+            .position(|item| *item == "Open in Browser")
             .unwrap();
         assert_eq!(
             offered[external..external + 4],
@@ -574,14 +625,64 @@ mod tests {
         interaction.set_selected_playlist_tokens(ModelRc::default());
         assert!(!mixed.current(&app));
         let stream = make_request("4");
-        let offered = titles(stream.entries(&app, Vec::new()));
-        assert!(offered.iter().any(|title| title == "Copy URL"));
-        assert!(!offered.iter().any(|title| title == "Open in Browser"));
+        let stream_entries = stream.entries(&app, Vec::new());
+        assert_eq!(
+            headings(&stream_entries),
+            [
+                "rtsp://example.test/live",
+                "Playback",
+                "Edit",
+                "Network Resources",
+                "Playlist"
+            ]
+        );
+        let offered = titles(&stream_entries);
+        assert!(offered.contains(&"Copy URL"));
+        assert!(!offered.contains(&"Open in Browser"));
 
         let mut last = catalog.get_playlist().row_data(3).unwrap();
         last.path = "rtsp://example.test/new".into();
         catalog.get_playlist().set_row_data(3, last);
         assert!(!stream.current(&app));
+        Ok(())
+    }
+
+    #[test]
+    fn playlist_labels_and_plural_forms_follow_the_active_locale()
+    -> Result<(), Box<dyn std::error::Error>> {
+        i_slint_backend_testing::init_no_event_loop();
+        let app = PlayerWindow::new()?;
+        let text = app.global::<PlaylistMenuText>();
+        for (locale, heading, counts) in [
+            ("en", "Sorting", ["2 Items", "5 Items", "24 Items"]),
+            (
+                "ru",
+                "Сортировка",
+                ["2 элемента", "5 элементов", "24 элемента"],
+            ),
+            ("ar", "الفرز", ["عنصران", "5 عناصر", "24 عنصرًا"]),
+        ] {
+            slint::select_bundled_translation(locale)?;
+            let sort = footer_entries(&app, PlaylistFooterMenu::Sort);
+            assert_eq!(headings(&sort), [heading]);
+            let order: Vec<_> = sort
+                .iter()
+                .filter_map(|entry| match entry {
+                    Entry::Item {
+                        target: Target::Action(FooterAction::Sort(index)),
+                        enabled: true,
+                        ..
+                    } => Some(*index),
+                    _ => None,
+                })
+                .collect();
+            assert_eq!(order, [0, 1, 2, 3]);
+            assert_eq!(
+                [2, 5, 24].map(|count| text.invoke_selected_items(count)),
+                counts
+            );
+        }
+        slint::select_bundled_translation("en")?;
         Ok(())
     }
 }

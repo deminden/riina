@@ -5,7 +5,7 @@ export enum PlaylistPopupInput { hover, choose, previous, next, first, last, bac
 export struct PlaylistPopupBounds { x: float, y: float, width: float, height: float }
 export struct PlaylistPopupRow {
     title: string, shortcut: string, height: float, separator: bool, enabled: bool, checkable: bool, checked: bool,
-    submenu: bool, highlighted: bool,
+    submenu: bool, highlighted: bool, heading: bool,
 }
 export struct PlaylistPopupPanel {
     bounds: PlaylistPopupBounds, content-height: float, reveal: float, reveal-serial: int,
@@ -92,7 +92,18 @@ component PopupPanel inherits Rectangle {
                     x: 6px; y: 3px; width: parent.width - 12px; height: 1px;
                     background: Theme.playlist-sort-border(root.dark);
                 }
-                if !row.separator : HorizontalLayout {
+                if row.heading : Text {
+                    x: 6px; width: parent.width - 12px;
+                    text: row.title;
+                    font-size: 11px;
+                    font-weight: 600;
+                    overflow: elide;
+                    vertical-alignment: center;
+                    color: Theme.playlist-sort-caption(root.dark);
+                    accessible-role: text;
+                    accessible-label: row.title;
+                }
+                if !row.separator && !row.heading : HorizontalLayout {
                     padding-left: 6px; padding-right: 6px; spacing: 5px;
                     accessible-role: button;
                     accessible-label: row.title;
@@ -121,7 +132,7 @@ component PopupPanel inherits Rectangle {
                         color: Theme.player-dialog-button-text(root.dark); }
                 }
                 TouchArea {
-                    enabled: !row.separator;
+                    enabled: !row.separator && !row.heading;
                     changed has-hover => {
                         if self.has-hover {
                             PlaylistPluginPopupState.input(PlaylistPopupInput.hover, root.panel-index,

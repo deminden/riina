@@ -244,8 +244,15 @@ worktrees without reusing an earlier checkout's test scope. Runtime media
 fixtures and Windows pixel baselines also use the active worktree.
 Use `cargo xtask check` at integration points for the full local gate, including
 the browser, Python, parity, fixture and asset checks. This group runs alongside
-Rust linting and tests. Run `cargo xtask native` for the native
-engine suite with null audio output. It selects the native test target and reuses
+Rust linting and tests.
+
+For local Linux checks in WSL, keep `CARGO_TARGET_DIR` on the Linux filesystem
+and reuse it across batches. Large incremental compiler graphs and linker
+inputs take longer to write and read on a mounted Windows drive.
+See [Microsoft's WSL file storage guidance](https://learn.microsoft.com/windows/wsl/filesystems).
+
+Run `cargo xtask native` for the native engine suite with null audio output.
+It selects the native test target and reuses
 the harness built by the workspace gate. When selecting a Cargo build target
 explicitly, use the same `CARGO_BUILD_TARGET` for both batches to reuse that
 harness. Tests in `crates/mpv/tests/native/` are

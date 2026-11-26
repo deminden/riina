@@ -109,7 +109,7 @@ fn show_client<A: 'static>(
 enum Node<A> {
     Action(Option<A>),
     Branch(usize),
-    Separator,
+    Static,
 }
 
 struct Group<A> {
@@ -124,10 +124,19 @@ impl<A> Group<A> {
             .into_iter()
             .map(|entry| match entry {
                 Entry::Separator => (
-                    Node::Separator,
+                    Node::Static,
                     PlaylistPopupRow {
                         separator: true,
                         height: SEPARATOR_HEIGHT,
+                        ..Default::default()
+                    },
+                ),
+                Entry::Heading(title) => (
+                    Node::Static,
+                    PlaylistPopupRow {
+                        title: title.into(),
+                        heading: true,
+                        height: ITEM_HEIGHT,
                         ..Default::default()
                     },
                 ),
@@ -410,7 +419,7 @@ mod tests {
     use std::cell::Cell;
 
     #[test]
-    fn keyboard_crosses_nested_playlist_menus_and_skips_disabled_items()
+    fn keyboard_crosses_nested_playlist_menus_and_skips_headings_and_disabled_items()
     -> Result<(), Box<dyn std::error::Error>> {
         i_slint_backend_testing::init_no_event_loop();
         let app = PlayerWindow::new()?;
@@ -436,6 +445,7 @@ mod tests {
             target: Target::Action(action),
         };
         let entries = vec![
+            Entry::Heading("Playback".into()),
             leaf("Disabled", false, 0),
             Entry::Separator,
             Entry::Item {
@@ -472,6 +482,9 @@ mod tests {
         let root = popup.get_panels().row_data(0).ok_or("Missing root menu")?;
         assert!(root.bounds.x + root.bounds.width <= 390.0);
         assert!(root.bounds.y + root.bounds.height <= 390.0);
+        let heading = root.rows.row_data(0).ok_or("Missing section heading")?;
+        assert!(heading.heading);
+        assert!(!heading.enabled);
 
         key(Key::DownArrow);
         key(Key::RightArrow);

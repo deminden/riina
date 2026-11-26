@@ -93,6 +93,9 @@ Implementation does not imply every state or platform is verified.
 - **Playlist editing:** the sidebar and Music Mode share the playlist
   controls. Add opens the file and URL choices, with a separate folder choice
   on Windows and Linux. Sort opens the four filename and path orders.
+  The row menu shows the selected filename or item count and groups the
+  available commands under headings. Sort and row menus localize built-in
+  labels in English, Russian and Arabic.
   Transient add and clear feedback follows native command replies. Clearing
   retains the current item and retires pending sibling discovery. A single-file
   open can discover siblings around the current item. Navigating the resulting

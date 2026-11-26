@@ -6,7 +6,9 @@ use objc2::{
     runtime::NSObject, sel,
 };
 use objc2_app_kit::{NSControlStateValueOn, NSMenu, NSMenuItem};
-use objc2_foundation::{NSObjectProtocol, NSPoint, NSString};
+use objc2_foundation::{
+    NSObjectProtocol, NSOperatingSystemVersion, NSPoint, NSProcessInfo, NSString,
+};
 use slint::{LogicalPosition, Window, winit_030::WinitWindowAccessor};
 use std::cell::Cell;
 
@@ -78,16 +80,22 @@ fn build<A>(
     let menu = NSMenu::initWithTitle(NSMenu::alloc(main_thread), &empty);
     menu.setAutoenablesItems(false);
     for entry in entries {
-        let Entry::Item {
-            title,
-            enabled,
-            checked,
-            target,
-            ..
-        } = entry
-        else {
-            menu.addItem(&NSMenuItem::separatorItem(main_thread));
-            continue;
+        let (title, enabled, checked, target) = match entry {
+            Entry::Separator => {
+                menu.addItem(&NSMenuItem::separatorItem(main_thread));
+                continue;
+            }
+            Entry::Heading(title) => {
+                menu.addItem(&heading(main_thread, &title));
+                continue;
+            }
+            Entry::Item {
+                title,
+                enabled,
+                checked,
+                target,
+                ..
+            } => (title, enabled, checked, target),
         };
         let title = NSString::from_str(&title);
         // SAFETY: this item starts without an action and owns its copied strings.
@@ -120,4 +128,27 @@ fn build<A>(
         menu.addItem(&item);
     }
     menu
+}
+
+fn heading(main_thread: MainThreadMarker, title: &str) -> Retained<NSMenuItem> {
+    let title = NSString::from_str(title);
+    let version = NSOperatingSystemVersion {
+        majorVersion: 14,
+        minorVersion: 0,
+        patchVersion: 0,
+    };
+    if NSProcessInfo::processInfo().isOperatingSystemAtLeastVersion(version) {
+        return NSMenuItem::sectionHeaderWithTitle(&title, main_thread);
+    }
+    // SAFETY: the disabled item only presents the title and has no action.
+    let item = unsafe {
+        NSMenuItem::initWithTitle_action_keyEquivalent(
+            NSMenuItem::alloc(main_thread),
+            &title,
+            None,
+            &NSString::from_str(""),
+        )
+    };
+    item.setEnabled(false);
+    item
 }

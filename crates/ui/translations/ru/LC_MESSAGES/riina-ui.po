@@ -2684,3 +2684,87 @@ msgstr "Два значения или больше"
 
 msgid "Video Panel"
 msgstr "Панель видео"
+
+msgid "Playlist menu"
+msgstr "Меню плейлиста"
+
+msgid "Sorting"
+msgstr "Сортировка"
+
+msgid "Network Resources"
+msgstr "Сетевые ресурсы"
+
+msgid "File Operations"
+msgstr "Операции с файлами"
+
+msgid "Add File…"
+msgstr "Добавить файл…"
+
+msgid "Add Folder…"
+msgstr "Добавить папку…"
+
+msgid "Add URL…"
+msgstr "Добавить адрес…"
+
+msgid "Filename Ascending"
+msgstr "Имя файла по возрастанию"
+
+msgid "Filename Descending"
+msgstr "Имя файла по убыванию"
+
+msgid "File Path Ascending"
+msgstr "Путь к файлу по возрастанию"
+
+msgid "File Path Descending"
+msgstr "Путь к файлу по убыванию"
+
+msgid "Play Next"
+msgstr "Воспроизвести следующим"
+
+msgid "Move Up"
+msgstr "Переместить вверх"
+
+msgid "Move Down"
+msgstr "Переместить вниз"
+
+msgid "Add Subtitle…"
+msgstr "Добавить субтитры…"
+
+msgid "Wrong Subtitle"
+msgstr "Неверные субтитры"
+
+msgid "Open in Browser"
+msgstr "Открыть в браузере"
+
+msgid "Copy URL"
+msgstr "Скопировать адрес"
+
+msgid "Copy URLs"
+msgstr "Скопировать адреса"
+
+msgid "Subtitles ({} loaded)"
+msgstr "Субтитры (загружено: {})"
+
+msgid "Recycle Bin"
+msgstr "Корзина"
+
+msgid "Trash"
+msgstr "Корзина"
+
+msgid "Move Selected Files to {}"
+msgstr "Переместить выбранные файлы в «{}»"
+
+msgid "Move to {}"
+msgstr "Переместить в «{}»"
+
+msgid "Show in Finder"
+msgstr "Показать в Finder"
+
+msgid "Show in Explorer"
+msgstr "Показать в Проводнике"
+
+msgid "{n} Item"
+msgid_plural "{n} Items"
+msgstr[0] "{n} элемент"
+msgstr[1] "{n} элемента"
+msgstr[2] "{n} элементов"

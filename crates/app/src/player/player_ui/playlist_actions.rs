@@ -22,9 +22,6 @@ pub(super) fn install(
     pending_navigation: &PendingNavigation,
     capture_transition_first: bool,
 ) {
-    let interaction = app.global::<PlaylistInteraction>();
-    interaction
-        .set_reveal_action_label(format!("Show in {}", app.get_current_file_manager_name()).into());
     install_actions(
         app,
         command_sender,

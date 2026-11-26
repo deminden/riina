@@ -651,6 +651,12 @@ availability comes from that selection. Copy URLs preserves the playlist
 order of supported stream URLs. The browser launcher receives eligible HTTP
 and HTTPS URLs. Both commands apply when the selection also contains files.
 
+The player builds localized titles from the displayed filename or selection
+count. It supplies section headings as distinct entries without actions.
+AppKit uses native section headers on macOS 14 and later. Older AppKit menus,
+Win32 and GTK use disabled labels. The in-window popup exposes headings as
+static text and skips them during keyboard traversal.
+
 Built-in actions share the presentation path for plugin contributions. A click
 below the rows passes an empty selection to each builder. The plugin host
 starts builders in the player realms and gathers their replies under one

@@ -17,6 +17,7 @@ pub(crate) const MIXED_PLAYLIST_PICKER: bool = cfg!(target_os = "macos");
 #[derive(Clone)]
 pub(crate) enum Entry<A> {
     Separator,
+    Heading(String),
     Item {
         title: String,
         shortcut: String,
@@ -42,7 +43,7 @@ pub(crate) fn dismiss(app: &PlayerWindow) {
 pub(crate) fn popup<A: Clone + 'static>(
     app: &PlayerWindow,
     position: LogicalPosition,
-    label: &'static str,
+    label: &str,
     entries: Vec<Entry<A>>,
     selected: impl FnOnce(A) + 'static,
 ) {

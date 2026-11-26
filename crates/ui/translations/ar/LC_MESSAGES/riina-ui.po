@@ -2687,3 +2687,90 @@ msgstr "قيمتان أو أكثر"
 
 msgid "Video Panel"
 msgstr "لوحة الفيديو"
+
+msgid "Playlist menu"
+msgstr "قائمة إجراءات التشغيل"
+
+msgid "Sorting"
+msgstr "الفرز"
+
+msgid "Network Resources"
+msgstr "موارد الشبكة"
+
+msgid "File Operations"
+msgstr "عمليات الملفات"
+
+msgid "Add File…"
+msgstr "إضافة ملف…"
+
+msgid "Add Folder…"
+msgstr "إضافة مجلد…"
+
+msgid "Add URL…"
+msgstr "إضافة رابط…"
+
+msgid "Filename Ascending"
+msgstr "اسم الملف تصاعديًا"
+
+msgid "Filename Descending"
+msgstr "اسم الملف تنازليًا"
+
+msgid "File Path Ascending"
+msgstr "مسار الملف تصاعديًا"
+
+msgid "File Path Descending"
+msgstr "مسار الملف تنازليًا"
+
+msgid "Play Next"
+msgstr "تشغيل تاليًا"
+
+msgid "Move Up"
+msgstr "نقل لأعلى"
+
+msgid "Move Down"
+msgstr "نقل لأسفل"
+
+msgid "Add Subtitle…"
+msgstr "إضافة ترجمة…"
+
+msgid "Wrong Subtitle"
+msgstr "ترجمة غير صحيحة"
+
+msgid "Open in Browser"
+msgstr "فتح في المتصفح"
+
+msgid "Copy URL"
+msgstr "نسخ الرابط"
+
+msgid "Copy URLs"
+msgstr "نسخ الروابط"
+
+msgid "Subtitles ({} loaded)"
+msgstr "الترجمة (تم تحميل {})"
+
+msgid "Recycle Bin"
+msgstr "سلة المحذوفات"
+
+msgid "Trash"
+msgstr "المهملات"
+
+msgid "Move Selected Files to {}"
+msgstr "نقل الملفات المحددة إلى {}"
+
+msgid "Move to {}"
+msgstr "نقل إلى {}"
+
+msgid "Show in Finder"
+msgstr "إظهار في Finder"
+
+msgid "Show in Explorer"
+msgstr "إظهار في مستكشف الملفات"
+
+msgid "{n} Item"
+msgid_plural "{n} Items"
+msgstr[0] "{n} عنصر"
+msgstr[1] "عنصر واحد"
+msgstr[2] "عنصران"
+msgstr[3] "{n} عناصر"
+msgstr[4] "{n} عنصرًا"
+msgstr[5] "{n} عنصر"

@@ -127,16 +127,24 @@ fn build<A: 'static, F: FnOnce(A) + 'static>(
 ) -> gtk::Menu {
     let menu = gtk::Menu::new();
     for entry in entries {
-        let Entry::Item {
-            title,
-            enabled,
-            checked,
-            target,
-            ..
-        } = entry
-        else {
-            menu.append(&gtk::SeparatorMenuItem::new());
-            continue;
+        let (title, enabled, checked, target) = match entry {
+            Entry::Separator => {
+                menu.append(&gtk::SeparatorMenuItem::new());
+                continue;
+            }
+            Entry::Heading(title) => {
+                let item = gtk::MenuItem::with_label(&title);
+                item.set_sensitive(false);
+                menu.append(&item);
+                continue;
+            }
+            Entry::Item {
+                title,
+                enabled,
+                checked,
+                target,
+                ..
+            } => (title, enabled, checked, target),
         };
         let item = if checked {
             let item = gtk::CheckMenuItem::with_label(&title);

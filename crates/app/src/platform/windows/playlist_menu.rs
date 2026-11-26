@@ -77,16 +77,25 @@ impl Menu {
     }
 
     fn append<A>(&self, entry: Entry<A>, actions: &mut Vec<A>) -> windows::core::Result<()> {
-        let Entry::Item {
-            title,
-            enabled,
-            checked,
-            target,
-            ..
-        } = entry
-        else {
-            // SAFETY: separator entries require no command identifier or string.
-            return unsafe { AppendMenuW(self.0, MF_SEPARATOR, 0, PCWSTR::null()) };
+        let (title, enabled, checked, target) = match entry {
+            Entry::Separator => {
+                // SAFETY: separators require no command identifier or string.
+                return unsafe { AppendMenuW(self.0, MF_SEPARATOR, 0, PCWSTR::null()) };
+            }
+            Entry::Heading(title) => {
+                let label = menu_label(&title);
+                // SAFETY: the menu copies the terminated label before returning.
+                return unsafe {
+                    AppendMenuW(self.0, MF_STRING | MF_GRAYED, 0, PCWSTR(label.as_ptr()))
+                };
+            }
+            Entry::Item {
+                title,
+                enabled,
+                checked,
+                target,
+                ..
+            } => (title, enabled, checked, target),
         };
         let mut flags = MF_STRING;
         if !enabled {
@@ -95,13 +104,8 @@ impl Menu {
         if checked {
             flags |= MF_CHECKED;
         }
-        // Ampersands in plugin titles are literal text rather than Win32 mnemonics.
-        let label = title
-            .replace('&', "&&")
-            .encode_utf16()
-            .chain([0])
-            .collect::<Vec<_>>();
-        let label = PCWSTR(label.as_ptr());
+        let text = menu_label(&title);
+        let label = PCWSTR(text.as_ptr());
         match target {
             Target::Action(action) => {
                 actions.push(action);
@@ -120,9 +124,57 @@ impl Menu {
     }
 }
 
+fn menu_label(title: &str) -> Vec<u16> {
+    // Ampersands are literal text rather than Win32 mnemonics.
+    title.replace('&', "&&").encode_utf16().chain([0]).collect()
+}
+
 impl Drop for Menu {
     fn drop(&mut self) {
         // SAFETY: Menu owns the handle and its attached submenus.
         let _ = unsafe { DestroyMenu(self.0) };
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use windows::Win32::UI::WindowsAndMessaging::{
+        GetMenuItemID, GetMenuState, GetMenuStringW, MF_BYPOSITION,
+    };
+
+    #[test]
+    fn headings_are_disabled_and_do_not_consume_action_ids() -> windows::core::Result<()> {
+        let mut actions = Vec::new();
+        let menu = Menu::new(
+            vec![
+                Entry::Heading("First & Second".into()),
+                Entry::Item {
+                    title: "Play".into(),
+                    shortcut: String::new(),
+                    enabled: true,
+                    checkable: false,
+                    checked: false,
+                    target: Target::Action(7),
+                },
+            ],
+            &mut actions,
+        )?;
+        let mut label = [0; 64];
+        // SAFETY: both entries and the label buffer remain live during inspection.
+        let (heading_state, item_id, length) = unsafe {
+            (
+                GetMenuState(menu.0, 0, MF_BYPOSITION),
+                GetMenuItemID(menu.0, 1),
+                GetMenuStringW(menu.0, 0, Some(&mut label), MF_BYPOSITION),
+            )
+        };
+        assert_ne!(heading_state, u32::MAX);
+        assert_ne!(heading_state & MF_GRAYED.0, 0);
+        assert_eq!(item_id, 1);
+        assert_eq!(actions, [7]);
+        let label = String::from_utf16(&label[..usize::try_from(length).unwrap()]).unwrap();
+        assert_eq!(label, "First && Second");
+        Ok(())
     }
 }
