@@ -156,19 +156,10 @@ pub(super) struct HistoryObservation {
     pub(super) session_id: u64,
     pub(super) plugin: Option<PluginHostHandle>,
     pub(super) last_plugin_context: Mutex<PluginPlayerFileContext>,
-    pub(super) last_progress_path_policy: Mutex<Option<bool>>,
 }
 
 impl HistoryObservation {
     fn publish(&self, app: &slint::Weak<PlayerWindow>, state: &Playback) {
-        if let Some(ignore_path) = state.ignore_path_in_watch_later_config {
-            let mut previous = lock(&self.last_progress_path_policy);
-            if *previous != Some(ignore_path) {
-                *previous = Some(ignore_path);
-                drop(previous);
-                crate::playback_history::progress::observe_path_policy(&self.history, ignore_path);
-            }
-        }
         let (plugin_context, history_error) = crate::plugin_snapshot::observe_playback(
             state,
             &self.recent_documents,

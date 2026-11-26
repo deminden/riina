@@ -181,25 +181,6 @@ pub(crate) fn thumbnail_cache_directory() -> Result<std::path::PathBuf, String> 
     Ok(cache.join("riina").join("thumb_cache"))
 }
 
-pub(crate) fn clear_playback_history(preferences_path: &Path) -> Result<usize, String> {
-    let mut removed = 0;
-    crate::preference_store::update(
-        preferences_path,
-        &riina_core::Preferences::default(),
-        |preferences| {
-            let history_path =
-                crate::playback_history_store::path_for_preferences(preferences_path);
-            removed =
-                crate::playback_history_store::load(&history_path, &preferences.playback_history)?
-                    .len();
-            crate::playback_history_store::save(&history_path, &[])?;
-            preferences.playback_history.clear();
-            Ok(())
-        },
-    )?;
-    Ok(removed)
-}
-
 fn clear_watch_later(directory: &Path) -> io::Result<u64> {
     if directory
         .file_name()
@@ -394,44 +375,48 @@ mod tests {
                 title: "movie".into(),
                 position: 12.0,
             }],
-            playback_history: vec![riina_core::playback_history::Entry {
-                path: "file:///C:/media/movie.mkv".into(),
-                title: None,
-                watch_later_key: None,
-                date_ms: 1_750_000_000_000,
-                progress: Some(12.0),
-                duration: 90.0,
-            }],
             ..riina_core::Preferences::default()
         };
-        let mut encoded = serde_json::to_value(&preferences).unwrap();
-        encoded["playback_history"] = serde_json::to_value(&preferences.playback_history).unwrap();
-        fs::write(&path, serde_json::to_vec(&encoded).unwrap()).unwrap();
-
-        assert_eq!(clear_playback_history(&path).unwrap(), 1);
-        let saved = riina_core::Preferences::parse(&fs::read_to_string(&path).unwrap()).unwrap();
-        assert!(saved.playback_history.is_empty());
-        assert_eq!(saved.recent_media.len(), 1);
-        assert_eq!(saved.volume, 63.0);
-        assert!(
-            crate::playback_history_store::load(
-                &crate::playback_history_store::path_for_preferences(&path),
-                &[],
-            )
-            .unwrap()
-            .is_empty()
+        let encoded = serde_json::to_vec(&preferences).unwrap();
+        fs::write(&path, &encoded).unwrap();
+        let archive = crate::playback_history_store::path_for_preferences(&path);
+        let entries = vec![riina_core::playback_history::Entry {
+            path: "file:///C:/media/movie.mkv".into(),
+            title: None,
+            watch_later_key: None,
+            date_ms: 1_750_000_000_000,
+            progress: Some(12.0),
+            duration: 90.0,
+        }];
+        crate::playback_history_store::save(&archive, &entries).unwrap();
+        let mut history = crate::playback_history::PlaybackHistoryState::with_persistence(
+            entries,
+            Some(archive.clone()),
+            None,
         );
+        assert_eq!(history.clear(&path).unwrap(), 1);
+        assert!(history.entries().is_empty());
+        assert!(
+            crate::playback_history_store::load(&archive)
+                .unwrap()
+                .is_empty()
+        );
+        assert_eq!(fs::read(path).unwrap(), encoded);
     }
 
     #[test]
-    fn clear_history_does_not_replace_unreadable_preferences() {
+    fn clear_history_does_not_replace_an_unreadable_archive() {
         let directory = TempDir::new("utilities").unwrap();
         let root = directory.path();
         let path = root.join("preferences.json");
-        let original = b"{ invalid settings";
-        fs::write(&path, original).unwrap();
+        let original = b"{ invalid history";
+        let archive = crate::playback_history_store::path_for_preferences(&path);
+        fs::write(&archive, original).unwrap();
 
-        assert!(clear_playback_history(&path).is_err());
-        assert_eq!(fs::read(&path).unwrap(), original);
+        let mut history = crate::playback_history::PlaybackHistoryState::default();
+        let revision = history.revision();
+        assert!(history.clear(&path).is_err());
+        assert_eq!(history.revision(), revision);
+        assert_eq!(fs::read(archive).unwrap(), original);
     }
 }

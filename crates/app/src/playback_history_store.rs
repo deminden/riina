@@ -32,16 +32,7 @@ pub(crate) fn progress_from_watch_later(
 }
 
 pub(super) fn progress_for_key(key: &WatchLaterKey, watch_later_directory: &Path) -> Option<f64> {
-    let watch_later_path = watch_later_directory.join(key.as_str());
-    let file = std::fs::File::open(&watch_later_path)
-        .or_else(|error| {
-            if error.kind() != ErrorKind::NotFound {
-                return Err(error);
-            }
-            // Keep reading files from case-insensitive profiles migrated to a case-sensitive host.
-            std::fs::File::open(watch_later_directory.join(key.as_str().to_ascii_lowercase()))
-        })
-        .ok()?;
+    let file = std::fs::File::open(watch_later_directory.join(key.as_str())).ok()?;
     // mpv can prefix its options with a 1023-byte filename comment. The
     // truncated name need not be valid UTF-8, but the start value must be.
     const MAX_FILENAME_LINE: usize = 2 + 1023 + 2;
@@ -106,13 +97,6 @@ pub(super) fn mpv_url_scheme(reference: &str) -> Option<&str> {
         .then_some(scheme)
 }
 
-#[cfg(test)]
-pub(crate) fn md5_hex(input: &[u8]) -> String {
-    WatchLaterKey::from_digest(Md5::digest(input).into())
-        .as_str()
-        .to_ascii_lowercase()
-}
-
 fn local_path_identifier(media_reference: &str, ignore_path: bool) -> Option<&str> {
     if ignore_path {
         Path::new(media_reference).file_name()?.to_str()
@@ -121,16 +105,10 @@ fn local_path_identifier(media_reference: &str, ignore_path: bool) -> Option<&st
     }
 }
 
-pub(crate) fn load(path: &Path, legacy_entries: &[Entry]) -> Result<Vec<Entry>, String> {
+pub(crate) fn load(path: &Path) -> Result<Vec<Entry>, String> {
     let text = match std::fs::read_to_string(path) {
         Ok(text) => text,
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
-            return Ok(legacy_entries
-                .iter()
-                .filter(|entry| entry.is_valid())
-                .cloned()
-                .collect());
-        }
+        Err(error) if error.kind() == ErrorKind::NotFound => return Ok(Vec::new()),
         Err(error) => return Err(error.to_string()),
     };
     let archive: Archive = serde_json::from_str(&text).map_err(|error| error.to_string())?;
@@ -144,6 +122,14 @@ pub(crate) fn load(path: &Path, legacy_entries: &[Entry]) -> Result<Vec<Entry>, 
         return Err("Playback history contains invalid entries".into());
     }
     Ok(archive.entries)
+}
+
+pub(super) fn clear(path: &Path) -> Result<usize, String> {
+    let removed = load(path)?.len();
+    if removed > 0 {
+        save(path, &[])?;
+    }
+    Ok(removed)
 }
 
 pub(crate) fn save(path: &Path, entries: &[Entry]) -> Result<(), String> {
@@ -179,15 +165,15 @@ mod tests {
     }
 
     #[test]
-    fn archive_is_atomic_json_with_versioned_load_and_legacy_migration() {
+    fn archive_is_atomic_json_with_versioned_load() {
         let directory = TempDir::new("riina-playback-history").unwrap();
         let path = directory.path().join("history.json");
-        let legacy = [entry("legacy.mkv", 1)];
-        assert_eq!(load(&path, &legacy).unwrap(), legacy);
+        assert!(load(&path).unwrap().is_empty());
+        assert!(!path.exists());
 
         let entries = [entry("loaded.mkv", 2)];
         save(&path, &entries).unwrap();
-        assert_eq!(load(&path, &legacy).unwrap(), entries);
+        assert_eq!(load(&path).unwrap(), entries);
         assert!(
             std::fs::read_to_string(&path)
                 .unwrap()
@@ -200,17 +186,17 @@ mod tests {
         let directory = TempDir::new("riina-playback-history").unwrap();
         let path = directory.path().join("history.json");
         std::fs::write(&path, r#"{"schema_version":2,"entries":[]}"#).unwrap();
-        assert!(load(&path, &[]).unwrap_err().contains("Unsupported"));
+        assert!(load(&path).unwrap_err().contains("Unsupported"));
         std::fs::write(
             &path,
             r#"{"schema_version":1,"entries":[{"path":"","date_ms":0,"progress":null,"duration":0.0}]}"#,
         )
         .unwrap();
-        assert!(load(&path, &[]).unwrap_err().contains("invalid"));
+        assert!(load(&path).unwrap_err().contains("invalid"));
     }
 
     #[test]
-    fn old_entries_need_no_key_and_a_key_cannot_name_an_arbitrary_file() {
+    fn a_watch_later_key_cannot_name_an_arbitrary_file() {
         let directory = TempDir::new("riina-history-key-archive").unwrap();
         let path = directory.path().join("history.json");
         let mut document = serde_json::json!({
@@ -218,11 +204,11 @@ mod tests {
             "entries": [{"path": "sample.mkv", "date_ms": 1, "progress": null, "duration": 90.0}]
         });
         std::fs::write(&path, document.to_string()).unwrap();
-        assert!(load(&path, &[]).unwrap()[0].watch_later_key.is_none());
+        assert!(load(&path).unwrap()[0].watch_later_key.is_none());
 
         document["entries"][0]["watch_later_key"] = "5d41402abc4b2a76b9719d911017c592".into();
         std::fs::write(&path, document.to_string()).unwrap();
-        let loaded = load(&path, &[]).unwrap();
+        let loaded = load(&path).unwrap();
         assert_eq!(
             loaded[0].watch_later_key.as_ref().unwrap().as_str(),
             "5D41402ABC4B2A76B9719D911017C592"
@@ -230,11 +216,7 @@ mod tests {
 
         document["entries"][0]["watch_later_key"] = "../history.json".into();
         std::fs::write(&path, document.to_string()).unwrap();
-        assert!(
-            load(&path, &[])
-                .unwrap_err()
-                .contains("invalid watch-later key")
-        );
+        assert!(load(&path).unwrap_err().contains("invalid watch-later key"));
     }
 
     #[test]
@@ -249,8 +231,10 @@ mod tests {
         let address = "https://MEDIA.example:443/play/../video.mkv?key=a%2Fb";
         for ignore_path in [false, true] {
             let remote = watch_later_file_path(address, &directory, ignore_path).unwrap();
-            let expected = md5_hex(address.as_bytes()).to_ascii_uppercase();
-            assert_eq!(remote.file_name().unwrap().to_string_lossy(), expected);
+            assert_eq!(
+                remote.file_name().unwrap(),
+                "9EF3174EA54291768A2DE5FFFB732535"
+            );
         }
 
         let first = watch_later_file_path("folder-a/video.mkv", &directory, true).unwrap();
@@ -275,11 +259,11 @@ mod tests {
         assert_eq!(from_path, from_url);
         assert_eq!(
             from_path.file_name().unwrap().to_string_lossy(),
-            md5_hex(native.as_bytes()).to_ascii_uppercase()
+            "55DBFAA262FAADDEB6E9FC56A2382DD5"
         );
         assert_ne!(
             from_path.file_name().unwrap().to_string_lossy(),
-            md5_hex(b"C:/Media/sample file.wav").to_ascii_uppercase()
+            "E72C0763AE1CAAED5E3554089B52054E"
         );
     }
 

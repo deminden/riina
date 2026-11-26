@@ -8,7 +8,7 @@ use std::{
     path::{Path, PathBuf},
     sync::{
         Arc, Mutex, OnceLock,
-        atomic::{AtomicBool, AtomicU64, Ordering},
+        atomic::{AtomicU64, Ordering},
     },
 };
 
@@ -16,8 +16,6 @@ static NEXT_HISTORY_SESSION_ID: AtomicU64 = AtomicU64::new(1);
 static SHARED_PLAYBACK_HISTORIES: OnceLock<
     Mutex<HashMap<PathBuf, Arc<Mutex<PlaybackHistoryState>>>>,
 > = OnceLock::new();
-static SHARED_HISTORY_MERGE_FLAGS: OnceLock<Mutex<HashMap<PathBuf, Arc<AtomicBool>>>> =
-    OnceLock::new();
 
 pub(crate) fn next_history_session_id() -> u64 {
     NEXT_HISTORY_SESSION_ID
@@ -44,17 +42,6 @@ pub(crate) fn shared_playback_history_state(
                 watch_later_directory,
             )))
         })
-        .clone()
-}
-
-pub(crate) fn shared_history_merge_flag(preferences_path: &Path) -> Arc<AtomicBool> {
-    let flags = SHARED_HISTORY_MERGE_FLAGS.get_or_init(|| Mutex::new(HashMap::new()));
-    let mut flags = flags
-        .lock()
-        .unwrap_or_else(std::sync::PoisonError::into_inner);
-    flags
-        .entry(preferences_path.to_path_buf())
-        .or_insert_with(|| Arc::new(AtomicBool::new(false)))
         .clone()
 }
 
@@ -113,13 +100,16 @@ impl PlaybackHistoryState {
         self.revision = self.revision.wrapping_add(1);
     }
 
-    pub(crate) fn clear(&mut self) {
+    pub(crate) fn clear(&mut self, preferences_path: &Path) -> Result<usize, String> {
+        let path = playback_history_store::path_for_preferences(preferences_path);
+        let removed = playback_history_store::clear(&path)?;
         self.entries.clear();
         for visit in self.observed_sessions.values_mut() {
             visit.recorded_path = None;
         }
         self.progress.cancel();
         self.revision = self.revision.wrapping_add(1);
+        Ok(removed)
     }
 
     pub(crate) fn remove_paths<'a>(
@@ -220,7 +210,7 @@ impl PlaybackHistoryState {
         };
         let ignore_path = playback
             .ignore_path_in_watch_later_config
-            .unwrap_or_else(|| self.progress.path_policy());
+            .unwrap_or_default();
         let watch_later_key = playback_history_store::watch_later_key(&media.filename, ignore_path);
         let date_ms = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)

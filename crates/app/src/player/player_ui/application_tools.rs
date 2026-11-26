@@ -18,12 +18,8 @@ impl ApplicationServices {
             return Ok(());
         }
         let mut saved = loaded.preferences;
-        let subtitle_credentials = crate::online_subtitles_credentials::restore_preferences(
-            &mut saved,
-            loaded.source_text.as_deref(),
-            path,
-            loaded.recovery.is_none(),
-        );
+        let subtitle_credentials =
+            crate::online_subtitles_credentials::restore_preferences(&mut saved);
         let status = loaded
             .recovery
             .map(|recovery| recovery.notice())

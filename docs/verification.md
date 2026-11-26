@@ -6854,3 +6854,18 @@ The locked Windows workspace build, 35 focused Linux application tests, and
 strict workspace cross-Clippy for both Apple architectures passed. The new
 reader accepts archives without resume keys. Entries saved with a key require
 the updated reader.
+
+### Profile compatibility cleanup (2026-11-26)
+
+The Windows workspace gate passed with strict Clippy and 721 application unit
+tests. History tests cover archive reads, atomic clear and removal, unreadable
+archive preservation, and resume progress for rows with a recorded key. Clearing
+the archive preserves the exact Settings file bytes. The Windows credential
+store test still covers saving, loading and deleting a separate test credential.
+The locked Windows build, all 75 native Windows playback tests, and 44 focused
+Linux application tests passed. Strict workspace cross-Clippy passed for Apple
+Silicon and Intel.
+
+History stored only in old Settings files is outside the standalone archive.
+Subtitle credentials load from the system store. The settings parser uses the
+current names for the new-window shortcut and seek amount.

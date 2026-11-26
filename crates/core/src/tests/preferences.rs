@@ -2,8 +2,6 @@ use crate::*;
 
 #[test]
 fn unknown_root_preferences_do_not_block_launch_or_playback() {
-    // A newer install may have saved additive settings before an older
-    // executable is launched again; keep recognized values and defaults.
     let preferences = Preferences::parse(
         r#"{"volume":37,"unlock_window_aspect_ratio":false,"future_setting":{"mode":"auto"}}"#,
     )
@@ -11,7 +9,6 @@ fn unknown_root_preferences_do_not_block_launch_or_playback() {
     assert_eq!(preferences.volume, 37.0);
     assert!(!preferences.unlock_window_aspect_ratio);
 
-    // Forward compatibility must not weaken validation of known controls.
     assert!(Preferences::parse(r#"{"volume":"loud","future_setting":true}"#).is_err());
 }
 
@@ -236,14 +233,14 @@ fn control_preferences_keep_iina_defaults_and_round_trip_validated_values() {
     assert_eq!(legacy.controls, control_preferences::Settings::default());
 
     let selected = Preferences::parse(
-        r#"{"controls":{"single_click_action":"pause","vertical_scroll_action":"playback_speed","seek_sensitivity":4}}"#,
+        r#"{"controls":{"single_click_action":"pause","vertical_scroll_action":"playback_speed","relative_seek_amount":4}}"#,
     )
     .unwrap();
     assert_eq!(selected.controls.relative_seek_amount, 4);
     let restored = Preferences::parse(&serde_json::to_string(&selected).unwrap()).unwrap();
     assert_eq!(restored.controls, selected.controls);
 
-    assert!(Preferences::parse(r#"{"controls":{"seek_sensitivity":5}}"#).is_err());
+    assert!(Preferences::parse(r#"{"controls":{"relative_seek_amount":5}}"#).is_err());
     let renamed = Preferences::parse(r#"{"controls":{"relative_seek_amount":2}}"#).unwrap();
     assert_eq!(renamed.controls.relative_seek_amount, 2);
 }
@@ -827,34 +824,11 @@ fn recent_media_round_trips_and_rejects_invalid_history() {
 }
 
 #[test]
-fn playback_history_defaults_on_and_round_trips_independently_of_recent_media() {
-    let old_preferences = Preferences::parse("{}").unwrap();
-    assert!(old_preferences.record_playback_history);
-    assert!(old_preferences.playback_history.is_empty());
-
-    let item = playback_history::Entry {
-        path: "file:///C:/media/movie.mkv".into(),
-        title: None,
-        watch_later_key: None,
-        date_ms: 1_750_000_000_000,
-        progress: Some(12.5),
-        duration: 90.0,
-    };
-    let legacy = serde_json::json!({ "playback_history": [item] });
-    let parsed = Preferences::parse(&legacy.to_string()).unwrap();
-    assert_eq!(parsed.playback_history, [item]);
-    assert!(
-        serde_json::to_value(&parsed)
-            .unwrap()
-            .get("playback_history")
-            .is_none()
-    );
-    assert!(
-        Preferences::parse(
-            r#"{"playback_history":[{"path":"x","date_ms":1,"progress":-1.0,"duration":1.0}]}"#
-        )
-        .is_err()
-    );
+fn playback_history_preference_defaults_on_and_round_trips() {
+    assert!(Preferences::parse("{}").unwrap().record_playback_history);
+    let preferences = Preferences::parse(r#"{"record_playback_history":false}"#).unwrap();
+    let saved = serde_json::to_string(&preferences).unwrap();
+    assert!(!Preferences::parse(&saved).unwrap().record_playback_history);
 }
 
 #[test]
@@ -935,8 +909,9 @@ fn new_window_shortcut_remains_hidden_unless_the_profile_enables_it() {
             .get("enable_new_window_shortcut")
             .is_none()
     );
-    let imported: Preferences = serde_json::from_str(r#"{"enableCmdN":true}"#).unwrap();
-    assert!(imported.enable_new_window_shortcut);
-    let saved = serde_json::to_value(&imported).unwrap();
+    let enabled: Preferences =
+        serde_json::from_str(r#"{"enable_new_window_shortcut":true}"#).unwrap();
+    assert!(enabled.enable_new_window_shortcut);
+    let saved = serde_json::to_value(&enabled).unwrap();
     assert_eq!(saved["enable_new_window_shortcut"], true);
 }

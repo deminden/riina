@@ -136,14 +136,7 @@ fn clear_history(
         .lock()
         .map_err(|_| "playback history lock poisoned".to_owned())
         .and_then(|mut history| {
-            let removed = crate::utilities_preferences::clear_playback_history(
-                &context.archive.preferences_path,
-            )?;
-            history.clear();
-            context
-                .archive
-                .cleared
-                .store(true, std::sync::atomic::Ordering::Release);
+            let removed = history.clear(&context.archive.preferences_path)?;
             Ok((removed, history.entries().to_vec()))
         });
     match cleared {
@@ -186,10 +179,6 @@ fn remove_history_entries(
         .and_then(|mut history| {
             let removed = history.remove_paths(paths.iter().map(String::as_str))?;
             let sync_error = if removed > 0 {
-                connection
-                    .archive
-                    .cleared
-                    .store(true, std::sync::atomic::Ordering::Release);
                 let entries = history.entries().to_vec();
                 drop(history);
                 connection.sync_plugins(&entries).err()
@@ -299,7 +288,6 @@ mod tests {
                 None,
             ))),
             preferences_path: PathBuf::new(),
-            cleared: Arc::default(),
         };
         let connection = WindowConnection {
             archive,

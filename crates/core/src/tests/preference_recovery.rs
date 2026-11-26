@@ -38,10 +38,6 @@ fn invalid_sections_reset_independently_and_preserve_every_other_value() {
             "recent_open_documents",
             r#"[{"path":"","title":"no path","position":0}]"#,
         ),
-        (
-            "playback_history",
-            r#"[{"path":"","date_ms":0,"duration":0}]"#,
-        ),
         ("schema_version", "19"),
         ("volume", "1e999"),
         ("volume", "201"),
@@ -100,17 +96,6 @@ fn malformed_documents_use_defaults_and_report_one_document_rejection() {
         assert_eq!(rejected[0].key, "$");
         assert_strict_round_trip(&prefs, &Preferences::default());
     }
-}
-
-#[test]
-fn recovery_keeps_legacy_playback_history_for_migration() {
-    let (prefs, rejected) = Preferences::parse_lenient(
-        r#"{"volume":"bad","playback_history":[{"path":"film.mkv","date_ms":10,"duration":2}]}"#,
-    );
-    assert_eq!(rejected.len(), 1);
-    assert_eq!(rejected[0].key, "volume");
-    assert_eq!(prefs.playback_history[0].path, "film.mkv");
-    assert_strict_round_trip(&prefs, &Preferences::parse("{}").unwrap());
 }
 
 #[test]

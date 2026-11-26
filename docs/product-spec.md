@@ -214,7 +214,7 @@ maximum size, eviction, and invalidation. Avoid unlimited decoding jobs when the
 moves quickly across the timeline.
 
 Reproduce history, recent items, resume positions, clearing history, and the upstream
-privacy controls. Use transactional or atomic persistence and versioned migrations. Do
+privacy controls. Use transactional or atomic persistence and validate schema versions. Do
 not block startup on unreachable recent network paths. Do not persist sensitive URL
 tokens unnecessarily.
 
@@ -274,7 +274,7 @@ Port every active preference and its default, permissible values, dependencies,
 persistence rules, and restart requirements. Reproduce the pinned release's Settings
 organization and quick-settings layout rather than arranging controls into a new design.
 
-Model preferences with typed values, validation, schema versions, migration tests, and
+Model preferences with typed values, validation, schema versions, recovery tests, and
 atomic updates. Keep live backend state synchronized with settings where appropriate.
 Distinguish temporary per-file changes from persistent defaults.
 
@@ -390,7 +390,7 @@ Add SDR and HDR fixtures for the relevant tests. Native HDR, pass-through audio,
 hardware-specific behavior require appropriate hardware validation; an ordinary
 screenshot or headless CI job does not prove them.
 
-Write unit tests for commands, state transitions, preferences, migration, playlist
+Write unit tests for commands, state transitions, preferences, recovery, playlist
 order, resume logic, keybinding translation, URL/path validation, and parser behavior.
 Use deterministic clocks and controlled events where useful.
 

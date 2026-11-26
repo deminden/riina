@@ -12,8 +12,6 @@ type Archive = Arc<Mutex<PlaybackHistoryState>>;
 
 #[derive(Debug, Default)]
 pub(super) struct Refresh {
-    configured_policy: bool,
-    observed_policy: Option<bool>,
     epoch: u64,
     pending: bool,
     running: bool,
@@ -21,10 +19,6 @@ pub(super) struct Refresh {
 }
 
 impl Refresh {
-    pub(super) fn path_policy(&self) -> bool {
-        self.observed_policy.unwrap_or(self.configured_policy)
-    }
-
     pub(super) fn cancel(&mut self) {
         self.epoch = self.epoch.wrapping_add(1);
         self.pending = false;
@@ -45,11 +39,7 @@ impl Refresh {
 }
 
 pub(crate) fn refresh_on_open(archive: &Archive) {
-    let _ = request(archive, RefreshReason::Open);
-}
-
-pub(crate) fn observe_path_policy(archive: &Archive, ignore_path: bool) {
-    let _ = request(archive, RefreshReason::Observed { ignore_path });
+    let _ = request(archive);
 }
 
 pub(crate) fn files_cleared(preferences_path: &Path, all_removed: bool) {
@@ -58,50 +48,31 @@ pub(crate) fn files_cleared(preferences_path: &Path, all_removed: bool) {
     };
     let key = playback_history_store::path_for_preferences(preferences_path);
     let archive = lock(histories).get(&key).cloned();
-    if let Some(archive) = archive {
-        let _ = request(&archive, RefreshReason::FilesCleared { all_removed });
+    let Some(archive) = archive else { return };
+    if !all_removed {
+        let _ = request(&archive);
+        return;
+    }
+    let mut state = lock(&archive);
+    // A scan that already read a deleted position must never publish it.
+    state.progress.cancel();
+    if state.entries.iter().any(|entry| entry.progress.is_some()) {
+        for entry in &mut state.entries {
+            entry.progress = None;
+        }
+        state.files_changed();
     }
 }
 
-enum RefreshReason {
-    Open,
-    Observed { ignore_path: bool },
-    FilesCleared { all_removed: bool },
-}
-
-fn request(archive: &Archive, reason: RefreshReason) -> Option<background::TaskHandle<()>> {
+fn request(archive: &Archive) -> Option<background::TaskHandle<()>> {
     let mut state = lock(archive);
     let directory = state.watch_later_directory.clone()?;
-    let refresh = &mut state.progress;
-    match reason {
-        RefreshReason::Observed { ignore_path } => {
-            if refresh.observed_policy == Some(ignore_path) {
-                return None;
-            }
-            refresh.observed_policy = Some(ignore_path);
-            if state
-                .entries
-                .iter()
-                .all(|entry| entry.watch_later_key.is_some())
-            {
-                return None;
-            }
-        }
-        RefreshReason::Open => {}
-        RefreshReason::FilesCleared { all_removed: true } => {
-            // A scan that already read a deleted position must never publish it.
-            refresh.cancel();
-            if state.entries.iter().any(|entry| entry.progress.is_some()) {
-                for entry in &mut state.entries {
-                    entry.progress = None;
-                }
-                state.files_changed();
-            }
-            return None;
-        }
-        RefreshReason::FilesCleared { all_removed: false } => {}
-    }
-    if state.entries.is_empty() || !state.progress.schedule() {
+    if state
+        .entries
+        .iter()
+        .all(|entry| entry.watch_later_key.is_none())
+        || !state.progress.schedule()
+    {
         return None;
     }
     let shared = archive.clone();
@@ -121,20 +92,12 @@ fn request(archive: &Archive, reason: RefreshReason) -> Option<background::TaskH
 fn run(archive: &Archive, directory: &Path) {
     while let Some(scan) = Scan::take(archive) {
         let mut positions = HashMap::new();
-        let mut saved_positions = HashMap::new();
         for chunk in scan.entries.chunks(64) {
             if lock(archive).progress.epoch != scan.epoch {
                 break;
             }
-            for (path, recorded_key) in chunk {
-                let key = recorded_key.clone().or_else(|| {
-                    playback_history_store::watch_later_key(path, scan.legacy_ignore_path)
-                });
-                let position = key.and_then(|key| {
-                    *saved_positions.entry(key.clone()).or_insert_with(|| {
-                        playback_history_store::progress_for_key(&key, directory)
-                    })
-                });
+            for (path, key) in chunk {
+                let position = playback_history_store::progress_for_key(key, directory);
                 positions.insert(path.as_str(), position);
             }
         }
@@ -144,8 +107,7 @@ fn run(archive: &Archive, directory: &Path) {
 
 struct Scan {
     epoch: u64,
-    legacy_ignore_path: bool,
-    entries: Vec<(String, Option<WatchLaterKey>)>,
+    entries: Vec<(String, WatchLaterKey)>,
 }
 
 impl Scan {
@@ -159,11 +121,10 @@ impl Scan {
         refresh.replaced.clear();
         Some(Self {
             epoch: refresh.epoch,
-            legacy_ignore_path: refresh.path_policy(),
             entries: state
                 .entries
                 .iter()
-                .map(|entry| (entry.path.clone(), entry.watch_later_key.clone()))
+                .filter_map(|entry| Some((entry.path.clone(), entry.watch_later_key.clone()?)))
                 .collect(),
         })
     }
@@ -190,23 +151,10 @@ impl Scan {
     }
 }
 
-pub(crate) fn configure_path_policy(
-    archive: &Archive,
-    settings: &riina_core::advanced_preferences::Settings,
-) {
-    lock(archive).progress.configured_policy = settings.enabled
-        && settings
-            .user_options
-            .iter()
-            .rev()
-            .find(|option| option.name == "ignore-path-in-watch-later-config")
-            .is_some_and(|option| option.value == "yes");
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    use riina_core::{advanced_preferences, playback_history::Entry};
+    use riina_core::playback_history::Entry;
     use riina_test_support::TempDir;
 
     fn entry(path: String) -> Entry {
@@ -226,9 +174,13 @@ mod tests {
         let directory = temp.path();
         let archive_path = directory.join("playback-history.json");
         let native = directory.join("movie.mp4");
-        let history = [entry(
-            super::super::playback_media_url(native.to_str().unwrap()).unwrap(),
-        )];
+        let media = native.to_str().unwrap();
+        let key = playback_history_store::watch_later_key(media, true).unwrap();
+        let saved = directory.join(key.as_str());
+        let history = [Entry {
+            watch_later_key: Some(key),
+            ..entry(super::super::playback_media_url(media).unwrap())
+        }];
         playback_history_store::save(&archive_path, &history).unwrap();
         let archive = Arc::new(Mutex::new(PlaybackHistoryState::with_persistence(
             history.to_vec(),
@@ -237,41 +189,23 @@ mod tests {
         )));
         assert_eq!(lock(&archive).entries()[0].progress, None);
 
-        let key = playback_history_store::md5_hex(b"movie.mp4").to_ascii_uppercase();
-        let saved = directory.join(key);
-        configure_path_policy(
-            &archive,
-            &advanced_preferences::Settings {
-                enabled: true,
-                user_options: vec![advanced_preferences::MpvOption {
-                    name: "ignore-path-in-watch-later-config".into(),
-                    value: "yes".into(),
-                }],
-                ..advanced_preferences::Settings::default()
-            },
-        );
         for position in [42.25, 58.0] {
             std::fs::write(&saved, format!("start={position}\n")).unwrap();
-            request(&archive, RefreshReason::Open)
-                .unwrap()
-                .join()
-                .unwrap();
+            request(&archive).unwrap().join().unwrap();
             assert_eq!(lock(&archive).entries()[0].progress, Some(position));
         }
 
-        request(&archive, RefreshReason::Observed { ignore_path: false })
-            .unwrap()
-            .join()
-            .unwrap();
+        std::fs::remove_file(saved).unwrap();
+        request(&archive).unwrap().join().unwrap();
         assert_eq!(lock(&archive).entries()[0].progress, None);
         assert_eq!(
-            playback_history_store::load(&archive_path, &[]).unwrap(),
+            playback_history_store::load(&archive_path).unwrap(),
             history
         );
     }
 
     #[test]
-    fn changing_the_path_policy_only_reinterprets_legacy_history_rows() {
+    fn progress_is_only_loaded_for_an_entry_with_a_recorded_key() {
         let temp = TempDir::new("history-keyed-progress").unwrap();
         let directory = temp.path();
         let media = directory.join("movie.mp4");
@@ -291,15 +225,10 @@ mod tests {
             None,
             Some(directory.into()),
         )));
-        for (ignore_path, legacy_position) in [(true, 12.0), (false, 34.0)] {
-            request(&archive, RefreshReason::Observed { ignore_path })
-                .unwrap()
-                .join()
-                .unwrap();
-            let history = lock(&archive);
-            assert_eq!(history.entries()[0].progress, Some(legacy_position));
-            assert_eq!(history.entries()[1].progress, Some(12.0));
-        }
+        request(&archive).unwrap().join().unwrap();
+        let history = lock(&archive);
+        assert_eq!(history.entries()[0].progress, None);
+        assert_eq!(history.entries()[1].progress, Some(12.0));
     }
 
     #[test]
@@ -310,7 +239,10 @@ mod tests {
         let media = "https://media.example/clip.mkv";
         let archive = super::super::shared_playback_history_state(
             path,
-            vec![entry(media.into())],
+            vec![Entry {
+                watch_later_key: playback_history_store::watch_later_key(media, false),
+                ..entry(media.into())
+            }],
             None,
             Some(temp.path().join("watch-later")),
         );

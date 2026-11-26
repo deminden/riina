@@ -208,9 +208,11 @@ mod tests {
         let directory = temp.path();
         let filename = "folder/Video with spaces.mkv";
         let stream = "https://MEDIA.example:443/play/../video.mkv";
-        let path = directory.join(playback_history_store::md5_hex(b"Video with spaces.mkv"));
+        let key = playback_history_store::watch_later_key(filename, true).unwrap();
+        let path = directory.join(key.as_str());
         std::fs::write(path, "start=7.5\n").unwrap();
-        let stream_path = directory.join(playback_history_store::md5_hex(stream.as_bytes()));
+        let stream_key = playback_history_store::watch_later_key(stream, true).unwrap();
+        let stream_path = directory.join(stream_key.as_str());
         std::fs::write(stream_path, "# video.mkv\nstart=15\n").unwrap();
         let request = Arc::new(Request {
             filenames: HashSet::from([filename.into(), stream.into(), "missing.mkv".into()]),

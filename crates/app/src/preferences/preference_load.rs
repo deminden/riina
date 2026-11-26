@@ -12,7 +12,6 @@ use std::{
 #[derive(Clone)]
 pub(crate) struct LoadedPreferences {
     pub preferences: Preferences,
-    pub source_text: Option<String>,
     pub recovery: Option<Recovery>,
 }
 
@@ -90,7 +89,6 @@ pub(crate) fn load(path: &Path) -> io::Result<LoadedPreferences> {
         Err(error) if error.kind() == io::ErrorKind::NotFound => {
             return Ok(LoadedPreferences {
                 preferences: Preferences::default(),
-                source_text: None,
                 recovery: None,
             });
         }
@@ -102,7 +100,6 @@ pub(crate) fn load(path: &Path) -> io::Result<LoadedPreferences> {
     {
         return Ok(LoadedPreferences {
             preferences,
-            source_text: Some(text.to_owned()),
             recovery: None,
         });
     }
@@ -126,7 +123,6 @@ pub(crate) fn load(path: &Path) -> io::Result<LoadedPreferences> {
     };
     Ok(LoadedPreferences {
         preferences,
-        source_text: source_text.map(str::to_owned),
         recovery: Some(Recovery {
             quarantined_as,
             reasons,
@@ -240,10 +236,6 @@ mod tests {
             );
             assert_eq!(loaded.preferences.dark, !original.starts_with(b"{"));
             assert_eq!(loaded.preferences.volume, Preferences::default().volume);
-            assert_eq!(
-                loaded.source_text.as_deref(),
-                std::str::from_utf8(original).ok()
-            );
         }
     }
 

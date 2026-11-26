@@ -1,4 +1,4 @@
-//! History migration, recording and synchronization for one player session.
+//! History recording and synchronization for one player session.
 use super::{observation_dispatch::HistoryObservation, recent_activity::RecentActivity};
 use crate::{
     PlaybackStore, PlayerWindow,
@@ -23,30 +23,18 @@ pub(super) struct LoadedHistory {
 }
 
 impl LoadedHistory {
-    pub(super) fn load(app: &PlayerWindow, prefs_path: &Path, prefs: &mut Preferences) -> Self {
+    pub(super) fn load(app: &PlayerWindow, prefs_path: &Path) -> Self {
         let path = playback_history_store::path_for_preferences(prefs_path);
         let mut write_path = Some(path.clone());
-        let entries = match playback_history_store::load(&path, &prefs.playback_history) {
-            Ok(entries) => {
-                prefs.playback_history.clone_from(&entries);
-                if !path.exists()
-                    && let Err(error) = playback_history_store::save(&path, &entries)
-                {
-                    crate::diagnostics::report(
-                        app,
-                        format!("Could not migrate playback history: {error}"),
-                    );
-                    write_path = None;
-                }
-                entries
-            }
+        let entries = match playback_history_store::load(&path) {
+            Ok(entries) => entries,
             Err(error) => {
                 crate::diagnostics::report(
                     app,
                     format!("Could not load playback history: {error}"),
                 );
                 write_path = None;
-                prefs.playback_history.clone()
+                Vec::new()
             }
         };
         Self {
@@ -73,11 +61,9 @@ impl LoadedHistory {
             self.write_path,
             Some(prefs_path.with_file_name("watch-later")),
         );
-        playback_history::progress::configure_path_policy(&state, &prefs.advanced);
         Tracking {
             state,
             recording: Arc::new(AtomicBool::new(prefs.record_playback_history)),
-            cleared: playback_history::shared_history_merge_flag(prefs_path),
             recent_documents,
             session_id,
         }
@@ -89,7 +75,6 @@ type RecentDocuments = Arc<Mutex<Vec<RecentMedia>>>;
 pub(super) struct Tracking {
     pub(super) state: Arc<Mutex<PlaybackHistoryState>>,
     pub(super) recording: Arc<AtomicBool>,
-    pub(super) cleared: Arc<AtomicBool>,
     recent_documents: RecentDocuments,
     session_id: u64,
 }
@@ -103,7 +88,6 @@ impl Tracking {
             session_id: self.session_id,
             plugin,
             last_plugin_context: Default::default(),
-            last_progress_path_policy: Default::default(),
         }
     }
 
@@ -136,7 +120,6 @@ impl Tracking {
             playback_history_window::Archive {
                 history: self.state.clone(),
                 preferences_path: prefs_path.to_path_buf(),
-                cleared: self.cleared.clone(),
             },
             sync,
         )
@@ -149,15 +132,13 @@ impl Tracking {
         history_window: Rc<playback_history_window::ApplicationHistory>,
     ) -> impl Fn() -> Result<usize, String> + Clone + 'static {
         let playback_history = self.state.clone();
-        let history_cleared = self.cleared.clone();
         move || {
             let mut history = playback_history.lock().map_err(|_| {
                 "Could not clear playback history: history is unavailable".to_owned()
             })?;
-            let removed = crate::utilities_preferences::clear_playback_history(&path)
+            let removed = history
+                .clear(&path)
                 .map_err(|error| format!("Could not clear playback history: {error}"))?;
-            history.clear();
-            history_cleared.store(true, Ordering::Release);
             let entries = history.entries().to_vec();
             drop(history);
             let cleared = recent.clear_for_history();

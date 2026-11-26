@@ -1,7 +1,5 @@
 //! Store the OpenSubtitles key in the operating system's secure credential store.
 
-use std::path::Path;
-
 const SERVICE: &str = "com.riina.player";
 const ACCOUNT: &str = "opensubtitles-api-key";
 const ASSRT_ACCOUNT: &str = "assrt-token";
@@ -64,170 +62,14 @@ fn store_entry(entry: &keyring::Entry, secret: &str) -> Result<(), String> {
     }
 }
 
-pub(crate) fn restore_preferences(
-    preferences: &mut riina_core::Preferences,
-    saved_json: Option<&str>,
-    preferences_path: &Path,
-    clean_migrated_file: bool,
-) -> Result<(), String> {
-    restore_preferences_with(
-        preferences,
-        saved_json,
-        preferences_path,
-        load,
-        store,
-        |path, text| {
-            if !clean_migrated_file {
-                return Ok(());
-            }
-            let fallback =
-                crate::preference_load::parse_object(text).map_err(std::io::Error::other)?;
-            crate::preference_store::update_automatically(path, &fallback, |_| Ok(()))
-                .map_err(std::io::Error::other)
-        },
-    )?;
+pub(crate) fn restore_preferences(preferences: &mut riina_core::Preferences) -> Result<(), String> {
+    preferences.online_subtitles.api_key = load()?.unwrap_or_default();
     preferences.online_subtitles.assrt_token = load_assrt()?.unwrap_or_default();
     Ok(())
 }
 
-fn restore_preferences_with(
-    preferences: &mut riina_core::Preferences,
-    saved_json: Option<&str>,
-    preferences_path: &Path,
-    load_secret: impl FnOnce() -> Result<Option<String>, String>,
-    store_secret: impl FnOnce(&str) -> Result<(), String>,
-    save_preferences: impl FnOnce(&Path, &str) -> std::io::Result<()>,
-) -> Result<(), String> {
-    let legacy_secret = saved_json
-        .and_then(|text| serde_json::from_str::<serde_json::Value>(text).ok())
-        .and_then(|value| {
-            value
-                .get("online_subtitles")?
-                .get("api_key")?
-                .as_str()
-                .map(str::to_owned)
-        });
-    let had_legacy_secret = legacy_secret.is_some();
-    match load_secret() {
-        Ok(Some(secret)) => {
-            preferences.online_subtitles.api_key = secret;
-            if had_legacy_secret {
-                let text = serde_json::to_string_pretty(preferences).map_err(|error| {
-                    format!("Could not clean migrated subtitle settings: {error}")
-                })?;
-                save_preferences(preferences_path, &text).map_err(|error| {
-                    format!("Could not remove the old plain-text subtitle key: {error}")
-                })?;
-            }
-        }
-        Ok(None) => {
-            let Some(secret) = legacy_secret else {
-                return Ok(());
-            };
-            // Preserve the key in memory if migration fails so it remains usable
-            // in this session; all later JSON saves still omit it.
-            preferences.online_subtitles.api_key = secret.clone();
-            store_secret(&secret)?;
-            let text = serde_json::to_string_pretty(preferences)
-                .map_err(|error| format!("Could not clean migrated subtitle settings: {error}"))?;
-            save_preferences(preferences_path, &text).map_err(|error| {
-                format!("Could not remove the old plain-text subtitle key: {error}")
-            })?;
-        }
-        Err(error) => {
-            if let Some(secret) = legacy_secret {
-                preferences.online_subtitles.api_key = secret;
-            }
-            return Err(error);
-        }
-    }
-    Ok(())
-}
-
-#[cfg(test)]
+#[cfg(all(test, target_os = "windows"))]
 mod tests {
-    use super::restore_preferences_with;
-    use riina_core::Preferences;
-    use std::{cell::RefCell, path::Path};
-
-    const LEGACY_SETTINGS: &str =
-        r#"{"online_subtitles":{"api_key":"legacy-secret","auto_search":true}}"#;
-
-    #[test]
-    fn migration_moves_legacy_key_into_store_then_rewrites_settings() {
-        let mut preferences = Preferences::parse(LEGACY_SETTINGS).unwrap();
-        let secure_value = RefCell::new(None::<String>);
-        let saved = RefCell::new(None::<String>);
-
-        restore_preferences_with(
-            &mut preferences,
-            Some(LEGACY_SETTINGS),
-            Path::new("preferences.json"),
-            || Ok(secure_value.borrow().clone()),
-            |secret| {
-                *secure_value.borrow_mut() = Some(secret.to_owned());
-                Ok(())
-            },
-            |_, text| {
-                *saved.borrow_mut() = Some(text.to_owned());
-                Ok(())
-            },
-        )
-        .unwrap();
-
-        assert_eq!(preferences.online_subtitles.api_key, "legacy-secret");
-        assert_eq!(secure_value.borrow().as_deref(), Some("legacy-secret"));
-        let saved: serde_json::Value =
-            serde_json::from_str(saved.borrow().as_deref().unwrap()).unwrap();
-        assert!(saved["online_subtitles"].get("api_key").is_none());
-        assert_eq!(saved["online_subtitles"]["auto_search"], true);
-    }
-
-    #[test]
-    fn existing_secure_key_wins_and_legacy_value_is_removed() {
-        let mut preferences = Preferences::parse(LEGACY_SETTINGS).unwrap();
-        let saved = RefCell::new(None::<String>);
-        restore_preferences_with(
-            &mut preferences,
-            Some(LEGACY_SETTINGS),
-            Path::new("preferences.json"),
-            || Ok(Some("secure-secret".into())),
-            |_| panic!("an existing secure key must not be overwritten"),
-            |_, text| {
-                *saved.borrow_mut() = Some(text.to_owned());
-                Ok(())
-            },
-        )
-        .unwrap();
-
-        assert_eq!(preferences.online_subtitles.api_key, "secure-secret");
-        let saved: serde_json::Value =
-            serde_json::from_str(saved.borrow().as_deref().unwrap()).unwrap();
-        assert!(saved["online_subtitles"].get("api_key").is_none());
-    }
-
-    #[test]
-    fn failed_secure_migration_keeps_legacy_file_and_usable_session_key() {
-        let mut preferences = Preferences::parse(LEGACY_SETTINGS).unwrap();
-        let saved = RefCell::new(false);
-        let result = restore_preferences_with(
-            &mut preferences,
-            Some(LEGACY_SETTINGS),
-            Path::new("preferences.json"),
-            || Ok(None),
-            |_| Err("credential store unavailable".into()),
-            |_, _| {
-                *saved.borrow_mut() = true;
-                Ok(())
-            },
-        );
-
-        assert_eq!(result.unwrap_err(), "credential store unavailable");
-        assert_eq!(preferences.online_subtitles.api_key, "legacy-secret");
-        assert!(!saved.into_inner());
-    }
-
-    #[cfg(target_os = "windows")]
     #[test]
     fn windows_credential_store_persists_and_deletes_a_unique_entry() {
         use super::{load_entry, store_entry};

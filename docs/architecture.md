@@ -387,9 +387,10 @@ visit's metadata updates. The outline uses media references as selection
 anchors across group changes and refreshes.
 Each new entry keeps the resume filename chosen by mpv at the time of playback.
 Matching keys replace earlier visits and read the same saved position after a
-path-policy change. Stream keys preserve the original address. Entries from
-older archives derive the filename from the current policy when read. A scan
-reads each saved position file at most once.
+path-policy change. Stream keys preserve the original address. History reads
+saved progress through the recorded key. Rows without a key stay visible and
+gain one when played again. The standalone archive owns the rows, independently
+of Settings.
 Moving a file to Trash refreshes availability and keeps its record available
 for separate removal. Clear, remove and trash confirmations belong to the
 History window. It holds one pending action, defaults focus to Cancel and
@@ -1000,6 +1001,8 @@ resume entries. The separate History window's Clear action edits the archive.
 The Settings window owns Utilities confirmations and discards them when it
 closes. A confirmed action calls its profile service once. Acknowledgements
 stay on the owning window. Cache sizes refresh on entry, reopening and clearing.
+OpenSubtitles and Assrt credentials load directly from the system credential
+store. Profile recovery only retains the parsed settings and backup location.
 See [Add a preference](recipes/add-a-preference.md) for settings changes.
 
 The application Settings adapter owns the macOS profile form, the reusable

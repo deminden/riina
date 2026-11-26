@@ -249,7 +249,6 @@ pub struct Settings {
     pub disable_play_slider_scrolling: bool,
     pub disable_volume_slider_scrolling: bool,
     pub seek_type: SeekType,
-    #[serde(alias = "seek_sensitivity")]
     pub relative_seek_amount: u8,
     pub volume_sensitivity: u8,
     pub speed_sensitivity: u8,

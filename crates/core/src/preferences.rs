@@ -2,9 +2,9 @@
 use crate::{
     DefaultRepeatMode, advanced_preferences, audio_equalizer, audio_preferences,
     control_preferences, hdr_preferences, key_bindings, liquid_glass, network_preferences,
-    online_subtitles, osc_preferences, pip_preferences, playback_history, playback_power,
-    screenshot, subtitle_controls, thumbnail_preferences, valid_path, video_controls,
-    video_filters, window_resize,
+    online_subtitles, osc_preferences, pip_preferences, playback_power, screenshot,
+    subtitle_controls, thumbnail_preferences, valid_path, video_controls, video_filters,
+    window_resize,
 };
 use serde::{Deserialize, Serialize, de::value::MapDeserializer};
 use serde_json::value::RawValue;
@@ -23,9 +23,6 @@ fn is_zero_revision(revision: &u64) -> bool {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-// Root-level preferences grow additively between releases. Older binaries must
-// ignore fields they do not understand so a settings save cannot prevent media
-// playback after a user temporarily launches an earlier installed version.
 #[serde(default)]
 pub struct Preferences {
     pub leading_sidebar_width: u32,
@@ -49,7 +46,7 @@ pub struct Preferences {
     pub always_float_on_top: bool,
     pub always_show_on_top_icon: bool,
     pub action_after_launch: ActionAfterLaunch,
-    #[serde(alias = "enableCmdN", skip_serializing_if = "is_false")]
+    #[serde(skip_serializing_if = "is_false")]
     pub enable_new_window_shortcut: bool,
     pub allow_multiple_windows: bool,
     pub group_simultaneous_opens_in_playlist: bool,
@@ -143,8 +140,6 @@ pub struct Preferences {
     pub recent_open_documents: Vec<RecentMedia>,
     #[serde(default = "default_true")]
     pub record_playback_history: bool,
-    #[serde(default, skip_serializing)]
-    pub playback_history: Vec<playback_history::Entry>,
 }
 
 /// Appearance intent. `System` follows the effective theme reported by the
@@ -367,7 +362,6 @@ impl Default for Preferences {
             track_all_files_in_recent_open_menu: true,
             recent_open_documents: Vec::new(),
             record_playback_history: true,
-            playback_history: Vec::new(),
         }
     }
 }
@@ -518,12 +512,6 @@ impl Preferences {
             return Err(PreferenceError::new(
                 "recent_open_documents",
                 "Open Recent documents are invalid",
-            ));
-        }
-        if self.playback_history.iter().any(|entry| !entry.is_valid()) {
-            return Err(PreferenceError::new(
-                "playback_history",
-                "Playback history is invalid",
             ));
         }
         // Persisted values must be representable by the event-loop timer. Do not

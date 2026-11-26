@@ -181,6 +181,8 @@ Implementation does not imply every state or platform is verified.
   finds when it loads the file. New History visits retain the saved-position
   key used at playback. With mpv's filename-only setting, playing a same-named
   file in a different folder updates the existing row to the newer location.
+  History loads the standalone archive. A row without a saved-position key
+  remains visible and gains a key the next time its media plays.
   Clearing saved progress in Utilities updates the open History window and
   preserves its entries.
   Date headings and played-at timestamps use the system locale and local

@@ -15,7 +15,7 @@ use std::{
     rc::{Rc, Weak},
     sync::{
         Arc,
-        atomic::{AtomicBool, AtomicU64, Ordering},
+        atomic::{AtomicU64, Ordering},
     },
     time::Duration,
 };
@@ -27,30 +27,22 @@ type Launch = Box<dyn Fn(&PlaybackHistoryWindow, InitialMedia) -> Result<(), Str
 pub(crate) struct Archive {
     pub(crate) history: HistoryState,
     pub(crate) preferences_path: PathBuf,
-    pub(crate) cleared: Arc<AtomicBool>,
 }
 
 #[cfg(any(test, target_os = "macos"))]
 impl Archive {
     fn load(preferences_path: PathBuf) -> Result<Self, String> {
-        let preferences = crate::preference_load::read_valid(&preferences_path)
-            .ok()
-            .flatten()
-            .unwrap_or_default();
         let path = crate::playback_history_store::path_for_preferences(&preferences_path);
-        let entries = crate::playback_history_store::load(&path, &preferences.playback_history)?;
+        let entries = crate::playback_history_store::load(&path)?;
         let history = crate::playback_history::shared_playback_history_state(
             path.clone(),
             entries,
             Some(path),
             Some(preferences_path.with_file_name("watch-later")),
         );
-        crate::playback_history::progress::configure_path_policy(&history, &preferences.advanced);
-        let cleared = crate::playback_history::shared_history_merge_flag(&preferences_path);
         Ok(Self {
             history,
             preferences_path,
-            cleared,
         })
     }
 }
@@ -113,12 +105,7 @@ impl ApplicationHistory {
             .history
             .lock()
             .map_err(|_| "Playback History is unavailable")?;
-        let removed = crate::utilities_preferences::clear_playback_history(path)?;
-        history.clear();
-        archive
-            .cleared
-            .store(true, std::sync::atomic::Ordering::Release);
-        Ok(removed)
+        history.clear(path)
     }
 
     pub(crate) fn bind(
@@ -535,7 +522,7 @@ mod tests {
         let mut history = riina_core::sync::lock(&player_state);
         assert_eq!(history.entries(), std::slice::from_ref(&entry));
         assert_eq!(history.remove_paths([entry.path.as_str()])?, 1);
-        assert!(crate::playback_history_store::load(&history_path, &[])?.is_empty());
+        assert!(crate::playback_history_store::load(&history_path)?.is_empty());
         Ok(())
     }
     #[test]
@@ -556,7 +543,6 @@ mod tests {
         let archive = Archive {
             history: Arc::default(),
             preferences_path: profile.path().join("preferences.json"),
-            cleared: Arc::default(),
         };
         owner.show(None, &archive)?;
         let history = owner.window.borrow().as_ref().unwrap().clone_strong();

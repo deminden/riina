@@ -530,7 +530,6 @@ mod tests {
             let archive = Archive {
                 history: Arc::default(),
                 preferences_path: path.clone(),
-                cleared: Arc::default(),
             };
             let route = history.install(
                 &app,

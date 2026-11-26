@@ -79,13 +79,6 @@ impl SessionState {
             .lock()
             .map_err(|_| std::io::Error::other("audio equalizer settings lock poisoned"))?
             .clone();
-        prefs.playback_history = self
-            .history
-            .state
-            .lock()
-            .map_err(|_| std::io::Error::other("playback history lock poisoned"))?
-            .entries()
-            .to_vec();
         prefs.record_playback_history = self.history.recording.load(Ordering::Acquire);
 
         Ok(prefs)

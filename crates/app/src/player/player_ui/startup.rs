@@ -50,22 +50,16 @@ pub(super) fn prepare_settings(
     )));
     let LoadedPreferences {
         preferences: mut prefs,
-        source_text,
         recovery,
     } = loaded;
     if use_system_services
-        && let Err(error) = crate::online_subtitles_credentials::restore_preferences(
-            &mut prefs,
-            source_text.as_deref(),
-            prefs_path,
-            recovery.is_none(),
-        )
+        && let Err(error) = crate::online_subtitles_credentials::restore_preferences(&mut prefs)
     {
         crate::diagnostics::report(app, format!("OpenSubtitles credential storage: {error}"));
     }
     let audio_equalizer = Arc::new(Mutex::new(prefs.audio_equalizer.clone()));
     set_audio_equalizer_controls(app, &lock(&audio_equalizer));
-    let history = LoadedHistory::load(app, prefs_path, &mut prefs);
+    let history = LoadedHistory::load(app, prefs_path);
     PreparedSettings {
         prefs,
         recovery,

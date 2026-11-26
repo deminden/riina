@@ -62,17 +62,12 @@ impl Entry {
     }
 }
 
-pub fn move_to_front(entries: &mut Vec<Entry>, entry: Entry) {
-    entries.retain(|existing| existing.path != entry.path);
-    entries.insert(0, entry);
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
-    fn history_is_persistent_and_keeps_one_recent_entry_per_media_path() {
+    fn history_entries_round_trip_with_and_without_a_resume_key() {
         let first = Entry {
             path: "clip.mkv".into(),
             title: Some("A Clip".into()),
@@ -89,15 +84,7 @@ mod tests {
             progress: None,
             duration: 0.0,
         };
-        let reopened = Entry {
-            date_ms: 20,
-            progress: Some(6.0),
-            ..first.clone()
-        };
-        let mut history = vec![first, second.clone()];
-        move_to_front(&mut history, reopened.clone());
-
-        assert_eq!(history, [reopened, second]);
+        let history = vec![first, second];
         let encoded = serde_json::to_string(&history).unwrap();
         assert_eq!(
             serde_json::from_str::<Vec<Entry>>(&encoded).unwrap(),

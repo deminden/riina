@@ -39,7 +39,7 @@ fn selected_history_rows_are_removed_in_one_persisted_change() {
     assert_eq!(history.revision(), revision + 1);
     assert_eq!(history.entries(), &original[1..2]);
     assert_eq!(
-        crate::playback_history_store::load(&path, &[]).unwrap(),
+        crate::playback_history_store::load(&path).unwrap(),
         history.entries()
     );
     assert_eq!(
@@ -128,7 +128,7 @@ fn playback_history_is_saved_when_a_media_generation_is_first_observed() {
 
     state.observe(1, &playback, true);
 
-    let saved = crate::playback_history_store::load(&path, &[]).unwrap();
+    let saved = crate::playback_history_store::load(&path).unwrap();
     assert_eq!(saved, state.entries());
     assert_eq!(saved.len(), 1);
 }
@@ -168,7 +168,7 @@ fn playback_history_fills_late_metadata_without_resetting_visit_or_progress() {
     assert_eq!(history.entries()[0].date_ms, date);
     assert_eq!(history.revision(), revision + 1);
     assert_eq!(
-        crate::playback_history_store::load(&path, &[]).unwrap(),
+        crate::playback_history_store::load(&path).unwrap(),
         history.entries()
     );
     for duration in [60.0, 0.0, -1.0, f64::NAN, f64::INFINITY] {
@@ -221,7 +221,7 @@ fn history_uses_the_native_key_to_match_moved_files_only_when_mpv_does() {
             url::Url::from_file_path(&moved).unwrap().as_str()
         );
         assert_eq!(newest.watch_later_key == original_key, ignore_path);
-        let entries = playback_history_store::load(&archive, &[]).unwrap();
+        let entries = playback_history_store::load(&archive).unwrap();
         assert_eq!(entries, history.entries());
     }
 }
