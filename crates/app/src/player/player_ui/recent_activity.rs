@@ -9,7 +9,7 @@ use riina_ui::{PlayerCatalogState, PlayerMenuActions, PlayerPreferences};
 use slint::ComponentHandle;
 use std::{
     cell::{Cell, OnceCell, RefCell},
-    collections::HashMap,
+    collections::{HashMap, HashSet},
     path::{Path, PathBuf},
     rc::{Rc, Weak},
     sync::{Arc, Mutex},
@@ -59,7 +59,11 @@ impl RecentActivity {
     fn new(path: &Path, prefs: &Preferences, use_system_services: bool) -> Self {
         Self {
             path: path.to_path_buf(),
-            documents: Arc::new(Mutex::new(prefs.recent_open_documents.clone())),
+            documents: Arc::new(Mutex::new(
+                distinct_documents(&prefs.recent_open_documents)
+                    .cloned()
+                    .collect(),
+            )),
             resume: RefCell::new(prefs.recent_media.clone()),
             revision: Cell::new(prefs.recent_resume_revision),
             windows: RefCell::new(Vec::new()),
@@ -120,14 +124,14 @@ impl RecentActivity {
             return last.filter(|entry| entry.path == token).cloned();
         }
         super::media_actions::recent::visible_documents(&lock(&self.documents), last)
-            .find(|entry| entry.path == token)
+            .find(|entry| same_document(&entry.path, token))
             .cloned()
     }
 
     pub(super) fn document(&self, path: &str) -> Option<RecentMedia> {
         lock(&self.documents)
             .iter()
-            .find(|item| item.path == path)
+            .find(|item| same_document(&item.path, path))
             .cloned()
     }
 
@@ -169,6 +173,7 @@ impl RecentActivity {
         if documents.is_empty() {
             return Ok(());
         }
+        let documents = distinct_documents(documents.iter().rev()).collect::<Vec<_>>();
         let mut updated = None;
         crate::preference_store::update_automatically(
             &self.path,
@@ -176,11 +181,10 @@ impl RecentActivity {
             |prefs| {
                 if prefs.record_recent_files {
                     let recent = &mut prefs.recent_open_documents;
-                    for document in &documents {
-                        recent.retain(|item| item.path != document.path);
-                        recent.insert(0, document.clone());
-                        recent.truncate(10);
-                    }
+                    *recent = distinct_documents(documents.iter().copied().chain(recent.iter()))
+                        .take(10)
+                        .cloned()
+                        .collect();
                     updated = Some(recent.clone());
                 }
                 Ok(())
@@ -198,7 +202,7 @@ impl RecentActivity {
             .map(|error| format!("Could not update plugin recent files: {error}"));
         if self.use_system_services
             && let Err(error) = platform::remember_recent_documents(
-                documents.iter().map(|entry| entry.path.as_str()),
+                documents.iter().rev().map(|entry| entry.path.as_str()),
             )
         {
             failure.get_or_insert_with(|| {
@@ -251,7 +255,9 @@ impl RecentActivity {
             && self.revision.replace(saved.recent_resume_revision) != saved.recent_resume_revision
         {
             self.resume.replace(saved.recent_media);
-            *lock(&self.documents) = saved.recent_open_documents;
+            *lock(&self.documents) = distinct_documents(&saved.recent_open_documents)
+                .cloned()
+                .collect();
             self.refresh();
         }
         self.revision.get()
@@ -316,6 +322,32 @@ impl RecentActivity {
             }
         }
     }
+}
+
+#[derive(PartialEq, Eq, Hash)]
+enum DocumentKey<'a> {
+    File(PathBuf),
+    Reference(&'a str),
+}
+
+fn document_key(reference: &str) -> DocumentKey<'_> {
+    match crate::file_actions::local_media_path(reference) {
+        Some(path) => DocumentKey::File(path),
+        None => DocumentKey::Reference(reference),
+    }
+}
+
+pub(crate) fn same_document(left: &str, right: &str) -> bool {
+    left == right || document_key(left) == document_key(right)
+}
+
+pub(crate) fn distinct_documents<'a>(
+    entries: impl IntoIterator<Item = &'a RecentMedia>,
+) -> impl Iterator<Item = &'a RecentMedia> {
+    let mut seen = HashSet::new();
+    entries
+        .into_iter()
+        .filter(move |entry| seen.insert(document_key(&entry.path)))
 }
 
 #[cfg(test)]

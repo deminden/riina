@@ -1,4 +1,5 @@
 //! Separate resume history from the Open Recent document list.
+use crate::player_ui::recent_activity::same_document;
 use crate::{MenuCatalogRow, RecentMediaRow, WelcomeWindow, file_actions::local_media_path};
 use riina_core::{RecentMedia, osc_preferences::ControllerOptions};
 use slint::Model;
@@ -58,7 +59,7 @@ pub(crate) fn visible_documents<'a>(
 ) -> impl Iterator<Item = &'a RecentMedia> {
     let canonical_resume = resume.and_then(|entry| canonical_path(&entry.path));
     documents.iter().filter(move |item| {
-        resume.is_none_or(|entry| entry.path != item.path)
+        resume.is_none_or(|entry| !same_document(&entry.path, &item.path))
             && canonical_resume
                 .as_ref()
                 .is_none_or(|path| canonical_path(&item.path).as_ref() != Some(path))
@@ -94,7 +95,7 @@ pub(crate) fn refresh_welcome_history(
         .and_then(|selected| {
             document_rows
                 .iter()
-                .position(|row| row.token == selected.token)
+                .position(|row| same_document(row.token.as_str(), selected.token.as_str()))
         })
         .and_then(|index| i32::try_from(index).ok())
         .unwrap_or(fallback);

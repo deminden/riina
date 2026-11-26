@@ -776,15 +776,15 @@ pub(crate) fn remember_recent_documents<'a>(
     {
         unix::recent_documents::remember(paths)
     }
-    #[cfg(any(target_os = "windows", target_os = "macos"))]
+    #[cfg(target_os = "macos")]
+    {
+        macos::recent_documents::remember(paths)
+    }
+    #[cfg(target_os = "windows")]
     {
         let mut result = Ok(());
         for path in paths {
-            #[cfg(target_os = "windows")]
-            let updated = windows::recent_documents::remember(&path);
-            #[cfg(target_os = "macos")]
-            let updated = unix::services::remember_recent_document(&path);
-            result = result.and(updated);
+            result = result.and(windows::recent_documents::remember(&path));
         }
         result
     }
@@ -798,7 +798,7 @@ pub(crate) fn clear_recent_documents() -> std::io::Result<()> {
     }
     #[cfg(target_os = "macos")]
     {
-        unix::services::clear_recent_documents()
+        macos::recent_documents::clear()
     }
     #[cfg(target_os = "linux")]
     {

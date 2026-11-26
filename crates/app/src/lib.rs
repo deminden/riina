@@ -132,7 +132,7 @@ fn run_shared_player(
         &application_menu,
         browser,
         (!requests_playback).then_some(loaded.preferences.action_after_launch),
-        loaded.preferences.enable_new_window_shortcut,
+        &loaded.preferences,
     );
     if platform::startup::ApplicationRegistration::needs_initial_player(requests_playback) {
         start_shared_player(&player_manager, &application_menu, media, players, loaded)?;

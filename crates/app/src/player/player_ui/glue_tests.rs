@@ -479,10 +479,16 @@ fn exercise_shared_recents(profile: &std::path::Path) -> Result<(), Box<dyn std:
         title: "first.mkv".into(),
         position: 18.0,
     };
+    let alias = riina_core::RecentMedia {
+        path: url::Url::from_file_path(&old_media)
+            .map_err(|()| "Could not make a file URL for the recent item")?
+            .into(),
+        ..original.clone()
+    };
     let prefs = Preferences {
         resume_last_position: true,
         recent_media: vec![original.clone()],
-        recent_open_documents: vec![original],
+        recent_open_documents: vec![original, alias],
         ..Preferences::default()
     };
     std::fs::write(&path, serde_json::to_vec(&prefs)?)?;
@@ -508,6 +514,7 @@ fn exercise_shared_recents(profile: &std::path::Path) -> Result<(), Box<dyn std:
     };
     assert_eq!(welcome.get_recent_media().row_count(), 1);
     assert_eq!(welcome.get_recent_documents().row_count(), 0);
+    assert_eq!(menu_rows(&first.app).row_count(), 1);
     crate::ui_dialogs::remember_selected_paths(&second.app, std::slice::from_ref(&new_media));
     assert_eq!(menu_rows(&first.app).row_count(), 2);
     assert_eq!(
@@ -531,6 +538,19 @@ fn exercise_shared_recents(profile: &std::path::Path) -> Result<(), Box<dyn std:
             .as_str(),
         new_media
     );
+    let alias: String = url::Url::from_file_path(&new_media)
+        .map_err(|()| "Could not make a file URL for the selected item")?
+        .into();
+    crate::ui_dialogs::remember_selected_paths(&second.app, std::slice::from_ref(&alias));
+    assert_eq!(welcome.get_selection_index(), 0);
+    assert_eq!(menu_rows(&second.app).row_count(), 3);
+    assert_eq!(
+        welcome.get_recent_documents().row_data(0).unwrap().token,
+        alias.as_str()
+    );
+    let saved = crate::preference_load::read_valid(&path)?.ok_or("Missing recent preferences")?;
+    assert_eq!(saved.recent_open_documents.len(), 3);
+    assert_eq!(saved.recent_open_documents[0].path, alias);
     first
         .app
         .global::<PlayerMenuActions>()

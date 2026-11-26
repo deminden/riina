@@ -6665,3 +6665,27 @@ macOS playback and matched IINA visual comparisons remain open.
 - Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
 - Linux application SHA-256 `5fab0da2877ad7bd69e8d188b87f8832bc423dad51654cd1e67b72ffe8e8d808`
 - Linux libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`
+
+### Open Recent document identity and AppKit recovery (2026-11-26)
+
+The full Windows source gate passed, including strict Clippy, 714 app unit
+tests, and the headless visual comparison. The player integration test opens
+an existing profile containing a path and its file URL. It checks that only
+one menu row appears, that Welcome keeps its selected file when the alias
+changes, and that the next recorded open persists one row per document.
+
+The locked Windows workspace build passed. A private desktop test loaded
+two recordings and one file URL alias into Welcome. Down and Return opened
+the second distinct recording paused. The player exited normally.
+
+Linux application Clippy and the two focused recent-activity tests passed.
+The player integration test reused the same Linux test binary and passed the
+shared document identity and Welcome selection checks.
+
+Strict workspace cross-Clippy passed for Apple Silicon and Intel. Native
+macOS verification still needs the packaged-app recovery sequence in the
+[port development guide](port-development.md). This includes ordering,
+renaming, unavailable volumes, and clearing the backup through Open Recent.
+
+- Windows application SHA-256 `0d32490b9bed989ab934e29b7d8cf418f5e44518edd3a74d55a40928ab3b130d`
+- Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`

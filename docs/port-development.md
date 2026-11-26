@@ -94,6 +94,15 @@ plain-text references on the player. Close the window during a drag and verify
 that the next window receives its own drops. Record the binary and OS with the
 [macOS drop checks](verification.md#macos-file-and-url-drops-2026-11-23).
 
+AppKit recent-document recovery is off by default. To enable it for the
+packaged app, run `defaults write org.riina.player enableRecentDocumentsWorkaround -bool true`
+while Riina is closed. On an isolated macOS profile, open two different media
+files, relaunch with an empty system recent list and check the restored order
+in the Dock. Include a renamed file and an unavailable volume. Then clear
+Open Recent inside Riina and confirm the system list stays empty on relaunch.
+[AppKit recent documents](https://developer.apple.com/documentation/appkit/nsdocumentcontroller/recentdocumenturls)
+[Foundation bookmark resolution](https://developer.apple.com/documentation/foundation/nsurl/bookmarkresolutionoptions)
+
 Legacy fullscreen needs a native macOS check. On an isolated profile, verify
 normal fullscreen opens a separate Space and the General preference keeps
 legacy fullscreen in the current Space. Test Escape and Music Mode exits,

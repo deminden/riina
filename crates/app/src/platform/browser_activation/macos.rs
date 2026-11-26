@@ -17,7 +17,8 @@ use objc2::{
     sel,
 };
 use objc2_app_kit::{
-    NSApplication, NSApplicationWillFinishLaunchingNotification, NSMenu, NSMenuDelegate, NSMenuItem,
+    NSApplication, NSApplicationDidFinishLaunchingNotification,
+    NSApplicationWillFinishLaunchingNotification, NSMenu, NSMenuDelegate, NSMenuItem,
 };
 use objc2_foundation::{
     NSAppleEventDescriptor, NSAppleEventManager, NSNotificationCenter, NSObjectProtocol,
@@ -378,6 +379,7 @@ pub(crate) struct ApplicationEvents {
     manager: Retained<NSAppleEventManager>,
     center: Retained<NSNotificationCenter>,
     will_launch: Retained<ProtocolObject<dyn NSObjectProtocol>>,
+    did_launch: Option<Retained<ProtocolObject<dyn NSObjectProtocol>>>,
     _target: Retained<LaunchTarget>,
 }
 
@@ -386,7 +388,7 @@ impl ApplicationEvents {
         browser: Inbox,
         manager: PlayerManager,
         default_action: Option<ActionAfterLaunch>,
-        enable_new_window_shortcut: bool,
+        preferences: &riina_core::Preferences,
         menu_labels: Rc<MenuLabels>,
     ) -> Option<Self> {
         let main = MainThreadMarker::new()?;
@@ -423,7 +425,11 @@ impl ApplicationEvents {
                 &block,
             )
         };
-        idle_menu::prepare(main, &target, enable_new_window_shortcut);
+        let did_launch = preferences
+            .record_recent_files
+            .then(|| restore_recents(main, &center))
+            .flatten();
+        idle_menu::prepare(main, &target, preferences.enable_new_window_shortcut);
         if default_action.is_some() {
             slint::Timer::single_shot(Duration::from_millis(220), move || launch.launch_default());
         }
@@ -431,6 +437,7 @@ impl ApplicationEvents {
             manager,
             center,
             will_launch,
+            did_launch,
             _target: target,
         })
     }
@@ -442,6 +449,9 @@ impl Drop for ApplicationEvents {
         // SAFETY: both registrations and the observer belong to this guard.
         unsafe {
             self.center.removeObserver(self.will_launch.as_ref());
+            if let Some(observer) = self.did_launch.as_ref() {
+                self.center.removeObserver(observer.as_ref());
+            }
             for (class, event, _) in handlers() {
                 let _: () = objc2::msg_send![
                     &*self.manager, removeEventHandlerForEventClass: class, andEventID: event
@@ -449,6 +459,34 @@ impl Drop for ApplicationEvents {
             }
         }
     }
+}
+
+fn restore_recents(
+    main: MainThreadMarker,
+    center: &NSNotificationCenter,
+) -> Option<Retained<ProtocolObject<dyn NSObjectProtocol>>> {
+    use crate::platform::macos::recent_documents;
+
+    let application = NSApplication::sharedApplication(main);
+    if application.isRunning() {
+        recent_documents::restore(main);
+        return None;
+    }
+    let restore = RcBlock::new(|_| {
+        if let Some(main) = MainThreadMarker::new() {
+            recent_documents::restore(main);
+        }
+    });
+    // SAFETY: AppKit posts this notification on the main thread. The registration
+    // is removed with the application event guard.
+    Some(unsafe {
+        center.addObserverForName_object_queue_usingBlock(
+            Some(NSApplicationDidFinishLaunchingNotification),
+            None,
+            None,
+            &restore,
+        )
+    })
 }
 
 fn handlers() -> [(u32, u32, Sel); 4] {

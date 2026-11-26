@@ -105,7 +105,7 @@ for the ownership and composition invariants.
 |---|---|
 | File dialogs | Owned Windows picker has modality/cancellation evidence; acceptance, owner-close stress and each port still need coverage |
 | File associations | Windows uses its Default Apps surface; macOS has bundle/UTI and Launch Services adapters; Linux uses user-scoped desktop/MIME registration. Platform consent and launch behavior require native checks |
-| Recent documents | Portable persistence exists; complete native macOS document-menu integration remains open |
+| Recent documents | Shared Open Recent list with native Windows and Linux registration. AppKit registers files and folders and offers opt-in bookmark recovery for an empty native list. Native macOS recovery and document-menu interaction need runtime tests |
 | Picture in Picture | Windows uses a native presentation adapter. Linux shares the decoder with an SDR preview. X11 requests above-window stacking and applies the owner hide or minimize policy. Wayland presents a separate window and leaves stacking and visibility to the compositor. macOS uses AVKit and IOSurface and still needs runtime verification. [ADR 0005](adr/0005-macos-picture-in-picture.md) |
 | Plugin WebViews | Windows uses native browser children for overlays and sidebars. Linux composites overlays on both X11 and Wayland. X11 sidebars use native children. Wayland sidebars are composited in the player and support wheel input, text composition and contextual editing on WebKitGTK 2.54.1 and later. Matched geometry, native accessibility and macOS interaction remain open |
 | OCR/system media | OS adapters exist; hardware input, recognition quality, accessibility and each port's runtime behavior need separate evidence |

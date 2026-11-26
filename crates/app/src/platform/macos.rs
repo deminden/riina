@@ -17,6 +17,7 @@ mod pip_frame;
 pub(super) mod pip_window;
 pub(super) mod playlist_menu;
 mod plugin_menu;
+pub(in crate::platform) mod recent_documents;
 mod scroll_events;
 mod system_media;
 pub(crate) mod text_recognition;

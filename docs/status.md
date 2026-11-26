@@ -157,8 +157,10 @@ Implementation does not imply every state or platform is verified.
   action hides the tool, and reopening retains the current page.
 - **Recent activity:** player windows share Open Recent with Welcome and
   plugins. Welcome lists recent documents whenever recording is enabled, and
-  keeps the highlighted file when another player changes the order. The macOS
+  keeps the highlighted file when another player changes the order. A local
+  path and its file URL share one entry. The macOS
   application menu opens and clears recent documents while no player is open.
+  An opt-in AppKit bookmark backup restores an empty system list at launch.
   Linux registers local files with the desktop and preserves registrations by
   other applications when clearing. Settings Utilities clears history, recent
   documents and the saved Welcome resume item together after confirmation.

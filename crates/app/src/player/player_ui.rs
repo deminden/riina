@@ -32,6 +32,8 @@ mod playlist_hover;
 mod playlist_menu;
 mod playlist_subtitles;
 mod recent_activity;
+#[cfg(target_os = "macos")]
+pub(crate) use recent_activity::distinct_documents;
 mod rendering;
 mod startup;
 mod thumbnail_actions;

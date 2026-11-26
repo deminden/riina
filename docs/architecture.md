@@ -941,15 +941,20 @@ at shutdown.
 
 `RecentActivity` owns each profile's Open Recent list and Welcome resume
 projection at application scope. Player menus, Welcome and plugin snapshots
-use the same document list. Welcome opens a row by its media reference and
-preserves selection when another player changes the order. Resume uses its
-own reference and time. A file already shown as Resume is omitted from the
+use the same document list. A local path and its file URL share a document
+identity. The newest entry retains the reference it was opened with. Welcome
+preserves selection across those aliases and changes from other players. Resume
+uses its own reference and time. A file already shown as Resume is omitted from the
 document list, including when it was opened through a file URL or symlink.
 The idle macOS File menu reads the profile list and sends opens and clears
 through the shared services. Manual groups update the profile in one
-transaction. Windows and macOS register local files with their native recent
-document services. Linux updates the desktop XBEL store and clears only
-Riina's registrations, keeping entries registered by other applications.
+transaction. Windows registers local files with the Shell and macOS registers
+files and folders through AppKit. The default-off macOS recovery stores local
+bookmarks as an application preference and restores them on launch if AppKit's
+list is empty. It resolves bookmarks without opening dialogs or mounting disks.
+Clearing recents deletes the backup along with the native list. Linux updates
+the desktop XBEL store and clears only Riina's registrations, keeping entries
+registered by other applications.
 Open Recent can clear independently.
 Settings Utilities also clears the shared Playback History archive and the
 resume entries. The separate History window's Clear action edits the archive.

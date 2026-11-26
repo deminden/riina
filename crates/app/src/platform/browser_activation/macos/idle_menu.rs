@@ -431,7 +431,7 @@ fn rebuild_recent_documents(
         return;
     };
     menu.removeAllItems();
-    for document in &preferences.recent_open_documents {
+    for document in crate::player_ui::distinct_documents(&preferences.recent_open_documents) {
         let title = if document.title.is_empty() {
             &document.path
         } else {

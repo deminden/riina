@@ -140,23 +140,17 @@ impl ApplicationRegistration {
         menu: &ApplicationMenu,
         browser: &Inbox,
         idle_launch: Option<ActionAfterLaunch>,
-        enable_new_window_shortcut: bool,
+        preferences: &Preferences,
     ) -> Self {
         #[cfg(not(target_os = "macos"))]
-        let _ = (
-            manager,
-            menu,
-            browser,
-            idle_launch,
-            enable_new_window_shortcut,
-        );
+        let _ = (manager, menu, browser, idle_launch, preferences);
         Self {
             #[cfg(target_os = "macos")]
             _events: super::browser_activation::ApplicationEvents::new(
                 browser.clone(),
                 manager.clone(),
                 idle_launch,
-                enable_new_window_shortcut,
+                preferences,
                 menu.labels(),
             ),
         }
