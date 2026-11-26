@@ -86,17 +86,23 @@ pub fn clipboard_references(text: &str) -> Vec<String> {
     text.lines()
         .map(|line| line.strip_suffix('\r').unwrap_or(line))
         .filter(|line| !line.is_empty() && !line.starts_with('#'))
-        .filter_map(|line| {
-            if line
-                .split_once(':')
-                .is_some_and(|(scheme, _)| scheme.eq_ignore_ascii_case("file"))
-            {
-                file_reference::clipboard_path(line)
-            } else {
-                Some(line.to_owned())
-            }
-        })
+        .filter_map(clipboard_reference)
         .collect()
+}
+
+/// Read one native clipboard entry, where newlines can belong to a path.
+pub fn clipboard_reference(reference: &str) -> Option<String> {
+    if reference.is_empty() || reference.contains('\0') {
+        return None;
+    }
+    if reference
+        .split_once(':')
+        .is_some_and(|(scheme, _)| scheme.eq_ignore_ascii_case("file"))
+    {
+        file_reference::clipboard_path(reference)
+    } else {
+        Some(reference.to_owned())
+    }
 }
 
 impl PlaylistSort {
@@ -145,6 +151,21 @@ mod tests {
         PlaylistSort, drop_destination, move_command_target, reorder_selection, sorted_ids,
     };
     use crate::PlaylistEntry;
+
+    #[test]
+    fn clipboard_entries_keep_native_paths_and_decode_file_urls_individually() {
+        let local = "#recording\npart2.mkv";
+        assert_eq!(super::clipboard_reference(local).as_deref(), Some(local));
+        assert_eq!(
+            super::clipboard_reference("file:///media/clip%0A%23two.mkv").as_deref(),
+            Some("/media/clip\n#two.mkv")
+        );
+        assert!(super::clipboard_reference("bad\0name.avi").is_none());
+        assert_eq!(
+            super::clipboard_references("# comment\r\nfile:///media/clip%0A%23two.mkv\nnext.avi"),
+            ["/media/clip\n#two.mkv", "next.avi"],
+        );
+    }
 
     fn entry(id: i64, filename: &str, title: Option<&str>) -> PlaylistEntry {
         PlaylistEntry {

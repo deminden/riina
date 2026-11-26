@@ -29,10 +29,7 @@ pub(crate) fn local_media_path(reference: &str) -> Option<PathBuf> {
         .split_once(':')
         .is_some_and(|(scheme, _)| scheme.eq_ignore_ascii_case("file"))
     {
-        return riina_core::playlist::clipboard_references(reference)
-            .into_iter()
-            .next()
-            .map(PathBuf::from);
+        return riina_core::playlist::clipboard_reference(reference).map(PathBuf::from);
     }
     (!reference.contains("://")).then(|| PathBuf::from(reference))
 }

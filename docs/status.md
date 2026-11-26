@@ -97,7 +97,9 @@ Implementation does not imply every state or platform is verified.
   available commands under headings. Sort and row menus localize built-in
   labels in English, Russian and Arabic.
   Transient add and clear feedback follows native command replies. Clearing
-  retains the current item and retires pending sibling discovery. A single-file
+  retains the current item and retires pending additions and sibling discovery.
+  File and folder picks, paste, drops and URLs enter the playlist in submission
+  order, even when folders take longer to enumerate. A single-file
   open can discover siblings around the current item. Navigating the resulting
   playlist keeps rows the user removed
   out of the queue. The sidebar and Music Mode accept focused edit shortcuts.

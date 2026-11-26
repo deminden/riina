@@ -6,6 +6,7 @@ pub(crate) mod music_mode_layout;
 pub(crate) mod opening_fullscreen;
 pub(crate) mod player_manager;
 pub(crate) mod player_ui;
+pub(crate) mod playlist_edits;
 pub(crate) mod playlist_export;
 pub(crate) mod playlist_metadata;
 pub(crate) mod presentation;

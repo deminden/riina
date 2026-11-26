@@ -19,7 +19,7 @@ pub(super) fn decode(text: &str) -> Vec<String> {
                 .is_some_and(|(scheme, _)| scheme.eq_ignore_ascii_case("file"))
                 || riina_core::media_reference::validate_network_url(line).is_ok()
         })
-        .flat_map(riina_core::playlist::clipboard_references)
+        .filter_map(riina_core::playlist::clipboard_reference)
         .collect()
 }
 

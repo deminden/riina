@@ -103,9 +103,11 @@ fn install_url_dialogs(app: &PlayerWindow, command_sender: &CommandSender) {
             let result = crate::player::media_open::validate_url(input.as_str())
                 .map_err(|error| error.to_string())
                 .and_then(|url| {
-                    commands
-                        .send_playlist_edit(Command::AppendFiles(vec![url.to_owned()]))
-                        .map_err(String::from)
+                    crate::player::playlist_edits::submit(
+                        &app,
+                        &commands,
+                        Command::AppendFiles(vec![url.to_owned()]),
+                    )
                 });
             if let Err(error) = result {
                 app.global::<PlayerDialogState>()

@@ -103,11 +103,10 @@ fn install_actions(
                 .invoke_activity();
             let result = command.and_then(|command| {
                 if matches!(command, Command::ClearPlaylist) {
-                    playlist_player.send_playlist_edit(command)
+                    crate::player::playlist_edits::clear(&window, &playlist_player)
                 } else {
-                    playlist_player.send(command)
+                    playlist_player.send(command).map_err(String::from)
                 }
-                .map_err(String::from)
             });
             if let Err(error) = result {
                 window.set_status(error.into());
@@ -208,8 +207,7 @@ fn paste_playlist(
     if paths.is_empty() {
         return Err("Clipboard contains no playlist references".into());
     }
-    super::playlist_drop::paste(app, sender, playlist_paste_anchor(app)?, paths);
-    Ok(())
+    super::playlist_drop::paste(app, sender, playlist_paste_anchor(app)?, paths)
 }
 
 fn install_keyboard_editing(app: &PlayerWindow, commands: &CommandSender) {

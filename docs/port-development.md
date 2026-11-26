@@ -49,6 +49,12 @@ clipboard format advertises a Copy operation for both Copy and Cut in the
 playlist. Riina asks a clipboard manager to retain the offered formats
 when it exits. [Clipboard Manager specification](https://www.freedesktop.org/specifications/clipboard-manager-spec/)
 
+For the macOS playlist clipboard check, start with an existing clipboard
+change count, copy and cut different selections, and paste before an existing
+row. Include a Finder file with a newline in its name and a mixed local and
+network selection. Verify the file URL and compatibility filename formats.
+[AppKit pasteboard change count](https://developer.apple.com/documentation/appkit/nspasteboard/addtypes(_:owner:))
+
 X11 uses the GTK theme for plugin-contributed playlist popups on the owning
 player window. Wayland shows the contributed menu inside the player surface.
 It keeps submenu bounds within the client and scrolls lists that exceed its

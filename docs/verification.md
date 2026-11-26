@@ -6744,3 +6744,28 @@ AppKit mouse delivery and physical pressure still need the
 
 - Windows application SHA-256 `9d74e027a88db16b99c8a3124be7cd764e5269c6fef2a09e33361225b9e0de61`
 - Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`
+
+### Playlist addition order and clipboard formats (2026-11-26)
+
+The locked Windows workspace build and full source gate passed, including
+strict Clippy, 717 application unit tests and the software-rendered comparison.
+The command-routing scenarios share one isolated Slint process. The new
+scenario completes a later drop before an earlier folder and checks that
+open, folder, URL and drop reach the engine in submission order. It also
+checks that clearing or replacing the playlist discards obsolete work, and
+that file and folder picker responses leave a pending media open alone.
+All nine tests in the pinned Windows native playlist group passed.
+
+Linux application Clippy, 36 focused playlist tests and the isolated player
+command-routing scenario passed. The isolated Windows desktop probes loaded
+the paused fixture and observed its sibling queue. The Add popup opened but
+the driver could not select its native folder command. Both test processes
+were closed. The Windows native picker sequence remains unverified.
+
+Strict workspace cross-Clippy passed for Apple Silicon and Intel. The macOS
+clipboard path uses AppKit's change count to detect publication errors and
+decodes native clipboard records individually. The native macOS clipboard
+sequence remains in the [port checks](port-development.md).
+
+- Windows application SHA-256 `f69f5e863490a2891108f531463ad24904299c680296e68fc19f7745c7ccdfaa`
+- Windows libmpv SHA-256 `a3708b0be3d3b5d8f1fb4c2e2a43346356471a78060e598dab774d00e8cc05f3`

@@ -1,6 +1,8 @@
 //! Resolve the visible insertion gap before directory discovery and command dispatch.
-use crate::{PlayerWindow, background, file_selection, media_open, platform};
-use riina_core::Command;
+use crate::{
+    PlayerWindow, media_open, platform,
+    player::playlist_edits::{self, Insertion},
+};
 use riina_mpv::CommandSender;
 use riina_ui::{PlayerCatalogState, PlayerSidebarState};
 use slint::{ComponentHandle, Model};
@@ -94,14 +96,19 @@ pub(super) fn handle(
             return;
         }
     };
-    insert_prepared(app, sender, before_id, generation, move || {
+    if app.get_media_request_generation() != generation {
+        return;
+    }
+    let result = playlist_edits::prepare(app, sender, Insertion::Before(before_id), move || {
         files
             .into_iter()
             .map(OsString::into_string)
             .collect::<Result<Vec<_>, _>>()
             .map_err(|_| "A media path contains invalid Unicode".to_owned())
-            .and_then(prepare)
     });
+    if let Err(error) = result {
+        app.set_status(error.into());
+    }
 }
 
 pub(super) fn paste(
@@ -109,49 +116,8 @@ pub(super) fn paste(
     sender: &CommandSender,
     before_id: Option<i64>,
     paths: platform::clipboard::PlaylistPaste,
-) {
-    insert_prepared(
-        app,
-        sender,
-        before_id,
-        app.get_media_request_generation(),
-        move || prepare(paths.into_paths()),
-    );
-}
-
-fn insert_prepared(
-    app: &PlayerWindow,
-    sender: &CommandSender,
-    before_id: Option<i64>,
-    generation: i32,
-    prepare_paths: impl FnOnce() -> Result<Vec<String>, String> + Send + 'static,
-) {
-    let window = app.as_weak();
-    let sender = sender.clone();
-    let started = background::spawn_named("riina-playlist-insertion", move || {
-        let result = prepare_paths();
-        let _ = background::to_ui(window, move |app| {
-            if app.get_media_request_generation() != generation {
-                return;
-            }
-            if let Err(error) = result.and_then(|paths| {
-                sender
-                    .send_playlist_edit(Command::InsertPlaylistFilesBefore { paths, before_id })
-                    .map_err(String::from)
-            }) {
-                app.set_status(error.into());
-            }
-        });
-    });
-    if let Err(error) = started {
-        app.set_status(error.to_string().into());
-    }
-}
-
-fn prepare(paths: Vec<String>) -> Result<Vec<String>, String> {
-    let paths = file_selection::prepare(media_open::resolve_dropped_url_shortcuts(paths)?, false)?;
-    if paths.is_empty() {
-        return Err("No playable files were found for the playlist".into());
-    }
-    Ok(paths)
+) -> Result<(), String> {
+    playlist_edits::prepare(app, sender, Insertion::Before(before_id), move || {
+        Ok(paths.into_paths())
+    })
 }

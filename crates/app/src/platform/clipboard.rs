@@ -71,8 +71,6 @@ pub(crate) fn copy_playlist_references(
         use objc2_app_kit::{NSFilenamesPboardType, NSPasteboard, NSPasteboardTypeString};
         use objc2_foundation::{NSArray, NSString, NSURL};
 
-        let pasteboard = NSPasteboard::generalPasteboard();
-        pasteboard.clearContents();
         // SAFETY: AppKit exports these immutable pasteboard type constants for
         // the lifetime of the process.
         let (filename_type, string_type) =
@@ -102,13 +100,16 @@ pub(crate) fn copy_playlist_references(
             .map(|url| ProtocolObject::from_ref(&**url))
             .collect::<Vec<_>>();
         let url_objects = NSArray::from_slice(&url_objects);
+        let pasteboard = NSPasteboard::generalPasteboard();
+        pasteboard.clearContents();
         if !pasteboard.writeObjects(&url_objects) {
             return Err("Could not write file URLs to the pasteboard".into());
         }
         let legacy_types = NSArray::from_slice(&[filename_type, string_type]);
         // SAFETY: Both entries are exported AppKit pasteboard types. This adds
         // compatibility types to the file-URL items just written; no owner is needed.
-        if unsafe { pasteboard.addTypes_owner(&legacy_types, None) } != 2 {
+        // The return value is the pasteboard change count, with zero on error.
+        if unsafe { pasteboard.addTypes_owner(&legacy_types, None) } == 0 {
             return Err("Could not add compatible playlist formats to the pasteboard".into());
         }
         let strings = paths
@@ -207,28 +208,28 @@ pub(crate) fn read_playlist_references() -> Result<PlaylistPaste, String> {
         {
             let paths = (0..filenames.count())
                 .filter_map(|index| filenames.objectAtIndex(index).downcast::<NSString>().ok())
-                .map(|path| path.to_string())
+                .filter_map(|path| riina_core::playlist::clipboard_reference(&path.to_string()))
                 .collect::<Vec<_>>();
             if !paths.is_empty() {
                 return Ok(PlaylistPaste::new(paths));
             }
         }
-        let file_urls = pasteboard
-            .pasteboardItems()
-            .map(|items| {
-                (0..items.count())
-                    .filter_map(|index| {
-                        let item = items.objectAtIndex(index);
-                        item.stringForType(file_url_type)
-                            .or_else(|| item.stringForType(url_type))
-                    })
-                    .map(|value| value.to_string())
-                    .collect::<Vec<_>>()
-                    .join("\n")
-            })
-            .filter(|references| !references.is_empty());
-        let text = file_urls.or_else(|| read_text().ok());
-        text.map(|text| riina_core::playlist::clipboard_references(&text))
+        if let Some(items) = pasteboard.pasteboardItems() {
+            let references = (0..items.count())
+                .filter_map(|index| {
+                    let item = items.objectAtIndex(index);
+                    item.stringForType(file_url_type)
+                        .or_else(|| item.stringForType(url_type))
+                })
+                .filter_map(|value| riina_core::playlist::clipboard_reference(&value.to_string()))
+                .collect::<Vec<_>>();
+            if !references.is_empty() {
+                return Ok(PlaylistPaste::new(references));
+            }
+        }
+        read_text()
+            .ok()
+            .map(|text| riina_core::playlist::clipboard_references(&text))
             .filter(|paths| !paths.is_empty())
             .map(PlaylistPaste::new)
             .ok_or_else(|| "Clipboard contains no playlist references".into())

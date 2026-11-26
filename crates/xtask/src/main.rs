@@ -60,11 +60,18 @@ fn run_task(arguments: &[OsString]) -> Result<(), String> {
 fn check(root: &Path) -> Result<(), String> {
     cargo(root, &["fmt", "--all", "--", "--check"])?;
     python(root, &["scripts/check-line-length.py"])?;
+    with_repository_checks(|| check_rust(root), || check_repository(root))
+}
+
+fn with_repository_checks(
+    rust: impl FnOnce() -> Result<(), String>,
+    repository: impl FnOnce() -> Result<(), String> + Send,
+) -> Result<(), String> {
     // The repository checks don't touch Cargo's build directory. Keep the two
     // Cargo commands in order so they can reuse the same target cache.
     thread::scope(|scope| {
-        let repository = scope.spawn(|| check_repository(root));
-        let rust = check_rust(root);
+        let repository = scope.spawn(repository);
+        let rust = rust();
         let repository = repository
             .join()
             .map_err(|_| "Repository checks stopped unexpectedly".to_owned())?;
@@ -117,6 +124,13 @@ fn fast_check(workspace: &Workspace, base: &OsStr) -> Result<(), String> {
             base,
         ],
     )?;
+    with_repository_checks(
+        || check_affected_rust(workspace, &files),
+        || check_affected_repository(root, &files),
+    )
+}
+
+fn check_affected_repository(root: &Path, files: &BTreeSet<PathBuf>) -> Result<(), String> {
     if files.iter().any(|path| {
         path.starts_with("crates/ui/ui")
             || path == Path::new("crates/app/src/settings_search.rs")
@@ -139,14 +153,19 @@ fn fast_check(workspace: &Workspace, base: &OsStr) -> Result<(), String> {
     if files.iter().any(|path| path.starts_with("tests/fixtures")) {
         python(root, &["scripts/check-fixtures.py"])?;
     }
+    Ok(())
+}
+
+fn check_affected_rust(workspace: &Workspace, files: &BTreeSet<PathBuf>) -> Result<(), String> {
+    let root = &workspace.workspace_root;
     let workspace_wide = files.iter().any(|path| shared_build_input(path));
     let mut selected = Vec::new();
     let packages;
     if workspace_wide {
         selected.push("--workspace");
     } else {
-        let mut changed = workspace.affected_packages(&files);
-        if include_ui_consumers(&mut changed, &files) {
+        let mut changed = workspace.affected_packages(files);
+        if include_ui_consumers(&mut changed, files) {
             return check_ui(root);
         }
         if changed.is_empty() {

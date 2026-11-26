@@ -242,6 +242,8 @@ also includes staged, unstaged and untracked changes. The runner resolves the
 workspace where it was invoked, so a shared Cargo target can serve multiple
 worktrees without reusing an earlier checkout's test scope. Runtime media
 fixtures and Windows pixel baselines also use the active worktree.
+The fast gate overlaps selected repository scripts with Rust linting and
+testing. Cargo runs linting and tests in order to share the target cache.
 Use `cargo xtask check` at integration points for the full local gate, including
 the browser, Python, parity, fixture and asset checks. This group runs alongside
 Rust linting and tests.

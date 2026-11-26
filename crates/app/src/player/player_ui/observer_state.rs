@@ -1,5 +1,6 @@
 //! Snapshot projection state belongs to the UI thread for each player session.
 use super::features::PlaybackTimers;
+use crate::player::playlist_edits;
 use crate::windows::open_url::ApplicationOpenUrl;
 use crate::{seek_osd::SeekOsd, video_osd::VideoOsd};
 use riina_core::Playback;
@@ -22,6 +23,7 @@ struct Observer {
     window: slint::Weak<crate::PlayerWindow>,
     state: Weak<RefCell<UiObserverState>>,
     discovery: SyncWeak<AtomicBool>,
+    playlist_edits: Rc<RefCell<playlist_edits::Queue>>,
 }
 
 impl Observer {
@@ -164,6 +166,15 @@ impl ObserverId {
         self.lookup()?.borrow().open_url.upgrade()
     }
 
+    pub(in crate::player) fn playlist_edits(self) -> Option<Rc<RefCell<playlist_edits::Queue>>> {
+        OBSERVERS.with(|observers| {
+            observers
+                .borrow()
+                .get(&self.0)
+                .map(|observer| observer.playlist_edits.clone())
+        })
+    }
+
     pub(super) fn lookup(self) -> Option<Rc<RefCell<UiObserverState>>> {
         OBSERVERS.with(|observers| {
             observers
@@ -191,6 +202,7 @@ impl ObserverRegistration {
                     window: app.as_weak(),
                     state: Rc::downgrade(&state),
                     discovery: SyncWeak::new(),
+                    playlist_edits: Rc::default(),
                 },
             );
         });

@@ -267,9 +267,11 @@ impl UiSession {
                 playback,
             )?;
         } else if append {
-            player
-                .command_sender()
-                .send_playlist_edit(Command::OpenMediaLink(playback))?;
+            super::playlist_edits::submit(
+                app,
+                &player.command_sender(),
+                Command::OpenMediaLink(playback),
+            )?;
         } else {
             player.send(Command::OpenMediaLink(playback))?;
         }

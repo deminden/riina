@@ -1,7 +1,7 @@
 //! Filesystem preparation never runs inside a rendering callback or GUI event.
 mod routing;
 
-use super::{player_ui::ObserverId, surface::PlayerDisplay};
+use super::{player_ui::ObserverId, playlist_edits, surface::PlayerDisplay};
 use crate::{PlayerWindow, file_selection};
 use riina_core::Command;
 use riina_mpv::CommandSender;
@@ -50,7 +50,6 @@ pub(crate) fn history_playlist(
     selection_at(
         app,
         paths,
-        false,
         None,
         sender,
         SelectionSource::ExplicitPlaylist,
@@ -84,7 +83,6 @@ pub(crate) fn history_entry(
     selection_at(
         app,
         vec![path.to_owned()],
-        false,
         position,
         sender,
         SelectionSource::Startup,
@@ -452,15 +450,7 @@ fn startup_selection(
         .map(OsString::into_string)
         .collect::<Result<Vec<_>, _>>();
     match paths {
-        Ok(paths) => selection_at(
-            app,
-            paths,
-            false,
-            resume_position,
-            sender,
-            source,
-            grouped_stream,
-        ),
+        Ok(paths) => selection_at(app, paths, resume_position, sender, source, grouped_stream),
         Err(_) => app.set_status("A media path contains invalid Unicode".into()),
     }
 }
@@ -521,21 +511,10 @@ pub fn invalidate(app: &PlayerWindow) -> i32 {
     if let Some(observer) = ObserverId::for_window(app) {
         observer.cancel_discovery();
     }
+    playlist_edits::retire_media(app);
     let generation = app.get_media_request_generation().wrapping_add(1);
     app.set_media_request_generation(generation);
     generation
-}
-
-pub fn selection(app: &PlayerWindow, paths: Vec<String>, append: bool, sender: CommandSender) {
-    selection_at(
-        app,
-        paths,
-        append,
-        None,
-        sender,
-        SelectionSource::Interactive { alternative: false },
-        None,
-    );
 }
 
 pub(crate) fn file_dialog_selection(
@@ -547,7 +526,6 @@ pub(crate) fn file_dialog_selection(
     selection_at(
         app,
         paths,
-        false,
         None,
         sender,
         SelectionSource::Interactive { alternative },
@@ -558,7 +536,6 @@ pub(crate) fn file_dialog_selection(
 fn selection_at(
     app: &PlayerWindow,
     paths: Vec<String>,
-    append: bool,
     resume_position: Option<f64>,
     sender: CommandSender,
     source: SelectionSource,
@@ -568,54 +545,65 @@ fn selection_at(
         return;
     }
     let generation = invalidate(app);
+    playlist_edits::hold_for_open(app);
     let discovery = ObserverId::for_window(app)
         .map(ObserverId::begin_discovery)
         .unwrap_or_default();
     let weak = app.as_weak();
-    let failure = weak.clone();
+    let commands = sender.clone();
+    let (ready, result) = tokio::sync::oneshot::channel();
     app.set_status("Opening…".into());
-    let started = crate::background::spawn_named("media-discovery", move || {
-        let cancelled = || discovery.load(Ordering::Relaxed);
-        let result = prepare_selection(paths, append, resume_position, source, cancelled);
-        // The result has no recipient once its window or event loop closes.
-        let _ = crate::background::to_ui(weak, move |app| {
-            // A newer accepted selection or Stop owns the player now.
-            if app.get_media_request_generation() == generation
-                && let Err(error) = result
-                    .and_then(|prepared| prepared.open(&app, &sender, grouped_stream, generation))
-            {
-                app.set_status(error.into());
-            }
-        });
-    });
-    if let Err(error) = started
-        && let Some(app) = failure.upgrade()
-        && app.get_media_request_generation() == generation
-    {
+    if let Err(error) = slint::spawn_local(async move {
+        let prepared = result.await;
+        let Some(app) = weak.upgrade() else { return };
+        // A newer accepted selection or Stop owns the player now.
+        if app.get_media_request_generation() != generation {
+            return;
+        }
+        let result = prepared
+            .unwrap_or_else(|_| Err("Could not prepare media".into()))
+            .and_then(|prepared: PreparedSelection| {
+                prepared.open(&app, &commands, grouped_stream, generation)
+            });
+        if let Err(error) = result {
+            app.set_status(error.into());
+        }
+        if app.get_media_request_generation() == generation {
+            playlist_edits::release_after_open(&app, &commands);
+        }
+    }) {
         app.set_status(error.to_string().into());
+        playlist_edits::release_after_open(app, &sender);
+        return;
+    }
+    if let Err(error) = crate::background::spawn_named("media-discovery", move || {
+        let cancelled = || discovery.load(Ordering::Relaxed);
+        let result = prepare_selection(paths, resume_position, source, cancelled);
+        let _ = ready.send(result);
+    }) {
+        // Dropping the sender wakes the UI task and releases queued additions.
+        crate::diagnostics::warn!("Could not start media discovery: {error}");
     }
 }
 
 fn prepare_selection(
     paths: Vec<String>,
-    append: bool,
     resume_position: Option<f64>,
     source: SelectionSource,
     cancelled: impl Fn() -> bool,
 ) -> Result<PreparedSelection, String> {
     let desktop_drop = source == SelectionSource::DesktopDrop;
-    let subtitles = if desktop_drop && !append {
+    let subtitles = if desktop_drop {
         dropped_subtitles(&paths)
     } else {
         Vec::new()
     };
     let paths = if desktop_drop {
-        resolve_dropped_url_shortcuts(paths)?
+        resolve_url_shortcuts(paths, &cancelled)?
     } else {
         paths
     };
-    if !append
-        && resume_position.is_none()
+    if resume_position.is_none()
         && let SelectionSource::Interactive { alternative } = source
     {
         let prefs = preferences_for_open()?;
@@ -628,7 +616,7 @@ fn prepare_selection(
             };
         }
     }
-    let paths = file_selection::prepare_cancellable(paths, !append, cancelled)?;
+    let paths = file_selection::prepare_cancellable(paths, true, cancelled)?;
     if paths.is_empty() {
         return if subtitles.is_empty() {
             Err("No playable files were found".into())
@@ -642,9 +630,7 @@ fn prepare_selection(
             Command::OpenFilesWithSubtitles { paths, subtitles },
         ));
     }
-    let command = if append {
-        Command::AppendFiles(paths)
-    } else if source == SelectionSource::StartupShuffled {
+    let command = if source == SelectionSource::StartupShuffled {
         Command::OpenShuffledPlaylist(paths)
     } else if source == SelectionSource::ExplicitPlaylist {
         Command::OpenPlaylist(paths)
@@ -739,8 +725,6 @@ fn open_prepared_command(
         && let Some(opening) = grouped_stream.and_then(ObserverId::open_url)
     {
         opening.open_initial_playlist(app, sender, address, following, explicit, generation)
-    } else if matches!(&command, Command::AppendFiles(_)) {
-        sender.send_playlist_edit(command).map_err(String::from)
     } else {
         sender.send(command)?;
         apply_manual_open_repeat(app, sender)
@@ -771,9 +755,19 @@ fn dropped_subtitles(paths: &[String]) -> Vec<String> {
 }
 
 pub(super) fn resolve_dropped_url_shortcuts(paths: Vec<String>) -> Result<Vec<String>, String> {
+    resolve_url_shortcuts(paths, || false)
+}
+
+pub(super) fn resolve_url_shortcuts(
+    paths: Vec<String>,
+    cancelled: impl Fn() -> bool,
+) -> Result<Vec<String>, String> {
     paths
         .into_iter()
         .map(|path| {
+            if cancelled() {
+                return Err("Media selection was cancelled".to_owned());
+            }
             if riina_core::media_reference::is_network_url_candidate(&path)
                 || !std::path::Path::new(&path)
                     .extension()
@@ -855,32 +849,6 @@ mod tests {
     }
 
     #[test]
-    fn playlist_folder_add_prepares_only_supported_media_and_retains_natural_order() {
-        use super::{PreparedSelection, SelectionSource, prepare_selection};
-
-        let directory = riina_test_support::TempDir::new("playlist-folder").unwrap();
-        for name in ["clip10.avi", "clip2.avi", "clip2.srt", "all.m3u8"] {
-            std::fs::write(directory.path().join(name), []).unwrap();
-        }
-        let prepared = prepare_selection(
-            vec![directory.path().to_string_lossy().into_owned()],
-            true,
-            None,
-            SelectionSource::Interactive { alternative: false },
-            || false,
-        )
-        .unwrap();
-        let PreparedSelection::Command(Command::AppendFiles(paths)) = prepared else {
-            panic!("Playlist folders should expand to one append request");
-        };
-        let names: Vec<_> = paths
-            .iter()
-            .map(|path| std::path::Path::new(path).file_name().unwrap())
-            .collect();
-        assert_eq!(names, ["clip2.avi", "clip10.avi"]);
-    }
-
-    #[test]
     fn grouped_startup_tracks_only_an_open_with_a_network_lead() {
         use super::{PreparedSelection, SelectionSource, grouped_stream_paths, prepare_selection};
 
@@ -893,7 +861,6 @@ mod tests {
                 "part2.avi".into(),
                 second.into(),
             ],
-            false,
             None,
             SelectionSource::ExplicitPlaylist,
             || false,
@@ -922,7 +889,6 @@ mod tests {
         let expected = ["clip2.mkv", "clip10.mkv"];
         let current = prepare_selection(
             paths.clone(),
-            false,
             None,
             SelectionSource::ExplicitPlaylist,
             || false,
@@ -949,13 +915,8 @@ mod tests {
             vec!["https://example.test/live".to_owned()],
             vec!["Café 2.mkv".to_owned(), "Café 10.mkv".to_owned()],
         ] {
-            let result = prepare_selection(
-                paths.clone(),
-                false,
-                None,
-                SelectionSource::DesktopDrop,
-                || false,
-            );
+            let result =
+                prepare_selection(paths.clone(), None, SelectionSource::DesktopDrop, || false);
             assert!(
                 matches!(result, Ok(PreparedSelection::Command(Command::OpenFiles(open))) if open == paths)
             );

@@ -337,8 +337,11 @@ compact-to-main handoff. It restores the main frame before applying the
 saved resize policy. A replacement item clears the old request, and a
 subtitle-only canvas cannot supply the main player's natural dimensions.
 
-File and folder opens from the playlist share media discovery with paste and
-external drops. The worker inserts each reference directly at its native
+Each player publishes file and folder selections, paste, external drops and
+URL additions in submission order. Discovery runs off the UI thread. New
+additions wait for a pending file open to dispatch. Clear retires pending
+additions, and a new open or Stop retires the old media request and its edits.
+The worker inserts each reference directly at its native
 position instead of appending and moving it in a second operation. User
 additions and clears collect native replies for one edit and publish the latest
 outcome for the owning player's OSD. Silent application and plugin commands

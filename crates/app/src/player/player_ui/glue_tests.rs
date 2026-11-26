@@ -114,15 +114,13 @@ impl Harness {
     }
 }
 
-#[test]
-fn script_keys_follow_native_ownership_and_preserve_playback_shortcuts()
--> Result<(), Box<dyn std::error::Error>> {
+fn exercise_script_key_ownership(
+    profile: &std::path::Path,
+) -> Result<(), Box<dyn std::error::Error>> {
     use riina_core::key_bindings::MpvInputOwner;
     use riina_ui::PlayerControlActions;
 
-    i_slint_backend_testing::init_integration_test_with_mock_time();
-    let directory = TempDir::new("mpv-console-routing")?;
-    let player = Harness::start(directory.path().join("preferences.json"), false)?;
+    let player = Harness::start(profile.join("mpv-console-routing/preferences.json"), false)?;
     crate::key_binding_preferences::install_player(
         &player.app,
         &riina_core::key_bindings::Settings {
@@ -422,6 +420,7 @@ fn player_glue_worker() -> Result<(), Box<dyn std::error::Error>> {
         std::env::var_os("RIINA_TEST_GLUE_PROFILE").ok_or("Expected an isolated test profile")?,
     );
     exercise_startup(&profile)?;
+    exercise_script_key_ownership(&profile)?;
     exercise_teardown(&profile)?;
     exercise_idle_managed_player(&profile)?;
     exercise_shared_recents(&profile)?;
@@ -435,6 +434,7 @@ fn player_glue_worker() -> Result<(), Box<dyn std::error::Error>> {
     exercise_controller_arrows(&harness);
     exercise_timeline_generation(&profile)?;
     exercise_playlist_feedback(&profile)?;
+    super::super::playlist_edits::tests::exercise_playlist_edit_order(&profile)?;
     exercise_playlist_footer_menus(&profile)?;
     drop(harness);
 

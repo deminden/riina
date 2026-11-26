@@ -56,7 +56,7 @@ impl Purpose {
             Self::MediaAlternative => return None,
             Self::Audio => Command::AddAudio(paths[0].clone()),
             Self::Subtitle => Command::AddSubtitle(paths[0].clone()),
-            Self::Playlist | Self::PlaylistFolders => Command::AppendFiles(paths),
+            Self::Playlist | Self::PlaylistFolders => return None,
         })
     }
 }
@@ -79,8 +79,7 @@ pub(crate) fn dispatch_selection(
             Ok(())
         }
         Purpose::Playlist | Purpose::PlaylistFolders => {
-            media_open::selection(app, paths, true, sender);
-            Ok(())
+            crate::player::playlist_edits::add_files(app, &sender, paths)
         }
         Purpose::Audio | Purpose::Subtitle => purpose
             .command(paths)
