@@ -24,7 +24,8 @@ use windows::{
         },
         UI::{
             Input::KeyboardAndMouse::{
-                GetAsyncKeyState, IsWindowEnabled, SetActiveWindow, SetFocus, VK_F10, VK_MENU,
+                GetAsyncKeyState, GetKeyState, IsWindowEnabled, SetActiveWindow, SetFocus,
+                VK_CONTROL, VK_F10, VK_MENU, VK_SHIFT,
             },
             Shell::{DefSubclassProc, RemoveWindowSubclass, SetWindowSubclass},
             WindowsAndMessaging::{
@@ -47,6 +48,7 @@ struct MenuContext {
     enter_message: u32,
     restore_message: u32,
     detached_menu: Cell<Option<HMENU>>,
+    application_menu_key_armed: Cell<bool>,
 }
 
 pub(super) struct MenuFocus {
@@ -78,6 +80,7 @@ impl MenuFocus {
             enter_message,
             restore_message,
             detached_menu: Cell::new(None),
+            application_menu_key_armed: Cell::new(false),
         });
         let pointer = (&*context as *const MenuContext) as usize;
         // SAFETY: the owning UI thread installs/removes this stable box.
@@ -332,6 +335,29 @@ fn refresh_popup(app: &PlayerWindow, hwnd: HWND, wparam: WPARAM) {
     }
 }
 
+fn handle_menu_key(context: &MenuContext, hwnd: HWND, message: u32, lparam: LPARAM) -> bool {
+    if matches!(message, WM_KEYDOWN | WM_SYSKEYDOWN) {
+        // The previous-key-state bit is set for repeated key presses.
+        if lparam.0 & (1 << 30) == 0 {
+            let plain = [VK_CONTROL, VK_SHIFT, VK_MENU].into_iter().all(|key| {
+                // SAFETY: these virtual keys are valid and the call reads thread input state.
+                (unsafe { GetKeyState(i32::from(key.0)) }) >= 0
+            });
+            context.application_menu_key_armed.set(plain);
+        }
+        return true;
+    }
+    if matches!(message, WM_KEYUP | WM_SYSKEYUP) {
+        if context.application_menu_key_armed.replace(false)
+            && let Err(error) = request(hwnd.0 as isize)
+        {
+            crate::diagnostics::warn!("Could not queue native menu entry: {error}");
+        }
+        return true;
+    }
+    false
+}
+
 unsafe extern "system" fn menu_proc(
     hwnd: HWND,
     message: u32,
@@ -369,18 +395,11 @@ unsafe extern "system" fn menu_proc(
     {
         refresh_popup(&app, hwnd, wparam);
     }
-    if wparam.0 == VK_F10.0 as usize && !context.active.get() {
-        if matches!(message, WM_KEYDOWN | WM_SYSKEYDOWN) {
-            return LRESULT(0);
-        }
-        if matches!(message, WM_KEYUP | WM_SYSKEYUP) {
-            // F10 can reach the framed owner directly, without visiting the
-            // shared controls. Use the same queued entry for either input scope.
-            if let Err(error) = request(hwnd.0 as isize) {
-                crate::diagnostics::warn!("Could not queue native menu entry: {error}");
-            }
-            return LRESULT(0);
-        }
+    if wparam.0 == VK_F10.0 as usize
+        && !context.active.get()
+        && handle_menu_key(context, hwnd, message, lparam)
+    {
+        return LRESULT(0);
     }
     if message == context.enter_message {
         // Coalesce queued entry requests while Windows already owns menu input.

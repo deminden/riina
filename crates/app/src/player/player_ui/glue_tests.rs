@@ -436,6 +436,7 @@ fn player_glue_worker() -> Result<(), Box<dyn std::error::Error>> {
     exercise_playlist_feedback(&profile)?;
     super::super::playlist_edits::tests::exercise_playlist_edit_order(&profile)?;
     exercise_playlist_footer_menus(&profile)?;
+    exercise_playlist_footer_selection(&profile)?;
     drop(harness);
 
     let capture = Harness::start(profile.join("capture/preferences.json"), true)?;
@@ -972,6 +973,11 @@ fn exercise_playlist_footer_menus(
         "Escape must restore the Sort button's focus"
     );
     press(Key::End);
+    app.window().dispatch_event(WindowEvent::KeyPressRepeated {
+        text: Key::Return.into(),
+    });
+    assert!(popup.get_shown());
+    harness.expect_idle();
     press(Key::Return);
     harness.expect(Command::SortPlaylist(
         riina_core::playlist::PlaylistSort::PathDescending,
@@ -1006,6 +1012,73 @@ fn exercise_playlist_footer_menus(
     playlist.set_playlist_menu_generation(playlist.get_playlist_menu_generation().wrapping_add(1));
     choose("Add URL…");
     assert!(!dialog.get_url_dialog_visible());
+    app.hide()?;
+    Ok(())
+}
+
+fn exercise_playlist_footer_selection(
+    profile: &std::path::Path,
+) -> Result<(), Box<dyn std::error::Error>> {
+    use i_slint_backend_testing::ElementHandle;
+    use riina_ui::{PlayerCatalogState, PlayerSidebarState, PlaylistInteraction};
+    let harness = Harness::start(profile.join("playlist-selection/preferences.json"), false)?;
+    let app = &harness.app;
+    let playlist = app.global::<PlaylistInteraction>();
+    app.global::<PlayerSidebarState>().set_sidebar(4);
+    app.window().set_size(slint::PhysicalSize::new(760, 510));
+    app.show()?;
+    harness.publish(Playback {
+        generation: 1,
+        phase: Phase::Paused,
+        paused: true,
+        playlist: ["First", "Second"]
+            .into_iter()
+            .enumerate()
+            .map(|(index, title)| riina_core::PlaylistEntry {
+                id: i64::try_from(index).unwrap() + 1,
+                filename: format!("{title}.mkv"),
+                title: Some(title.into()),
+                playing: index == 0,
+                current: index == 0,
+            })
+            .collect::<Vec<_>>()
+            .into(),
+        ..Playback::default()
+    })?;
+    harness.expect(Command::SetHdrEnabledWithIcc {
+        enabled: false,
+        load_icc_profile: true,
+    });
+    let control = |label| {
+        ElementHandle::find_by_accessible_label(app, label)
+            .next()
+            .unwrap()
+    };
+    let remove = control("Remove selected playlist entries");
+    assert_eq!(remove.accessible_enabled(), Some(false));
+
+    let first = control("First, First.mkv");
+    first.invoke_accessible_default_action();
+    assert_eq!(first.accessible_item_selected(), Some(true));
+    assert_eq!(playlist.get_focused_playlist_token(), "1");
+    harness.expect_idle();
+
+    playlist.invoke_select_row(1, true, false);
+    playlist.invoke_select_row(0, true, false);
+    assert_eq!(first.accessible_item_selected(), Some(false));
+    assert_eq!(remove.accessible_enabled(), Some(true));
+    remove.invoke_accessible_default_action();
+    harness.expect(Command::RemovePlaylistIds(vec![2]));
+    assert_eq!(remove.accessible_enabled(), Some(false));
+    remove.invoke_accessible_default_action();
+    harness.expect_idle();
+
+    let shuffle = control("Shuffle playlist");
+    assert_eq!(shuffle.accessible_checkable(), Some(true));
+    assert_eq!(shuffle.accessible_checked(), Some(false));
+    app.global::<PlayerCatalogState>()
+        .set_playlist_shuffled(true);
+    assert_eq!(shuffle.accessible_checked(), Some(true));
     app.hide()?;
     Ok(())
 }

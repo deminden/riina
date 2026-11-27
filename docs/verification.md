@@ -6929,3 +6929,32 @@ test process.
 
 - Linux executable SHA-256 `ab4e2d91042baeb1413a94161ecb2af165bda25da157e8010c729f4253afeb3f`
 - Linux libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`
+
+### Playlist selection, keyboard input and localized summaries (2026-11-27)
+
+The locked Windows workspace gate passed with strict Clippy, 725 application
+unit tests, 87 headless widget tests and the Windows software-rendered pixel
+baselines. The application callback test selects a row through accessibility,
+deselects it, and verifies that Remove sends only the other selected ID. It
+also checks the enabled state of Remove, shuffle's checked state and repeated
+Enter while a popup is open.
+
+The widget tests cover holding Return on Add and Sort in both Playlist
+surfaces as focus moves away, and releasing Shift before F10 while a row
+owns focus. The duration test checks totals and selection summaries in
+English, Russian and Arabic and covers incomplete row durations. All 75
+pinned native Windows tests passed in 11.88 seconds with null output. The
+subtitle test rewrites a disposable SRT, opens the same path again and
+observes the edited text while playback stays paused and the track count
+stays stable.
+
+The locked Windows workspace build passed. On a private desktop, Shift+F10
+opened the focused row's native context menu. Windows UI Automation selected
+a queued row and invoked Remove. The native queue then contained the two
+other items, the original video stayed paused, and the exact process exited.
+The same executable passed the separate playback, fullscreen and shutdown
+smoke test.
+
+- Windows executable SHA-256 `1cb7314ae7ffabfa86fd1d9c555ecd425d44fea1ad729e3814965f6d02aec262`
+
+Strict workspace cross-Clippy passed for Apple Silicon and Intel.

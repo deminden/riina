@@ -72,7 +72,6 @@ export global PlaylistInteraction {
     callback subtitle-action(PlaylistSubtitleAction, string);
     callback toggle-series-prefix(string);
     callback edit(PlaylistEdit, bool) -> bool;
-    in-out property <string> selected-playlist-token: "";
     in-out property <[string]> selected-playlist-tokens: [];
     in-out property <string> focused-playlist-token: "";
     in-out property <string> edit-focus-target: "";
@@ -97,13 +96,11 @@ export global PlaylistInteraction {
         root.playlist-drag-active = false;
     }
 
-    public function select-row(index: int, token: string, extend: bool, range: bool) {
+    public function select-row(index: int, extend: bool, range: bool) {
         root.selected-playlist-tokens = PlayerSidebarActions.select-playlist-row(index, extend, range);
-        root.selected-playlist-token = token;
     }
 
     public function clear-selection() {
-        root.selected-playlist-token = "";
         root.selected-playlist-tokens = [];
         PlayerSidebarActions.clear-playlist-selection();
     }

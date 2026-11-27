@@ -1,4 +1,5 @@
 import { Theme } from "theme.slint";
+import { PlayerControlActions } from "player-control-actions.slint";
 export component Tool inherits Rectangle {
     in property <string> label;
     in property <bool> elide-label: false;
@@ -9,6 +10,7 @@ export component Tool inherits Rectangle {
     in property <bool> enabled: true;
     in property <bool> dark-theme: true;
     in property <bool> selected: false;
+    in property <bool> checkable: false;
     in property <bool> circular: false;
     in property <length> circular-size: 34px;
     in property <bool> windows-acrylic-surface: false;
@@ -30,6 +32,8 @@ export component Tool inherits Rectangle {
     accessible-role: button;
     accessible-label: hint;
     accessible-enabled: enabled;
+    accessible-checkable: checkable;
+    accessible-checked: checkable && selected;
     accessible-action-default => { if enabled { activated(); } }
     if icon.width == 0 : Text { text: label; color: !enabled ? Theme.player-tool-disabled-glyph : selected ? root.accent-color : Theme.sidebar-action-text(dark-theme, true); font-size: 17px;
         overflow: root.elide-label ? elide : clip;
@@ -53,7 +57,11 @@ export component Tool inherits Rectangle {
             if event.modifiers.alt || event.modifiers.control || event.modifiers.meta || event.modifiers.shift { return reject; }
             if event.text == Key.Return || event.text == " " {
                 root.pointer-focused = false;
-                root.activated(); return accept;
+                if !event.repeat {
+                    PlayerControlActions.held-control-key = event.text;
+                    root.activated();
+                }
+                return accept;
             }
             return reject;
         }

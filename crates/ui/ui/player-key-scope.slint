@@ -16,6 +16,7 @@ export component PlayerKeyScope inherits FocusScope {
     in property <bool> loaded;
     in property <bool> fullscreen;
     in property <bool> compact-menu-available;
+    private property <bool> application-menu-key-armed;
     out property <bool> music-mode-hovered: surface.has-hover &&
         surface.mouse-y < surface.height - PlayerMusicModeState.displayed-catalog-height;
     callback open-compact-menu();
@@ -29,8 +30,15 @@ export component PlayerKeyScope inherits FocusScope {
     }
 
     capture-key-pressed(event) => {
+        if PlayerControlActions.held-control-key != "" && event.text == PlayerControlActions.held-control-key {
+            if event.repeat { return accept; }
+            PlayerControlActions.held-control-key = "";
+        }
+        if event.text == Key.F10 && !event.repeat { root.application-menu-key-armed = false; }
         if PlaylistPluginPopupState.shown {
-            PlaylistPluginPopupState.handle-key(event.text);
+            if !event.repeat || (event.text != Key.Return && event.text != " ") {
+                PlaylistPluginPopupState.handle-key(event.text);
+            }
             return accept;
         }
         if !PlayerCropState.crop-editing && !PlayerDialogState.dialog-open
@@ -41,6 +49,10 @@ export component PlayerKeyScope inherits FocusScope {
         return reject;
     }
     capture-key-released(event) => {
+        if PlayerControlActions.held-control-key != "" && event.text == PlayerControlActions.held-control-key {
+            PlayerControlActions.held-control-key = "";
+            return accept;
+        }
         if PlaylistPluginPopupState.shown { return accept; }
         if !PlayerCropState.crop-editing && !PlayerDialogState.dialog-open
             && PlayerControlActions.forward-mpv-script-key(event.text, event.modifiers.control,
@@ -54,10 +66,13 @@ export component PlayerKeyScope inherits FocusScope {
         if (event.text == Key.Alt || !event.modifiers.alt) && menu-alternates-visible {
             menu-alternates-visible = false;
         }
-        if native-video && !PlayerCropState.crop-editing && event.text == Key.F10 { PlayerControlActions.open-application-menu(); return accept; }
-        if root.compact-menu-available && event.text == Key.F10
-            && !event.modifiers.control && !event.modifiers.meta && !event.modifiers.alt && !event.modifiers.shift {
-            root.open-compact-menu(); return accept;
+        if event.text == Key.F10 && root.application-menu-key-armed {
+            root.application-menu-key-armed = false;
+            if !PlayerCropState.crop-editing && !PlayerDialogState.dialog-open {
+                if native-video { PlayerControlActions.open-application-menu(); }
+                else if root.compact-menu-available { root.open-compact-menu(); }
+            }
+            return accept;
         }
         if !PlayerCropState.crop-editing && !PlayerDialogState.dialog-open
             && PlayerControlActions.begin-plugin-key(event.text, event.modifiers.control, event.modifiers.alt,
@@ -83,9 +98,9 @@ export component PlayerKeyScope inherits FocusScope {
             PlayerMusicModeState.close-volume-panel();
             return accept;
         }
-        if native-video && event.text == Key.F10 { return accept; }
-        if root.compact-menu-available && event.text == Key.F10
+        if (native-video || root.compact-menu-available) && event.text == Key.F10
             && !event.modifiers.control && !event.modifiers.meta && !event.modifiers.alt && !event.modifiers.shift {
+            if !event.repeat { root.application-menu-key-armed = true; }
             return accept;
         }
         let route-to-plugins = !PlayerDialogState.dialog-open;

@@ -95,7 +95,12 @@ Implementation does not imply every state or platform is verified.
   on Windows and Linux. Sort opens the four filename and path orders.
   The row menu shows the selected filename or item count and groups the
   available commands under headings. Sort and row menus localize built-in
-  labels in English, Russian and Arabic.
+  labels in English, Russian and Arabic. The same languages cover playlist
+  totals, selected durations and the accessible names of the footer controls.
+  Both playlist surfaces report which rows are selected. Remove acts on that
+  selection even when the last clicked row was deselected. Holding an
+  activation key sends a single action. Shift+F10 opens the focused row's
+  menu, and plain F10 opens the application menu where it has that shortcut.
   Streams with a known duration keep that duration in their playlist rows
   after playback advances. Playlist totals include those rows when every
   duration is available. Local duration and audio-tag workers exit when their

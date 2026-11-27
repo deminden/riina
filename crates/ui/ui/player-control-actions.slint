@@ -4,6 +4,7 @@ export enum PlayerPluginPointerPhase { down, up, move, cancel }
 export enum ControllerArrowPhase { pressed, released, cancelled, activated }
 
 export global PlayerControlActions {
+    in-out property <string> held-control-key;
     callback open-application-menu();
     callback timeline-hovered(float);
     callback timeline-gesture(bool);

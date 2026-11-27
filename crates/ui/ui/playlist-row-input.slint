@@ -44,7 +44,7 @@ export component PlaylistRowInput inherits TouchArea {
     }
 
     function select-row() {
-        PlaylistInteraction.select-row(root.index, root.token, root.extend-selection, root.range-selection);
+        PlaylistInteraction.select-row(root.index, root.extend-selection, root.range-selection);
     }
 
     pointer-event(event) => {
@@ -79,7 +79,6 @@ export component PlaylistRowInput inherits TouchArea {
             root.update-drag-position();
         } else if abs(root.mouse-x - root.pressed-x) + abs(root.mouse-y - root.pressed-y) >= 5px {
             if !root.selected || root.extend-selection || root.range-selection { root.select-row(); }
-            PlaylistInteraction.selected-playlist-token = root.token;
             root.update-drag-position();
             PlaylistInteraction.playlist-drag-active = true;
         }

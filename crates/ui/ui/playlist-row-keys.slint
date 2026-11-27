@@ -1,4 +1,5 @@
 import { PlayerCatalogState } from "player-catalog-state.slint";
+import { PlayerControlActions } from "player-control-actions.slint";
 import { PlaylistEdit, PlaylistInteraction } from "playlist-interaction.slint";
 import { PlayerAppearance } from "player-appearance.slint";
 import { PlayerMusicModeState } from "player-music-mode-state.slint";
@@ -52,17 +53,29 @@ export component PlaylistRowKeys inherits FocusScope {
                 : event.text == "c" || event.text == "C" ? PlaylistEdit.copy
                 : event.text == "v" || event.text == "V" ? PlaylistEdit.paste
                 : event.text == "a" || event.text == "A" ? PlaylistEdit.select-all : PlaylistEdit.none;
-            if edit != PlaylistEdit.none && PlaylistInteraction.edit(edit, true) { return accept; }
+            if edit != PlaylistEdit.none && (event.repeat || PlaylistInteraction.edit(edit, true)) {
+                PlayerControlActions.held-control-key = event.text;
+                return accept;
+            }
         }
         if event.modifiers.alt || event.modifiers.control || event.modifiers.meta { return reject; }
         if !event.modifiers.shift && (event.text == Key.Backspace || event.text == Key.Delete)
-            && PlaylistInteraction.edit(PlaylistEdit.remove, true) { return accept; }
+            && (event.repeat || PlaylistInteraction.edit(PlaylistEdit.remove, true)) {
+            PlayerControlActions.held-control-key = event.text;
+            return accept;
+        }
         if event.modifiers.shift && event.text == Key.F10 {
-            root.open-context-menu();
+            if !event.repeat {
+                PlayerControlActions.held-control-key = event.text;
+                root.open-context-menu();
+            }
             return accept;
         }
         if !event.modifiers.shift && event.text == Key.Return {
-            root.play-row();
+            if !event.repeat {
+                PlayerControlActions.held-control-key = event.text;
+                root.play-row();
+            }
             return accept;
         }
         let count = PlayerCatalogState.playlist.length;
@@ -75,10 +88,9 @@ export component PlaylistRowKeys inherits FocusScope {
             : event.text == Key.PageDown ? min(count - 1, root.index + root.page-size) : -1;
         if destination < 0 { return reject; }
         if event.modifiers.shift && PlaylistInteraction.selected-playlist-tokens.length == 0 {
-            PlaylistInteraction.select-row(root.index, PlayerCatalogState.playlist[root.index].token, false, false);
+            PlaylistInteraction.select-row(root.index, false, false);
         }
-        PlaylistInteraction.select-row(destination, PlayerCatalogState.playlist[destination].token,
-            false, event.modifiers.shift);
+        PlaylistInteraction.select-row(destination, false, event.modifiers.shift);
         if destination != root.index { root.move-focus(destination); }
         return accept;
     }

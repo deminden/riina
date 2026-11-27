@@ -2774,3 +2774,27 @@ msgstr[2] "عنصران"
 msgstr[3] "{n} عناصر"
 msgstr[4] "{n} عنصرًا"
 msgstr[5] "{n} عنصر"
+
+msgid "Cycle repeat: {0}"
+msgstr "وضع التكرار: {0}"
+
+msgid "Shuffle playlist"
+msgstr "خلط قائمة التشغيل"
+
+msgid "Sort playlist"
+msgstr "فرز قائمة التشغيل"
+
+msgid "Add to playlist"
+msgstr "إضافة إلى قائمة التشغيل"
+
+msgid "Remove selected playlist entries"
+msgstr "إزالة العناصر المحددة من قائمة التشغيل"
+
+msgid "Clear playlist except current file"
+msgstr "مسح قائمة التشغيل مع إبقاء الملف الحالي"
+
+msgid "{0} in total"
+msgstr "الإجمالي ⁦{0}⁩"
+
+msgid "{0} of {1} selected"
+msgstr "تم تحديد ⁦{0}⁩ من ⁦{1}⁩"

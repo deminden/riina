@@ -538,8 +538,13 @@ fn chapters_external_tracks_and_playlist_editing() {
     assert!((loaded.chapters[1].time - 2.0).abs() < 0.001);
     harness.send(Command::TogglePause).unwrap();
     harness.wait(|state| state.phase == Phase::Paused);
+    let temp = riina_test_support::TempDir::new("native-subtitle-reload").unwrap();
+    let subtitle = temp.path().join("updated captions.srt");
+    let original = std::fs::read_to_string(fixture("manual-captions.srt")).unwrap();
+    std::fs::write(&subtitle, &original).unwrap();
+    let subtitle_path = subtitle.to_str().unwrap();
     harness
-        .send(Command::AddSubtitle(fixture("manual-captions.srt")))
+        .send(Command::AddSubtitle(subtitle_path.into()))
         .unwrap();
     let subs = harness.wait(|state| {
         state
@@ -564,15 +569,28 @@ fn chapters_external_tracks_and_playlist_editing() {
             .as_deref()
             .is_some_and(|text| text.contains("café") && text.contains("Привет"))
     });
+    let replacement = "Reloaded from disk — café";
+    let changed = original.replace("wiina subtitle: café — Привет", replacement);
+    assert_ne!(original, changed);
+    std::fs::write(&subtitle, changed).unwrap();
     harness
-        .send(Command::AddSubtitle(fixture("manual-captions.srt")))
+        .send(Command::AddSubtitle(subtitle_path.into()))
         .unwrap();
-    // Reload can temporarily remove its catalog entry. Delay observation alone
-    // orders commands but does not prove the independent catalog has settled.
-    // Wait for its selected external entry as well, without a timing sleep.
+    // Re-enter the cue to distinguish a reload from the old displayed text.
     harness.send(Command::SubtitleDelay(0.25)).unwrap();
+    harness
+        .send(Command::Seek {
+            seconds: 0.65,
+            absolute: true,
+        })
+        .unwrap();
     let reloaded_subs = harness.wait(|state| {
         (state.subtitle_delay - 0.25).abs() < 0.001
+            && state.paused
+            && state
+                .subtitle_text
+                .as_deref()
+                .is_some_and(|text| text.contains(replacement))
             && state
                 .tracks
                 .iter()
@@ -588,7 +606,7 @@ fn chapters_external_tracks_and_playlist_editing() {
         "Reloaded subtitle catalog: {:?}; original catalog: {:?}; requested path: {}",
         reloaded_subs.tracks,
         subs.tracks,
-        fixture("manual-captions.srt")
+        subtitle_path
     );
     harness.send(Command::ToggleSubtitleVisibility).unwrap();
     harness.wait(|state| !state.subtitle_visible);

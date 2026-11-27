@@ -12,15 +12,16 @@ export component PlaylistSidebarControls inherits HorizontalLayout {
     Tool { width: 24px; dark-theme: PlayerAppearance.dark-theme; accent-color: PlayerAppearance.interactive-accent-color;
         icon: PlayerCatalogState.loop-label == "File"
             ? @image-url("../../../assets/icons/repeat-one.svg") : @image-url("../../../assets/icons/repeat.svg");
-        hint: "Cycle repeat: " + PlayerCatalogState.loop-label;
+        hint: @tr("Cycle repeat: {0}", PlayerCatalogState.loop-label == "File" ? @tr("File")
+            : PlayerCatalogState.loop-label == "Playlist" ? @tr("Playlist") : @tr("Off"));
         activated => { PlayerMenuActions.playlist-action(5, ""); } }
     Tool { width: 24px; dark-theme: PlayerAppearance.dark-theme; accent-color: PlayerAppearance.interactive-accent-color;
         icon: @image-url("../../../assets/icons/shuffle.svg");
-        hint: PlayerCatalogState.playlist-shuffled ? "Turn off shuffle" : "Shuffle playlist";
+        hint: @tr("Shuffle playlist"); checkable: true;
         selected: PlayerCatalogState.playlist-shuffled; activated => { PlayerSidebarActions.toggle-playlist-shuffle(); } }
     Tool {
         width: 30px; dark-theme: PlayerAppearance.dark-theme; accent-color: PlayerAppearance.interactive-accent-color;
-        icon: @image-url("../../../assets/icons/sort.svg"); hint: "Sort playlist";
+        icon: @image-url("../../../assets/icons/sort.svg"); hint: @tr("Sort playlist");
         activated => {
             PlaylistInteraction.request-playlist-footer-menu(root.menu-origin, PlaylistFooterMenu.sort,
                 self.absolute-position.x / 1px, (self.absolute-position.y + self.height) / 1px);
@@ -38,16 +39,22 @@ export component PlaylistSidebarControls inherits HorizontalLayout {
     }
     Tool {
         width: 24px; dark-theme: PlayerAppearance.dark-theme; accent-color: PlayerAppearance.interactive-accent-color;
-        icon: @image-url("../../../assets/icons/add.svg"); hint: "Add to playlist";
+        icon: @image-url("../../../assets/icons/add.svg"); hint: @tr("Add to playlist");
         activated => {
             PlaylistInteraction.request-playlist-footer-menu(root.menu-origin, PlaylistFooterMenu.add,
                 self.absolute-position.x / 1px, (self.absolute-position.y + self.height) / 1px);
         }
     }
     Tool { width: 24px; dark-theme: PlayerAppearance.dark-theme; accent-color: PlayerAppearance.interactive-accent-color;
-        label: "−"; hint: "Remove selected playlist entries"; enabled: PlaylistInteraction.selected-playlist-token != "";
-        activated => { PlayerMenuActions.playlist-action(1, PlaylistInteraction.selected-playlist-token); } }
+        label: "−"; hint: @tr("Remove selected playlist entries");
+        enabled: PlaylistInteraction.selected-playlist-tokens.length > 0;
+        activated => {
+            if PlaylistInteraction.selected-playlist-tokens.length > 0 {
+                PlayerMenuActions.playlist-action(1, PlaylistInteraction.selected-playlist-tokens[0]);
+            }
+        }
+    }
     Tool { width: 24px; dark-theme: PlayerAppearance.dark-theme; accent-color: PlayerAppearance.interactive-accent-color;
-        icon: @image-url("../../../assets/icons/trash.svg"); hint: "Clear playlist except current file";
+        icon: @image-url("../../../assets/icons/trash.svg"); hint: @tr("Clear playlist except current file");
         activated => { PlayerMenuActions.playlist-action(4, ""); } }
 }

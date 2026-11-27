@@ -2768,3 +2768,27 @@ msgid_plural "{n} Items"
 msgstr[0] "{n} элемент"
 msgstr[1] "{n} элемента"
 msgstr[2] "{n} элементов"
+
+msgid "Cycle repeat: {0}"
+msgstr "Режим повтора: {0}"
+
+msgid "Shuffle playlist"
+msgstr "Перемешать плейлист"
+
+msgid "Sort playlist"
+msgstr "Сортировать плейлист"
+
+msgid "Add to playlist"
+msgstr "Добавить в плейлист"
+
+msgid "Remove selected playlist entries"
+msgstr "Удалить выбранные записи из плейлиста"
+
+msgid "Clear playlist except current file"
+msgstr "Очистить плейлист, сохранив текущий файл"
+
+msgid "{0} in total"
+msgstr "Всего {0}"
+
+msgid "{0} of {1} selected"
+msgstr "Выбрано {0} из {1}"

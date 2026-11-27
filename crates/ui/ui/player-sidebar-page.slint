@@ -76,17 +76,23 @@ export component PlayerSidebarPage inherits VerticalLayout {
         viewport-height: root.viewport-height;
         reveal-row(top, height) => { root.focus-entered(top, height); }
     }
-    for row[index] in (pane-kind == 4 ? PlayerCatalogState.playlist : []): CatalogSidebarRow {
+    if pane-kind == 4 : VerticalLayout {
         width: parent.width;
-        entry: row;
-        index: index;
-        requested-index: root.playlist-focus-index;
-        viewport-height: root.viewport-height;
-        dark-theme: PlayerAppearance.dark-theme;
-        focus-entered(top, height) => { root.focus-entered(top, height); }
-        move-playlist-focus(index) => { root.playlist-focus-index = index; }
-        interactive-accent-color: PlayerAppearance.interactive-accent-color;
-        select-row(token) => { PlayerMenuActions.select-item(CatalogSelection.playlist, token); }
+        spacing: root.spacing;
+        accessible-role: list;
+        accessible-label: @tr("Playlist");
+        for row[index] in PlayerCatalogState.playlist : CatalogSidebarRow {
+            width: parent.width;
+            entry: row;
+            index: index;
+            requested-index: root.playlist-focus-index;
+            viewport-height: root.viewport-height;
+            dark-theme: PlayerAppearance.dark-theme;
+            focus-entered(top, height) => { root.focus-entered(top, height); }
+            move-playlist-focus(index) => { root.playlist-focus-index = index; }
+            interactive-accent-color: PlayerAppearance.interactive-accent-color;
+            select-row(token) => { PlayerMenuActions.select-item(CatalogSelection.playlist, token); }
+        }
     }
     if pane-kind == 6 : VideoQuickSettingsPage {
         sidebar-width: root.sidebar-width;

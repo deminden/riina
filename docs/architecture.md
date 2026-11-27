@@ -379,6 +379,13 @@ Playlist drags send the selected entry IDs and destination entry ID to the
 engine as one request. Play Next resolves the current entry and moves the
 selected entries immediately after it in playlist order. The engine plans the
 ordered moves before sending them to mpv, and only selected entries move.
+The sidebar and Music Mode share one selection of stable entry IDs. Keyboard
+focus and the context-menu target are independent of that selection. The
+footer removes the selected IDs, and the UI reads localized summary text
+from formatted total and selected durations supplied by the player.
+Both views expose the playlist as a list of selectable rows. The player
+retains an activation key's ownership until release so a held key cannot
+spill into a different control when an action moves focus.
 
 Playlist file actions use the selection resolved by the context menu. Trash work
 runs off the UI thread and groups repeated references to the same path. Successful

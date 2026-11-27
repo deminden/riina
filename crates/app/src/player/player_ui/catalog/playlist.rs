@@ -5,7 +5,7 @@ use crate::{
     playlist_metadata::{durations, resume, series},
 };
 use riina_core::{Phase, Playback, sync::lock, time_label};
-use riina_ui::{PlayerMenuActions, PlaylistInteraction};
+use riina_ui::{PlayerMenuActions, PlaylistDurationLabels, PlaylistInteraction};
 use slint::{ComponentHandle, Model, ModelRc, SharedString, VecModel};
 use std::{
     collections::{HashMap, HashSet},
@@ -49,7 +49,6 @@ pub(in super::super) fn update(app: &PlayerWindow, state: &Playback, metadata: &
         durations::remember(source, seconds);
     }
     let interaction = app.global::<PlaylistInteraction>();
-    let selected_token = interaction.get_selected_playlist_token();
     let selection = interaction.get_selected_playlist_tokens();
     let selected_playlist_tokens = selection.iter().collect::<HashSet<_>>();
     let rows = state
@@ -108,7 +107,6 @@ pub(in super::super) fn update(app: &PlayerWindow, state: &Playback, metadata: &
             }
         })
         .collect::<Vec<_>>();
-    let single_retained = rows.iter().any(|row| row.token == selected_token);
     let retained = {
         let live_selection = rows
             .iter()
@@ -133,9 +131,6 @@ pub(in super::super) fn update(app: &PlayerWindow, state: &Playback, metadata: &
         }
     } else if !update_playlist_structure(&current, &rows) {
         catalog.set_playlist(slint::ModelRc::new(slint::VecModel::from(rows)));
-    }
-    if !single_retained && !selected_token.is_empty() {
-        interaction.set_selected_playlist_token("".into());
     }
     if retained.len() != selection.row_count() {
         interaction.set_selected_playlist_tokens(ModelRc::new(VecModel::from(retained)));
@@ -193,20 +188,17 @@ fn duration_label(seconds: f64) -> String {
 
 pub(super) fn refresh_duration_summary(app: &PlayerWindow) {
     let catalog = app.global::<riina_ui::PlayerCatalogState>();
-    let rows = catalog.get_playlist();
-    let summary = if rows.row_count() == 0 {
-        String::new()
-    } else {
-        duration_summary(rows.iter())
-    };
-    catalog.set_playlist_duration_summary(summary.into());
+    catalog.set_playlist_duration_labels(duration_labels(catalog.get_playlist().iter()));
 }
 
-fn duration_summary(rows: impl Iterator<Item = CatalogRow>) -> String {
+fn duration_labels(mut rows: impl Iterator<Item = CatalogRow>) -> PlaylistDurationLabels {
+    let Some(first) = rows.next() else {
+        return PlaylistDurationLabels::default();
+    };
     let (mut total, mut selected) = (0.0, None);
-    for row in rows {
+    for row in std::iter::once(first).chain(rows) {
         if row.duration_label.is_empty() {
-            return String::new();
+            return PlaylistDurationLabels::default();
         }
         let duration = f64::from(row.duration_seconds);
         total += duration;
@@ -214,11 +206,10 @@ fn duration_summary(rows: impl Iterator<Item = CatalogRow>) -> String {
             *selected.get_or_insert(0.0) += duration;
         }
     }
-    let total = duration_label(total);
-    selected.map_or_else(
-        || format!("{total} in total"),
-        |selected| format!("{} of {total} selected", duration_label(selected)),
-    )
+    PlaylistDurationLabels {
+        total: duration_label(total).into(),
+        selected: selected.map_or_else(SharedString::default, |time| duration_label(time).into()),
+    }
 }
 
 pub(in super::super) struct MetadataRefresh {
@@ -343,22 +334,42 @@ mod metadata_tests {
     use super::*;
 
     #[test]
-    fn playlist_duration_summary_requires_every_item_and_tracks_the_selection() {
+    fn playlist_duration_summary_requires_every_item_and_tracks_the_selection()
+    -> Result<(), Box<dyn std::error::Error>> {
+        i_slint_backend_testing::init_no_event_loop();
+        let app = PlayerWindow::new()?;
+        slint::select_bundled_translation("en")?;
+        let catalog = app.global::<riina_ui::PlayerCatalogState>();
         let row = |seconds: f32, selected| CatalogRow {
             duration_label: duration_label(f64::from(seconds)).into(),
             duration_seconds: seconds,
             selected,
             ..CatalogRow::default()
         };
-        assert_eq!(
-            duration_summary([row(5.5, true), row(3.0, false)].into_iter()),
-            "0:05 of 0:08 selected"
-        );
-        assert_eq!(
-            duration_summary([row(5.5, false), row(3.0, false)].into_iter()),
-            "0:08 in total"
-        );
-        assert!(duration_summary([row(5.5, false), CatalogRow::default()].into_iter()).is_empty());
+        let publish = |first, second| {
+            catalog.set_playlist(ModelRc::new(VecModel::from(vec![first, second])));
+            refresh_duration_summary(&app);
+        };
+        publish(row(5.5, true), row(3.0, false));
+        for (locale, selected, total) in [
+            ("en", "0:05 of 0:08 selected", "0:08 in total"),
+            ("ru", "Выбрано 0:05 из 0:08", "Всего 0:08"),
+            (
+                "ar",
+                "تم تحديد \u{2066}0:05\u{2069} من \u{2066}0:08\u{2069}",
+                "الإجمالي \u{2066}0:08\u{2069}",
+            ),
+        ] {
+            slint::select_bundled_translation(locale)?;
+            publish(row(5.5, true), row(3.0, false));
+            assert_eq!(catalog.get_playlist_duration_summary(), selected);
+            publish(row(5.5, false), row(3.0, false));
+            assert_eq!(catalog.get_playlist_duration_summary(), total);
+        }
+        publish(row(5.5, false), CatalogRow::default());
+        assert!(catalog.get_playlist_duration_summary().is_empty());
+        slint::select_bundled_translation("en")?;
+        Ok(())
     }
 
     #[test]

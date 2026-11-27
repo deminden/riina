@@ -191,11 +191,7 @@ fn handle_playlist_external_action(
     } else if action == 7 {
         window
             .global::<riina_ui::PlaylistInteraction>()
-            .set_selected_playlist_token("".into());
-        window
-            .global::<riina_ui::PlaylistInteraction>()
-            .set_selected_playlist_tokens(slint::ModelRc::default());
-        install_playlist_selection(window, &[]);
+            .invoke_clear_selection();
     }
 }
 
@@ -257,7 +253,6 @@ fn edit_focused_playlist(
                     app,
                     &tokens.iter().map(ToString::to_string).collect::<Vec<_>>(),
                 );
-                interaction.set_selected_playlist_token(focused);
                 interaction.set_selected_playlist_tokens(slint::ModelRc::new(
                     slint::VecModel::from(tokens),
                 ));

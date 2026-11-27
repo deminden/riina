@@ -5,6 +5,11 @@ import { PlayerMusicModeState } from "player-music-mode-state.slint";
 import { PlayerPreferences } from "player-preferences.slint";
 import { PlaylistInteraction } from "playlist-interaction.slint";
 
+export struct PlaylistDurationLabels {
+    total: string,
+    selected: string,
+}
+
 // Each player publishes its own catalog rows and current playback labels.
 export global PlayerCatalogState {
     in-out property <[MenuCatalogRow]> recent-open-menu-rows: [];
@@ -12,7 +17,10 @@ export global PlayerCatalogState {
     in-out property <[CatalogRow]> chapters;
     in-out property <[MenuCatalogRow]> chapter-menu-rows;
     in-out property <[CatalogRow]> playlist;
-    in property <string> playlist-duration-summary;
+    in property <PlaylistDurationLabels> playlist-duration-labels;
+    out property <string> playlist-duration-summary: root.playlist-duration-labels.total == "" ? ""
+        : root.playlist-duration-labels.selected == "" ? @tr("{0} in total", root.playlist-duration-labels.total)
+        : @tr("{0} of {1} selected", root.playlist-duration-labels.selected, root.playlist-duration-labels.total);
     in-out property <bool> playlist-shuffled: false;
     in-out property <string> loop-label: "Off";
 

@@ -23,8 +23,10 @@ export component CatalogSidebarRow inherits Rectangle {
     private property <length> duration-width: entry.duration-label != "" ? 60px : 0px;
     height: PlayerCatalogState.playlist-metadata-visible ? 38px : 30px;
     background: entry.selected ? Theme.sidebar-row-selection(root.dark-theme) : transparent;
-    accessible-role: button; accessible-label: entry.path != ""
+    accessible-role: list-item; accessible-label: entry.path != ""
         ? entry.label + (entry.detail != "" ? ", " + entry.detail : "") + ", " + entry.path : entry.label;
+    accessible-item-selectable: true;
+    accessible-item-selected: entry.selected;
     if entry.resume-fraction > 0 : PlaylistResumeMark {
         y: parent.height - self.height;
         row-width: parent.width;
@@ -37,7 +39,10 @@ export component CatalogSidebarRow inherits Rectangle {
         index: root.index;
         accent: root.interactive-accent-color;
     }
-    accessible-action-default => { root.select-row(entry.token); }
+    accessible-action-default => {
+        row-focus.focus();
+        PlaylistInteraction.select-row(root.index, false, false);
+    }
     if row-focus.has-focus : Rectangle { border-width: 1px; border-color: root.interactive-accent-color; border-radius: 3px; background: transparent; }
     if entry.playing : Rectangle { x: 0; width: 4px; y: 5px; height: parent.height - 10px; background: root.interactive-accent-color; border-radius: 2px; }
     if entry.detail != "" : VerticalLayout {

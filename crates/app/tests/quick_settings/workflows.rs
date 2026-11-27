@@ -58,6 +58,18 @@ fn model() -> slint::ModelRc<CatalogRow> {
     playlist_model(3)
 }
 
+#[expect(
+    clippy::panic,
+    reason = "A missing playlist row must fail the widget test"
+)]
+fn playlist_row(app: &PlayerWindow, label: &str) -> ElementHandle {
+    ElementHandle::find_by_accessible_label(app, label)
+        .find(|element| {
+            element.accessible_role() == Some(i_slint_backend_testing::AccessibleRole::ListItem)
+        })
+        .unwrap_or_else(|| panic!("Missing playlist row: {label}"))
+}
+
 fn playlist_model(count: usize) -> slint::ModelRc<CatalogRow> {
     slint::ModelRc::new(slint::VecModel::from(
         (0..count)
@@ -170,7 +182,7 @@ fn playlist_rows_and_six_footer_actions_fit_normal_and_narrow_sidebars() {
                 .set_dark_theme(dark);
             flush();
             for index in 0..3 {
-                let row = button(&app, &format!("Clip {index}"));
+                let row = playlist_row(&app, &format!("Clip {index}"));
                 assert!(
                     row.size().width >= 180.0,
                     "Playlist rows must not collapse to zero width"
@@ -212,6 +224,13 @@ fn playlist_footer_anchors_add_and_sort_in_both_surfaces() {
     let app = player(4);
     app.global::<PlayerCatalogState>().set_playlist(model());
     let requested = Rc::new(RefCell::new(Vec::new()));
+    let player_keys = Rc::new(Cell::new(0));
+    let recorded = player_keys.clone();
+    app.global::<PlayerControlActions>()
+        .on_dispatch_key_binding(move |_, _, _, _, _, _| {
+            recorded.set(recorded.get() + 1);
+            true
+        });
     let observe = requested.clone();
     app.global::<PlaylistInteraction>()
         .on_request_playlist_footer_menu(move |origin, menu, x, y| {
@@ -239,14 +258,24 @@ fn playlist_footer_anchors_add_and_sort_in_both_surfaces() {
                 requested.borrow_mut().pop(),
                 Some((origin, menu, position.x, bottom))
             );
-            key(&app, Key::Return);
+            let text: slint::SharedString = Key::Return.into();
+            app.window()
+                .dispatch_event(WindowEvent::KeyPressed { text: text.clone() });
+            app.invoke_focus_player();
+            app.window()
+                .dispatch_event(WindowEvent::KeyPressRepeated { text: text.clone() });
+            app.window()
+                .dispatch_event(WindowEvent::KeyReleased { text });
+            flush();
             assert_eq!(
-                requested.borrow_mut().pop(),
-                Some((origin, menu, position.x, bottom))
+                requested.borrow().as_slice(),
+                &[(origin, menu, position.x, bottom)]
             );
+            requested.borrow_mut().clear();
         }
     }
     assert!(requested.borrow().is_empty());
+    assert_eq!(player_keys.get(), 0);
     app.global::<riina_ui::PlayerDialogState>()
         .set_url_dialog_visible(true);
     flush();
@@ -278,8 +307,8 @@ fn playlist_context_requests_keep_row_and_blank_targets_in_both_surfaces() {
             music.set_music_mode_show_playlist(true);
         }
         flush();
-        let row = button(&app, "Clip 1").absolute_position();
-        let last = button(&app, "Clip 2");
+        let row = playlist_row(&app, "Clip 1").absolute_position();
+        let last = playlist_row(&app, "Clip 2");
         let blank_y = last.absolute_position().y + last.size().height + 12.0;
         let row_position = LogicalPosition::new(row.x + 12.0, row.y + 10.0);
         let blank_position = LogicalPosition::new(row.x + 12.0, blank_y);
@@ -317,7 +346,7 @@ fn playlist_drop_target_tracks_visible_rows_and_scroll_position() {
                 .collect::<Vec<_>>(),
         )));
     let sidebar = app.global::<PlayerSidebarState>();
-    let first_row = button(&app, "Clip 0");
+    let first_row = playlist_row(&app, "Clip 0");
     flush();
     i_slint_backend_testing::testing_backend::mock_elapsed_time(4);
     flush();
@@ -337,7 +366,7 @@ fn playlist_drop_target_tracks_visible_rows_and_scroll_position() {
     flush();
     assert_eq!(sidebar.invoke_playlist_drop_slot(x, y), -1);
     sidebar.set_leading_sidebar(4);
-    let left_row = button(&app, "Clip 0");
+    let left_row = playlist_row(&app, "Clip 0");
     flush();
     let left = left_row.absolute_position();
     assert_eq!(
@@ -362,11 +391,13 @@ fn playlist_keyboard_selection_moves_focus_and_opens_the_selected_token() {
         .on_select_item(move |kind, token| observed.borrow_mut().push((kind, token.to_string())));
     flush();
 
-    focus(&app, &button(&app, "Clip 0"));
+    focus(&app, &playlist_row(&app, "Clip 0"));
     key(&app, Key::DownArrow);
     assert_eq!(
         app.global::<riina_ui::PlaylistInteraction>()
-            .get_selected_playlist_token(),
+            .get_selected_playlist_tokens()
+            .row_data(0)
+            .unwrap(),
         "2"
     );
     key(&app, Key::Return);
@@ -376,8 +407,9 @@ fn playlist_keyboard_selection_moves_focus_and_opens_the_selected_token() {
     );
     assert!(
         app.global::<riina_ui::PlaylistInteraction>()
-            .get_selected_playlist_token()
-            .is_empty()
+            .get_selected_playlist_tokens()
+            .row_count()
+            == 0
     );
 }
 
@@ -387,8 +419,13 @@ fn playlist_focus_tracks_its_row_index_after_an_insertion() {
     let rows = Rc::new(slint::VecModel::from(model().iter().collect::<Vec<_>>()));
     app.global::<PlayerCatalogState>()
         .set_playlist(rows.clone().into());
+    app.global::<PlayerSidebarActions>()
+        .on_select_playlist_row(|index, _, _| {
+            let token = if index == 1 { "1" } else { "unexpected" };
+            slint::ModelRc::new(slint::VecModel::from(vec![token.into()]))
+        });
     switch(&app, 4);
-    focus(&app, &button(&app, "Clip 1"));
+    focus(&app, &playlist_row(&app, "Clip 1"));
     let interaction = app.global::<riina_ui::PlaylistInteraction>();
     assert_eq!(interaction.get_focused_playlist_token(), "2");
     rows.insert(
@@ -400,11 +437,57 @@ fn playlist_focus_tracks_its_row_index_after_an_insertion() {
         },
     );
     flush();
-    button(&app, "Inserted clip");
+    playlist_row(&app, "Inserted clip");
     flush();
     key(&app, Key::UpArrow);
-    assert_eq!(interaction.get_selected_playlist_token(), "1");
+    assert_eq!(
+        interaction
+            .get_selected_playlist_tokens()
+            .row_data(0)
+            .unwrap(),
+        "1"
+    );
     assert_eq!(interaction.get_focused_playlist_token(), "1");
+}
+
+#[test]
+fn releasing_shift_before_f10_keeps_the_playlist_menu_route() {
+    let app = player(4);
+    app.set_native_video(true);
+    app.global::<PlayerCatalogState>().set_playlist(model());
+    let shortcuts = Rc::new(Cell::new(0));
+    let reported = shortcuts.clone();
+    app.global::<PlayerControlActions>()
+        .on_open_application_menu(move || reported.set(reported.get() + 1));
+    let contexts = Rc::new(RefCell::new(Vec::new()));
+    let reported = contexts.clone();
+    app.global::<PlaylistInteraction>()
+        .on_request_playlist_menu(move |origin, token, _, _| {
+            reported.borrow_mut().push((origin, token))
+        });
+    flush();
+    focus(&app, &playlist_row(&app, "Clip 0"));
+    let f10: slint::SharedString = Key::F10.into();
+    app.window().dispatch_event(WindowEvent::KeyPressed {
+        text: Key::Shift.into(),
+    });
+    app.window()
+        .dispatch_event(WindowEvent::KeyPressed { text: f10.clone() });
+    app.window()
+        .dispatch_event(WindowEvent::KeyPressRepeated { text: f10.clone() });
+    app.window().dispatch_event(WindowEvent::KeyReleased {
+        text: Key::Shift.into(),
+    });
+    app.window()
+        .dispatch_event(WindowEvent::KeyReleased { text: f10 });
+    flush();
+    assert_eq!(
+        contexts.borrow().as_slice(),
+        &[(PlaylistMenuOrigin::Sidebar, "1".into())]
+    );
+    assert_eq!(shortcuts.get(), 0);
+    key(&app, Key::F10);
+    assert_eq!(shortcuts.get(), 1);
 }
 
 #[test]
@@ -419,7 +502,7 @@ fn playlist_navigation_takes_precedence_over_the_same_player_menu_shortcut() {
     app.global::<PlayerMenuActions>()
         .on_adjust_volume(move |delta| recorded.set(recorded.get() + delta));
     switch(&app, 4);
-    focus(&app, &button(&app, "Clip 0"));
+    focus(&app, &playlist_row(&app, "Clip 0"));
     key(&app, Key::DownArrow);
     assert_eq!(adjustments.get(), 0.0);
     assert_eq!(
@@ -469,7 +552,7 @@ fn playlist_keyboard_reveals_rows_and_extends_selection_in_both_surfaces() {
             music.set_music_mode(true);
             music.set_music_mode_show_playlist(true);
             flush();
-            let _ = button(&app, "Clip 0");
+            let _ = playlist_row(&app, "Clip 0");
             i_slint_backend_testing::testing_backend::mock_elapsed_time(4);
             flush();
             assert!(top_row < -8.0);
@@ -477,11 +560,11 @@ fn playlist_keyboard_reveals_rows_and_extends_selection_in_both_surfaces() {
             let realized = sidebar.get_music_list_drop_viewport().content_y;
             assert!((realized - top_row * 39.0).abs() < 1.0);
             let visible_index = (-top_row).ceil() as usize + 1;
-            let near_end = button(&app, &format!("Clip {visible_index}"));
+            let near_end = playlist_row(&app, &format!("Clip {visible_index}"));
             focus(&app, &near_end);
             key(&app, Key::Home);
         }
-        let first = button(&app, "Clip 0");
+        let first = playlist_row(&app, "Clip 0");
         let initial_y = first.absolute_position().y;
         focus(&app, &first);
         assert_eq!(interaction.get_focused_playlist_token(), "1");
@@ -505,7 +588,7 @@ fn playlist_keyboard_reveals_rows_and_extends_selection_in_both_surfaces() {
         });
         assert_eq!(selection.borrow().last(), Some(&(29, true)));
         assert!(first.absolute_position().y < initial_y - 250.0);
-        let last = button(&app, "Clip 29");
+        let last = playlist_row(&app, "Clip 29");
         assert!(last.absolute_position().y + last.size().height <= 460.0);
         key(&app, Key::PageUp);
         assert!(
