@@ -34,13 +34,13 @@ class PackageWorkflowTests(unittest.TestCase):
         self.assertIn("playback_pause_seek_stop_failure_and_shutdown", build["run"])
         self.assertIn("--ignored --exact", build["run"])
 
-    def test_release_runs_the_current_sidebar_test_and_restores_historical_source(self):
+    def test_release_tests_the_selected_source_without_rewriting_it(self):
         tests = named_step(self.package, "Lint and unit tests")["run"]
-        self.assertNotIn("--skip", tests)
-        self.assertIn("c6fad10e70a3b71c5f5a76977759bfc3f4f9327c", tests)
-        self.assertIn('#[ignore = "requires a graphical Slint renderer on v0.3.6"]', tests)
-        self.assertIn("[IO.File]::WriteAllBytes($file, $original)", tests)
-        self.assertEqual(tests.count("cargo test --workspace --locked"), 2)
+        self.assertEqual(tests.strip().splitlines(), [
+            "$PSNativeCommandUseErrorActionPreference = $true",
+            "cargo clippy --workspace --all-targets --locked -- -D warnings",
+            "cargo test --workspace --locked",
+        ])
 
     def test_failed_gui_candidates_retain_output_without_enabling_publication(self):
         evidence = named_step(self.package, "Preserve application smoke evidence")
