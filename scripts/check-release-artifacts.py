@@ -211,13 +211,9 @@ def verify_native_source_index(binary, source):
 
     def source_path(value):
         relative = PurePosixPath(value)
-        if (relative.is_absolute() or ".." in relative.parts or "\\" in value
-                or ":" in value or str(relative) != value or not relative.parts):
+        if (len(relative.parts) < 2 or relative.parts[0] != "src_packages"
+                or ".." in relative.parts or "\\" in value or ":" in value or str(relative) != value):
             raise ValueError(f"Unsafe native source index path: {value!r}")
-        # Earlier successful native-engine artifacts used paths relative to
-        # src_packages; accept those when reusing their runtime and manifest.
-        if relative.parts[0] != "src_packages":
-            relative = PurePosixPath("src_packages", *relative.parts)
         return relative
 
     for fields in csv.reader(manifest.read_text(encoding="utf-8").splitlines(), delimiter="\t"):
@@ -228,28 +224,24 @@ def verify_native_source_index(binary, source):
             if len(fields) != 2 or kind in records:
                 raise ValueError(f"Invalid or duplicate native source index field: {kind}")
             records[kind] = fields[1]
-        elif kind in {"source_revision", "source_git"}:
-            if (len(fields) != 4 or not fields[1].startswith("src_packages/")
-                    or fields[1] in records or not fields[2].startswith("https://")
+        elif kind == "source_revision":
+            if (len(fields) != 4 or fields[1] in records or not fields[2].startswith("https://")
                     or not re.fullmatch(r"[0-9a-f]{40,64}", fields[3])):
                 raise ValueError("Invalid native source repository reference")
+            source_path(fields[1])
             records[fields[1]] = fields[3]
         elif kind == "source_sha256":
             if (len(fields) != 3 or fields[1] in source_files
                     or not re.fullmatch(r"[0-9a-f]{64}", fields[2])):
                 raise ValueError("Invalid or duplicate native source file hash")
             relative = source_path(fields[1])
-            if len(relative.parts) < 2:
-                raise ValueError(f"Unsafe native source index path: {fields[1]!r}")
             source_files.add(fields[1])
             if relative.name.casefold().startswith(("license", "licence", "copying", "notice")):
                 verify_packaged_native_notice(binary, relative, fields[2], rust_notices)
         elif kind == "source_symlink":
             if len(fields) != 3 or fields[1] in source_files or not fields[2]:
                 raise ValueError("Invalid or duplicate native source symlink")
-            relative = source_path(fields[1])
-            if len(relative.parts) < 2:
-                raise ValueError(f"Unsafe native source index symlink: {fields[1]!r}")
+            source_path(fields[1])
             source_files.add(fields[1])
         else:
             raise ValueError(f"Unknown native source index record: {kind}")

@@ -44,15 +44,9 @@ function Capture-SmokeDesktop([string]$Stage) {
     Write-Output $capture
 }
 function Test-ControllerRevealTrace {
-    # Current builds write the marker to the profile log. Older saved
-    # candidates report it through stderr.
-    foreach ($trace in @((Join-Path $profile 'riina/riina.log'), (Join-Path $root 'stderr.log'))) {
-        if ((Get-Content -LiteralPath $trace -Raw -ErrorAction SilentlyContinue) -match
-            'riina-gui-smoke: fullscreen controller revealed') {
-            return $true
-        }
-    }
-    return $false
+    $trace = Join-Path $profile 'riina/riina.log'
+    return (Get-Content -LiteralPath $trace -Raw -ErrorAction SilentlyContinue) -match
+        'riina-gui-smoke: fullscreen controller revealed'
 }
 try {
     if (Test-Path -LiteralPath $ReportPath) { throw 'Refusing to use a stale smoke report; select a new report path.' }

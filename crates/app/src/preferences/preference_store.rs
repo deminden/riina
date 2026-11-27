@@ -149,7 +149,7 @@ fn read_for_update(
     let text = std::str::from_utf8(&original);
     let parsed = text
         .map_err(|error| error.to_string())
-        .and_then(crate::preference_load::parse_object);
+        .and_then(|text| Preferences::parse(text).map_err(String::from));
     match parsed {
         Ok(preferences) => Ok(Some((preferences, false))),
         Err(error) if !crate::preference_load::has_matching_backup(path, &original) => Err(error),

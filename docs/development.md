@@ -490,7 +490,7 @@ erase shared Cargo downloads. Keep references outside `target/`.
    If its CI artifact has expired, the release workflow's `native_release_tag`
    input can restore the engine from an existing published package. It verifies
    the archive checksum, tag/source identity, unchanged `tools/mpv` tree, runtime
-   inventory and native notices. It does not reuse the previous application.
+   inventory and native notices in the current source manifest format.
 3. Run portable packaging tests, assemble the archive, and verify runtime contents,
    notices, hashes and source/build manifests.
 4. Extract the archive and run the actual executable through

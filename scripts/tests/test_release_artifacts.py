@@ -279,7 +279,7 @@ class ReleaseArtifactTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "Packaged native notice differs"):
                 release.verify_native_source_index(binary, source)
 
-    def test_native_source_index_accepts_reused_legacy_manifest_paths(self):
+    def test_native_source_index_requires_current_records_and_rejects_bundled_sources(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
             source = root / "source"
@@ -287,12 +287,20 @@ class ReleaseArtifactTests(unittest.TestCase):
             binary = root / "binary"
             notice = binary / "THIRD_PARTY_LICENSES/codec/LICENSE"
             notice.parent.mkdir(parents=True)
-            notice.write_bytes(b"legacy notice\n")
-            rows = [*contract,
-                f"source_git\tsrc_packages/codec\thttps://github.com/example/codec\t{'c' * 40}",
-                f"source_sha256\tcodec/LICENSE\t{release.digest(notice)}",
-            ]
-            (binary / "SOURCE-MANIFEST.tsv").write_text("\n".join(rows) + "\n", encoding="utf-8")
+            notice.write_bytes(b"upstream notice\n")
+            revision = f"source_revision\tsrc_packages/codec\thttps://github.com/example/codec\t{'c' * 40}"
+            notice_hash = f"source_sha256\tsrc_packages/codec/LICENSE\t{release.digest(notice)}"
+            manifest = binary / "SOURCE-MANIFEST.tsv"
+            for row, expected in [
+                (revision.replace("source_revision", "source_git"), "Unknown native source index record"),
+                (notice_hash.replace("src_packages/", ""), "Unsafe native source index path"),
+                (revision.replace("src_packages/codec", "src_packages/../codec"), "Unsafe native source index path"),
+            ]:
+                with self.subTest(record=row):
+                    manifest.write_text("\n".join([*contract, notice_hash, row]) + "\n", encoding="utf-8")
+                    with self.assertRaisesRegex(ValueError, expected):
+                        release.verify_native_source_index(binary, source)
+            manifest.write_text("\n".join([*contract, revision, notice_hash]) + "\n", encoding="utf-8")
 
             vendor_notices = binary / "THIRD_PARTY_LICENSES/subrandr/riina-vendor/example-crate"
             vendor_notices.mkdir(parents=True)

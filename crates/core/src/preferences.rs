@@ -375,6 +375,13 @@ impl Preferences {
     }
 
     pub fn parse(text: &str) -> Result<Self, PreferenceError> {
+        // Serde also accepts positional structs; saved preferences are JSON objects.
+        if !text.trim_start().starts_with('{') {
+            return Err(PreferenceError::new(
+                "$",
+                "Expected a JSON object for preferences",
+            ));
+        }
         let prefs: Self = serde_json::from_str(text)
             .map_err(|error| PreferenceError::new("$", error.to_string()))?;
         prefs.validated()
@@ -452,7 +459,6 @@ impl Preferences {
             ));
         }
         self.validate_sections()?;
-        // Old settings keep their default cap unless boosting was explicitly enabled.
         self.volume = self.volume.min(self.volume_limit());
         self.leading_sidebar_width = self.leading_sidebar_width.clamp(300, 500);
         self.trailing_sidebar_width = self.trailing_sidebar_width.clamp(300, 500);

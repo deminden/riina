@@ -7099,3 +7099,16 @@ Intel and Apple Silicon passed. All 77 pinned Windows native tests passed in
 10.84 seconds. With the exact patched Linux libmpv build and null output, all
 nine subtitle tests passed, and the reverse-cycle regression passed three
 additional runs.
+
+### Current preferences and package formats (2026-11-27)
+
+Preference loading and saving share the same JSON object parser. The release
+verifier accepts the current native source index format, and the Windows smoke
+capture reads its controller marker from the test profile log.
+
+The Windows workspace gate, all 78 script tests, the locked build, and strict
+Apple cross-Clippy for both architectures passed. A PowerShell exercise checked
+the controller marker with absent and unrelated profile log entries and with
+the marker present. The freshly rebuilt Windows executable passed playback,
+preference writes, fullscreen and minimize/restore using `catalog.mkv` on an
+isolated desktop in 9.08 seconds. Its process exited normally.

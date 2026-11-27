@@ -1,11 +1,15 @@
 use crate::*;
 
 #[test]
-fn older_profiles_get_the_reference_playback_power_defaults() {
-    let old = Preferences::parse(r#"{"pause_when_goes_to_sleep":false}"#).unwrap();
-    assert!(old.playback_power.prevent_screen_saver);
-    assert!(!old.playback_power.allow_screen_saver_for_audio);
-    assert!(!old.pause_when_goes_to_sleep);
+fn preference_objects_fill_default_fields_and_reject_positional_settings() {
+    let prefs = Preferences::parse(r#"{"pause_when_goes_to_sleep":false}"#).unwrap();
+    assert!(prefs.playback_power.prevent_screen_saver);
+    assert!(!prefs.playback_power.allow_screen_saver_for_audio);
+    assert!(!prefs.pause_when_goes_to_sleep);
+
+    let error = Preferences::parse("[]").err().unwrap();
+    assert_eq!(error.key, "$");
+    assert_eq!(error.reason, "Expected a JSON object for preferences");
 }
 
 fn configured_playback() -> Preferences {

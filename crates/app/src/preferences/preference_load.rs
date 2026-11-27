@@ -77,7 +77,9 @@ impl Recovery {
 /// Reads valid saved values for field merges that already have a fallback.
 pub(crate) fn read_valid(path: &Path) -> io::Result<Option<Preferences>> {
     match fs::read_to_string(path) {
-        Ok(text) => parse_object(&text).map(Some).map_err(io::Error::other),
+        Ok(text) => Preferences::parse(&text)
+            .map(Some)
+            .map_err(io::Error::other),
         Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(None),
         Err(error) => Err(error),
     }
@@ -96,7 +98,7 @@ pub(crate) fn load(path: &Path) -> io::Result<LoadedPreferences> {
     };
     let source_text = std::str::from_utf8(&bytes).ok();
     if let Some(text) = source_text
-        && let Ok(preferences) = parse_object(text)
+        && let Ok(preferences) = Preferences::parse(text)
     {
         return Ok(LoadedPreferences {
             preferences,
@@ -129,15 +131,6 @@ pub(crate) fn load(path: &Path) -> io::Result<LoadedPreferences> {
             reset_sections,
         }),
     })
-}
-
-pub(crate) fn parse_object(text: &str) -> Result<Preferences, String> {
-    // Serde's positional struct format can also accept arrays. Profile files
-    // are objects, while the portable strict parser retains its existing API.
-    if !text.trim_start().starts_with('{') {
-        return Err("Expected a JSON object for preferences".into());
-    }
-    Preferences::parse(text).map_err(String::from)
 }
 
 pub(crate) fn recover(text: Option<&str>) -> (Preferences, Vec<Rejection>) {
