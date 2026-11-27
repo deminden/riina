@@ -62,17 +62,18 @@ impl ManagedPlayer {
 #[derive(Default)]
 struct ManagerState {
     next_id: u64,
-    players: Vec<ManagedPlayer>,
+    players: Vec<Rc<ManagedPlayer>>,
     services: ApplicationServices,
     quitting: bool,
     lifecycle: WindowLifecycle,
 }
 
-pub(crate) const fn should_quit_after_last_window_closed(
-    quit_when_no_opened_window: bool,
-    windows_remaining: usize,
-) -> bool {
-    quit_when_no_opened_window && windows_remaining == 0
+impl ManagerState {
+    fn has_open_players(&self) -> bool {
+        self.players
+            .iter()
+            .any(|player| !player.session.is_parked())
+    }
 }
 
 #[derive(Clone, Default)]
@@ -197,13 +198,22 @@ impl PlayerManager {
             let mut state = self.state.borrow_mut();
             state.next_id = state.next_id.wrapping_add(1).max(1);
             let id = state.next_id;
+            let stopped = Rc::downgrade(&self.state);
+            session.bind_stop(move |request| {
+                let state = stopped.clone();
+                slint::Timer::single_shot(std::time::Duration::ZERO, move || {
+                    if let Some(state) = state.upgrade() {
+                        finish_stop(&state, id, request);
+                    }
+                });
+            });
             state.lifecycle.player_attached();
-            state.players.push(ManagedPlayer {
+            state.players.push(Rc::new(ManagedPlayer {
                 id,
                 session,
                 welcome: managed_welcome,
                 app: app.clone_strong(),
-            });
+            }));
             id
         };
 
@@ -386,16 +396,22 @@ fn open_new_player<Owner: ComponentHandle + 'static>(
         return Err("Riina is closing".into());
     }
     if media.can_use_open_engine() {
-        let idle = state.borrow().players.iter().find_map(|player| {
-            let display = super::surface::PlayerDisplay {
-                welcome: player.welcome.as_ref().map(ComponentHandle::as_weak),
-                host: None,
-            };
-            let target = player.session.idle_media_target(&player.app, display)?;
-            Some((player.id, target))
-        });
-        if let Some((id, target)) = idle {
+        let idle = state
+            .borrow()
+            .players
+            .iter()
+            .filter_map(|player| {
+                let display = super::surface::PlayerDisplay {
+                    welcome: player.welcome.as_ref().map(ComponentHandle::as_weak),
+                    host: None,
+                };
+                let target = player.session.idle_media_target(&player.app, display)?;
+                Some((player.id, target, player.session.is_parked()))
+            })
+            .min_by_key(|(_, _, parked)| *parked);
+        if let Some((id, target, _)) = idle {
             target.open(media)?;
+            state.borrow_mut().lifecycle.player_attached();
             return Ok(id);
         }
     }
@@ -541,26 +557,77 @@ fn close_player(state: &Rc<RefCell<ManagerState>>, id: u64, source: PlayerClose)
         crate::diagnostics::report(&player.app, error.to_string());
     }
     player.hide_windows();
-    let empty = state.borrow().players.is_empty();
-    let quit_when_empty = should_quit_after_last_window_closed(
-        player
-            .app
-            .global::<riina_ui::PlayerPreferences>()
-            .get_quit_when_no_opened_window(),
-        state.borrow().players.len(),
-    );
+    let quit = player
+        .app
+        .global::<riina_ui::PlayerPreferences>()
+        .get_quit_when_no_opened_window();
     drop(player);
-    if !empty {
-        return;
-    }
-    let services = state.borrow().services.clone();
-    application_lifecycle::after_last_player_closed(&services);
-    let tools_visible = application_lifecycle::auxiliary_is_visible(&services);
     let closed = match source {
         PlayerClose::Player { .. } => ClosedWindow::Player,
         PlayerClose::Welcome => ClosedWindow::Welcome,
         PlayerClose::FailedWelcome => ClosedWindow::Retired,
     };
+    after_player_disappeared(state, closed, player_was_visible, quit);
+}
+
+fn finish_stop(state: &Rc<RefCell<ManagerState>>, id: u64, request: u32) {
+    let (player, retain) = {
+        let state = state.borrow();
+        if state.quitting {
+            return;
+        }
+        let Some(player) = state.players.iter().find(|player| player.id == id) else {
+            return;
+        };
+        let retain = application_lifecycle::HAS_IDLE_MENU
+            || state
+                .players
+                .iter()
+                .any(|other| other.id != id && !other.session.is_parked());
+        (player.clone(), retain)
+    };
+    if !player.session.stop_is_current(&player.app, request) {
+        return;
+    }
+    let display = super::surface::PlayerDisplay {
+        welcome: player.welcome.as_ref().map(ComponentHandle::as_weak),
+        host: None,
+    };
+    if retain && player.session.park_after_stop(&player.app, &display) {
+        let quit = player
+            .app
+            .global::<riina_ui::PlayerPreferences>()
+            .get_quit_when_no_opened_window();
+        after_player_disappeared(state, ClosedWindow::Player, true, quit);
+    } else {
+        drop(player);
+        close_player(state, id, PlayerClose::Player { was_visible: true });
+    }
+}
+
+fn after_player_disappeared(
+    state: &Rc<RefCell<ManagerState>>,
+    closed: ClosedWindow,
+    player_was_visible: bool,
+    quit_when_empty: bool,
+) {
+    let (services, retired) = {
+        let mut state = state.borrow_mut();
+        if state.has_open_players() {
+            return;
+        }
+        let retired = if application_lifecycle::HAS_IDLE_MENU {
+            Vec::new()
+        } else {
+            std::mem::take(&mut state.players)
+        };
+        (state.services.clone(), retired)
+    };
+    for player in retired {
+        player.hide_windows();
+    }
+    application_lifecycle::after_last_player_closed(&services);
+    let tools_visible = application_lifecycle::auxiliary_is_visible(&services);
     let action = state.borrow_mut().lifecycle.after_last_player_close(
         tools_visible,
         player_was_visible,
@@ -578,7 +645,7 @@ fn close_player(state: &Rc<RefCell<ManagerState>>, id: u64, source: PlayerClose)
 fn finish_after_auxiliary_close(state: &Rc<RefCell<ManagerState>>) {
     let action = {
         let mut state = state.borrow_mut();
-        if state.quitting || !state.players.is_empty() {
+        if state.quitting || state.has_open_players() {
             return;
         }
         let tools_visible = application_lifecycle::auxiliary_is_visible(&state.services);
@@ -658,16 +725,4 @@ fn show_welcome(
         .services()
         .present_release_highlights(&app, Some(&welcome));
     Ok(())
-}
-
-#[cfg(test)]
-mod tests {
-    use super::should_quit_after_last_window_closed;
-
-    #[test]
-    fn application_quits_only_when_requested_after_the_last_window_closes() {
-        assert!(should_quit_after_last_window_closed(true, 0));
-        assert!(!should_quit_after_last_window_closed(false, 0));
-        assert!(!should_quit_after_last_window_closed(true, 1));
-    }
 }

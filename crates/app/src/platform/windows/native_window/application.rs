@@ -236,24 +236,21 @@ impl Application {
             return Err("Riina is closing".into());
         }
         if launch.media.can_use_open_engine() {
-            let idle = self.players.borrow().iter().find_map(|player| {
-                let app = player.chrome.borrow();
-                let session = player.session.borrow();
-                let display = crate::player::surface::PlayerDisplay {
-                    welcome: player
-                        .welcome_window
-                        .borrow()
-                        .as_ref()
-                        .map(ComponentHandle::as_weak),
-                    host: Some(player.host.as_weak()),
-                };
-                let target = session
-                    .as_ref()?
-                    .idle_media_target(app.as_ref()?, display)?;
-                Some((player.clone(), target))
-            });
-            if let Some((player, target)) = idle {
+            let idle = self
+                .players
+                .borrow()
+                .iter()
+                .filter_map(|player| {
+                    let app = player.chrome.borrow();
+                    let session = player.session.borrow();
+                    let session = session.as_ref()?;
+                    let target = session.idle_media_target(app.as_ref()?, player.display())?;
+                    Some((player.clone(), target, session.is_parked()))
+                })
+                .min_by_key(|(_, _, parked)| *parked);
+            if let Some((player, target, _)) = idle {
                 target.open(launch.media)?;
+                self.pending_close.set(None);
                 return Ok(player);
             }
         }
@@ -342,12 +339,48 @@ impl Application {
                     .get_quit_when_no_opened_window()
             });
             player.finish();
-            if self.players.borrow().is_empty() {
+            if !self.has_open_players() {
+                let parked = std::mem::take(&mut *self.players.borrow_mut());
+                for player in parked {
+                    player.finish();
+                }
                 self.pending_close
                     .set(Some(last_window_action(quit, closed, false)));
                 self.finish_when_empty();
             }
         }
+    }
+
+    fn finish_stop(self: &Rc<Self>, player: &Rc<NativePlayer>, request: u32) {
+        if self.quitting.get() || !self.owns(player) {
+            return;
+        }
+        let retain = self
+            .players
+            .borrow()
+            .iter()
+            .any(|other| !Rc::ptr_eq(player, other) && !other.is_parked());
+        {
+            let app = player.chrome.borrow();
+            let session = player.session.borrow();
+            let (Some(app), Some(session)) = (app.as_ref(), session.as_ref()) else {
+                return;
+            };
+            if !session.stop_is_current(app, request) {
+                return;
+            }
+            if retain && session.park_after_stop(app, &player.display()) {
+                return;
+            }
+        }
+        self.close(player, ClosedWindow::Player);
+    }
+
+    fn has_open_players(&self) -> bool {
+        self.players
+            .borrow()
+            .iter()
+            .any(|player| !player.is_parked())
     }
 
     fn finish(&self) {
@@ -370,7 +403,7 @@ impl Application {
 
     fn finish_when_empty(self: &Rc<Self>) {
         if self.quitting.get()
-            || !self.players.borrow().is_empty()
+            || self.has_open_players()
             || self.services.history.is_visible()
             || self.services.filters.is_visible()
         {
@@ -410,6 +443,24 @@ impl Application {
 }
 
 impl NativePlayer {
+    fn display(&self) -> crate::player::surface::PlayerDisplay {
+        crate::player::surface::PlayerDisplay {
+            welcome: self
+                .welcome_window
+                .borrow()
+                .as_ref()
+                .map(ComponentHandle::as_weak),
+            host: Some(self.host.as_weak()),
+        }
+    }
+
+    fn is_parked(&self) -> bool {
+        self.session
+            .borrow()
+            .as_ref()
+            .is_some_and(|session| session.is_parked())
+    }
+
     fn owns_controls(&self, target: &PlayerWindow) -> bool {
         self.chrome
             .borrow()
@@ -442,6 +493,16 @@ pub(super) struct WindowActions {
 }
 
 impl WindowActions {
+    pub(super) fn playback_stopped(&self, request: u32) {
+        let application = self.application.clone();
+        let player = self.player.clone();
+        schedule(move || {
+            if let (Some(application), Some(player)) = (application.upgrade(), player.upgrade()) {
+                application.finish_stop(&player, request);
+            }
+        });
+    }
+
     pub(super) fn is_initial_window(&self) -> bool {
         self.origin.is_none()
     }

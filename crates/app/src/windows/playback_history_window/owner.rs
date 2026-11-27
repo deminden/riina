@@ -172,11 +172,10 @@ impl ApplicationHistory {
     }
 
     fn active_player(&self) -> Option<(PlayerWindow, PlayerRoute)> {
-        self.destinations
-            .borrow()
-            .iter()
-            .rev()
-            .find_map(|route| Some((route.window.upgrade()?, route.clone())))
+        self.destinations.borrow().iter().rev().find_map(|route| {
+            let app = route.window.upgrade()?;
+            (!crate::player::surface::is_parked(&app)).then(|| (app, route.clone()))
+        })
     }
 
     pub(crate) fn browser_destination(&self) -> Option<(PlayerWindow, PlayerDisplay)> {

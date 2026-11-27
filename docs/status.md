@@ -96,9 +96,9 @@ Implementation does not imply every state or platform is verified.
   A replacement request or a closing player cancels its folder scan.
   New windows open through the current application. A closing window stops
   forwarding delayed new-window requests.
-  An ordinary new-window selection can use an unused player waiting behind
-  Welcome or a visible player whose Stop request finished. The Windows picker
-  exercised both paths.
+  The Windows picker reuses the initial player behind Welcome. Stop closes
+  the playback frame after mpv becomes idle. On Windows, a subsequent open
+  reused the exact stopped frame while another player stayed open.
 - **Playlist editing:** the sidebar and Music Mode share the playlist
   controls. Add opens the file and URL choices, with a separate folder choice
   on Windows and Linux. Sort opens the four filename and path orders.

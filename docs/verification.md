@@ -7274,3 +7274,29 @@ Grouped selection kept both files in that frame. Separate selection reused
 the original frame for the first file and opened a second frame. Both runs
 shut down normally. Repeat probes that opened the native File menu through an
 isolated desktop were intermittent.
+
+### Stop closes the playback window (2026-11-27)
+
+Stop completion now requires mpv's idle notification, the matching command
+reply and an empty playlist. The deferred window action rechecks that request.
+The native playback regression checks the idle state and reply together after
+EOF and after a second Stop on an already idle engine.
+
+On an isolated Windows desktop, Stop hid one of two playback frames. A local
+browser activation for a third file reopened the same native frame in the
+original application process. With automatic quit disabled, stopping the last
+player returned to Welcome, which closed normally. With it enabled, stopping
+the last player ended the process. The automatic-quit probe passed on a retry
+after its initial native menu dispatch timed out.
+
+The locked Windows build and workspace gate passed with 726 application unit
+tests, 88 widget cases and the headless pixel comparison. All 77 Windows native
+tests passed with the rebuilt engine and strict field-order checks. Strict
+macOS cross-Clippy passed for Intel and Apple Silicon. Native macOS window
+lifecycle, plus Stop in fullscreen, Music Mode and PiP, still need live checks.
+
+The locked Linux application build, strict Clippy, 31 focused application tests
+and the native Stop regression passed. An isolated X11 run opened two paused
+players, hid one with its Stop shortcut, and reopened the same X11 window with
+a third file in the original process. Stopping the remaining player returned
+to Welcome. Closing Welcome ended that process.

@@ -201,6 +201,8 @@ impl NativePlayer {
                     media_geometry,
                     application_services.clone(),
                 )?;
+                let stop_actions = actions.clone();
+                configured.bind_stop(move |request| stop_actions.playback_stopped(request));
                 placement.refresh_position_policy(&app);
                 let commands = configured
                     .player()

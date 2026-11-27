@@ -67,7 +67,7 @@ impl PlayerManager {
         plugins.bind_windowless(global.clone(), move || {
             state.upgrade().is_some_and(|state| {
                 let state = state.borrow();
-                !state.quitting && state.players.is_empty()
+                !state.quitting && !state.has_open_players()
             })
         });
         global.load_enabled_globals()
@@ -90,7 +90,7 @@ impl PlayerManager {
     }
 
     pub(crate) fn is_empty(&self) -> bool {
-        self.state.borrow().players.is_empty()
+        !self.state.borrow().has_open_players()
     }
 
     pub(crate) fn request_quit(&self) {

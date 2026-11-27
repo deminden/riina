@@ -34,6 +34,12 @@ impl PluginEffects {
                 app.set_status(text.into());
             }
             PluginHostMessage::PlayerCommand(command) => {
+                if crate::player::surface::is_parked(app)
+                    && (command.replaces_media() || matches!(command, Command::AppendFiles(_)))
+                {
+                    // This window no longer accepts playback requests from its old realm.
+                    return;
+                }
                 let command = if matches!(command, Command::Stop(_)) {
                     crate::media_open::stop_command(app)
                 } else if command.replaces_media() {

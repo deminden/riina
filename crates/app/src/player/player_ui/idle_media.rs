@@ -14,14 +14,16 @@ pub(super) enum Availability {
 
 impl Availability {
     fn is_ready(self, request: u32, playback: &riina_core::Playback) -> bool {
-        playback.phase == riina_core::Phase::Stopped
-            && playback.playlist.is_empty()
-            && playback.active_playlist_entry.is_none()
-            && match self {
-                Self::Unused => request == 0 && playback.generation == 0,
-                Self::AfterStop(stop) => request == stop && playback.stopped_by == Some(stop),
-                Self::Unavailable => false,
+        match self {
+            Self::Unused => {
+                request == 0
+                    && playback.generation == 0
+                    && playback.phase == riina_core::Phase::Stopped
+                    && playback.playlist.is_empty()
             }
+            Self::AfterStop(stop) => request == stop && playback.confirmed_stop(stop),
+            Self::Unavailable => false,
+        }
     }
 }
 
@@ -31,9 +33,61 @@ pub(crate) struct IdleMediaTarget {
     commands: CommandSender,
     observer: ObserverId,
     available: Rc<Cell<Availability>>,
+    parked: Rc<Cell<bool>>,
 }
 
 impl UiSession {
+    pub(crate) fn bind_stop(&self, callback: impl Fn(u32) + 'static) {
+        self.observer_state.bind_stop(callback);
+    }
+
+    pub(crate) fn is_parked(&self) -> bool {
+        self.observer_state.parked.get()
+    }
+
+    pub(crate) fn stop_is_current(&self, app: &PlayerWindow, request: u32) -> bool {
+        if !app.get_player_manager_ready()
+            || app.get_media_request_generation().cast_unsigned() != request
+            || app
+                .global::<riina_ui::PlayerDialogState>()
+                .get_dialog_open()
+        {
+            return false;
+        }
+        let playback = riina_core::sync::lock(&self.preference_state.latest_playback);
+        playback.generation != 0 && playback.confirmed_stop(request)
+    }
+
+    pub(crate) fn park_after_stop(&self, app: &PlayerWindow, display: &PlayerDisplay) -> bool {
+        if self.observer_state.id().idle_media().is_none()
+            || app.get_fullscreen()
+            || app.get_entering_fullscreen()
+            || app.get_picture_in_picture_active()
+            || app
+                .global::<riina_ui::PlayerMusicModeState>()
+                .get_music_mode()
+        {
+            // Fullscreen, PiP and compact presenters have independent window
+            // transitions. Use their normal teardown before releasing the player.
+            return false;
+        }
+        if let Err(error) = self.save(app) {
+            crate::diagnostics::report(app, error.to_string());
+        }
+        self.observer_state.parked.set(true);
+        app.set_player_manager_ready(false);
+        app.invoke_dismiss_font_picker();
+        app.global::<riina_ui::PlayerSidebarActions>()
+            .invoke_dismiss_native_subtitle_color();
+        if let Err(error) = display.hide_playback(app) {
+            self.observer_state.parked.set(false);
+            app.set_player_manager_ready(true);
+            crate::diagnostics::report(app, error.to_string());
+            return false;
+        }
+        true
+    }
+
     pub(crate) fn idle_media_target(
         &self,
         app: &PlayerWindow,
@@ -41,7 +95,8 @@ impl UiSession {
     ) -> Option<IdleMediaTarget> {
         let observer = self.observer_state.id();
         let available = observer.idle_media()?;
-        if !app.get_player_manager_ready()
+        let parked = &self.observer_state.parked;
+        if (!parked.get() && !app.get_player_manager_ready())
             || app
                 .global::<riina_ui::PlayerDialogState>()
                 .get_dialog_open()
@@ -50,7 +105,7 @@ impl UiSession {
                 app.get_media_request_generation().cast_unsigned(),
                 &riina_core::sync::lock(&self.preference_state.latest_playback),
             )
-            || display.switchable(app).is_none()
+            || (!parked.get() && display.switchable(app).is_none())
         {
             return None;
         }
@@ -60,6 +115,7 @@ impl UiSession {
             commands: self.player()?.command_sender(),
             observer,
             available,
+            parked: parked.clone(),
         })
     }
 }
@@ -73,11 +129,21 @@ impl IdleMediaTarget {
         if available == Availability::Unavailable {
             return Err("The player is already opening media".into());
         }
-        if let Err(error) = self.display.reveal(&self.app) {
+        let parked = self.parked.get();
+        let shown = if parked {
+            self.display.show_playback(&self.app)
+        } else {
+            self.display.reveal(&self.app)
+        };
+        if let Err(error) = shown {
             if self.app.get_media_request_generation() == request {
                 self.available.set(available);
             }
             return Err(error.to_string());
+        }
+        if parked {
+            self.parked.set(false);
+            self.app.set_player_manager_ready(true);
         }
         startup::open_initial_media(&self.app, media, self.commands, self.observer);
         self.display.focus(&self.app);
@@ -100,6 +166,8 @@ mod tests {
         playback.stopped_by = Some(3);
         assert!(!request.is_ready(4, &playback));
         playback.stopped_by = Some(4);
+        assert!(!request.is_ready(4, &playback));
+        playback.idle_active = true;
         assert!(!request.is_ready(5, &playback));
         playback.phase = Phase::Ended;
         assert!(!request.is_ready(4, &playback));

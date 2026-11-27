@@ -151,6 +151,16 @@ macro_rules! property {
 
 pub(super) static OBSERVED: &[ObservedProperty] = &[
     property!(
+        c"idle-active",
+        Flag,
+        |state, flag| {
+            state.idle_active = flag;
+        },
+        |state| {
+            state.idle_active = false;
+        }
+    ),
+    property!(
         c"options/load-console",
         Flag,
         |state, flag| {

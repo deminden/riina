@@ -1148,12 +1148,19 @@ and any resume position to that manager. Beginning close retires the window's
 ability to forward requests, including those queued during media discovery.
 Windows computes monitor placement from the owning window in the manager.
 
-An ordinary media request can use an unused player or a visible player that
-has finished stopping. A stopped player needs the matching native reply and
-an empty playlist. A new media request or playlist addition withdraws reuse
-eligibility. The manager reserves the session before revealing its frame.
-Startup-specific engine options and plugin-managed windows use their own
-sessions.
+Stop closes the playback frame after the native reply, idle notification and
+empty playlist arrive. The manager rechecks the request before closing so a
+new selection can take over. An unused player or a retained stopped player
+can handle an ordinary open. The manager reserves it before revealing its
+frame. A retained player stays out of window switching and History
+destinations.
+
+macOS can retain a stopped player while the idle app menu is active. Windows
+and Linux retain stopped players alongside other playback windows. They
+release those sessions when the last player closes and apply the existing
+Welcome or quit policy. Fullscreen, Music Mode, Picture in Picture and
+sessions with startup-specific engine options use their normal teardown.
+Plugin-managed windows keep their own lifetime.
 The File picker resolves its destination from the current window preference.
 Separate selections prepare independently of the caller's media request and
 pass through the manager's duplicate check before reserving an idle session.

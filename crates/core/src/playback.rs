@@ -90,6 +90,8 @@ pub struct Playback {
     pub folder_discovery_allowed: bool,
     pub generation: u64,
     pub phase: Phase,
+    /// Observed mpv idle state, distinct from a file ending or being replaced.
+    pub idle_active: bool,
     /// Successful native reply for the latest application stop request.
     pub stopped_by: Option<u32>,
     pub file_feedback: FileFeedback,
@@ -482,11 +484,20 @@ impl Playback {
                 .duration
                 .is_some_and(|duration| duration.is_finite() && duration > 0.0)
     }
+    pub fn confirmed_stop(&self, request: u32) -> bool {
+        self.stopped_by == Some(request)
+            && self.idle_active
+            && self.phase == Phase::Stopped
+            && self.active_playlist_entry.is_none()
+            && self.playlist.is_empty()
+    }
+
     pub fn begin_load(&mut self) {
         let outgoing_generation = self.generation;
         self.generation += 1;
         self.incoming_transition_started_at = Some(Instant::now());
         self.phase = Phase::Loading;
+        self.idle_active = false;
         self.stopped_by = None;
         self.active_playlist_entry = None;
         self.file_feedback = FileFeedback::Loading;

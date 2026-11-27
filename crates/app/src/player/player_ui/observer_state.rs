@@ -25,6 +25,9 @@ struct Observer {
     discovery: SyncWeak<AtomicBool>,
     playlist_edits: Rc<RefCell<playlist_edits::Queue>>,
     idle_media: Option<Rc<Cell<Availability>>>,
+    parked: Rc<Cell<bool>>,
+    stopped: Option<Rc<dyn Fn(u32)>>,
+    delivered_stop: Option<u32>,
 }
 
 impl Observer {
@@ -179,6 +182,31 @@ impl ObserverId {
         OBSERVERS.with(|observers| observers.borrow().get(&self.0)?.idle_media.clone())
     }
 
+    pub(in crate::player) fn is_parked(self) -> bool {
+        OBSERVERS.with(|observers| {
+            observers
+                .borrow()
+                .get(&self.0)
+                .is_some_and(|observer| observer.parked.get())
+        })
+    }
+
+    pub(super) fn notify_stopped(self, app: &crate::PlayerWindow, playback: &Playback) {
+        let request = app.get_media_request_generation().cast_unsigned();
+        if !playback.confirmed_stop(request) || !app.get_player_manager_ready() {
+            return;
+        }
+        let callback = OBSERVERS.with(|observers| {
+            let mut observers = observers.borrow_mut();
+            let observer = observers.get_mut(&self.0)?;
+            let callback = observer.stopped.clone()?;
+            (observer.delivered_stop.replace(request) != Some(request)).then_some(callback)
+        });
+        if let Some(callback) = callback {
+            callback(request);
+        }
+    }
+
     pub(super) fn enable_idle_media(self, initial: Availability) {
         OBSERVERS.with(|observers| {
             if let Some(observer) = observers.borrow_mut().get_mut(&self.0) {
@@ -213,6 +241,7 @@ impl ObserverId {
 pub(super) struct ObserverRegistration {
     id: ObserverId,
     state: Rc<RefCell<UiObserverState>>,
+    pub(super) parked: Rc<Cell<bool>>,
 }
 
 impl ObserverRegistration {
@@ -220,6 +249,7 @@ impl ObserverRegistration {
         static NEXT: AtomicU64 = AtomicU64::new(0);
         let id = NEXT.fetch_add(1, Ordering::Relaxed);
         let state = Rc::new(RefCell::new(state));
+        let parked = Rc::new(Cell::new(false));
         OBSERVERS.with(|observers| {
             observers.borrow_mut().insert(
                 id,
@@ -229,17 +259,29 @@ impl ObserverRegistration {
                     discovery: SyncWeak::new(),
                     playlist_edits: Rc::default(),
                     idle_media: None,
+                    parked: parked.clone(),
+                    stopped: None,
+                    delivered_stop: None,
                 },
             );
         });
         Self {
             id: ObserverId(id),
             state,
+            parked,
         }
     }
 
     pub(super) fn id(&self) -> ObserverId {
         self.id
+    }
+
+    pub(super) fn bind_stop(&self, callback: impl Fn(u32) + 'static) {
+        OBSERVERS.with(|observers| {
+            if let Some(observer) = observers.borrow_mut().get_mut(&self.id.0) {
+                observer.stopped = Some(Rc::new(callback));
+            }
+        });
     }
 
     pub(super) fn bind_open_url(&self, open_url: &Rc<ApplicationOpenUrl>) {

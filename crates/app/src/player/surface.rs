@@ -1,5 +1,5 @@
 //! A playback session can present its own window or a separate native frame.
-use crate::{NativeVideoHost, PlayerWindow, WelcomeWindow};
+use crate::{NativeVideoHost, PlayerWindow, WelcomeWindow, player::player_ui::ObserverId};
 use slint::{ComponentHandle, winit_030::WinitWindowAccessor};
 
 #[derive(Clone, Default)]
@@ -27,6 +27,31 @@ impl PlayerDisplay {
                 .map_or_else(|| app.window(), ComponentHandle::window),
         );
     }
+
+    pub(super) fn hide_playback(&self, app: &PlayerWindow) -> Result<(), slint::PlatformError> {
+        // Slint may unmap the GL surface. Clear the borrowed texture first.
+        app.global::<riina_ui::PlayerRenderedVideo>()
+            .set_video_frame(slint::Image::default());
+        crate::platform::set_native_video_host_visible(self.host.as_ref(), false);
+        if let Err(error) = app.hide() {
+            crate::platform::set_native_video_host_visible(self.host.as_ref(), true);
+            return Err(error);
+        }
+        Ok(())
+    }
+
+    pub(super) fn show_playback(&self, app: &PlayerWindow) -> Result<(), slint::PlatformError> {
+        crate::platform::set_native_video_host_visible(self.host.as_ref(), true);
+        if let Err(error) = crate::platform::show_window(app) {
+            crate::platform::set_native_video_host_visible(self.host.as_ref(), false);
+            return Err(error);
+        }
+        Ok(())
+    }
+}
+
+pub(crate) fn is_parked(app: &PlayerWindow) -> bool {
+    ObserverId::for_window(app).is_some_and(ObserverId::is_parked)
 }
 
 fn activate(window: &slint::Window) {
@@ -55,6 +80,9 @@ impl SwitchableWindow {
 
 impl PlayerDisplay {
     pub(crate) fn switchable(&self, app: &PlayerWindow) -> Option<SwitchableWindow> {
+        if is_parked(app) {
+            return None;
+        }
         if let Some(welcome) = self.welcome.as_ref().and_then(slint::Weak::upgrade)
             && listed(welcome.window())
         {

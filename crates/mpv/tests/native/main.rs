@@ -239,11 +239,9 @@ fn playback_pause_seek_stop_failure_and_shutdown() {
     let ended = wait_for(&receiver, |state| state.phase == Phase::Ended);
     assert_eq!(ended.stopped_by, None);
     player.send(Command::Stop(Some(24))).unwrap();
-    wait_for(&receiver, |state| {
-        state.phase == Phase::Stopped && state.stopped_by == Some(24) && state.playlist.is_empty()
-    });
+    wait_for(&receiver, |state| state.confirmed_stop(24));
     player.send(Command::Stop(Some(25))).unwrap();
-    wait_for(&receiver, |state| state.stopped_by == Some(25));
+    wait_for(&receiver, |state| state.confirmed_stop(25));
     player
         .send(Command::Load(
             root.join("tests/fixtures/does-not-exist.mkv")
