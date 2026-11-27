@@ -338,27 +338,6 @@ fn worker_routes_every_command_to_the_expected_lifecycle() {
         "EnterCrop",
         "ExitCrop",
     ];
-    let shuffle_reset = [
-        "SortPlaylist",
-        "MovePlaylistEntry",
-        "MovePlaylistId",
-        "MovePlaylistIdBefore",
-        "RemovePlaylistEntry",
-        "RemovePlaylistId",
-        "RemovePlaylistIds",
-        "RemoveDeletedPlaylistEntries",
-        "QueuePlaylistIdsNext",
-        "MovePlaylistIdsBefore",
-        "ClearPlaylist",
-        "AppendFiles",
-        "InsertPlaylistFiles",
-        "InsertPlaylistTrack",
-        "InsertPlaylistFilesBefore",
-        "OpenFiles",
-        "OpenPlaylist",
-        "OpenMediaLink",
-        "OpenFilesWithSubtitles",
-    ];
     for command in all_commands_for_snapshot() {
         let name = command_name(&command);
         assert_eq!(
@@ -369,11 +348,6 @@ fn worker_routes_every_command_to_the_expected_lifecycle() {
         assert_eq!(
             command.restarts_decoder(),
             replacing.contains(&name) || decoder_changes.contains(&name),
-            "{name}"
-        );
-        assert_eq!(
-            command.resets_playlist_shuffle(),
-            shuffle_reset.contains(&name),
             "{name}"
         );
     }

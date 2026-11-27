@@ -371,6 +371,12 @@ additions and clears collect native replies for one edit and publish the latest
 outcome for the owning player's OSD. Silent application and plugin commands
 keep the same queue and editing behavior.
 
+The worker updates Shuffle when libmpv confirms a shuffle, restored order,
+or queue edit. Pending submissions guide the next toggle until their replies
+arrive. A confirmed edit clears Shuffle without reordering the remaining
+entries. Playback navigation leaves the queue's Shuffle state in place.
+The sidebar, Music Mode and Linux desktop media controls read that state.
+
 The filter editor, saved-filter menus and shortcuts send audio and video
 edits through the requesting player's media-scoped queue. The worker waits
 for each native command reply before reading the chain for the next edit.

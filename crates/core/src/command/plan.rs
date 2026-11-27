@@ -6,6 +6,15 @@ use crate::{Phase, Playback, hdr_preferences, key_bindings, video_viewport};
 
 impl Command {
     pub fn plan(&self, state: &Playback) -> Result<CommandPlan, CommandError> {
+        self.plan_with_playlist_shuffle(state, state.playlist_shuffled)
+    }
+
+    /// Use the shuffle state expected after earlier submissions to the same engine.
+    pub fn plan_with_playlist_shuffle(
+        &self,
+        state: &Playback,
+        playlist_shuffled: bool,
+    ) -> Result<CommandPlan, CommandError> {
         self.validate_capture(state)?;
         let commands = match self {
             Self::ObserveMpvProperty(property) if valid_mpv_property_name(property) => Vec::new(),
@@ -74,16 +83,9 @@ impl Command {
                     what: "Video decoder threads must be between 0 and 2,147,483,647",
                 });
             }
-            Self::TogglePlaylistShuffle => vec![vec![
-                if state.playlist_shuffled {
-                    "playlist-unshuffle"
-                } else {
-                    "playlist-shuffle"
-                }
-                .into(),
-            ]],
-            Self::SetPlaylistShuffle(enabled) if *enabled == state.playlist_shuffled => Vec::new(),
-            Self::SetPlaylistShuffle(_) => return Self::TogglePlaylistShuffle.plan(state),
+            Self::TogglePlaylistShuffle => vec![playlist::shuffle_command(!playlist_shuffled)],
+            Self::SetPlaylistShuffle(enabled) if *enabled == playlist_shuffled => Vec::new(),
+            Self::SetPlaylistShuffle(enabled) => vec![playlist::shuffle_command(*enabled)],
             Self::SortPlaylist(sort) => playlist::reorder(&state.playlist, *sort)?,
             Self::SelectPlaylistId(id)
             | Self::RemovePlaylistId(id)

@@ -346,30 +346,4 @@ impl Command {
                     | Self::ExitCrop { .. }
             )
     }
-
-    /// Clear the shuffle indicator when the user changes playlist contents or order.
-    pub fn resets_playlist_shuffle(&self) -> bool {
-        matches!(
-            self,
-            Self::SortPlaylist(_)
-                | Self::MovePlaylistEntry { .. }
-                | Self::MovePlaylistId { .. }
-                | Self::MovePlaylistIdBefore { .. }
-                | Self::RemovePlaylistEntry(_)
-                | Self::RemovePlaylistId(_)
-                | Self::RemovePlaylistIds(_)
-                | Self::RemoveDeletedPlaylistEntries(_)
-                | Self::QueuePlaylistIdsNext(_)
-                | Self::MovePlaylistIdsBefore { .. }
-                | Self::ClearPlaylist
-                | Self::AppendFiles(_)
-                | Self::InsertPlaylistTrack { .. }
-                | Self::InsertPlaylistFiles { .. }
-                | Self::InsertPlaylistFilesBefore { .. }
-                | Self::OpenFiles(_)
-                | Self::OpenPlaylist(_)
-                | Self::OpenMediaLink(_)
-                | Self::OpenFilesWithSubtitles { .. }
-        )
-    }
 }

@@ -8,6 +8,7 @@ mod hooks;
 mod local_probe;
 mod playlist_end_pause;
 mod playlist_resume;
+mod playlist_shuffle;
 mod screenshot_decode;
 mod script_input;
 mod stream;
@@ -286,6 +287,7 @@ struct WorkerState {
     folder_discovery: folder_discovery::FolderDiscovery,
     playlist_end_pause: playlist_end_pause::EndPause,
     playlist_resume: PlaylistResume,
+    playlist_shuffle: playlist_shuffle::PlaylistShuffle,
     playlist_insertion: Option<PlaylistInsertion>,
     seek_pending: bool,
     event_names: HashMap<c_int, Option<Arc<str>>>,
@@ -577,7 +579,10 @@ impl WorkerState {
         if command.replaces_media() {
             self.pending_drop_subtitles.clear();
         }
-        let mut plan = match command.plan(&self.playback) {
+        let shuffled = self
+            .playlist_shuffle
+            .expected(self.playback.playlist_shuffled);
+        let mut plan = match command.plan_with_playlist_shuffle(&self.playback, shuffled) {
             Ok(plan) => plan,
             Err(error) => {
                 if matches!(
@@ -770,26 +775,10 @@ impl WorkerState {
                     .is_some_and(|name| name == "playlist-shuffle")
             {
                 self.playback.explicit_playlist = true;
-                self.playback.playlist_shuffled = true;
                 self.mark_changed();
             }
             if rewriting_seek {
                 self.auto_seek.submitted(self.next_id);
-            }
-            if matches!(command, Command::TogglePlaylistShuffle) {
-                self.playback.playlist_shuffled = !self.playback.playlist_shuffled;
-                self.mark_changed();
-            } else if let Command::SetPlaylistShuffle(enabled) = command {
-                self.playback.playlist_shuffled = *enabled;
-                self.mark_changed();
-            } else if let Command::PluginMpv(native) = command
-                && matches!(native.name(), "playlist-shuffle" | "playlist-unshuffle")
-            {
-                self.playback.playlist_shuffled = native.name() == "playlist-shuffle";
-                self.mark_changed();
-            } else if command.resets_playlist_shuffle() && self.playback.playlist_shuffled {
-                self.playback.playlist_shuffled = false;
-                self.mark_changed();
             }
             if navigation {
                 if mpv_command_suppresses_osd(prefixes) {
@@ -826,6 +815,7 @@ impl WorkerState {
         handle
             .command(self.next_id, &args)
             .map_err(|error| format!("mpv {label}: {error}"))?;
+        self.playlist_shuffle.submitted(self.next_id, command);
         if changes_media
             || command
                 .first()
@@ -1105,6 +1095,8 @@ impl WorkerState {
                 self.adjusted_volume_read = None;
                 self.pending_audio_change = None;
                 self.playlist_resume = PlaylistResume::Idle;
+                self.playlist_shuffle = playlist_shuffle::PlaylistShuffle::default();
+                self.playback.playlist_shuffled = false;
                 self.playlist_insertion = None;
                 record_notice(
                     &mut self.playback,
@@ -1308,6 +1300,10 @@ impl WorkerState {
             self.auto_seek.failed(event.userdata());
         }
         let pending = self.pending.remove(&event.userdata())?;
+        // Playlist edits survive changes to the active file's generation.
+        if let Some(enabled) = self.playlist_shuffle.replied(event.userdata(), failed) {
+            self.playback.playlist_shuffled = enabled;
+        }
         if pending.changes_watch_later && !failed {
             // The file effect survives a media change. A reply confirms the
             // attempt completed, so readers still need to check the disk.

@@ -415,12 +415,15 @@ fn native_stop_closes_only_the_current_idle_media_and_respects_the_retained_queu
     let second_playing = harness
         .wait(|state| state.generation > first_playing.generation && state.phase == Phase::Paused);
     assert!(!second_playing.idle_for_finalization());
+    harness.send(Command::SetPlaylistShuffle(true)).unwrap();
+    harness.wait(|state| state.playlist_shuffled);
 
     let keep = riina_core::PluginMpvCommand::new("stop", vec!["keep-playlist".into()]).unwrap();
     harness.send(Command::PluginMpv(keep)).unwrap();
     let idle = harness.wait(|state| state.stopped_idle_by_engine());
     assert_eq!(idle.generation, second_playing.generation);
     assert_eq!(idle.playlist.len(), 2);
+    assert!(idle.playlist_shuffled);
     assert_eq!(idle.stopped_by, None);
     let commands = harness.player.command_sender();
     commands
@@ -435,6 +438,7 @@ fn native_stop_closes_only_the_current_idle_media_and_respects_the_retained_queu
 
     harness.send(Command::Stop(Some(12))).unwrap();
     let cleared = harness.wait(|state| state.confirmed_stop(12));
+    assert!(!cleared.playlist_shuffled);
     assert!(cleared.playlist.is_empty());
     harness.send(Command::Load(first)).unwrap();
     let replacement =
@@ -649,6 +653,92 @@ fn shuffled_open_starts_at_the_first_shuffled_entry_and_keeps_pause() {
     observed.sort_unstable();
     paths.sort_unstable();
     assert_eq!(observed, paths);
+}
+
+#[test]
+#[ignore = "requires provisioned libmpv; verifies shuffle across native queue edits"]
+fn shuffle_follows_successful_queue_edits_and_survives_navigation() {
+    let root = fixture_root();
+    let harness = Harness::start(&root).unwrap();
+    let fixture = |name: &str| {
+        root.join("tests/fixtures")
+            .join(name)
+            .to_string_lossy()
+            .into_owned()
+    };
+    let current = fixture("catalog.mkv");
+    let sibling = fixture("track-languages.mkv");
+    let ids = |state: &Playback| {
+        state
+            .playlist
+            .iter()
+            .map(|entry| entry.id)
+            .collect::<Vec<_>>()
+    };
+    harness.send(Command::SetPauseWhenOpen(true)).unwrap();
+    harness.send(Command::Load(current.clone())).unwrap();
+    harness.wait(|state| state.phase == Phase::Paused && state.folder_discovery_allowed);
+    harness
+        .send(Command::AppendFiles(vec![
+            fixture("moving-square.avi"),
+            fixture("external-tone.wav"),
+        ]))
+        .unwrap();
+    let original = harness.wait(|state| state.playlist.len() == 3);
+
+    harness.send(Command::TogglePlaylistShuffle).unwrap();
+    harness.send(Command::TogglePlaylistShuffle).unwrap();
+    harness.send(Command::SubtitleDelay(0.25)).unwrap();
+    let restored = harness.wait(|state| (state.subtitle_delay - 0.25).abs() < 0.001);
+    assert!(!restored.playlist_shuffled);
+    assert_eq!(ids(&restored), ids(&original));
+
+    // A native shortcut uses the same queue as the sidebar and desktop control.
+    harness
+        .send(Command::MpvInputAction("no-osd playlist-shuffle".into()))
+        .unwrap();
+    let shuffled = harness.wait(|state| state.playlist_shuffled);
+    assert_eq!(
+        shuffled.active_playlist_entry,
+        original.active_playlist_entry
+    );
+    let reject = riina_core::PluginMpvCommand::new("playlist-remove", vec!["99".into()]).unwrap();
+    harness.send(Command::PluginMpv(reject)).unwrap();
+    let rejected = harness.wait(|state| state.error().is_some());
+    assert!(rejected.playlist_shuffled);
+    assert_eq!(ids(&rejected), ids(&shuffled));
+
+    harness
+        .send(Command::InsertPlaylistFilesAroundCurrent {
+            before: Vec::new(),
+            after: vec![sibling],
+        })
+        .unwrap();
+    let edited = harness.wait(|state| state.playlist.len() == 4 && !state.playlist_shuffled);
+    let prior_ids = ids(&shuffled);
+    assert_eq!(
+        ids(&edited)
+            .into_iter()
+            .filter(|id| prior_ids.contains(id))
+            .collect::<Vec<_>>(),
+        prior_ids
+    );
+    harness.send(Command::TogglePlaylistShuffle).unwrap();
+    let reshuffled = harness.wait(|state| state.playlist_shuffled);
+    let next = reshuffled
+        .playlist
+        .iter()
+        .find(|entry| Some(entry.id) != reshuffled.active_playlist_entry)
+        .unwrap()
+        .id;
+    harness.send(Command::SelectPlaylistId(next)).unwrap();
+    let selected = harness
+        .wait(|state| state.active_playlist_entry == Some(next) && state.phase == Phase::Paused);
+    assert!(selected.playlist_shuffled);
+
+    harness.send(Command::Load(current)).unwrap();
+    let replaced = harness.wait(|state| state.phase == Phase::Paused && state.playlist.len() == 1);
+    assert!(!replaced.playlist_shuffled);
 }
 
 #[test]

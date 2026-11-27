@@ -25,6 +25,8 @@ Implementation does not imply every state or platform is verified.
 - **Playback:** files, folders and URLs; play/pause, seeking, volume/mute, speed,
   frame stepping, loops, chapters, playlist editing, history and resume.
   Pause When Open also applies when the playlist automatically advances.
+  Shuffle reflects confirmed playlist changes. Adding, removing or moving
+  entries clears its selection while leaving the edited order in place.
 - **Jump To:** the Playback menu opens an editable time from the latest
   engine observation at millisecond precision. The prompt selects the
   initial value, supports keyboard and accessibility actions, and keeps

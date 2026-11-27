@@ -203,6 +203,15 @@ fn move_selection(
         })
 }
 
+pub(super) fn shuffle_command(enabled: bool) -> Vec<String> {
+    let verb = if enabled {
+        "playlist-shuffle"
+    } else {
+        "playlist-unshuffle"
+    };
+    cmd([verb])
+}
+
 pub(super) fn open_files(
     state: &Playback,
     command: &Command,
@@ -232,7 +241,7 @@ pub(super) fn open_files(
         // can briefly start the original first entry while the shuffle runs.
         start.extend([cmd(["stop"]), set("pause", flag(state.pause_when_open))]);
         start.append(&mut commands);
-        start.extend([cmd(["playlist-shuffle"]), cmd(["playlist-play-index", "0"])]);
+        start.extend([shuffle_command(true), cmd(["playlist-play-index", "0"])]);
         return Ok(start);
     }
     if matches!(

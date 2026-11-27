@@ -7699,3 +7699,21 @@ The private-desktop probe could not activate the preset popup item by
 injected keystrokes. Save, Rename, and Remove were covered by automated
 tests. Linux application Clippy and 43 focused tests passed. Intel and
 Apple Silicon macOS application source checks passed.
+
+### Playlist shuffle and queue edits 2026-11-27
+
+The pinned IINA player clears its Shuffle selection when it opens a new
+playlist or edits the current queue. Riina now projects the confirmed native
+result to the sidebar, Music Mode and Linux desktop controls. A failed edit
+leaves Shuffle selected. Successful inserts and removals keep the relative
+order that remains, and selecting another entry keeps Shuffle selected.
+
+On a private Windows desktop the accessible Shuffle button applied and
+restored a five-entry playlist. The native entry IDs returned to their original
+order and the same file stayed paused. On isolated Linux Wayland, MPRIS accepted
+repeated Shuffle requests, restored the original track IDs, cleared Shuffle on
+insertion without restoring the old order, and kept Shuffle during navigation.
+Each test player exited normally. The Windows locked build, full source gate
+and all 84 native null-output tests passed. The Linux application build, Clippy
+and 13 native playlist tests passed. Intel and Apple Silicon macOS application
+source checks passed. Native macOS interaction remains open.
