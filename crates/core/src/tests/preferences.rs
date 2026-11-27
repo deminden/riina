@@ -243,6 +243,20 @@ fn control_preferences_keep_iina_defaults_and_round_trip_validated_values() {
 }
 
 #[test]
+fn timeline_seek_type_is_opt_in_and_preserves_exact_for_auto() {
+    assert!(Preferences::default().timeline_seek_exact());
+    for (seek_type, exact) in [("keyframe", false), ("exact", true), ("auto", true)] {
+        let prefs = Preferences::parse(&format!(
+            r#"{{"timeline_follows_seek_type":true,"controls":{{"seek_type":"{seek_type}"}}}}"#
+        ))
+        .unwrap();
+        let restored = Preferences::parse(&serde_json::to_string(&prefs).unwrap()).unwrap();
+        assert!(restored.timeline_follows_seek_type);
+        assert_eq!(restored.timeline_seek_exact(), exact);
+    }
+}
+
+#[test]
 fn key_binding_preferences_keep_reference_defaults_and_round_trip() {
     let defaults = Preferences::parse("{}").unwrap().key_bindings;
     assert_eq!(defaults, key_bindings::Settings::default());

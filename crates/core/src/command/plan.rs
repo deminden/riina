@@ -130,7 +130,7 @@ impl Command {
             Self::SelectChapter(index) | Self::ActivateChapter { index, .. } => {
                 seek::select_chapter(state, *index, self)?
             }
-            Self::SeekTimeline(_) if !state.timeline_seekable() => Vec::new(),
+            Self::SeekTimeline { .. } if !state.timeline_seekable() => Vec::new(),
             Self::SelectPlaylistEntry(_)
             | Self::PlaylistNext
             | Self::PlaylistPrevious

@@ -69,6 +69,10 @@ impl PreferenceModel {
         self.0.current.borrow().clone()
     }
 
+    pub(crate) fn timeline_seek_exact(&self) -> bool {
+        self.0.current.borrow().timeline_seek_exact()
+    }
+
     /// Reflect a field already committed by another window in both snapshots.
     pub(crate) fn adopt_committed(&self, edit: impl Fn(&mut Preferences)) {
         self.0.writer.adopt_committed(&edit);

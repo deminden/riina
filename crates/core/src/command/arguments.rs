@@ -27,7 +27,7 @@ impl Command {
             | Self::CycleAbLoop
             | Self::ToggleFileLoop => self.playback_args()?,
             Self::Seek { .. }
-            | Self::SeekTimeline(_)
+            | Self::SeekTimeline { .. }
             | Self::SeekWithType { .. }
             | Self::SelectChapter(_)
             | Self::AdjustChapter(_) => self.seek_args()?,

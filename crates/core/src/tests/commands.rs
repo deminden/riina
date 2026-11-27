@@ -7,24 +7,39 @@ fn timeline_seek_uses_the_native_percentage_without_requesting_eof() {
         seekable: true,
         ..Playback::default()
     };
-    for (fraction, expected) in [(-0.3, 0.0), (0.4, 40.0), (1.0, 100.0_f64.next_down())] {
-        let command = Command::SeekTimeline(fraction);
-        let plan = command.plan(&state).unwrap();
-        assert_eq!(plan.commands[0][1].parse::<f64>().unwrap(), expected);
-        assert_eq!(plan.commands[0][2], "absolute-percent+exact");
+    for (exact, flags) in [
+        (false, "absolute-percent"),
+        (true, "absolute-percent+exact"),
+    ] {
+        for (fraction, expected) in [(-0.3, 0.0), (0.4, 40.0), (1.0, 100.0_f64.next_down())] {
+            let command = Command::SeekTimeline { fraction, exact };
+            let plan = command.plan(&state).unwrap();
+            assert_eq!(plan.commands[0][1].parse::<f64>().unwrap(), expected);
+            assert_eq!(plan.commands[0][2], flags);
+        }
     }
-    assert!(Command::SeekTimeline(f64::NAN).plan(&state).is_err());
+    assert!(
+        Command::SeekTimeline {
+            fraction: f64::NAN,
+            exact: true
+        }
+        .plan(&state)
+        .is_err()
+    );
     for duration in [None, Some(0.0), Some(f64::INFINITY)] {
         let unavailable = Playback {
             duration,
             ..state.clone()
         };
         assert!(
-            Command::SeekTimeline(0.5)
-                .plan(&unavailable)
-                .unwrap()
-                .commands
-                .is_empty()
+            Command::SeekTimeline {
+                fraction: 0.5,
+                exact: true
+            }
+            .plan(&unavailable)
+            .unwrap()
+            .commands
+            .is_empty()
         );
     }
 }

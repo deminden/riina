@@ -97,6 +97,8 @@ pub struct Preferences {
     pub hdr_tone_mapping: hdr_preferences::Settings,
     pub video_threads: u32,
     pub controls: control_preferences::Settings,
+    /// Opt in to the profile's seek type for the playback slider.
+    pub timeline_follows_seek_type: bool,
     pub key_bindings: key_bindings::Settings,
     pub liquid_glass: liquid_glass::SurfaceSettings,
     pub hardware_decoder: video_controls::HardwareDecoder,
@@ -322,6 +324,7 @@ impl Default for Preferences {
             hdr_tone_mapping: hdr_preferences::Settings::default(),
             video_threads: 0,
             controls: control_preferences::Settings::default(),
+            timeline_follows_seek_type: false,
             key_bindings: key_bindings::Settings::default(),
             liquid_glass: liquid_glass::SurfaceSettings::default(),
             hardware_decoder: video_controls::HardwareDecoder::Auto,
@@ -362,6 +365,12 @@ impl Default for Preferences {
 }
 
 impl Preferences {
+    pub fn timeline_seek_exact(&self) -> bool {
+        // The reference's percentage seek treats both Exact and Auto as enabled.
+        !self.timeline_follows_seek_type
+            || self.controls.seek_type != control_preferences::SeekType::Keyframe
+    }
+
     pub fn volume_limit(&self) -> f64 {
         if self.volume_boost { 200.0 } else { 100.0 }
     }

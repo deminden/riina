@@ -7738,3 +7738,23 @@ and a rejected speed request before Play. The Linux application build, Clippy
 and 11 native video tests passed. Intel and Apple Silicon macOS application
 source checks passed. Physical pressure input and native macOS interaction
 remain open.
+
+### Timeline seek type 2026-11-27
+
+The main and Music Mode sliders honor the optional
+`timeline_follows_seek_type` profile setting. They remain exact by default.
+When enabled, Keyframe uses the native percentage seek, and Exact and Auto
+request exact percentages. The Touch Bar requests exact percentages through
+the same media-scoped queue.
+
+The private Windows desktop check used a 12-second synthetic clip with one
+keyframe at 0 seconds. Moving the paused slider to 6 seconds landed at
+6 seconds by default and with the option enabled under Auto. With the option
+enabled under Keyframe, the main and Music Mode sliders sought to 0 seconds
+and kept playback paused. An isolated Linux X11 player passed the same Keyframe
+check. All four test players exited normally.
+
+The Windows locked build, full source gate and all 85 native null-output tests
+passed. The Linux application build, Clippy and six native seek tests passed.
+Intel and Apple Silicon macOS source checks passed. The Touch Bar still needs
+native macOS testing.

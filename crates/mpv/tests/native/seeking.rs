@@ -123,7 +123,13 @@ fn media_scoped_scrub_seeks_and_cannot_resume_replacement_media() {
     let target = original.duration.unwrap() * 0.5;
     for fraction in [0.2, 0.35, 0.5] {
         commands
-            .send_for_media(original.generation, Command::SeekTimeline(fraction))
+            .send_for_media(
+                original.generation,
+                Command::SeekTimeline {
+                    fraction,
+                    exact: true,
+                },
+            )
             .unwrap();
     }
     let scrubbed = harness.wait(|state| {
@@ -145,7 +151,13 @@ fn media_scoped_scrub_seeks_and_cannot_resume_replacement_media() {
             && state.position.is_some()
     });
     commands
-        .send_for_media(original.generation, Command::SeekTimeline(0.75))
+        .send_for_media(
+            original.generation,
+            Command::SeekTimeline {
+                fraction: 0.75,
+                exact: false,
+            },
+        )
         .unwrap();
     commands
         .send_for_media(

@@ -77,6 +77,9 @@ Implementation does not imply every state or platform is verified.
   playhead. Music Mode and desktop media controls for audio use the chapter's
   title and performer when available. The timeline shows the hovered chapter
   and time even when thumbnail images are disabled or unavailable.
+  The main and Music Mode timelines can follow the saved seek type through
+  the optional `timeline_follows_seek_type` profile field. The default and
+  the Touch Bar use exact seeking.
 - **Linux desktop media queue:** MPRIS shows the entries around the active
   track. Desktop controllers can read their metadata, select a track, add
   and remove entries, or open a file or stream in the same queue. Duplicate

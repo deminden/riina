@@ -26,14 +26,19 @@ impl Command {
                 }
                 .into(),
             ],
-            Self::SeekTimeline(fraction) if fraction.is_finite() => {
+            Self::SeekTimeline { fraction, exact } if fraction.is_finite() => {
                 // Seeking to 100% can advance the playlist. Match the reference's
                 // half-open slider range and leave absolute timestamp seeks intact.
                 let percent = (fraction * 100.0).clamp(0.0, 100.0_f64.next_down());
                 vec![
                     "seek".into(),
                     percent.to_string(),
-                    "absolute-percent+exact".into(),
+                    if *exact {
+                        "absolute-percent+exact"
+                    } else {
+                        "absolute-percent"
+                    }
+                    .into(),
                 ]
             }
             Self::SelectChapter(index) => set("chapter", index.to_string()),

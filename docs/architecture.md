@@ -224,11 +224,13 @@ paste and desktop drops use stable destination row IDs so unrelated inserts
 or reorders do not shift the intended destination. Insertions and removals
 keep the widgets for surviving rows, preserving focus and selections.
 
-The main and compact timelines send exact percentage seeks for media with a
-known duration. A pointer gesture captures the media generation for its seeks
-and A/B marker changes. The event worker folds adjacent timeline requests for
-that generation and leaves playback commands in order. Timestamp commands such
-as Jump to Time use their own route.
+The main and compact timelines send percentage seeks for media with a known
+duration. Exact is the default. With `timeline_follows_seek_type` enabled in the
+profile, Keyframe uses mpv's normal percentage seek and Exact or Auto uses exact
+seeking. The Touch Bar always requests exact percentage seeking. A pointer
+gesture captures the media generation for its seeks and A/B marker changes.
+The event worker folds adjacent timeline requests for that generation and leaves
+playback commands in order. Jump to Time sends an absolute timestamp.
 
 File and Playlist Loop menu actions toggle the observed repeat mode. The
 playlist footer cycles Off, File and Playlist. A profile's raw file-loop

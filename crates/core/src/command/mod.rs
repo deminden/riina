@@ -78,7 +78,10 @@ pub enum Command {
         absolute: bool,
     },
     /// A position on the visible timeline, expressed as a fraction of its range.
-    SeekTimeline(f64),
+    SeekTimeline {
+        fraction: f64,
+        exact: bool,
+    },
     SeekWithType {
         seconds: f64,
         seek_type: control_preferences::SeekType,

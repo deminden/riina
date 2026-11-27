@@ -216,15 +216,13 @@ impl Session {
         let playback = lock(self.context.playback()).clone();
         if fraction.is_finite()
             && self.scrub.borrow().allows_seek(origin(&app, &playback))
-            && let Some(duration) = seekable_duration(&playback)
+            && seekable_duration(&playback).is_some()
         {
-            // Seeking exactly to EOF can advance the playlist while the finger is down.
-            let last_position = (duration - 0.001).max(0.0);
             self.send(
                 playback.generation,
-                Command::Seek {
-                    seconds: (fraction.clamp(0.0, 1.0) * duration).min(last_position),
-                    absolute: true,
+                Command::SeekTimeline {
+                    fraction,
+                    exact: true,
                 },
             );
         }

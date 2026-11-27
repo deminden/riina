@@ -9,7 +9,7 @@ pub(super) fn latest(
 ) -> (Message, Option<Message>) {
     let Message::MediaIntent {
         generation,
-        command: Command::SeekTimeline(_),
+        command: Command::SeekTimeline { .. },
     } = message
     else {
         return (message, None);
@@ -20,7 +20,7 @@ pub(super) fn latest(
         match next {
             Message::MediaIntent {
                 generation: current,
-                command: Command::SeekTimeline(_),
+                command: Command::SeekTimeline { .. },
             } if current == generation => message = next,
             _ => return (message, Some(next)),
         }
@@ -33,10 +33,10 @@ mod tests {
     use super::*;
     use std::sync::mpsc::channel;
 
-    fn seek(generation: u64, fraction: f64) -> Message {
+    fn seek(generation: u64, fraction: f64, exact: bool) -> Message {
         Message::MediaIntent {
             generation,
-            command: Command::SeekTimeline(fraction),
+            command: Command::SeekTimeline { fraction, exact },
         }
     }
 
@@ -44,21 +44,24 @@ mod tests {
     fn folds_only_adjacent_requests_for_the_same_media() -> Result<(), Box<dyn std::error::Error>> {
         let (sender, inbox) = channel();
         for message in [
-            seek(7, 0.3),
-            seek(7, 0.5),
+            seek(7, 0.3, true),
+            seek(7, 0.5, false),
             Message::Intent(Command::Stop(None)),
-            seek(7, 0.8),
-            seek(8, 0.1),
+            seek(7, 0.8, true),
+            seek(8, 0.1, false),
             Message::Shutdown,
         ] {
             sender.send(message)?;
         }
-        let (message, next) = latest(seek(7, 0.1), &inbox);
+        let (message, next) = latest(seek(7, 0.1, true), &inbox);
         assert!(matches!(
             message,
             Message::MediaIntent {
                 generation: 7,
-                command: Command::SeekTimeline(0.5),
+                command: Command::SeekTimeline {
+                    fraction: 0.5,
+                    exact: false
+                },
             }
         ));
         assert!(matches!(next, Some(Message::Intent(Command::Stop(None)))));
@@ -67,7 +70,10 @@ mod tests {
             message,
             Message::MediaIntent {
                 generation: 7,
-                command: Command::SeekTimeline(0.8),
+                command: Command::SeekTimeline {
+                    fraction: 0.8,
+                    exact: true
+                },
             }
         ));
         let (message, next) = latest(next.ok_or("Expected the replacement's seek")?, &inbox);
@@ -75,7 +81,10 @@ mod tests {
             message,
             Message::MediaIntent {
                 generation: 8,
-                command: Command::SeekTimeline(0.1),
+                command: Command::SeekTimeline {
+                    fraction: 0.1,
+                    exact: false
+                },
             }
         ));
         assert!(matches!(next, Some(Message::Shutdown)));

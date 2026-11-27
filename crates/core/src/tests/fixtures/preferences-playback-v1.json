@@ -151,6 +151,7 @@
     "volume_sensitivity": 3,
     "speed_sensitivity": 3
   },
+  "timeline_follows_seek_type": false,
   "key_bindings": {
     "current_profile": "IINA Default",
     "use_system_media_controls": true,

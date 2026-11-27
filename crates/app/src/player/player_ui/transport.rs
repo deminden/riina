@@ -45,7 +45,10 @@ pub(super) fn install_timeline(app: &PlayerWindow, context: &PlayerContext) {
             send_timeline(
                 &ctx,
                 timeline.get(),
-                Command::SeekTimeline(f64::from(fraction)),
+                Command::SeekTimeline {
+                    fraction: f64::from(fraction),
+                    exact: ctx.preferences().timeline_seek_exact(),
+                },
             );
         }
     });

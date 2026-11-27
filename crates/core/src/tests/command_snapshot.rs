@@ -41,7 +41,7 @@ command_samples! {
     PluginMpv[sample_plugin_command()];
     Stop[Some(7)];
     Seek { seconds: 4.25, absolute: false };
-    SeekTimeline[0.25];
+    SeekTimeline { fraction: 0.25, exact: true };
     SeekWithType { seconds: 31.5, seek_type: control_preferences::SeekType::Exact };
     Volume[64.0];
     RestoreVolume[64.0];
