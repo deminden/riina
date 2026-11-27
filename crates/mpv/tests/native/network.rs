@@ -35,18 +35,20 @@ fn cancelled_stream_before_native_load_retires_the_empty_player() {
 #[test]
 #[ignore = "requires provisioned libmpv; verifies HTTP media playback from a local server"]
 fn http_url_opens_and_plays_a_local_media_fixture() {
+    let target = "/S%C3%A9ance%20%E7%89%87%20%7B50%25%7D.avi?sig=A%2fb+Z";
     let root = fixture_root();
     let fixture = std::fs::read(root.join("tests/fixtures/moving-square.avi")).unwrap();
     let listener = TcpListener::bind(("127.0.0.1", 0)).unwrap();
     listener.set_nonblocking(true).unwrap();
     let address = listener.local_addr().unwrap();
     let (stop, stopping) = mpsc::channel();
-    let server = std::thread::spawn(move || serve_http_fixture(listener, fixture, stopping));
+    let server =
+        std::thread::spawn(move || serve_http_fixture(listener, fixture, stopping, Some(target)));
 
     let harness = Harness::with_options(&root, vec![("ao".into(), "null".into())]).unwrap();
-    harness
-        .send(Command::Load(format!("http://{address}/moving-square.avi")))
-        .unwrap();
+    let input = format!("{address}/Séance 片 {{50%}}.avi?sig=A%2fb+Z");
+    let url = riina_core::stream_address::stream_address(&input).unwrap();
+    harness.send(Command::Load(url.url.into_owned())).unwrap();
     let loaded = harness.wait(|state| {
         state.error().is_some()
             || (state.phase == Phase::Playing
@@ -84,7 +86,7 @@ fn stream_open_tracks_authentication_failure_and_cancellation() {
     listener.set_nonblocking(true).unwrap();
     let address = listener.local_addr().unwrap();
     let (stop, stopping) = mpsc::channel();
-    let server = std::thread::spawn(move || serve_http_fixture(listener, fixture, stopping));
+    let server = std::thread::spawn(move || serve_http_fixture(listener, fixture, stopping, None));
     let harness = Harness::with_options(&root, vec![("ao".into(), "null".into())]).unwrap();
     let sender = harness.player.command_sender();
     let open = |path: &str, authenticate: bool| {
@@ -222,6 +224,7 @@ fn serve_http_fixture(
     listener: TcpListener,
     fixture: Vec<u8>,
     stopping: mpsc::Receiver<()>,
+    expected_target: Option<&'static str>,
 ) -> std::io::Result<()> {
     let deadline = Instant::now() + Duration::from_secs(12);
     let fixture = std::sync::Arc::new(fixture);
@@ -240,7 +243,7 @@ fn serve_http_fixture(
                 // is still buffered. A blocked writer must not block acceptance.
                 let fixture = fixture.clone();
                 connections.push(std::thread::spawn(move || {
-                    write_http_fixture(stream, &fixture)
+                    write_http_fixture(stream, &fixture, expected_target)
                 }));
             }
             Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
@@ -273,7 +276,11 @@ fn serve_http_fixture(
     Ok(())
 }
 
-fn write_http_fixture(stream: TcpStream, fixture: &[u8]) -> std::io::Result<()> {
+fn write_http_fixture(
+    stream: TcpStream,
+    fixture: &[u8],
+    expected_target: Option<&str>,
+) -> std::io::Result<()> {
     stream.set_read_timeout(Some(Duration::from_secs(5)))?;
     stream.set_write_timeout(Some(Duration::from_secs(5)))?;
     let mut request = BufReader::new(stream);
@@ -284,6 +291,16 @@ fn write_http_fixture(stream: TcpStream, fixture: &[u8]) -> std::io::Result<()> 
         .nth(1)
         .unwrap_or_default()
         .to_owned();
+    if let Some(expected) = expected_target
+        && path != expected
+    {
+        request.get_mut().write_all(
+            b"HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\nConnection: close\r\n\r\n",
+        )?;
+        return Err(std::io::Error::other(format!(
+            "Unexpected request target: {path}"
+        )));
+    }
     let mut range = None;
     let mut authorized = false;
     loop {

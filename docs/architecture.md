@@ -1177,6 +1177,9 @@ to select a current or new player. The window keeps the address for retry when a
 load fails. The worker associates each attempt with mpv's playlist entry ID,
 including the successor entry for a playlist redirect. A replacement invalidates
 the pending attempt before cancellation can act on the new file.
+The typed address parser converts international hostnames to ASCII and percent
+encodes raw URL text. It keeps delimiters, existing escapes and the order and
+spelling of query tokens so signed URLs reach the engine intact.
 
 Network-first startup groups and immediate browser opens use the same stream
 attempt. A group keeps the prepared file order and submits the leading load and

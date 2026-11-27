@@ -23,14 +23,8 @@ pub fn stream_address(input: &str) -> Result<StreamAddress<'_>, NetworkUrlError>
     } else {
         (Cow::Owned(format!("http://{input}")), true)
     };
-    let authority_and_path = url
-        .split_once("://")
-        .map(|(_, rest)| rest)
-        .ok_or(NetworkUrlError::MissingHost)?;
-    let authority = authority_and_path
-        .split(['/', '?', '#'])
-        .next()
-        .unwrap_or_default();
+    let (scheme, rest) = url.split_once("://").ok_or(NetworkUrlError::MissingHost)?;
+    let (authority, resource) = rest.split_at(rest.find(['/', '?', '#']).unwrap_or(rest.len()));
     if authority.is_empty() || authority.contains('\\') {
         return Err(NetworkUrlError::MissingHost);
     }
@@ -38,16 +32,78 @@ pub fn stream_address(input: &str) -> Result<StreamAddress<'_>, NetworkUrlError>
         return Err(NetworkUrlError::InvalidCharacters);
     }
 
-    let url = if url.chars().any(char::is_whitespace) {
-        Cow::Owned(url.replace(' ', "%20"))
-    } else {
+    let encoded_authority = encode_authority(authority)?;
+    let encoded_resource = encode_url_text(resource);
+    let url = if encoded_authority == authority && encoded_resource == resource {
         url
+    } else {
+        Cow::Owned(format!("{scheme}://{encoded_authority}{encoded_resource}"))
     };
     validate_network_url(&url)?;
     Ok(StreamAddress {
         url,
         uses_default_scheme,
     })
+}
+
+fn encode_authority(authority: &str) -> Result<Cow<'_, str>, NetworkUrlError> {
+    if authority.is_ascii() {
+        return Ok(Cow::Borrowed(authority));
+    }
+    let (account, endpoint) = authority
+        .rsplit_once('@')
+        .map_or((None, authority), |(account, endpoint)| {
+            (Some(account), endpoint)
+        });
+    let mut encoded = String::new();
+    if let Some(account) = account {
+        encoded.push_str(&encode_url_text(account));
+        encoded.push('@');
+    }
+    if endpoint.is_ascii() {
+        encoded.push_str(endpoint);
+    } else {
+        let (host, port) = endpoint.split_at(endpoint.find(':').unwrap_or(endpoint.len()));
+        let host = url::Host::parse(host).map_err(NetworkUrlError::Parse)?;
+        encoded.push_str(&host.to_string());
+        encoded.push_str(port);
+    }
+    Ok(Cow::Owned(encoded))
+}
+
+fn encode_url_text(value: &str) -> Cow<'_, str> {
+    const HEX: &[u8; 16] = b"0123456789ABCDEF";
+    let bytes = value.as_bytes();
+    let needs_escape = |index, byte: u8| {
+        if byte == b'%' {
+            !bytes
+                .get(index + 1..index + 3)
+                .is_some_and(|digits| digits.iter().all(u8::is_ascii_hexdigit))
+        } else {
+            !byte.is_ascii_alphanumeric() && !b"-._~:/?#[]@!$&'()*+,;=".contains(&byte)
+        }
+    };
+    let Some(first) = bytes
+        .iter()
+        .copied()
+        .enumerate()
+        .position(|(index, byte)| needs_escape(index, byte))
+    else {
+        return Cow::Borrowed(value);
+    };
+    // Keep already escaped bytes and their spelling, including query tokens.
+    let mut escaped = String::with_capacity(value.len() + 2);
+    escaped.push_str(&value[..first]);
+    for (index, byte) in bytes.iter().copied().enumerate().skip(first) {
+        if needs_escape(index, byte) {
+            escaped.push('%');
+            escaped.push(char::from(HEX[usize::from(byte >> 4)]));
+            escaped.push(char::from(HEX[usize::from(byte & 0x0f)]));
+        } else {
+            escaped.push(char::from(byte));
+        }
+    }
+    Cow::Owned(escaped)
 }
 
 #[cfg(test)]
@@ -75,6 +131,24 @@ mod tests {
             (
                 "ytdl://https://example.test/watch?q=50%25",
                 "ytdl://https://example.test/watch?q=50%25",
+                false,
+            ),
+            (
+                "münchen.example:8080/Résumé 片.avi?sig=%2f+Z&caption=日本語#part 1",
+                concat!(
+                    "http://xn--mnchen-3ya.example:8080/R%C3%A9sum%C3%A9%20%E7%89%87.avi",
+                    "?sig=%2f+Z&caption=%E6%97%A5%E6%9C%AC%E8%AA%9E#part%201"
+                ),
+                true,
+            ),
+            (
+                "rtsp://münchen.example:8554/show {50%}.mkv",
+                "rtsp://xn--mnchen-3ya.example:8554/show%20%7B50%25%7D.mkv",
+                false,
+            ),
+            (
+                "https://usér:clé@[::1]:8443/二 番.avi?escaped=%20",
+                "https://us%C3%A9r:cl%C3%A9@[::1]:8443/%E4%BA%8C%C2%A0%E7%95%AA.avi?escaped=%20",
                 false,
             ),
         ] {

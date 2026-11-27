@@ -7812,3 +7812,17 @@ open.
 
 - Windows executable SHA-256 `7a75e6108eab8129c2a200ea4ebe08ceecfff9618360b9866575949e82124f0b`
 - Linux X11 executable SHA-256 `3e467897e7a6c1fe052ce2a2ec95d27cb4d601e0b08a71485bd9e7d7877548ae`
+
+### Typed stream addresses (2026-11-27)
+
+The Windows workspace gate, locked build and all 86 native playback tests
+passed. The three focused Linux native HTTP tests passed. The shared loopback
+fixture received the encoded Unicode filename and literal punctuation with the
+original query bytes, including a lowercase escape and a plus sign. Core tests
+also covered international hostnames, credentials and IPv6 ports.
+
+On a private Windows desktop, submitting a scheme-less address in Open URL
+loaded a paused video. The server received the expected path and query, and
+the exact test player exited normally. Native macOS verification remains open.
+
+- Windows executable SHA-256 `7aea2cf95a658495f8d4dcc14f89478069014f867a8fb2dd37ca692be23cc306`

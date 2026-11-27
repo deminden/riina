@@ -165,6 +165,9 @@ Implementation does not imply every state or platform is verified.
   authentication and can stop a pending load. Stop Loading closes the playback
   frame and keeps the address ready for retry. Closing the dialog also cancels
   the pending load and releases its player.
+  Typed addresses accept international hostnames and filenames. Characters that
+  require escaping are encoded while existing escapes and query tokens keep
+  their original spelling.
   Direct browser links and groups that begin with a network URL share
   its loading and retry controls. Retrying the first stream preserves the
   remaining playlist.
