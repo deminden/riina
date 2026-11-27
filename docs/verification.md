@@ -7126,3 +7126,10 @@ captured `src_packages` path.
 The recipe passed Bash syntax validation, its libvpl hunk applied against the
 exact builder checkout, and all ten release artifact tests passed. The rebuilt
 Windows DLL and its package checks remain pending.
+
+The dependency sweep also exposed a fontconfig patch that included obsolete
+debug logging around the old font scanner. The recipe pins fontconfig at
+`9564f0d1d00c46dc32bbbe4abcd6d71200786173`. It retains the Windows font and
+cache initialization and the Windows directory-header adjustment. Both
+retained patches applied in order to the files from that revision. The two
+commit-pinned packages use the builder's detached-checkout configuration.

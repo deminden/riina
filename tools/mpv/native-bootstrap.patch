@@ -27,11 +27,26 @@ diff --git a/toolchain/rustup.cmake b/toolchain/rustup.cmake
 diff --git a/packages/libvpl.cmake b/packages/libvpl.cmake
 --- a/packages/libvpl.cmake
 +++ b/packages/libvpl.cmake
-@@ -5,5 +5,5 @@
-     GIT_REMOTE_NAME origin
+@@ -4,6 +4,5 @@
+     GIT_CLONE_FLAGS "--filter=tree:0"
+-    GIT_REMOTE_NAME origin
 -    GIT_TAG main
 +    GIT_TAG ${RIINA_LIBVPL_REVISION}
      UPDATE_COMMAND ""
 -    PATCH_COMMAND ${EXEC} git am --3way ${CMAKE_CURRENT_SOURCE_DIR}/libvpl-*.patch
 +    PATCH_COMMAND ""
      CONFIGURE_COMMAND ${EXEC} CONF=1 cmake -H<SOURCE_DIR> -B<BINARY_DIR>
+diff --git a/packages/fontconfig.cmake b/packages/fontconfig.cmake
+--- a/packages/fontconfig.cmake
++++ b/packages/fontconfig.cmake
+@@ -8,7 +8,7 @@
+     SOURCE_DIR ${SOURCE_LOCATION}
+     UPDATE_COMMAND ""
+-    GIT_REMOTE_NAME origin
+-    GIT_TAG main
++    GIT_TAG ${RIINA_FONTCONFIG_REVISION}
+     GIT_CLONE_FLAGS "--filter=tree:0"
+-    PATCH_COMMAND ${EXEC} git am --3way ${CMAKE_CURRENT_SOURCE_DIR}/fontconfig-*.patch
++    PATCH_COMMAND ${EXEC} git am --include=src/fcinit.c ${CMAKE_CURRENT_SOURCE_DIR}/fontconfig-0001*.patch
++    COMMAND ${EXEC} git am ${CMAKE_CURRENT_SOURCE_DIR}/fontconfig-0002*.patch
+     CONFIGURE_COMMAND ""

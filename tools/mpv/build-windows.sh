@@ -8,6 +8,7 @@ readonly BUILD_IMAGE='ghcr.io/shinchiro/archlinux@sha256:eb6fa66bafe02c19ce52a34
 readonly MPV_REVISION='36abaa32d00a7229ee206aae12dc0e97e7962dca'
 # This libvpl revision includes the MinGW string fix required by the builder.
 readonly LIBVPL_REVISION='ec718e8ede859f16d29c3cdeba3a3025031bc83d'
+readonly FONTCONFIG_REVISION='9564f0d1d00c46dc32bbbe4abcd6d71200786173'
 readonly OPENSSL_REVISION='d8bf6cdd4849925c30e4f1911c7acb49cb34b702'
 readonly CURL_REVISION='01346829096c61b372692f6dc43ffa778c6caccd' # curl 8.22.0
 readonly REPO_ROOT="$PWD"
@@ -74,6 +75,7 @@ cmake \
   -DSINGLE_SOURCE_LOCATION="$BUILDER/src_packages" \
   -DRUSTUP_LOCATION="$BUILDER/clang_root/install_rustup" \
   -DRIINA_LIBVPL_REVISION="$LIBVPL_REVISION" \
+  -DRIINA_FONTCONFIG_REVISION="$FONTCONFIG_REVISION" \
   -DENABLE_CCACHE=ON \
   -DCLANG_PACKAGES_LTO=ON \
   -G Ninja --fresh -B build_x86_64 -S .
@@ -91,6 +93,7 @@ test -d "$BUILDER/src_packages/libsixel/.git"
 test "$(git -C "$BUILDER/src_packages/curl" remote get-url origin)" = 'https://github.com/curl/curl.git'
 test "$(git -C "$BUILDER/src_packages/curl" rev-parse HEAD)" = "$CURL_REVISION"
 test "$(git -C "$BUILDER/src_packages/libvpl" rev-parse HEAD)" = "$LIBVPL_REVISION"
+test "$(git -C "$BUILDER/src_packages/fontconfig" rev-parse HEAD)" = "$FONTCONFIG_REVISION"
 
 # Fetch toolchain sources before restoring a captured source set. Otherwise the
 # rebuild would compile a fresh toolchain before checking its locked revisions.
@@ -113,6 +116,7 @@ if [[ -n "${RIINA_NATIVE_SOURCE_ROOT:-}" ]]; then
         if [[ "$first" == 'src_packages/openssl' ]]; then test "$third" = "$OPENSSL_REVISION"; fi
         if [[ "$first" == 'src_packages/mpv' ]]; then test "$third" = "$MPV_REVISION"; fi
         if [[ "$first" == 'src_packages/libvpl' ]]; then test "$third" = "$LIBVPL_REVISION"; fi
+        if [[ "$first" == 'src_packages/fontconfig' ]]; then test "$third" = "$FONTCONFIG_REVISION"; fi
         git init -q "$repository"
         git -C "$repository" config user.name 'Riina source snapshot'
         git -C "$repository" config user.email 'source-snapshot@riina.invalid'
