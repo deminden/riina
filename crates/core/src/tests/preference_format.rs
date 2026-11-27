@@ -78,9 +78,16 @@ fn schema_v1_preferences_keep_their_pretty_serialized_bytes() {
             include_str!("fixtures/preferences-network-v1.json"),
         ),
     ] {
+        // Keep one byte-for-byte fixture for the shared format. macOS picks
+        // Core Audio as its platform default.
+        let expected = if cfg!(target_os = "macos") {
+            expected.replacen(r#""driver": "default""#, r#""driver": "core_audio""#, 1)
+        } else {
+            expected.to_owned()
+        };
         let encoded = serde_json::to_string_pretty(&settings).unwrap();
         assert_eq!(encoded, expected, "{name}: serialization");
-        let decoded = Preferences::parse(expected).unwrap();
+        let decoded = Preferences::parse(&expected).unwrap();
         assert_eq!(
             serde_json::to_string_pretty(&decoded).unwrap(),
             expected,

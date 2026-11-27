@@ -38,7 +38,7 @@ jobs:
       - name: Full application lint
         run: cargo clippy --workspace --all-targets --locked -- -D warnings
       - name: Application and shared unit tests
-        run: cargo test --workspace --locked
+        run: cargo test --workspace --locked --no-fail-fast
       - name: Full application build
         run: cargo build -p riina --locked
       - name: Assemble and validate the macOS app bundle

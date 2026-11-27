@@ -27,7 +27,7 @@ class ApplicationPortsTests(unittest.TestCase):
         job = workflow("application-ports.yml")["jobs"]["application"]
         for name, command in (
             ("Full application lint", "cargo clippy --workspace --all-targets --locked -- -D warnings"),
-            ("Application and shared unit tests", "cargo test --workspace --locked"),
+            ("Application and shared unit tests", "cargo test --workspace --locked --no-fail-fast"),
             ("Full application build", "cargo build -p riina --locked"),
         ):
             self.assertEqual(named_step(job, name)["run"], command)

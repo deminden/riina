@@ -7904,3 +7904,5 @@ file URLs. Finder document handling now accepts only file descriptor types.
 The pasteboard test uses URL items for signed streams and a filename array
 for local paths. The audio caption test selects the system default driver
 explicitly so the saved device fixture also works on macOS.
+The shared preferences serialization test checks macOS's Core Audio
+default against the same byte-for-byte fixture used on Windows and Linux.
