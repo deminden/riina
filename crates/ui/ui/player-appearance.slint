@@ -24,7 +24,7 @@ export global PlayerAppearance {
             && !(PlaybackVideoState.hdr-source-detected && PlaybackVideoState.hdr-enabled)
             && ((liquid-glass-osc && loaded && (PlayerControlsState.controls-visible || PlayerMusicModeState.music-mode))
                 || (liquid-glass-sidebar && (PlayerSidebarState.sidebar != 0 || PlayerSidebarState.leading-sidebar != 0))
-                || (liquid-glass-osd && loaded && (PlayerOsdState.video-osd-visible || PlayerOsdState.seek-osd-visible
+                || (liquid-glass-osd && loaded && (PlayerOsdState.stream-activity-visible || PlayerOsdState.video-osd-visible || PlayerOsdState.seek-osd-visible
                     || PlayerOsdState.plugin-osd-message != ""
                     || (fullscreen && PlayerControlsState.controls-visible && PlayerPreferences.display-time-and-battery-in-fullscreen))));
     }

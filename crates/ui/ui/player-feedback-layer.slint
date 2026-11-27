@@ -5,7 +5,7 @@ import { PlayerSidebarState } from "player-sidebar-state.slint";
 import { PlayerMusicModeState } from "player-music-mode-state.slint";
 import { PlayerOsdState } from "player-osd-state.slint";
 import { ScreenshotPreview } from "screenshot-preview.slint";
-import { FullscreenInfoOsd, OsdMaterial, PlaybackOsd, PluginOsd, SeekOsd } from "player-osd.slint";
+import { FullscreenInfoOsd, OsdMaterial, PlaybackOsd, PluginOsd, SeekOsd, StreamActivityOsd } from "player-osd.slint";
 import { PlayerRenderedVideo } from "player-rendered-video.slint";
 import { PlayerAppearance } from "player-appearance.slint";
 import { PlayerPreferences } from "player-preferences.slint";
@@ -44,6 +44,13 @@ export component PlayerFeedbackLayer inherits Rectangle {
         osd-enabled: PlayerPreferences.osd-enabled;
         osd-text-size: PlayerPreferences.osd-text-size;
         osd-fade-duration: root.osd-fade-duration;
+    }
+    if PlayerOsdState.stream-activity-visible : StreamActivityOsd {
+        x: (parent.width - self.width) / 2;
+        y: (parent.height - self.height) / 2;
+        width: clamp(parent.width - 16px, 0px, 190px);
+        material: root.osd-material;
+        reduce-motion: PlayerAppearance.animations-disabled;
     }
     if !PlayerOsdState.plugin-osd-message.is-empty && !PlayerCropState.crop-editing : PluginOsd {
         x: (parent.width - self.width) / 2;

@@ -73,16 +73,16 @@ impl NumberLocale {
         }
     }
 
+    fn format_localized(&self, value: f64, precision: FloatPrecision) -> Option<String> {
+        let formatter = self.formatter.as_ref()?;
+        let mut decimal = Decimal::try_from_f64(value, precision).ok()?;
+        decimal.trim_end();
+        Some(formatter.format_to_string(&decimal))
+    }
+
     fn format(&self, value: f64) -> String {
-        if value.is_finite()
-            && let Some(formatter) = &self.formatter
-            && let Ok(mut decimal) =
-                Decimal::try_from_f64(value, FloatPrecision::SignificantDigits(3))
-        {
-            decimal.trim_end();
-            return formatter.format_to_string(&decimal);
-        }
-        fallback_format(value, self.decimal)
+        self.format_localized(value, FloatPrecision::SignificantDigits(3))
+            .unwrap_or_else(|| fallback_format(value, self.decimal))
     }
 
     fn normalize_entry(&self, value: &str) -> Result<String, &'static str> {
@@ -125,6 +125,28 @@ fn with_cached_locale<T>(
 
 pub(crate) fn format_delay(value: f64) -> String {
     with_locale(|locale| locale.format(value))
+}
+
+pub(crate) fn format_cache_amount(bytes: u64, binary: bool) -> String {
+    let (base, units) = if binary {
+        (1024_u64, ["B", "KiB", "MiB", "GiB"])
+    } else {
+        (1000_u64, ["B", "KB", "MB", "GB"])
+    };
+    let unit = (1..=3)
+        .rev()
+        .find(|&exponent| bytes >= base.pow(exponent))
+        .unwrap_or(0);
+    let amount = bytes as f64 / base.pow(unit) as f64;
+    let number =
+        with_locale(|locale| locale.format_localized(amount, FloatPrecision::Magnitude(-2)))
+            .unwrap_or_else(|| {
+                format!("{amount:.2}")
+                    .trim_end_matches('0')
+                    .trim_end_matches('.')
+                    .to_owned()
+            });
+    format!("{number} {}", units[unit as usize])
 }
 
 pub(crate) fn normalize_delay_entry(value: &str) -> Result<String, &'static str> {

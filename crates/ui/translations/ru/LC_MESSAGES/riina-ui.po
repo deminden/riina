@@ -2996,3 +2996,18 @@ msgstr "{} с"
 
 msgid "{}x"
 msgstr "{}×"
+
+msgid "Opening stream…"
+msgstr "Открытие потока…"
+
+msgid "Buffering…"
+msgstr "Буферизация…"
+
+msgid "Buffering… {}%"
+msgstr "Буферизация… {}%"
+
+msgid "Seeking…"
+msgstr "Перемотка…"
+
+msgid "{} ({}/s)"
+msgstr "{} ({}/с)"

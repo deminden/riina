@@ -47,6 +47,7 @@ pub(super) fn update_ui(
     app.set_document_title(title.into());
     update_media_actions(app, state);
     update_feedback(app, state, displayed.as_deref(), last_seek, last_video);
+    super::stream_activity::update(app, state, displayed.as_deref());
     let timeline = app.global::<riina_ui::PlaybackTimelineState>();
     timeline.set_seek_position_label(seek_osd::clock(state.position).into());
     timeline.set_seek_duration_label(seek_osd::clock(state.duration).into());

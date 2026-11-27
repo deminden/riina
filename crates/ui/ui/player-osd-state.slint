@@ -1,3 +1,7 @@
+import { PlayerCropState } from "player-crop-state.slint";
+import { PlayerMusicModeState } from "player-music-mode-state.slint";
+import { PlayerPreferences } from "player-preferences.slint";
+
 // The visible messages and captures belong to the owning player.
 export global PlayerOsdState {
     in-out property <bool> seek-osd-visible: false;
@@ -15,4 +19,18 @@ export global PlayerOsdState {
     in-out property <string> fullscreen-info-battery: "";
     in-out property <float> fullscreen-info-battery-level: 0;
     in-out property <string> plugin-osd-message: "";
+    in-out property <bool> stream-opening;
+    in-out property <bool> stream-buffering;
+    in-out property <bool> stream-seeking;
+    in-out property <string> stream-fill-percent;
+    in-out property <string> stream-cached-amount;
+    in-out property <string> stream-input-rate;
+    out property <bool> stream-activity-visible: !PlayerMusicModeState.music-mode && !PlayerCropState.crop-editing
+        && (stream-opening || (stream-buffering && PlayerPreferences.network-show-buffering-throbber)
+            || (stream-seeking && PlayerPreferences.network-show-seeking-throbber));
+    out property <string> stream-activity-label: stream-opening ? @tr("Opening stream…") : stream-buffering
+        ? (stream-fill-percent == "" ? @tr("Buffering…") : @tr("Buffering… {}%", stream-fill-percent))
+        : stream-seeking ? @tr("Seeking…") : "";
+    out property <string> stream-activity-detail: stream-cached-amount == "" ? ""
+        : @tr("{} ({}/s)", stream-cached-amount, stream-input-rate);
 }

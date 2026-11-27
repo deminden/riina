@@ -27,6 +27,52 @@ component OsdVideoSample inherits Image {
     image-fit: contain;
 }
 
+export component StreamActivityOsd inherits Rectangle {
+    in property <OsdMaterial> material;
+    in property <bool> reduce-motion;
+    private property <int> animation-step: 0;
+    private property <bool> show-detail: PlayerOsdState.stream-activity-detail != "";
+
+    height: show-detail ? 92px : 72px;
+    clip: true;
+    border-radius: Theme.playback-osd-corner;
+    background: Theme.playback-osd-surface(root.material.active, root.material.native-tint);
+    if root.material.active : OsdVideoSample {
+        material: root.material;
+        card-x: parent.x;
+        card-y: parent.y;
+    }
+    Timer {
+        interval: 80ms;
+        running: !root.reduce-motion;
+        triggered => { root.animation-step = Math.mod(root.animation-step + 1, 12); }
+    }
+    for spoke in 12 : Path {
+        private property <angle> angle: spoke * 30deg;
+        x: (parent.width - self.width) / 2; y: 11px;
+        width: 30px; height: 30px;
+        viewbox-width: 30; viewbox-height: 30;
+        stroke: Theme.osd-primary-text; stroke-width: 2px;
+        opacity: 0.18 + 0.82 * Math.mod(spoke + 12 - root.animation-step, 12) / 11;
+        MoveTo { x: 15 + 8 * Math.sin(angle); y: 15 - 8 * Math.cos(angle); }
+        LineTo { x: 15 + 14 * Math.sin(angle); y: 15 - 14 * Math.cos(angle); }
+    }
+    Text {
+        x: 8px; y: 45px; width: parent.width - 16px; height: 18px;
+        text: PlayerOsdState.stream-activity-label;
+        color: Theme.osd-primary-text; font-size: 13px;
+        horizontal-alignment: center; overflow: elide;
+        accessible-role: text; accessible-label: self.text;
+    }
+    if root.show-detail : Text {
+        x: 8px; y: 66px; width: parent.width - 16px; height: 16px;
+        text: PlayerOsdState.stream-activity-detail;
+        color: Theme.osd-primary-text; font-size: 12px;
+        horizontal-alignment: center; overflow: elide;
+        accessible-role: text; accessible-label: self.text;
+    }
+}
+
 // Geometry is estimated from the reviewed 320×180 reference capture.
 export component SeekOsd inherits Rectangle {
     in property <OsdMaterial> material;

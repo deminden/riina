@@ -1117,6 +1117,15 @@ account under the scheme, host and port. The worker applies a credentialed
 address at mpv's load hook. The playlist, displayed title and watched transport
 properties use the public address. [Pinned mpv command contract](https://github.com/mpv-player/mpv/blob/36abaa32d00a7229ee206aae12dc0e97e7962dca/DOCS/man/input.rst)
 
+The playback snapshot carries native cache fill, forward-buffered bytes and
+input rate. The stream feedback card uses the active playlist entry's identity
+and the observed loading, cache pause or seek state. It reads the two display
+preferences directly from the player so they apply during an ongoing wait.
+Changing a display preference leaves the native cache settings in place.
+Cache fill is shown only while the engine is waiting for its cache. The card
+uses the player's OSD material and stops animating when hidden or when
+animations are disabled.
+
 The Help menu's debug report takes one snapshot of each live player in creation
 order. Each session registers its playback store and retires the registration
 when it closes. The application writes the snapshot on a background thread.

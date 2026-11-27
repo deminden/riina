@@ -7434,3 +7434,35 @@ native HTTP tests passed. Closing Open URL during a stalled command-line
 stream in an isolated X11 session returned to Welcome. Closing Welcome ended
 the original Linux process. Strict macOS cross-Clippy passed for Intel and
 Apple Silicon. Live macOS cancellation still needs verification.
+
+### Stream opening, buffering and seeking feedback (2026-11-27)
+
+An isolated Windows run waited for a stalled loopback HTTP request. The
+player's accessibility tree exposed Opening stream during the wait. Stop
+Loading removed the card and its playback frame. Closing Welcome ended the
+original application process.
+
+An isolated Windows seek jumped to 24 seconds in a remote WAV while its
+server held the data. The player exposed Seeking without a cache percentage.
+Releasing the data resumed playback past the target and cleared the card.
+A separate cache wait showed 53% fill, 1.52 MiB buffered and 9.46 KB/s input.
+Releasing the bytes started playback and cleared the indicator. Separate
+runs disabled each display switch and confirmed the corresponding native
+cache pause or seek still occurred. Each isolated process closed normally.
+
+The locked Windows build and workspace gate passed with 730 application
+tests, 88 widget tests and the software player and Settings comparison.
+All 82 Windows native tests passed. The HTTP playback case observed
+forward-buffered bytes while audio was playing. The stream cancellation
+case matched a stalled file's active playlist identity before canceling it.
+The player test covers the opening, buffering and seeking labels,
+the two display switches and removal of feedback when the media stops.
+The Settings transaction confirms that changing either display switch leaves
+the native cache configuration in place.
+
+The locked Linux application build, strict Clippy, 36 focused app tests and
+three native HTTP tests passed. An isolated X11 run exposed Opening stream
+through AT-SPI while the server stalled. Closing Open URL canceled the load,
+and closing Welcome ended the original process. Strict macOS cross-Clippy
+passed for Intel and Apple Silicon. Live macOS behavior and matched pixels
+still need verification.

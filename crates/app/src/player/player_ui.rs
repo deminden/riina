@@ -48,6 +48,7 @@ pub(crate) mod input;
 mod observation_dispatch;
 mod observations;
 mod observer_state;
+mod stream_activity;
 pub(in crate::player) use observer_state::ObserverId;
 mod plugin_menus;
 mod plugins;

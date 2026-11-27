@@ -99,6 +99,13 @@ pub struct FilterFeedback {
     pub change: FilterChange,
 }
 
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct PlaybackCache {
+    pub fill_percent: Option<u8>,
+    pub forward_bytes: u64,
+    pub input_bytes_per_second: u64,
+}
+
 #[derive(Debug, Clone, Default)]
 pub struct Playback {
     /// File-opening policy is intent; `paused` remains native observed state.
@@ -137,6 +144,7 @@ pub struct Playback {
     pub paused: bool,
     pub buffering: bool,
     pub seeking: bool,
+    pub cache: PlaybackCache,
     /// Completed native seeks; retained across coalesced UI snapshots.
     pub completed_seeks: u64,
     /// Completed seeks associated with application navigation commands. Decoder
@@ -548,6 +556,7 @@ impl Playback {
         self.duration = None;
         self.remaining_time = None;
         self.scaled_remaining_time = None;
+        self.cache = PlaybackCache::default();
         self.title.clear();
         self.seekable = false;
         self.ab_loop_a = None;

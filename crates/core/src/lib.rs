@@ -64,9 +64,9 @@ mod engine_notice;
 pub use engine_notice::{EngineNotice, EngineNotices, NoticeSeverity};
 pub use playback::{
     ChapterFeedback, FileFeedback, FilterChange, FilterFeedback, FrameSlot,
-    MAX_RETAINED_MPV_EVENTS, MediaMetadata, MpvEventRecord, Phase, Playback, PlaylistChange,
-    PlaylistFeedback, RememberedVolume, SubtitleStyleAvailability, VideoFrameInfo, VideoParameters,
-    time_label,
+    MAX_RETAINED_MPV_EVENTS, MediaMetadata, MpvEventRecord, Phase, Playback, PlaybackCache,
+    PlaylistChange, PlaylistFeedback, RememberedVolume, SubtitleStyleAvailability, VideoFrameInfo,
+    VideoParameters, time_label,
 };
 pub use preferences::{
     ActionAfterLaunch, PreferenceError, Preferences, RecentMedia, Rejection, ThemeMaterial,

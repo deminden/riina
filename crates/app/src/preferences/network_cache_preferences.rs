@@ -28,10 +28,15 @@ impl PreferenceSection for Cache {
     }
 
     fn live_commands(&self, previous: &Self) -> Vec<Command> {
-        if self == previous {
-            Vec::new()
-        } else {
+        if self.enabled != previous.enabled
+            || self.pause_initial != previous.pause_initial
+            || self.pause_wait_secs != previous.pause_wait_secs
+            || self.prefetch_secs != previous.prefetch_secs
+            || self.buffer_size_kib != previous.buffer_size_kib
+        {
             vec![Command::NetworkCache(self.clone())]
+        } else {
+            Vec::new()
         }
     }
 }
@@ -127,6 +132,8 @@ pub(crate) fn apply(
 ) -> Result<(), String> {
     for command in selected.live_commands(previous) {
         player.send(command)?;
+    }
+    if selected != previous {
         install_player(app, selected);
     }
     Ok(())
@@ -142,6 +149,8 @@ pub(crate) fn restore(
         if let Err(error) = player.send(command) {
             crate::diagnostics::warn!("Could not restore the playback cache settings: {error}");
         }
+    }
+    if previous != selected {
         install_player(app, previous);
     }
 }

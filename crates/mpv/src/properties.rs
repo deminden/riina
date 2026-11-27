@@ -223,12 +223,49 @@ pub(super) static OBSERVED: &[ObservedProperty] = &[
     property!(c"pause", Flag, |state, flag| {
         state.paused = flag;
     }),
-    property!(c"paused-for-cache", Flag, |state, flag| {
-        state.buffering = flag;
-    }),
-    property!(c"seeking", Flag, |state, flag| {
-        state.seeking = flag;
-    }),
+    property!(
+        c"paused-for-cache",
+        Flag,
+        |state, flag| {
+            state.buffering = flag;
+        },
+        |state| {
+            state.buffering = false;
+        }
+    ),
+    property!(
+        c"seeking",
+        Flag,
+        |state, flag| {
+            state.seeking = flag;
+        },
+        |state| {
+            state.seeking = false;
+        }
+    ),
+    property!(
+        c"cache-buffering-state",
+        Integer,
+        |state, value| {
+            state.cache.fill_percent = u8::try_from(value).ok().filter(|percent| *percent <= 100);
+        },
+        |state| {
+            state.cache.fill_percent = None;
+        }
+    ),
+    property!(
+        c"demuxer-cache-state",
+        Node,
+        |state, value| {
+            state.cache.forward_bytes = value["fw-bytes"].as_u64().unwrap_or_default();
+            state.cache.input_bytes_per_second =
+                value["raw-input-rate"].as_u64().unwrap_or_default();
+        },
+        |state| {
+            state.cache.forward_bytes = 0;
+            state.cache.input_bytes_per_second = 0;
+        }
+    ),
     property!(c"seekable", Flag, |state, flag| {
         state.seekable = flag;
     }),
@@ -980,6 +1017,7 @@ mod observer_table_tests {
             ),
             format::NODE => PropertyValue::Node(match row.name.to_bytes() {
                 b"ab-loop-a" | b"ab-loop-b" => json!(1.25),
+                b"demuxer-cache-state" => json!({"fw-bytes": 2048, "raw-input-rate": 3000}),
                 b"track-list" => json!([{"id": 1, "type": "audio"}]),
                 b"chapter-list" => json!([{"time": 1.25, "title": "Opening"}]),
                 b"chapter-metadata" => json!({"PERFORMER": "Test performer"}),

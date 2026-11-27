@@ -738,6 +738,24 @@ fn cache_edits_apply_the_saved_policy_after_subtitle_reload() {
 }
 
 #[test]
+fn stream_indicator_edits_apply_without_reconfiguring_the_playback_cache() {
+    let transaction = Transaction::new();
+    let network = transaction.window.global::<crate::NetworkSettingsState>();
+    network.set_network_show_buffering_throbber(false);
+    network.set_network_show_seeking_throbber(false);
+    assert_eq!(
+        transaction.apply(),
+        [transaction.expected_subtitle_reload()]
+    );
+    let saved = transaction.profile.read();
+    assert!(!saved.network_cache.show_buffering_throbber);
+    assert!(!saved.network_cache.show_seeking_throbber);
+    let player = transaction.player.app.global::<PlayerPreferences>();
+    assert!(!player.get_network_show_buffering_throbber());
+    assert!(!player.get_network_show_seeking_throbber());
+}
+
+#[test]
 fn mixed_invalid_edit_reverses_the_live_volume_command_before_returning() {
     let transaction = Transaction::new();
     let before = transaction.bytes();

@@ -51,6 +51,7 @@ fn http_url_opens_and_plays_a_local_media_fixture() {
         state.error().is_some()
             || (state.phase == Phase::Playing
                 && state.position.is_some_and(|position| position > 0.1)
+                && state.cache.forward_bytes > 0
                 && state
                     .tracks
                     .iter()
@@ -127,7 +128,14 @@ fn stream_open_tracks_authentication_failure_and_cancellation() {
         assert_eq!(visible.as_str(), Some(public.as_str()));
     }
     let slow = open("stall.avi", false);
-    harness.wait(|state| state.generation > playing.generation && state.phase == Phase::Loading);
+    harness.wait(|state| {
+        state.generation > playing.generation
+            && state.phase == Phase::Loading
+            && state.playlist.iter().any(|entry| {
+                Some(entry.id) == state.active_playlist_entry
+                    && entry.filename.ends_with("/stall.avi")
+            })
+    });
     sender.cancel_stream(&slow);
     let cancelled = harness.wait(Playback::idle_for_finalization);
     assert_eq!(slow.status(), StreamStatus::Cancelled);

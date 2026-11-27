@@ -143,6 +143,10 @@ Implementation does not imply every state or platform is verified.
   Direct browser links and groups that begin with a network URL share
   its loading and retry controls. Retrying the first stream preserves the
   remaining playlist.
+- **Stream feedback:** the player shows when it is opening a stream, buffering
+  or seeking. Network Settings controls the buffering and seeking indicators
+  independently. The card shows cache fill during a native cache pause and
+  shows the buffered size and input rate during buffering and seeking.
 - **Custom application shortcuts:** input profiles can open files and URLs,
   save the playlist or a downloaded subtitle, flip and mirror the video, and
   send the current local file to Trash or permanently delete it. File removal

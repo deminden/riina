@@ -3002,3 +3002,18 @@ msgstr "{} ث"
 
 msgid "{}x"
 msgstr "{}×"
+
+msgid "Opening stream…"
+msgstr "فتح البث…"
+
+msgid "Buffering…"
+msgstr "التخزين المؤقت…"
+
+msgid "Buffering… {}%"
+msgstr "التخزين المؤقت… {}٪"
+
+msgid "Seeking…"
+msgstr "الانتقال…"
+
+msgid "{} ({}/s)"
+msgstr "{} ({}/ث)"
