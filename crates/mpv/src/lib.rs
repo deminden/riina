@@ -373,8 +373,15 @@ impl Player {
         self.command_sender().send(command)
     }
 
+    pub fn is_stopped(&self) -> bool {
+        self.owner.stopped.load(Ordering::Acquire)
+    }
+
     /// The libmpv render context is live and can receive subtitle-only frames.
     pub fn rendering_ready(&self) -> Result<(), EngineError> {
+        if self.is_stopped() {
+            return Err(EngineError::Stopped);
+        }
         self.owner
             .sender
             .try_send(Message::RenderingReady)

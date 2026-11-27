@@ -59,6 +59,9 @@ struct RenderSession {
 
 impl RenderSession {
     fn setup(&mut self, api: &GraphicsAPI<'_>) {
+        if self.player.is_stopped() {
+            return;
+        }
         self.generation.set(self.generation.get().wrapping_add(1));
         if let Some(app) = self.app.upgrade()
             && app.get_native_video()
@@ -132,6 +135,9 @@ impl RenderSession {
     }
 
     fn draw(&mut self) {
+        if self.player.is_stopped() {
+            return;
+        }
         let mut surface = self.surface.borrow_mut();
         let (Some(video), Some(app)) = (surface.as_mut(), self.app.upgrade()) else {
             return;

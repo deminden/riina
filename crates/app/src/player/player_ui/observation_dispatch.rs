@@ -251,6 +251,10 @@ impl WindowDelivery {
             && let Some(observer) = self.observer_id.lookup()
             && let Some(Delivery { state, captures }) = latest.take()
         {
+            if state.engine_shutdown {
+                app.global::<PlayerMenuActions>().invoke_quit_riina();
+                return;
+            }
             if let Some(managed) = &self.managed_visibility {
                 managed.reveal(&app, &state);
             }

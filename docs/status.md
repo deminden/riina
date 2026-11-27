@@ -101,6 +101,7 @@ Implementation does not imply every state or platform is verified.
   reused the exact stopped frame while another player stayed open.
   Stop sent directly to mpv also closes the playback frame after idle.
   Direct playlist navigation keeps the same window as the next clip loads.
+  Quit sent directly to mpv shuts down Riina and releases its other players.
   When automatic advance is on and Keep Window Open is off, the last file
   closes the player after mpv reaches idle. With automatic advance off, mpv
   holds the current file at its final frame.

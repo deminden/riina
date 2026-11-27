@@ -7389,3 +7389,23 @@ same process. Strict macOS cross-Clippy passed for Intel and Apple Silicon.
 A separate Windows baseline sent Quit directly to mpv while playback was
 paused. The application and its playback frame remained open. The pinned IINA
 shutdown handler initiates application termination in this case.
+
+### Quit requested by the native engine (2026-11-27)
+
+An isolated Windows run sent `quit` to a paused engine. Riina closed normally.
+A second run opened two players and sent `quit-watch-later` to the first
+engine after seeking to two seconds. The resume position reached disk, both
+engines shut down and the original application process exited successfully.
+
+The Windows workspace gate, locked build and all 81 native playback tests
+passed. The new IPC regression verifies that the worker publishes shutdown,
+rejects new requests and waits for the final owner. The same case passed on
+Linux, along with the locked build, strict Clippy and 34 focused tests. In
+an isolated Linux X11 session, the shared-renderer player closed and released
+its engine after receiving `quit`. Strict macOS cross-Clippy passed for Intel
+and Apple Silicon. Live macOS shutdown still needs verification.
+
+A Windows stream-cancellation baseline waited for a stalled HTTP request
+before activating Stop Loading. Open URL returned to its editor and the idle
+playback frame stayed visible. Retrying with a playable URL succeeded and
+the application closed normally afterward.

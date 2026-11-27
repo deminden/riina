@@ -1,5 +1,86 @@
 use super::*;
 
+#[cfg(any(windows, unix))]
+#[test]
+#[ignore = "requires provisioned libmpv; exercises native IPC shutdown and retained ownership"]
+fn native_quit_reports_shutdown_before_the_final_owner_releases_the_core() {
+    let root = fixture_root();
+    let scratch = riina_test_support::TempDir::new("native-quit").unwrap();
+    #[cfg(windows)]
+    let endpoint = format!(
+        r"\\.\pipe\riina-{}",
+        scratch.path().file_name().unwrap().to_string_lossy()
+    );
+    #[cfg(unix)]
+    let endpoint = scratch
+        .path()
+        .join("mpv.sock")
+        .to_string_lossy()
+        .into_owned();
+    let harness =
+        Harness::with_options(&root, vec![("input-ipc-server".into(), endpoint.clone())]).unwrap();
+    harness.send(Command::SetPauseWhenOpen(true)).unwrap();
+    harness
+        .send(Command::Load(
+            root.join("tests/fixtures/moving-square.avi")
+                .to_string_lossy()
+                .into_owned(),
+        ))
+        .unwrap();
+    harness.wait(|state| state.phase == Phase::Paused && state.position.is_some());
+    let retained = harness.player.clone();
+    let commands = retained.command_sender();
+    send_native_quit(&endpoint).unwrap();
+    let terminal = harness.wait(|state| state.engine_shutdown);
+    assert_eq!(terminal.phase, Phase::Stopped);
+    assert!(
+        terminal
+            .mpv_events
+            .iter()
+            .any(|event| &*event.name == "shutdown")
+    );
+    assert!(retained.is_stopped());
+    assert!(matches!(
+        commands.send(Command::Stop(None)),
+        Err(riina_mpv::EngineError::Stopped)
+    ));
+    assert!(matches!(
+        retained.rendering_ready(),
+        Err(riina_mpv::EngineError::Stopped)
+    ));
+
+    let Harness { player, receiver } = harness;
+    drop(player);
+    assert!(matches!(
+        receiver.try_recv(),
+        Err(mpsc::TryRecvError::Empty)
+    ));
+    drop(retained);
+    assert!(matches!(
+        receiver.try_recv(),
+        Err(mpsc::TryRecvError::Disconnected)
+    ));
+}
+
+#[cfg(any(windows, unix))]
+fn send_native_quit(endpoint: &str) -> std::io::Result<()> {
+    let deadline = Instant::now() + Duration::from_secs(3);
+    loop {
+        #[cfg(windows)]
+        let channel = std::fs::OpenOptions::new()
+            .read(true)
+            .write(true)
+            .open(endpoint);
+        #[cfg(unix)]
+        let channel = std::os::unix::net::UnixStream::connect(endpoint);
+        match channel {
+            Ok(mut channel) => return channel.write_all(b"{\"command\":[\"quit\"]}\n"),
+            Err(error) if Instant::now() >= deadline => return Err(error),
+            Err(_) => std::thread::sleep(Duration::from_millis(10)),
+        }
+    }
+}
+
 #[test]
 #[ignore = "requires provisioned libmpv; verifies worker panic reporting and final-owner teardown"]
 fn a_panicking_observer_reports_failure_then_joins_on_final_owner_drop() {

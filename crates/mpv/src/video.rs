@@ -53,6 +53,9 @@ impl VideoSurface {
         loader: &dyn Fn(&CStr) -> *const c_void,
         repaint_callback: Repaint,
     ) -> Result<Self, EngineError> {
+        if player.is_stopped() {
+            return Err(EngineError::Stopped);
+        }
         // SAFETY: the caller supplies the current Slint GL context and its symbol loader.
         let gl = Rc::new(unsafe { glow::Context::from_loader_function_cstr(|name| loader(name)) });
         let mut resolver = Resolver { callback: loader };
@@ -141,6 +144,9 @@ impl VideoSurface {
     /// # Safety
     /// Call only from the same current GL context used to create this surface.
     pub unsafe fn set_icc_profile(&mut self, profile: &[u8]) -> Result<(), EngineError> {
+        if self.player.is_stopped() {
+            return Err(EngineError::Stopped);
+        }
         if self.icc_profile.as_deref() == Some(profile) {
             return Ok(());
         }
@@ -215,6 +221,9 @@ impl VideoSurface {
     /// # Safety
     /// Call on the render thread for this live context after composing the frame.
     pub unsafe fn report_swap(&self) {
+        if self.player.is_stopped() {
+            return;
+        }
         // SAFETY: the surface owns the live context and the caller is on its render thread.
         unsafe { (self.player.api.render_report_swap)(self.context) };
     }
@@ -226,6 +235,9 @@ impl VideoSurface {
         height: u32,
         format: i32,
     ) -> Result<(), EngineError> {
+        if self.player.is_stopped() {
+            return Err(EngineError::Stopped);
+        }
         let gl = &self.gl;
         // mpv documents the state it does not restore in render_gl.h. Preserve it
         // together with bindings affected by our texture allocation.

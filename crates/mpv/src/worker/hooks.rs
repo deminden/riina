@@ -29,6 +29,14 @@ pub(super) struct Hooks {
     pending: HashMap<u64, Invocation>,
 }
 
+impl Drop for Hooks {
+    fn drop(&mut self) {
+        for hook in self.pending.values() {
+            hook.finished.store(true, Ordering::Release);
+        }
+    }
+}
+
 impl Hooks {
     pub(super) fn register(
         &mut self,

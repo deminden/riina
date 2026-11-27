@@ -1142,6 +1142,13 @@ modality, clipboard access, window document identity, file associations, and OS
 media integration belong to platform services. `SessionExtras` keeps each
 platform's input and auxiliary presentation alive through decoder shutdown.
 
+When libmpv sends its shutdown event, the worker stops accepting playback
+requests and releases pending replies before notifying the UI. The UI uses
+the application Quit handler so peer players and auxiliary windows close
+with the initiating player. The worker keeps its handle until the last owner
+releases it. A shared OpenGL surface frees its render context before that
+release.
+
 New Window and separate media opens use the player manager in the running
 application. An attached player routes prepared media, duplicate identification
 and any resume position to that manager. Beginning close retires the window's

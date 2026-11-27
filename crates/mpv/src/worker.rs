@@ -129,78 +129,38 @@ impl<N: Fn(Arc<Playback>)> Start<N> {
                 break;
             }
             let handled = catch_unwind(AssertUnwindSafe(|| {
-                match message {
-                    Message::Wake => handle.acknowledge_wakeup(),
-                    Message::Intent(command @ Command::ObserveMpvProperty(_)) => {
-                        state.observe_dynamic(&handle, &command, &notify);
-                    }
-                    Message::Intent(command) => state.handle_intent(&handle, command),
-                    Message::PlaylistEdit(command) => {
-                        let edit = Edit::for_command(&command);
-                        state.handle_intent_with_stream(&handle, command, None, edit);
-                    }
-                    Message::MediaIntent {
-                        generation,
-                        command,
-                    } => state.handle_media_intent(
-                        &mut handle,
-                        &callback_sender,
-                        generation,
-                        command,
-                    ),
-                    Message::FinalizeIdleMedia {
-                        generation,
-                        request,
-                    } => {
-                        state.drain_events(&mut handle, &callback_sender);
-                        state.finalize_idle_media(&handle, generation, request);
-                    }
-                    Message::FilterEdit(request) => state.enqueue_filter_edit(request),
-                    Message::OpenStream(command, source, attempt) => {
-                        state.open_stream(&handle, command, source, attempt);
-                    }
-                    Message::Client(request) => {
-                        if matches!(request.operation, Operation::RegisterHook(_)) {
-                            state.drain_events(&mut handle, &callback_sender);
-                        }
-                        state.request_client(&handle, request);
-                    }
-                    Message::RenderingReady => {
-                        state.prepare_subtitle_surface(&handle, &mut enable_audio_subtitle_surface);
-                    }
-                    Message::Shutdown => return,
-                }
-                state.drain_events(&mut handle, &callback_sender);
-                state.script_input.request_due(&handle);
-                state.repair_audio_output(&handle);
-                state.stop_cancelled_stream(&handle);
-                state.hooks.continue_ready(&handle);
-                state.publish(&notify);
-            }));
-            if handled.is_err() {
-                stopped.store(true, Ordering::Release);
-                diag("The native player event worker stopped unexpectedly");
-                state.playback.phase = Phase::Failed;
-                state.stream = None;
-                record_notice(
-                    &mut state.playback,
-                    NoticeSeverity::Error,
-                    "The playback engine stopped unexpectedly; reopen the file".into(),
+                state.handle_message(
+                    message,
+                    &mut handle,
+                    &callback_sender,
+                    &notify,
+                    &mut enable_audio_subtitle_surface,
                 );
-                // The shared OpenGL surface can still use the core until its owner releases it.
-                state.hooks.continue_all(&handle);
-                state.continue_stream_auth(&handle);
-                state.release_end_pause_hook(&handle);
-                handle.stop_after_panic();
-                let _ = catch_unwind(AssertUnwindSafe(|| {
-                    notify(Arc::new(state.playback.clone()))
-                }));
+                if state.drain_events(&mut handle, &callback_sender) {
+                    state.script_input.request_due(&handle);
+                    state.repair_audio_output(&handle);
+                    state.stop_cancelled_stream(&handle);
+                    state.hooks.continue_ready(&handle);
+                    state.publish(&notify);
+                }
+            }));
+            if state.playback.engine_shutdown || handled.is_err() {
+                stopped.store(true, Ordering::Release);
+                if state.playback.engine_shutdown {
+                    trace_shutdown("native shutdown observed; waiting for render owners");
+                } else {
+                    state.retire_after_panic(&handle);
+                }
+                let terminal = Arc::new(std::mem::take(&mut state.playback));
+                drop(state);
+                let _ = catch_unwind(AssertUnwindSafe(|| notify(terminal)));
+                // The final owner releases all render contexts before acknowledging shutdown.
                 for queued in deferred.into_iter().chain(&receiver) {
                     if accept_shutdown(&queued) {
                         break;
                     }
                 }
-                break;
+                return;
             }
         }
         state.finish_shutdown(&handle, &notify);
@@ -344,6 +304,72 @@ enum PlaylistInsertion {
 }
 
 impl WorkerState {
+    fn handle_message(
+        &mut self,
+        message: Message,
+        handle: &mut Handle,
+        wake: &SyncSender<Message>,
+        notify: &impl Fn(Arc<Playback>),
+        enable_audio_subtitle_surface: &mut bool,
+    ) {
+        match message {
+            Message::Wake => handle.acknowledge_wakeup(),
+            Message::Intent(command @ Command::ObserveMpvProperty(_)) => {
+                self.observe_dynamic(handle, &command, notify);
+            }
+            Message::Intent(command) => self.handle_intent(handle, command),
+            Message::PlaylistEdit(command) => {
+                let edit = Edit::for_command(&command);
+                self.handle_intent_with_stream(handle, command, None, edit);
+            }
+            Message::MediaIntent {
+                generation,
+                command,
+            } => {
+                if self.drain_events(handle, wake) && self.accepts_media_intent(generation) {
+                    self.handle_intent(handle, command);
+                }
+            }
+            Message::FinalizeIdleMedia {
+                generation,
+                request,
+            } => {
+                if self.drain_events(handle, wake) {
+                    self.finalize_idle_media(handle, generation, request);
+                }
+            }
+            Message::FilterEdit(request) => self.enqueue_filter_edit(request),
+            Message::OpenStream(command, source, attempt) => {
+                self.open_stream(handle, command, source, attempt);
+            }
+            Message::Client(request) => {
+                if !matches!(request.operation, Operation::RegisterHook(_))
+                    || self.drain_events(handle, wake)
+                {
+                    self.request_client(handle, request);
+                }
+            }
+            Message::RenderingReady => {
+                self.prepare_subtitle_surface(handle, enable_audio_subtitle_surface);
+            }
+            Message::Shutdown => {}
+        }
+    }
+
+    fn retire_after_panic(&mut self, handle: &Handle) {
+        diag("The native player event worker stopped unexpectedly");
+        self.playback.phase = Phase::Failed;
+        record_notice(
+            &mut self.playback,
+            NoticeSeverity::Error,
+            "The playback engine stopped unexpectedly; reopen the file".into(),
+        );
+        self.hooks.continue_all(handle);
+        self.continue_stream_auth(handle);
+        self.release_end_pause_hook(handle);
+        handle.stop_after_panic();
+    }
+
     fn finalize_idle_media(&mut self, handle: &Handle, generation: u64, request: u32) {
         if self.pending_stop.is_some()
             || !self.media_generation_is_current(generation)
@@ -539,19 +565,6 @@ impl WorkerState {
                 .pending
                 .values()
                 .any(|pending| pending.generation == generation && pending.changes_media)
-    }
-
-    fn handle_media_intent(
-        &mut self,
-        handle: &mut Handle,
-        wake: &SyncSender<Message>,
-        generation: u64,
-        command: Command,
-    ) {
-        self.drain_events(handle, wake);
-        if self.accepts_media_intent(generation) {
-            self.handle_intent(handle, command);
-        }
     }
 
     fn handle_intent_with_stream(
@@ -902,8 +915,20 @@ impl WorkerState {
         Ok(Some(self.next_id))
     }
 
-    fn drain_events(&mut self, handle: &mut Handle, wake: &SyncSender<Message>) {
+    fn drain_events(&mut self, handle: &mut Handle, wake: &SyncSender<Message>) -> bool {
+        if self.playback.engine_shutdown {
+            return false;
+        }
         while let Some(event) = handle.wait() {
+            if event.id() == event_id::SHUTDOWN {
+                self.playback.engine_shutdown = true;
+                self.playback.phase = Phase::Stopped;
+                if let Some(name) = event.name() {
+                    self.playback
+                        .record_mpv_event(Arc::from(name.to_string_lossy().as_ref()));
+                }
+                return false;
+            }
             if script_input::Watch::is_reply(&event) {
                 if self.script_input.apply_reply(&event, &mut self.playback) {
                     self.mark_changed();
@@ -1017,6 +1042,7 @@ impl WorkerState {
         }
         self.advance_filter_edits(handle);
         self.advance_subtitle_reload(handle);
+        true
     }
 
     fn on_event(&mut self, event: &EventRef<'_>) -> Option<u64> {

@@ -103,6 +103,8 @@ pub struct Playback {
     pub folder_discovery_allowed: bool,
     pub generation: u64,
     pub phase: Phase,
+    /// The native core is disconnecting clients after an engine-initiated quit.
+    pub engine_shutdown: bool,
     /// Observed mpv idle state, distinct from a file ending or being replaced.
     pub idle_active: bool,
     /// Successful native reply for the latest application stop request.
