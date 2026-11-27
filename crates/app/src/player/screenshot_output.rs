@@ -1,71 +1,69 @@
 //! Capture side effects cannot be coalesced with disposable playback snapshots.
 use riina_core::Playback;
+use std::{
+    fs, io,
+    path::{Path, PathBuf},
+    sync::Mutex,
+};
 pub(super) mod decode;
 pub(crate) mod presentation;
 /// The worker retains this owner through native teardown, including captures
 /// whose completion never reaches a closing UI event loop.
 #[derive(Default)]
 pub(crate) struct Scratch {
-    directory: std::sync::Mutex<Option<std::path::PathBuf>>,
+    directory: Mutex<Option<tempfile::TempDir>>,
 }
 impl Scratch {
-    pub(crate) fn directory(&self) -> std::io::Result<std::path::PathBuf> {
-        use std::sync::atomic::{AtomicU64, Ordering};
-        static NEXT: AtomicU64 = AtomicU64::new(0);
+    pub(crate) fn directory(&self) -> io::Result<PathBuf> {
         let mut owned = self
             .directory
             .lock()
-            .map_err(|_| std::io::Error::other("Screenshot temporary directory lock failed"))?;
-        if let Some(path) = &*owned {
-            return Ok(path.clone());
+            .map_err(|_| io::Error::other("Screenshot temporary directory lock failed"))?;
+        if let Some(directory) = &*owned {
+            return Ok(directory.path().to_path_buf());
         }
-        let root = std::env::temp_dir();
-        let stamp = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .map_err(std::io::Error::other)?
-            .as_nanos();
-        loop {
-            let path = root.join(format!(
-                "riina-captures-{}-{stamp}-{}",
-                std::process::id(),
-                NEXT.fetch_add(1, Ordering::Relaxed)
-            ));
-            match std::fs::create_dir(&path) {
-                Ok(()) => {
-                    *owned = Some(path.clone());
-                    return Ok(path);
-                }
-                Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => continue,
-                Err(error) => return Err(error),
-            }
+        let mut builder = tempfile::Builder::new();
+        builder.prefix("riina-captures-");
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            builder.permissions(fs::Permissions::from_mode(0o700));
         }
+        let directory = builder.tempdir()?;
+        let path = directory.path().to_path_buf();
+        *owned = Some(directory);
+        Ok(path)
+    }
+
+    fn existing_directory(&self) -> Option<PathBuf> {
+        Some(self.directory.lock().ok()?.as_ref()?.path().to_path_buf())
     }
 
     pub(crate) fn remove_completed(&self, paths: &[String]) {
         if paths.is_empty() {
             return;
         }
-        let Ok(Some(directory)) = self.directory.lock().map(|owned| owned.clone()) else {
-            return;
-        };
-        let Ok(directory) = directory.canonicalize() else {
+        let Some(directory) = self
+            .existing_directory()
+            .and_then(|path| path.canonicalize().ok())
+        else {
             return;
         };
         // Settings can change while a screenshot is being written. Remove
         // only completed output inside the directory this player owns.
         for path in paths {
-            if let Ok(path) = std::path::Path::new(path).canonicalize()
+            if let Ok(path) = Path::new(path).canonicalize()
                 && path.starts_with(&directory)
-                && let Err(error) = std::fs::remove_file(path)
-                && error.kind() != std::io::ErrorKind::NotFound
+                && let Err(error) = fs::remove_file(path)
+                && error.kind() != io::ErrorKind::NotFound
             {
                 crate::diagnostics::warn!("Could not remove a clipboard-only screenshot: {error}");
             }
         }
     }
 
-    fn owns(&self, path: &std::path::Path) -> bool {
-        let Ok(Some(directory)) = self.directory.lock().map(|owned| owned.clone()) else {
+    fn owns(&self, path: &Path) -> bool {
+        let Some(directory) = self.existing_directory() else {
             return false;
         };
         path.starts_with(&directory)
@@ -78,16 +76,12 @@ impl Scratch {
 }
 impl Drop for Scratch {
     fn drop(&mut self) {
-        if let Ok(Some(path)) = self.directory.get_mut() {
-            // Only the exclusively created directory is owned. Never recurse
-            // through a configured save folder or a directory found by scanning.
-            if let Err(error) = std::fs::remove_dir_all(path)
-                && error.kind() != std::io::ErrorKind::NotFound
-            {
-                crate::diagnostics::warn!(
-                    "Could not remove the private capture directory: {error}"
-                );
-            }
+        if let Ok(directory) = self.directory.get_mut()
+            && let Some(directory) = directory.take()
+            && let Err(error) = directory.close()
+            && error.kind() != io::ErrorKind::NotFound
+        {
+            crate::diagnostics::warn!("Could not remove the private capture directory: {error}");
         }
     }
 }
@@ -132,6 +126,14 @@ mod tests {
         let other = other_session.directory().unwrap();
         assert_ne!(path, other);
         assert_eq!(worker.directory().unwrap(), path);
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            assert_eq!(
+                fs::metadata(&path).unwrap().permissions().mode() & 0o777,
+                0o700
+            );
+        }
         drop(ui);
         assert!(path.is_dir());
         // Simulate native output after UI teardown without a delivered reply.

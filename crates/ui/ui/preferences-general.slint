@@ -8,7 +8,7 @@ export enum PlaybackPowerPreference { prevent-screen-saver, allow-audio }
 export global GeneralSettingsState {
     in-out property <bool> when-media-opened-expanded: false;
     in-out property <bool> pause-resume-when-expanded: false;
-    in-out property <int> format-index: 0;
+    in-out property <int> format-index: 4;
     in-out property <bool> include-subtitles: true;
     in-out property <bool> show-preview: true;
     in-out property <bool> save-to-file: true;
@@ -347,9 +347,9 @@ export component GeneralPreferencesPage inherits ScrollView {
     Text { x: 137px; y: 56px; text: @tr("Format:"); font-size: 13px; color: Theme.settings-page-heading; }
     ComboBox {
         x: 194px; y: 52px; width: 132px; height: 24px;
-        model: ["PNG", "JPEG (.jpg)", "JPEG (.jpeg)", "WebP (.webp)", "JPEG XL (.jxl)"];
+        model: ["AVIF (.avif)", "JPEG (.jpeg)", "JPEG (.jpg)", "JPEG XL (.jxl)", "PNG (.png)", "WebP (.webp)"];
+        accessible-label: @tr("Format");
         current-index <=> GeneralSettingsState.format-index;
-        enabled: GeneralSettingsState.save-to-file;
         selected => { root.settings-changed(); }
     }
     CheckBox { x: 120px; y: 80px; height: 24px; text: @tr("Copy to clipboard");

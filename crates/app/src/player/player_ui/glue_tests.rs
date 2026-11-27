@@ -182,7 +182,7 @@ fn exercise_script_key_ownership(
 #[test]
 fn screenshot_bindings_use_the_players_capture_settings_and_ignore_key_repeat()
 -> Result<(), Box<dyn std::error::Error>> {
-    use riina_core::screenshot::{Binding, Content, Encoding, Settings};
+    use riina_core::screenshot::{Binding, Content, Encoding, Format, Settings};
     use riina_ui::{PlayerControlActions, PlayerPreferences};
 
     i_slint_backend_testing::init_no_event_loop();
@@ -237,6 +237,34 @@ fn screenshot_bindings_use_the_players_capture_settings_and_ignore_key_repeat()
         .global::<PlayerPreferences>()
         .set_screenshot_save_to_file(false);
     dispatch(true, false, false, false);
+    player.expect_idle();
+    let preferences = player.app.global::<PlayerPreferences>();
+    preferences.set_screenshot_copy_to_clipboard(true);
+    preferences.set_screenshot_format("avif".into());
+    preferences.set_screenshot_template(
+        scratch
+            .path()
+            .join("an absolute template %n")
+            .to_string_lossy()
+            .as_ref()
+            .into(),
+    );
+    dispatch(true, false, false, false);
+    let Command::ScreenshotBinding {
+        directory: private_path,
+        default_content,
+        encoding,
+        binding,
+    } = player.engine.commands.try_recv()?
+    else {
+        panic!("Expected the clipboard-only screenshot command")
+    };
+    assert_ne!(private_path, directory);
+    assert!(std::path::Path::new(&private_path).is_dir());
+    assert_eq!(default_content, Content::Video);
+    assert_eq!(encoding.format, Format::Avif);
+    assert_eq!(encoding.template, "%n");
+    assert_eq!(binding, Binding::parse("screenshot window").unwrap());
     player.expect_idle();
     Ok(())
 }

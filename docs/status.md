@@ -184,8 +184,12 @@ Implementation does not imply every state or platform is verified.
 - **Shortcut command flags:** native input commands retain their OSD, repeat
   and property-expansion prefixes. Screenshot shortcuts use the player's
   screenshot destinations and encoding, including explicit video, subtitle
-  and window captures. The native repeated-capture mode uses the configured
-  directory and toggles off on the next press.
+  and window captures. With file output enabled, native repeated capture
+  uses the configured directory and toggles off on the next press.
+- **Screenshot format:** General Settings lists the six IINA formats,
+  including AVIF, and keeps the format available for clipboard-only capture.
+  Copy-only screenshots use a private temporary directory. Single captures
+  are removed after decoding.
 - **Embedded mpv console and statistics:** the player hands off keyboard input
   once mpv's console bindings are active. Enter submits commands and Escape
   returns the keyboard to playback. Statistics receives its active page keys

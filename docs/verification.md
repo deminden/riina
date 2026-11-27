@@ -7544,3 +7544,25 @@ The locked Windows workspace build and full gate passed with 733 app tests,
 88 widget tests and the software player and Settings pixel comparison.
 Strict macOS source checks passed for Intel and Apple Silicon. Finder runtime
 behavior still needs native macOS verification.
+
+### Screenshot format selection and temporary output (2026-11-27)
+
+An isolated Windows Settings session found the Format control by searching for
+AVIF. The selector saved AVIF while file output was off and retained it when
+file output was enabled. The Playback menu saved an AVIF from the paused
+fixture. The preview offered Delete, Edit and Reveal. Delete removed the
+exact capture, playback stayed paused, and the player exited normally.
+
+On isolated Linux X11 and native Wayland, clipboard-only captures each had an
+absolute saved-file template. AVIF on X11 and JPEG XL on Wayland transferred
+two distinct 320 × 180 images apiece to an external clipboard reader.
+Each process used an owner-only temporary directory and left the configured
+save folder empty. The copied images were removed after decoding, and closing
+the player removed the empty temporary directory.
+
+The locked Windows workspace build and full source gate passed with 733
+application tests, 88 widget tests and the software player and Settings pixel
+comparison. All three focused Windows native screenshot tests passed.
+The locked Linux application build, strict Clippy and 12 focused tests passed.
+Strict macOS source checks passed for Intel and Apple Silicon. Native macOS
+screenshot interaction still needs desktop verification.

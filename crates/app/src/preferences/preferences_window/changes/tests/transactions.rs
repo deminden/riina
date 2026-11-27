@@ -802,32 +802,39 @@ fn an_invalid_launch_action_cannot_trigger_a_live_decoder_edit() {
 }
 
 #[test]
-fn screenshot_edits_preserve_the_configured_format_and_template_outside_the_form() {
+fn screenshot_settings_select_avif_and_preserve_the_custom_template() {
     use riina_core::screenshot::Format;
 
     let transaction = Transaction::new();
     let app = &transaction.player.app;
     let mut screenshot = crate::screenshot_preferences::current(app).unwrap();
-    screenshot.encoding.format = Format::Avif;
     screenshot.encoding.template = "%F-%P".into();
     crate::screenshot_preferences::install(app, &screenshot);
     refresh(&transaction.window, app);
     let general = transaction
         .window
         .global::<riina_ui::GeneralSettingsState>();
-    assert_eq!(general.get_format_index(), -1);
+    assert_eq!(general.get_format_index(), 4);
+    general.set_format_index(0);
+    general.set_save_to_file(false);
+    general.set_copy_to_clipboard(true);
     general.set_show_preview(false);
 
     assert_eq!(
         transaction.apply(),
         [transaction.expected_subtitle_reload()]
     );
+    screenshot.encoding.format = Format::Avif;
+    screenshot.destinations.save_to_file = false;
+    screenshot.destinations.copy_to_clipboard = true;
     screenshot.show_preview = false;
     assert_eq!(transaction.profile.read().screenshot, screenshot);
     assert_eq!(
         crate::screenshot_preferences::current(app).unwrap(),
         screenshot
     );
+    refresh(&transaction.window, app);
+    assert_eq!(general.get_format_index(), 0);
 }
 
 #[test]

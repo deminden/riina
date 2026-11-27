@@ -242,31 +242,33 @@ fn install_screenshot_actions(
             if !screenshot_settings.destinations.enabled() {
                 return Ok(());
             }
-            (if screenshot_settings.destinations.save_to_file {
+            let content = screenshot_settings.content();
+            let mut encoding = screenshot_settings.encoding;
+            let directory = if screenshot_settings.destinations.save_to_file {
                 platform::screenshot_directory(screenshot_settings.directory.as_deref())
             } else {
+                // An absolute template can bypass mpv's destination directory.
+                encoding.template = "%n".into();
                 screenshot_scratch.directory()
-            })
-            .map_err(|error| error.to_string())
-            .and_then(|directory| {
-                let directory = directory.to_string_lossy().into_owned();
-                let content = screenshot_settings.content();
-                let encoding = screenshot_settings.encoding.clone();
-                let command = match binding {
-                    Some(binding) => Command::ScreenshotBinding {
-                        directory,
-                        default_content: content,
-                        encoding,
-                        binding,
-                    },
-                    None => Command::Screenshot {
-                        directory,
-                        content,
-                        encoding,
-                    },
-                };
-                screenshot_player.send(command).map_err(String::from)
-            })
+            }
+            .map_err(|error| error.to_string())?
+            .into_os_string()
+            .into_string()
+            .map_err(|_| "The screenshot directory path is not valid Unicode")?;
+            let command = match binding {
+                Some(binding) => Command::ScreenshotBinding {
+                    directory,
+                    default_content: content,
+                    encoding,
+                    binding,
+                },
+                None => Command::Screenshot {
+                    directory,
+                    content,
+                    encoding,
+                },
+            };
+            screenshot_player.send(command).map_err(String::from)
         });
         if let Err(error) = result {
             app.set_status(error.into());

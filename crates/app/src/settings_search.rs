@@ -191,7 +191,11 @@ const ENTRIES: &[Entry] = &[
         "Save to",
         "screenshot folder destination path",
     ),
-    general("Screenshots", "Format", "screenshot png jpeg webp jxl"),
+    general(
+        "Screenshots",
+        "Format",
+        "screenshot avif jpeg jpg jpeg xl jxl png webp",
+    ),
     general("Screenshots", "Copy to clipboard", "screenshot copy"),
     general(
         "Screenshots",

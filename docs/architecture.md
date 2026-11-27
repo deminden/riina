@@ -113,8 +113,11 @@ the UI handoff. Background decoding shares one result between the preview
 and native clipboard. PNG, JPEG and WebP use the Rust image decoder. JPEG XL
 and AVIF use a separate local-only libmpv decoder with a bounded wait and no
 presentation surface. A newer request can supersede pending preview work.
-Clipboard-only files stay under the session's scratch ownership through
-decoding and are removed before the UI presents the result.
+Clipboard-only files use a generated filename in the session's private
+directory. The saved-file template can contain an absolute path, so it
+applies only when saving is enabled. Decoded copies are removed before
+the UI presents the result. The engine retains the temporary directory's
+owner through teardown.
 AVIF defaults to 10-bit 4:2:0 input for the configured SVT encoder. This
 converts RGB from GPU-rendered captures and subsampled sources that the
 encoder otherwise rejects. Advanced mpv options can override the format.
@@ -989,8 +992,9 @@ project the saved settings into the Settings form and `PlayerPreferences`.
 The Settings form initializes from the saved profile before the player attaches
 its live state and actions. General playback preferences and screenshot controls
 use the same form projection when they refresh from a player. Screenshot edits
-preserve formats and templates outside the form and project to a player after
-the save succeeds. Update and playback power controls save through application
+preserve the template and project to a player after the save succeeds.
+The format selector follows the current IINA Settings order and also applies
+to clipboard-only captures. Update and playback power controls save through application
 services, with failures reported by the Settings owner.
 Settings search builds a localized index when the window connects. Each result
 carries an index into the original actions, so keyboard and pointer activation

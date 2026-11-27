@@ -3,12 +3,14 @@ use crate::{PlayerWindow, PreferencesWindow};
 use riina_core::screenshot::{Format, Settings};
 use slint::ComponentHandle;
 
-const WINDOW_FORMATS: [Format; 5] = [
-    Format::Png,
-    Format::Jpg,
+// IINA's current Settings pane sorts the format identifiers alphabetically.
+const WINDOW_FORMATS: [Format; 6] = [
+    Format::Avif,
     Format::Jpeg,
-    Format::Webp,
+    Format::Jpg,
     Format::Jxl,
+    Format::Png,
+    Format::Webp,
 ];
 
 pub(crate) fn install(app: &PlayerWindow, settings: &Settings) {
@@ -48,8 +50,6 @@ pub(crate) fn read_window(
 ) -> Result<Settings, String> {
     let general = window.global::<riina_ui::GeneralSettingsState>();
     let mut settings = previous.clone();
-    // AVIF can be configured externally but has no item in the pinned
-    // General pane. Editing another control must preserve that choice.
     if let Ok(index) = usize::try_from(general.get_format_index())
         && let Some(format) = WINDOW_FORMATS.get(index)
     {
