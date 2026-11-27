@@ -30,7 +30,7 @@ pub(super) struct Context<'a> {
 }
 
 enum PendingWelcomeOpen {
-    Stream(crate::windows::open_url::PendingStream),
+    Stream(crate::windows::open_url::PendingStream, i32),
     Recent(riina_core::RecentMedia, bool),
     Drop(media_open::WelcomeDrop, i32),
 }
@@ -41,7 +41,11 @@ fn dispatch_welcome_open(
     sender: &riina_mpv::CommandSender,
 ) {
     match request {
-        PendingWelcomeOpen::Stream(stream) => stream.start(app, sender),
+        PendingWelcomeOpen::Stream(stream, generation) => {
+            if app.get_media_request_generation() == generation {
+                stream.start(app, sender);
+            }
+        }
         PendingWelcomeOpen::Recent(media, resume) => {
             media_open::open_recent(app, media, resume, sender.clone());
         }
@@ -361,7 +365,13 @@ fn install_url_open(app: &PlayerWindow, context: &Context<'_>, pending: &Welcome
                     return;
                 }
             }
-            submit_welcome_open(app, &sender, &pending, PendingWelcomeOpen::Stream(stream));
+            let generation = app.get_media_request_generation();
+            submit_welcome_open(
+                app,
+                &sender,
+                &pending,
+                PendingWelcomeOpen::Stream(stream, generation),
+            );
         });
 }
 

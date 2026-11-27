@@ -7409,3 +7409,28 @@ A Windows stream-cancellation baseline waited for a stalled HTTP request
 before activating Stop Loading. Open URL returned to its editor and the idle
 playback frame stayed visible. Retrying with a playable URL succeeded and
 the application closed normally afterward.
+
+### Canceling Open URL (2026-11-27)
+
+Two isolated Windows runs stalled HTTP playback on a loopback server. Stop
+Loading closed the playback frame and left the original URL editable without an
+error. Resubmitting a playable URL opened a new frame and started playback.
+Closing Open URL during the stalled request also closed its playback frame.
+Both runs returned to Welcome when the last playback window closed and
+exited normally when Welcome closed.
+The isolated Windows regression runs also confirmed the separate alert for a
+failed local file, playlist advance past a failed entry, and a successful retry
+from Open URL after an HTTP 404.
+
+The workspace gate passed with 728 application tests, 88 widget tests and the
+software player and Settings pixel comparison. The locked build and all 82
+native Windows playback tests passed. Native tests cover cancellation before
+the engine loads a file, cancellation of a running HTTP load and replacement
+playback. The application regression checks that an older attempt cannot
+retire a newer request.
+
+The locked Linux build, strict Clippy, 35 focused application tests and three
+native HTTP tests passed. Closing Open URL during a stalled command-line
+stream in an isolated X11 session returned to Welcome. Closing Welcome ended
+the original Linux process. Strict macOS cross-Clippy passed for Intel and
+Apple Silicon. Live macOS cancellation still needs verification.

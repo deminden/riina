@@ -246,7 +246,7 @@ impl ApplicationOpenUrl {
         }
     }
 
-    pub(crate) fn recover_failed_player(&self, app: &PlayerWindow, attempt: u64) -> bool {
+    pub(crate) fn recover_retired_player(&self, app: &PlayerWindow, attempt: u64) -> bool {
         let owns_progress = self
             .running
             .borrow()
@@ -262,7 +262,7 @@ impl ApplicationOpenUrl {
                 .and_then(|target| target.player.upgrade())
                 .is_some_and(|owner| std::ptr::eq(owner.window(), app.window()))
         {
-            // A retry needs a new player after the failed core is retired.
+            // A retry needs a new player after this core is retired.
             destination.player = None;
         }
         if owns_progress && let Some(window) = self.window.borrow().as_ref() {
@@ -336,6 +336,7 @@ impl ApplicationOpenUrl {
             window.set_message(error.into());
             return;
         }
+        window.set_message("".into());
         self.show_progress(window, running);
     }
 
@@ -377,10 +378,11 @@ impl ApplicationOpenUrl {
         let status = self.running.borrow().as_ref().map(RunningStream::status);
         match status {
             Some(StreamStatus::Opened) => self.hide(window),
-            Some(StreamStatus::Failed | StreamStatus::Cancelled) => {
+            Some(StreamStatus::Failed) => {
                 self.stop(window);
                 window.set_message(window.get_failed_stream_message());
             }
+            Some(StreamStatus::Cancelled) => self.stop(window),
             _ => {}
         }
     }
@@ -453,8 +455,8 @@ mod tests {
         assert!(!window.get_loading());
         assert_eq!(window.get_address(), "media.example:8000/movie.avi");
         assert!(!window.get_message().is_empty());
-        assert!(!open_url.recover_failed_player(&second, failed + 1));
-        assert!(open_url.recover_failed_player(&second, failed));
+        assert!(!open_url.recover_retired_player(&second, failed + 1));
+        assert!(open_url.recover_retired_player(&second, failed));
         assert!(
             open_url
                 .destination

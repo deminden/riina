@@ -1,6 +1,38 @@
 use super::*;
 
 #[test]
+#[ignore = "requires provisioned libmpv; verifies cancellation before a stream reaches the engine"]
+fn cancelled_stream_before_native_load_retires_the_empty_player() {
+    use riina_mpv::{StreamAttempt, StreamSource, StreamStatus};
+
+    let harness = Harness::with_options(&fixture_root(), vec![]).unwrap();
+    let sender = harness.player.command_sender();
+    let attempt = StreamAttempt::default();
+    sender.cancel_stream(&attempt);
+    sender
+        .open_stream(
+            StreamSource {
+                address: "http://127.0.0.1:9/unused.avi".into(),
+                authenticated_address: None,
+            },
+            attempt.clone(),
+        )
+        .unwrap();
+    let cancelled = harness.wait(Playback::idle_for_finalization);
+    assert_eq!(attempt.status(), StreamStatus::Cancelled);
+    assert_eq!(cancelled.generation, 0);
+    assert_eq!(cancelled.error(), None);
+    assert_eq!(
+        cancelled.file_feedback,
+        riina_core::FileFeedback::OpenCancelled {
+            stream_attempt: attempt.id(),
+        }
+    );
+    sender.finalize_idle_media(cancelled.generation, 1).unwrap();
+    harness.wait(|state| state.stopped_by == Some(1));
+}
+
+#[test]
 #[ignore = "requires provisioned libmpv; verifies HTTP media playback from a local server"]
 fn http_url_opens_and_plays_a_local_media_fixture() {
     let root = fixture_root();
@@ -97,8 +129,15 @@ fn stream_open_tracks_authentication_failure_and_cancellation() {
     let slow = open("stall.avi", false);
     harness.wait(|state| state.generation > playing.generation && state.phase == Phase::Loading);
     sender.cancel_stream(&slow);
-    harness.wait(|state| state.phase == Phase::Stopped);
+    let cancelled = harness.wait(Playback::idle_for_finalization);
     assert_eq!(slow.status(), StreamStatus::Cancelled);
+    assert_eq!(
+        cancelled.file_feedback,
+        riina_core::FileFeedback::OpenCancelled {
+            stream_attempt: slow.id(),
+        }
+    );
+    assert_eq!(cancelled.error(), None);
     let next = StreamAttempt::default();
     sender
         .open_stream_with_options(

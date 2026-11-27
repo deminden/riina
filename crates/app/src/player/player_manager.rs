@@ -7,7 +7,7 @@ use self::lifecycle::{EmptyAction, WindowLifecycle};
 use crate::{
     PlayerWindow, WelcomeWindow,
     platform::application_lifecycle::{self, ClosedWindow, LastWindowAction},
-    player_ui::{ApplicationServices, InitialMedia, StopDisposition, UiSession},
+    player_ui::{ApplicationServices, InitialMedia, UiSession},
     preference_load::LoadedPreferences,
 };
 use riina_ui::PlayerMenuActions;
@@ -571,7 +571,7 @@ fn close_player(state: &Rc<RefCell<ManagerState>>, id: u64, source: PlayerClose)
 }
 
 fn finish_stop(state: &Rc<RefCell<ManagerState>>, id: u64, request: u32) {
-    let (player, retain) = {
+    let (player, retain, services) = {
         let state = state.borrow();
         if state.quitting {
             return;
@@ -584,27 +584,19 @@ fn finish_stop(state: &Rc<RefCell<ManagerState>>, id: u64, request: u32) {
                 .players
                 .iter()
                 .any(|other| other.id != id && !other.session.is_parked());
-        (player.clone(), retain)
+        (player.clone(), retain, state.services.clone())
     };
     let Some(disposition) = player.session.completed_stop(&player.app, request) else {
         return;
     };
-    if let StopDisposition::OpenFailed {
-        stream_attempt,
-        detail,
-    } = disposition
-    {
-        let services = state.borrow().services.clone();
-        application_lifecycle::report_failed_open(&services, &player.app, stream_attempt, detail);
-        drop(player);
-        close_player(state, id, PlayerClose::Player { was_visible: true });
-        return;
-    }
     let display = super::surface::PlayerDisplay {
         welcome: player.welcome.as_ref().map(ComponentHandle::as_weak),
         host: None,
     };
-    if retain && player.session.park_after_stop(&player.app, &display) {
+    if application_lifecycle::apply_stop_disposition(&services, &player.app, disposition)
+        && retain
+        && player.session.park_after_stop(&player.app, &display)
+    {
         let quit = player
             .app
             .global::<riina_ui::PlayerPreferences>()

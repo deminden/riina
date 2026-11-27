@@ -1,5 +1,5 @@
 //! Native policy for an application with no visible player.
-use crate::player_ui::ApplicationServices;
+use crate::player_ui::{ApplicationServices, StopDisposition};
 use std::rc::Rc;
 
 pub(crate) const HAS_IDLE_MENU: bool = cfg!(target_os = "macos");
@@ -92,21 +92,33 @@ pub(crate) fn hide_auxiliary_tools(services: &ApplicationServices) {
     }
 }
 
-pub(crate) fn report_failed_open(
+pub(crate) fn apply_stop_disposition(
     services: &ApplicationServices,
     app: &crate::PlayerWindow,
-    stream_attempt: Option<u64>,
-    detail: String,
-) {
+    disposition: StopDisposition,
+) -> bool {
     use slint::ComponentHandle;
 
-    if stream_attempt.is_some_and(|id| services.open_url.recover_failed_player(app, id)) {
-        return;
+    match disposition {
+        StopDisposition::Finished => return true,
+        StopDisposition::OpenCancelled { stream_attempt } => {
+            services
+                .open_url
+                .recover_retired_player(app, stream_attempt);
+        }
+        StopDisposition::OpenFailed {
+            stream_attempt,
+            detail,
+        } => {
+            if !stream_attempt.is_some_and(|id| services.open_url.recover_retired_player(app, id)) {
+                services.open_errors.report(
+                    detail,
+                    app.global::<riina_ui::PlayerAppearance>().get_dark_theme(),
+                );
+            }
+        }
     }
-    services.open_errors.report(
-        detail,
-        app.global::<riina_ui::PlayerAppearance>().get_dark_theme(),
-    );
+    false
 }
 
 pub(crate) fn after_last_player_closed(services: &ApplicationServices) {

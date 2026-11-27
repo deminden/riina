@@ -7,6 +7,9 @@ use std::{cell::Cell, rc::Rc};
 
 pub(crate) enum StopDisposition {
     Finished,
+    OpenCancelled {
+        stream_attempt: u64,
+    },
     OpenFailed {
         stream_attempt: Option<u64>,
         detail: String,
@@ -69,12 +72,15 @@ impl UiSession {
             return None;
         }
         let playback = riina_core::sync::lock(&self.preference_state.latest_playback);
-        if playback.generation == 0 || !playback.confirmed_stop(request) {
+        if !playback.confirmed_stop(request) {
             return None;
         }
-        self.observer_state
+        let disposition = self
+            .observer_state
             .id()
-            .stop_disposition(&playback, request)
+            .stop_disposition(&playback, request)?;
+        (playback.generation != 0 || matches!(disposition, StopDisposition::OpenCancelled { .. }))
+            .then_some(disposition)
     }
 
     pub(crate) fn park_after_stop(&self, app: &PlayerWindow, display: &PlayerDisplay) -> bool {

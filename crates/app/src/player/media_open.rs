@@ -494,6 +494,12 @@ pub fn invalidate(app: &PlayerWindow) -> i32 {
     generation
 }
 
+pub(crate) fn track_stream_attempt(app: &PlayerWindow, attempt: u64) {
+    if let Some(observer) = ObserverId::for_window(app) {
+        observer.track_stream_attempt(attempt);
+    }
+}
+
 pub(super) fn stop_command(app: &PlayerWindow) -> Command {
     let request = invalidate(app).cast_unsigned();
     if let Some(observer) = ObserverId::for_window(app) {

@@ -1167,9 +1167,12 @@ An open dialog defers the close. Dismissing it rechecks the latest native
 playback state even when the engine has stopped sending updates.
 An unreadable file follows this close path only when the native core is idle
 before completing the open. A playable successor owns the next generation.
-The Open URL window recovers the matching stream attempt and can retry with a
-new player. Other failures use a separate alert. The alert and Open URL window
-keep the application alive until dismissal or retry.
+Open URL cancellation identifies the pending stream by its attempt, even before
+mpv assigns a file generation. The manager releases that player once the engine
+confirms it is idle. The Open URL window keeps the draft and can retry with a
+new player. It also keeps a matching failed stream available for retry. Other
+failures use a separate alert. The alert and Open URL window keep the application
+alive until dismissal or retry.
 An unused player or a retained stopped player with an empty queue can handle
 an ordinary open. The manager reserves it before revealing its frame.
 A retained player stays out of window switching and History destinations.

@@ -38,7 +38,19 @@ struct IdleClose {
     latest: crate::PlaybackStore,
     commands: riina_mpv::CommandSender,
     superseded_through: u64,
+    stream_attempt: Option<u64>,
     submitted: Option<(u64, u32)>,
+}
+
+impl IdleClose {
+    fn owns_terminal_state(&self, playback: &Playback) -> bool {
+        match playback.file_feedback {
+            FileFeedback::OpenCancelled { stream_attempt } => {
+                self.stream_attempt == Some(stream_attempt)
+            }
+            _ => playback.generation > self.superseded_through,
+        }
+    }
 }
 
 impl Observer {
@@ -188,6 +200,19 @@ impl ObserverId {
             }
             if let Some(close) = observer.idle_close.as_mut() {
                 close.superseded_through = riina_core::sync::lock(&close.latest).generation;
+                close.stream_attempt = None;
+            }
+        });
+    }
+
+    pub(in crate::player) fn track_stream_attempt(self, attempt: u64) {
+        OBSERVERS.with(|observers| {
+            if let Some(close) = observers
+                .borrow_mut()
+                .get_mut(&self.0)
+                .and_then(|observer| observer.idle_close.as_mut())
+            {
+                close.stream_attempt = Some(attempt);
             }
         });
     }
@@ -210,6 +235,7 @@ impl ObserverId {
                     latest,
                     commands,
                     superseded_through: 0,
+                    stream_attempt: None,
                     submitted: None,
                 });
             }
@@ -235,14 +261,20 @@ impl ObserverId {
                 .and_then(|observer| observer.idle_close.as_ref())
                 .filter(|close| close.submitted == Some((playback.generation, request)))
             {
-                if playback.generation <= close.superseded_through {
+                if !close.owns_terminal_state(playback) {
                     return None;
                 }
-                if let FileFeedback::OpenFailed { stream_attempt } = playback.file_feedback {
-                    return Some(StopDisposition::OpenFailed {
-                        stream_attempt,
-                        detail: playback.error().unwrap_or_default().to_owned(),
-                    });
+                match playback.file_feedback {
+                    FileFeedback::OpenFailed { stream_attempt } => {
+                        return Some(StopDisposition::OpenFailed {
+                            stream_attempt,
+                            detail: playback.error().unwrap_or_default().to_owned(),
+                        });
+                    }
+                    FileFeedback::OpenCancelled { stream_attempt } => {
+                        return Some(StopDisposition::OpenCancelled { stream_attempt });
+                    }
+                    _ => {}
                 }
             }
             Some(StopDisposition::Finished)
@@ -263,7 +295,7 @@ impl ObserverId {
             let mut observers = observers.borrow_mut();
             let observer = observers.get_mut(&self.0)?;
             let close = observer.idle_close.as_mut()?;
-            if playback.generation <= close.superseded_through
+            if !close.owns_terminal_state(playback)
                 || close.submitted == Some((playback.generation, request))
                 || observer.playlist_edits.borrow().has_pending_media()
             {
@@ -570,6 +602,45 @@ mod tests {
         ended.generation += 1;
         id.notify_stopped(&app, &ended);
         assert_eq!(stopped.get(), Some(1));
+    }
+
+    #[test]
+    fn only_the_current_stream_attempt_can_retire_an_empty_player() {
+        i_slint_backend_testing::init_no_event_loop();
+        let app = crate::PlayerWindow::new().unwrap();
+        app.set_player_manager_ready(true);
+        let observer = ObserverRegistration::new(&app, state(&app));
+        let id = observer.id();
+        let latest = crate::PlaybackStore::default();
+        let (commands, engine) = riina_mpv::CommandSender::recording(4);
+        id.bind_idle_close(&app, latest.clone(), commands);
+        assert_eq!(crate::media_open::invalidate(&app), 1);
+        id.track_stream_attempt(7);
+        let mut cancelled = Playback {
+            phase: Phase::Stopped,
+            idle_active: true,
+            file_feedback: FileFeedback::OpenCancelled { stream_attempt: 6 },
+            ..Playback::default()
+        };
+        *riina_core::sync::lock(&latest) = Arc::new(cancelled.clone());
+        id.finalize_idle_media(&app, &cancelled);
+        assert!(engine.commands.try_recv().is_err());
+
+        cancelled.file_feedback = FileFeedback::OpenCancelled { stream_attempt: 7 };
+        *riina_core::sync::lock(&latest) = Arc::new(cancelled.clone());
+        id.finalize_idle_media(&app, &cancelled);
+        assert_eq!(
+            engine.commands.try_recv(),
+            Ok(riina_core::Command::Stop(Some(1)))
+        );
+        cancelled.stopped_by = Some(1);
+        assert!(matches!(
+            id.stop_disposition(&cancelled, 1),
+            Some(StopDisposition::OpenCancelled { stream_attempt: 7 })
+        ));
+        id.supersede_media();
+        id.track_stream_attempt(8);
+        assert!(id.stop_disposition(&cancelled, 1).is_none());
     }
 
     #[test]

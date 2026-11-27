@@ -82,7 +82,10 @@ impl PendingStream {
             return Ok(false);
         };
         let mut attached = lock(&self.running.sender);
-        if self.running.status() != StreamStatus::Loading {
+        if !matches!(
+            self.running.status(),
+            StreamStatus::Loading | StreamStatus::Cancelled
+        ) {
             return Ok(false);
         }
         if matches!(request, StreamRequest::New) {
@@ -119,6 +122,10 @@ impl PendingStream {
         }
         *attached = Some(sender.clone());
         drop(attached);
+        crate::media_open::track_stream_attempt(app, self.running.id());
+        if self.running.status() == StreamStatus::Cancelled {
+            return Ok(false);
+        }
         app.set_status("Opening…".into());
         if !matches!(self.mode, StreamMode::Browser(_))
             && let Err(error) = crate::media_open::apply_manual_open_repeat(app, sender)

@@ -3,7 +3,7 @@ use super::{NativeLaunch, NativePlayer};
 use crate::platform::application_lifecycle::{
     self, ClosedWindow, LastWindowAction, last_window_action,
 };
-use crate::player_ui::{InitialMedia, StopDisposition};
+use crate::player_ui::InitialMedia;
 use crate::plugins::plugin_players::Ticket;
 use crate::{PlayerWindow, media_open, preference_load};
 use riina_core::{Preferences, ThemeMaterial, sync::lock};
@@ -374,23 +374,11 @@ impl Application {
             let Some(disposition) = session.completed_stop(app, request) else {
                 return;
             };
-            match disposition {
-                StopDisposition::OpenFailed {
-                    stream_attempt,
-                    detail,
-                } => {
-                    application_lifecycle::report_failed_open(
-                        &self.services,
-                        app,
-                        stream_attempt,
-                        detail,
-                    );
-                }
-                StopDisposition::Finished => {
-                    if retain && session.park_after_stop(app, &player.display()) {
-                        return;
-                    }
-                }
+            if application_lifecycle::apply_stop_disposition(&self.services, app, disposition)
+                && retain
+                && session.park_after_stop(app, &player.display())
+            {
+                return;
             }
         }
         self.close(player, ClosedWindow::Player);

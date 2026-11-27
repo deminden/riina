@@ -1180,7 +1180,11 @@ impl WorkerState {
         if self.active_entry != Some(end.playlist_entry_id) {
             return;
         }
-        if end.reason == end_reason::ERROR && self.playback.phase == Phase::Loading {
+        let cancelled = stream.as_ref().filter(|load| load.cancelled());
+        if end.reason == end_reason::ERROR
+            && self.playback.phase == Phase::Loading
+            && cancelled.is_none()
+        {
             self.playback.file_feedback = riina_core::FileFeedback::OpenFailed {
                 stream_attempt: stream.as_ref().map(stream::StreamLoad::attempt_id),
             };
@@ -1200,15 +1204,20 @@ impl WorkerState {
         self.seek_pending = false;
         self.seek_feedback.clear();
         self.auto_seek.interrupt_measurement();
-        self.playback.phase = match end.reason {
-            end_reason::EOF => Phase::Ended,
-            end_reason::ERROR => Phase::Failed,
-            _ => Phase::Stopped,
-        };
+        if let Some(load) = cancelled {
+            self.record_cancelled_open(load.attempt_id());
+        } else {
+            self.playback.phase = match end.reason {
+                end_reason::EOF => Phase::Ended,
+                end_reason::ERROR => Phase::Failed,
+                _ => Phase::Stopped,
+            };
+        }
         if matches!(self.playback.phase, Phase::Stopped | Phase::Failed) {
             self.clear_active_file();
         }
-        if end.error < 0
+        if cancelled.is_none()
+            && end.error < 0
             && let Some(message) = event.end_error(end)
         {
             record_notice(&mut self.playback, NoticeSeverity::Error, message);

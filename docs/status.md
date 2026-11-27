@@ -137,7 +137,9 @@ Implementation does not imply every state or platform is verified.
   focused playlist row or text editor on the shared and Windows native menu paths.
 - **Open URL:** one dialog serves the File menu, Welcome and the windowless
   macOS application menu. It previews the default HTTP scheme, offers HTTP
-  authentication, and can stop a pending load.
+  authentication and can stop a pending load. Stop Loading closes the playback
+  frame and keeps the address ready for retry. Closing the dialog also cancels
+  the pending load and releases its player.
   Direct browser links and groups that begin with a network URL share
   its loading and retry controls. Retrying the first stream preserves the
   remaining playlist.
