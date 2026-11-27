@@ -231,13 +231,18 @@ Screenshot and frame completions travel alongside the snapshot so coalescing
 cannot discard their side effects. `observations` projects playback state and
 catalogs into Slint. The UI observer wakes thumbnail, native transition,
 subtitle discovery and material timers when a playback snapshot introduces
-work for them. The playlist metadata worker notifies subscribed windows when
-a lookup completes. Each player schedules a refresh of its own visible rows
-and owns its audio, video, subtitle, timeline, catalog and feedback state.
-Visible playlists share one background duration reader. It uses a separate
-paused libmpv client with null output and file references disabled. Closing a
-playlist withdraws its queued requests and cancels probes that other windows
-no longer need. The current player's observed duration takes precedence.
+work for them. The playlist tag reader takes a bounded batch and notifies
+subscribed windows as each lookup completes. It reads title and artist and
+skips cover art and playback properties. Each player schedules a refresh of its
+own visible rows and owns its audio, video, subtitle, timeline, catalog and
+feedback state.
+Visible playlists share one background duration reader for local files. It
+uses a separate paused libmpv client with null output and file references
+disabled. Closing a playlist withdraws its queued requests and cancels probes
+that other windows no longer need. Both readers exit when their queues drain
+and start again when there is work. The current player's observed duration
+takes precedence. Metadata retains the duration of previously played streams,
+including distinct URLs with different query strings.
 Each player reads saved resume positions for its visible playlist in one
 background job. The read uses the profile's watch-later directory and the
 decoder's observed filename policy. Native save and delete replies and initial

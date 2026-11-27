@@ -4,15 +4,14 @@ pub(crate) mod durations;
 pub(crate) mod resume;
 pub(crate) mod series;
 
-use lofty::{file::TaggedFileExt, probe::Probe, tag::ItemKey};
+use lofty::{config::ParseOptions, file::TaggedFileExt, probe::Probe, tag::ItemKey};
 use riina_core::sync::lock;
 use std::{
-    collections::{BTreeMap, HashMap},
+    collections::{BTreeMap, HashMap, VecDeque},
     path::{Path, PathBuf},
     sync::{
         Arc, Mutex, OnceLock,
         atomic::{AtomicU64, Ordering},
-        mpsc::{SyncSender, TrySendError, sync_channel},
     },
 };
 
@@ -22,13 +21,16 @@ pub(crate) struct Metadata {
     pub(crate) artist: String,
 }
 
+#[derive(Default)]
 struct Cache {
-    entries: Mutex<HashMap<PathBuf, Option<Metadata>>>,
-    requests: SyncSender<PathBuf>,
+    entries: HashMap<PathBuf, Option<Metadata>>,
+    pending: VecDeque<PathBuf>,
+    running: bool,
 }
 
-static CACHE: OnceLock<Cache> = OnceLock::new();
+static CACHE: OnceLock<Mutex<Cache>> = OnceLock::new();
 const MAX_CACHE_ENTRIES: usize = 2048;
+const MAX_PENDING_TAGS: usize = 128;
 
 type Listener = Arc<dyn Fn() + Send + Sync>;
 static LISTENERS: Mutex<BTreeMap<u64, Listener>> = Mutex::new(BTreeMap::new());
@@ -48,31 +50,56 @@ impl Drop for Subscription {
     }
 }
 
-fn cache() -> &'static Cache {
-    CACHE.get_or_init(|| {
-        let (requests, receiver) = sync_channel::<PathBuf>(128);
-        let cache = Cache {
-            entries: Mutex::new(HashMap::new()),
-            requests,
+fn read_pending_tags(cache: &Mutex<Cache>) {
+    loop {
+        let path = {
+            let mut state = lock(cache);
+            let Some(path) = state.pending.pop_front() else {
+                state.running = false;
+                return;
+            };
+            path
         };
-        let worker = crate::background::spawn_named("riina-playlist-tags", move || {
-            while let Ok(path) = receiver.recv() {
-                let metadata = read_metadata(&path);
-                let Some(cache) = CACHE.get() else { continue };
-                if let Some(entry) = lock(&cache.entries).get_mut(&path) {
-                    *entry = metadata;
-                } else {
-                    continue;
-                }
-                // A completed request can also make room to retry a full queue.
-                notify_listeners();
+        let metadata = read_metadata(&path);
+        lock(cache).entries.insert(path, metadata);
+        // Completion also makes room to retry entries beyond the queue limit.
+        notify_listeners();
+    }
+}
+
+pub(crate) fn tags<'a>(
+    references: impl IntoIterator<Item = &'a str>,
+) -> HashMap<&'a str, Metadata> {
+    let cache = CACHE.get_or_init(Mutex::default);
+    let mut state = lock(cache);
+    let mut ready = HashMap::new();
+    for reference in references {
+        let Some(path) = local_audio_path(reference) else {
+            continue;
+        };
+        if let Some(metadata) = state.entries.get(&path) {
+            if let Some(metadata) = metadata {
+                ready.insert(reference, metadata.clone());
             }
-        });
-        if let Err(error) = worker {
+        } else if state.pending.len() < MAX_PENDING_TAGS && state.entries.len() < MAX_CACHE_ENTRIES
+        {
+            state.entries.insert(path.clone(), None);
+            state.pending.push_back(path);
+        }
+    }
+    if !state.running && !state.pending.is_empty() {
+        state.running = true;
+        if let Err(error) =
+            crate::background::spawn_named("riina-playlist-tags", move || read_pending_tags(cache))
+        {
+            for path in std::mem::take(&mut state.pending) {
+                state.entries.remove(&path);
+            }
+            state.running = false;
             crate::diagnostics::warn!("Could not start playlist metadata reader: {error}");
         }
-        cache
-    })
+    }
+    ready
 }
 
 fn notify_listeners() {
@@ -82,43 +109,8 @@ fn notify_listeners() {
     }
 }
 
-pub(crate) fn lookup(reference: &str) -> Option<Metadata> {
-    let path = local_audio_path(reference)?;
-    let cache = cache();
-    let mut entries = lock(&cache.entries);
-    if let Some(metadata) = entries.get(&path) {
-        return metadata.clone();
-    }
-    if entries.len() >= MAX_CACHE_ENTRIES {
-        return None;
-    }
-    entries.insert(path.clone(), None);
-    match cache.requests.try_send(path.clone()) {
-        Ok(()) => None,
-        Err(TrySendError::Full(_) | TrySendError::Disconnected(_)) => {
-            entries.remove(&path);
-            None
-        }
-    }
-}
-
 fn local_audio_path(reference: &str) -> Option<PathBuf> {
-    let bytes = reference.as_bytes();
-    let windows_drive_path =
-        bytes.get(1) == Some(&b':') && bytes.first().is_some_and(u8::is_ascii_alphabetic);
-    if windows_drive_path {
-        let path = PathBuf::from(reference);
-        return is_supported_audio(&path).then_some(path);
-    }
-    if let Ok(url) = url::Url::parse(reference) {
-        if url.scheme() != "file" {
-            return None;
-        }
-        let path = url.to_file_path().ok()?;
-        return is_supported_audio(&path).then_some(path);
-    }
-    let path = Path::new(reference);
-    is_supported_audio(path).then(|| path.to_path_buf())
+    crate::file_actions::local_media_path(reference).filter(|path| is_supported_audio(path))
 }
 
 fn is_supported_audio(path: &Path) -> bool {
@@ -134,6 +126,11 @@ fn is_supported_audio(path: &Path) -> bool {
 fn read_metadata(path: &Path) -> Option<Metadata> {
     let tagged = Probe::open(path)
         .ok()?
+        .options(
+            ParseOptions::new()
+                .read_properties(false)
+                .read_cover_art(false),
+        )
         .guess_file_type()
         .ok()?
         .read()
@@ -146,4 +143,46 @@ fn read_metadata(path: &Path) -> Option<Metadata> {
         .trim()
         .to_owned();
     (!title.is_empty() && !artist.is_empty()).then_some(Metadata { title, artist })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use lofty::{
+        config::WriteOptions,
+        tag::{Accessor, Tag, TagExt, TagType},
+    };
+
+    #[test]
+    fn tag_only_reads_preserve_artist_and_title_and_release_the_reader() {
+        let temp = riina_test_support::TempDir::new("playlist-tag-only").unwrap();
+        let path = temp.path().join("tagged.wav");
+        std::fs::copy(
+            riina_test_support::fixture("external-tone.wav").unwrap(),
+            &path,
+        )
+        .unwrap();
+        let mut tag = Tag::new(TagType::RiffInfo);
+        tag.set_artist("Fixture Artist".into());
+        tag.set_title("Fixture Title".into());
+        tag.save_to_path(&path, WriteOptions::default()).unwrap();
+        let cache = Mutex::new(Cache {
+            entries: HashMap::from([(path.clone(), None)]),
+            pending: VecDeque::from([path.clone()]),
+            running: true,
+        });
+
+        read_pending_tags(&cache);
+
+        let state = lock(&cache);
+        assert!(!state.running);
+        assert!(state.pending.is_empty());
+        assert_eq!(
+            state.entries[&path],
+            Some(Metadata {
+                title: "Fixture Title".into(),
+                artist: "Fixture Artist".into(),
+            })
+        );
+    }
 }

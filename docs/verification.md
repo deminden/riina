@@ -6896,3 +6896,36 @@ presentation, physical display output and HDR remain separate acceptance checks.
 All 36 focused Linux application tests passed. The native resume scenario
 also passed with the local backported Linux libmpv build and null output.
 Strict workspace cross-Clippy passed for Apple Silicon and Intel.
+
+### Playlist duration and metadata reader lifecycle (2026-11-27)
+
+The locked Windows workspace gate and build passed. The gate includes strict
+Clippy, 725 application unit tests and the Windows software-rendered pixel
+baselines. The new regressions check stream duration retention across
+advancement and distinct URLs, admission of local files to the duration
+probe, and preservation of WAV tags with the tag-only reader. Both reader
+tests check that the worker reservation is released when the queue drains.
+The 75 pinned Windows native tests passed in 11.98 seconds with null output.
+They include a standalone local duration probe for video, audio, cancellation
+and an unavailable file.
+
+A private Windows desktop smoke run verified playback, fullscreen,
+minimize/restore and normal shutdown. The test process exited and the
+application log contained no remaining playlist duration reader at shutdown.
+
+- Windows executable SHA-256 `451a6f737055a8f536f32c006693ff11c8e397fc4f91713fe48e719f73c90db5`
+
+All 11 focused Linux application tests passed. Strict workspace cross-Clippy
+passed for Apple Silicon and Intel.
+
+The locked Linux application build ran on isolated X11 with llvmpipe and a
+loopback fixture server. The playlist initially showed both local durations
+and left both stream durations blank. The server recorded the first request
+for each stream when playback reached its row. After moving from the
+five-second video stream to the two-second audio stream, the video row kept
+its duration and the four-row total showed `0:17 in total`. The named playlist
+workers had exited when inspected, and closing the player ended the exact
+test process.
+
+- Linux executable SHA-256 `ab4e2d91042baeb1413a94161ecb2af165bda25da157e8010c729f4253afeb3f`
+- Linux libmpv SHA-256 `84813585bde6083eed5b6ffd03934cf3537eca4852cabd4f37436a885a93b1cb`

@@ -6,7 +6,7 @@ use crate::{
 };
 use riina_core::{Phase, Playback, sync::lock, time_label};
 use riina_ui::{PlayerMenuActions, PlaylistInteraction};
-use slint::{ComponentHandle, Model, ModelRc, VecModel};
+use slint::{ComponentHandle, Model, ModelRc, SharedString, VecModel};
 use std::{
     collections::{HashMap, HashSet},
     path::{Path, PathBuf},
@@ -29,7 +29,11 @@ pub(in super::super) fn update(app: &PlayerWindow, state: &Playback, metadata: &
         .filter(|row| row.series_expanded)
         .map(|row| (row.token, row.series_prefix))
         .collect();
-    let show_metadata = app.get_show_playlist_metadata();
+    let tags = if app.get_show_playlist_metadata() {
+        crate::playlist_metadata::tags(state.playlist.iter().map(|entry| entry.filename.as_str()))
+    } else {
+        HashMap::new()
+    };
     let observed_duration = state.duration.filter(|seconds| {
         seconds.is_finite()
             && *seconds > 0.0
@@ -40,18 +44,19 @@ pub(in super::super) fn update(app: &PlayerWindow, state: &Playback, metadata: &
     });
     if let Some(seconds) = observed_duration
         && let Some(playing) = state.playlist.iter().find(|entry| entry.playing)
-        && let Some(path) = durations::local_path(&playing.filename)
+        && let Some(source) = durations::Source::from_filename(&playing.filename)
     {
-        durations::remember(path, seconds);
+        durations::remember(source, seconds);
     }
-    let selected_playlist_tokens = app
-        .global::<PlaylistInteraction>()
-        .get_selected_playlist_tokens();
+    let interaction = app.global::<PlaylistInteraction>();
+    let selected_token = interaction.get_selected_playlist_token();
+    let selection = interaction.get_selected_playlist_tokens();
+    let selected_playlist_tokens = selection.iter().collect::<HashSet<_>>();
     let rows = state
         .playlist
         .iter()
         .map(|entry| {
-            let token = entry.id.to_string();
+            let token = SharedString::from(entry.id.to_string());
             let file_label = entry.title.clone().unwrap_or_else(|| {
                 if entry.filename.contains("://") {
                     entry.filename.clone()
@@ -62,11 +67,10 @@ pub(in super::super) fn update(app: &PlayerWindow, state: &Playback, metadata: &
                     )
                 }
             });
-            let tags = show_metadata
-                .then(|| crate::playlist_metadata::lookup(&entry.filename))
-                .flatten();
+            let tags = tags.get(entry.filename.as_str());
             let duration = observed_duration.filter(|_| entry.playing).or_else(|| {
-                durations::local_path(&entry.filename).and_then(|path| durations::lookup(&path))
+                durations::Source::from_filename(&entry.filename)
+                    .and_then(|source| durations::lookup(&source))
             });
             let position = metadata
                 .positions
@@ -80,25 +84,23 @@ pub(in super::super) fn update(app: &PlayerWindow, state: &Playback, metadata: &
                 .unwrap_or_default();
             let series_expanded = !prefix.is_empty()
                 && expanded
-                    .get(token.as_str())
+                    .get(&token)
                     .is_some_and(|label| label.as_str() == prefix);
+            let selected = selected_playlist_tokens.contains(&token);
             CatalogRow {
-                token: token.clone().into(),
+                token,
                 path: entry.filename.clone().into(),
                 language: "".into(),
                 series_expanded,
                 series_prefix: prefix.into(),
                 episode_label: episode.into(),
                 label: tags
-                    .as_ref()
                     .map_or(file_label, |metadata| metadata.title.clone())
                     .into(),
                 detail: tags
-                    .map_or_else(String::new, |metadata| metadata.artist)
+                    .map_or_else(String::new, |metadata| metadata.artist.clone())
                     .into(),
-                selected: selected_playlist_tokens
-                    .iter()
-                    .any(|selected| selected.as_str() == token),
+                selected,
                 playing: entry.current,
                 duration_label: duration.map_or_else(String::new, duration_label).into(),
                 duration_seconds: duration.unwrap_or_default() as f32,
@@ -106,6 +108,18 @@ pub(in super::super) fn update(app: &PlayerWindow, state: &Playback, metadata: &
             }
         })
         .collect::<Vec<_>>();
+    let single_retained = rows.iter().any(|row| row.token == selected_token);
+    let retained = {
+        let live_selection = rows
+            .iter()
+            .filter(|row| row.selected)
+            .map(|row| &row.token)
+            .collect::<HashSet<_>>();
+        selection
+            .iter()
+            .filter(|token| live_selection.contains(token))
+            .collect::<Vec<_>>()
+    };
     if current.row_count() == rows.len()
         && current
             .iter()
@@ -120,31 +134,11 @@ pub(in super::super) fn update(app: &PlayerWindow, state: &Playback, metadata: &
     } else if !update_playlist_structure(&current, &rows) {
         catalog.set_playlist(slint::ModelRc::new(slint::VecModel::from(rows)));
     }
-    if !state.playlist.iter().any(|entry| {
-        entry.id.to_string()
-            == app
-                .global::<riina_ui::PlaylistInteraction>()
-                .get_selected_playlist_token()
-                .as_str()
-    }) {
-        app.global::<riina_ui::PlaylistInteraction>()
-            .set_selected_playlist_token("".into());
+    if !single_retained && !selected_token.is_empty() {
+        interaction.set_selected_playlist_token("".into());
     }
-    let selection = app
-        .global::<riina_ui::PlaylistInteraction>()
-        .get_selected_playlist_tokens();
-    let retained = selection
-        .iter()
-        .filter(|token| {
-            state
-                .playlist
-                .iter()
-                .any(|entry| entry.id.to_string() == token.as_str())
-        })
-        .collect::<Vec<_>>();
-    if retained != selection.iter().collect::<Vec<_>>() {
-        app.global::<riina_ui::PlaylistInteraction>()
-            .set_selected_playlist_tokens(slint::ModelRc::new(slint::VecModel::from(retained)));
+    if retained.len() != selection.row_count() {
+        interaction.set_selected_playlist_tokens(ModelRc::new(VecModel::from(retained)));
     }
     refresh_duration_summary(app);
 }
@@ -279,16 +273,16 @@ pub(in super::super) fn install_metadata_refresh(
             let snapshot = lock(&playback).clone();
             reader.resume.refresh(&app, &snapshot);
             update(&app, &snapshot, &reader.snapshot(&snapshot));
-            let paths = if app.get_prefetch_playlist_durations() {
+            let sources = if app.get_prefetch_playlist_durations() {
                 snapshot
                     .playlist
                     .iter()
-                    .filter_map(|entry| durations::local_path(&entry.filename))
+                    .filter_map(|entry| durations::Source::from_filename(&entry.filename))
                     .collect()
             } else {
                 Vec::new()
             };
-            demand.borrow_mut().update(paths);
+            demand.borrow_mut().update(sources);
             app.global::<PlayerMenuActions>()
                 .invoke_video_menu_changed();
         },
@@ -365,6 +359,54 @@ mod metadata_tests {
             "0:08 in total"
         );
         assert!(duration_summary([row(5.5, false), CatalogRow::default()].into_iter()).is_empty());
+    }
+
+    #[test]
+    fn a_played_stream_keeps_its_duration_after_advancing_to_another_row()
+    -> Result<(), slint::PlatformError> {
+        i_slint_backend_testing::init_no_event_loop();
+        let app = PlayerWindow::new()?;
+        let entries = [
+            "https://media.example/clip.mkv?part=one",
+            "https://media.example/clip.mkv?part=two",
+        ]
+        .into_iter()
+        .enumerate()
+        .map(|(index, filename)| riina_core::PlaylistEntry {
+            id: i64::try_from(index).unwrap(),
+            filename: filename.into(),
+            title: None,
+            current: index == 0,
+            playing: index == 0,
+        })
+        .collect::<Vec<_>>();
+        let mut state = Playback {
+            phase: Phase::Playing,
+            duration: Some(13.0),
+            playlist: entries.into(),
+            ..Playback::default()
+        };
+        let catalog = app.global::<riina_ui::PlayerCatalogState>();
+        update(&app, &state, &MetadataSnapshot::default());
+        assert_eq!(
+            catalog.get_playlist().row_data(0).unwrap().duration_label,
+            "0:13"
+        );
+        assert!(catalog.get_playlist_duration_summary().is_empty());
+
+        let list = Arc::make_mut(&mut state.playlist);
+        for row in list {
+            row.current = !row.current;
+            row.playing = !row.playing;
+        }
+        state.duration = Some(9.0);
+        update(&app, &state, &MetadataSnapshot::default());
+        assert_eq!(
+            catalog.get_playlist().row_data(0).unwrap().duration_label,
+            "0:13"
+        );
+        assert_eq!(catalog.get_playlist_duration_summary(), "0:22 in total");
+        Ok(())
     }
 
     #[test]

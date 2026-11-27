@@ -96,6 +96,10 @@ Implementation does not imply every state or platform is verified.
   The row menu shows the selected filename or item count and groups the
   available commands under headings. Sort and row menus localize built-in
   labels in English, Russian and Arabic.
+  Streams with a known duration keep that duration in their playlist rows
+  after playback advances. Playlist totals include those rows when every
+  duration is available. Local duration and audio-tag workers exit when their
+  queues drain.
   Transient add and clear feedback follows native command replies. Clearing
   retains the current item and retires pending additions and sibling discovery.
   File and folder picks, paste, drops and URLs enter the playlist in submission
