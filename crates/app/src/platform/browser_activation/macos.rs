@@ -523,10 +523,9 @@ fn document_paths(list: &NSAppleEventDescriptor) -> Result<Vec<String>, &'static
                 .descriptorAtIndex(index)
                 // Foundation can also coerce text into a local file URL.
                 .filter(|item| {
-                    matches!(
-                        &item.descriptorType().to_be_bytes(),
-                        b"furl" | b"alis" | b"fsrf"
-                    )
+                    // SAFETY: the descriptor type is a four-byte DescType.
+                    let kind: u32 = unsafe { objc2::msg_send![&**item, descriptorType] };
+                    matches!(&kind.to_be_bytes(), b"furl" | b"alis" | b"fsrf")
                 })
                 .and_then(|item| item.fileURLValue())
                 .ok_or("The event contains a non-file reference")?;
