@@ -264,6 +264,8 @@ fn dropped_luts_with_delimiters_replace_only_the_labelled_filter() {
 #[ignore = "requires provisioned libmpv; verifies original woven fields and 25-to-50 Hz cadence"]
 fn interlaced_fields_decode_and_deinterlace_at_field_cadence() {
     let root = fixture_root();
+    let verify_fields =
+        std::env::var_os("RIINA_REQUIRE_FIELD_ORDER").is_some_and(|value| value == "1");
     let output_dir = CaptureOutput::new("interlaced-native-test").unwrap();
     let output = output_dir.path().to_path_buf();
     let mut captures = Vec::new();
@@ -292,6 +294,16 @@ fn interlaced_fields_decode_and_deinterlace_at_field_cadence() {
         });
         player.send(Command::TogglePause).unwrap();
         let mut previous = wait_for(&receiver, |state| state.paused && state.position.is_some());
+        let top_first = name.ends_with("-tff.mkv");
+        if verify_fields {
+            assert!(
+                previous.video_frame_info.as_ref().is_some_and(|frame| {
+                    frame.interlaced == Some(true) && frame.top_field_first == Some(top_first)
+                }),
+                "{name}: incorrect initial field flags: {:?}",
+                previous.video_frame_info
+            );
+        }
         assert_eq!(previous.deinterlace, Some(false));
         assert_eq!(previous.deinterlace_active, Some(false));
         assert_eq!(
@@ -342,6 +354,16 @@ fn interlaced_fields_decode_and_deinterlace_at_field_cadence() {
                 assert_eq!(captured.error(), None);
                 assert!(captured.paused);
                 assert_eq!(captured.position, next.position);
+                if verify_fields {
+                    verify_woven_pixels(
+                        &path,
+                        name,
+                        captured.position.unwrap(),
+                        top_first,
+                        enabled,
+                    )
+                    .unwrap();
+                }
                 captures.push(serde_json::json!({
                     "fixture": name, "deinterlace": enabled,
                     "position": captured.position, "path": path,
@@ -358,6 +380,38 @@ fn interlaced_fields_decode_and_deinterlace_at_field_cadence() {
     let manifest = output.join("captures.json");
     std::fs::write(&manifest, serde_json::to_vec_pretty(&captures).unwrap()).unwrap();
     println!("Native field captures: {}", manifest.display());
+}
+
+fn verify_woven_pixels(
+    path: &std::path::Path,
+    fixture: &str,
+    position: f64,
+    top_first: bool,
+    deinterlace: bool,
+) -> image::ImageResult<()> {
+    let image = image::open(path)?.into_rgb8();
+    assert_eq!(image.dimensions(), (96, 64));
+    // The synthetic bar moves two pixels per field and wraps every 32 fields.
+    let field = (position * 50.0).round_ties_even() as u32;
+    let edge = |field| 8 + field * 2 % 64;
+    let first = edge(field);
+    let second = edge(field + 1);
+    let expected = match (deinterlace, top_first) {
+        (true, _) => [first, first],
+        (false, true) => [first, second],
+        (false, false) => [second, first],
+    };
+    for (row, left) in [24, 25].into_iter().zip(expected) {
+        let bright = (0..image.width())
+            .filter(|&column| image.get_pixel(column, row)[0] > 128)
+            .collect::<Vec<_>>();
+        assert_eq!(
+            bright,
+            (left..left + 12).collect::<Vec<_>>(),
+            "{fixture}: deinterlace={deinterlace}, position={position}, row={row}"
+        );
+    }
+    Ok(())
 }
 
 #[test]

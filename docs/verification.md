@@ -7033,3 +7033,22 @@ null output. The pinned Windows DLL still has the six-frame failure.
 [Matroska field-order specification](https://www.rfc-editor.org/rfc/rfc9559.html#section-5.1.4.1.28.2)
 
 - Experimental Linux libmpv SHA-256 `812c884957aca6d4d77cf861cab248baaf0866a8d58d079b32ca4b40896fb62d`
+
+### Matroska release build and field-order check (2026-11-27)
+
+The Windows build recipe now applies the field-order patch to the pinned mpv
+revision `36abaa32d00a7229ee206aae12dc0e97e7962dca`. The source index records
+the upstream bytes, the patch and recipe hashes, and the build image digest.
+Candidate verification checks this identity before starting native tests.
+The registry returned `MANIFEST_UNKNOWN` for the previous build image. Both
+layers and the manifest of the replacement amd64 image verified by digest
+before a local Windows cross-build began.
+
+The Windows workspace gate, locked build and strict Apple cross-Clippy for
+both architectures passed. All 76 native tests passed in 11.90 seconds against
+the existing development DLL in the default test mode. The release-mode test
+rejected that DLL's missing interlaced field flags and passed all 72 saved
+frame comparisons against the experimental Linux engine.
+
+The Windows candidate DLL, extracted application and installer still require
+verification with the rebuilt engine.

@@ -192,6 +192,17 @@ def verify_native_source_index(binary, source):
     records = {}
     source_files = set()
     rust_notices = native_rust_notice_index(binary)
+    patches = {
+        "builder_patch_sha256": "remove-x264.patch",
+        "curl_patch_sha256": "pin-curl.patch",
+        "bootstrap_patch_sha256": "native-bootstrap.patch",
+        "field_order_patch_sha256": "matroska-field-order.patch",
+        "build_script_sha256": "build-windows.sh",
+    }
+    metadata = {
+        "builder_revision", "curl_revision", "native_rust_toolchain", "x264_policy",
+        "container_image", *patches,
+    }
 
     def source_path(value):
         relative = PurePosixPath(value)
@@ -208,8 +219,7 @@ def verify_native_source_index(binary, source):
         if not fields:
             raise ValueError("Empty native source index record")
         kind = fields[0]
-        if kind in {"builder_revision", "curl_revision", "native_rust_toolchain", "x264_policy",
-                    "builder_patch_sha256", "curl_patch_sha256", "bootstrap_patch_sha256", "container_image"}:
+        if kind in metadata:
             if len(fields) != 2 or kind in records:
                 raise ValueError(f"Invalid or duplicate native source index field: {kind}")
             records[kind] = fields[1]
@@ -239,24 +249,20 @@ def verify_native_source_index(binary, source):
         else:
             raise ValueError(f"Unknown native source index record: {kind}")
 
-    required = {
-        "builder_revision", "curl_revision", "native_rust_toolchain", "x264_policy",
-        "builder_patch_sha256", "curl_patch_sha256", "bootstrap_patch_sha256", "container_image",
-    }
-    if not required <= records.keys() or not source_files or not any(
-        name.startswith("src_packages/") for name in records
-    ):
+    if not metadata <= records.keys() or not source_files or "src_packages/mpv" not in records:
         raise ValueError("Native source index is incomplete")
-    build_script = (source / "tools/mpv/build-windows.sh").read_text(encoding="utf-8")
-    for constant, field in (("BUILDER_REVISION", "builder_revision"), ("CURL_REVISION", "curl_revision")):
-        match = re.search(rf"readonly {constant}='([0-9a-f]+)'", build_script)
+    tools = source / "tools/mpv"
+    build_script = (tools / "build-windows.sh").read_text(encoding="utf-8")
+    for constant, field in (
+        ("BUILDER_REVISION", "builder_revision"), ("CURL_REVISION", "curl_revision"),
+        ("MPV_REVISION", "src_packages/mpv"), ("BUILD_IMAGE", "container_image"),
+    ):
+        match = re.search(rf"^readonly {constant}='([^'\n]+)'", build_script, re.MULTILINE)
         if not match or match.group(1) != records[field]:
             raise ValueError(f"Native source index does not match {constant}")
-    for field, filename in (("builder_patch_sha256", "remove-x264.patch"),
-                            ("curl_patch_sha256", "pin-curl.patch"),
-                            ("bootstrap_patch_sha256", "native-bootstrap.patch")):
-        if digest(source / "tools/mpv" / filename) != records[field]:
-            raise ValueError(f"Native source index patch hash does not match {filename}")
+    for field, filename in patches.items():
+        if digest(tools / filename) != records[field]:
+            raise ValueError(f"Native source index hash does not match {filename}")
     duplicated_sources = {"cargo-vendor", "riina-vendor", "native-sources"}
     for path in binary.rglob("*"):
         if path.name not in duplicated_sources:
@@ -323,6 +329,7 @@ def main():
     audit.add_argument("--audit", type=Path, default=Path("docs/native-distribution-audit.json"))
     runtime = commands.add_parser("runtime")
     runtime.add_argument("--directory", type=Path, required=True)
+    runtime.add_argument("--source", type=Path, default=Path("."))
     restore = commands.add_parser("restore-runtime")
     restore.add_argument("--archive", type=Path, required=True)
     restore.add_argument("--checksums", type=Path, required=True)
@@ -339,7 +346,8 @@ def main():
         print(readiness(json.loads(args.audit.read_text(encoding="utf-8"))), end="")
     elif args.command == "runtime":
         verify_runtime(args.directory)
-        print("Verified complete downloaded native runtime manifest")
+        verify_native_source_index(args.directory, args.source)
+        print("Verified complete native runtime and build identity")
     elif args.command == "restore-runtime":
         print(json.dumps(restore_release_runtime(
             args.archive, args.checksums, args.verification, args.source,

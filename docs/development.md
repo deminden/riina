@@ -265,6 +265,11 @@ provisioned build. Windows runs up to four native tests at a time and other
 platforms run them serially by default. `RUST_TEST_THREADS=1` forces a serial
 run anywhere. Failed tests show their captured output.
 
+Release candidates set `RIINA_REQUIRE_FIELD_ORDER=1` during the native suite.
+The interlacing test then checks decoder field flags and the moving-bar pattern
+in all 72 saved frames while exercising the same cadence transitions. Use
+`RIINA_TEST_MPV_LIBRARY` to provide the rebuilt engine for a local field-order run.
+
 The regular app suite tests staged plugin moves with disposable directories.
 To run the same operation through JavaScript across real volumes, set
 `RIINA_TEST_SECOND_VOLUME` to a writable directory on a filesystem different

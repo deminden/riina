@@ -18,5 +18,6 @@ serde_json.workspace = true
 riina-core = { path = "../core" }
 
 [dev-dependencies]
+image = { version = "=0.25.10", default-features = false, features = ["png"] }
 proptest = { version = "=1.12.0", default-features = false, features = ["std"] }
 riina-test-support = { path = "../test-support" }

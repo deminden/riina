@@ -10,11 +10,11 @@ into an additional vendor directory in the release.
 
 Native engine dependencies are listed in the package's `SOURCE-MANIFEST.tsv`.
 It records each public source repository and immutable revision, plus SHA-256
-hashes for the source files used by that engine build. The release-tagged
-`tools/mpv/build-windows.sh` and its patches pin the engine recipe and fetch those
-inputs. To rebuild the engine, use the documented Arch Linux build image and run
-that script from the tagged Riina source checkout. Do not substitute a newer
-builder revision or native dependency revision.
+hashes for the upstream files, the build script and the patches. The
+release-tagged `tools/mpv/build-windows.sh` applies the Matroska field-order
+patch to the indexed mpv source before compiling. To rebuild the engine, use
+the recorded build image digest and source revisions with that script from
+the tagged Riina source checkout.
 
 The release page links to the exact tag source next to the binary download.
 `SOURCE-MANIFEST.tsv`, the lockfile and the checked-in build recipe identify the

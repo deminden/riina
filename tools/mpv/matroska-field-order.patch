@@ -1,0 +1,50 @@
+diff --git a/TOOLS/matroska.py b/TOOLS/matroska.py
+--- a/TOOLS/matroska.py
++++ b/TOOLS/matroska.py
+@@ -109,6 +109,7 @@
+                 "SeekPreRoll, 56bb, uint",
+                 "Video, e0, sub", (
+                     "FlagInterlaced, 9a, uint",
++                    "FieldOrder, 9d, uint",
+                     "PixelWidth, b0, uint",
+                     "PixelHeight, ba, uint",
+                     "DisplayWidth, 54b0, uint, default=context",
+diff --git a/demux/demux_mkv.c b/demux/demux_mkv.c
+--- a/demux/demux_mkv.c
++++ b/demux/demux_mkv.c
+@@ -111,6 +111,7 @@
+     uint32_t v_width, v_height, v_dwidth, v_dheight;
+     bool v_dwidth_set, v_dheight_set;
+     double v_frate;
++    enum AVFieldOrder v_field_order;
+     uint32_t colorspace;
+     int stereo_mode;
+     struct pl_color_repr repr;
+@@ -745,6 +746,17 @@
+         track->v_height = video->pixel_height;
+         MP_DBG(demuxer, "|   + Pixel height: %"PRIu32"\n", track->v_height);
+     }
++    // RFC 9559 Table 4 applies only to explicitly interlaced video.
++    if (video->flag_interlaced == 2) {
++        track->v_field_order = AV_FIELD_PROGRESSIVE;
++    } else if (video->flag_interlaced == 1) {
++        switch (video->field_order) {
++        case 1:  track->v_field_order = AV_FIELD_TT; break;
++        case 6:  track->v_field_order = AV_FIELD_BB; break;
++        case 9:  track->v_field_order = AV_FIELD_TB; break;
++        case 14: track->v_field_order = AV_FIELD_BT; break;
++        }
++    }
+     if (video->n_colour_space) {
+         uint8_t *d = (uint8_t *)&video->colour_space.start[0];
+         track->colorspace = d[0] | ((uint32_t)d[1] << 8) | ((uint32_t)d[2] << 16) | ((uint32_t)d[3] << 24);
+@@ -1786,6 +1798,9 @@
+                track->tnum);
+         goto done;
+     }
++
++    if (track->v_field_order != AV_FIELD_UNKNOWN)
++        sh_v->lav_codecpar->field_order = track->v_field_order;
+
+     if (track->dovi_config) {
+         size_t dovi_size;

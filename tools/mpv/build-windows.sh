@@ -4,6 +4,8 @@ set -Eeuo pipefail
 # Build from a fixed recipe revision and record exact source references for the
 # binary. Source remains available from the pinned public repositories.
 readonly BUILDER_REVISION='b2856ee6deed6957380b32465f359e67f67fafd8'
+readonly BUILD_IMAGE='ghcr.io/shinchiro/archlinux@sha256:eb6fa66bafe02c19ce52a3464342130b1210176ac6aff49265d9aef1772994eb'
+readonly MPV_REVISION='36abaa32d00a7229ee206aae12dc0e97e7962dca'
 readonly OPENSSL_REVISION='d8bf6cdd4849925c30e4f1911c7acb49cb34b702'
 readonly CURL_REVISION='01346829096c61b372692f6dc43ffa778c6caccd' # curl 8.22.0
 readonly REPO_ROOT="$PWD"
@@ -36,6 +38,8 @@ print_build_failure() {
   exit "$status"
 }
 trap 'print_build_failure "$?" "$BASH_COMMAND"' ERR
+
+test "${RIINA_BUILD_IMAGE:-$BUILD_IMAGE}" = "$BUILD_IMAGE"
 
 # ExternalProject applies dependency patches in multiple Ninja phases. Git am
 # needs an identity each time it creates the patch commit, including during mpv.
@@ -72,6 +76,9 @@ cmake \
   -G Ninja --fresh -B build_x86_64 -S .
 run_ninja -C build_x86_64 download
 run_ninja -C build_x86_64 update
+mpv_source="$BUILDER/src_packages/mpv"
+test "$(git -C "$mpv_source" remote get-url origin)" = 'https://github.com/mpv-player/mpv.git'
+git -C "$mpv_source" checkout --detach "$MPV_REVISION"
 
 # Both dependencies are used by mpv but omitted from upstream's download/update
 # aggregate. The bootstrap patch fetches them before source capture. Require a
@@ -100,6 +107,7 @@ if [[ -n "${RIINA_NATIVE_SOURCE_ROOT:-}" ]]; then
         test -d "$repository"
         if [[ "$first" == 'src_packages/curl' ]]; then test "$third" = "$CURL_REVISION"; fi
         if [[ "$first" == 'src_packages/openssl' ]]; then test "$third" = "$OPENSSL_REVISION"; fi
+        if [[ "$first" == 'src_packages/mpv' ]]; then test "$third" = "$MPV_REVISION"; fi
         git init -q "$repository"
         git -C "$repository" config user.name 'Riina source snapshot'
         git -C "$repository" config user.email 'source-snapshot@riina.invalid'
@@ -107,11 +115,11 @@ if [[ -n "${RIINA_NATIVE_SOURCE_ROOT:-}" ]]; then
         git -C "$repository" commit --allow-empty -q -m "Captured source snapshot $third"
         ;;
       source_sha256)
-        test "$(sha256sum "$BUILDER/src_packages/$first" | cut -d' ' -f1)" = "$second"
+        test "$(sha256sum "$BUILDER/$first" | cut -d' ' -f1)" = "$second"
         ;;
       source_symlink)
-        test -L "$BUILDER/src_packages/$first"
-        test "$(readlink "$BUILDER/src_packages/$first")" = "$second"
+        test -L "$BUILDER/$first"
+        test "$(readlink "$BUILDER/$first")" = "$second"
         ;;
     esac
   done < "$RIINA_NATIVE_SOURCE_ROOT/../SOURCE-MANIFEST.tsv"
@@ -167,12 +175,18 @@ mkdir -p "$SOURCE_INDEX_ROOT/THIRD_PARTY_LICENSES"
   printf 'builder_patch_sha256\t%s\n' "$(sha256sum "$REPO_ROOT/tools/mpv/remove-x264.patch" | cut -d' ' -f1)"
   printf 'curl_patch_sha256\t%s\n' "$(sha256sum "$REPO_ROOT/tools/mpv/pin-curl.patch" | cut -d' ' -f1)"
   printf 'bootstrap_patch_sha256\t%s\n' "$(sha256sum "$REPO_ROOT/tools/mpv/native-bootstrap.patch" | cut -d' ' -f1)"
-  printf 'container_image\t%s\n' "${RIINA_BUILD_IMAGE:-ghcr.io/shinchiro/archlinux:latest}"
-  while IFS= read -r -d '' gitdir; do
-    repo="${gitdir%/.git}"
-    rel="${repo#"$BUILDER/"}"
-    printf 'source_revision\t%s\t%s\t%s\n' "$rel" "$(git -C "$repo" remote get-url origin 2>/dev/null || true)" "$(git -C "$repo" rev-parse HEAD)"
-  done < <(find "$BUILDER/src_packages" -mindepth 2 -type d -name .git -print0 | sort -z)
+  printf 'field_order_patch_sha256\t%s\n' "$(sha256sum "$REPO_ROOT/tools/mpv/matroska-field-order.patch" | cut -d' ' -f1)"
+  printf 'build_script_sha256\t%s\n' "$(sha256sum "$REPO_ROOT/tools/mpv/build-windows.sh" | cut -d' ' -f1)"
+  printf 'container_image\t%s\n' "$BUILD_IMAGE"
+  if [[ -n "${RIINA_NATIVE_SOURCE_ROOT:-}" ]]; then
+    awk -F '\t' '$1 == "source_revision"' "$RIINA_NATIVE_SOURCE_ROOT/../SOURCE-MANIFEST.tsv"
+  else
+    while IFS= read -r -d '' gitdir; do
+      repo="${gitdir%/.git}"
+      rel="${repo#"$BUILDER/"}"
+      printf 'source_revision\t%s\t%s\t%s\n' "$rel" "$(git -C "$repo" remote get-url origin 2>/dev/null || true)" "$(git -C "$repo" rev-parse HEAD)"
+    done < <(find "$BUILDER/src_packages" -mindepth 2 -type d -name .git -print0 | sort -z)
+  fi
   while IFS= read -r -d '' source; do
     relative="${source#"$BUILDER/src_packages/"}"
     case "$relative" in *$'\t'*|*$'\n'*) echo "Source path contains an unsupported tab or newline: $relative" >&2; exit 1;; esac
@@ -198,6 +212,8 @@ done < <(find "$BUILDER/src_packages" -type f \
   ! -path '*/.git/*' -print0 | sort -z)
 
 # Build the embedded engine and collect its development DLL output directly.
+# Keep the source index on upstream bytes so the tagged patch can be replayed.
+git -C "$mpv_source" apply "$REPO_ROOT/tools/mpv/matroska-field-order.patch"
 run_ninja -C build_x86_64 mpv
 # mpv's CLI and development outputs are separate. Riina embeds the DLL; the
 # CLI packager adds unrelated SDK binaries and never supplies libmpv itself.

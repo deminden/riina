@@ -3,6 +3,7 @@ import importlib.util
 import hashlib
 import json
 from pathlib import Path
+import re
 import tempfile
 import unittest
 import zipfile
@@ -148,66 +149,87 @@ class ReleaseArtifactTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "path"):
                 release.verify_runtime(root)
 
+    def native_contract(self, source):
+        tools = source / "tools/mpv"
+        tools.mkdir(parents=True)
+        builder_revision = "a" * 40
+        curl_revision = "b" * 40
+        mpv_revision = "e" * 40
+        build_image = "ghcr.io/example/image@sha256:" + "f" * 64
+        (tools / "build-windows.sh").write_text(
+            f"readonly BUILDER_REVISION='{builder_revision}'\n"
+            f"readonly CURL_REVISION='{curl_revision}'\n"
+            f"readonly MPV_REVISION='{mpv_revision}'\n"
+            f"readonly BUILD_IMAGE='{build_image}'\n",
+            encoding="utf-8")
+        patches = {
+            "builder_patch_sha256": "remove-x264.patch",
+            "curl_patch_sha256": "pin-curl.patch",
+            "bootstrap_patch_sha256": "native-bootstrap.patch",
+            "field_order_patch_sha256": "matroska-field-order.patch",
+        }
+        for name in patches.values():
+            (tools / name).write_text(name, encoding="utf-8")
+        return [
+            f"builder_revision\t{builder_revision}",
+            f"curl_revision\t{curl_revision}",
+            "native_rust_toolchain\tnightly-2026-10-10",
+            "x264_policy\tencoder removed",
+            *(f"{field}\t{release.digest(tools / name)}" for field, name in patches.items()),
+            f"build_script_sha256\t{release.digest(tools / 'build-windows.sh')}",
+            f"container_image\t{build_image}",
+            f"source_revision\tsrc_packages/mpv\thttps://github.com/mpv-player/mpv.git\t{mpv_revision}",
+        ]
+
     def test_native_source_index_records_immutable_sources_and_verified_notices(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
             source = root / "source"
-            tools = source / "tools/mpv"
-            tools.mkdir(parents=True)
-            builder_revision = "a" * 40
-            curl_revision = "b" * 40
-            (tools / "build-windows.sh").write_text(
-                f"readonly BUILDER_REVISION='{builder_revision}'\n"
-                f"readonly CURL_REVISION='{curl_revision}'\n",
-                encoding="utf-8")
-            patches = {
-                "remove-x264.patch": "x264 exclusion",
-                "pin-curl.patch": "curl source pin",
-                "native-bootstrap.patch": "native source bootstrap",
-            }
-            for name, content in patches.items():
-                (tools / name).write_text(content, encoding="utf-8")
+            contract = self.native_contract(source)
             binary = root / "binary"
             notices = binary / "THIRD_PARTY_LICENSES/codec"
             notices.mkdir(parents=True)
             license_bytes = b"codec upstream license\n"
             (notices / "LICENSE").write_bytes(license_bytes)
-            manifest_rows = [
-                f"builder_revision\t{builder_revision}",
-                f"curl_revision\t{curl_revision}",
-                "native_rust_toolchain\tnightly-2026-10-10",
-                "x264_policy\tencoder removed",
-                f"builder_patch_sha256\t{release.digest(tools / 'remove-x264.patch')}",
-                f"curl_patch_sha256\t{release.digest(tools / 'pin-curl.patch')}",
-                f"bootstrap_patch_sha256\t{release.digest(tools / 'native-bootstrap.patch')}",
-                "container_image\tghcr.io/example/image@sha256:abc",
+            manifest_rows = [*contract,
                 f"source_revision\tsrc_packages/codec\thttps://github.com/example/codec\t{'c' * 40}",
                 f"source_sha256\tsrc_packages/codec/LICENSE\t{release.hashlib.sha256(license_bytes).hexdigest()}",
             ]
             (binary / "SOURCE-MANIFEST.tsv").write_text("\n".join(manifest_rows) + "\n", encoding="utf-8")
 
-            self.assertEqual(release.verify_native_source_index(binary, source), (1, 1))
+            self.assertEqual(release.verify_native_source_index(binary, source), (1, 2))
+
+            manifest = binary / "SOURCE-MANIFEST.tsv"
+            for field, expected in [
+                ("field_order_patch_sha256", "matroska-field-order.patch"),
+                ("build_script_sha256", "build-windows.sh"),
+                ("container_image", "BUILD_IMAGE"),
+            ]:
+                changed = [
+                    f"{field}\t{'0' * 64}" if row.startswith(field + "\t") else row
+                    for row in manifest_rows
+                ]
+                manifest.write_text("\n".join(changed) + "\n", encoding="utf-8")
+                with self.assertRaisesRegex(ValueError, re.escape(expected)):
+                    release.verify_native_source_index(binary, source)
+            stripped = [row for row in manifest_rows if not row.startswith("field_order_patch_sha256\t")]
+            manifest.write_text("\n".join(stripped) + "\n", encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "Native source index is incomplete"):
+                release.verify_native_source_index(binary, source)
+            wrong_mpv = [
+                row[:-40] + "0" * 40 if row.startswith("source_revision\tsrc_packages/mpv\t") else row
+                for row in manifest_rows
+            ]
+            manifest.write_text("\n".join(wrong_mpv) + "\n", encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "MPV_REVISION"):
+                release.verify_native_source_index(binary, source)
+
 
     def test_native_source_index_accepts_collected_subrandr_vendor_notices(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
             source = root / "source"
-            tools = source / "tools/mpv"
-            tools.mkdir(parents=True)
-            builder_revision = "a" * 40
-            curl_revision = "b" * 40
-            (tools / "build-windows.sh").write_text(
-                f"readonly BUILDER_REVISION='{builder_revision}'\n"
-                f"readonly CURL_REVISION='{curl_revision}'\n",
-                encoding="utf-8")
-            patches = {
-                "remove-x264.patch": "x264 exclusion",
-                "pin-curl.patch": "curl source pin",
-                "native-bootstrap.patch": "native source bootstrap",
-            }
-            for name, content in patches.items():
-                (tools / name).write_text(content, encoding="utf-8")
-
+            contract = self.native_contract(source)
             binary = root / "binary"
             license_bytes = b"adler2 license bytes\n"
             license_hash = release.hashlib.sha256(license_bytes).hexdigest()
@@ -222,43 +244,23 @@ class ReleaseArtifactTests(unittest.TestCase):
                 "license_files": [{"path": license_path, "sha256": license_hash}],
             }]}), encoding="utf-8")
             android_hash = release.hashlib.sha256(b"android-only license\n").hexdigest()
-            manifest_rows = [
-                f"builder_revision\t{builder_revision}",
-                f"curl_revision\t{curl_revision}",
-                "native_rust_toolchain\tnightly-2026-10-10",
-                "x264_policy\tencoder removed",
-                f"builder_patch_sha256\t{release.digest(tools / 'remove-x264.patch')}",
-                f"curl_patch_sha256\t{release.digest(tools / 'pin-curl.patch')}",
-                f"bootstrap_patch_sha256\t{release.digest(tools / 'native-bootstrap.patch')}",
-                "container_image\tghcr.io/example/image@sha256:abc",
+            manifest_rows = [*contract,
                 f"source_revision\tsrc_packages/subrandr\thttps://github.com/example/subrandr\t{'c' * 40}",
                 f"source_sha256\tsrc_packages/subrandr/riina-vendor/adler2/LICENSE-0BSD\t{license_hash}",
                 f"source_sha256\tsrc_packages/subrandr/riina-vendor/android-activity/LICENSE\t{android_hash}",
             ]
             (binary / "SOURCE-MANIFEST.tsv").write_text("\n".join(manifest_rows) + "\n", encoding="utf-8")
 
-            self.assertEqual(release.verify_native_source_index(binary, source), (2, 1))
+            self.assertEqual(release.verify_native_source_index(binary, source), (2, 2))
 
     def test_native_source_index_rejects_a_missing_matching_notice(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
             source = root / "source"
-            tools = source / "tools/mpv"
-            tools.mkdir(parents=True)
-            (tools / "build-windows.sh").write_text(
-                f"readonly BUILDER_REVISION='{'a' * 40}'\nreadonly CURL_REVISION='{'b' * 40}'\n",
-                encoding="utf-8")
-            for name in ("remove-x264.patch", "pin-curl.patch", "native-bootstrap.patch"):
-                (tools / name).write_bytes(b"patch")
+            contract = self.native_contract(source)
             binary = root / "binary"
             binary.mkdir()
-            rows = [
-                f"builder_revision\t{'a' * 40}", f"curl_revision\t{'b' * 40}",
-                "native_rust_toolchain\tnightly-2026-10-10", "x264_policy\tencoder removed",
-                f"builder_patch_sha256\t{release.digest(tools / 'remove-x264.patch')}",
-                f"curl_patch_sha256\t{release.digest(tools / 'pin-curl.patch')}",
-                f"bootstrap_patch_sha256\t{release.digest(tools / 'native-bootstrap.patch')}",
-                "container_image\tghcr.io/example/image@sha256:abc",
+            rows = [*contract,
                 f"source_revision\tsrc_packages/codec\thttps://github.com/example/codec\t{'c' * 40}",
                 f"source_sha256\tsrc_packages/codec/LICENSE\t{'d' * 64}",
             ]
@@ -271,34 +273,12 @@ class ReleaseArtifactTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
             source = root / "source"
-            tools = source / "tools/mpv"
-            tools.mkdir(parents=True)
-            builder_revision = "a" * 40
-            curl_revision = "b" * 40
-            (tools / "build-windows.sh").write_text(
-                f"readonly BUILDER_REVISION='{builder_revision}'\n"
-                f"readonly CURL_REVISION='{curl_revision}'\n",
-                encoding="utf-8")
-            patches = {
-                "remove-x264.patch": "x264 exclusion",
-                "pin-curl.patch": "curl source pin",
-                "native-bootstrap.patch": "native source bootstrap",
-            }
-            for name, content in patches.items():
-                (tools / name).write_text(content, encoding="utf-8")
+            contract = self.native_contract(source)
             binary = root / "binary"
             notice = binary / "THIRD_PARTY_LICENSES/codec/LICENSE"
             notice.parent.mkdir(parents=True)
             notice.write_bytes(b"legacy notice\n")
-            rows = [
-                f"builder_revision\t{builder_revision}",
-                f"curl_revision\t{curl_revision}",
-                "native_rust_toolchain\tnightly-2026-10-10",
-                "x264_policy\tencoder removed",
-                f"builder_patch_sha256\t{release.digest(tools / 'remove-x264.patch')}",
-                f"curl_patch_sha256\t{release.digest(tools / 'pin-curl.patch')}",
-                f"bootstrap_patch_sha256\t{release.digest(tools / 'native-bootstrap.patch')}",
-                "container_image\tghcr.io/example/image@sha256:abc",
+            rows = [*contract,
                 f"source_git\tsrc_packages/codec\thttps://github.com/example/codec\t{'c' * 40}",
                 f"source_sha256\tcodec/LICENSE\t{release.digest(notice)}",
             ]
@@ -307,7 +287,7 @@ class ReleaseArtifactTests(unittest.TestCase):
             vendor_notices = binary / "THIRD_PARTY_LICENSES/subrandr/riina-vendor/example-crate"
             vendor_notices.mkdir(parents=True)
             (vendor_notices / "LICENSE-MIT").write_text("license only\n", encoding="utf-8")
-            self.assertEqual(release.verify_native_source_index(binary, source), (1, 1))
+            self.assertEqual(release.verify_native_source_index(binary, source), (1, 2))
 
             (vendor_notices / "src.rs").write_text("bundled source\n", encoding="utf-8")
             with self.assertRaisesRegex(ValueError, "duplicated source trees"):
@@ -317,22 +297,10 @@ class ReleaseArtifactTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
             source = root / "source"
-            tools = source / "tools/mpv"
-            tools.mkdir(parents=True)
-            (tools / "build-windows.sh").write_text(
-                f"readonly BUILDER_REVISION='{'a' * 40}'\nreadonly CURL_REVISION='{'b' * 40}'\n",
-                encoding="utf-8")
-            for name in ("remove-x264.patch", "pin-curl.patch", "native-bootstrap.patch"):
-                (tools / name).write_bytes(b"patch")
+            contract = self.native_contract(source)
             binary = root / "binary"
             binary.mkdir()
-            rows = [
-                f"builder_revision\t{'a' * 40}", f"curl_revision\t{'b' * 40}",
-                "native_rust_toolchain\tnightly-2026-10-10", "x264_policy\tencoder removed",
-                f"builder_patch_sha256\t{release.digest(tools / 'remove-x264.patch')}",
-                f"curl_patch_sha256\t{release.digest(tools / 'pin-curl.patch')}",
-                f"bootstrap_patch_sha256\t{release.digest(tools / 'native-bootstrap.patch')}",
-                "container_image\tghcr.io/example/image@sha256:abc",
+            rows = [*contract,
                 f"source_revision\tsrc_packages/codec\thttps://github.com/example/codec\t{'c' * 40}",
                 f"source_sha256\tsrc_packages/codec/../../escape.c\t{'d' * 64}",
             ]
