@@ -7014,3 +7014,22 @@ date and folder grouping, individual and bulk expansion, and cleanup of
 the exact player process also passed.
 
 - Windows executable SHA-256 `373d61ad0f4eb19e552f5c54409d56c369f221f6d9f7bfd2458179a980c2a1e3`
+
+### Matroska field-order diagnosis (2026-11-27)
+
+The pinned Windows DLL reported both original v210 fixtures as progressive
+with automatic demuxer selection. With libavformat forced, it reported both
+as interlaced and distinguished their field order. The MPEG-2 companion
+fixture reported bottom-first fields on either path. Comparing the 72
+default-path saved frames reproduced six out-of-order v210 bottom-first
+frames with deinterlacing active. Their frame cadence was correct.
+
+A local Linux experiment passed the Matroska track's interlacing and field
+order to the decoder through the native Matroska demuxer. It used mpv
+`41f6a645068483470267271e1d09966ca3b9f413` and libavcodec 62.11.100.
+Both field orders were observed, and all 72 native saved frames matched the
+original moving-field pattern. The experiment used software decoding and
+null output. The pinned Windows DLL still has the six-frame failure.
+[Matroska field-order specification](https://www.rfc-editor.org/rfc/rfc9559.html#section-5.1.4.1.28.2)
+
+- Experimental Linux libmpv SHA-256 `812c884957aca6d4d77cf861cab248baaf0866a8d58d079b32ca4b40896fb62d`
