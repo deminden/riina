@@ -7133,3 +7133,16 @@ debug logging around the old font scanner. The recipe pins fontconfig at
 cache initialization and the Windows directory-header adjustment. Both
 retained patches applied in order to the files from that revision. The two
 commit-pinned packages use the builder's detached-checkout configuration.
+
+### Quick Settings translations (2026-11-27)
+
+The narrow-player widget test switches among the Layout, Video, Subtitles and
+Audio tabs while using the Russian and Arabic catalogs. The longer Russian
+aspect caption increases its segment width. Activating it still sends `Default`
+to playback. The Arabic secondary subtitle row keeps its mixed-script media
+title and sends the native track token. Changing back to English refreshes the
+equalizer's accessible name.
+
+The Windows workspace gate and locked build passed. All 88 widget cases passed,
+along with the existing Windows headless player and Settings pixel baselines.
+Both localization widget tests passed on Linux x86-64.

@@ -154,3 +154,92 @@ fn exercise_welcome_documents() -> Result<(), Box<dyn std::error::Error>> {
     welcome.hide()?;
     Ok(())
 }
+
+#[test]
+fn quick_settings_translate_controls_and_keep_playback_values()
+-> Result<(), Box<dyn std::error::Error>> {
+    use riina_ui::{
+        CatalogRow, CatalogSelection, PlaybackSubtitleState, PlaybackVideoState, PlayerMenuActions,
+        PlayerSidebarActions,
+    };
+    use std::cell::RefCell;
+
+    let app = super::player(5);
+    app.window().set_size(LogicalSize::new(335., 880.));
+    super::connect_settings_tabs(&app);
+    let actions = app.global::<PlayerSidebarActions>();
+    let aspect = Rc::new(RefCell::new(None));
+    let recorded = aspect.clone();
+    actions.on_set_video_aspect(move |value| {
+        recorded.replace(Some(value));
+    });
+    let track = Rc::new(RefCell::new(None));
+    let recorded = track.clone();
+    app.global::<PlayerMenuActions>()
+        .on_select_item(move |kind, token| {
+            recorded.replace(Some((kind, token)));
+        });
+    let video = app.global::<PlaybackVideoState>();
+    video.set_video_aspect_known(true);
+    video.set_video_aspect_presets(ModelRc::new(VecModel::from(
+        riina_core::video_controls::ASPECT_PRESETS
+            .map(slint::SharedString::from)
+            .to_vec(),
+    )));
+    let subtitles = app.global::<PlaybackSubtitleState>();
+    subtitles.set_secondary_subtitle_tracks(ModelRc::new(VecModel::from(vec![
+        CatalogRow {
+            token: "no".into(),
+            label: "<None>".into(),
+            ..CatalogRow::default()
+        },
+        CatalogRow {
+            token: "42".into(),
+            label: "映画 — 04".into(),
+            ..CatalogRow::default()
+        },
+    ])));
+
+    select_bundled_translation("ru")?;
+    super::flush();
+    let compact = ElementHandle::find_by_accessible_label(&app, "Компактный интерфейс")
+        .find(|item| {
+            item.accessible_role() == Some(i_slint_backend_testing::AccessibleRole::Checkbox)
+        })
+        .ok_or("Missing Russian compact interface toggle")?;
+    assert!(compact.size().width > 0.);
+    super::button(&app, "Видео").invoke_accessible_default_action();
+    super::flush();
+    let default_aspect = super::field(&app, "Пропорции кадра: По умолчанию");
+    assert!(default_aspect.size().width > 68.);
+    default_aspect.invoke_accessible_default_action();
+    assert_eq!(aspect.borrow().as_deref(), Some("Default"));
+    assert!(
+        super::field(&app, "Произвольная скорость воспроизведения")
+            .size()
+            .width
+            > 0.
+    );
+
+    select_bundled_translation("ar")?;
+    super::flush();
+    super::button(&app, "الترجمة").invoke_accessible_default_action();
+    super::flush();
+    let none = super::field(&app, "الترجمة الثانوية: <بلا مسار>");
+    assert!(none.size().width > 0.);
+    super::field(&app, "الترجمة الثانوية: 映画 — 04").invoke_accessible_default_action();
+    let track = track.borrow();
+    assert_eq!(
+        track.as_ref().map(|(kind, token)| (*kind, token.as_str())),
+        Some((CatalogSelection::SecondarySubtitle, "42"))
+    );
+
+    super::button(&app, "الصوت").invoke_accessible_default_action();
+    super::flush();
+    assert!(super::field(&app, "ملف موازن الصوت: يدوي").size().width > 0.);
+    select_bundled_translation("en")?;
+    super::flush();
+    assert!(super::field(&app, "Equalizer profile: Manual").size().width > 0.);
+    app.hide()?;
+    Ok(())
+}

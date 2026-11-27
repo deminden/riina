@@ -2,6 +2,7 @@ import { PlayerLayoutState } from "player-layout-state.slint";
 import { ScrollView } from "std-widgets.slint";
 import { Theme } from "theme.slint";
 import { LayoutChoice } from "player-layout-choice.slint";
+import { MediaSettingsText } from "media-settings-text.slint";
 import { ScrollReveal } from "scroll-reveal.slint";
 import { SidebarTab, SidebarSectionTitle, SidebarPositionToggle, SidebarSideChoice, SidebarAction } from "player-sidebar-controls.slint";
 
@@ -96,24 +97,24 @@ export component LayoutSidebarPage inherits ScrollView {
                 theme-symbol := Image { source: @image-url("../../../assets/icons/appearance-half.svg");
                     image-fit: contain; width: 20px; height: 20px;
                     colorize: Theme.sidebar-delay-icon(root.dark-theme); }
-                theme-caption := Text { text: "Theme"; color: Theme.sidebar-heading-text(root.dark-theme);
+                theme-caption := Text { text: @tr("Theme"); color: Theme.sidebar-heading-text(root.dark-theme);
                     font-size: 12px; vertical-alignment: center; horizontal-stretch: 1; }
                 Rectangle {
                     width: 156px; height: 24px; border-radius: 7px;
                     background: Theme.sidebar-appearance-strip(root.dark-theme);
                     HorizontalLayout {
                         padding: 2px; spacing: 2px;
-                        theme-dark := SidebarTab { height: 20px; accent-color: root.platform-windows ? root.windows-accent-color : Theme.sidebar-catalog-accent; accent-foreground: root.platform-windows ? root.windows-accent-foreground : Theme.sidebar-catalog-accent-text; focus-accent-color: root.interactive-accent-color; label: "Dark"; selected: root.appearance-mode == 0; dark-theme: root.dark-theme;
+                        theme-dark := SidebarTab { height: 20px; accent-color: root.platform-windows ? root.windows-accent-color : Theme.sidebar-catalog-accent; accent-foreground: root.platform-windows ? root.windows-accent-foreground : Theme.sidebar-catalog-accent-text; focus-accent-color: root.interactive-accent-color; label: @tr("Dark"); selected: root.appearance-mode == 0; dark-theme: root.dark-theme;
                             segment-index: 0; segment-count: 3;
                             focus-entered(x, y, w, h) => { root.reveal-control(x, y, w, h); }
                             navigate-segment(index) => { root.navigate-theme(index); }
                             activated => { root.appearance-mode = 0; root.layout-settings-changed(); } }
-                        theme-light := SidebarTab { height: 20px; accent-color: root.platform-windows ? root.windows-accent-color : Theme.sidebar-catalog-accent; accent-foreground: root.platform-windows ? root.windows-accent-foreground : Theme.sidebar-catalog-accent-text; focus-accent-color: root.interactive-accent-color; label: "Light"; selected: root.appearance-mode == 1; dark-theme: root.dark-theme;
+                        theme-light := SidebarTab { height: 20px; accent-color: root.platform-windows ? root.windows-accent-color : Theme.sidebar-catalog-accent; accent-foreground: root.platform-windows ? root.windows-accent-foreground : Theme.sidebar-catalog-accent-text; focus-accent-color: root.interactive-accent-color; label: @tr("Light"); selected: root.appearance-mode == 1; dark-theme: root.dark-theme;
                             segment-index: 1; segment-count: 3;
                             focus-entered(x, y, w, h) => { root.reveal-control(x, y, w, h); }
                             navigate-segment(index) => { root.navigate-theme(index); }
                             activated => { root.appearance-mode = 1; root.layout-settings-changed(); } }
-                        theme-auto := SidebarTab { height: 20px; accent-color: root.platform-windows ? root.windows-accent-color : Theme.sidebar-catalog-accent; accent-foreground: root.platform-windows ? root.windows-accent-foreground : Theme.sidebar-catalog-accent-text; focus-accent-color: root.interactive-accent-color; label: "Auto"; selected: root.appearance-mode == 2; dark-theme: root.dark-theme;
+                        theme-auto := SidebarTab { height: 20px; accent-color: root.platform-windows ? root.windows-accent-color : Theme.sidebar-catalog-accent; accent-foreground: root.platform-windows ? root.windows-accent-foreground : Theme.sidebar-catalog-accent-text; focus-accent-color: root.interactive-accent-color; label: @tr("Auto"); selected: root.appearance-mode == 2; dark-theme: root.dark-theme;
                             segment-index: 2; segment-count: 3;
                             focus-entered(x, y, w, h) => { root.reveal-control(x, y, w, h); }
                             navigate-segment(index) => { root.navigate-theme(index); }
@@ -126,27 +127,27 @@ export component LayoutSidebarPage inherits ScrollView {
                 Image { source: @image-url("../../../assets/icons/glass-cards.svg");
                     image-fit: contain; width: 16px; height: 16px;
                     colorize: Theme.sidebar-delay-icon(root.dark-theme); }
-                Text { text: root.surface-material-title; color: Theme.sidebar-heading-text(root.dark-theme);
+                Text { text: MediaSettingsText.material-caption(root.surface-material-title); color: Theme.sidebar-heading-text(root.dark-theme);
                     font-size: 12px; vertical-alignment: center; horizontal-stretch: 1; }
             }
             VerticalLayout {
                 padding-left: 24px;
                 spacing: root.compact-ui ? 5px : 6px;
-                SidebarPositionToggle { label: "On Screen Display";
+                SidebarPositionToggle { label: @tr("On Screen Display");
                     focus-entered(x, y, w, h) => { root.reveal-control(x, y, w, h); }
                     icon: @image-url("../../../assets/icons/overlay-screen.svg");
                     leading: root.liquid-glass-osd; dark-theme: root.dark-theme;
                     mini: true;
                     accent-color: root.platform-windows ? root.windows-accent-color : Theme.sidebar-layout-toggle-accent;
                     changed(value) => { root.liquid-glass-osd = value; root.layout-settings-changed(); } }
-                SidebarPositionToggle { label: "On Screen Controller";
+                SidebarPositionToggle { label: @tr("On Screen Controller");
                     focus-entered(x, y, w, h) => { root.reveal-control(x, y, w, h); }
                     icon: @image-url("../../../assets/icons/osc-panel.svg");
                     leading: root.liquid-glass-osc; dark-theme: root.dark-theme;
                     mini: true;
                     accent-color: root.platform-windows ? root.windows-accent-color : Theme.sidebar-layout-toggle-accent;
                     changed(value) => { root.liquid-glass-osc = value; root.layout-settings-changed(); } }
-                SidebarPositionToggle { label: "Sidebar";
+                SidebarPositionToggle { label: @tr("Sidebar");
                     focus-entered(x, y, w, h) => { root.reveal-control(x, y, w, h); }
                     icon: @image-url("../../../assets/icons/sidebar-panel.svg");
                     leading: root.liquid-glass-sidebar; dark-theme: root.dark-theme;
@@ -163,7 +164,7 @@ export component LayoutSidebarPage inherits ScrollView {
         border-color: Theme.sidebar-card-border(root.dark-theme);
         background: root.sidebar-card-material-fill;
         VerticalLayout { padding: 5px; alignment: center;
-            SidebarPositionToggle { label: "Compact Interface";
+            SidebarPositionToggle { label: @tr("Compact Interface");
                 focus-entered(x, y, w, h) => { root.reveal-control(x, y, w, h); }
                 icon: @image-url("../../../assets/icons/compact-grid.svg");
                 icon-size: 20px;
@@ -180,7 +181,7 @@ export component LayoutSidebarPage inherits ScrollView {
         border-color: Theme.sidebar-card-border(root.dark-theme);
         background: root.sidebar-card-material-fill;
         VerticalLayout { padding: 9px; spacing: 1px; alignment: center;
-            SidebarPositionToggle { label: "Edge-to-Edge Video";
+            SidebarPositionToggle { label: @tr("Edge-to-Edge Video");
                 focus-entered(x, y, w, h) => { root.reveal-control(x, y, w, h); }
                 icon: @image-url("../../../assets/icons/edge-video.svg");
                 icon-size: 20px;
@@ -188,7 +189,7 @@ export component LayoutSidebarPage inherits ScrollView {
                 accent-color: root.platform-windows ? root.windows-accent-color : Theme.sidebar-layout-toggle-accent;
                 height: 23px;
                 changed(value) => { PlayerLayoutState.edge-to-edge-video = value; root.layout-settings-changed(); } }
-            if PlayerLayoutState.edge-to-edge-video : SidebarPositionToggle { label: "Lock Window Aspect Ratio";
+            if PlayerLayoutState.edge-to-edge-video : SidebarPositionToggle { label: @tr("Lock Window Aspect Ratio");
                 focus-entered(x, y, w, h) => { root.reveal-control(x, y, w, h); }
                 icon: @image-url("../../../assets/icons/aspect-lock.svg");
                 icon-size: 20px;
@@ -196,7 +197,7 @@ export component LayoutSidebarPage inherits ScrollView {
                 accent-color: root.platform-windows ? root.windows-accent-color : Theme.sidebar-layout-toggle-accent;
                 height: 23px;
                 changed(value) => { PlayerLayoutState.unlock-window-aspect-ratio = !value; root.layout-settings-changed(); } }
-            if !PlayerLayoutState.edge-to-edge-video : SidebarPositionToggle { label: "Dock Control Bar and Titlebar";
+            if !PlayerLayoutState.edge-to-edge-video : SidebarPositionToggle { label: @tr("Dock Control Bar and Titlebar");
                 focus-entered(x, y, w, h) => { root.reveal-control(x, y, w, h); }
                 icon: @image-url("../../../assets/icons/control.svg");
                 icon-size: 20px;
@@ -207,7 +208,7 @@ export component LayoutSidebarPage inherits ScrollView {
             // IINA exposes this action only while aspect-ratio lock is released.
             if PlayerLayoutState.unlock-window-aspect-ratio : SidebarAction { accent-color: root.interactive-accent-color;
                 focus-entered(x, y, w, h) => { root.reveal-control(x, y, w, h); }
-                label: "Fit Window to Video";
+                label: @tr("Fit Window to Video");
                 icon: @image-url("../../../assets/icons/fit-window-to-video.svg");
                 dark-theme: root.dark-theme;
                 windows-acrylic-surface: root.windows-sidebar-material-active;
@@ -216,7 +217,7 @@ export component LayoutSidebarPage inherits ScrollView {
             }
         }
     }
-    SidebarSectionTitle { width: layout-content.width; label: "On Screen Controller"; dark-theme: root.dark-theme; }
+    SidebarSectionTitle { width: layout-content.width; label: @tr("On Screen Controller"); dark-theme: root.dark-theme; }
     VerticalLayout {
         width: parent.width; cross-axis-alignment: center;
         HorizontalLayout {
@@ -224,19 +225,19 @@ export component LayoutSidebarPage inherits ScrollView {
             // 66-point equal tiles plus two gaps give this 214-point row.
             width: min(214px, layout-content.width);
             spacing: 8px;
-            LayoutChoice { label: "Floating"; position: 0; dark-theme: root.dark-theme; platform-windows: root.platform-windows; accent-color: root.platform-windows ? root.windows-accent-color : Theme.sidebar-layout-choice-accent; card-width: (parent.width - 16px) / 3; selected: PlayerLayoutState.osc-position == 0;
+            LayoutChoice { label: @tr("Floating"); position: 0; dark-theme: root.dark-theme; platform-windows: root.platform-windows; accent-color: root.platform-windows ? root.windows-accent-color : Theme.sidebar-layout-choice-accent; card-width: (parent.width - 16px) / 3; selected: PlayerLayoutState.osc-position == 0;
                 focus-entered(x, y, w, h) => { root.reveal-control(x, y, w, h); }
                 activated => { PlayerLayoutState.osc-position = 0; root.layout-settings-changed(); } }
-            LayoutChoice { label: "Top"; position: 1; dark-theme: root.dark-theme; platform-windows: root.platform-windows; accent-color: root.platform-windows ? root.windows-accent-color : Theme.sidebar-layout-choice-accent; card-width: (parent.width - 16px) / 3; selected: PlayerLayoutState.osc-position == 1;
+            LayoutChoice { label: @tr("Top"); position: 1; dark-theme: root.dark-theme; platform-windows: root.platform-windows; accent-color: root.platform-windows ? root.windows-accent-color : Theme.sidebar-layout-choice-accent; card-width: (parent.width - 16px) / 3; selected: PlayerLayoutState.osc-position == 1;
                 focus-entered(x, y, w, h) => { root.reveal-control(x, y, w, h); }
                 activated => { PlayerLayoutState.osc-position = 1; root.layout-settings-changed(); } }
-            LayoutChoice { label: "Bottom"; position: 2; dark-theme: root.dark-theme; platform-windows: root.platform-windows; accent-color: root.platform-windows ? root.windows-accent-color : Theme.sidebar-layout-choice-accent; card-width: (parent.width - 16px) / 3; selected: PlayerLayoutState.osc-position == 2;
+            LayoutChoice { label: @tr("Bottom"); position: 2; dark-theme: root.dark-theme; platform-windows: root.platform-windows; accent-color: root.platform-windows ? root.windows-accent-color : Theme.sidebar-layout-choice-accent; card-width: (parent.width - 16px) / 3; selected: PlayerLayoutState.osc-position == 2;
                 focus-entered(x, y, w, h) => { root.reveal-control(x, y, w, h); }
                 activated => { PlayerLayoutState.osc-position = 2; root.layout-settings-changed(); } }
         }
         Rectangle { height: 8px; background: transparent; }
     }
-    SidebarSectionTitle { width: layout-content.width; label: "Sidebar Position"; dark-theme: root.dark-theme; }
+    SidebarSectionTitle { width: layout-content.width; label: @tr("Sidebar Position"); dark-theme: root.dark-theme; }
     VerticalLayout { width: parent.width;
     Rectangle {
         width: layout-content.width - (root.compact-ui ? 8px : 12px);
@@ -247,19 +248,19 @@ export component LayoutSidebarPage inherits ScrollView {
         VerticalLayout {
             padding: root.compact-ui ? 10px : 12px;
             spacing: root.compact-ui ? 6px : 10px;
-            SidebarSideChoice { label: "Settings"; icon: @image-url("../../../assets/icons/settings.svg");
+            SidebarSideChoice { label: @tr("Settings"); icon: @image-url("../../../assets/icons/settings.svg");
                 focus-entered(x, y, w, h) => { root.reveal-control(x, y, w, h); }
                 leading: root.settings-at-leading; dark-theme: root.dark-theme;
                 accent-color: root.platform-windows ? root.windows-accent-color : Theme.sidebar-layout-choice-accent;
                 accent-foreground: root.windows-accent-foreground;
                 changed(value) => { root.settings-at-leading = value; root.layout-settings-changed(); } }
-            SidebarSideChoice { label: "Playlist and Chapters"; icon: @image-url("../../../assets/icons/playlist.svg");
+            SidebarSideChoice { label: @tr("Playlist and Chapters"); icon: @image-url("../../../assets/icons/playlist.svg");
                 focus-entered(x, y, w, h) => { root.reveal-control(x, y, w, h); }
                 leading: root.playlist-at-leading; dark-theme: root.dark-theme;
                 accent-color: root.platform-windows ? root.windows-accent-color : Theme.sidebar-layout-choice-accent;
                 accent-foreground: root.windows-accent-foreground;
                 changed(value) => { root.playlist-at-leading = value; root.layout-settings-changed(); } }
-            SidebarSideChoice { label: "Plugins"; icon: @image-url("../../../assets/icons/plugins.svg");
+            SidebarSideChoice { label: @tr("Plugins"); icon: @image-url("../../../assets/icons/plugins.svg");
                 focus-entered(x, y, w, h) => { root.reveal-control(x, y, w, h); }
                 leading: root.plugins-at-leading; dark-theme: root.dark-theme;
                 accent-color: root.platform-windows ? root.windows-accent-color : Theme.sidebar-layout-choice-accent;

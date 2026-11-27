@@ -48,7 +48,7 @@ export component QuickSettingsDelayEditor inherits HorizontalLayout {
         neutral-mark: true;
         tick-count: 21;
         show-value-label: true;
-        value-label: root.display-text + "s";
+        value-label: @tr("{}s", root.display-text);
         draft-changed(value) => { root.draft-text = root.format-preview(value); }
         changed(value) => { root.apply-delay(value); }
         committed(value) => { root.apply-delay(value); }
@@ -61,7 +61,7 @@ export component QuickSettingsDelayEditor inherits HorizontalLayout {
         enabled: root.enabled;
         observed-value: root.display-text;
         secondary: root.lane == DelayLane.secondary-subtitle;
-        hint: root.label + " in seconds";
+        hint: @tr("{} in seconds", root.label);
         focus-entered(top, height) => { root.focus-entered(top, height); }
         committed(text) => { return root.set-delay-text(root.lane, text); }
         editing-finished => { root.editing-finished(); }

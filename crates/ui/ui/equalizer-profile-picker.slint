@@ -26,8 +26,12 @@ export component AudioEqualizerProfilePicker inherits FocusScope {
     width: 150px;
     height: 23px;
     accessible-role: button;
-    accessible-label: "Equalizer profile: " + (profile-names.length > selected-index ? profile-names[selected-index] : "Manual");
+    accessible-label: @tr("Equalizer profile: {}", root.profile-caption(root.selected-index));
     accessible-action-default => { root.open-menu(); }
+
+    pure function profile-caption(index: int) -> string {
+        return index > 0 && index < root.profile-names.length ? root.profile-names[index] : @tr("Manual");
+    }
 
     function open-menu() {
         root.focus();
@@ -49,7 +53,7 @@ export component AudioEqualizerProfilePicker inherits FocusScope {
             name-dialog.close();
             root.focus();
         } else {
-            root.dialog-error = "Could not save this profile.";
+            root.dialog-error = @tr("Could not save this profile.");
         }
     }
     key-pressed(event) => {
@@ -78,7 +82,7 @@ export component AudioEqualizerProfilePicker inherits FocusScope {
             cross-axis-alignment: center;
             Text {
                 horizontal-stretch: 1;
-                text: root.profile-names.length > root.selected-index ? root.profile-names[root.selected-index] : "Manual";
+                text: root.profile-caption(root.selected-index);
                 color: Theme.sidebar-action-text(root.dark-theme, true);
                 font-size: 11px; vertical-alignment: center; overflow: elide;
             }
@@ -90,11 +94,11 @@ export component AudioEqualizerProfilePicker inherits FocusScope {
     }
     choices := ContextMenuArea {
         Menu {
-            MenuItem { title: "Save…"; enabled: root.can-save; activated => { root.begin-name(1); } }
-            MenuItem { title: "Rename…"; enabled: root.can-edit; activated => { root.begin-name(2); } }
-            MenuItem { title: "Remove"; enabled: root.can-delete; activated => { root.delete-requested(); root.focus(); } }
+            MenuItem { title: @tr("Save…"); enabled: root.can-save; activated => { root.begin-name(1); } }
+            MenuItem { title: @tr("Rename…"); enabled: root.can-edit; activated => { root.begin-name(2); } }
+            MenuItem { title: @tr("Remove"); enabled: root.can-delete; activated => { root.delete-requested(); root.focus(); } }
             MenuSeparator {}
-            MenuItem { title: root.profile-names.length > 0 ? root.profile-names[0] : "Manual";
+            MenuItem { title: root.profile-caption(0);
                 checkable: true; checked: root.selected-index == 0;
                 activated => { root.selected(0); root.focus(); } }
             MenuSeparator {}
@@ -127,14 +131,14 @@ export component AudioEqualizerProfilePicker inherits FocusScope {
                 }
                 VerticalLayout {
                     padding: 8px; spacing: 6px;
-                    Text { text: root.dialog-mode == 1 ? "Save equalizer profile" : "Rename equalizer profile";
+                    Text { text: root.dialog-mode == 1 ? @tr("Save equalizer profile") : @tr("Rename equalizer profile");
                         color: Theme.sidebar-action-text(root.dark-theme, true); font-size: 11px; }
                     name-editor := TextInput {
                         text <=> root.draft-name; single-line: true;
                         changed text => { root.dialog-error = root.validate-name(self.text, root.dialog-mode); }
                         accepted => { root.submit-name(); }
                         color: Theme.sidebar-action-text(root.dark-theme, true); font-size: 11px;
-                        accessible-label: root.dialog-mode == 1 ? "New equalizer profile name" : "Rename equalizer profile";
+                        accessible-label: root.dialog-mode == 1 ? @tr("New equalizer profile name") : @tr("Rename equalizer profile");
                         accessible-value: self.text;
                         accessible-action-set-value(value) => { self.text = value; }
                     }
@@ -142,8 +146,8 @@ export component AudioEqualizerProfilePicker inherits FocusScope {
                         color: Theme.equalizer-profile-error(root.dark-theme); font-size: 10px; }
                     HorizontalLayout {
                         Rectangle { horizontal-stretch: 1; }
-                        Button { text: "Cancel"; clicked => { root.cancel-name(); } }
-                        Button { text: "Save"; enabled: root.dialog-error == "";
+                        Button { text: @tr("Cancel"); clicked => { root.cancel-name(); } }
+                        Button { text: @tr("Save"); enabled: root.dialog-error == "";
                             clicked => { root.submit-name(); } }
                     }
                 }

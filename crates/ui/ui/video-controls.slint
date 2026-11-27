@@ -57,7 +57,7 @@ component VideoSegment inherits Rectangle {
             color: root.selected ? root.accent-foreground : root.enabled
                 ? (Theme.sidebar-action-text(root.dark-theme, true))
                 : (Theme.sidebar-action-text(root.dark-theme, false));
-            vertical-alignment: center; }
+            vertical-alignment: center; overflow: elide; }
     }
     if root.keyboard-focused : Rectangle { background: transparent; border-radius: 3px;
         border-width: 1px; border-color: root.focus-accent-color; }
@@ -138,7 +138,7 @@ component ScrollArrow inherits Rectangle {
     // hidden, as in IINA's constrained NSButton/scroll-view pair.
     opacity: root.active ? 1 : 0;
     accessible-role: button;
-    accessible-label: root.toward-end ? "Scroll to more choices" : "Scroll to earlier choices";
+    accessible-label: root.toward-end ? @tr("Scroll to more choices") : @tr("Scroll to earlier choices");
     accessible-enabled: root.active;
     accessible-action-default => { if root.active { root.clicked(root.toward-end); } }
     Text { text: root.toward-end ? "›" : "‹"; font-size: 16px; font-weight: 600;
@@ -205,6 +205,9 @@ export component VideoControls inherits Rectangle {
     in property <color> focus-accent-color: Theme.player-focus-accent;
     in property <color> card-fill: Theme.sidebar-card-default-fill;
     in property <color> card-edge: Theme.sidebar-card-default-border;
+    private property <length> aspect-default-width: max(68px, aspect-default-caption.preferred-width + 8px);
+    private property <length> crop-none-width: max(56.5px, crop-none-caption.preferred-width + 8px);
+    private property <length> crop-custom-width: max(76px, crop-custom-caption.preferred-width + 8px);
     // IINA animates its horizontal preset rails over 300 ms when the trailing
     // or leading chevron is pressed. Keep the destination separate so Slint
     // interpolates the ScrollView offset instead of jumping to the edge.
@@ -217,18 +220,21 @@ export component VideoControls inherits Rectangle {
     border-width: 1px;
     border-color: root.card-edge;
     background: root.card-fill;
+    aspect-default-caption := Text { visible: false; font-size: 12px; text: @tr("Default"); }
+    crop-none-caption := Text { visible: false; font-size: 12px; text: @tr("None"); }
+    crop-custom-caption := Text { visible: false; font-size: 12px; text: @tr("Custom"); }
     VerticalLayout {
         padding: root.compact-ui ? 10px : 12px;
         spacing: root.compact-ui ? 8px : 12px;
         HorizontalLayout { height: 16px; spacing: 8px;
             Image { source: @image-url("../../../assets/icons/video-aspect-ratio.svg");
                 width: 16px; height: 16px; colorize: Theme.sidebar-delay-icon(root.dark-theme); }
-            Text { text: "Aspect Ratio"; font-size: 12px; font-weight: 700;
+            Text { text: @tr("Aspect Ratio"); font-size: 12px; font-weight: 700;
                 color: Theme.sidebar-heading-text(root.dark-theme); vertical-alignment: center; }
         }
         aspect-keys := VideoPresetKeys {
             height: 24px;
-            label: "Aspect ratio presets";
+            label: @tr("Aspect ratio presets");
             enabled: root.aspect-enabled && root.aspect-presets.length > 0;
             count: root.aspect-presets.length; observed-index: root.aspect-index;
             chosen(index) => { root.aspect-changed(root.aspect-presets[index]); }
@@ -243,8 +249,8 @@ export component VideoControls inherits Rectangle {
                     HorizontalLayout { spacing: 8px;
                         Rectangle {
                             // REF-24's native segments measure 68/45/50/56/49/45
-                            // points in English; preserve each label's width.
-                            width: 314px;
+                            // points in English. Allow longer translated captions.
+                            width: 246px + root.aspect-default-width;
                             height: 24px; border-radius: 4px; border-width: 1px;
                             border-color: Theme.sidebar-material-border(root.dark-theme);
                             background: root.windows-acrylic-surface
@@ -252,10 +258,11 @@ export component VideoControls inherits Rectangle {
                                 : (Theme.video-preset-rail-surface(root.dark-theme));
                             HorizontalLayout { x: 1px; y: 0px; spacing: 0px;
                                 for label[index] in root.aspect-presets : VideoSegment {
-                                    width: index == 0 ? 68px : index == 1 ? 45px
+                                    width: index == 0 ? root.aspect-default-width : index == 1 ? 45px
                                         : index == 2 ? 50px : index == 3 ? 56px
                                         : index == 4 ? 49px : 45px;
-                                    label: label; hint: "Aspect ratio " + label;
+                                    label: label == "Default" ? @tr("Default") : label;
+                                    hint: @tr("Aspect ratio {}", self.label);
                                     index: index;
                                     enabled: root.aspect-enabled;
                                     wheel-scroll-enabled: true;
@@ -278,7 +285,7 @@ export component VideoControls inherits Rectangle {
                         }
                         custom := QuickSettingsInput {
                             width: 40px; height: 24px; horizontal-inset: 3px;
-                            hint: "Custom aspect ratio";
+                            hint: @tr("Custom aspect ratio");
                             enabled: root.aspect-enabled;
                             accent-color: root.focus-accent-color;
                             dark-theme: root.dark-theme;
@@ -315,12 +322,12 @@ export component VideoControls inherits Rectangle {
         HorizontalLayout { height: 16px; spacing: 8px;
             Image { source: @image-url("../../../assets/icons/video-crop.svg");
                 width: 16px; height: 16px; colorize: Theme.sidebar-delay-icon(root.dark-theme); }
-            Text { text: "Crop"; font-size: 12px; font-weight: 700;
+            Text { text: @tr("Crop"); font-size: 12px; font-weight: 700;
                 color: Theme.sidebar-heading-text(root.dark-theme); vertical-alignment: center; }
         }
         crop-keys := VideoPresetKeys {
             height: 24px;
-            label: "Crop presets";
+            label: @tr("Crop presets");
             enabled: root.crop-enabled && root.crop-presets.length > 0;
             count: root.crop-presets.length; observed-index: root.crop-index;
             last-opens-editor: true;
@@ -337,7 +344,7 @@ export component VideoControls inherits Rectangle {
                     Rectangle {
                         // REF-24's six standard labels measure 57/45/50/56/49/45
                         // points; the 76-point Custom segment remains scrollable.
-                        width: 378.5px;
+                        width: 246px + root.crop-none-width + root.crop-custom-width;
                         height: 24px; border-radius: 4px; border-width: 1px;
                         border-color: Theme.sidebar-material-border(root.dark-theme);
                         background: root.windows-acrylic-surface
@@ -345,10 +352,11 @@ export component VideoControls inherits Rectangle {
                             : (Theme.video-preset-rail-surface(root.dark-theme));
                         HorizontalLayout { x: 1px; y: 0px; spacing: 0px;
                             for label[index] in root.crop-presets : VideoSegment {
-                                width: index == 6 ? 76px : index == 0 ? 56.5px
+                                width: index == 6 ? root.crop-custom-width : index == 0 ? root.crop-none-width
                                     : index == 1 ? 45px : index == 2 ? 50px
                                     : index == 3 ? 56px : index == 4 ? 49px : 45px;
-                                label: label; hint: "Crop " + label;
+                                label: label == "None" ? @tr("None") : label == "Custom" ? @tr("Custom") : label;
+                                hint: @tr("Crop {}", self.label);
                                 index: index;
                                 enabled: root.crop-enabled;
                                 wheel-scroll-enabled: true;
@@ -389,7 +397,7 @@ export component VideoControls inherits Rectangle {
         HorizontalLayout { height: 16px; spacing: 8px;
             Image { source: @image-url("../../../assets/icons/video-rotate.svg");
                 width: 16px; height: 16px; colorize: Theme.sidebar-delay-icon(root.dark-theme); }
-            Text { text: "Rotation"; font-size: 12px; font-weight: 700;
+            Text { text: @tr("Rotation"); font-size: 12px; font-weight: 700;
                 color: Theme.sidebar-heading-text(root.dark-theme); vertical-alignment: center; }
         }
         rotation-rail := Rectangle {
@@ -400,7 +408,7 @@ export component VideoControls inherits Rectangle {
                 : (Theme.video-preset-rail-surface(root.dark-theme));
             rotation-keys := VideoPresetKeys {
                 width: parent.width; height: parent.height;
-                label: "Rotation presets";
+                label: @tr("Rotation presets");
                 enabled: root.rotation-enabled;
                 count: 4; observed-index: root.rotation-index;
                 chosen(index) => { root.rotation-changed(index * 90); }
@@ -408,7 +416,7 @@ export component VideoControls inherits Rectangle {
                 HorizontalLayout { x: 1px; y: 0px; spacing: 0px;
                     for label[index] in ["0°", "90°", "180°", "270°"] : VideoSegment {
                         width: (rotation-rail.width - 2px) / 4;
-                        label: label; hint: "Video rotation " + label;
+                        label: label; hint: @tr("Video rotation {}", label);
                         index: index;
                         enabled: root.rotation-enabled;
                         dark-theme: root.dark-theme;
@@ -443,7 +451,7 @@ export component HardwareDecodingControls inherits Rectangle {
             Image { source: @image-url("../../../assets/icons/hardware-decoding.svg");
                 width: 16px; height: 16px;
                 colorize: Theme.sidebar-delay-icon(root.dark-theme); }
-            Text { text: "Hardware Decoding"; font-size: 13px;
+            Text { text: @tr("Hardware Decoding"); font-size: 13px;
                 color: Theme.sidebar-heading-text(root.dark-theme);
                 vertical-alignment: center; horizontal-stretch: 1; }
             // REF-24's 2× capture measures a 44×20-point switch and a
@@ -453,7 +461,7 @@ export component HardwareDecodingControls inherits Rectangle {
                     : (root.windows-acrylic-surface
                         ? (Theme.player-tool-hover(root.dark-theme, true))
                         : (Theme.video-switch-hover(root.dark-theme)));
-                accessible-role: switch; accessible-label: "Hardware Decoding";
+                accessible-role: switch; accessible-label: @tr("Hardware Decoding");
                 accessible-enabled: root.hardware-known;
                 accessible-checkable: true; accessible-checked: root.hardware-enabled;
                 accessible-action-default => { if root.hardware-known { root.hardware-changed(!root.hardware-enabled); } }
@@ -502,7 +510,7 @@ export component HdrControls inherits Rectangle {
         Image { source: @image-url("../../../assets/icons/hdr-sun.svg");
             width: 16px; height: 16px;
             colorize: Theme.sidebar-delay-icon(root.dark-theme); }
-        Text { text: "HDR"; font-size: 13px; color: Theme.sidebar-heading-text(root.dark-theme);
+        Text { text: @tr("HDR"); font-size: 13px; color: Theme.sidebar-heading-text(root.dark-theme);
             vertical-alignment: center; horizontal-stretch: 1; }
         // The pinned HDR row uses a small NSSwitch. At 2×, the HDR reference
         // measures its track at 72×32 px and the selected thumb at 42×24 px.
@@ -511,7 +519,7 @@ export component HdrControls inherits Rectangle {
                 : (root.windows-acrylic-surface
                     ? (Theme.player-tool-hover(root.dark-theme, true))
                     : (Theme.video-switch-hover(root.dark-theme)));
-            accessible-role: switch; accessible-label: "HDR";
+            accessible-role: switch; accessible-label: @tr("HDR");
             accessible-enabled: root.hdr-available;
             accessible-checkable: true; accessible-checked: root.hdr-enabled;
             accessible-action-default => {

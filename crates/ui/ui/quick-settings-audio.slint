@@ -45,7 +45,7 @@ export component AudioQuickSettingsPage inherits VerticalLayout {
         focus-entered(top, height) => { root.focus-entered(top, height); }
         width: root.card-width;
         tracks: PlaybackAudioState.audio-tracks; observed-index: PlaybackAudioState.audio-track-selected-index;
-        track-kind: 1; hint: "Audio tracks"; enabled: root.loaded;
+        track-kind: 1; hint: @tr("Audio tracks"); enabled: root.loaded;
         dark-theme: root.dark-theme;
         accent-color: root.platform-windows ? root.windows-accent-color : Theme.sidebar-catalog-accent;
         focus-accent-color: root.interactive-accent-color;
@@ -68,8 +68,8 @@ export component AudioQuickSettingsPage inherits VerticalLayout {
             padding-top: 11px; padding-bottom: 11px;
             QuickSettingsAction {
                 height: 24px;
-                label: "Load External Audio Track…";
-                hint: "Load external audio";
+                label: @tr("Load External Audio Track…");
+                hint: @tr("Load external audio");
                 fill: root.sidebar-control-material-fill;
                 dark-theme: root.dark-theme;
                 focus-accent-color: root.interactive-accent-color;
@@ -93,10 +93,10 @@ export component AudioQuickSettingsPage inherits VerticalLayout {
             Image { source: @image-url("../../../assets/icons/delay.svg");
                 image-fit: contain; width: 16px; height: 16px;
                 colorize: Theme.sidebar-heading-text(root.dark-theme); }
-            Text { text: "Delay"; color: Theme.sidebar-heading-text(root.dark-theme);
+            Text { text: @tr("Delay"); color: Theme.sidebar-heading-text(root.dark-theme);
                 font-size: 12px; font-weight: 700; vertical-alignment: center; }
             Rectangle { horizontal-stretch: 1; background: transparent; }
-            Tool { accent-color: root.interactive-accent-color; dark-theme: root.dark-theme; label: "↺"; hint: "Reset audio delay";
+            Tool { accent-color: root.interactive-accent-color; dark-theme: root.dark-theme; label: "↺"; hint: @tr("Reset audio delay");
                 focus-entered(top, height) => { root.focus-entered(top, height); }
                 visible: PlaybackAudioState.audio-delay != 0;
                 enabled: root.loaded && PlaybackAudioState.audio-delay != 0;
@@ -104,7 +104,7 @@ export component AudioQuickSettingsPage inherits VerticalLayout {
         }
         delay-editor := QuickSettingsDelayEditor {
             lane: DelayLane.audio;
-            label: "Audio delay";
+            label: @tr("Audio delay");
             delay: PlaybackAudioState.audio-delay;
             delay-text: PlaybackAudioState.audio-delay-text;
             enabled: root.loaded;
@@ -139,7 +139,7 @@ export component AudioQuickSettingsPage inherits VerticalLayout {
         width: root.card-width;
         height: 28px; background: transparent;
         accessible-role: checkbox;
-        accessible-label: "Allow volume boost (up to 200%)";
+        accessible-label: @tr("Allow volume boost (up to 200%)");
         accessible-checkable: true;
         accessible-checked: root.volume-boost;
         accessible-action-default => { delay-editor.focus-slider(); root.set-volume-boost(false); }
@@ -152,7 +152,7 @@ export component AudioQuickSettingsPage inherits VerticalLayout {
                 horizontal-alignment: center; vertical-alignment: center; font-size: 12px; }
         }
         Text { x: 26px; width: parent.width - 26px;
-            text: "Allow volume boost (up to 200%)";
+            text: @tr("Allow volume boost (up to 200%)");
             color: Theme.sidebar-heading-text(root.dark-theme);
             font-size: 12px; vertical-alignment: center; }
         if boost-focus.has-focus : Rectangle { border-width: 1px;
@@ -186,7 +186,7 @@ export component AudioQuickSettingsPage inherits VerticalLayout {
             Image { source: @image-url("../../../assets/icons/equalizer.svg");
                 image-fit: contain; width: 16px; height: 16px;
                 colorize: Theme.sidebar-heading-text(root.dark-theme); }
-            Text { text: "Equalizer"; color: Theme.sidebar-heading-text(root.dark-theme); font-size: 12px;
+            Text { text: @tr("Equalizer"); color: Theme.sidebar-heading-text(root.dark-theme); font-size: 12px;
                 font-weight: 700; vertical-alignment: center; }
         }
         AudioEqualizerProfilePicker {
@@ -229,7 +229,7 @@ export component AudioQuickSettingsPage inherits VerticalLayout {
                     }
                     dark-theme: root.dark-theme; minimum: -12; maximum: 12;
                     step: 0.1; value: PlaybackAudioState.audio-equalizer-values[index];
-                    hint: label + " Hz equalizer gain";
+                    hint: @tr("{} Hz equalizer gain", label);
                     changed(value) => { root.set-audio-equalizer(index, value); }
                 }
             }

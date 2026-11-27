@@ -198,7 +198,7 @@ export component SidebarSideChoice inherits SidebarFocusRegion {
     focus-width: switch-track.width;
     height: 24px;
     accessible-role: checkbox;
-    accessible-label: label + " on leading side";
+    accessible-label: @tr("{} on leading side", label);
     accessible-checkable: true;
     accessible-checked: leading;
     accessible-action-default => { changed(!leading); }

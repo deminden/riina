@@ -55,7 +55,7 @@ export component PlayerSidebarTabs inherits HorizontalLayout {
         circular-size: PlayerAppearance.compact-ui ? 28px : 36px;
         windows-acrylic-surface: PlayerAppearance.windows-sidebar-material-active;
         icon: @image-url("../../../assets/icons/chevron-forward.svg");
-        hint: "Close sidebar";
+        hint: @tr("Close sidebar");
         activated => { root.close-pane(); }
     }
     // Tabs switch the visible pane without closing it or changing catalog tokens.
@@ -73,7 +73,7 @@ export component PlayerSidebarTabs inherits HorizontalLayout {
         chosen(pane) => { root.select-playlist-pane(pane); }
     }
     if root.pane-kind == 7 : HorizontalLayout {
-        Text { text: "Plugins"; color: Theme.sidebar-heading-text(PlayerAppearance.dark-theme);
+        Text { text: @tr("Plugins"); color: Theme.sidebar-heading-text(PlayerAppearance.dark-theme);
             font-size: 12px; font-weight: 700; vertical-alignment: center; }
         if PlayerSidebarState.plugin-sidebar-labels.length > 0 : ComboBox {
             horizontal-stretch: 1;
@@ -93,7 +93,7 @@ export component PlayerSidebarTabs inherits HorizontalLayout {
         circular-size: PlayerAppearance.compact-ui ? 28px : 36px;
         windows-acrylic-surface: PlayerAppearance.windows-sidebar-material-active;
         icon: @image-url("../../../assets/icons/chevron-backward.svg");
-        hint: "Close sidebar";
+        hint: @tr("Close sidebar");
         activated => { root.close-pane(); }
     }
 }

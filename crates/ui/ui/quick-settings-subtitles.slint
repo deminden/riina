@@ -62,7 +62,7 @@ export component SubtitleQuickSettingsPage inherits VerticalLayout {
     width: root.sidebar-width - (root.compact-ui ? 28px : 32px);
     spacing: root.compact-ui ? 16px : 18px;
     VerticalLayout { width: parent.width; spacing: root.compact-ui ? 8px : 12px;
-        SubtitleVisibilityRow { label: "Primary"; number: "1";
+        SubtitleVisibilityRow { label: @tr("Primary"); number: "1";
             focus-entered(top, height) => { root.focus-entered(top, height); }
             checked: PlaybackSubtitleState.subtitle-visible; enabled: root.loaded;
             dark-theme: root.dark-theme;
@@ -72,7 +72,8 @@ export component SubtitleQuickSettingsPage inherits VerticalLayout {
         QuickSettingsTrackList { width: parent.width; tracks: PlaybackSubtitleState.subtitle-tracks;
             focus-entered(top, height) => { root.focus-entered(top, height); }
             observed-index: PlaybackSubtitleState.subtitle-track-selected-index;
-            hint: "Primary subtitle tracks"; label-prefix: "Primary subtitle: ";
+            hint: @tr("Primary subtitle tracks");
+            describe-track(label) => { return @tr("Primary subtitle: {}", label); }
             focus-accent-color: root.interactive-accent-color;
             track-kind: 2; dark-theme: root.dark-theme; enabled: root.loaded;
             accent-color: root.platform-windows ? root.windows-accent-color : Theme.sidebar-catalog-accent;
@@ -81,7 +82,7 @@ export component SubtitleQuickSettingsPage inherits VerticalLayout {
             selected(kind, token) => { root.track-selected(kind, token); } }
     }
     VerticalLayout { width: parent.width; spacing: root.compact-ui ? 8px : 12px;
-        SubtitleVisibilityRow { label: "Secondary"; number: "2";
+        SubtitleVisibilityRow { label: @tr("Secondary"); number: "2";
             focus-entered(top, height) => { root.focus-entered(top, height); }
             checked: PlaybackSubtitleState.secondary-subtitle-visible;
             enabled: root.loaded && PlaybackSubtitleState.secondary-subtitle-visibility-known;
@@ -93,7 +94,8 @@ export component SubtitleQuickSettingsPage inherits VerticalLayout {
             focus-entered(top, height) => { root.focus-entered(top, height); }
             tracks: PlaybackSubtitleState.secondary-subtitle-tracks;
             observed-index: PlaybackSubtitleState.secondary-subtitle-track-selected-index;
-            hint: "Secondary subtitle tracks"; label-prefix: "Secondary subtitle: ";
+            hint: @tr("Secondary subtitle tracks");
+            describe-track(label) => { return @tr("Secondary subtitle: {}", label); }
             focus-accent-color: root.interactive-accent-color; track-kind: 5;
             dark-theme: root.dark-theme; enabled: root.loaded;
             accent-color: root.platform-windows ? root.windows-accent-color : Theme.sidebar-catalog-accent;
@@ -112,8 +114,8 @@ export component SubtitleQuickSettingsPage inherits VerticalLayout {
                 HorizontalLayout {
                     alignment: stretch;
                     QuickSettingsAction {
-                        label: "Load Subtitle…";
-                        hint: "Load subtitle";
+                        label: @tr("Load Subtitle…");
+                        hint: @tr("Load subtitle");
                         dark-theme: root.dark-theme;
                         focus-accent-color: root.interactive-accent-color;
                         enabled: root.loaded;
@@ -143,8 +145,8 @@ export component SubtitleQuickSettingsPage inherits VerticalLayout {
                 }
             }
             QuickSettingsAction {
-                label: "Search Online…";
-                hint: "Search online subtitles";
+                label: @tr("Search Online…");
+                hint: @tr("Search online subtitles");
                 fill: root.sidebar-control-material-fill;
                 dark-theme: root.dark-theme;
                 focus-accent-color: root.interactive-accent-color;
@@ -164,7 +166,7 @@ export component SubtitleQuickSettingsPage inherits VerticalLayout {
                 background: Theme.sidebar-delay-target-surface(root.dark-theme);
                 HorizontalLayout { padding: 2px; spacing: 1px;
                     primary-lane := SubtitleLaneSegment { focus-accent-color: root.interactive-accent-color;
-                        label: "Primary"; hint: "Edit primary subtitle timing and position";
+                        label: @tr("Primary"); hint: @tr("Edit primary subtitle timing and position");
                         focus-entered(top, height) => { root.focus-entered(top, height); }
                         selected: !PlaybackSubtitleState.edit-secondary-subtitle;
                         dark-theme: root.dark-theme;
@@ -174,7 +176,7 @@ export component SubtitleQuickSettingsPage inherits VerticalLayout {
                         activated => { root.select-delay-lane(false); }
                         navigate(secondary) => { root.focus-delay-lane(secondary); } }
                     secondary-lane := SubtitleLaneSegment { focus-accent-color: root.interactive-accent-color;
-                        label: "Secondary"; hint: "Edit secondary subtitle timing and position";
+                        label: @tr("Secondary"); hint: @tr("Edit secondary subtitle timing and position");
                         focus-entered(top, height) => { root.focus-entered(top, height); }
                         selected: PlaybackSubtitleState.edit-secondary-subtitle;
                         dark-theme: root.dark-theme;
@@ -188,12 +190,12 @@ export component SubtitleQuickSettingsPage inherits VerticalLayout {
             HorizontalLayout { height: 20px; spacing: 8px;
                 Image { source: @image-url("../../../assets/icons/resume-history.svg");
                     width: 14px; height: 14px; colorize: Theme.sidebar-delay-icon(root.dark-theme); }
-                Text { text: "Delay"; color: Theme.sidebar-detail-text(root.dark-theme);
+                Text { text: @tr("Delay"); color: Theme.sidebar-detail-text(root.dark-theme);
                     font-size: 11px; vertical-alignment: center; }
                 Rectangle { horizontal-stretch: 1; background: transparent; }
                 Tool { accent-color: root.interactive-accent-color; dark-theme: root.dark-theme; label: "↺";
                     focus-entered(top, height) => { root.focus-entered(top, height); }
-                    hint: root.secondary ? "Reset secondary subtitle delay" : "Reset subtitle delay";
+                    hint: root.secondary ? @tr("Reset secondary subtitle delay") : @tr("Reset subtitle delay");
                     visible: root.delay-enabled && root.selected-delay != 0;
                     enabled: self.visible;
                     windows-acrylic-surface: root.windows-sidebar-material-active;
@@ -205,7 +207,7 @@ export component SubtitleQuickSettingsPage inherits VerticalLayout {
             }
             delay-editor := QuickSettingsDelayEditor {
                 lane: root.secondary ? DelayLane.secondary-subtitle : DelayLane.primary-subtitle;
-                label: root.secondary ? "Secondary subtitle delay" : "Subtitle delay";
+                label: root.secondary ? @tr("Secondary subtitle delay") : @tr("Subtitle delay");
                 delay: root.selected-delay;
                 delay-text: root.secondary
                     ? PlaybackSubtitleState.secondary-subtitle-delay-text : PlaybackSubtitleState.subtitle-delay-text;
@@ -233,7 +235,7 @@ export component SubtitleQuickSettingsPage inherits VerticalLayout {
             }
             HorizontalLayout { height: 16px; spacing: 6px;
                 Text { text: "↕"; color: Theme.sidebar-detail-text(root.dark-theme); font-size: 12px; }
-                Text { text: "Position"; color: Theme.sidebar-detail-text(root.dark-theme);
+                Text { text: @tr("Position"); color: Theme.sidebar-detail-text(root.dark-theme);
                     font-size: 11px; vertical-alignment: center; }
             }
             // IINA exposes a 0–100 slider even when mpv accepts larger values.
@@ -242,7 +244,7 @@ export component SubtitleQuickSettingsPage inherits VerticalLayout {
                 value: PlaybackSubtitleState.edit-secondary-subtitle ? PlaybackSubtitleState.secondary-subtitle-position : PlaybackSubtitleState.subtitle-position;
                 enabled: root.loaded && (PlaybackSubtitleState.edit-secondary-subtitle
                 ? PlaybackSubtitleState.secondary-subtitle-position-known : PlaybackSubtitleState.subtitle-position-known);
-                hint: PlaybackSubtitleState.edit-secondary-subtitle ? "Secondary subtitle position" : "Subtitle position";
+                hint: PlaybackSubtitleState.edit-secondary-subtitle ? @tr("Secondary subtitle position") : @tr("Subtitle position");
                 changed(value) => { root.set-subtitle-position(PlaybackSubtitleState.edit-secondary-subtitle, round(value)); } }
         }
     }
@@ -253,24 +255,24 @@ export component SubtitleQuickSettingsPage inherits VerticalLayout {
         background: root.sidebar-card-material-fill;
         VerticalLayout { padding: 8px; spacing: 8px;
             HorizontalLayout { height: 30px; spacing: 8px;
-                Text { text: "Scale"; color: Theme.sidebar-heading-text(root.dark-theme);
+                Text { text: @tr("Scale"); color: Theme.sidebar-heading-text(root.dark-theme);
                     font-size: 12px; font-weight: 700; vertical-alignment: center; }
                 PlayerSlider { dark-theme: root.dark-theme; minimum: -5; maximum: 5; step: 0.05; value: PlaybackSubtitleState.subtitle-scale-slider;
                     focus-entered(top, height) => { root.focus-entered(top, height); }
-                    enabled: root.loaded && PlaybackSubtitleState.subtitle-scale-known; hint: "Subtitle text scale";
+                    enabled: root.loaded && PlaybackSubtitleState.subtitle-scale-known; hint: @tr("Subtitle text scale");
                     changed(value) => { root.set-subtitle-scale-slider(value); } }
-                Tool { accent-color: root.interactive-accent-color; dark-theme: root.dark-theme; label: "↺"; hint: "Reset subtitle text scale";
+                Tool { accent-color: root.interactive-accent-color; dark-theme: root.dark-theme; label: "↺"; hint: @tr("Reset subtitle text scale");
                     focus-entered(top, height) => { root.focus-entered(top, height); }
                     enabled: root.loaded && PlaybackSubtitleState.subtitle-scale-known;
                     activated => { root.set-subtitle-scale-slider(0); } }
             }
             HorizontalLayout { height: 30px; spacing: 8px;
-                Text { text: "Font"; color: Theme.sidebar-heading-text(root.dark-theme);
+                Text { text: @tr("Font"); color: Theme.sidebar-heading-text(root.dark-theme);
                     font-size: 12px; font-weight: 700; vertical-alignment: center; }
                 Rectangle { horizontal-stretch: 1; background: transparent; }
                 Tool { accent-color: root.interactive-accent-color; dark-theme: root.dark-theme;
                     width: clamp(parent.width - 110px, 0px, 140px);
-                    label: PlaybackSubtitleState.subtitle-font; hint: "Choose subtitle font";
+                    label: PlaybackSubtitleState.subtitle-font; hint: @tr("Choose subtitle font");
                     elide-label: true;
                     focus-entered(top, height) => { root.focus-entered(top, height); }
                     enabled: root.loaded && PlaybackSubtitleState.subtitle-font-known;
@@ -281,7 +283,7 @@ export component SubtitleQuickSettingsPage inherits VerticalLayout {
                     observed-value: PlaybackSubtitleState.subtitle-font-size;
                     value-known: PlaybackSubtitleState.subtitle-font-size-known;
                     enabled: root.loaded && PlaybackSubtitleState.subtitle-font-size-known;
-                    hint: "Subtitle font size";
+                    hint: @tr("Subtitle font size");
                     dark-theme: root.dark-theme;
                     focus-accent-color: root.interactive-accent-color;
                     windows-acrylic-surface: root.windows-sidebar-material-active;
@@ -289,10 +291,10 @@ export component SubtitleQuickSettingsPage inherits VerticalLayout {
                 }
             }
             HorizontalLayout { height: 30px; spacing: 8px;
-                Text { text: "Color"; color: Theme.sidebar-heading-text(root.dark-theme);
+                Text { text: @tr("Color"); color: Theme.sidebar-heading-text(root.dark-theme);
                     font-size: 12px; font-weight: 700; vertical-alignment: center; }
                 Rectangle { horizontal-stretch: 1; background: transparent; }
-                SubtitleColorWell { observed-color: PlaybackSubtitleState.subtitle-text-color; hint: "Subtitle text color";
+                SubtitleColorWell { observed-color: PlaybackSubtitleState.subtitle-text-color; hint: @tr("Subtitle text color");
                     native-color-panel: root.platform-macos; color-target: SubtitleColorTarget.text;
                     focus-entered(top, height) => { root.focus-entered(top, height); }
                     enabled: root.loaded && PlaybackSubtitleState.subtitle-text-color-known;
@@ -300,7 +302,7 @@ export component SubtitleQuickSettingsPage inherits VerticalLayout {
                     edited(value) => { root.set-subtitle-color(self.color-target, value); } }
             }
             HorizontalLayout { height: 30px; spacing: 8px;
-                Text { text: "Border"; color: Theme.sidebar-heading-text(root.dark-theme);
+                Text { text: @tr("Border"); color: Theme.sidebar-heading-text(root.dark-theme);
                     font-size: 12px; font-weight: 700; vertical-alignment: center; }
                 Rectangle { horizontal-stretch: 1; background: transparent; }
                 SubtitleSizePicker {
@@ -309,13 +311,13 @@ export component SubtitleQuickSettingsPage inherits VerticalLayout {
                     observed-value: PlaybackSubtitleState.subtitle-outline-size;
                     value-known: PlaybackSubtitleState.subtitle-outline-size-known;
                     enabled: root.loaded && PlaybackSubtitleState.subtitle-outline-size-known;
-                    hint: "Subtitle outline width";
+                    hint: @tr("Subtitle outline width");
                     dark-theme: root.dark-theme;
                     focus-accent-color: root.interactive-accent-color;
                     windows-acrylic-surface: root.windows-sidebar-material-active;
                     selected(value) => { root.set-subtitle-outline-size(value); }
                 }
-                SubtitleColorWell { observed-color: PlaybackSubtitleState.subtitle-border-color; hint: "Subtitle border color";
+                SubtitleColorWell { observed-color: PlaybackSubtitleState.subtitle-border-color; hint: @tr("Subtitle border color");
                     native-color-panel: root.platform-macos; color-target: SubtitleColorTarget.outline;
                     focus-entered(top, height) => { root.focus-entered(top, height); }
                     enabled: root.loaded && PlaybackSubtitleState.subtitle-border-color-known;
@@ -323,10 +325,10 @@ export component SubtitleQuickSettingsPage inherits VerticalLayout {
                     edited(value) => { root.set-subtitle-color(self.color-target, value); } }
             }
             HorizontalLayout { height: 30px; spacing: 8px;
-                Text { text: "Shadow"; color: Theme.sidebar-heading-text(root.dark-theme);
+                Text { text: @tr("Shadow"); color: Theme.sidebar-heading-text(root.dark-theme);
                     font-size: 12px; font-weight: 700; vertical-alignment: center; }
                 Rectangle { horizontal-stretch: 1; background: transparent; }
-                SubtitleColorWell { observed-color: PlaybackSubtitleState.subtitle-shadow-color; hint: "Subtitle shadow color";
+                SubtitleColorWell { observed-color: PlaybackSubtitleState.subtitle-shadow-color; hint: @tr("Subtitle shadow color");
                     native-color-panel: root.platform-macos; color-target: SubtitleColorTarget.background;
                     focus-entered(top, height) => { root.focus-entered(top, height); }
                     enabled: root.loaded && PlaybackSubtitleState.subtitle-shadow-color-known;
@@ -336,11 +338,11 @@ export component SubtitleQuickSettingsPage inherits VerticalLayout {
         }
     }
     if !PlaybackSubtitleState.subtitle-text-style-available : Text {
-        text: "Some settings are not available for this subtitle type.";
+        text: @tr("Some settings are not available for this subtitle type.");
         wrap: word-wrap; color: Theme.sidebar-detail-text(root.dark-theme); font-size: 11px;
     }
     if PlaybackSubtitleState.subtitle-ass-style-warning : Text {
-        text: "Setting style options for ASS subtitles may break rendering.";
+        text: @tr("Setting style options for ASS subtitles may break rendering.");
         wrap: word-wrap; color: Theme.sidebar-detail-text(root.dark-theme); font-size: 11px;
     }
 }

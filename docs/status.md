@@ -1,6 +1,6 @@
 # Current status
 
-Updated 2026-11-26. Published release: **4.2.1**. Reference: **IINA v1.5.0**
+Updated 2026-11-27. Published release: **4.2.1**. Reference: **IINA v1.5.0**
 at `fbcff4df7183b335880396af0655f6bb89d46442`.
 
 Riina is a functioning media player. Full feature, behavior and visual parity
@@ -50,6 +50,10 @@ Implementation does not imply every state or platform is verified.
   selection and remains saved for a future launch. During playback, device
   removal falls back to Automatic. Core Audio and AVFoundation use the same
   endpoint after a driver change when libmpv lists both names.
+- **Quick Settings language:** Russian and Arabic cover the tabs, control
+  captions, and accessible descriptions in Layout, Video, Audio, and Subtitles.
+  Track titles, user-named equalizer profiles, and the preset values sent to
+  playback retain their original text.
 - **Chapter metadata and timeline:** the active chapter follows the native
   playhead. Music Mode and desktop media controls for audio use the chapter's
   title and performer when available. The timeline shows the hovered chapter

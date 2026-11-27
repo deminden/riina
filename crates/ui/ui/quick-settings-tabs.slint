@@ -92,7 +92,7 @@ export component QuickSettingsTabs inherits Rectangle {
         else { subtitles-tab.focus(); root.chosen(2); }
     }
     tabs := HorizontalLayout { spacing: 1px; padding: 3px;
-        layout-tab := QuickSettingsTab { label: "Layout"; index: 0;
+        layout-tab := QuickSettingsTab { label: @tr("Layout"); index: 0;
             show-label: root.show-label;
             icon: @image-url("../../../assets/icons/quick-layout-paintbrush.svg");
             selected: root.selected-pane == 5; dark-theme: root.dark-theme;
@@ -101,7 +101,7 @@ export component QuickSettingsTabs inherits Rectangle {
             activated => { root.chosen(5); }
             navigate(index) => { root.choose(index); }
         }
-        video-tab := QuickSettingsTab { label: "Video"; index: 1;
+        video-tab := QuickSettingsTab { label: @tr("Video"); index: 1;
             show-label: root.show-label;
             icon: @image-url("../../../assets/icons/photo.svg");
             selected: root.selected-pane == 6; dark-theme: root.dark-theme;
@@ -110,7 +110,7 @@ export component QuickSettingsTabs inherits Rectangle {
             activated => { root.chosen(6); }
             navigate(index) => { root.choose(index); }
         }
-        audio-tab := QuickSettingsTab { label: "Audio"; index: 2;
+        audio-tab := QuickSettingsTab { label: @tr("Audio"); index: 2;
             show-label: root.show-label;
             icon: @image-url("../../../assets/icons/audio-page.svg");
             selected: root.selected-pane == 1; dark-theme: root.dark-theme;
@@ -119,7 +119,7 @@ export component QuickSettingsTabs inherits Rectangle {
             activated => { root.chosen(1); }
             navigate(index) => { root.choose(index); }
         }
-        subtitles-tab := QuickSettingsTab { label: "Subtitles"; index: 3;
+        subtitles-tab := QuickSettingsTab { label: @tr("Subtitles"); index: 3;
             show-label: root.show-label;
             icon: @image-url("../../../assets/icons/subtitles-page.svg");
             selected: root.selected-pane == 2; dark-theme: root.dark-theme;

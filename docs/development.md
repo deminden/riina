@@ -208,6 +208,8 @@ catalog's plural rules for translated counts.
 Russian and Arabic cover interface labels in Welcome, Open URL, Playback
 History, Log Viewer, About, the audio and video filter windows, and the player
 menus. The idle macOS menus share the application and playback message bundles.
+Quick Settings uses the same catalogs for the Layout, Video, Audio, and
+Subtitles tabs, their controls, and accessible track and preset descriptions.
 Settings uses the catalogs for navigation, headings, and controls and search on
 the General, Interface, Video and Audio pages. Localize choice captions without
 changing the order of their typed values or persisting translated device

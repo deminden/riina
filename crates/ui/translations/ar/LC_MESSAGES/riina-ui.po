@@ -2798,3 +2798,207 @@ msgstr "الإجمالي ⁦{0}⁩"
 
 msgid "{0} of {1} selected"
 msgstr "تم تحديد ⁦{0}⁩ من ⁦{1}⁩"
+
+msgid "<None>"
+msgstr "<بلا مسار>"
+
+msgid "Aspect ratio presets"
+msgstr "إعدادات نسبة العرض إلى الارتفاع"
+
+msgid "Aspect ratio {}"
+msgstr "نسبة العرض إلى الارتفاع: {}"
+
+msgid "Audio delay"
+msgstr "تأخير الصوت"
+
+msgid "Audio tracks"
+msgstr "المسارات الصوتية"
+
+msgid "Close sidebar"
+msgstr "إغلاق الشريط الجانبي"
+
+msgid "Could not save this profile."
+msgstr "تعذّر حفظ هذا الملف التعريفي."
+
+msgid "Crop presets"
+msgstr "إعدادات القص"
+
+msgid "Crop {}"
+msgstr "القص: {}"
+
+msgid "Custom"
+msgstr "مخصّص"
+
+msgid "Custom aspect ratio"
+msgstr "نسبة عرض إلى ارتفاع مخصّصة"
+
+msgid "Custom playback speed"
+msgstr "سرعة تشغيل مخصّصة"
+
+msgid "Delay"
+msgstr "التأخير"
+
+msgid "Dock Control Bar and Titlebar"
+msgstr "تثبيت شريطي التحكم والعنوان"
+
+msgid "Edge-to-Edge Video"
+msgstr "عرض الفيديو حتى حواف النافذة"
+
+msgid "Edit primary subtitle timing and position"
+msgstr "ضبط توقيت الترجمة الأساسية وموضعها"
+
+msgid "Edit secondary subtitle timing and position"
+msgstr "ضبط توقيت الترجمة الثانوية وموضعها"
+
+msgid "Equalizer"
+msgstr "موازن الصوت"
+
+msgid "Equalizer profile: {}"
+msgstr "ملف موازن الصوت: {}"
+
+msgid "Fit Window to Video"
+msgstr "ملاءمة النافذة لحجم الفيديو"
+
+msgid "HDR"
+msgstr "النطاق الديناميكي العالي"
+
+msgid "Hardware Decoding"
+msgstr "فك الترميز بالأجهزة"
+
+msgid "Hue"
+msgstr "تدرّج اللون"
+
+msgid "Layout"
+msgstr "التخطيط"
+
+msgid "Load External Audio Track…"
+msgstr "تحميل مسار صوتي خارجي…"
+
+msgid "Load Subtitle…"
+msgstr "تحميل ترجمة…"
+
+msgid "Load external audio"
+msgstr "تحميل مسار صوتي خارجي"
+
+msgid "Load subtitle"
+msgstr "تحميل ترجمة"
+
+msgid "Manual"
+msgstr "يدوي"
+
+msgid "New equalizer profile name"
+msgstr "اسم ملف موازن الصوت الجديد"
+
+msgid "Playlist and Chapters"
+msgstr "قائمة التشغيل والفصول"
+
+msgid "Primary subtitle tracks"
+msgstr "مسارات الترجمة الأساسية"
+
+msgid "Primary subtitle: {}"
+msgstr "الترجمة الأساسية: {}"
+
+msgid "Rename equalizer profile"
+msgstr "إعادة تسمية ملف موازن الصوت"
+
+msgid "Rename…"
+msgstr "إعادة تسمية…"
+
+msgid "Reset audio delay"
+msgstr "إعادة ضبط تأخير الصوت"
+
+msgid "Reset playback speed"
+msgstr "إعادة ضبط سرعة التشغيل"
+
+msgid "Reset secondary subtitle delay"
+msgstr "إعادة ضبط تأخير الترجمة الثانوية"
+
+msgid "Reset subtitle delay"
+msgstr "إعادة ضبط تأخير الترجمة"
+
+msgid "Reset subtitle text scale"
+msgstr "إعادة ضبط مقياس نص الترجمة"
+
+msgid "Reset {}"
+msgstr "إعادة ضبط: {}"
+
+msgid "Rotation presets"
+msgstr "خيارات التدوير"
+
+msgid "Save equalizer profile"
+msgstr "حفظ ملف موازن الصوت"
+
+msgid "Save…"
+msgstr "حفظ…"
+
+msgid "Scale"
+msgstr "المقياس"
+
+msgid "Scroll to earlier choices"
+msgstr "التمرير إلى الخيارات السابقة"
+
+msgid "Scroll to more choices"
+msgstr "التمرير إلى مزيد من الخيارات"
+
+msgid "Search Online…"
+msgstr "البحث عبر الإنترنت…"
+
+msgid "Search online subtitles"
+msgstr "البحث عن ترجمة عبر الإنترنت"
+
+msgid "Secondary subtitle delay"
+msgstr "تأخير الترجمة الثانوية"
+
+msgid "Secondary subtitle position"
+msgstr "موضع الترجمة الثانوية"
+
+msgid "Secondary subtitle tracks"
+msgstr "مسارات الترجمة الثانوية"
+
+msgid "Secondary subtitle: {}"
+msgstr "الترجمة الثانوية: {}"
+
+msgid "Setting style options for ASS subtitles may break rendering."
+msgstr "قد يؤدي تغيير نمط ترجمة ASS إلى عرضها بشكل غير صحيح."
+
+msgid "Sidebar Position"
+msgstr "موضع الشريط الجانبي"
+
+msgid "Some settings are not available for this subtitle type."
+msgstr "بعض الإعدادات غير متاحة لنوع الترجمة هذا."
+
+msgid "Subtitle delay"
+msgstr "تأخير الترجمة"
+
+msgid "Subtitle outline width"
+msgstr "سماكة حدود الترجمة"
+
+msgid "Subtitle position"
+msgstr "موضع الترجمة"
+
+msgid "Subtitle text scale"
+msgstr "مقياس نص الترجمة"
+
+msgid "Theme"
+msgstr "السمة"
+
+msgid "Video rotation {}"
+msgstr "تدوير الفيديو: {}"
+
+msgid "Video tracks"
+msgstr "مسارات الفيديو"
+
+msgid "{} Hz equalizer gain"
+msgstr "كسب موازن الصوت عند {} هرتز"
+
+msgid "{} in seconds"
+msgstr "{} بالثواني"
+
+msgid "{} on leading side"
+msgstr "{} عند حافة البداية"
+
+msgid "{}s"
+msgstr "{} ث"
+
+msgid "{}x"
+msgstr "{}×"

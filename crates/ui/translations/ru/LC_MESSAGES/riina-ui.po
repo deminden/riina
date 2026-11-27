@@ -2792,3 +2792,207 @@ msgstr "Всего {0}"
 
 msgid "{0} of {1} selected"
 msgstr "Выбрано {0} из {1}"
+
+msgid "<None>"
+msgstr "<Нет>"
+
+msgid "Aspect ratio presets"
+msgstr "Пропорции кадра"
+
+msgid "Aspect ratio {}"
+msgstr "Пропорции кадра: {}"
+
+msgid "Audio delay"
+msgstr "Задержка звука"
+
+msgid "Audio tracks"
+msgstr "Звуковые дорожки"
+
+msgid "Close sidebar"
+msgstr "Закрыть боковую панель"
+
+msgid "Could not save this profile."
+msgstr "Не удалось сохранить профиль."
+
+msgid "Crop presets"
+msgstr "Варианты обрезки"
+
+msgid "Crop {}"
+msgstr "Обрезка: {}"
+
+msgid "Custom"
+msgstr "Свой вариант"
+
+msgid "Custom aspect ratio"
+msgstr "Произвольные пропорции кадра"
+
+msgid "Custom playback speed"
+msgstr "Произвольная скорость воспроизведения"
+
+msgid "Delay"
+msgstr "Задержка"
+
+msgid "Dock Control Bar and Titlebar"
+msgstr "Закрепить управление и заголовок"
+
+msgid "Edge-to-Edge Video"
+msgstr "Видео до краёв окна"
+
+msgid "Edit primary subtitle timing and position"
+msgstr "Настроить время и положение основных субтитров"
+
+msgid "Edit secondary subtitle timing and position"
+msgstr "Настроить время и положение дополнительных субтитров"
+
+msgid "Equalizer"
+msgstr "Эквалайзер"
+
+msgid "Equalizer profile: {}"
+msgstr "Профиль эквалайзера: {}"
+
+msgid "Fit Window to Video"
+msgstr "Подогнать окно под видео"
+
+msgid "HDR"
+msgstr "HDR"
+
+msgid "Hardware Decoding"
+msgstr "Аппаратное декодирование"
+
+msgid "Hue"
+msgstr "Оттенок"
+
+msgid "Layout"
+msgstr "Компоновка"
+
+msgid "Load External Audio Track…"
+msgstr "Загрузить звуковую дорожку…"
+
+msgid "Load Subtitle…"
+msgstr "Загрузить субтитры…"
+
+msgid "Load external audio"
+msgstr "Загрузить внешнюю звуковую дорожку"
+
+msgid "Load subtitle"
+msgstr "Загрузить субтитры"
+
+msgid "Manual"
+msgstr "Вручную"
+
+msgid "New equalizer profile name"
+msgstr "Имя нового профиля эквалайзера"
+
+msgid "Playlist and Chapters"
+msgstr "Плейлист и главы"
+
+msgid "Primary subtitle tracks"
+msgstr "Дорожки основных субтитров"
+
+msgid "Primary subtitle: {}"
+msgstr "Основные субтитры: {}"
+
+msgid "Rename equalizer profile"
+msgstr "Переименовать профиль эквалайзера"
+
+msgid "Rename…"
+msgstr "Переименовать…"
+
+msgid "Reset audio delay"
+msgstr "Сбросить задержку звука"
+
+msgid "Reset playback speed"
+msgstr "Сбросить скорость воспроизведения"
+
+msgid "Reset secondary subtitle delay"
+msgstr "Сбросить задержку дополнительных субтитров"
+
+msgid "Reset subtitle delay"
+msgstr "Сбросить задержку субтитров"
+
+msgid "Reset subtitle text scale"
+msgstr "Сбросить масштаб текста субтитров"
+
+msgid "Reset {}"
+msgstr "Сбросить: {}"
+
+msgid "Rotation presets"
+msgstr "Варианты поворота"
+
+msgid "Save equalizer profile"
+msgstr "Сохранить профиль эквалайзера"
+
+msgid "Save…"
+msgstr "Сохранить…"
+
+msgid "Scale"
+msgstr "Масштаб"
+
+msgid "Scroll to earlier choices"
+msgstr "Прокрутить к предыдущим вариантам"
+
+msgid "Scroll to more choices"
+msgstr "Прокрутить к следующим вариантам"
+
+msgid "Search Online…"
+msgstr "Поиск в Интернете…"
+
+msgid "Search online subtitles"
+msgstr "Найти субтитры в Интернете"
+
+msgid "Secondary subtitle delay"
+msgstr "Задержка дополнительных субтитров"
+
+msgid "Secondary subtitle position"
+msgstr "Положение дополнительных субтитров"
+
+msgid "Secondary subtitle tracks"
+msgstr "Дорожки дополнительных субтитров"
+
+msgid "Secondary subtitle: {}"
+msgstr "Дополнительные субтитры: {}"
+
+msgid "Setting style options for ASS subtitles may break rendering."
+msgstr "Изменение стиля субтитров ASS может нарушить их отображение."
+
+msgid "Sidebar Position"
+msgstr "Положение боковой панели"
+
+msgid "Some settings are not available for this subtitle type."
+msgstr "Некоторые настройки недоступны для субтитров этого типа."
+
+msgid "Subtitle delay"
+msgstr "Задержка субтитров"
+
+msgid "Subtitle outline width"
+msgstr "Толщина контура субтитров"
+
+msgid "Subtitle position"
+msgstr "Положение субтитров"
+
+msgid "Subtitle text scale"
+msgstr "Масштаб текста субтитров"
+
+msgid "Theme"
+msgstr "Тема"
+
+msgid "Video rotation {}"
+msgstr "Поворот видео: {}"
+
+msgid "Video tracks"
+msgstr "Видеодорожки"
+
+msgid "{} Hz equalizer gain"
+msgstr "Усиление эквалайзера на частоте {} Гц"
+
+msgid "{} in seconds"
+msgstr "{} в секундах"
+
+msgid "{} on leading side"
+msgstr "{} у начального края"
+
+msgid "{}s"
+msgstr "{} с"
+
+msgid "{}x"
+msgstr "{}×"

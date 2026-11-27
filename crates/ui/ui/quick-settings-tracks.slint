@@ -10,7 +10,8 @@ export component QuickSettingsTrackList inherits Rectangle {
     in property <int> observed-index: 0;
     in property <int> track-kind;
     in property <string> hint;
-    in property <string> label-prefix;
+    pure callback describe-track(string) -> string;
+    describe-track(label) => { return label; }
     in property <bool> dark-theme: true;
     in property <bool> enabled: true;
     in property <color> accent-color: Theme.sidebar-catalog-accent;
@@ -91,9 +92,11 @@ export component QuickSettingsTrackList inherits Rectangle {
         horizontal-scrollbar-policy: always-off;
         VerticalLayout { width: parent.width; spacing: 1px;
             for row[index] in root.tracks : Rectangle {
+                property <string> track-caption: row.token == "no" && row.label == "<None>"
+                    ? @tr("<None>") : row.label;
                 height: 26px; background: transparent;
                 accessible-role: list-item;
-                accessible-label: root.label-prefix + row.label;
+                accessible-label: root.describe-track(self.track-caption);
                 accessible-enabled: root.available;
                 accessible-item-index: index;
                 accessible-item-selectable: true;
@@ -108,7 +111,7 @@ export component QuickSettingsTrackList inherits Rectangle {
                 name-caption := Text { x: 12px;
                     accessible-role: none;
                     width: max(0px, parent.width - 18px - (row.language != "" ? language-tag.width + 4px : 0px));
-                    text: row.label;
+                    text: parent.track-caption;
                     color: !root.enabled ? (Theme.sidebar-action-text(root.dark-theme, false))
                         : row.token == "no" ? (Theme.sidebar-no-track-text(root.dark-theme))
                         : (Theme.sidebar-heading-text(root.dark-theme));

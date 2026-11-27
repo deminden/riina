@@ -33,6 +33,9 @@ export component VideoQuickSettingsPage inherits VerticalLayout {
     in property <color> windows-accent-color;
     in property <color> windows-accent-foreground;
     in property <bool> windows-sidebar-material-active;
+    private property <[string]> equalizer-captions: [
+        @tr("Brightness"), @tr("Contrast"), @tr("Saturation"), @tr("Gamma"), @tr("Hue"),
+    ];
 
     width: root.sidebar-width - (root.compact-ui ? 28px : 32px);
     spacing: root.compact-ui ? 16px : 18px;
@@ -40,7 +43,7 @@ export component VideoQuickSettingsPage inherits VerticalLayout {
         focus-entered(top, height) => { root.focus-entered(top, height); }
         width: parent.width;
         tracks: PlaybackVideoState.video-tracks; observed-index: PlaybackVideoState.video-track-selected-index;
-        track-kind: 6; hint: "Video tracks"; enabled: root.loaded;
+        track-kind: 6; hint: @tr("Video tracks"); enabled: root.loaded;
         dark-theme: root.dark-theme;
         accent-color: root.platform-windows ? root.windows-accent-color : Theme.sidebar-catalog-accent;
         focus-accent-color: root.interactive-accent-color;
@@ -91,7 +94,7 @@ export component VideoQuickSettingsPage inherits VerticalLayout {
                 Image { width: 16px; height: 16px;
                     source: @image-url("../../../assets/icons/playback-speed.svg");
                     image-fit: contain; colorize: Theme.sidebar-heading-text(root.dark-theme); }
-                Text { text: "Speed"; font-size: 12px; font-weight: 700;
+                Text { text: @tr("Speed"); font-size: 12px; font-weight: 700;
                     color: Theme.sidebar-heading-text(root.dark-theme);
                     vertical-alignment: center; }
                 Rectangle { horizontal-stretch: 1; background: transparent; }
@@ -101,7 +104,7 @@ export component VideoQuickSettingsPage inherits VerticalLayout {
                     dark-theme: root.dark-theme; width: 16px; height: 16px;
                     icon-size: 14px;
                     icon: @image-url("../../../assets/icons/reset.svg");
-                    hint: "Reset playback speed";
+                    hint: @tr("Reset playback speed");
                     enabled: root.loaded;
                     activated => { speed-slider.take-focus(); root.reset-speed(); }
                 }
@@ -111,11 +114,11 @@ export component VideoQuickSettingsPage inherits VerticalLayout {
                 speed-slider := PlayerSlider { dark-theme: root.dark-theme; height: 20px;
                     focus-entered(top, height) => { root.focus-entered(top, height); }
                     minimum: 0; maximum: 24; step: 1;
-                    value: root.speed-slider-position; hint: "Playback speed";
+                    value: root.speed-slider-position; hint: @tr("Playback speed");
                     show-value-label: true;
                     value-label-above-control: true;
                     knob-width: 10px; knob-height: 18px; knob-radius: 5px;
-                    value-label: root.speed-edit-value + "x";
+                    value-label: @tr("{}x", root.speed-edit-value);
                     enabled: root.loaded;
                     changed(value) => { root.set-speed-slider(value); }
                 }
@@ -126,7 +129,7 @@ export component VideoQuickSettingsPage inherits VerticalLayout {
                     windows-acrylic-surface: root.windows-sidebar-material-active;
                     observed-value: root.speed-edit-value;
                     empty-value: "1";
-                    enabled: root.loaded; hint: "Custom playback speed";
+                    enabled: root.loaded; hint: @tr("Custom playback speed");
                     committed(text) => { return root.set-speed-text(text); }
                     editing-finished => { root.restore-player-focus(); }
                 }
@@ -199,18 +202,21 @@ export component VideoQuickSettingsPage inherits VerticalLayout {
         border-radius: 8px; border-width: 1px;
         border-color: Theme.sidebar-card-border(root.dark-theme);
         background: root.sidebar-card-material-fill;
+        equalizer-caption-measure := VerticalLayout {
+            visible: false;
+            for caption in root.equalizer-captions : Text { text: caption; font-size: 11px; }
+        }
         VerticalLayout {
             padding-left: root.compact-ui ? 11px : 13px;
             padding-right: root.compact-ui ? 11px : 13px;
             padding-top: root.compact-ui ? 12px : 14px;
             padding-bottom: root.compact-ui ? 12px : 14px;
             spacing: root.compact-ui ? 8px : 12px;
-            for label[index] in ["Brightness", "Contrast", "Saturation", "Gamma", "Hue"] : HorizontalLayout {
+            for label[index] in root.equalizer-captions : HorizontalLayout {
                 height: 14px; spacing: 8px;
                 // REF-24 places the first slider 65 pt after
-                // the label origin: a 56 pt label column plus
-                // the source's 8 pt row gap.
-                Text { text: label; width: 56px; font-size: 11px;
+                // the label origin in English. Longer captions share a wider column.
+                Text { text: label; width: max(56px, equalizer-caption-measure.preferred-width); font-size: 11px;
                     color: Theme.sidebar-heading-text(root.dark-theme);
                     vertical-alignment: center; }
                 PlayerSlider { dark-theme: root.dark-theme; height: 14px; minimum: -100; maximum: 100; step: 1;
@@ -224,7 +230,7 @@ export component VideoQuickSettingsPage inherits VerticalLayout {
                     focus-entered(top, height) => { root.focus-entered(top, height); }
                     windows-acrylic-surface: root.windows-sidebar-material-active;
                     icon: @image-url("../../../assets/icons/reset.svg");
-                    hint: "Reset " + label; enabled: PlaybackVideoState.video-equalizer-known[index];
+                    hint: @tr("Reset {}", label); enabled: PlaybackVideoState.video-equalizer-known[index];
                     activated => { root.set-video-equalizer(index, 0); }
                 }
             }
