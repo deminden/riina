@@ -1,12 +1,17 @@
+use riina_core::stream_address::explicit_stream_url;
 use std::path::Path;
 
 pub(super) const MIME: &str = "text/uri-list";
 
-pub(super) fn encode(paths: &[String]) -> Option<String> {
+pub(super) fn encode(references: &[String]) -> Option<String> {
     let mut list = String::new();
-    for path in paths {
-        let url = url::Url::from_file_path(Path::new(path)).ok()?;
-        list.push_str(url.as_str());
+    for reference in references {
+        if let Some(url) = explicit_stream_url(reference) {
+            list.push_str(&url);
+        } else {
+            let path = url::Url::from_file_path(Path::new(reference)).ok()?;
+            list.push_str(path.as_str());
+        }
         list.push_str("\r\n");
     }
     Some(list)
@@ -14,12 +19,7 @@ pub(super) fn encode(paths: &[String]) -> Option<String> {
 
 pub(super) fn decode(text: &str) -> Vec<String> {
     text.lines()
-        .filter(|line| {
-            line.split_once(':')
-                .is_some_and(|(scheme, _)| scheme.eq_ignore_ascii_case("file"))
-                || riina_core::media_reference::validate_network_url(line).is_ok()
-        })
-        .filter_map(riina_core::playlist::clipboard_reference)
+        .filter_map(|line| crate::platform::desktop_drop::parse_reference(line, false))
         .collect()
 }
 
@@ -29,13 +29,28 @@ mod tests {
 
     #[test]
     fn uri_list_round_trip_preserves_special_filename_bytes_and_order() {
-        let paths = vec!["/media/a %é#\r".into(), "/media/b\nclip.mp4".into()];
-        let encoded = encode(&paths).unwrap();
+        let references = vec![
+            "/media/a %é#\r".into(),
+            "https://example.test/片 one.mkv?sig=A%2fb+Z".into(),
+            "/media/b\nclip.mp4".into(),
+        ];
+        let encoded = encode(&references).unwrap();
         assert_eq!(
             encoded,
-            "file:///media/a%20%25%C3%A9%23%0D\r\nfile:///media/b%0Aclip.mp4\r\n"
+            concat!(
+                "file:///media/a%20%25%C3%A9%23%0D\r\n",
+                "https://example.test/%E7%89%87%20one.mkv?sig=A%2fb+Z\r\n",
+                "file:///media/b%0Aclip.mp4\r\n"
+            )
         );
-        assert_eq!(decode(&encoded), paths);
+        assert_eq!(
+            decode(&encoded),
+            [
+                "/media/a %é#\r",
+                "https://example.test/%E7%89%87%20one.mkv?sig=A%2fb+Z",
+                "/media/b\nclip.mp4"
+            ]
+        );
     }
 
     #[test]

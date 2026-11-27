@@ -31,14 +31,17 @@ x11rb::atom_manager! {
 pub(super) struct Contents {
     text: String,
     uris: String,
-    desktop_files: String,
+    desktop_files: Option<String>,
 }
 
 impl Contents {
     pub(super) fn new(uris: String, text: &str) -> Self {
         // File managers can interpret this action as a request to move the
         // underlying files. Playlist Cut only removes rows from the queue.
-        let desktop_files = format!("copy\n{}", uris.replace("\r\n", "\n"));
+        let desktop_files = uris
+            .lines()
+            .all(|uri| uri.starts_with("file:"))
+            .then(|| format!("copy\n{}", uris.replace("\r\n", "\n")));
         Self {
             text: text.to_owned(),
             uris,
@@ -112,7 +115,7 @@ impl Transfer<'_> {
     fn write(&self, target: Atom, property: Atom) -> Result<bool> {
         let Server { conn, atoms, .. } = self.server;
         if target == atoms.TARGETS {
-            let formats = [
+            let mut formats = vec![
                 atoms.TARGETS,
                 atoms.MULTIPLE,
                 atoms.TIMESTAMP,
@@ -121,8 +124,10 @@ impl Transfer<'_> {
                 atoms.TEXT,
                 atoms.MIME_TEXT,
                 atoms.MIME_URI_LIST,
-                atoms.GNOME_FILES,
             ];
+            if self.contents.desktop_files.is_some() {
+                formats.push(atoms.GNOME_FILES);
+            }
             conn.change_property32(
                 PropMode::REPLACE,
                 self.requestor,
@@ -144,7 +149,10 @@ impl Transfer<'_> {
             let (kind, bytes) = if target == atoms.MIME_URI_LIST {
                 (target, self.contents.uris.as_bytes())
             } else if target == atoms.GNOME_FILES {
-                (target, self.contents.desktop_files.as_bytes())
+                let Some(files) = &self.contents.desktop_files else {
+                    return Ok(false);
+                };
+                (target, files.as_bytes())
             } else if target == atoms.TEXT {
                 (atoms.UTF8_STRING, self.contents.text.as_bytes())
             } else if target == atoms.UTF8_STRING || target == atoms.MIME_TEXT {

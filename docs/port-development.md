@@ -43,11 +43,11 @@ Wayland desktop evidence. Both receivers accept plain-text media URLs.
 [X11 link and selection checks](verification.md#x11-media-link-and-file-drops-2026-11-26)
 
 Playlist clipboard editing has [X11 and Wayland desktop evidence](verification.md#x11-playlist-clipboard-formats-2026-11-25).
-Local file selections offer `text/uri-list` and plain text on X11 and on
-Wayland compositors with data-control support. On X11, the file-manager
-clipboard format advertises a Copy operation for both Copy and Cut in the
-playlist. Riina asks a clipboard manager to retain the offered formats
-when it exits. [Clipboard Manager specification](https://www.freedesktop.org/specifications/clipboard-manager-spec/)
+File and stream selections offer `text/uri-list` and plain text on X11 and
+on Wayland compositors with data-control support. On X11, local-file-only
+selections also offer a file-manager format. It advertises a Copy operation for
+both Copy and Cut in the playlist. Riina asks a clipboard manager to retain
+the offered formats when it exits. [Clipboard Manager specification](https://www.freedesktop.org/specifications/clipboard-manager-spec/)
 
 For the macOS playlist clipboard check, start with an existing clipboard
 change count, copy and cut different selections, and paste before an existing

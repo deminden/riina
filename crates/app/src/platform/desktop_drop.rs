@@ -95,21 +95,45 @@ pub(crate) type OpenDrop = Box<dyn FnOnce(Vec<OsString>)>;
 
 pub(super) fn parse_references(text: &str, allow_plain_paths: bool) -> Vec<OsString> {
     text.lines()
-        .map(str::trim)
-        .filter(|line| !line.is_empty() && !line.starts_with('#') && !line.contains('\0'))
         .filter_map(|line| parse_reference(line, allow_plain_paths))
+        .map(OsString::from)
         .collect()
 }
 
-fn parse_reference(line: &str, allow_plain_paths: bool) -> Option<OsString> {
+pub(super) fn parse_reference(line: &str, allow_plain_paths: bool) -> Option<String> {
+    if line.contains('\0') {
+        return None;
+    }
     if allow_plain_paths && Path::new(line).is_absolute() {
         return Some(line.into());
     }
-    let uri = url::Url::parse(line).ok()?;
-    if uri.scheme() == "file" {
-        return uri.to_file_path().ok().map(|path| path.into_os_string());
+    let reference = line.trim();
+    if reference
+        .split_once(':')
+        .is_some_and(|(scheme, _)| scheme.eq_ignore_ascii_case("file"))
+    {
+        return riina_core::playlist::clipboard_reference(reference);
     }
-    riina_core::media_reference::validate_network_url(line)
-        .ok()
-        .map(OsString::from)
+    riina_core::stream_address::explicit_stream_url(reference).map(std::borrow::Cow::into_owned)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn transfers_keep_path_bytes_and_explicit_network_addresses_in_order() {
+        let plain = std::env::current_dir().unwrap().join("clip é.mkv ");
+        let text = format!(
+            "# files\r\n{}\r\nhttps://münchen.example/片 one.mkv?sig=A%2fb+Z\n\
+             relative.mkv\nexample.com/video.mkv\nfile:///clip%00.mkv\nhttps://",
+            plain.display()
+        );
+        let link = "https://xn--mnchen-3ya.example/%E7%89%87%20one.mkv?sig=A%2fb+Z";
+        assert_eq!(parse_references(&text, false), [link]);
+        assert_eq!(
+            parse_references(&text, true),
+            [plain.into_os_string(), link.into()]
+        );
+    }
 }

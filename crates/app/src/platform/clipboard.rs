@@ -132,20 +132,21 @@ pub(crate) fn copy_playlist_references(
     #[cfg(any(target_os = "linux", target_os = "windows"))]
     {
         let text = paths.join("\n");
+        #[cfg(target_os = "windows")]
         if !paths.is_empty()
             && paths
                 .iter()
                 .all(|path| std::path::Path::new(path).is_absolute() && !path.contains('\0'))
         {
-            #[cfg(target_os = "windows")]
             return windows::copy_file_list(_window, paths, &text);
-            #[cfg(target_os = "linux")]
-            if let Some(uris) = uri_list::encode(paths)
-                && (wayland::copy_file_list(&uris, &text).is_ok()
-                    || x11::copy_file_list(uris, &text).is_ok())
-            {
-                return Ok(());
-            }
+        }
+        #[cfg(target_os = "linux")]
+        if !paths.is_empty()
+            && let Some(uris) = uri_list::encode(paths)
+            && (wayland::copy_references(&uris, &text).is_ok()
+                || x11::copy_references(uris, &text).is_ok())
+        {
+            return Ok(());
         }
         copy_text(&text)
     }

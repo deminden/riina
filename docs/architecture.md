@@ -768,6 +768,13 @@ availability comes from that selection. Copy URLs preserves the playlist
 order of supported stream URLs. The browser launcher receives eligible HTTP
 and HTTPS URLs. Both commands apply when the selection also contains files.
 
+Desktop drop and playlist clipboard adapters normalize explicit stream URLs
+before submitting them to playback. Plain local drop paths retain their
+filename spelling. AppKit reads the source's file and stream items in order,
+including the filename array used by IINA, and does not split a native item
+at a newline. X11 and Wayland copy mixed selections as both an ordered URI
+list and plain text. Percent-encoded file URIs preserve filename line breaks.
+
 The player builds localized titles from the displayed filename or selection
 count. It supplies section headings as distinct entries without actions.
 AppKit uses native section headers on macOS 14 and later. Older AppKit menus,

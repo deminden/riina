@@ -100,6 +100,10 @@ pub fn clipboard_reference(reference: &str) -> Option<String> {
         .is_some_and(|(scheme, _)| scheme.eq_ignore_ascii_case("file"))
     {
         file_reference::clipboard_path(reference)
+    } else if crate::media_reference::is_network_url_candidate(reference) {
+        crate::stream_address::stream_address(reference)
+            .ok()
+            .map(|address| address.url.into_owned())
     } else {
         Some(reference.to_owned())
     }
@@ -162,8 +166,15 @@ mod tests {
         );
         assert!(super::clipboard_reference("bad\0name.avi").is_none());
         assert_eq!(
-            super::clipboard_references("# comment\r\nfile:///media/clip%0A%23two.mkv\nnext.avi"),
-            ["/media/clip\n#two.mkv", "next.avi"],
+            super::clipboard_references(concat!(
+                "# comment\r\nfile:///media/clip%0A%23two.mkv\n",
+                "https://münchen.example/片 one.mkv?sig=A%2fb+Z\nnext.avi\nhttps://\n"
+            )),
+            [
+                "/media/clip\n#two.mkv",
+                "https://xn--mnchen-3ya.example/%E7%89%87%20one.mkv?sig=A%2fb+Z",
+                "next.avi"
+            ],
         );
     }
 

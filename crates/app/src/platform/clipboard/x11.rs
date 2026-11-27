@@ -25,7 +25,7 @@ thread_local! {
     static CLIPBOARD: RefCell<Option<Owner>> = const { RefCell::new(None) };
 }
 
-pub(super) fn copy_file_list(uris: String, text: &str) -> Result<()> {
+pub(super) fn copy_references(uris: String, text: &str) -> Result<()> {
     let owner = Owner::start(Contents::new(uris, text))?;
     CLIPBOARD.set(Some(owner));
     Ok(())

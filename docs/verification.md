@@ -7826,3 +7826,29 @@ loaded a paused video. The server received the expected path and query, and
 the exact test player exited normally. Native macOS verification remains open.
 
 - Windows executable SHA-256 `7aea2cf95a658495f8d4dcc14f89478069014f867a8fb2dd37ca692be23cc306`
+
+### Desktop media transfers (2026-11-27)
+
+The Windows workspace gate, locked build and 86 native playback tests passed.
+The private desktop smoke checked playback, fullscreen, minimize and restore,
+and shutdown. The shared transfer regression checks preserved local path
+spelling, escaped Unicode stream text, signed query bytes and rejection of
+invalid addresses.
+
+The Linux application source checks and nine focused transfer tests passed.
+The URI list regression includes percent-encoded filenames with line breaks
+and a stream between two local files. Apple Silicon and Intel macOS application
+and test targets passed strict cross-Clippy. Native execution of the AppKit
+pasteboard regression remains open.
+
+On isolated X11, a GTK text drop on Welcome opened a paused stream with a
+video frame. The loopback server received the encoded target and unchanged
+query bytes. A native X11 URI-list drop inserted the encoded stream into
+the playlist while the current video stayed paused. A separate GTK client
+read both X11 clipboard formats for a mixed playlist selection. A Wayland GTK
+client read the same two formats. Pasting inserted the mixed selection before
+the selected stream and kept the current video paused. The exact test players
+exited normally.
+
+- Windows executable SHA-256 `1d0d5ec51a259d86207c99fd188ba928cb0404e8c3bfbf0dbe7e4e86b0f3795d`
+- Linux executable SHA-256 `6965ce3fd7cc6dab756fae3e601548bbcc0e16e6e433711b12cde1adb9a8338c`

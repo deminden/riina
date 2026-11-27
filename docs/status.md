@@ -48,7 +48,9 @@ Implementation does not imply every state or platform is verified.
 - **Desktop drops** open media in the receiving player or insert it at the
   captured playlist position. Welcome and the File menu follow the
   window-opening preferences. On Linux, X11 and Wayland accept media URLs,
-  URI lists and supported local paths.
+  URI lists and supported local paths. A dropped stream address supports
+  Unicode hostnames and filenames and preserves existing query escapes.
+  The macOS drop adapter reads mixed file and stream items in pasteboard order.
 - **macOS Touch Bar:** the player defines customizable native playback controls,
   time displays, and a scrubber with cached thumbnails. The second clock has
   its own saved mode. AppKit supplies the customization menu on supported Macs.
@@ -156,10 +158,12 @@ Implementation does not imply every state or platform is verified.
   playlist keeps rows the user removed
   out of the queue. The sidebar and Music Mode accept focused edit shortcuts.
   Paste expands folders and inserts before the first selected row. Windows
-  publishes native file lists and Unicode text for local selections. A separate
-  GTK app read both formats on X11 and Wayland. An X11 test clipboard manager
-  retained the copied files after Riina exited. Edit menu commands follow the
-  focused playlist row or text editor on the shared and Windows native menu paths.
+  publishes native file lists and Unicode text for local selections. Linux
+  publishes URI lists and plain text for file, stream and mixed selections.
+  A separate GTK app read both formats on X11 and Wayland. An X11 test
+  clipboard manager retained the copied files after Riina exited. Edit menu
+  commands follow the focused playlist row or text editor on the shared and
+  Windows native menu paths.
 - **Open URL:** one dialog serves the File menu, Welcome and the windowless
   macOS application menu. It previews the default HTTP scheme, offers HTTP
   authentication and can stop a pending load. Stop Loading closes the playback

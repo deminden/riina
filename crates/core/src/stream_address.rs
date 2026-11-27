@@ -1,4 +1,4 @@
-use crate::media_reference::{NetworkUrlError, validate_network_url};
+use crate::media_reference::{NetworkUrlError, is_network_url_candidate, validate_network_url};
 use std::borrow::Cow;
 
 pub struct StreamAddress<'a> {
@@ -6,8 +6,7 @@ pub struct StreamAddress<'a> {
     pub uses_default_scheme: bool,
 }
 
-/// Interpret text entered into the stream dialog. Startup arguments and
-/// playlist data continue to require a complete, explicit network URL.
+/// Interpret text entered into the stream dialog, where HTTP can be implied.
 pub fn stream_address(input: &str) -> Result<StreamAddress<'_>, NetworkUrlError> {
     let input = input.trim();
     let drive_path = matches!(input.as_bytes(), [letter, b':', b'/' | b'\\', ..] if letter.is_ascii_alphabetic());
@@ -44,6 +43,14 @@ pub fn stream_address(input: &str) -> Result<StreamAddress<'_>, NetworkUrlError>
         url,
         uses_default_scheme,
     })
+}
+
+/// Normalize a transferred network address without interpreting a name as a URL.
+pub fn explicit_stream_url(input: &str) -> Option<Cow<'_, str>> {
+    if !is_network_url_candidate(input) {
+        return None;
+    }
+    stream_address(input).ok().map(|address| address.url)
 }
 
 fn encode_authority(authority: &str) -> Result<Cow<'_, str>, NetworkUrlError> {

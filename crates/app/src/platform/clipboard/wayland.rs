@@ -23,7 +23,7 @@ pub(super) fn references_available() -> Option<bool> {
     }
 }
 
-pub(super) fn copy_file_list(uris: &str, text: &str) -> Result<(), String> {
+pub(super) fn copy_references(uris: &str, text: &str) -> Result<(), String> {
     Options::new()
         .copy_multi(vec![
             MimeSource {
