@@ -5,7 +5,7 @@ use crate::{
     platform::language::history_time::{HistoryTime, Style},
 };
 use chrono::{DateTime, Local, NaiveDate, TimeZone};
-use riina_core::playback_history::Entry;
+use riina_core::{osc_preferences::ControllerOptions, playback_history::Entry};
 use std::{
     collections::{BTreeMap, HashSet},
     path::PathBuf,
@@ -170,7 +170,9 @@ fn media_row(
         &entry.path
     };
     let show_progress = available && (media.local.is_none() || state == Some(true));
-    let progress = entry.progress.filter(|_| show_progress);
+    let progress = entry
+        .progress
+        .filter(|_| show_progress && entry.duration.is_finite() && entry.duration > 0.0);
     PlaybackHistoryRow {
         label: entry.title.as_ref().unwrap_or(fallback).as_str().into(),
         detail: entry
@@ -178,10 +180,16 @@ fn media_row(
             .as_ref()
             .map_or("", |_| fallback.as_str())
             .into(),
-        progress: progress_label(progress, entry.duration).into(),
+        progress: progress
+            .map_or_else(String::new, |seconds| {
+                ControllerOptions::default().elapsed_label(Some(seconds))
+            })
+            .into(),
         played_at: played_at.as_ref().map_or_else(String::new, format).into(),
         path: entry.path.clone().into(),
-        progress_ratio: progress_ratio(progress, entry.duration),
+        progress_ratio: progress.map_or(0.0, |seconds| {
+            (seconds / entry.duration).clamp(0.0, 1.0) as f32
+        }),
         available,
         local_file: state == Some(true),
         selected: selected.contains(entry.path.as_str()),
@@ -258,33 +266,5 @@ pub(super) fn path_from_reference(reference: &str) -> Option<PathBuf> {
             .or_else(|| crate::file_actions::local_media_path(reference)),
         Ok(_) => None,
         Err(_) => Some(PathBuf::from(reference)),
-    }
-}
-
-fn progress_ratio(progress: Option<f64>, duration: f64) -> f32 {
-    progress
-        .filter(|_| duration.is_finite() && duration > 0.0)
-        .map_or(0.0, |progress| (progress / duration).clamp(0.0, 1.0) as f32)
-}
-
-fn progress_label(progress: Option<f64>, duration: f64) -> String {
-    let Some(progress) = progress.filter(|_| duration.is_finite() && duration > 0.0) else {
-        return String::new();
-    };
-    format!("{} / {}", format_time(progress), format_time(duration))
-}
-
-fn format_time(seconds: f64) -> String {
-    if !seconds.is_finite() || seconds < 0.0 {
-        return String::new();
-    }
-    let total = seconds.floor().min(u64::MAX as f64) as u64;
-    let hours = total / 3600;
-    let minutes = (total % 3600) / 60;
-    let seconds = total % 60;
-    if hours > 0 {
-        format!("{hours}:{minutes:02}:{seconds:02}")
-    } else {
-        format!("{minutes}:{seconds:02}")
     }
 }

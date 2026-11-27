@@ -192,6 +192,12 @@ mod tests {
         );
         assert!(window.get_has_playable_selection() && window.get_has_local_selection());
         assert_eq!(window.get_selected_menu_row(), 5);
+        let model = window.get_rows();
+        let mut updated = model.iter().collect::<Vec<_>>();
+        updated[5].progress = "00:13".into();
+        super::super::publish_rows(&window, updated);
+        assert_eq!(model.row_data(5).unwrap().progress, "00:13");
+        assert!(model.row_data(5).unwrap().selected);
         window.invoke_navigate(Navigation::PageUp, false, 4);
         assert_eq!(window.get_selected_path(), "new");
         assert_eq!(window.get_selected_menu_row(), 1);
@@ -202,18 +208,30 @@ mod tests {
             .unwrap()
             .invoke_accessible_default_action();
         assert_eq!(window.get_selected_path(), "three");
-        let observed = Rc::new(RefCell::new(None));
+        let observed = Rc::new(RefCell::new(Vec::new()));
         let capture = observed.clone();
-        window.on_context_action(move |action, clicked| {
-            *capture.borrow_mut() = Some((action, clicked))
-        });
-        window.window().dispatch_event(WindowEvent::KeyPressed {
-            text: Key::Return.into(),
-        });
-        assert_eq!(
-            *observed.borrow(),
-            Some((PlaybackHistoryAction::Play, SharedString::default()))
-        );
+        window
+            .on_context_action(move |action, clicked| capture.borrow_mut().push((action, clicked)));
+        for (key, action) in [
+            (Key::Return, PlaybackHistoryAction::Play),
+            (Key::Delete, PlaybackHistoryAction::Remove),
+        ] {
+            let text: SharedString = key.into();
+            window
+                .window()
+                .dispatch_event(WindowEvent::KeyPressed { text: text.clone() });
+            window
+                .window()
+                .dispatch_event(WindowEvent::KeyPressRepeated { text: text.clone() });
+            window
+                .window()
+                .dispatch_event(WindowEvent::KeyReleased { text });
+            assert_eq!(
+                observed.borrow().as_slice(),
+                &[(action, SharedString::default())]
+            );
+            observed.borrow_mut().clear();
+        }
         window.hide()?;
         Ok(())
     }

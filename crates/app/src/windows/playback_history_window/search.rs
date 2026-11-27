@@ -18,9 +18,7 @@ pub(super) struct Query {
 
 impl Query {
     pub(super) fn new(text: &str) -> Self {
-        Self {
-            key: fold(text.trim()),
-        }
+        Self { key: fold(text) }
     }
 
     pub(super) fn matches(&self, text: &str) -> bool {
@@ -28,7 +26,7 @@ impl Query {
     }
 
     pub(super) fn matches_path(&self, reference: &str, local: Option<&Path>) -> bool {
-        if self.matches(reference) {
+        if self.key.is_empty() {
             return true;
         }
         if let Some(local) = local {
@@ -83,7 +81,6 @@ impl Recents {
     }
 
     fn remember(&mut self, query: &str) -> bool {
-        let query = query.trim();
         if query.is_empty() || self.queries.first().is_some_and(|first| first == query) {
             return false;
         }
@@ -158,8 +155,9 @@ mod tests {
 
     #[test]
     fn searches_filenames_and_decoded_paths_case_and_accent_insensitively() {
-        assert!(Query::new("  CAFE  ").matches("Cafe\u{301}.mkv"));
+        assert!(Query::new("CAFE").matches("Cafe\u{301}.mkv"));
         assert!(Query::new("STRASSE").matches("Straße.mp4"));
+        assert!(!Query::new(" CAFE").matches("Cafe\u{301}.mkv"));
         assert!(Query::new("series d'ete").matches_path(
             "https://example.com/S%C3%A9ries%20d%27%C3%A9t%C3%A9/1.mkv",
             None
@@ -168,6 +166,12 @@ mod tests {
             "file:///Caf%C3%A9teria/one.mkv",
             Some(Path::new("/Caféteria/one.mkv"))
         ));
+        for term in ["example.com", "token", "fragment", "%C3%A9"] {
+            assert!(
+                !Query::new(term)
+                    .matches_path("https://example.com/Caf%C3%A9.mkv?token=abc#fragment", None)
+            );
+        }
         assert!(!Query::new("episode 2").matches("Episode 12"));
     }
 
@@ -182,10 +186,12 @@ mod tests {
         }
         assert_eq!(recents.queries.len(), RECENT_LIMIT);
         assert_eq!(recents.queries.last().map(String::as_str), Some("Title 2"));
-        assert!(recents.remember(" Title 3 "));
+        assert!(recents.remember("Title 3"));
         assert_eq!(recents.queries[0], "Title 3");
         assert_eq!(recents.queries[1], "Title 11");
         assert!(!recents.remember("Title 3"));
-        assert!(!recents.remember("  "));
+        assert!(!recents.remember(""));
+        assert!(recents.remember(" Title 3 "));
+        assert_eq!(recents.queries[0], " Title 3 ");
     }
 }

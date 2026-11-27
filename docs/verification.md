@@ -6996,3 +6996,21 @@ all ten playback, fullscreen, preference persistence and lifecycle smoke
 checks in 9.06 seconds. The test process exited and no Riina process remained.
 
 - Windows executable SHA-256 `73566f97529f8f90b8a86c7785a122252225ddb3322e2fbbba876df5f7aeb2e9`
+
+### Playback History search and progress (2026-11-27)
+
+The locked Windows workspace gate and build passed with strict Clippy,
+725 application unit tests, 87 headless widget tests and the player and
+Settings pixel baselines. All 76 pinned native tests passed in 12.01 seconds.
+All 31 focused Linux History tests and strict workspace cross-Clippy for
+Apple Silicon and Intel passed.
+
+The History tests cover search by decoded local and URL paths, selection
+preserved during an in-place progress update, and a single action from held
+Return and Delete keys. A private Windows desktop used saved positions of
+1.51 and 47.5 seconds to verify the `00:02` and `00:47` labels. The search
+matched accented local and stream paths and excluded the URL query. Native
+date and folder grouping, individual and bulk expansion, and cleanup of
+the exact player process also passed.
+
+- Windows executable SHA-256 `373d61ad0f4eb19e552f5c54409d56c369f221f6d9f7bfd2458179a980c2a1e3`

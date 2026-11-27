@@ -398,7 +398,9 @@ Playback History stores an optional decoder title beside the media reference.
 Late title and duration observations belong to the active decoder and its
 recorded visit. Replaying the same media in another window retires the older
 visit's metadata updates. The outline uses media references as selection
-anchors across group changes and refreshes.
+anchors across group changes and refreshes. Updates to progress and file
+availability change the existing rows in place when their identities and
+order stay the same.
 Each new entry keeps the resume filename chosen by mpv at the time of playback.
 Matching keys replace earlier visits and read the same saved position after a
 path-policy change. Stream keys preserve the original address. History reads

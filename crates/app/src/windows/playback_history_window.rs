@@ -191,12 +191,10 @@ fn write_selected_paths(window: &PlaybackHistoryWindow, paths: &HashSet<String>)
     );
     let mut paths = paths.iter().cloned().collect::<Vec<_>>();
     paths.sort();
-    window.set_selected_paths(ModelRc::new(VecModel::from(
-        paths
-            .into_iter()
-            .map(SharedString::from)
-            .collect::<Vec<_>>(),
-    )));
+    let paths = paths.into_iter().map(SharedString::from).collect();
+    crate::ui_models::set_rows_if_changed(&window.get_selected_paths(), paths, |paths| {
+        window.set_selected_paths(paths);
+    });
 }
 
 fn context_selected_paths(window: &PlaybackHistoryWindow, clicked_path: &str) -> Vec<String> {
@@ -330,15 +328,11 @@ fn refresh(
     if window.window().is_visible() {
         availability.request(checks);
     }
-    let visible_paths = rows
+    let selected = rows
         .iter()
-        .filter(|row| !row.is_group)
+        .filter(|row| row.selected)
         .map(|row| row.path.to_string())
-        .collect::<HashSet<_>>();
-    let selected = selected
-        .into_iter()
-        .filter(|path| visible_paths.contains(path))
-        .collect::<HashSet<_>>();
+        .collect();
     let selected_path = window.get_selected_path();
     if !rows
         .iter()
@@ -348,8 +342,26 @@ fn refresh(
     }
     window.set_has_collapsed_groups(rows.iter().any(|row| row.is_group && row.collapsed));
     window.set_has_expanded_groups(rows.iter().any(|row| row.is_group && !row.collapsed));
-    window.set_rows(ModelRc::new(VecModel::from(rows)));
+    publish_rows(window, rows);
     write_selected_paths(window, &selected);
+}
+
+fn publish_rows(window: &PlaybackHistoryWindow, rows: Vec<PlaybackHistoryRow>) {
+    let current = window.get_rows();
+    let same_outline = current.row_count() == rows.len()
+        && current.iter().zip(&rows).all(|(old, new)| {
+            old.is_group == new.is_group && old.group_key == new.group_key && old.path == new.path
+        });
+    if !same_outline {
+        window.set_rows(ModelRc::new(VecModel::from(rows)));
+        return;
+    }
+    // Keep the existing item elements when only file status or progress changes.
+    for (index, row) in rows.into_iter().enumerate() {
+        if current.row_data(index).as_ref() != Some(&row) {
+            current.set_row_data(index, row);
+        }
+    }
 }
 
 fn revision(history: &HistoryState) -> u64 {
@@ -404,7 +416,7 @@ mod tests {
             path: url::Url::from_file_path(path).unwrap().into(),
             title: Some("Chroniques de Montréal".into()),
             watch_later_key: None,
-            progress: Some(12.0),
+            progress: Some(12.51),
             duration: 60.0,
             date_ms: 0,
         };
@@ -436,7 +448,8 @@ mod tests {
         assert_eq!(rows.len(), 3);
         assert_eq!(rows[1].label, "Chroniques de Montréal");
         assert_eq!(rows[1].detail, "Épisode 1.mkv");
-        assert_eq!(rows[1].progress, "0:12 / 1:00");
+        assert_eq!(rows[1].progress, "00:13");
+        assert!((rows[1].progress_ratio - 12.51 / 60.0).abs() < f32::EPSILON);
         assert!(rows[1].available);
         assert_eq!(rows[2].detail, "Épisode 2.mkv");
         assert!(rows[2].progress.is_empty());

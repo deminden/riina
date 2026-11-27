@@ -183,6 +183,10 @@ Implementation does not imply every state or platform is verified.
   Playback actions recheck selected files off the interface thread and choose a
   visible destination when the check finishes. Single-row opens honor the
   saved window and resume settings. The row menu is reachable from the keyboard.
+  History search matches filenames or decoded paths, with case and accent
+  folding. Full Path searches the path component of saved stream URLs.
+  Progress shows the elapsed position with a bar for its share of the duration.
+  Holding the Play or Remove shortcut activates the action once.
   History and Playlist display saved positions from mpv, including files with
   the optional filename comment. History keeps the original stream address
   and refreshes its displayed positions when opened. While open, History and

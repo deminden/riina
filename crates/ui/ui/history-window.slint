@@ -401,11 +401,13 @@ export component PlaybackHistoryWindow inherits Window {
         }
         if search-input.has-focus { return reject; }
         if (event.modifiers.control || event.modifiers.meta) && (event.text == "a" || event.text == "A") {
-            root.select-all(); return accept;
+            if !event.repeat { root.select-all(); }
+            return accept;
         }
         if !event.modifiers.alt && !event.modifiers.control && !event.modifiers.meta
             && (event.text == Key.Menu || (event.text == Key.F10 && event.modifiers.shift)) {
-            if root.selected-menu-row >= 0 {
+            if root.selected-menu-row >= 0 && !event.repeat {
+                root.reveal-row(root.selected-menu-row);
                 let row-bottom = (root.selected-menu-row + 1) * 46px + outline.content-y;
                 keyboard-menu.show({ x: outline.x + 40px,
                     y: outline.y + clamp(row-bottom, 0px, outline.visible-height) });
@@ -425,19 +427,26 @@ export component PlaybackHistoryWindow inherits Window {
         }
         if event.modifiers.alt || event.modifiers.shift { return reject; }
         if (event.modifiers.control || event.modifiers.meta) && event.text == Key.Return {
-            root.context-action(PlaybackHistoryAction.play-in-new-window, ""); return accept;
+            if !event.repeat { root.context-action(PlaybackHistoryAction.play-in-new-window, ""); }
+            return accept;
         }
         if (event.modifiers.control || event.modifiers.meta) && (event.text == "l" || event.text == "L") {
-            root.context-action(PlaybackHistoryAction.reveal, ""); return accept;
+            if !event.repeat { root.context-action(PlaybackHistoryAction.reveal, ""); }
+            return accept;
         }
         if (event.modifiers.control || event.modifiers.meta)
             && (event.text == Key.Backspace || event.text == Key.Delete) {
-            root.context-action(PlaybackHistoryAction.trash, ""); return accept;
+            if !event.repeat { root.context-action(PlaybackHistoryAction.trash, ""); }
+            return accept;
         }
         if event.modifiers.control || event.modifiers.meta { return reject; }
-        if event.text == Key.Return { root.context-action(PlaybackHistoryAction.play, ""); return accept; }
+        if event.text == Key.Return {
+            if !event.repeat { root.context-action(PlaybackHistoryAction.play, ""); }
+            return accept;
+        }
         if event.text == Key.Backspace || event.text == Key.Delete {
-            root.context-action(PlaybackHistoryAction.remove, ""); return accept;
+            if !event.repeat { root.context-action(PlaybackHistoryAction.remove, ""); }
+            return accept;
         }
         return reject;
     }
