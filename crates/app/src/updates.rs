@@ -91,10 +91,8 @@ impl ApplicationUpdates {
         preferences_path: &Path,
         preferences: &riina_core::Preferences,
     ) {
-        self.application_theme.set(Some((
-            preferences.effective_theme_material(),
-            preferences.dark,
-        )));
+        self.application_theme
+            .set(Some((preferences.theme_material, preferences.dark)));
         self.initialize_schedule(preferences_path);
     }
 

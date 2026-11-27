@@ -105,7 +105,7 @@ fn settings_changes_before_playback_merge_with_an_independent_save() {
     assert_eq!(saved.subtitle_font, "Serif");
     assert_eq!(saved.subtitle_ass_override, AssOverrideLevel::Force);
     assert_eq!(saved.key_bindings.current_profile, "Movist Default");
-    assert_eq!(saved.theme_material, Some(ThemeMaterial::Dark));
+    assert_eq!(saved.theme_material, ThemeMaterial::Dark);
     owner.hide();
     assert!(!window.window().is_visible());
     assert!(!owner.is_visible());

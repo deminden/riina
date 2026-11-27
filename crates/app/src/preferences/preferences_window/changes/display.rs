@@ -135,7 +135,7 @@ impl Draft {
         self.material.put(preferences);
         self.control_bar.put(preferences);
         self.resize.put(preferences);
-        preferences.theme_material = Some(self.theme);
+        preferences.theme_material = self.theme;
         preferences.dark = self.dark;
     }
 

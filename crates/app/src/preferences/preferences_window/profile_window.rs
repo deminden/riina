@@ -102,7 +102,7 @@ fn install_general(window: &PreferencesWindow, saved: &Preferences) {
 
 fn install_display(window: &PreferencesWindow, saved: &Preferences) {
     window.set_surface_material_title(crate::platform::surface_material_title().into());
-    window.set_appearance_index(saved.effective_theme_material().index());
+    window.set_appearance_index(saved.theme_material.index());
     window.set_always_float_on_top(saved.always_float_on_top);
     window.set_always_show_on_top_icon(saved.always_show_on_top_icon);
     window.set_compact_ui(saved.compact_ui);
@@ -163,7 +163,7 @@ mod tests {
             allow_multiple_windows: false,
             pause_when_open: true,
             playlist_auto_add: false,
-            theme_material: Some(ThemeMaterial::Light),
+            theme_material: ThemeMaterial::Light,
             always_float_on_top: true,
             subtitle_ass_override: AssOverrideLevel::Force,
             subtitle_font: "Custom Font".into(),

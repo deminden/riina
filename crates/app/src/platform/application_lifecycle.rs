@@ -111,11 +111,7 @@ pub(crate) fn show_about(
     let window = about.window_for(None)?;
     about.stop_refresh();
     about.probe.use_application(&window);
-    window.set_dark_theme(
-        preferences
-            .effective_theme_material()
-            .dark_for(preferences.dark),
-    );
+    window.set_dark_theme(preferences.theme_material.dark_for(preferences.dark));
     crate::about_window::reveal(&window)?;
     window.set_dark_theme(profile_window_theme(window.window(), preferences));
     about.probe.request(&window);
@@ -129,9 +125,7 @@ pub(crate) fn show_highlights(
 ) -> Result<(), slint::PlatformError> {
     use slint::ComponentHandle;
 
-    let dark = preferences
-        .effective_theme_material()
-        .dark_for(preferences.dark);
+    let dark = preferences.theme_material.dark_for(preferences.dark);
     let window = services.highlights.show(None, None, dark)?;
     window.set_dark_theme(profile_window_theme(window.window(), preferences));
     Ok(())
@@ -145,7 +139,7 @@ fn profile_window_theme(window: &slint::Window, preferences: &riina_core::Prefer
         .with_winit_window(slint::winit_030::winit::window::Window::theme)
         .flatten()
         .map_or(preferences.dark, |theme| theme == Theme::Dark);
-    preferences.effective_theme_material().dark_for(dark)
+    preferences.theme_material.dark_for(dark)
 }
 
 #[cfg(test)]

@@ -142,7 +142,7 @@ fn layout_preferences_keep_reference_defaults_and_reject_unknown_controller_posi
     assert!(!legacy.always_float_on_top);
     assert!(!legacy.always_show_on_top_icon);
     assert_eq!(legacy.window_resize, window_resize::Settings::default());
-    assert_eq!(legacy.effective_theme_material(), ThemeMaterial::Dark);
+    assert_eq!(legacy.theme_material, ThemeMaterial::Dark);
     let selected = Preferences::parse(r#"{"compact_ui":true,"osc_position":2}"#).unwrap();
     let restored = Preferences::parse(&serde_json::to_string(&selected).unwrap()).unwrap();
     assert!(restored.compact_ui);
@@ -156,16 +156,13 @@ fn layout_preferences_keep_reference_defaults_and_reject_unknown_controller_posi
     assert_eq!(restored_positioned.control_bar_position_vertical, 0.25);
     assert!(Preferences::parse(r#"{"control_bar_position_horizontal":1.1}"#).is_err());
     assert!(Preferences::parse(r#"{"control_bar_position_vertical":-0.1}"#).is_err());
-    let light = Preferences::parse(r#"{"dark":false}"#).unwrap();
+    let light = Preferences::parse(r#"{"theme_material":"light","dark":false}"#).unwrap();
     assert!(!light.dark);
-    assert_eq!(light.effective_theme_material(), ThemeMaterial::Light);
+    assert_eq!(light.theme_material, ThemeMaterial::Light);
     let system = Preferences::parse(r#"{"theme_material":"system","dark":false}"#).unwrap();
-    assert_eq!(system.effective_theme_material(), ThemeMaterial::System);
+    assert_eq!(system.theme_material, ThemeMaterial::System);
     let restored_system = Preferences::parse(&serde_json::to_string(&system).unwrap()).unwrap();
-    assert_eq!(
-        restored_system.effective_theme_material(),
-        ThemeMaterial::System
-    );
+    assert_eq!(restored_system.theme_material, ThemeMaterial::System);
     assert!(Preferences::parse(r#"{"theme_material":"automatic"}"#).is_err());
     let floating = Preferences::parse(r#"{"always_float_on_top":true}"#).unwrap();
     let restored_floating = Preferences::parse(&serde_json::to_string(&floating).unwrap()).unwrap();

@@ -6974,3 +6974,25 @@ checking that the reloaded secondary stays selected and no tracks are added.
 All eight native Linux subtitle tests passed using the local backported
 libmpv build with null output. The locked Windows workspace build and strict
 workspace cross-Clippy for Apple Silicon and Intel also passed.
+
+### Obsolete preference fields and equalizer paths (2026-11-27)
+
+The Windows workspace gate passed with strict Clippy, 725 application unit
+tests, 87 headless widget tests and the player and Settings pixel baselines.
+The preference tests cover default appearance recovery, typed equalizer
+selections, subtitle credentials excluded from JSON, and interleaved writes
+that remove an optional subtitle provider without reviving it from an older
+snapshot. Linux passed all 288 portable core tests.
+
+Profiles now use the current explicit appearance field. A profile saved
+before that field existed uses the current default appearance. The compact
+UI setting uses its current field, and saved user equalizer selections
+require their type flag.
+
+All 76 pinned Windows native tests passed in 11.82 seconds. The locked
+Windows build and strict workspace cross-Clippy for Apple Silicon and
+Intel passed. On a private Windows desktop the debug executable passed
+all ten playback, fullscreen, preference persistence and lifecycle smoke
+checks in 9.06 seconds. The test process exited and no Riina process remained.
+
+- Windows executable SHA-256 `73566f97529f8f90b8a86c7785a122252225ddb3322e2fbbba876df5f7aeb2e9`

@@ -57,7 +57,7 @@ impl Backend {
     }
 
     fn set_theme(&self, preferences: &Preferences) {
-        *lock(&self.native_theme) = match preferences.effective_theme_material() {
+        *lock(&self.native_theme) = match preferences.theme_material {
             ThemeMaterial::Dark => Some(Theme::Dark),
             ThemeMaterial::Light => Some(Theme::Light),
             ThemeMaterial::System => None,

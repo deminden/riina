@@ -134,10 +134,8 @@ fn capture_window_state(app: &PlayerWindow, preferences: Preferences) -> io::Res
         resume_last_position: player_preferences.get_resume_last_position(),
         live_text_enabled: app.get_live_text_enabled(),
         always_float_on_top: layout.get_always_float_on_top(),
-        theme_material: Some(
-            riina_core::ThemeMaterial::from_index(appearance.get_appearance_mode())
-                .ok_or_else(|| io::Error::other("Invalid appearance selection"))?,
-        ),
+        theme_material: riina_core::ThemeMaterial::from_index(appearance.get_appearance_mode())
+            .ok_or_else(|| io::Error::other("Invalid appearance selection"))?,
         dark: appearance.get_dark_theme(),
         leading_sidebar_width: sidebar.get_leading_sidebar_width() as u32,
         trailing_sidebar_width: sidebar.get_trailing_sidebar_width() as u32,

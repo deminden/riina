@@ -13,7 +13,7 @@ pub(crate) fn connect(app: &PlayerWindow, path: PathBuf, baseline: Preferences) 
         baseline.edge_to_edge_video,
         baseline.docked_controls,
         baseline.unlock_window_aspect_ratio,
-        baseline.effective_theme_material().index(),
+        baseline.theme_material.index(),
         baseline.liquid_glass.osd,
         baseline.liquid_glass.osc,
         baseline.liquid_glass.sidebar,
@@ -58,7 +58,7 @@ pub(crate) fn connect(app: &PlayerWindow, path: PathBuf, baseline: Preferences) 
             preferences.docked_controls = selected.5;
             preferences.unlock_window_aspect_ratio = selected.6;
             preferences.theme_material =
-                Some(ThemeMaterial::from_index(selected.7).ok_or("Invalid theme selection")?);
+                ThemeMaterial::from_index(selected.7).ok_or("Invalid theme selection")?;
             preferences.window_resize = crate::window_resize_preferences::from_player(&app)?;
             preferences.always_float_on_top = layout.get_always_float_on_top();
             preferences.always_show_on_top_icon = layout.get_always_show_on_top_icon();

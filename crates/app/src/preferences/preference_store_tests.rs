@@ -282,15 +282,16 @@ fn explicit_field_update_repairs_a_backed_up_profile_but_automatic_updates_wait(
 }
 
 #[test]
-fn optional_theme_removal_and_history_clear_preserve_newer_network_settings() {
+fn optional_setting_removal_and_history_clear_preserve_newer_network_settings() {
     let profile = TempDir::new("optional-history").unwrap();
     let path = profile.path().join("preferences.json");
-    let initial = Preferences::default();
-    let appearance = Writer::new(path.clone(), initial.clone());
+    let mut initial = Preferences::default();
+    initial.online_subtitles.plugin_provider = Some("plugin:example.provider:captions".into());
+    let subtitles = Writer::new(path.clone(), initial.clone());
     let session = Writer::new(path.clone(), initial.clone());
-    let mut theme = initial.clone();
-    theme.theme_material = None;
-    appearance.save(&theme).unwrap();
+    let mut provider = initial.clone();
+    provider.online_subtitles.plugin_provider = None;
+    subtitles.save(&provider).unwrap();
     let mut history = initial.clone();
     history.recent_media.push(riina_core::RecentMedia {
         path: "C:/media/example.mp4".into(),
@@ -307,13 +308,16 @@ fn optional_theme_removal_and_history_clear_preserve_newer_network_settings() {
     let saved = Preferences::parse(&std::fs::read_to_string(&path).unwrap()).unwrap();
     assert!(saved.recent_media.is_empty());
     assert_eq!(
-        saved.theme_material, None,
+        saved.online_subtitles.plugin_provider, None,
         "stale history writer must not recreate a removed optional field"
     );
     assert_eq!(saved.network.user_agent, "newer setting");
-    appearance.save(&initial).unwrap();
+    subtitles.save(&initial).unwrap();
     let saved = Preferences::parse(&std::fs::read_to_string(&path).unwrap()).unwrap();
-    assert_eq!(saved.theme_material, initial.theme_material);
+    assert_eq!(
+        saved.online_subtitles.plugin_provider,
+        initial.online_subtitles.plugin_provider
+    );
     assert!(saved.recent_media.is_empty());
     assert_eq!(saved.network.user_agent, "newer setting");
 }

@@ -80,20 +80,13 @@ pub struct Preferences {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub plugin_provider: Option<String>,
     /// Loaded from the platform credential store and never written to preferences JSON.
-    #[serde(default, skip_serializing, deserialize_with = "discard_legacy_api_key")]
+    #[serde(skip)]
     pub api_key: String,
     /// Loaded from the platform credential store and never written to preferences JSON.
-    #[serde(default, skip_serializing, deserialize_with = "discard_legacy_api_key")]
+    #[serde(skip)]
     pub assrt_token: String,
     pub auto_search: bool,
     pub auto_search_threshold_minutes: u16,
-}
-
-fn discard_legacy_api_key<'de, D>(deserializer: D) -> Result<String, D::Error>
-where
-    D: serde::Deserializer<'de>,
-{
-    serde::de::IgnoredAny::deserialize(deserializer).map(|_| String::new())
 }
 
 impl Default for Preferences {
@@ -265,12 +258,23 @@ mod tests {
     }
 
     #[test]
-    fn legacy_plain_text_key_is_ignored_during_preferences_parse() {
-        let preferences: crate::Preferences = serde_json::from_str(
-            r#"{"online_subtitles":{"api_key":"legacy-secret","auto_search":true}}"#,
-        )
-        .unwrap();
-        assert!(preferences.online_subtitles.api_key.is_empty());
-        assert!(preferences.online_subtitles.auto_search);
+    fn saved_preferences_never_store_or_load_subtitle_credentials() {
+        let preferences = Preferences {
+            api_key: "sample-key".into(),
+            assrt_token: "sample-token".into(),
+            auto_search: true,
+            ..Preferences::default()
+        };
+        let encoded = serde_json::to_string(&preferences).unwrap();
+        assert!(!encoded.contains("sample-"));
+        let loaded = serde_json::from_str::<Preferences>(&encoded).unwrap();
+        assert!(loaded.api_key.is_empty());
+        assert!(loaded.assrt_token.is_empty());
+        assert!(loaded.auto_search);
+        for field in ["api_key", "assrt_token"] {
+            let encoded = format!(r#"{{"{field}":"sample-credential"}}"#);
+            let error = serde_json::from_str::<Preferences>(&encoded).unwrap_err();
+            assert!(!error.to_string().contains("sample-credential"));
+        }
     }
 }

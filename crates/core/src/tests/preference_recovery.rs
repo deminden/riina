@@ -99,7 +99,7 @@ fn malformed_documents_use_defaults_and_report_one_document_rejection() {
 }
 
 #[test]
-fn invalid_explicit_theme_resets_while_missing_theme_keeps_legacy_dark_bit() {
+fn missing_or_invalid_theme_uses_the_default_appearance() {
     let (prefs, rejected) =
         Preferences::parse_lenient(r#"{"dark":false,"theme_material":"custom"}"#);
     assert_eq!(rejected.len(), 1);
@@ -112,10 +112,9 @@ fn invalid_explicit_theme_resets_while_missing_theme_keeps_legacy_dark_bit() {
     };
     assert_strict_round_trip(&prefs, &expected);
 
-    let (legacy, rejected) = Preferences::parse_lenient(r#"{"dark":false}"#);
+    let (missing, rejected) = Preferences::parse_lenient(r#"{"dark":false}"#);
     assert!(rejected.is_empty());
-    assert_eq!(legacy.theme_material, None);
-    assert_strict_round_trip(&legacy, &Preferences::parse(r#"{"dark":false}"#).unwrap());
+    assert_strict_round_trip(&missing, &expected);
 }
 
 fn assert_strict_round_trip(actual: &Preferences, expected: &Preferences) {

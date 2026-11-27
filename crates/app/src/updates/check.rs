@@ -122,7 +122,7 @@ mod tests {
         let profile = riina_test_support::TempDir::new("idle-update-schedule")?;
         let path = profile.path().join("preferences.json");
         let preferences = Preferences {
-            theme_material: Some(ThemeMaterial::Dark),
+            theme_material: ThemeMaterial::Dark,
             ..Preferences::default()
         };
         let first_launch = Rc::new(ApplicationUpdates::default());

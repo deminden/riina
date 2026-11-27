@@ -109,12 +109,8 @@ pub struct Preferences {
     pub subtitle_font: String,
     pub subtitle_font_size: f64,
     pub subtitle_text_style: subtitle_controls::TextStylePreferences,
-    // `None` means a settings file predates explicit appearance selection; in
-    // that case keep honoring its saved `dark` bit instead of changing themes.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub theme_material: Option<ThemeMaterial>,
+    pub theme_material: ThemeMaterial,
     pub dark: bool,
-    pub compact: bool,
     pub enable_osd: bool,
     pub disable_osd_file_start: bool,
     pub disable_osd_pause_resume: bool,
@@ -338,9 +334,8 @@ impl Default for Preferences {
             subtitle_font: subtitle_controls::DEFAULT_SUBTITLE_FONT.into(),
             subtitle_font_size: 55.0,
             subtitle_text_style: subtitle_controls::TextStylePreferences::default(),
-            theme_material: Some(ThemeMaterial::Dark),
+            theme_material: ThemeMaterial::Dark,
             dark: true,
-            compact: false,
             enable_osd: true,
             disable_osd_file_start: false,
             disable_osd_pause_resume: false,
@@ -367,14 +362,6 @@ impl Default for Preferences {
 }
 
 impl Preferences {
-    pub fn effective_theme_material(&self) -> ThemeMaterial {
-        self.theme_material.unwrap_or(if self.dark {
-            ThemeMaterial::Dark
-        } else {
-            ThemeMaterial::Light
-        })
-    }
-
     pub fn volume_limit(&self) -> f64 {
         if self.volume_boost { 200.0 } else { 100.0 }
     }
@@ -395,7 +382,7 @@ impl Preferences {
 
     pub fn parse_lenient(text: &str) -> (Self, Vec<Rejection>) {
         // Borrow each raw value so an out-of-range JSON number affects only its
-        // own section, and preserve the input for deserialization-only fields.
+        // own section.
         let Ok(mut fields) = serde_json::from_str::<BTreeMap<String, &RawValue>>(text) else {
             return rejected_document("Expected a complete JSON object");
         };
@@ -416,14 +403,7 @@ impl Preferences {
         // In particular, the independent volume check must not discard boost.
         let map = MapDeserializer::new(fields.iter().map(|(key, value)| (key.as_str(), *value)));
         match Self::validate_recovered(map) {
-            Ok(mut prefs) => {
-                // A missing theme is the legacy dark-bit format. A malformed
-                // explicit selection instead resets to the current default.
-                if rejected.iter().any(|entry| entry.key == "theme_material") {
-                    prefs.theme_material = Self::default().theme_material;
-                }
-                (prefs, rejected)
-            }
+            Ok(prefs) => (prefs, rejected),
             Err(reason) => rejected_document(reason.reason),
         }
     }

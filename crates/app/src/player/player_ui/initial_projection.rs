@@ -130,7 +130,7 @@ fn install_layout(app: &PlayerWindow, prefs: &Preferences, prefs_path: &Path) ->
         .set_always_float_on_top(prefs.always_float_on_top);
     app.global::<riina_ui::PlayerLayoutState>()
         .set_always_show_on_top_icon(prefs.always_show_on_top_icon);
-    let appearance = prefs.effective_theme_material();
+    let appearance = prefs.theme_material;
     app.global::<riina_ui::PlayerAppearance>()
         .set_appearance_mode(appearance.index());
     app.global::<riina_ui::PlayerAppearance>()

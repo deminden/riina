@@ -216,7 +216,6 @@
   },
   "theme_material": "dark",
   "dark": true,
-  "compact": false,
   "enable_osd": true,
   "disable_osd_file_start": false,
   "disable_osd_pause_resume": false,

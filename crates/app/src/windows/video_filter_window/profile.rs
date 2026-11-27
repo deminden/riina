@@ -183,7 +183,7 @@ impl Profile {
 
     pub(super) fn theme(&self) -> (riina_core::ThemeMaterial, bool) {
         let prefs = self.baseline.borrow();
-        (prefs.effective_theme_material(), prefs.dark)
+        (prefs.theme_material, prefs.dark)
     }
 
     pub(super) fn edit(&self, kind: Kind, edit: Edit) -> Result<(), String> {
