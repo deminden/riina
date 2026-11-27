@@ -285,9 +285,9 @@ pub(super) static OBSERVED: &[ObservedProperty] = &[
         }
     ),
     property!(c"eof-reached", Flag, |state, flag| {
-        if flag {
+        if flag && state.phase.has_loaded_file() {
             state.phase = Phase::Ended;
-        } else if state.phase == Phase::Ended {
+        } else if !flag && state.phase == Phase::Ended {
             state.phase = Phase::Playing;
         }
     }),
@@ -935,6 +935,9 @@ mod observer_table_tests {
             assert!(names.insert(row.name), "Duplicate property {:?}", row.name);
             assert!(std::ptr::eq(observed(row.name.to_bytes()).unwrap(), row));
             let mut state = Playback::default();
+            if row.name == c"eof-reached" {
+                state.phase = Phase::Playing;
+            }
             (row.clear)(&mut state);
             let cleared = format!("{state:?}");
             if let Err(error) = (row.apply)(&mut state, sample(row)) {
@@ -946,6 +949,19 @@ mod observer_table_tests {
                 "No change from {:?}",
                 row.name
             );
+        }
+    }
+
+    #[test]
+    fn eof_property_cannot_replace_the_phase_of_an_unloaded_file() {
+        let row = observed(b"eof-reached").unwrap();
+        for phase in [Phase::Stopped, Phase::Loading, Phase::Failed] {
+            let mut state = Playback {
+                phase,
+                ..Playback::default()
+            };
+            (row.apply)(&mut state, PropertyValue::Flag(true)).unwrap();
+            assert_eq!(state.phase, phase);
         }
     }
 

@@ -7364,3 +7364,28 @@ verification.
 
 A separate Windows baseline sent Stop directly to libmpv while a local clip
 was paused. The engine became idle and the player frame remained visible.
+
+### Stop requested by the native engine (2026-11-27)
+
+In an isolated Windows desktop, mpv's playlist-next command loaded the second
+paused clip in the same frame. Plain Stop and Stop with `keep-playlist` each
+closed the frame and returned to Welcome. Closing Welcome ended the original
+process normally.
+With another player open, Stop with `keep-playlist` hid the stopped frame.
+The same idle engine still reported both entries through its existing native
+connection. Closing the remaining player and Welcome ended that process.
+
+The Windows workspace gate, locked build and all 80 native playback tests
+passed. The new native case verifies that an older generation cannot finalize
+the current clip, that native Stop can preserve the requested queue, and that
+the application can subsequently clear it with its own Stop command.
+
+The locked Linux application build, strict Clippy and 34 focused tests passed.
+In an isolated X11 session, native playlist-next retained the same playback
+window. The probe waited for the second file to finish loading before sending
+Stop. The player closed and returned to Welcome, which closed normally in the
+same process. Strict macOS cross-Clippy passed for Intel and Apple Silicon.
+
+A separate Windows baseline sent Quit directly to mpv while playback was
+paused. The application and its playback frame remained open. The pinned IINA
+shutdown handler initiates application termination in this case.

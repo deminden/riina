@@ -23,12 +23,22 @@ pub enum Phase {
     Failed,
 }
 
+impl Phase {
+    pub fn has_loaded_file(self) -> bool {
+        matches!(
+            self,
+            Self::Playing | Self::Paused | Self::Buffering | Self::Seeking | Self::Ended
+        )
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum FileFeedback {
     #[default]
     Idle,
     Loading,
     Restarted(Instant),
+    StoppedByEngine,
     OpenFailed {
         stream_attempt: Option<u64>,
     },
@@ -37,7 +47,7 @@ pub enum FileFeedback {
 impl FileFeedback {
     pub fn suppresses_changes(self, now: Instant) -> bool {
         match self {
-            Self::Idle | Self::OpenFailed { .. } => false,
+            Self::Idle | Self::StoppedByEngine | Self::OpenFailed { .. } => false,
             Self::Loading => true,
             Self::Restarted(at) => {
                 now.saturating_duration_since(at) < std::time::Duration::from_millis(200)
@@ -492,15 +502,22 @@ impl Playback {
             && self.idle_active
             && self.phase == Phase::Stopped
             && self.active_playlist_entry.is_none()
-            && self.playlist.is_empty()
+            && (self.playlist.is_empty() || self.file_feedback == FileFeedback::StoppedByEngine)
     }
 
     pub fn ended_idle(&self) -> bool {
         self.phase == Phase::Ended && self.idle_active
     }
 
+    pub fn stopped_idle_by_engine(&self) -> bool {
+        self.idle_active
+            && self.phase == Phase::Stopped
+            && self.file_feedback == FileFeedback::StoppedByEngine
+    }
+
     pub fn idle_for_finalization(&self) -> bool {
         self.ended_idle()
+            || (self.stopped_idle_by_engine() && self.stopped_by.is_none())
             || (self.idle_active
                 && self.phase == Phase::Failed
                 && matches!(self.file_feedback, FileFeedback::OpenFailed { .. }))

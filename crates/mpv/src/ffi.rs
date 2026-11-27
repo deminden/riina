@@ -42,6 +42,7 @@ pub(crate) mod format {
 
 pub(crate) mod end_reason {
     pub const EOF: std::ffi::c_int = 0;
+    pub const STOP: std::ffi::c_int = 2;
     pub const ERROR: std::ffi::c_int = 4;
     pub const REDIRECT: std::ffi::c_int = 5;
 }

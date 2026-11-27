@@ -99,6 +99,8 @@ Implementation does not imply every state or platform is verified.
   The Windows picker reuses the initial player behind Welcome. Stop closes
   the playback frame after mpv becomes idle. On Windows, a subsequent open
   reused the exact stopped frame while another player stayed open.
+  Stop sent directly to mpv also closes the playback frame after idle.
+  Direct playlist navigation keeps the same window as the next clip loads.
   When automatic advance is on and Keep Window Open is off, the last file
   closes the player after mpv reaches idle. With automatic advance off, mpv
   holds the current file at its final frame.

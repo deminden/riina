@@ -30,7 +30,7 @@ struct Observer {
     idle_media: Option<Rc<Cell<Availability>>>,
     parked: Rc<Cell<bool>>,
     stopped: Option<Rc<dyn Fn(u32)>>,
-    delivered_stop: Option<u32>,
+    delivered_stop: Option<(u64, u32)>,
     idle_close: Option<IdleClose>,
 }
 
@@ -274,7 +274,7 @@ impl ObserverId {
                 .finalize_idle_media(playback.generation, request);
             if result.is_ok() {
                 close.submitted = Some((playback.generation, request));
-                if playback.ended_idle()
+                if (playback.ended_idle() || playback.stopped_idle_by_engine())
                     && let Some(available) = &observer.idle_media
                 {
                     available.set(Availability::AfterStop(request));
@@ -314,7 +314,8 @@ impl ObserverId {
             let mut observers = observers.borrow_mut();
             let observer = observers.get_mut(&self.0)?;
             let callback = observer.stopped.clone()?;
-            (observer.delivered_stop.replace(request) != Some(request)).then_some(callback)
+            let stop = (playback.generation, request);
+            (observer.delivered_stop.replace(stop) != Some(stop)).then_some(callback)
         });
         if let Some(callback) = callback {
             callback(request);
@@ -565,6 +566,10 @@ mod tests {
             id.stop_disposition(&ended, 2),
             Some(StopDisposition::Finished)
         ));
+        stopped.set(None);
+        ended.generation += 1;
+        id.notify_stopped(&app, &ended);
+        assert_eq!(stopped.get(), Some(1));
     }
 
     #[test]

@@ -1148,9 +1148,12 @@ and any resume position to that manager. Beginning close retires the window's
 ability to forward requests, including those queued during media discovery.
 Windows computes monitor placement from the owning window in the manager.
 
-Stop closes the playback frame after the native reply, idle notification and
-empty playlist arrive. Natural EOF follows the same close path once mpv goes
-idle. The worker clears the exhausted playlist only for that file generation.
+The application's Stop closes the playback frame after the native reply,
+idle notification and empty playlist arrive. A Stop sent directly to mpv
+closes the frame once the worker confirms that the loaded file's generation
+is still idle. The engine retains the queue if the command requested it.
+Natural EOF follows the same close path once mpv goes idle. The worker clears
+the exhausted playlist only for that file generation.
 The manager rechecks the request before closing so a new selection can take
 over. When mpv keeps the final frame active, the playback window stays open.
 An open dialog defers the close. Dismissing it rechecks the latest native
@@ -1160,10 +1163,9 @@ before completing the open. A playable successor owns the next generation.
 The Open URL window recovers the matching stream attempt and can retry with a
 new player. Other failures use a separate alert. The alert and Open URL window
 keep the application alive until dismissal or retry.
-An unused player or a retained stopped player can handle an ordinary open.
-The manager reserves it before revealing its
-frame. A retained player stays out of window switching and History
-destinations.
+An unused player or a retained stopped player with an empty queue can handle
+an ordinary open. The manager reserves it before revealing its frame.
+A retained player stays out of window switching and History destinations.
 
 macOS can retain a stopped player while the idle app menu is active. Windows
 and Linux retain stopped players alongside other playback windows. They

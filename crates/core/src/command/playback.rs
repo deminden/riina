@@ -63,7 +63,7 @@ impl Command {
 }
 
 pub(super) fn stop(state: &Playback) -> Vec<Vec<String>> {
-    if state.idle_for_finalization() {
+    if state.idle_for_finalization() || state.stopped_idle_by_engine() {
         // mpv can retain an idle playlist when stop has no current file.
         return vec![cmd(["playlist-clear"])];
     }

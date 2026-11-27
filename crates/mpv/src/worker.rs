@@ -150,10 +150,10 @@ impl<N: Fn(Arc<Playback>)> Start<N> {
                     ),
                     Message::FinalizeIdleMedia {
                         generation,
-                        command,
+                        request,
                     } => {
                         state.drain_events(&mut handle, &callback_sender);
-                        state.finalize_idle_media(&handle, generation, command);
+                        state.finalize_idle_media(&handle, generation, request);
                     }
                     Message::FilterEdit(request) => state.enqueue_filter_edit(request),
                     Message::OpenStream(command, source, attempt) => {
@@ -344,12 +344,19 @@ enum PlaylistInsertion {
 }
 
 impl WorkerState {
-    fn finalize_idle_media(&mut self, handle: &Handle, generation: u64, command: Command) {
-        if self.pending_stop.is_none()
-            && self.media_generation_is_current(generation)
-            && self.playback.idle_for_finalization()
+    fn finalize_idle_media(&mut self, handle: &Handle, generation: u64, request: u32) {
+        if self.pending_stop.is_some()
+            || !self.media_generation_is_current(generation)
+            || !self.playback.idle_for_finalization()
         {
-            self.handle_intent(handle, command);
+            return;
+        }
+        if self.playback.stopped_idle_by_engine() {
+            // A native Stop already ended the file. Respect its keep-playlist flag.
+            self.playback.stopped_by = Some(request);
+            self.mark_changed();
+        } else {
+            self.handle_intent(handle, Command::Stop(Some(request)));
         }
     }
 
@@ -1151,6 +1158,14 @@ impl WorkerState {
             self.playback.file_feedback = riina_core::FileFeedback::OpenFailed {
                 stream_attempt: stream.as_ref().map(stream::StreamLoad::attempt_id),
             };
+        } else if end.reason == end_reason::STOP
+            && self.playback.phase.has_loaded_file()
+            && self.pending_stop.is_none()
+            && self.playback.stopped_by.is_none()
+        {
+            // Native navigation can also end a file with STOP. The idle
+            // observation and generation check decide whether it ended playback.
+            self.playback.file_feedback = riina_core::FileFeedback::StoppedByEngine;
         }
         self.subtitle_reload = None;
         self.arm_end_pause(end.reason);
@@ -1236,6 +1251,9 @@ impl WorkerState {
                 if self.playback.idle_for_finalization() {
                     self.playback.phase = Phase::Stopped;
                     self.clear_active_file();
+                }
+                if self.playback.file_feedback == riina_core::FileFeedback::StoppedByEngine {
+                    self.playback.file_feedback = riina_core::FileFeedback::Idle;
                 }
                 self.playback.stopped_by = Some(request);
                 self.mark_changed();

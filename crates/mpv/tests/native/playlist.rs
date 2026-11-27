@@ -393,6 +393,60 @@ fn failed_playlist_opens_skip_to_playable_media_and_finalize_only_when_idle() {
 }
 
 #[test]
+#[ignore = "requires provisioned libmpv; checks native Stop and the queue retention flag"]
+fn native_stop_closes_only_the_current_idle_media_and_respects_the_retained_queue() {
+    let root = fixture_root();
+    let harness = Harness::start(&root).unwrap();
+    let clip = |name: &str| {
+        root.join("tests/fixtures")
+            .join(name)
+            .to_string_lossy()
+            .into_owned()
+    };
+    let first = clip("catalog.mkv");
+    let second = clip("moving-square.avi");
+    harness.send(Command::SetPauseWhenOpen(true)).unwrap();
+    harness
+        .send(Command::OpenPlaylist(vec![first.clone(), second]))
+        .unwrap();
+    let first_playing =
+        harness.wait(|state| state.phase == Phase::Paused && state.playlist.len() == 2);
+    harness.send(Command::PlaylistNext).unwrap();
+    let second_playing = harness
+        .wait(|state| state.generation > first_playing.generation && state.phase == Phase::Paused);
+    assert!(!second_playing.idle_for_finalization());
+
+    let keep = riina_core::PluginMpvCommand::new("stop", vec!["keep-playlist".into()]).unwrap();
+    harness.send(Command::PluginMpv(keep)).unwrap();
+    let idle = harness.wait(|state| state.stopped_idle_by_engine());
+    assert_eq!(idle.generation, second_playing.generation);
+    assert_eq!(idle.playlist.len(), 2);
+    assert_eq!(idle.stopped_by, None);
+    let commands = harness.player.command_sender();
+    commands
+        .finalize_idle_media(first_playing.generation, 10)
+        .unwrap();
+    harness.send(Command::SetMuted(true)).unwrap();
+    assert_eq!(harness.wait(|state| state.muted).stopped_by, None);
+    commands.finalize_idle_media(idle.generation, 11).unwrap();
+    let retained = harness.wait(|state| state.confirmed_stop(11));
+    assert_eq!(retained.playlist.len(), 2);
+    assert!(!retained.idle_for_finalization());
+
+    harness.send(Command::Stop(Some(12))).unwrap();
+    let cleared = harness.wait(|state| state.confirmed_stop(12));
+    assert!(cleared.playlist.is_empty());
+    harness.send(Command::Load(first)).unwrap();
+    let replacement =
+        harness.wait(|state| state.generation > idle.generation && state.phase == Phase::Paused);
+    harness.send(Command::Stop(None)).unwrap();
+    let idle = harness.wait(|state| state.stopped_idle_by_engine() && state.playlist.is_empty());
+    assert_eq!(idle.generation, replacement.generation);
+    commands.finalize_idle_media(idle.generation, 13).unwrap();
+    harness.wait(|state| state.confirmed_stop(13));
+}
+
+#[test]
 #[ignore = "requires provisioned libmpv; verifies file repeat playback and independent playlist repeat"]
 fn file_repeat_wraps_and_preserves_playlist_repeat() {
     let root = fixture_root();

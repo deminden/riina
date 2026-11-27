@@ -29,7 +29,9 @@ impl Availability {
                     && playback.phase == riina_core::Phase::Stopped
                     && playback.playlist.is_empty()
             }
-            Self::AfterStop(stop) => request == stop && playback.confirmed_stop(stop),
+            Self::AfterStop(stop) => {
+                request == stop && playback.playlist.is_empty() && playback.confirmed_stop(stop)
+            }
             Self::Unavailable => false,
         }
     }
@@ -196,6 +198,9 @@ mod tests {
             playing: false,
             current: false,
         });
+        assert!(!request.is_ready(4, &playback));
+        playback.file_feedback = riina_core::FileFeedback::StoppedByEngine;
+        assert!(playback.confirmed_stop(4));
         assert!(!request.is_ready(4, &playback));
         playback.playlist = Default::default();
         assert!(request.is_ready(4, &playback));
