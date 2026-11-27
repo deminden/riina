@@ -440,6 +440,12 @@ the generation that requested them.
 The in-window context menu scrolls when its actions exceed the available
 height in either player view.
 
+The playback worker owns subtitle encoding changes. It reloads external
+subtitle tracks, waits for the native replies, and reads the refreshed track
+list. It restores the primary and secondary choices by external path or
+embedded track ID because a native reload may assign a new ID and select
+the replacement as primary. Replacing the media retires its pending restore.
+
 The desktop drop adapters publish the position of a playable offer to the same
 scroll view. X11 samples the native cursor after Winit reports the file list.
 The sidebar and Music Mode use their current scroll offsets for the cue and

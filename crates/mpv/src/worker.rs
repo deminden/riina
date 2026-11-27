@@ -11,6 +11,7 @@ mod playlist_resume;
 mod screenshot_decode;
 mod script_input;
 mod stream;
+mod subtitle_reload;
 mod timeline_queue;
 mod version_probe;
 pub use duration_probe::read_local_duration;
@@ -318,6 +319,7 @@ struct WorkerState {
     pending: HashMap<u64, PendingCommand>,
     playlist_edits: PendingEdits,
     filter_edits: filter_edits::Queue,
+    subtitle_reload: Option<subtitle_reload::Reload>,
     client_requests: HashMap<u64, Pending>,
     hooks: hooks::Hooks,
     script_input: script_input::Watch,
@@ -460,6 +462,15 @@ impl WorkerState {
     }
 
     fn handle_intent(&mut self, handle: &Handle, command: Command) {
+        if matches!(command, Command::SubtitleEncoding(_)) {
+            if let Err(error) = self.change_subtitle_encoding(handle, &command) {
+                self.report_subtitle_reload_error(error);
+            }
+            return;
+        }
+        if self.retain_subtitle_selection(&command) {
+            return;
+        }
         if let Command::MpvScriptKeys { owner, keys } = &command {
             // Escape may close a script between UI submission and worker delivery.
             let active = match owner {
@@ -855,6 +866,16 @@ impl WorkerState {
                 continue;
             }
             if event.id() == event_id::GET_PROPERTY_REPLY
+                && self
+                    .subtitle_reload
+                    .as_ref()
+                    .is_some_and(|batch| batch.reads_catalog(event.userdata()))
+            {
+                let result = event.client_reply();
+                self.finish_subtitle_reload(handle, result);
+                continue;
+            }
+            if event.id() == event_id::GET_PROPERTY_REPLY
                 && let Some((id, revision)) = self.adjusted_volume_read
                 && id == event.userdata()
             {
@@ -924,6 +945,9 @@ impl WorkerState {
                 }
                 if let Some(id) = command_reply {
                     self.filter_edits.edit_replied(id);
+                    if let Some(reload) = &mut self.subtitle_reload {
+                        reload.replied(id);
+                    }
                     self.finish_end_pause(handle, id);
                 }
             }
@@ -938,6 +962,7 @@ impl WorkerState {
             self.handle_intent(handle, Command::SelectPlaylistId(id));
         }
         self.advance_filter_edits(handle);
+        self.advance_subtitle_reload(handle);
     }
 
     fn on_event(&mut self, event: &EventRef<'_>) -> Option<u64> {
@@ -956,6 +981,7 @@ impl WorkerState {
                 return self.on_command_reply(event);
             }
             event_id::START_FILE => {
+                self.subtitle_reload = None;
                 self.active_entry = event.started_entry();
                 self.playlist_edits.file_started(self.active_entry);
                 self.stream_auth.public_address = None;
@@ -992,6 +1018,7 @@ impl WorkerState {
                 self.client_requests.clear();
                 self.playlist_edits.clear();
                 self.retire_filter_edits();
+                self.subtitle_reload = None;
                 self.pending
                     .retain(|_, reply| !matches!(reply.kind, ReplyKind::PlaylistEdit { .. }));
                 self.adjusted_volume_read = None;
@@ -1074,6 +1101,7 @@ impl WorkerState {
         if self.active_entry != Some(end.playlist_entry_id) {
             return;
         }
+        self.subtitle_reload = None;
         self.arm_end_pause(end.reason);
         self.active_entry = None;
         self.playback.folder_discovery_allowed = false;

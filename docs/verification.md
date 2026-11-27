@@ -6957,4 +6957,20 @@ smoke test.
 
 - Windows executable SHA-256 `1cb7314ae7ffabfa86fd1d9c555ecd425d44fea1ad729e3814965f6d02aec262`
 
-Strict workspace cross-Clippy passed for Apple Silicon and Intel.
+All six focused Linux application tests passed, covering the playlist
+metadata suite and the headless player callbacks. Strict workspace cross-Clippy
+passed for Apple Silicon and Intel.
+
+### Subtitle encoding and independent subtitle lanes (2026-11-27)
+
+The Windows workspace gate passed with strict Clippy, 725 application unit
+tests, 87 headless widget tests and the software-rendered pixel baselines.
+All 76 pinned native Windows tests passed in 12.03 seconds with null output.
+The encoding regression rewrites two external subtitle files during paused
+playback and verifies that the refreshed cues return to their original lanes.
+It also sends consecutive encoding changes and turns the primary lane off,
+checking that the reloaded secondary stays selected and no tracks are added.
+
+All eight native Linux subtitle tests passed using the local backported
+libmpv build with null output. The locked Windows workspace build and strict
+workspace cross-Clippy for Apple Silicon and Intel also passed.

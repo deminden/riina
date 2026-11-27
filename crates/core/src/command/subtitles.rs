@@ -129,7 +129,7 @@ impl Command {
     }
 }
 
-pub(super) fn encoding(state: &Playback, encoding: &str) -> Result<Vec<Vec<String>>, CommandError> {
+pub(super) fn encoding(encoding: &str) -> Result<Vec<Vec<String>>, CommandError> {
     if !subtitle_controls::SUBTITLE_ENCODING_CHOICES
         .iter()
         .any(|(_, code)| *code == encoding)
@@ -138,15 +138,7 @@ pub(super) fn encoding(state: &Playback, encoding: &str) -> Result<Vec<Vec<Strin
             what: "Unsupported subtitle encoding",
         });
     }
-    let mut commands = vec![set("sub-codepage", encoding)];
-    commands.extend(
-        state
-            .tracks
-            .iter()
-            .filter(|track| track.kind == TrackKind::Sub)
-            .map(|track| vec!["sub-reload".into(), track.id.to_string()]),
-    );
-    Ok(commands)
+    Ok(vec![set("sub-codepage", encoding)])
 }
 
 pub(super) fn auto_load(

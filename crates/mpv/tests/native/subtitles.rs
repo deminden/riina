@@ -305,6 +305,99 @@ fn subtitle_font_selection_preserves_other_style_options() {
 }
 
 #[test]
+#[ignore = "requires provisioned libmpv; verifies encoding reload restores both subtitle lanes"]
+fn encoding_reload_preserves_both_selected_subtitle_files() {
+    let root = fixture_root();
+    let harness = Harness::start(&root).unwrap();
+    harness
+        .send(Command::Load(
+            root.join("tests/fixtures/catalog.mkv")
+                .to_string_lossy()
+                .into_owned(),
+        ))
+        .unwrap();
+    harness.wait(|state| state.phase == Phase::Playing);
+    harness.send(Command::SetPaused(true)).unwrap();
+    harness.wait(|state| state.paused);
+
+    let scratch = riina_test_support::TempDir::new("subtitle-encoding").unwrap();
+    let primary = scratch.path().join("primary.srt");
+    let secondary = scratch.path().join("secondary.srt");
+    let write = |file: &std::path::Path, text: &str| {
+        std::fs::write(file, format!("1\n00:00:00,000 --> 00:00:04,000\n{text}\n")).unwrap();
+    };
+    let add = |file: &std::path::Path| {
+        harness
+            .send(Command::AddSubtitle(file.to_string_lossy().into_owned()))
+            .unwrap();
+    };
+    write(&primary, "First primary cue");
+    add(&primary);
+    let first = harness.wait(|state| selected_track(state, TrackKind::Sub).is_some());
+    let primary_id = selected_track(&first, TrackKind::Sub).unwrap();
+    write(&secondary, "First secondary cue");
+    add(&secondary);
+    let second = harness
+        .wait(|state| selected_track(state, TrackKind::Sub).is_some_and(|id| id != primary_id));
+    let secondary_id = selected_track(&second, TrackKind::Sub).unwrap();
+    harness
+        .send(Command::SelectTrack {
+            kind: TrackKind::Sub,
+            id: Some(primary_id),
+        })
+        .unwrap();
+    harness
+        .send(Command::SelectSecondarySubtitle(Some(secondary_id)))
+        .unwrap();
+    let seek = |seconds| {
+        harness
+            .send(Command::Seek {
+                seconds,
+                absolute: true,
+            })
+            .unwrap();
+    };
+    let cues = |state: &Playback, primary, secondary| {
+        state.subtitle_text.as_deref() == Some(primary)
+            && state.secondary_subtitle_text.as_deref() == Some(secondary)
+    };
+    seek(0.5);
+    let original = harness.wait(|state| cues(state, "First primary cue", "First secondary cue"));
+
+    write(&primary, "Edited primary — café");
+    write(&secondary, "Edited secondary — bonjour");
+    harness
+        .send(Command::SubtitleEncoding("UTF-8".into()))
+        .unwrap();
+    seek(0.8);
+    let reloaded =
+        harness.wait(|state| cues(state, "Edited primary — café", "Edited secondary — bonjour"));
+    assert!(reloaded.paused);
+    assert_eq!(reloaded.generation, original.generation);
+    assert_eq!(reloaded.tracks.len(), original.tracks.len());
+    assert_eq!(reloaded.error(), None);
+
+    write(&secondary, "Secondary only — résumé");
+    for command in [
+        Command::SubtitleEncoding("auto".into()),
+        Command::SubtitleEncoding("UTF-8".into()),
+        Command::SelectTrack {
+            kind: TrackKind::Sub,
+            id: None,
+        },
+    ] {
+        harness.send(command).unwrap();
+    }
+    seek(1.0);
+    let reloaded = harness.wait(|state| {
+        state.subtitle_text.as_deref().is_none_or(str::is_empty)
+            && state.secondary_subtitle_text.as_deref() == Some("Secondary only — résumé")
+    });
+    assert_eq!(reloaded.tracks.len(), original.tracks.len());
+    assert_eq!(reloaded.error(), None);
+}
+
+#[test]
 #[ignore = "requires provisioned libmpv; verifies selected ASS warning across subtitle lanes"]
 fn subtitle_style_warning_follows_selected_ass_lanes() {
     let root = fixture_root();

@@ -348,52 +348,14 @@ fn dragging_an_ab_loop_point_updates_only_the_selected_endpoint() {
 }
 
 #[test]
-fn subtitle_encoding_change_updates_option_then_reloads_each_subtitle_track() {
-    fn track(id: i64, kind: TrackKind) -> Track {
-        Track {
-            id,
-            kind,
-            title: None,
-            lang: None,
-            codec: None,
-            selected: false,
-            main_selection: None,
-            external: false,
-            albumart: false,
-            external_filename: None,
-            is_default: false,
-            forced: false,
-            channels: None,
-            channel_layout: None,
-            sample_rate: None,
-            width: None,
-            height: None,
-            frame_rate: None,
-        }
-    }
-    let state = Playback {
-        tracks: vec![
-            Track {
-                external: true,
-                ..track(7, TrackKind::Sub)
-            },
-            track(9, TrackKind::Audio),
-            track(11, TrackKind::Sub),
-        ]
-        .into(),
-        ..Playback::default()
-    };
-
+fn subtitle_encoding_change_validates_the_global_codepage() {
+    let state = Playback::default();
     assert_eq!(
         Command::SubtitleEncoding("UTF-8".into())
             .plan(&state)
             .unwrap()
             .commands,
-        vec![
-            vec!["set", "sub-codepage", "UTF-8"],
-            vec!["sub-reload", "7"],
-            vec!["sub-reload", "11"],
-        ]
+        [["set", "sub-codepage", "UTF-8"]]
     );
     assert_eq!(
         Command::SubtitleEncoding("auto".into())
