@@ -53,17 +53,18 @@ fn reveal_absolute_files(paths: &[PathBuf]) -> io::Result<()> {
                 })
         })
         .collect::<io::Result<Vec<_>>>()?;
-    let show_items = || -> zbus::Result<()> {
-        let connection = zbus::blocking::Connection::session()?;
-        let proxy = zbus::blocking::Proxy::new(
+    let show_items = zbus::block_on(async {
+        let connection = zbus::Connection::session().await?;
+        let proxy = zbus::Proxy::new(
             &connection,
             "org.freedesktop.FileManager1",
             "/org/freedesktop/FileManager1",
             "org.freedesktop.FileManager1",
-        )?;
-        proxy.call("ShowItems", &(urls, ""))
-    };
-    if show_items().is_err() {
+        )
+        .await?;
+        proxy.call::<_, _, ()>("ShowItems", &(urls, "")).await
+    });
+    if show_items.is_err() {
         let folders = paths
             .iter()
             .filter_map(|path| path.parent())

@@ -120,7 +120,8 @@ pub fn register_default_file_types(
     audio: bool,
     playlists: bool,
 ) -> std::io::Result<usize> {
-    use gtk::gio::{DesktopAppInfo, prelude::AppInfoExt};
+    use gio_unix::DesktopAppInfo;
+    use gtk::gio::prelude::AppInfoExt;
     use gtk::glib::KeyFile;
     use std::collections::BTreeSet;
 

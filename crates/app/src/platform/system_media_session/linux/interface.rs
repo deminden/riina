@@ -9,11 +9,7 @@ use std::{
     sync::{Arc, Mutex},
 };
 use tokio::sync::mpsc;
-use zbus::{
-    fdo,
-    object_server::SignalEmitter,
-    zvariant::{ObjectPath, OwnedValue},
-};
+use zbus::{ObjectPath, OwnedVariant, fdo, object_server::SignalEmitter};
 
 pub(super) const OBJECT: &str = "/org/mpris/MediaPlayer2";
 pub(super) const ROOT: &str = "org.mpris.MediaPlayer2";
@@ -291,7 +287,7 @@ impl PlayerInterface {
     }
 
     #[zbus(property)]
-    fn metadata(&self) -> HashMap<&'static str, OwnedValue> {
+    fn metadata(&self) -> HashMap<&'static str, OwnedVariant> {
         self.0.with(Snapshot::metadata)
     }
 

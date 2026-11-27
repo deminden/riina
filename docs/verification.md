@@ -7915,3 +7915,9 @@ version selected by `battery` for FreeBSD and DragonFly BSD. Windows, macOS
 and Linux application dependency graphs exclude that version of `nix`.
 The application builds retain `windows-core` 0.62.2 to share the same COM
 types as the `windows` and WebView bindings.
+
+Slint 1.19.1 changes glyph rendering and some control edges in the Windows
+software renderer. The updated player and Settings baselines preserve the
+frame dimensions. Review compared prior and new renders and their pixel
+differences. The preset rail measures fixed chevrons so scroll animations
+can change direction without re-entering layout.

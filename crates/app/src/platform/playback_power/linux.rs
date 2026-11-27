@@ -1,9 +1,6 @@
 use riina_core::playback_power::Mode;
 use std::{collections::HashMap, sync::mpsc, time::Duration};
-use zbus::{
-    blocking::{Connection, Proxy, connection::Builder},
-    zvariant::{OwnedFd, OwnedObjectPath, Value},
-};
+use zbus::{Connection, OwnedFd, OwnedObjectPath, Proxy, Variant, connection::Builder};
 
 const TIMEOUT: Duration = Duration::from_secs(2);
 const REASON: &str = "Riina playback is in progress";
@@ -62,10 +59,10 @@ impl Lease {
             self.system = None;
         } else {
             if self.system.is_none() {
-                self.system = inhibit_system().ok();
+                self.system = zbus::block_on(inhibit_system()).ok();
             }
             self.display = (mode == Mode::Display)
-                .then(inhibit_display)
+                .then(|| zbus::block_on(inhibit_display()))
                 .and_then(Result::ok);
             if self.system.is_none() && self.display.is_none() {
                 crate::diagnostics::warn!(
@@ -77,17 +74,20 @@ impl Lease {
     }
 }
 
-fn inhibit_system() -> zbus::Result<OwnedFd> {
-    let connection = Builder::system()?.method_timeout(TIMEOUT).build()?;
+async fn inhibit_system() -> zbus::Result<OwnedFd> {
+    let connection = Builder::system().method_timeout(TIMEOUT).build().await?;
     let proxy = Proxy::new(
         &connection,
         "org.freedesktop.login1",
         "/org/freedesktop/login1",
         "org.freedesktop.login1.Manager",
-    )?;
+    )
+    .await?;
     // The idle action is the equivalent of automatic system sleep. A user's
     // explicit suspend request still follows the desktop's ordinary policy.
-    proxy.call("Inhibit", &("idle", "Riina", REASON, "block"))
+    proxy
+        .call("Inhibit", &("idle", "Riina", REASON, "block"))
+        .await
 }
 
 enum Display {
@@ -101,15 +101,18 @@ enum Display {
     },
 }
 
-fn inhibit_display() -> zbus::Result<Display> {
-    let connection = Builder::session()?.method_timeout(TIMEOUT).build()?;
+async fn inhibit_display() -> zbus::Result<Display> {
+    let connection = Builder::session().method_timeout(TIMEOUT).build().await?;
     let screensaver = Proxy::new(
         &connection,
         "org.freedesktop.ScreenSaver",
         "/org/freedesktop/ScreenSaver",
         "org.freedesktop.ScreenSaver",
-    );
-    if let Ok(cookie) = screensaver.and_then(|proxy| proxy.call("Inhibit", &("Riina", REASON))) {
+    )
+    .await;
+    if let Ok(screensaver) = screensaver
+        && let Ok(cookie) = screensaver.call("Inhibit", &("Riina", REASON)).await
+    {
         return Ok(Display::ScreenSaver { connection, cookie });
     }
     let portal = Proxy::new(
@@ -117,35 +120,42 @@ fn inhibit_display() -> zbus::Result<Display> {
         "org.freedesktop.portal.Desktop",
         "/org/freedesktop/portal/desktop",
         "org.freedesktop.portal.Inhibit",
-    )?;
-    let options = HashMap::from([("reason", Value::from(REASON))]);
-    let handle = portal.call("Inhibit", &("", 8_u32, options))?;
+    )
+    .await?;
+    let options = HashMap::from([("reason", Variant::from(REASON))]);
+    let handle = portal.call("Inhibit", &("", 8_u32, options)).await?;
     Ok(Display::Portal { connection, handle })
 }
 
 impl Drop for Display {
     fn drop(&mut self) {
-        match self {
-            Self::ScreenSaver { connection, cookie } => {
-                if let Ok(proxy) = Proxy::new(
-                    connection,
-                    "org.freedesktop.ScreenSaver",
-                    "/org/freedesktop/ScreenSaver",
-                    "org.freedesktop.ScreenSaver",
-                ) {
-                    let _ = proxy.call::<_, _, ()>("UnInhibit", &(*cookie,));
+        zbus::block_on(async {
+            match self {
+                Self::ScreenSaver { connection, cookie } => {
+                    if let Ok(proxy) = Proxy::new(
+                        connection,
+                        "org.freedesktop.ScreenSaver",
+                        "/org/freedesktop/ScreenSaver",
+                        "org.freedesktop.ScreenSaver",
+                    )
+                    .await
+                    {
+                        let _ = proxy.call::<_, _, ()>("UnInhibit", &(*cookie,)).await;
+                    }
+                }
+                Self::Portal { connection, handle } => {
+                    if let Ok(proxy) = Proxy::new(
+                        connection,
+                        "org.freedesktop.portal.Desktop",
+                        handle.as_str(),
+                        "org.freedesktop.portal.Request",
+                    )
+                    .await
+                    {
+                        let _ = proxy.call::<_, _, ()>("Close", &()).await;
+                    }
                 }
             }
-            Self::Portal { connection, handle } => {
-                if let Ok(proxy) = Proxy::new(
-                    connection,
-                    "org.freedesktop.portal.Desktop",
-                    handle.as_str(),
-                    "org.freedesktop.portal.Request",
-                ) {
-                    let _ = proxy.call::<_, _, ()>("Close", &());
-                }
-            }
-        }
+        });
     }
 }

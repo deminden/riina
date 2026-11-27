@@ -4,7 +4,7 @@ mod bookmarks;
 use bookmarks::Bookmarks;
 use gtk::{
     gio,
-    gio::prelude::{FileExt, SettingsExt as GioSettingsExt},
+    gio::prelude::{FileExt, FileExtManual, SettingsExt as GioSettingsExt},
     glib,
     prelude::GtkSettingsExt,
 };
@@ -39,7 +39,7 @@ pub(in crate::platform) fn remember(paths: impl Iterator<Item = PathBuf>) -> io:
     update(&path, |bookmarks| {
         for path in &files {
             let uri = gio::File::for_path(path).uri();
-            let (content, _) = gio::content_type_guess(Some(path), &[]);
+            let (content, _) = gio::content_type_guess(Some(path), None);
             let mime = gio::content_type_get_mime_type(&content);
             let mime = mime.as_ref().map_or(c"application/octet-stream", |mime| {
                 mime.as_gstr().to_cstr_until_nul()

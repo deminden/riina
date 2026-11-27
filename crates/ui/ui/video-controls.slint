@@ -141,7 +141,10 @@ component ScrollArrow inherits Rectangle {
     accessible-label: root.toward-end ? @tr("Scroll to more choices") : @tr("Scroll to earlier choices");
     accessible-enabled: root.active;
     accessible-action-default => { if root.active { root.clicked(root.toward-end); } }
-    Text { text: root.toward-end ? "›" : "‹"; font-size: 16px; font-weight: 600;
+    // Layout measures fixed glyphs while scrolling switches their opacity.
+    for glyph[index] in ["‹", "›"] : Text {
+        text: glyph; font-size: 16px; font-weight: 600;
+        opacity: root.toward-end == (index == 1) ? 1 : 0;
         color: touch.has-hover ? (Theme.video-rail-arrow-hover(root.dark-theme))
             : (Theme.video-rail-arrow(root.dark-theme));
         horizontal-alignment: center; vertical-alignment: center; }

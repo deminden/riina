@@ -2,7 +2,7 @@
 use super::track_list::{NO_TRACK, Queue, track_path};
 use riina_core::{LoopMode, Phase, Playback};
 use std::collections::HashMap;
-use zbus::zvariant::{ObjectPath, OwnedValue, Str, Value};
+use zbus::{ObjectPath, OwnedVariant, Str, Variant};
 
 #[derive(Clone, Debug, Default, PartialEq)]
 pub(super) struct Media {
@@ -20,7 +20,7 @@ impl Media {
         self.entry.and_then(|id| track_path(self.route, id).ok())
     }
 
-    pub(super) fn metadata(&self) -> HashMap<&'static str, OwnedValue> {
+    pub(super) fn metadata(&self) -> HashMap<&'static str, OwnedVariant> {
         let Some(path) = self
             .track_id()
             .or_else(|| ObjectPath::try_from(NO_TRACK).ok())
@@ -38,7 +38,7 @@ impl Media {
             result.insert("xesam:album", text(album));
         }
         if let Some(artist) = &self.artist
-            && let Ok(value) = OwnedValue::try_from(Value::from(vec![artist.as_str()]))
+            && let Ok(value) = OwnedVariant::try_from(Variant::from(vec![artist.as_str()]))
         {
             result.insert("xesam:artist", value);
         }
@@ -162,7 +162,7 @@ impl Snapshot {
         }
     }
 
-    pub(super) fn metadata(&self) -> HashMap<&'static str, OwnedValue> {
+    pub(super) fn metadata(&self) -> HashMap<&'static str, OwnedVariant> {
         self.media
             .as_ref()
             .map_or_else(HashMap::new, Media::metadata)
@@ -183,7 +183,7 @@ impl Snapshot {
     }
 }
 
-pub(super) fn text(value: &str) -> OwnedValue {
+pub(super) fn text(value: &str) -> OwnedVariant {
     Str::from(value).into()
 }
 

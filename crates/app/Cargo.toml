@@ -82,6 +82,7 @@ i-slint-core = { version = "=1.19.1", default-features = false }
 libloading.workspace = true
 zbus = "=6.5.0"
 gtk = "=0.19.0"
+gio-unix = "=0.22.11"
 webkit2gtk = { version = "=3.0.0", features = ["v2_38"] }
 wry = { workspace = true, features = ["os-webview", "x11"] }
 percent-encoding = "=2.3.2"

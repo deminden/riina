@@ -29,35 +29,35 @@ pub(crate) fn system_reduce_motion_enabled() -> bool {
 
 fn watch_settings() {
     loop {
-        if watch_portal().is_err() {
+        if zbus::block_on(watch_portal()).is_err() {
             thread::sleep(Duration::from_secs(3));
         }
     }
 }
 
-fn watch_portal() -> Result<(), zbus::Error> {
-    use zbus::{
-        blocking::{Connection, Proxy},
-        zvariant::OwnedValue,
-    };
+async fn watch_portal() -> Result<(), zbus::Error> {
+    use futures_util::StreamExt;
+    use zbus::{Connection, OwnedVariant, Proxy};
 
-    let connection = Connection::session()?;
+    let connection = Connection::session().await?;
     let proxy = Proxy::new(
         &connection,
         PORTAL_DESTINATION,
         PORTAL_PATH,
         PORTAL_INTERFACE,
-    )?;
+    )
+    .await?;
     // Subscribe first so a system change cannot land between the initial read
     // and installing the live update stream.
-    let mut signals = proxy.receive_signal("SettingChanged")?;
-    if let Ok(enabled) = read_reduced_motion(&proxy) {
+    let mut signals = proxy.receive_signal("SettingChanged").await?;
+    if let Ok(enabled) = read_reduced_motion(&proxy).await {
         REDUCED_MOTION.store(enabled, Ordering::Relaxed);
     }
 
-    for message in &mut signals {
-        let Ok((namespace, key, value)) =
-            message.body().deserialize::<(String, String, OwnedValue)>()
+    while let Some(message) = signals.next().await {
+        let Ok((namespace, key, value)) = message
+            .body()
+            .deserialize::<(String, String, OwnedVariant)>()
         else {
             continue;
         };
@@ -73,15 +73,13 @@ fn watch_portal() -> Result<(), zbus::Error> {
     ))
 }
 
-fn read_reduced_motion(proxy: &zbus::blocking::Proxy<'_>) -> Result<bool, zbus::Error> {
-    use zbus::zvariant::OwnedValue;
-
+async fn read_reduced_motion(proxy: &zbus::Proxy<'_>) -> Result<bool, zbus::Error> {
     let key = (APPEARANCE_NAMESPACE, REDUCED_MOTION_KEY);
-    let value: OwnedValue = match proxy.call("ReadOne", &key) {
+    let value: zbus::OwnedVariant = match proxy.call("ReadOne", &key).await {
         Err(zbus::Error::MethodError(name, ..))
             if name.as_str() == "org.freedesktop.DBus.Error.UnknownMethod" =>
         {
-            proxy.call("Read", &key)?
+            proxy.call("Read", &key).await?
         }
         result => result?,
     };

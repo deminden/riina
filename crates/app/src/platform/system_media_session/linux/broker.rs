@@ -13,10 +13,7 @@ use std::{
 };
 use tokio::sync::{mpsc, watch};
 use zbus::{
-    Connection,
-    connection::Builder,
-    object_server::SignalEmitter,
-    zvariant::{ObjectPath, OwnedValue},
+    Connection, ObjectPath, OwnedVariant, connection::Builder, object_server::SignalEmitter,
 };
 
 pub(super) fn start(
@@ -49,10 +46,10 @@ async fn serve(
     let (requests, mut pending) = mpsc::channel(32);
     let current = Arc::new(Mutex::new(Snapshot::default()));
     let endpoint = Endpoint::new(current.clone(), requests);
-    let connection = Builder::session()?
-        .serve_at(OBJECT, RootInterface(endpoint.clone()))?
-        .serve_at(OBJECT, PlayerInterface(endpoint.clone()))?
-        .serve_at(OBJECT, TrackListInterface(endpoint))?
+    let connection = Builder::session()
+        .serve_at(OBJECT, RootInterface(endpoint.clone()))
+        .serve_at(OBJECT, PlayerInterface(endpoint.clone()))
+        .serve_at(OBJECT, TrackListInterface(endpoint))
         .build()
         .await?;
     let name = format!(
@@ -163,12 +160,12 @@ async fn publish_queue(
 fn properties_changed(
     snapshot: &Snapshot,
     prior: &Snapshot,
-) -> zbus::Result<HashMap<&'static str, OwnedValue>> {
+) -> zbus::Result<HashMap<&'static str, OwnedVariant>> {
     let mut changed = HashMap::new();
     if snapshot.media != prior.media {
         changed.insert(
             "Metadata",
-            OwnedValue::try_from(zbus::zvariant::Value::from(snapshot.metadata()))?,
+            OwnedVariant::try_from(zbus::Variant::from(snapshot.metadata()))?,
         );
     }
     if snapshot.status != prior.status {
@@ -205,7 +202,7 @@ fn properties_changed(
 async fn emit_properties(
     connection: &Connection,
     interface: &str,
-    changed: HashMap<&'static str, OwnedValue>,
+    changed: HashMap<&'static str, OwnedVariant>,
     invalidated: &[&str],
 ) -> zbus::Result<()> {
     if changed.is_empty() && invalidated.is_empty() {

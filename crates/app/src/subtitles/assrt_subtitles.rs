@@ -412,12 +412,12 @@ mod tests {
             .unwrap();
         writer.write_all(b"must be rejected").unwrap();
         writer
-            .start_file(
+            .add_symlink(
                 "link.srt",
-                zip::write::SimpleFileOptions::default().unix_permissions(0o120777),
+                "Movie.en.srt",
+                zip::write::SimpleFileOptions::default(),
             )
             .unwrap();
-        writer.write_all(b"must also be rejected").unwrap();
         writer
             .start_file(
                 "extras/readme.txt",
@@ -434,8 +434,7 @@ mod tests {
         writer
             .write_all(b"1\n00:00:01,000 --> 00:00:02,000\nHello\n")
             .unwrap();
-        let mut archive = writer.finish().unwrap().into_inner();
-        mark_zip_entry_as_symlink(&mut archive, b"link.srt");
+        let archive = writer.finish().unwrap().into_inner();
 
         let (name, subtitle) = unpack_subtitle("download.zip", archive).unwrap();
         assert_eq!(name, "Movie.en.srt");
@@ -456,29 +455,5 @@ mod tests {
                 .unwrap_err()
                 .contains("no supported")
         );
-    }
-
-    fn mark_zip_entry_as_symlink(archive: &mut [u8], name: &[u8]) {
-        let mut offset = 0;
-        while let Some(relative) = archive[offset..]
-            .windows(4)
-            .position(|signature| signature == b"PK\x01\x02")
-        {
-            let header = offset + relative;
-            let name_length =
-                u16::from_le_bytes([archive[header + 28], archive[header + 29]]) as usize;
-            let extra_length =
-                u16::from_le_bytes([archive[header + 30], archive[header + 31]]) as usize;
-            let comment_length =
-                u16::from_le_bytes([archive[header + 32], archive[header + 33]]) as usize;
-            let name_start = header + 46;
-            if &archive[name_start..name_start + name_length] == name {
-                archive[header + 38..header + 42]
-                    .copy_from_slice(&((0o120777_u32) << 16).to_le_bytes());
-                return;
-            }
-            offset = name_start + name_length + extra_length + comment_length;
-        }
-        panic!("ZIP central directory did not contain the test entry");
     }
 }

@@ -6,11 +6,7 @@ use super::{
 use riina_core::{PlaylistEntry, media_reference::validate_network_url};
 use std::{collections::HashMap, ops::Range, path::Path, sync::Arc};
 use url::Url;
-use zbus::{
-    fdo,
-    object_server::SignalEmitter,
-    zvariant::{ObjectPath, OwnedValue},
-};
+use zbus::{ObjectPath, OwnedVariant, fdo, object_server::SignalEmitter};
 
 pub(super) const TRACK_LIST: &str = "org.mpris.MediaPlayer2.TrackList";
 pub(super) const NO_TRACK: &str = "/org/mpris/MediaPlayer2/TrackList/NoTrack";
@@ -52,7 +48,7 @@ impl Queue {
             .collect()
     }
 
-    pub(super) fn path(&self, id: i64) -> zbus::zvariant::Result<ObjectPath<'static>> {
+    pub(super) fn path(&self, id: i64) -> zbus::Result<ObjectPath<'static>> {
         track_path(self.route, id)
     }
 
@@ -82,7 +78,7 @@ impl PartialEq for Queue {
     }
 }
 
-pub(super) fn track_path(route: u64, id: i64) -> zbus::zvariant::Result<ObjectPath<'static>> {
+pub(super) fn track_path(route: u64, id: i64) -> zbus::Result<ObjectPath<'static>> {
     let code = u64::from_ne_bytes(id.to_ne_bytes());
     ObjectPath::try_from(format!("/org/riina/player/{route}/tracks/{code}"))
 }
@@ -114,7 +110,7 @@ pub(super) fn title(entry: &PlaylistEntry) -> &str {
 pub(super) fn metadata(
     path: ObjectPath<'static>,
     entry: &PlaylistEntry,
-) -> HashMap<&'static str, OwnedValue> {
+) -> HashMap<&'static str, OwnedVariant> {
     HashMap::from([
         ("mpris:trackid", path.into()),
         ("xesam:title", text(title(entry))),
@@ -155,7 +151,7 @@ impl TrackListInterface {
     fn get_tracks_metadata(
         &self,
         track_ids: Vec<ObjectPath<'_>>,
-    ) -> fdo::Result<Vec<HashMap<&'static str, OwnedValue>>> {
+    ) -> fdo::Result<Vec<HashMap<&'static str, OwnedVariant>>> {
         self.0.with(|snapshot| {
             let current = snapshot.media.as_ref().and_then(|media| media.track_id());
             track_ids
@@ -236,7 +232,7 @@ impl TrackListInterface {
     pub(super) async fn track_metadata_changed(
         emitter: &SignalEmitter<'_>,
         track_id: ObjectPath<'_>,
-        metadata: HashMap<&'static str, OwnedValue>,
+        metadata: HashMap<&'static str, OwnedVariant>,
     ) -> zbus::Result<()>;
 }
 
