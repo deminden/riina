@@ -7047,8 +7047,14 @@ before a local Windows cross-build began.
 The Windows workspace gate, locked build and strict Apple cross-Clippy for
 both architectures passed. All 76 native tests passed in 11.90 seconds against
 the existing development DLL in the default test mode. The release-mode test
-rejected that DLL's missing interlaced field flags and passed all 72 saved
-frame comparisons against the experimental Linux engine.
+detected missing interlaced field flags in both that DLL and the verified
+Riina 4.2.1 release DLL. It passed all 72 saved frame comparisons against the
+experimental Linux engine and against a Linux build of the exact mpv revision
+and patch selected by the Windows recipe. The latter used libplacebo
+`1dd022687b9ac1dd996855b51433bf770ae76aab`, libavcodec 62.11.100, software
+decoding and null output.
 
 The Windows candidate DLL, extracted application and installer still require
 verification with the rebuilt engine.
+
+- Patched Linux libmpv SHA-256 `9c798805405cc047a29e52059fe7da5d2f89df36cddac6ff84909c1feaa763ea`
