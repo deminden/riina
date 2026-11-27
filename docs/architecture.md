@@ -1154,6 +1154,9 @@ an empty playlist. A new media request or playlist addition withdraws reuse
 eligibility. The manager reserves the session before revealing its frame.
 Startup-specific engine options and plugin-managed windows use their own
 sessions.
+The File picker resolves its destination from the current window preference.
+Separate selections prepare independently of the caller's media request and
+pass through the manager's duplicate check before reserving an idle session.
 
 macOS registers the Open Documents, Reopen, Quit and URL Apple events alongside
 Winit's application delegate. Finder groups short bursts of documents before

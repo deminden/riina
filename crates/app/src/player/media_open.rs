@@ -36,7 +36,7 @@ fn manual_open_repeat_command(enabled: bool, mode_index: i32) -> Result<Option<C
 }
 
 pub(super) fn playlist_in_new_player(app: &PlayerWindow, paths: Vec<String>) {
-    new_player_selection(app, paths);
+    new_player_selection(app, paths, prepare_explicit_player);
 }
 
 pub(crate) fn history_playlist(
@@ -82,13 +82,17 @@ pub(crate) fn history_entry(
         vec![path.to_owned()],
         None,
         sender,
-        SelectionSource::Startup,
+        SelectionSource::Replace,
         observer,
     );
     Ok(())
 }
 
-fn new_player_selection(app: &PlayerWindow, paths: Vec<String>) {
+fn new_player_selection(
+    app: &PlayerWindow,
+    paths: Vec<String>,
+    prepare: fn(Vec<String>) -> Result<Vec<PlayerSelection>, String>,
+) {
     if paths.is_empty() {
         return;
     }
@@ -105,7 +109,7 @@ fn new_player_selection(app: &PlayerWindow, paths: Vec<String>) {
     let weak = app.as_weak();
     let failure = weak.clone();
     let started = crate::background::spawn_named("new-player-media-discovery", move || {
-        let result = prepare_explicit_player(paths);
+        let result = prepare(paths);
         // The result has no recipient once its window or event loop closes.
         let _ = crate::background::to_ui(weak, move |app| {
             if let Err(error) = result.and_then(|players| {
@@ -123,6 +127,10 @@ fn new_player_selection(app: &PlayerWindow, paths: Vec<String>) {
     {
         app.set_status(error.to_string().into());
     }
+}
+
+fn prepare_file_dialog_players(paths: Vec<String>) -> Result<Vec<PlayerSelection>, String> {
+    prepare_new_players(paths, &preferences_for_open()?, || false)
 }
 
 fn prepare_explicit_player(paths: Vec<String>) -> Result<Vec<PlayerSelection>, String> {
@@ -383,7 +391,7 @@ pub(super) fn startup_at(
         } else if media.explicit_playlist {
             SelectionSource::ExplicitPlaylist
         } else {
-            SelectionSource::Startup
+            SelectionSource::Replace
         },
         grouped_stream,
     );
@@ -399,9 +407,8 @@ pub(crate) fn startup_stdin(app: &PlayerWindow, sender: &CommandSender) {
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum SelectionSource {
-    Startup,
+    Replace,
     StartupShuffled,
-    Interactive { alternative: bool },
     DesktopDrop,
     ExplicitPlaylist,
 }
@@ -501,12 +508,22 @@ pub(crate) fn file_dialog_selection(
     alternative: bool,
     sender: CommandSender,
 ) {
+    if app
+        .global::<riina_ui::PlayerPreferences>()
+        .get_open_in_new_player()
+        != alternative
+    {
+        // Leave the caller's playback and pending work alone. The manager
+        // checks duplicates and reserves any idle player after preparation.
+        new_player_selection(app, paths, prepare_file_dialog_players);
+        return;
+    }
     selection_at(
         app,
         paths,
         None,
         sender,
-        SelectionSource::Interactive { alternative },
+        SelectionSource::Replace,
         ObserverId::for_window(app),
     );
 }
@@ -581,19 +598,6 @@ fn prepare_selection(
     } else {
         paths
     };
-    if resume_position.is_none()
-        && let SelectionSource::Interactive { alternative } = source
-    {
-        let prefs = preferences_for_open()?;
-        if prefs.allow_multiple_windows != alternative {
-            let players = prepare_new_players(paths, &prefs, &cancelled)?;
-            return if players.is_empty() {
-                Err("No playable files were found".into())
-            } else {
-                Ok(PreparedSelection::NewPlayers(players))
-            };
-        }
-    }
     let paths = file_selection::prepare_cancellable(paths, true, cancelled)?;
     if paths.is_empty() {
         return if subtitles.is_empty() {
@@ -627,7 +631,6 @@ fn prepare_selection(
 }
 
 enum PreparedSelection {
-    NewPlayers(Vec<PlayerSelection>),
     Command(Command),
     Subtitles(Vec<String>),
 }
@@ -652,21 +655,6 @@ impl PreparedSelection {
                     format!("Added {count} dropped subtitle files").into()
                 });
                 Ok(())
-            }
-            Self::NewPlayers(players) => {
-                let mut players = players.into_iter();
-                if !has_playlist(app)
-                    && let Some(first) = players.next()
-                {
-                    open_prepared_command(
-                        app,
-                        sender,
-                        Command::OpenFiles(first.paths),
-                        grouped_stream,
-                        generation,
-                    )?;
-                }
-                open_new_players(app, players)
             }
             Self::Command(command) => {
                 open_prepared_command(app, sender, command, grouped_stream, generation)

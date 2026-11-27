@@ -280,7 +280,10 @@ fn install_file_open(
                 .and_then(slint::Weak::upgrade)
                 .is_some_and(|welcome| welcome.window().is_visible());
             if welcome_is_visible {
-                media_open::invalidate(&app);
+                // Merely opening the picker must preserve an unused session.
+                if app.get_media_request_generation() != 0 {
+                    media_open::invalidate(&app);
+                }
                 platform::set_native_video_host_visible(open_host.as_ref(), true);
                 if let Err(error) = platform::show_window(&app) {
                     app.set_status(error.to_string().into());

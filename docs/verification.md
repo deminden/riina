@@ -7253,3 +7253,24 @@ passed with the rebuilt Windows engine and strict field-order checks. The
 native Stop regression verified the reply after EOF, a second Stop while
 already idle, and retirement of the old reply on a following failed load.
 Strict macOS cross-Clippy passed for Intel and Apple Silicon.
+
+Linux strict Clippy and 32 focused application tests passed. The native Stop
+regression passed with Linux libmpv. In an isolated X11 session, closing a
+paused player returned to Welcome in the same process, and closing Welcome
+exited it.
+
+The pinned IINA `PlayerCore.idleActiveChanged` also closes the visible
+playback window while retaining the idle core. Riina's current Stop path
+keeps its playback frame visible. That window transition remains open.
+
+The Windows picker reproduced a duplicate when the stopped window requested
+media already active in another player. After routing separate selections
+through the manager, the same request kept the existing player and left the
+stopped frame empty. The focused application gate, including all 88 widget
+cases, and the locked Windows application build passed.
+
+Welcome's own picker used its original playback frame for a single file.
+Grouped selection kept both files in that frame. Separate selection reused
+the original frame for the first file and opened a second frame. Both runs
+shut down normally. Repeat probes that opened the native File menu through an
+isolated desktop were intermittent.
