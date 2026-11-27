@@ -252,7 +252,7 @@ export component PlayerWindow inherits PlayerMenuWindow {
         if PlayerMusicModeState.music-mode {
             root.compact-frame-active = true;
             // IINA's compact audio surface is independent of main-window sidebars.
-            keys.focus();
+            if !PlayerDialogState.dialog-open { keys.focus(); }
             PlayerSidebarState.leading-sidebar = 0;
             PlayerSidebarState.sidebar = 0;
         }
@@ -719,7 +719,10 @@ export component PlayerWindow inherits PlayerMenuWindow {
             }
         }
         crop-editor := CropEditor { width: parent.width; height: parent.height; }
-        PlayerEntryDialogs { width: parent.width; height: parent.height; }
+        PlayerEntryDialogs {
+            width: parent.width; height: parent.height;
+            restore-player-focus => { keys.focus(); }
+        }
         playlist-popup := PlaylistPluginPopup {
             width: parent.width; height: parent.height;
         }
@@ -756,7 +759,7 @@ export component PlayerWindow inherits PlayerMenuWindow {
             PlayerControlsState.control-bar-dragging = false;
             PlayerControlActions.reset-controller-arrow();
             PlayerSidebarActions.dismiss-native-subtitle-color();
-            keys.focus();
+            if !PlayerDialogState.dialog-open { keys.focus(); }
         }
         root.refresh-fullscreen-info();
     }
@@ -768,8 +771,10 @@ export component PlayerWindow inherits PlayerMenuWindow {
         }
         // A sidebar stays interactive when only the transport tray disappears.
         // Moving focus here would discard a delay/speed edit after the idle timeout.
-        if !music-mode && !PlaylistPluginPopupState.shown && !PlayerControlsState.controls-visible &&
-            PlayerSidebarState.sidebar == 0 && PlayerSidebarState.leading-sidebar == 0 { keys.focus(); }
+        if !music-mode && !PlaylistPluginPopupState.shown && !PlayerControlsState.controls-visible
+            && !PlayerDialogState.dialog-open && PlayerSidebarState.sidebar == 0 && PlayerSidebarState.leading-sidebar == 0 {
+            keys.focus();
+        }
         root.refresh-fullscreen-info();
         root.controls-visibility-changed(PlayerControlsState.controls-visible);
     }

@@ -383,6 +383,18 @@ msgstr "Перейти к началу"
 msgid "Jump to…"
 msgstr "Перейти к позиции…"
 
+msgid "Jump to"
+msgstr "Перейти к позиции"
+
+msgid "Please enter the time you want to jump to. Example: 20:35"
+msgstr "Введите время, к которому нужно перейти. Пример: 20:35"
+
+msgid "Playback time"
+msgstr "Время воспроизведения"
+
+msgid "Enter a valid time such as 20:35 or 1:02:03.500."
+msgstr "Введите корректное время, например 20:35 или 1:02:03.500."
+
 msgid "Speed: {}x"
 msgstr "Скорость: {}×"
 

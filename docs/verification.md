@@ -7593,3 +7593,35 @@ comparison. All 12 focused Windows native subtitle tests passed. The locked
 Linux application build, strict Clippy and 85 focused tests passed. Strict
 macOS source checks passed for Intel and Apple Silicon. Native macOS Settings
 and playback interaction still need desktop verification.
+
+### Jump To exact playback position (2026-11-27)
+
+The headless player test opened Jump To with a deliberately stale controller
+label and confirmed that the draft used the latest observed playhead with
+three fractional digits. It also covered the retained final frame, a file
+without a reported time, rejected input, and a draft submitted after playback
+changed files. The shared widget test confirmed that typing replaces the
+selected value even after hiding the controller and reloading media. Tab and
+Shift+Tab stay within the prompt, Return submits or cancels according to
+focus, and the accessible OK action submits the draft.
+
+An isolated Windows native-video session opened the prompt from the Playback
+menu. Invalid input left the paused clip at 1.250 seconds and Cancel closed
+the prompt. A second open showed the new playhead at 2.500 seconds. The
+accessible OK action sought to 3.125 seconds and playback stayed paused.
+Submitting an earlier draft left a replacement clip at its beginning.
+Closing the player ended the tested process normally.
+
+On an isolated Linux X11 display, Ctrl+J selected the millisecond playhead.
+Unmodified J left the prompt closed. Typing replaced the selection, invalid
+input preserved the current frame, and Escape dismissed the prompt. Tab
+navigation and Return reached 3.125 seconds while playback stayed paused.
+The field kept focus across replacement. Return closed the old draft and
+left the new clip at its beginning. Normal close ended the process.
+
+The Windows locked workspace build and source gate passed with 734 application
+tests, 88 widget tests, and the software player and Settings pixel comparison.
+All eight focused native seek tests passed. On Linux the locked application
+build, strict Clippy, headless player test and 85 widget tests passed. The
+strict macOS source check passed for Intel and Apple Silicon. Native macOS
+prompt behavior and matched visual comparison remain open.

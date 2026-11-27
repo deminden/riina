@@ -141,6 +141,13 @@ Chapter controls submit the observed media generation, chapter index, and
 start time. The worker retires stale selections before seeking. An accepted
 chapter menu seek publishes its title to the player's transient feedback.
 
+Jump To reads the latest playback snapshot independently of the controller's
+display precision. The prompt owns the media generation observed when opened.
+The UI and the playback worker both check that generation for a submitted
+exact seek. The prompt keeps keyboard navigation between its input, Cancel
+and OK, then restores player keyboard focus on dismissal. The player's
+loading and controller visibility updates leave focus with an open dialog.
+
 Live Text reacts to paused picture changes and capture replies. Each player
 debounces capture for the current media generation and holds one recognition
 task. Seeking, resuming, disabling Live Text, entering Picture in Picture or

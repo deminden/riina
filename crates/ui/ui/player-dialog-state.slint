@@ -5,6 +5,7 @@ export global PlayerDialogState {
     in-out property <bool> jump-time-dialog-visible: false;
     in-out property <string> jump-time-draft: "";
     in-out property <string> jump-time-error: "";
+    in-out property <bool> jump-time-invalid: false;
     in-out property <bool> url-dialog-visible: false;
     in-out property <string> url-dialog-draft: "";
     in-out property <string> url-dialog-error: "";
@@ -12,5 +13,10 @@ export global PlayerDialogState {
     callback append-playlist-url(string) -> bool;
     callback jump-to-time(string);
     callback dialog-closed();
+    public function close-jump-time() {
+        self.jump-time-dialog-visible = false;
+        self.jump-time-error = "";
+        self.jump-time-invalid = false;
+    }
     changed dialog-open => { if !self.dialog-open { self.dialog-closed(); } }
 }

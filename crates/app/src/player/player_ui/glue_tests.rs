@@ -797,49 +797,61 @@ fn exercise_transport_and_tracks(harness: &Harness) {
     harness.expect_idle();
 }
 
-fn exercise_dialogs_and_relative_controls(harness: &Harness) {
+fn exercise_jump_time(harness: &Harness) {
     let app = &harness.app;
+    let menu = app.global::<PlayerMenuActions>();
+    let dialog = app.global::<riina_ui::PlayerDialogState>();
+    menu.invoke_open_jump_time_dialog();
+    assert!(!dialog.get_jump_time_dialog_visible());
+
+    let mut playback = Playback {
+        generation: 1,
+        phase: Phase::Paused,
+        paused: true,
+        position: Some(125.46875),
+        duration: Some(126.75),
+        ..Playback::default()
+    };
+    harness.engine.publish(playback.clone());
     app.global::<riina_ui::PlaybackTimelineState>()
-        .set_position_label("2:05".into());
-    app.global::<PlayerMenuActions>()
-        .invoke_open_jump_time_dialog();
-    assert!(
-        app.global::<riina_ui::PlayerDialogState>()
-            .get_jump_time_dialog_visible()
-    );
-    assert_eq!(
-        app.global::<riina_ui::PlayerDialogState>()
-            .get_jump_time_draft(),
-        "2:05"
-    );
-    app.global::<riina_ui::PlayerDialogState>()
-        .invoke_jump_to_time("invalid".into());
-    assert!(
-        app.global::<riina_ui::PlayerDialogState>()
-            .get_jump_time_dialog_visible()
-    );
-    assert_eq!(
-        app.global::<riina_ui::PlayerDialogState>()
-            .get_jump_time_error(),
-        "Enter a valid time such as 20:35 or 1:02:03.500."
-    );
+        .set_position_label("02:04".into());
+    menu.invoke_open_jump_time_dialog();
+    assert!(dialog.get_jump_time_dialog_visible());
+    assert_eq!(dialog.get_jump_time_draft(), "02:05.469");
+    dialog.invoke_jump_to_time("invalid".into());
+    assert!(dialog.get_jump_time_dialog_visible());
+    assert!(dialog.get_jump_time_invalid());
     harness.expect_idle();
-    app.global::<riina_ui::PlayerDialogState>()
-        .invoke_jump_to_time("2:05.500".into());
+    dialog.invoke_jump_to_time("2:05.500".into());
     harness.expect(Command::Seek {
         seconds: 125.5,
         absolute: true,
     });
-    assert!(
-        !app.global::<riina_ui::PlayerDialogState>()
-            .get_jump_time_dialog_visible()
-    );
-    assert_eq!(
-        app.global::<riina_ui::PlayerDialogState>()
-            .get_jump_time_error(),
-        ""
-    );
+    assert!(!dialog.get_jump_time_dialog_visible());
+    assert!(!dialog.get_jump_time_invalid());
 
+    playback.phase = Phase::Ended;
+    harness.engine.publish(playback.clone());
+    menu.invoke_open_jump_time_dialog();
+    assert_eq!(dialog.get_jump_time_draft(), "02:06.750");
+    playback.generation = 2;
+    playback.phase = Phase::Paused;
+    playback.position = None;
+    harness.engine.publish(playback.clone());
+    dialog.invoke_jump_to_time("0.750".into());
+    assert!(!dialog.get_jump_time_dialog_visible());
+    harness.expect_idle();
+
+    menu.invoke_open_jump_time_dialog();
+    assert!(dialog.get_jump_time_dialog_visible());
+    assert!(dialog.get_jump_time_draft().is_empty());
+    dialog.invoke_close_jump_time();
+    harness.engine.publish(Playback::default());
+}
+
+fn exercise_dialogs_and_relative_controls(harness: &Harness) {
+    exercise_jump_time(harness);
+    let app = &harness.app;
     let dialog = app.global::<riina_ui::PlayerDialogState>();
     app.global::<PlayerMenuActions>()
         .invoke_open_playlist_url_dialog();

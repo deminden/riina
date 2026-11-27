@@ -258,31 +258,43 @@ fn title_bar_pin_projects_and_toggles_the_player_window_level() {
 #[test]
 fn player_entry_dialogs_focus_the_field_and_keep_keyboard_actions() {
     let app = player(0);
+    let dialog = app.global::<riina_ui::PlayerDialogState>();
     let submitted_time = Rc::new(RefCell::new(None));
     let time = submitted_time.clone();
-    app.global::<riina_ui::PlayerDialogState>()
-        .on_jump_to_time(move |value| *time.borrow_mut() = Some(value.to_string()));
-    app.global::<riina_ui::PlayerDialogState>()
-        .set_jump_time_dialog_visible(true);
+    dialog.on_jump_to_time(move |value| *time.borrow_mut() = Some(value.to_string()));
+    dialog.set_jump_time_draft("02:05.469".into());
+    dialog.set_jump_time_dialog_visible(true);
     flush();
-    assert!(
-        app.global::<riina_ui::PlayerDialogState>()
-            .get_dialog_open()
-    );
+    assert!(dialog.get_dialog_open());
+    app.global::<PlayerControlsState>()
+        .set_controls_visible(false);
+    flush();
+    app.set_loaded(false);
+    flush();
+    app.set_loaded(true);
+    flush();
     key(&app, "2");
     key(&app, "0");
-    assert_eq!(
-        app.global::<riina_ui::PlayerDialogState>()
-            .get_jump_time_draft(),
-        "20"
-    );
+    assert_eq!(dialog.get_jump_time_draft(), "20");
     key(&app, Key::Return);
     assert_eq!(submitted_time.borrow().as_deref(), Some("20"));
+    submitted_time.take();
+    key(&app, Key::Backtab);
+    key(&app, " ");
+    assert_eq!(submitted_time.borrow().as_deref(), Some("20"));
+    key(&app, Key::Tab);
+    key(&app, Key::Tab);
+    key(&app, Key::Return);
+    assert!(!dialog.get_jump_time_dialog_visible());
+    submitted_time.take();
+
+    dialog.set_jump_time_dialog_visible(true);
+    flush();
+    button(&app, "OK").invoke_accessible_default_action();
+    flush();
+    assert_eq!(submitted_time.borrow().as_deref(), Some("20"));
     key(&app, Key::Escape);
-    assert!(
-        !app.global::<riina_ui::PlayerDialogState>()
-            .get_jump_time_dialog_visible()
-    );
+    assert!(!dialog.get_jump_time_dialog_visible());
 
     let submitted_url = Rc::new(RefCell::new(None));
     let url = submitted_url.clone();

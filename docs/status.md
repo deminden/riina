@@ -25,6 +25,12 @@ Implementation does not imply every state or platform is verified.
 - **Playback:** files, folders and URLs; play/pause, seeking, volume/mute, speed,
   frame stepping, loops, chapters, playlist editing, history and resume.
   Pause When Open also applies when the playlist automatically advances.
+- **Jump To:** the Playback menu opens an editable time from the latest
+  engine observation at millisecond precision. The prompt selects the
+  initial value, supports keyboard and accessibility actions, and keeps
+  playback paused when seeking from a paused frame. A draft from an earlier
+  file cannot seek its replacement. The menu shortcut uses Command+J on
+  macOS and Ctrl+J on Windows and Linux.
 - **Pause on sleep:** General Settings can pause active playback when macOS,
   Windows or a Linux logind session prepares to suspend. The preference is
   enabled by default and each player reads the current selection. A system

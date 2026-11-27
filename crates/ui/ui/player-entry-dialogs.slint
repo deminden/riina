@@ -2,61 +2,26 @@ import { Theme } from "theme.slint";
 import { PlayerDialogState } from "player-dialog-state.slint";
 import { PlayerAppearance } from "player-appearance.slint";
 import { JumpDialogButton } from "player-chrome-controls.slint";
+import { JumpTimeDialog } from "jump-time-dialog.slint";
 
 export component PlayerEntryDialogs inherits Rectangle {
-
+    callback restore-player-focus();
 
     private property <bool> jump-time-dialog-visible: PlayerDialogState.jump-time-dialog-visible;
     private property <bool> url-dialog-visible: PlayerDialogState.url-dialog-visible;
     changed jump-time-dialog-visible => {
         PlayerDialogState.dialog-open = jump-time-dialog-visible || url-dialog-visible;
-        if jump-time-dialog-visible { jump-time-input.focus(); }
+        if jump-time-dialog-visible { jump-time-dialog.edit(); }
+        else if !url-dialog-visible { root.restore-player-focus(); }
     }
     changed url-dialog-visible => {
         PlayerDialogState.dialog-open = jump-time-dialog-visible || url-dialog-visible;
         if url-dialog-visible { url-input.focus(); }
     }
 
-    jump-time-dialog := Rectangle {
+    jump-time-dialog := JumpTimeDialog {
         visible: PlayerDialogState.jump-time-dialog-visible;
         width: parent.width; height: parent.height;
-        background: Theme.player-dialog-scrim;
-        TouchArea { width: parent.width; height: parent.height; }
-        Rectangle {
-            x: (parent.width - 340px) / 2;
-            y: (parent.height - 172px) / 2;
-            width: 340px; height: 172px; border-radius: 9px;
-            background: Theme.player-dialog-surface(PlayerAppearance.dark-theme);
-            border-width: 1px; border-color: Theme.player-dialog-border(PlayerAppearance.dark-theme);
-            Text { x: 18px; y: 14px; width: parent.width - 36px; height: 22px;
-                text: "Jump to"; color: Theme.player-dialog-title(PlayerAppearance.dark-theme);
-                font-size: 14px; font-weight: 600; }
-            Text { x: 18px; y: 39px; width: parent.width - 36px; height: 32px;
-                text: "Enter a time such as 20:35 or 1:02:03.500.";
-                color: Theme.player-dialog-instructions(PlayerAppearance.dark-theme); font-size: 12px; }
-            Rectangle {
-                x: 18px; y: 78px; width: parent.width - 36px; height: 30px;
-                border-radius: 5px; border-width: 1px;
-                border-color: jump-time-input.has-focus ? Theme.player-dialog-field-focus : (Theme.player-dialog-field-border(PlayerAppearance.dark-theme));
-                background: Theme.player-dialog-field-surface(PlayerAppearance.dark-theme);
-                jump-time-input := TextInput {
-                    x: 8px; y: 2px; width: parent.width - 16px; height: parent.height - 4px;
-                    text <=> PlayerDialogState.jump-time-draft; single-line: true;
-                    font-size: 13px; color: Theme.player-dialog-field-text(PlayerAppearance.dark-theme);
-                    accessible-label: "Playback time";
-                    accepted => { PlayerDialogState.jump-to-time(self.text); }
-                }
-            }
-            Text { x: 18px; y: 111px; width: parent.width - 36px; height: 17px;
-                text: PlayerDialogState.jump-time-error; color: Theme.player-dialog-error; font-size: 11px; }
-            HorizontalLayout {
-                x: parent.width - 182px; y: 136px; width: 164px; height: 25px; spacing: 8px;
-                JumpDialogButton { dark-theme: PlayerAppearance.dark-theme; label: "Cancel";
-                    activated => { PlayerDialogState.jump-time-dialog-visible = false; PlayerDialogState.jump-time-error = ""; } }
-                JumpDialogButton { dark-theme: PlayerAppearance.dark-theme; label: "Jump";
-                    activated => { PlayerDialogState.jump-to-time(PlayerDialogState.jump-time-draft); } }
-            }
-        }
     }
     url-dialog := Rectangle {
         function submit() {

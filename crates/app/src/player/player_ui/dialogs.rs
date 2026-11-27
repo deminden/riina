@@ -1,11 +1,13 @@
+use super::{PlayerContext, bind};
 use crate::{
     NativeVideoHost, PlayerWindow,
     ui_dialogs::{self, Purpose},
 };
-use riina_core::Command;
+use riina_core::{Command, Phase, Playback, osc_preferences::TimePrecision, sync::lock};
 use riina_mpv::CommandSender;
 use riina_ui::{PlayerDialogState, PlayerMenuActions};
 use slint::ComponentHandle;
+use std::{cell::Cell, rc::Rc};
 
 pub(super) fn install_browse(
     app: &PlayerWindow,
@@ -36,53 +38,87 @@ pub(super) fn install_browse(
         });
 }
 
-pub(super) fn install_time_and_url(app: &PlayerWindow, command_sender: &CommandSender) {
-    install_url_dialogs(app, command_sender);
-    let weak = app.as_weak();
-    app.global::<PlayerMenuActions>()
-        .on_open_jump_time_dialog(move || {
-            if let Some(app) = weak.upgrade() {
-                app.global::<riina_ui::PlayerDialogState>()
-                    .set_jump_time_draft(
-                        app.global::<riina_ui::PlaybackTimelineState>()
-                            .get_position_label(),
-                    );
-                app.global::<riina_ui::PlayerDialogState>()
-                    .set_jump_time_error("".into());
-                app.global::<riina_ui::PlayerDialogState>()
-                    .set_jump_time_dialog_visible(true);
+pub(super) fn install_jump_time(app: &PlayerWindow, context: &PlayerContext) {
+    let target = Rc::new(Cell::new(0));
+    let opening = target.clone();
+    bind!(
+        context,
+        app.global::<PlayerMenuActions>(),
+        on_open_jump_time_dialog,
+        |ctx| {
+            let Some(app) = ctx.app() else { return };
+            let dialog = app.global::<PlayerDialogState>();
+            if dialog.get_dialog_open() || dialog.get_jump_time_dialog_visible() {
+                return;
             }
-        });
-    let jump_player = command_sender.clone();
-    let weak = app.as_weak();
-    app.global::<riina_ui::PlayerDialogState>()
-        .on_jump_to_time(move |input| {
-            let Some(app) = weak.upgrade() else { return };
+            let state = lock(ctx.playback()).clone();
+            if jump_is_available(&state) {
+                opening.set(state.generation);
+                dialog.set_jump_time_draft(jump_draft(&state).into());
+                dialog.set_jump_time_dialog_visible(true);
+            }
+        }
+    );
+    bind!(
+        context,
+        app.global::<PlayerDialogState>(),
+        on_jump_to_time,
+        |ctx, input| {
+            let Some(app) = ctx.app() else { return };
+            let dialog = app.global::<PlayerDialogState>();
+            if !dialog.get_jump_time_dialog_visible() {
+                return;
+            }
+            let generation = target.get();
+            let state = lock(ctx.playback()).clone();
+            if state.generation != generation || !jump_is_available(&state) {
+                dialog.invoke_close_jump_time();
+                return;
+            }
             let Some(seconds) = riina_core::time_input::parse_video_time(input.as_str()) else {
-                app.global::<riina_ui::PlayerDialogState>()
-                    .set_jump_time_error("Enter a valid time such as 20:35 or 1:02:03.500.".into());
+                dialog.set_jump_time_invalid(true);
+                dialog.set_jump_time_error("".into());
                 return;
             };
-            app.global::<riina_ui::PlayerControlActions>()
-                .invoke_activity();
-            match jump_player.send(Command::Seek {
-                seconds,
-                absolute: true,
-            }) {
-                Ok(()) => {
-                    app.global::<riina_ui::PlayerDialogState>()
-                        .set_jump_time_error("".into());
-                    app.global::<riina_ui::PlayerDialogState>()
-                        .set_jump_time_dialog_visible(false);
+            ctx.activity();
+            match ctx.commands().send_for_media(
+                generation,
+                Command::Seek {
+                    seconds,
+                    absolute: true,
+                },
+            ) {
+                Ok(()) => dialog.invoke_close_jump_time(),
+                Err(error) => {
+                    dialog.set_jump_time_invalid(false);
+                    dialog.set_jump_time_error(error.to_string().into());
                 }
-                Err(error) => app
-                    .global::<riina_ui::PlayerDialogState>()
-                    .set_jump_time_error(error.to_string().into()),
             }
-        });
+        }
+    );
 }
 
-fn install_url_dialogs(app: &PlayerWindow, command_sender: &CommandSender) {
+fn jump_is_available(state: &Playback) -> bool {
+    state.phase.has_loaded_file() && !state.idle_active && !state.engine_shutdown
+}
+
+fn jump_draft(state: &Playback) -> String {
+    let duration = state
+        .duration
+        .filter(|time| time.is_finite() && *time >= 0.0);
+    let position = if state.phase == Phase::Ended {
+        duration.or(state.position)
+    } else {
+        state.position
+    };
+    let Some(position) = position.filter(|time| time.is_finite()) else {
+        return String::new();
+    };
+    let position = position.clamp(0.0, duration.unwrap_or(f64::MAX));
+    TimePrecision::Milliseconds.elapsed_label(Some(position))
+}
+
+pub(super) fn install_playlist_url(app: &PlayerWindow, command_sender: &CommandSender) {
     let weak = app.as_weak();
     app.global::<PlayerMenuActions>()
         .on_open_playlist_url_dialog(move || {

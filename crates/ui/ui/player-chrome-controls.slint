@@ -35,6 +35,7 @@ export component JumpDialogButton inherits FocusScope {
     width: 68px; height: 26px;
     accessible-role: button;
     accessible-label: label;
+    accessible-action-default => { root.activated(); }
     Rectangle {
         width: parent.width; height: parent.height; border-radius: 5px;
         border-width: 1px; border-color: Theme.player-dialog-button-border(root.dark-theme, root.has-focus);

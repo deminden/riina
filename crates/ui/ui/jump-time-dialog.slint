@@ -1,0 +1,76 @@
+import { Theme } from "theme.slint";
+import { PlayerDialogState } from "player-dialog-state.slint";
+import { PlayerAppearance } from "player-appearance.slint";
+import { JumpDialogButton } from "player-chrome-controls.slint";
+
+export component JumpTimeDialog inherits FocusScope {
+    private property <bool> dark-theme: PlayerAppearance.dark-theme;
+    private property <string> error: PlayerDialogState.jump-time-invalid
+        ? @tr("Enter a valid time such as 20:35 or 1:02:03.500.") : PlayerDialogState.jump-time-error;
+
+    public function edit() {
+        time.focus();
+        time.select-all();
+    }
+
+    key-pressed(event) => {
+        if event.text == Key.Tab || event.text == Key.Backtab {
+            let backward = event.text == Key.Backtab || event.modifiers.shift;
+            if time.has-focus {
+                if backward { submit.focus(); } else { cancel.focus(); }
+            } else if cancel.has-focus {
+                if backward { time.focus(); } else { submit.focus(); }
+            } else {
+                if backward { cancel.focus(); } else { time.focus(); }
+            }
+            return accept;
+        }
+        return reject;
+    }
+
+    Rectangle { width: parent.width; height: parent.height; background: Theme.player-dialog-scrim; }
+    TouchArea { width: parent.width; height: parent.height; scroll-event(_) => { return accept; } }
+    panel := Rectangle {
+        private property <bool> show-instructions: self.height >= 160px;
+        private property <bool> show-title: self.height >= 112px;
+        private property <length> inset: self.width >= 280px ? 18px : 8px;
+        private property <length> field-y: show-instructions ? 78px : show-title ? 34px : 5px;
+        x: (parent.width - self.width) / 2; y: (parent.height - self.height) / 2;
+        width: min(340px, max(0px, parent.width - 16px)); height: min(172px, max(0px, parent.height - 8px));
+        border-radius: 9px; background: Theme.player-dialog-surface(root.dark-theme);
+        border-width: 1px; border-color: Theme.player-dialog-border(root.dark-theme);
+        Text { x: panel.inset; y: 10px; width: parent.width - 2 * panel.inset; height: 22px;
+            visible: panel.show-title; text: @tr("Jump to"); color: Theme.player-dialog-title(root.dark-theme);
+            font-size: 14px; font-weight: 600; }
+        Text { x: panel.inset; y: 36px; width: parent.width - 2 * panel.inset; height: 38px;
+            visible: panel.show-instructions; wrap: word-wrap;
+            text: @tr("Please enter the time you want to jump to. Example: 20:35");
+            color: Theme.player-dialog-instructions(root.dark-theme); font-size: 12px; }
+        field := Rectangle {
+            x: panel.inset; y: panel.field-y; width: parent.width - 2 * panel.inset;
+            height: panel.show-title ? 30px : 24px;
+            border-radius: 5px; border-width: 1px;
+            border-color: time.has-focus ? Theme.player-dialog-field-focus : Theme.player-dialog-field-border(root.dark-theme);
+            background: Theme.player-dialog-field-surface(root.dark-theme);
+            time := TextInput {
+                x: 8px; y: 2px; width: parent.width - 16px; height: parent.height - 4px;
+                text <=> PlayerDialogState.jump-time-draft; single-line: true;
+                font-size: 13px; color: Theme.player-dialog-field-text(root.dark-theme);
+                accessible-label: @tr("Playback time"); accessible-description: root.error;
+                accepted => { PlayerDialogState.jump-to-time(self.text); }
+            }
+        }
+        Text { x: panel.inset; y: field.y + field.height + 2px; width: parent.width - 2 * panel.inset;
+            height: max(0px, actions.y - self.y - 2px); text: root.error;
+            color: Theme.player-dialog-error; font-size: 11px; overflow: elide; }
+        actions := HorizontalLayout {
+            width: min(164px, max(0px, parent.width - 2 * panel.inset)); height: panel.show-title ? 25px : 22px;
+            x: parent.width - panel.inset - self.width; y: parent.height - self.height - (panel.show-title ? 10px : 4px);
+            spacing: 8px;
+            cancel := JumpDialogButton { dark-theme: root.dark-theme; label: @tr("Cancel");
+                activated => { PlayerDialogState.close-jump-time(); } }
+            submit := JumpDialogButton { dark-theme: root.dark-theme; label: @tr("OK");
+                activated => { PlayerDialogState.jump-to-time(PlayerDialogState.jump-time-draft); } }
+        }
+    }
+}

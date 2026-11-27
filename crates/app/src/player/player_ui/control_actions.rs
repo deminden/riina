@@ -115,7 +115,8 @@ pub(super) fn install(app: &PlayerWindow, inputs: Inputs<'_>) {
     transport::install_seek(app, command_sender);
     transport::install_timeline(app, context);
     controller_arrows::install(app, context.clone());
-    dialogs::install_time_and_url(app, command_sender);
+    dialogs::install_jump_time(app, context);
+    dialogs::install_playlist_url(app, command_sender);
     audio_controls::install_volume(app, command_sender);
     transport::install_relative_speed(app, command_sender);
     audio_controls::install_volume_adjustment(app, command_sender);

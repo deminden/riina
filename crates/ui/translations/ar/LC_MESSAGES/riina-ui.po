@@ -386,6 +386,18 @@ msgstr "الانتقال إلى البداية"
 msgid "Jump to…"
 msgstr "الانتقال إلى…"
 
+msgid "Jump to"
+msgstr "الانتقال إلى"
+
+msgid "Please enter the time you want to jump to. Example: 20:35"
+msgstr "أدخل الوقت الذي تريد الانتقال إليه. مثال: 20:35"
+
+msgid "Playback time"
+msgstr "وقت التشغيل"
+
+msgid "Enter a valid time such as 20:35 or 1:02:03.500."
+msgstr "أدخل وقتًا صالحًا مثل 20:35 أو 1:02:03.500."
+
 msgid "Speed: {}x"
 msgstr "السرعة: {}×"
 

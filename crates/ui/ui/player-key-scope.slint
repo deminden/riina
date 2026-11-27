@@ -87,7 +87,7 @@ export component PlayerKeyScope inherits FocusScope {
         }
         if PlayerCropState.crop-editing { if event.text == Key.Escape { PlayerCropState.finish-custom-crop(false); } if event.text == Key.Tab { return reject; } return accept; }
         if PlayerDialogState.jump-time-dialog-visible {
-            if event.text == Key.Escape { PlayerDialogState.jump-time-dialog-visible = false; PlayerDialogState.jump-time-error = ""; return accept; }
+            if event.text == Key.Escape { PlayerDialogState.close-jump-time(); }
             return accept;
         }
         if PlayerDialogState.url-dialog-visible {
@@ -213,7 +213,6 @@ export component PlayerKeyScope inherits FocusScope {
         if event.text == Key.UpArrow { PlayerMenuActions.adjust-volume(5); return accept; }
         if event.text == Key.DownArrow { PlayerMenuActions.adjust-volume(-5); return accept; }
         if event.text == "m" { PlayerMenuActions.toggle-mute(); return accept; }
-        if event.text == "j" && root.loaded { PlayerMenuActions.open-jump-time-dialog(); return accept; }
         if event.text == "v" { PlayerMenuActions.toggle-subtitle-visibility(); return accept; }
         if event.text == "r" { PlayerControlActions.adjust-subtitle-position(-1); return accept; }
         if event.text == "t" { PlayerControlActions.adjust-subtitle-position(1); return accept; }

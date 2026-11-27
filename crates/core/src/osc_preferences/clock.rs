@@ -30,6 +30,11 @@ impl TimePrecision {
     pub const fn index(self) -> i32 {
         self as i32
     }
+
+    #[must_use]
+    pub fn elapsed_label(self, elapsed: Option<f64>) -> String {
+        clock_label(elapsed, self, false)
+    }
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -58,7 +63,7 @@ impl Default for ControllerOptions {
 impl ControllerOptions {
     #[must_use]
     pub fn elapsed_label(self, elapsed: Option<f64>) -> String {
-        clock_label(elapsed, self.time_precision, false)
+        self.time_precision.elapsed_label(elapsed)
     }
 
     #[must_use]
