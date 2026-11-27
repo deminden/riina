@@ -166,6 +166,7 @@ class ReleaseArtifactTests(unittest.TestCase):
         curl_revision = "b" * 40
         libvpl_revision = "d" * 40
         fontconfig_revision = "9" * 40
+        ffmpeg_revision = "8" * 40
         mpv_revision = "e" * 40
         build_image = "ghcr.io/example/image@sha256:" + "f" * 64
         (tools / "build-windows.sh").write_text(
@@ -173,6 +174,7 @@ class ReleaseArtifactTests(unittest.TestCase):
             f"readonly CURL_REVISION='{curl_revision}'\n"
             f"readonly LIBVPL_REVISION='{libvpl_revision}'\n"
             f"readonly FONTCONFIG_REVISION='{fontconfig_revision}'\n"
+            f"readonly FFMPEG_REVISION='{ffmpeg_revision}'\n"
             f"readonly MPV_REVISION='{mpv_revision}'\n"
             f"readonly BUILD_IMAGE='{build_image}'\n",
             encoding="utf-8")
@@ -195,6 +197,7 @@ class ReleaseArtifactTests(unittest.TestCase):
             f"source_revision\tsrc_packages/mpv\thttps://github.com/mpv-player/mpv.git\t{mpv_revision}",
             f"source_revision\tsrc_packages/libvpl\thttps://github.com/intel/libvpl.git\t{libvpl_revision}",
             f"source_revision\tsrc_packages/fontconfig\thttps://gitlab.freedesktop.org/fontconfig/fontconfig.git\t{fontconfig_revision}",
+            f"source_revision\tsrc_packages/ffmpeg\thttps://github.com/FFmpeg/FFmpeg.git\t{ffmpeg_revision}",
         ]
 
     def test_native_source_index_records_immutable_sources_and_verified_notices(self):
@@ -213,7 +216,7 @@ class ReleaseArtifactTests(unittest.TestCase):
             ]
             (binary / "SOURCE-MANIFEST.tsv").write_text("\n".join(manifest_rows) + "\n", encoding="utf-8")
 
-            self.assertEqual(release.verify_native_source_index(binary, source), (1, 4))
+            self.assertEqual(release.verify_native_source_index(binary, source), (1, 5))
 
             manifest = binary / "SOURCE-MANIFEST.tsv"
             for field, expected in [
@@ -235,6 +238,7 @@ class ReleaseArtifactTests(unittest.TestCase):
             for package, constant in [
                 ("mpv", "MPV_REVISION"), ("libvpl", "LIBVPL_REVISION"),
                 ("fontconfig", "FONTCONFIG_REVISION"),
+                ("ffmpeg", "FFMPEG_REVISION"),
             ]:
                 changed = [
                     row[:-40] + "0" * 40 if row.startswith(f"source_revision\tsrc_packages/{package}\t") else row
@@ -271,7 +275,7 @@ class ReleaseArtifactTests(unittest.TestCase):
             ]
             (binary / "SOURCE-MANIFEST.tsv").write_text("\n".join(manifest_rows) + "\n", encoding="utf-8")
 
-            self.assertEqual(release.verify_native_source_index(binary, source), (2, 4))
+            self.assertEqual(release.verify_native_source_index(binary, source), (2, 5))
 
     def test_native_source_index_rejects_a_missing_matching_notice(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -315,7 +319,7 @@ class ReleaseArtifactTests(unittest.TestCase):
             vendor_notices = binary / "THIRD_PARTY_LICENSES/subrandr/riina-vendor/example-crate"
             vendor_notices.mkdir(parents=True)
             (vendor_notices / "LICENSE-MIT").write_text("license only\n", encoding="utf-8")
-            self.assertEqual(release.verify_native_source_index(binary, source), (1, 4))
+            self.assertEqual(release.verify_native_source_index(binary, source), (1, 5))
 
             (vendor_notices / "src.rs").write_text("bundled source\n", encoding="utf-8")
             with self.assertRaisesRegex(ValueError, "duplicated source trees"):

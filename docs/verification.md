@@ -7146,3 +7146,13 @@ equalizer's accessible name.
 The Windows workspace gate and locked build passed. All 88 widget cases passed,
 along with the existing Windows headless player and Settings pixel baselines.
 Both localization widget tests passed on Linux x86-64.
+
+### Windows FFmpeg build configuration (2026-11-27)
+
+The resumed Windows build completed libvpl, fontconfig, OpenSSL and SPIRV-Cross.
+FFmpeg rejected an OpenGL option removed upstream in `f3aa9ceb4`. The recipe
+pins the FFmpeg source used by the candidate to
+`64b26fdb5570c8bec3dfe6a84df79362113a3c5e` and removes that option. The full
+configuration passed in the pinned build image with the existing dependencies.
+The release verifier now checks the pinned FFmpeg revision. All ten release
+artifact tests passed. Compilation and the engine playback checks remain open.

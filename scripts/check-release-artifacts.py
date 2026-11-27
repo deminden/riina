@@ -255,6 +255,7 @@ def verify_native_source_index(binary, source):
         ("MPV_REVISION", "src_packages/mpv"), ("BUILD_IMAGE", "container_image"),
         ("LIBVPL_REVISION", "src_packages/libvpl"),
         ("FONTCONFIG_REVISION", "src_packages/fontconfig"),
+        ("FFMPEG_REVISION", "src_packages/ffmpeg"),
     ):
         if pinned_setting(build_script, constant) != records.get(field):
             raise ValueError(f"Native source index does not match {constant}")
