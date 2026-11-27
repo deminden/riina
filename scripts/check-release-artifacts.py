@@ -14,19 +14,24 @@ import tomllib
 import zipfile
 
 
-def readiness(audit):
-    ready = audit["release_artifacts_verified"]
-    if type(ready) is not bool:
-        raise ValueError("release_artifacts_verified must be a JSON boolean")
-    candidate_id = audit.get("verified_candidate_run_id")
-    native_id = audit.get("verified_native_run_id")
-    for name, value in (("verified_candidate_run_id", candidate_id), ("verified_native_run_id", native_id)):
-        if value is not None and (type(value) is not int or value <= 0):
-            raise ValueError(f"{name} must be a positive integer or null")
-    if ready and (candidate_id is None or native_id is None):
-        raise ValueError("Verified release needs separate package and native artifact run IDs")
-    # Reused engines supply the runtime and source index from an earlier run.
-    return f"release_ready={str(ready).lower()}\nnative_run_id={native_id if ready else ''}\n"
+def pinned_setting(recipe, name):
+    values = re.findall(rf"^readonly {name}='([^'\n]+)'", recipe, re.MULTILINE)
+    if len(values) != 1:
+        raise ValueError(f"The native build recipe must declare one literal {name}")
+    return values[0]
+
+
+def build_image(source, commit):
+    if not re.fullmatch(r"[0-9a-f]{40}(?:[0-9a-f]{24})?", commit):
+        raise ValueError("Native build image selection requires a full commit ID")
+    recipe = subprocess.check_output(
+        ["git", "-C", str(source), "show", f"{commit}^{{commit}}:tools/mpv/build-windows.sh"],
+        text=True, encoding="utf-8",
+    )
+    image = pinned_setting(recipe, "BUILD_IMAGE")
+    if not re.fullmatch(r"[a-z0-9][a-z0-9./_-]+@sha256:[0-9a-f]{64}", image):
+        raise ValueError("The native build recipe must pin its build image by digest")
+    return image
 
 
 def digest(path):
@@ -257,8 +262,7 @@ def verify_native_source_index(binary, source):
         ("BUILDER_REVISION", "builder_revision"), ("CURL_REVISION", "curl_revision"),
         ("MPV_REVISION", "src_packages/mpv"), ("BUILD_IMAGE", "container_image"),
     ):
-        match = re.search(rf"^readonly {constant}='([^'\n]+)'", build_script, re.MULTILINE)
-        if not match or match.group(1) != records[field]:
+        if pinned_setting(build_script, constant) != records[field]:
             raise ValueError(f"Native source index does not match {constant}")
     for field, filename in patches.items():
         if digest(tools / filename) != records[field]:
@@ -325,8 +329,9 @@ def verify_package(binary, source, version):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest="command", required=True)
-    audit = commands.add_parser("readiness")
-    audit.add_argument("--audit", type=Path, default=Path("docs/native-distribution-audit.json"))
+    image = commands.add_parser("build-image")
+    image.add_argument("--source", type=Path, default=Path("."))
+    image.add_argument("--commit", required=True)
     runtime = commands.add_parser("runtime")
     runtime.add_argument("--directory", type=Path, required=True)
     runtime.add_argument("--source", type=Path, default=Path("."))
@@ -342,8 +347,8 @@ def main():
     package.add_argument("--source", type=Path, required=True)
     package.add_argument("--version", required=True)
     args = parser.parse_args()
-    if args.command == "readiness":
-        print(readiness(json.loads(args.audit.read_text(encoding="utf-8"))), end="")
+    if args.command == "build-image":
+        print(build_image(args.source, args.commit))
     elif args.command == "runtime":
         verify_runtime(args.directory)
         verify_native_source_index(args.directory, args.source)

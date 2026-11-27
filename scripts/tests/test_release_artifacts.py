@@ -4,6 +4,7 @@ import hashlib
 import json
 from pathlib import Path
 import re
+import subprocess
 import tempfile
 import unittest
 import zipfile
@@ -99,25 +100,34 @@ class ReleaseArtifactTests(unittest.TestCase):
                 self.assertFalse((root / "restored").exists())
                 self.assertEqual(list(root.glob("riina-runtime-*")), [])
 
-    def test_unverified_release_never_selects_artifacts_and_verified_release_uses_engine_run(self):
-        self.assertEqual(release.readiness({"release_artifacts_verified": False, "verified_candidate_run_id": None}),
-                         "release_ready=false\nnative_run_id=\n")
-        self.assertEqual(release.readiness({"release_artifacts_verified": True, "verified_candidate_run_id": 123,
-                                            "verified_native_run_id": 456}),
-                         "release_ready=true\nnative_run_id=456\n")
-        for missing in ("verified_candidate_run_id", "verified_native_run_id"):
-            audit = {"release_artifacts_verified": True, "verified_candidate_run_id": 123,
-                     "verified_native_run_id": 456}
-            del audit[missing]
-            with self.subTest(missing=missing), self.assertRaises(ValueError):
-                release.readiness(audit)
+    def test_native_image_follows_the_selected_commit_after_a_move_to_newer_source(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            def git(*args):
+                return subprocess.check_output(
+                    ["git", "-C", str(root), "-c", "user.name=Fixture",
+                     "-c", "user.email=fixture@example.test", *args],
+                    text=True, stderr=subprocess.STDOUT,
+                ).strip()
 
-    def test_invalid_readiness_types_cannot_select_release_or_artifact_download(self):
-        with self.assertRaises(ValueError):
-            release.readiness({"release_artifacts_verified": "false"})
-        for run_id in (False, "None", "123", 0, -1):
-            with self.subTest(run_id=run_id), self.assertRaises(ValueError):
-                release.readiness({"release_artifacts_verified": True, "verified_candidate_run_id": run_id})
+            git("init", "--quiet")
+            recipe = root / "tools/mpv/build-windows.sh"
+            recipe.parent.mkdir(parents=True)
+            base = "ghcr.io/shinchiro/archlinux@sha256:"
+            images = [base + "a" * 64, base + "b" * 64, "ghcr.io/shinchiro/archlinux:latest"]
+            commits = []
+            for image in images:
+                recipe.write_text(f"readonly BUILD_IMAGE='{image}'\n", encoding="utf-8")
+                git("add", "tools/mpv/build-windows.sh")
+                git("commit", "--quiet", "-m", "Record fixture image")
+                commits.append(git("rev-parse", "HEAD"))
+
+            self.assertEqual(release.build_image(root, commits[0]), images[0])
+            self.assertEqual(release.build_image(root, commits[1]), images[1])
+            with self.assertRaisesRegex(ValueError, "pin its build image"):
+                release.build_image(root, commits[2])
+            with self.assertRaisesRegex(ValueError, "full commit ID"):
+                release.build_image(root, "HEAD")
 
     def test_runtime_manifest_rejects_corruption_omission_and_unsafe_paths(self):
         with tempfile.TemporaryDirectory() as temp:

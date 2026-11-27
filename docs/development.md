@@ -482,6 +482,9 @@ erase shared Cargo downloads. Keep references outside `target/`.
 ## Release candidates
 
 1. Choose the exact source revision and version; use the configured GitHub account.
+   The Windows workflow resolves the selection to a commit once. Every release
+   job uses that commit, and the native builder uses the image digest declared
+   by its build recipe.
 2. Reuse a successful native artifact only if source revisions, patches, scripts,
    architecture and provenance match the candidate's build identity.
    If its CI artifact has expired, the release workflow's `native_release_tag`

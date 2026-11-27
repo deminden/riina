@@ -7058,3 +7058,16 @@ The Windows candidate DLL, extracted application and installer still require
 verification with the rebuilt engine.
 
 - Patched Linux libmpv SHA-256 `9c798805405cc047a29e52059fe7da5d2f89df36cddac6ff84909c1feaa763ea`
+
+### Exact release source selection (2026-11-27)
+
+The Windows release workflow now carries one resolved commit through the native
+build, Windows package, verification and publication jobs. The engine uses the
+build image pinned in that commit. Selecting an artifact run or published
+engine remains an explicit dispatch input.
+
+The fast workspace gate passed all 78 packaging and script tests. A local
+exercise ran the workflow's source-selection shell step with separate tagged
+and dispatch commits, verified the older tag selected its own image, and
+checked both explicit reuse inputs and rejection of conflicting inputs.
+The hosted release workflow remains unverified for this change.
