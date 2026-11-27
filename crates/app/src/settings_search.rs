@@ -1147,10 +1147,9 @@ fn localized_results_for_query(
     let terms = query.split_whitespace().collect::<Vec<_>>();
     let matches = index.iter().filter(|item| {
         let available = match item.source.title {
-            "Window becomes inactive/active"
-            | "Pause when machine goes to sleep"
-            | "Load ICC profile"
-            | "Use legacy full screen" => platform_macos,
+            "Window becomes inactive/active" | "Load ICC profile" | "Use legacy full screen" => {
+                platform_macos
+            }
             "Live Text" => live_text_available,
             _ => true,
         };
@@ -1520,13 +1519,16 @@ mod tests {
     }
 
     #[test]
-    fn legacy_fullscreen_search_entry_follows_platform_availability() {
+    fn general_search_distinguishes_native_fullscreen_from_portable_suspend() {
         let index = build_index(&SearchLabels::new());
         let rows = localized_results_for_query("legacy full screen", &index, true, false);
         assert_eq!(rows.len(), 2);
         assert_eq!(rows[1].title, "Use legacy full screen");
         assert_eq!(rows[1].section_name, "Behavior");
         assert!(localized_results_for_query("legacy full screen", &index, false, false).is_empty());
+        let rows = localized_results_for_query("machine goes to sleep", &index, false, false);
+        assert_eq!(rows[1].title, "Pause when machine goes to sleep");
+        assert_eq!(rows[1].section_name, "Behavior");
     }
 
     #[test]

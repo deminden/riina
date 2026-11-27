@@ -32,7 +32,11 @@ export global GeneralSettingsState {
     in-out property <bool> pause-when-inactive: false;
     in-out property <bool> pause-when-minimized: false;
     in-out property <bool> pause-when-goes-to-sleep: true;
-    in-out property <bool> pause-policies-available: false;
+    in-out property <bool> inactive-pause-available: false;
+    in-out property <bool> suspend-pause-available: true;
+    out property <length> pause-options-height: pause-resume-when-expanded
+        ? 104px + (inactive-pause-available ? 32px : 0px) + (suspend-pause-available ? 32px : 0px)
+        : 0px;
     in-out property <bool> quit-when-no-opened-window: false;
     in-out property <bool> keep-open-on-file-end: true;
     in-out property <bool> prevent-screen-saver: true;
@@ -93,7 +97,7 @@ export component GeneralPreferencesPage inherits ScrollView {
     Rectangle {
         x: 12px; y: 81px; width: parent.width - 24px;
         height: 122px + (GeneralSettingsState.when-media-opened-expanded ? 166px : 0px)
-            + (GeneralSettingsState.pause-resume-when-expanded ? (GeneralSettingsState.pause-policies-available ? 168px : 104px) : 0px);
+            + GeneralSettingsState.pause-options-height;
         border-width: 1px; border-color: Theme.settings-general-card-border; border-radius: 12px; background: Theme.settings-card-surface(root.mica-backdrop-enabled);
         Text { x: 38px; y: 0; width: 120px; height: 40px; text: @tr("At launch");
             font-size: 13px; color: Theme.settings-page-heading; vertical-alignment: center; }
@@ -153,7 +157,7 @@ export component GeneralPreferencesPage inherits ScrollView {
             checked <=> GeneralSettingsState.pause-when-leaving-fullscreen;
             toggled => { root.settings-changed(); }
         }
-        if GeneralSettingsState.pause-resume-when-expanded && GeneralSettingsState.pause-policies-available : GeneralSettingToggle {
+        if GeneralSettingsState.pause-resume-when-expanded && GeneralSettingsState.inactive-pause-available : GeneralSettingToggle {
             x: 12px; y: 186px + (GeneralSettingsState.when-media-opened-expanded ? 166px : 0px);
             width: parent.width - 24px; height: 32px;
             label: @tr("Window becomes inactive/active");
@@ -161,14 +165,16 @@ export component GeneralPreferencesPage inherits ScrollView {
             toggled => { root.settings-changed(); }
         }
         if GeneralSettingsState.pause-resume-when-expanded : GeneralSettingToggle {
-            x: 12px; y: (GeneralSettingsState.pause-policies-available ? 218px : 186px) + (GeneralSettingsState.when-media-opened-expanded ? 166px : 0px);
+            x: 12px; y: (GeneralSettingsState.inactive-pause-available ? 218px : 186px)
+                + (GeneralSettingsState.when-media-opened-expanded ? 166px : 0px);
             width: parent.width - 24px; height: 32px;
             label: @tr("Minimized/un-minimized");
             checked <=> GeneralSettingsState.pause-when-minimized;
             toggled => { root.settings-changed(); }
         }
-        if GeneralSettingsState.pause-resume-when-expanded && GeneralSettingsState.pause-policies-available : GeneralSettingToggle {
-            x: 12px; y: 250px + (GeneralSettingsState.when-media-opened-expanded ? 166px : 0px);
+        if GeneralSettingsState.pause-resume-when-expanded && GeneralSettingsState.suspend-pause-available : GeneralSettingToggle {
+            x: 12px; y: (GeneralSettingsState.inactive-pause-available ? 250px : 218px)
+                + (GeneralSettingsState.when-media-opened-expanded ? 166px : 0px);
             width: parent.width - 24px; height: 32px;
             label: @tr("Pause when machine goes to sleep");
             checked <=> GeneralSettingsState.pause-when-goes-to-sleep;

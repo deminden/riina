@@ -80,15 +80,7 @@ impl Route {
             {
                 self.pause_for_focus(app);
             }
-            SystemActivity::Sleep if preferences.get_pause_when_goes_to_sleep() => {
-                let playing = {
-                    let state = lock(&self.playback);
-                    state.phase == Phase::Playing && !state.paused
-                };
-                if playing {
-                    app.global::<PlayerControlActions>().invoke_set_paused(true);
-                }
-            }
+            SystemActivity::Sleep => super::pause_for_suspend(app, &self.playback),
             _ => {}
         }
     }

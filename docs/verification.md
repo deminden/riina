@@ -7466,3 +7466,30 @@ through AT-SPI while the server stalled. Closing Open URL canceled the load,
 and closing Welcome ended the original process. Strict macOS cross-Clippy
 passed for Intel and Apple Silicon. Live macOS behavior and matched pixels
 still need verification.
+
+### Pause playback on suspend (2026-11-27)
+
+Two isolated Windows runs delivered suspend and resume messages to the
+playback owner without suspending the computer. With the preference enabled,
+the pinned engine paused and stayed paused through both resume notifications.
+With the preference disabled, it kept playing. Both runs disabled system media
+controls, closed via Welcome and left no Riina process.
+
+A third isolated run changed the sleep switch in General Settings while the
+same player was open. Disabling it kept playback running through suspend.
+Re-enabling it paused that same player on the next notification.
+The Windows shared OpenGL player also paused and stayed paused through
+simulated resume, then closed normally.
+
+The locked Windows build and workspace gate passed with 731 application
+tests, 88 widget tests and the software player and Settings pixel comparison.
+The application test checks live, loading, buffering and seeking playback,
+already-paused and stopped engines, and engines entering shutdown.
+
+The locked Linux application build, strict Clippy and 14 focused tests passed.
+Two isolated X11 runs used a private D-Bus peer to deliver logind suspend and
+wake signals. The enabled player paused and stayed paused on wake. The
+disabled player kept playing. Both processes closed via Welcome.
+
+Strict macOS cross-Clippy passed on Intel and Apple Silicon targets. Physical
+suspend and wake timing and the macOS desktop workflow still need verification.

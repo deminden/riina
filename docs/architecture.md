@@ -516,6 +516,14 @@ uses process-owned power requests, macOS uses a Foundation activity, and
 Linux uses desktop idle inhibitors and the logind idle lock when available.
 The Linux requests run off the window thread.
 
+Pause on sleep follows the native suspend notification and the current
+preference of each player. Windows registers the framed playback owner, or
+the shared-renderer window, for suspend events. The registration ends with
+that session. Linux owns one system-bus logind subscription per application
+and routes `PrepareForSleep(true)` to its open players on the UI thread.
+macOS uses its existing Workspace notification and shares the pause policy.
+Idle and shutting-down engines receive no pause request. [Windows suspend notifications](https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-registersuspendresumenotification) · [logind suspend signals](https://www.freedesktop.org/software/systemd/man/latest/org.freedesktop.login1.html#Signals)
+
 Media discovery chooses destination players from the original selection before
 enumerating folders or filtering files. A folder stays with its assigned player,
 and a standalone playlist goes to mpv as a single reference. The Windows and

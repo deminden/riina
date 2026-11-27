@@ -25,6 +25,10 @@ Implementation does not imply every state or platform is verified.
 - **Playback:** files, folders and URLs; play/pause, seeking, volume/mute, speed,
   frame stepping, loops, chapters, playlist editing, history and resume.
   Pause When Open also applies when the playlist automatically advances.
+- **Pause on sleep:** General Settings can pause active playback when macOS,
+  Windows or a Linux logind session prepares to suspend. The preference is
+  enabled by default and each player reads the current selection. A system
+  wake notification leaves the player's pause state alone.
 - **Desktop drops** open media in the receiving player or insert it at the
   captured playlist position. Welcome and the File menu follow the
   window-opening preferences. On Linux, X11 and Wayland accept media URLs,

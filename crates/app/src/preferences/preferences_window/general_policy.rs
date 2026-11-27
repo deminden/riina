@@ -164,7 +164,12 @@ impl Policy {
         general.set_pause_when_inactive(self.pause_when_inactive);
         general.set_pause_when_minimized(self.pause_when_minimized);
         general.set_pause_when_goes_to_sleep(self.pause_when_goes_to_sleep);
-        general.set_pause_policies_available(cfg!(target_os = "macos"));
+        general.set_inactive_pause_available(cfg!(target_os = "macos"));
+        general.set_suspend_pause_available(cfg!(any(
+            target_os = "linux",
+            target_os = "macos",
+            target_os = "windows"
+        )));
         general.set_quit_when_no_opened_window(self.quit_when_no_opened_window);
         general.set_keep_open_on_file_end(self.keep_open_on_file_end);
         general.set_playlist_auto_play_next(self.playlist_auto_play_next);

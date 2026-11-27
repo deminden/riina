@@ -147,8 +147,7 @@ export component PreferencesWindow inherits Window {
     out property <length> interface-pip-target: 0px - (interface-pip-y - 13px);
     out property <length> interface-accessibility-target: 0px - (interface-accessibility-y - 13px);
     private property <length> general-media-opened-height: GeneralSettingsState.when-media-opened-expanded ? 166px : 0px;
-    private property <length> general-expanded-height: root.general-media-opened-height
-        + (GeneralSettingsState.pause-resume-when-expanded ? (GeneralSettingsState.pause-policies-available ? 168px : 104px) : 0px);
+    private property <length> general-expanded-height: root.general-media-opened-height + GeneralSettingsState.pause-options-height;
     private property <length> general-window-y: 219px + root.general-expanded-height;
     private property <length> general-power-y: root.general-window-y + 266px + (root.platform-macos ? 38px : 0px);
     private property <length> general-updates-y: root.general-power-y + 98px;

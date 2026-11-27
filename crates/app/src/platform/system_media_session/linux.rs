@@ -3,9 +3,10 @@ mod actions;
 mod broker;
 mod interface;
 mod projection;
+mod suspend;
 mod track_list;
 
-use super::{CommandSender, NativeVideoHost, PlaybackStore, PlayerWindow};
+use super::{CommandSender, NativeVideoHost, PlaybackStore, PlayerWindow, pause_for_suspend};
 use interface::Request;
 use projection::Snapshot;
 use riina_core::sync::lock;
@@ -17,7 +18,7 @@ use std::{
     sync::atomic::{AtomicU64, Ordering},
     time::Duration,
 };
-use tokio::sync::watch;
+use tokio::sync::{oneshot, watch};
 
 thread_local! {
     static APPLICATION: RefCell<RcWeak<Application>> = const { RefCell::new(RcWeak::new()) };
@@ -36,6 +37,7 @@ struct Application {
     last_focused: Cell<Option<u64>>,
     snapshots: watch::Sender<Snapshot>,
     receiver: RefCell<Option<watch::Receiver<Snapshot>>>,
+    suspend: RefCell<Option<oneshot::Sender<()>>>,
     timer: Timer,
 }
 
@@ -53,6 +55,7 @@ impl Application {
                 last_focused: Cell::new(None),
                 snapshots,
                 receiver: RefCell::new(Some(receiver)),
+                suspend: RefCell::default(),
                 timer: Timer::default(),
             });
             *existing.borrow_mut() = Rc::downgrade(&app);
@@ -142,6 +145,37 @@ impl Application {
         }
     }
 
+    fn start_suspend_observer(&self) {
+        let mut observer = self.suspend.borrow_mut();
+        if observer.as_ref().is_some_and(|stop| !stop.is_closed()) {
+            return;
+        }
+        let id = self.id;
+        match suspend::start(move || {
+            let _ = slint::invoke_from_event_loop(move || {
+                let application = APPLICATION.with(|current| current.borrow().upgrade());
+                if let Some(application) = application.filter(|owner| owner.id == id) {
+                    application.pause_for_suspend();
+                }
+            });
+        }) {
+            Ok(stop) => *observer = Some(stop),
+            Err(error) => {
+                crate::diagnostics::warn!("Could not start the Linux sleep observer: {error}")
+            }
+        }
+    }
+
+    fn pause_for_suspend(&self) {
+        for route in self.routes.borrow().iter() {
+            if route.sender.is_some()
+                && let Some(app) = route.app.upgrade()
+            {
+                pause_for_suspend(&app, &route.playback);
+            }
+        }
+    }
+
     fn deliver(&self, request: Request) {
         let accepted = self.snapshots.borrow().media.as_ref().is_some_and(|media| {
             media.route == request.route && media.generation == request.generation
@@ -208,6 +242,7 @@ impl SystemMediaSession {
         {
             route.sender = Some(sender.clone());
         }
+        self.application.start_suspend_observer();
         self.application.refresh();
     }
 
