@@ -55,7 +55,12 @@ impl UiSession {
             return false;
         }
         let playback = riina_core::sync::lock(&self.preference_state.latest_playback);
-        playback.generation != 0 && playback.confirmed_stop(request)
+        playback.generation != 0
+            && playback.confirmed_stop(request)
+            && !self
+                .observer_state
+                .id()
+                .eof_stop_superseded(playback.generation, request)
     }
 
     pub(crate) fn park_after_stop(&self, app: &PlayerWindow, display: &PlayerDisplay) -> bool {

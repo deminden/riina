@@ -267,22 +267,18 @@ impl UiSession {
                 Command::OpenMediaLink(playback),
             )?;
         } else {
+            media_open::invalidate(app);
             player.send(Command::OpenMediaLink(playback))?;
+            app.set_status("Opening…".into());
         }
         if append {
             if let Some(presentation) = presentation {
                 observation_dispatch::apply_startup_presentation(app, presentation);
             }
         } else {
-            let request = if is_stream {
-                app.get_media_request_generation()
-            } else {
-                app.set_status("Opening…".into());
-                media_open::invalidate(app)
-            };
             if let Some(presentation) = presentation {
                 self.observer_state
-                    .queue_startup_presentation(request, presentation);
+                    .queue_startup_presentation(app.get_media_request_generation(), presentation);
             }
         }
         Ok(())
@@ -469,6 +465,7 @@ fn configure_with_engine(
         .inspect_err(|error| app.set_status(error.clone().into()))
         .map_err(std::io::Error::other)?;
     startup::apply_player_preferences(&command_sender, prefs, media.launch.pause)?;
+    observer_state.bind_end(latest_playback.clone(), command_sender.clone());
     if let Some(host) = &mut session.plugin_host {
         host.attach_player(command_sender.clone());
     }

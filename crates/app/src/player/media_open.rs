@@ -486,7 +486,7 @@ pub fn validate_url(value: &str) -> Result<&str, riina_core::media_reference::Ne
 pub fn invalidate(app: &PlayerWindow) -> i32 {
     if let Some(observer) = ObserverId::for_window(app) {
         observer.cancel_discovery();
-        observer.retire_idle_media();
+        observer.supersede_media();
     }
     playlist_edits::retire_media(app);
     let generation = app.get_media_request_generation().wrapping_add(1);

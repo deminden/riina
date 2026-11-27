@@ -28,6 +28,14 @@ struct Observer {
     parked: Rc<Cell<bool>>,
     stopped: Option<Rc<dyn Fn(u32)>>,
     delivered_stop: Option<u32>,
+    end: Option<EndOfFile>,
+}
+
+struct EndOfFile {
+    latest: crate::PlaybackStore,
+    commands: riina_mpv::CommandSender,
+    superseded_through: u64,
+    submitted: Option<(u64, u32)>,
 }
 
 impl Observer {
@@ -166,15 +174,71 @@ impl ObserverId {
         });
     }
 
-    pub(in crate::player) fn retire_idle_media(self) {
-        if let Some(available) = self.idle_media() {
-            available.set(Availability::Unavailable);
-        }
+    pub(in crate::player) fn supersede_media(self) {
+        OBSERVERS.with(|observers| {
+            let mut observers = observers.borrow_mut();
+            let Some(observer) = observers.get_mut(&self.0) else {
+                return;
+            };
+            if let Some(available) = &observer.idle_media {
+                available.set(Availability::Unavailable);
+            }
+            if let Some(end) = observer.end.as_mut() {
+                end.superseded_through = riina_core::sync::lock(&end.latest).generation;
+            }
+        });
     }
 
     pub(in crate::player) fn arm_idle_after_stop(self, request: u32) {
         if let Some(available) = self.idle_media() {
             available.set(Availability::AfterStop(request));
+        }
+    }
+
+    pub(super) fn eof_stop_superseded(self, generation: u64, request: u32) -> bool {
+        OBSERVERS.with(|observers| {
+            observers
+                .borrow()
+                .get(&self.0)
+                .and_then(|observer| observer.end.as_ref())
+                .is_some_and(|end| {
+                    end.submitted == Some((generation, request))
+                        && generation <= end.superseded_through
+                })
+        })
+    }
+
+    pub(super) fn finish_at_end(self, app: &crate::PlayerWindow, playback: &Playback) {
+        if !playback.ended_idle()
+            || !app.get_player_manager_ready()
+            || app
+                .global::<riina_ui::PlayerDialogState>()
+                .get_dialog_open()
+        {
+            return;
+        }
+        let request = app.get_media_request_generation().cast_unsigned();
+        let result = OBSERVERS.with(|observers| {
+            let mut observers = observers.borrow_mut();
+            let observer = observers.get_mut(&self.0)?;
+            let end = observer.end.as_mut()?;
+            if playback.generation <= end.superseded_through
+                || end.submitted == Some((playback.generation, request))
+                || observer.playlist_edits.borrow().has_pending_media()
+            {
+                return None;
+            }
+            let result = end.commands.stop_at_end(playback.generation, request);
+            if result.is_ok() {
+                end.submitted = Some((playback.generation, request));
+                if let Some(available) = &observer.idle_media {
+                    available.set(Availability::AfterStop(request));
+                }
+            }
+            Some(result)
+        });
+        if let Some(Err(error)) = result {
+            crate::diagnostics::report(app, error);
         }
     }
 
@@ -262,6 +326,7 @@ impl ObserverRegistration {
                     parked: parked.clone(),
                     stopped: None,
                     delivered_stop: None,
+                    end: None,
                 },
             );
         });
@@ -280,6 +345,23 @@ impl ObserverRegistration {
         OBSERVERS.with(|observers| {
             if let Some(observer) = observers.borrow_mut().get_mut(&self.id.0) {
                 observer.stopped = Some(Rc::new(callback));
+            }
+        });
+    }
+
+    pub(super) fn bind_end(
+        &self,
+        latest: crate::PlaybackStore,
+        commands: riina_mpv::CommandSender,
+    ) {
+        OBSERVERS.with(|observers| {
+            if let Some(observer) = observers.borrow_mut().get_mut(&self.id.0) {
+                observer.end = Some(EndOfFile {
+                    latest,
+                    commands,
+                    superseded_through: 0,
+                    submitted: None,
+                });
             }
         });
     }
@@ -374,6 +456,44 @@ mod tests {
         assert!(ObserverId::for_window(&first_app).is_none());
         assert!(first_id.lookup().is_none());
         assert!(second.id().lookup().is_some());
+    }
+
+    #[test]
+    fn idle_eof_is_finalized_once_and_cannot_retire_a_new_media_request() {
+        i_slint_backend_testing::init_no_event_loop();
+        let app = crate::PlayerWindow::new().unwrap();
+        app.set_player_manager_ready(true);
+        let observer = ObserverRegistration::new(&app, state(&app));
+        let id = observer.id();
+        let mut ended = Playback {
+            generation: 1,
+            phase: Phase::Ended,
+            ..Playback::default()
+        };
+        let latest = crate::PlaybackStore::default();
+        let (commands, engine) = riina_mpv::CommandSender::recording(4);
+        observer.bind_end(latest.clone(), commands);
+        id.finish_at_end(&app, &ended);
+        assert!(engine.commands.try_recv().is_err());
+
+        ended.idle_active = true;
+        *riina_core::sync::lock(&latest) = Arc::new(ended.clone());
+        assert_eq!(crate::media_open::invalidate(&app), 1);
+        id.finish_at_end(&app, &ended);
+        assert!(engine.commands.try_recv().is_err());
+
+        ended.generation = 2;
+        *riina_core::sync::lock(&latest) = Arc::new(ended.clone());
+        id.finish_at_end(&app, &ended);
+        id.finish_at_end(&app, &ended);
+        assert_eq!(
+            engine.commands.try_recv(),
+            Ok(riina_core::Command::Stop(Some(1)))
+        );
+        assert!(engine.commands.try_recv().is_err());
+        id.supersede_media();
+        assert!(id.eof_stop_superseded(2, 1));
+        assert!(!id.eof_stop_superseded(2, 2));
     }
 
     #[test]

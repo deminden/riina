@@ -263,6 +263,13 @@ fn stop_does_not_write_resume_position_when_disabled_or_inactive() {
         Command::Stop(None).plan(&state).unwrap().commands,
         [vec!["stop"]]
     );
+
+    state.phase = Phase::Ended;
+    state.idle_active = true;
+    assert_eq!(
+        Command::Stop(None).plan(&state).unwrap().commands,
+        [vec!["playlist-clear"]]
+    );
 }
 
 #[test]

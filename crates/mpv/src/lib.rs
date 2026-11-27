@@ -69,6 +69,7 @@ enum Message {
     Intent(Command),
     PlaylistEdit(Command),
     MediaIntent { generation: u64, command: Command },
+    StopAtEnd { generation: u64, command: Command },
     FilterEdit(worker::filter_edits::Request),
     OpenStream(Command, StreamSource, StreamAttempt),
     Client(client_request::Request),
@@ -80,6 +81,7 @@ enum Message {
 enum IntentRoute {
     Global,
     Media(u64),
+    End(u64),
     PlaylistEdit,
     FilterEdit(worker::filter_edits::Target),
 }
@@ -169,6 +171,11 @@ impl CommandSender {
         self.enqueue(command, IntentRoute::Media(generation))
     }
 
+    /// Clear the exhausted playlist only if this generation is still idle at EOF.
+    pub fn stop_at_end(&self, generation: u64, request: u32) -> Result<(), EngineError> {
+        self.enqueue(Command::Stop(Some(request)), IntentRoute::End(generation))
+    }
+
     /// Report successful user filter edits through the requesting playback session.
     pub fn send_filter_edit(
         &self,
@@ -203,6 +210,10 @@ impl CommandSender {
                 let message = match route {
                     IntentRoute::Global => Message::Intent(command),
                     IntentRoute::Media(generation) => Message::MediaIntent {
+                        generation,
+                        command,
+                    },
+                    IntentRoute::End(generation) => Message::StopAtEnd {
                         generation,
                         command,
                     },

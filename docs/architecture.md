@@ -1149,8 +1149,11 @@ ability to forward requests, including those queued during media discovery.
 Windows computes monitor placement from the owning window in the manager.
 
 Stop closes the playback frame after the native reply, idle notification and
-empty playlist arrive. The manager rechecks the request before closing so a
-new selection can take over. An unused player or a retained stopped player
+empty playlist arrive. Natural EOF follows the same close path once mpv goes
+idle. The worker clears the exhausted playlist only for that file generation.
+The manager rechecks the request before closing so a new selection can take
+over. When mpv keeps the final frame active, the playback window stays open.
+An unused player or a retained stopped player
 can handle an ordinary open. The manager reserves it before revealing its
 frame. A retained player stays out of window switching and History
 destinations.

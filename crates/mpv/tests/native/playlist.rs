@@ -294,6 +294,7 @@ fn play_restarts_media_after_end_of_file() {
         ))
         .unwrap();
     let ended = harness.wait(|state| state.phase == Phase::Ended);
+    assert!(!ended.ended_idle());
     assert!(
         ended.video.is_some(),
         "keep-open-on-file-end must retain the final video presentation"
@@ -308,6 +309,47 @@ fn play_restarts_media_after_end_of_file() {
         state.phase == Phase::Playing && !state.paused && state.position.is_some_and(|p| p < 1.0)
     });
     assert_eq!(restarted.error(), None);
+}
+
+#[test]
+#[ignore = "requires provisioned libmpv; observes the last playlist item becoming idle"]
+fn playlist_end_finalization_ignores_an_older_file_and_clears_the_exhausted_queue() {
+    let root = fixture_root();
+    let harness = Harness::with_options(&root, vec![("speed".into(), "4".into())]).unwrap();
+    let clip = |name: &str| {
+        root.join("tests/fixtures")
+            .join(name)
+            .to_string_lossy()
+            .into_owned()
+    };
+    harness
+        .send(Command::SetPlaybackEndPolicy {
+            keep_open_on_file_end: false,
+            playlist_auto_play_next: true,
+        })
+        .unwrap();
+    harness
+        .send(Command::OpenPlaylist(vec![
+            clip("catalog.mkv"),
+            clip("moving-square.avi"),
+        ]))
+        .unwrap();
+    let first = harness.wait(|state| state.phase == Phase::Playing);
+    let last = harness.wait(|state| state.ended_idle());
+    assert!(last.generation > first.generation);
+    assert_eq!(last.playlist.len(), 2);
+
+    let commands = harness.player.command_sender();
+    commands.stop_at_end(first.generation, 7).unwrap();
+    harness.send(Command::SetMuted(true)).unwrap();
+    let unchanged = harness.wait(|state| state.muted);
+    assert!(unchanged.ended_idle());
+    assert_eq!(unchanged.stopped_by, None);
+
+    commands.stop_at_end(last.generation, 8).unwrap();
+    let stopped = harness.wait(|state| state.confirmed_stop(8));
+    assert_eq!(stopped.generation, last.generation);
+    assert_eq!(stopped.error(), None);
 }
 
 #[test]

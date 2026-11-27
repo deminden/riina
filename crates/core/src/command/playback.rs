@@ -63,6 +63,10 @@ impl Command {
 }
 
 pub(super) fn stop(state: &Playback) -> Vec<Vec<String>> {
+    if state.ended_idle() {
+        // mpv can retain an exhausted playlist when stop has no current file.
+        return vec![cmd(["playlist-clear"])];
+    }
     let active = matches!(
         state.phase,
         Phase::Playing | Phase::Paused | Phase::Buffering | Phase::Seeking

@@ -99,6 +99,9 @@ Implementation does not imply every state or platform is verified.
   The Windows picker reuses the initial player behind Welcome. Stop closes
   the playback frame after mpv becomes idle. On Windows, a subsequent open
   reused the exact stopped frame while another player stayed open.
+  When automatic advance is on and Keep Window Open is off, the last file
+  closes the player after mpv reaches idle. With automatic advance off, mpv
+  holds the current file at its final frame.
 - **Playlist editing:** the sidebar and Music Mode share the playlist
   controls. Add opens the file and URL choices, with a separate folder choice
   on Windows and Linux. Sort opens the four filename and path orders.

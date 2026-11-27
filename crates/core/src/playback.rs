@@ -492,6 +492,10 @@ impl Playback {
             && self.playlist.is_empty()
     }
 
+    pub fn ended_idle(&self) -> bool {
+        self.phase == Phase::Ended && self.idle_active
+    }
+
     pub fn begin_load(&mut self) {
         let outgoing_generation = self.generation;
         self.generation += 1;

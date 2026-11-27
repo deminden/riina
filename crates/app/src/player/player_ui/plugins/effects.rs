@@ -49,7 +49,7 @@ impl PluginEffects {
                     if matches!(command, Command::AppendFiles(_))
                         && let Some(observer) = super::super::ObserverId::for_window(app)
                     {
-                        observer.retire_idle_media();
+                        observer.supersede_media();
                     }
                     command
                 };

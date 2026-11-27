@@ -36,6 +36,10 @@ pub(in crate::player) struct Queue {
 }
 
 impl Queue {
+    pub(super) fn has_pending_media(&self) -> bool {
+        self.replacing_media || !self.slots.is_empty()
+    }
+
     fn reserve(&mut self, command: Option<Prepared>) -> Result<u64, String> {
         if self.slots.len() >= 32 {
             return Err("Too many playlist additions are pending".into());
@@ -128,14 +132,14 @@ pub(super) fn submit(
         if queue.replacing_media || !queue.slots.is_empty() {
             queue.reserve(Some(Ok(command)))?;
             if let Some(observer) = observer {
-                observer.retire_idle_media();
+                observer.supersede_media();
             }
             return Ok(());
         }
     }
     sender.send_playlist_edit(command).map_err(String::from)?;
     if let Some(observer) = observer {
-        observer.retire_idle_media();
+        observer.supersede_media();
     }
     Ok(())
 }
@@ -163,7 +167,7 @@ pub(super) fn prepare(
         let mut queue = queue.borrow_mut();
         (queue.reserve(None)?, queue.retired.clone())
     };
-    observer.retire_idle_media();
+    observer.supersede_media();
     let window = app.as_weak();
     let (ready, result) = tokio::sync::oneshot::channel();
     let commands = sender.clone();

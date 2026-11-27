@@ -7300,3 +7300,19 @@ and the native Stop regression passed. An isolated X11 run opened two paused
 players, hid one with its Stop shortcut, and reopened the same X11 window with
 a third file in the original process. Stopping the remaining player returned
 to Welcome. Closing Welcome ended that process.
+
+### Playlist end follows the keep-open policy (2026-11-27)
+
+An isolated Windows player advanced to the second file in the same native
+frame with automatic advance enabled. With Keep Window Open off, the second
+file returned to Welcome in the same process. With Keep Window Open on, the
+second file stayed at EOF. Disabling automatic advance held the first file
+at EOF even with Keep Window Open off. Closing Welcome ended each process.
+
+The locked Windows build and workspace gate passed with 727 application unit
+tests, 88 widget cases and the headless pixel comparison. All 78 native tests
+passed with the rebuilt Windows engine and strict field-order checks. The new
+native case checks that an older file generation cannot clear the current
+queue and that the final file's idle queue can be cleared. Strict macOS
+cross-Clippy passed for Intel and Apple Silicon. Native macOS window behavior
+and an EOF reached during a native dialog still need live checks.

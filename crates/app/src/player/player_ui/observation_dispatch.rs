@@ -309,6 +309,7 @@ impl WindowDelivery {
             let touch_bar = observer.borrow().touch_bar.clone();
             touch_bar.observe(&app, &state);
             if self.managed_visibility.is_none() {
+                self.observer_id.finish_at_end(&app, &state);
                 self.observer_id.notify_stopped(&app, &state);
             }
         }

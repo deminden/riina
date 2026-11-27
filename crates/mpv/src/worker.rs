@@ -148,6 +148,13 @@ impl<N: Fn(Arc<Playback>)> Start<N> {
                         generation,
                         command,
                     ),
+                    Message::StopAtEnd {
+                        generation,
+                        command,
+                    } => {
+                        state.drain_events(&mut handle, &callback_sender);
+                        state.stop_at_end(&handle, generation, command);
+                    }
                     Message::FilterEdit(request) => state.enqueue_filter_edit(request),
                     Message::OpenStream(command, source, attempt) => {
                         state.open_stream(&handle, command, source, attempt);
@@ -159,18 +166,7 @@ impl<N: Fn(Arc<Playback>)> Start<N> {
                         state.request_client(&handle, request);
                     }
                     Message::RenderingReady => {
-                        if std::mem::take(&mut enable_audio_subtitle_surface)
-                            && let Err(error) = handle.set_option(c"force-window", c"immediate")
-                        {
-                            state.mark_changed();
-                            record_notice(
-                                &mut state.playback,
-                                NoticeSeverity::Warning,
-                                format!(
-                                    "Could not prepare video output for audio-only subtitles: {error}"
-                                ),
-                            );
-                        }
+                        state.prepare_subtitle_surface(&handle, &mut enable_audio_subtitle_surface);
                     }
                     Message::Shutdown => return,
                 }
@@ -348,6 +344,28 @@ enum PlaylistInsertion {
 }
 
 impl WorkerState {
+    fn stop_at_end(&mut self, handle: &Handle, generation: u64, command: Command) {
+        if self.pending_stop.is_none()
+            && self.accepts_media_intent(generation)
+            && self.playback.ended_idle()
+        {
+            self.handle_intent(handle, command);
+        }
+    }
+
+    fn prepare_subtitle_surface(&mut self, handle: &Handle, enabled: &mut bool) {
+        if std::mem::take(enabled)
+            && let Err(error) = handle.set_option(c"force-window", c"immediate")
+        {
+            self.mark_changed();
+            record_notice(
+                &mut self.playback,
+                NoticeSeverity::Warning,
+                format!("Could not prepare video output for audio-only subtitles: {error}"),
+            );
+        }
+    }
+
     fn finish_shutdown(&mut self, handle: &Handle, notify: &impl Fn(Arc<Playback>)) {
         self.hooks.continue_all(handle);
         self.continue_stream_auth(handle);
@@ -665,7 +683,10 @@ impl WorkerState {
             }
             self.issue(handle, &args, reply)?;
             if let Command::Stop(Some(request)) = command
-                && action.first().is_some_and(|verb| verb == "stop")
+                && matches!(
+                    action.first().map(String::as_str),
+                    Some("stop" | "playlist-clear")
+                )
             {
                 self.pending_stop = Some((self.next_id, *request));
             }
@@ -1137,9 +1158,7 @@ impl WorkerState {
             _ => Phase::Stopped,
         };
         if matches!(self.playback.phase, Phase::Stopped | Phase::Failed) {
-            self.playback.active_playlist_entry = None;
-            self.playback.ab_loop_a = None;
-            self.playback.ab_loop_b = None;
+            self.clear_active_file();
         }
         if end.error < 0
             && let Some(message) = event.end_error(end)
@@ -1148,6 +1167,12 @@ impl WorkerState {
         }
         self.playlist_resume
             .file_ended(self.playback.generation, end.reason == end_reason::REDIRECT);
+    }
+
+    fn clear_active_file(&mut self) {
+        self.playback.active_playlist_entry = None;
+        self.playback.ab_loop_a = None;
+        self.playback.ab_loop_b = None;
     }
 
     fn on_file_loaded(&mut self, handle: &Handle) {
@@ -1200,6 +1225,11 @@ impl WorkerState {
         {
             self.pending_stop = None;
             if !failed {
+                // A core already idle after EOF has no file left to emit END_FILE.
+                if self.playback.ended_idle() {
+                    self.playback.phase = Phase::Stopped;
+                    self.clear_active_file();
+                }
                 self.playback.stopped_by = Some(request);
                 self.mark_changed();
             }
