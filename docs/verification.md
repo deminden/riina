@@ -7625,3 +7625,30 @@ All eight focused native seek tests passed. On Linux the locked application
 build, strict Clippy, headless player test and 85 widget tests passed. The
 strict macOS source check passed for Intel and Apple Silicon. Native macOS
 prompt behavior and matched visual comparison remain open.
+
+### External audio and subtitle file pickers (2026-11-27)
+
+In an isolated Windows native-video player, both menu commands opened the
+Shell picker in the current clip's Unicode folder. Audio showed WAV and MKV
+and filtered out SRT. Subtitles showed SRT and MKV and filtered out WAV.
+Selecting the same uppercase-extension MKV in the two pickers added its audio
+and embedded subtitle tracks to the paused AVI. A picker submitted after
+native file replacement left the new file's tracks unchanged. Closing the
+player ended the tested process normally.
+
+On isolated Linux X11, the Audio and Subtitles sidebar actions supplied the
+player's parent handle, the Unicode media folder, single-file selection, and
+the expected extension filters to a test XDG FileChooser portal. Replies
+loaded audio and subtitles from the same MKV in the paused clip. A delayed
+subtitle reply left the replacement clip paused without imported tracks.
+The player exited normally. This run verified the application's portal
+requests and playback, with native chooser rendering still open.
+
+The locked Windows workspace build and full source gate passed with 735
+application tests, 88 widgets, and the software player and Settings pixel
+comparison. All 82 tests in the native null-output suite passed. The picker regression
+covers stale player opens, stale decoder generations, valid file classes,
+the active entry's directory and the absence of a local folder for streams.
+Linux passed the locked application build, strict Clippy and the picker
+regression. Intel and Apple Silicon macOS source checks passed. Native macOS
+picker interaction remains open.

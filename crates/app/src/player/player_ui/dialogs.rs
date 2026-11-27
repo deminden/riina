@@ -1,7 +1,7 @@
 use super::{PlayerContext, bind};
 use crate::{
     NativeVideoHost, PlayerWindow,
-    ui_dialogs::{self, Purpose},
+    ui_dialogs::{self, Purpose, TrackFile},
 };
 use riina_core::{Command, Phase, Playback, osc_preferences::TimePrecision, sync::lock};
 use riina_mpv::CommandSender;
@@ -11,31 +11,27 @@ use std::{cell::Cell, rc::Rc};
 
 pub(super) fn install_browse(
     app: &PlayerWindow,
-    command_sender: &CommandSender,
+    context: &PlayerContext,
     host: Option<slint::Weak<NativeVideoHost>>,
 ) {
-    let browse_player = command_sender.clone();
-    let weak = app.as_weak();
-    let browse_host = host;
-    app.global::<PlayerMenuActions>()
-        .on_browse_files(move |category| {
+    bind!(
+        context,
+        app.global::<PlayerMenuActions>(),
+        on_browse_files,
+        |ctx, category| {
+            let Some(app) = ctx.app() else { return };
             let purpose = match category {
-                1 => Purpose::Audio,
-                2 => Purpose::Subtitle,
-                4 => Purpose::Playlist,
-                5 => Purpose::PlaylistFolders,
-                _ => return,
+                1 => TrackFile::Audio.request(&app, ctx.playback()),
+                2 => TrackFile::Subtitle.request(&app, ctx.playback()),
+                4 => Some(Purpose::Playlist),
+                5 => Some(Purpose::PlaylistFolders),
+                _ => None,
             };
-            if let Some(app) = weak.upgrade() {
-                ui_dialogs::open(
-                    &app,
-                    browse_host.clone(),
-                    purpose,
-                    browse_player.clone(),
-                    None,
-                );
+            if let Some(purpose) = purpose {
+                ui_dialogs::open(&app, host.clone(), purpose, ctx.commands().clone(), None);
             }
-        });
+        }
+    );
 }
 
 pub(super) fn install_jump_time(app: &PlayerWindow, context: &PlayerContext) {

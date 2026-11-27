@@ -84,16 +84,13 @@ pub fn open(
     sender: CommandSender,
     welcome: Option<slint::Weak<WelcomeWindow>>,
 ) {
+    let picker = purpose.picker();
     start(
         app,
         host,
         welcome,
         move |owner| {
-            let paths = if matches!(purpose, Purpose::PlaylistFolders) {
-                file_dialog::open_folders(owner, purpose.title())?
-            } else {
-                file_dialog::open_files(owner, purpose.allows_multiple(), purpose.title())?
-            };
+            let paths = file_dialog::open_selection(owner, &picker)?;
             Ok((!paths.is_empty()).then_some(paths))
         },
         move |app, result| {

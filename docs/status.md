@@ -273,6 +273,10 @@ Implementation does not imply every state or platform is verified.
   search paths. The controller's optional subtitle button also lists loaded
   tracks and offers None for the primary subtitle. Nearby files remain
   available when automatic subtitle loading is disabled.
+- **External track pickers:** the Audio and Subtitles menus and sidebars
+  open beside the active local clip. Both accept video containers with
+  embedded tracks. Audio also lists audio files, and Subtitles lists
+  subtitle files. A picker result belongs to the clip that opened it.
 - **Subtitle discovery settings:** the mode, priority keywords and search
   paths update open players using the same profile. Settings changes that
   only affect the application can save while the playback command queue is

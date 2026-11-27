@@ -107,11 +107,7 @@ pub(super) fn install(app: &PlayerWindow, inputs: Inputs<'_>) {
         pending_navigation,
         capture_transition_first,
     );
-    dialogs::install_browse(
-        app,
-        command_sender,
-        native.map(platform::NativePresentation::host),
-    );
+    dialogs::install_browse(app, context, native.map(platform::NativePresentation::host));
     transport::install_seek(app, command_sender);
     transport::install_timeline(app, context);
     controller_arrows::install(app, context.clone());

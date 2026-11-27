@@ -1,6 +1,6 @@
 use crate::{
     NativeVideoHost, PlayerWindow, WelcomeWindow,
-    ui_dialogs::{Purpose, SaveFile, dispatch_selection},
+    ui_dialogs::{Purpose, SaveFile, SelectionMode, dispatch_selection},
 };
 use riina_mpv::CommandSender;
 use slint::{
@@ -16,27 +16,34 @@ pub fn open(
     sender: CommandSender,
     welcome: Option<slint::Weak<WelcomeWindow>>,
 ) {
+    let picker = purpose.picker();
     start(
         app,
         welcome,
         move |owner| async move {
             #[cfg(target_os = "macos")]
-            if matches!(
-                purpose,
-                Purpose::Media | Purpose::MediaAlternative | Purpose::Playlist
-            ) {
-                return crate::platform::choose_application_media(purpose.title(), Some(&owner))
-                    .await;
+            if matches!(picker.mode, SelectionMode::Media) {
+                return crate::platform::choose_application_media(picker.title, Some(&owner)).await;
             }
-            let dialog = rfd::AsyncFileDialog::new()
+            let mut dialog = rfd::AsyncFileDialog::new()
                 .set_parent(owner.as_ref())
-                .set_title(purpose.title());
-            let files = if matches!(purpose, Purpose::PlaylistFolders) {
-                dialog.pick_folders().await.unwrap_or_default()
-            } else if purpose.allows_multiple() {
-                dialog.pick_files().await.unwrap_or_default()
-            } else {
-                dialog.pick_file().await.into_iter().collect()
+                .set_title(picker.title);
+            let files = match picker.mode {
+                SelectionMode::Track { kind, directory } => {
+                    dialog = dialog
+                        .add_filter(kind.filter_name(), &kind.extensions().collect::<Vec<_>>());
+                    if let Some(directory) = directory {
+                        dialog = dialog.set_directory(directory);
+                    }
+                    dialog.pick_file().await.into_iter().collect()
+                }
+                SelectionMode::Folders { multiple: true } => {
+                    dialog.pick_folders().await.unwrap_or_default()
+                }
+                SelectionMode::Folders { multiple: false } => {
+                    dialog.pick_folder().await.into_iter().collect()
+                }
+                SelectionMode::Media => dialog.pick_files().await.unwrap_or_default(),
             };
             let paths = files
                 .into_iter()

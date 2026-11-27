@@ -1,6 +1,10 @@
 //! Dialog intent is shared; each backend owns native presentation and modality.
 use crate::{NativeVideoHost, PlayerWindow, WelcomeWindow, media_open};
-use riina_core::Command;
+use std::path::PathBuf;
+
+mod tracks;
+pub(crate) use tracks::TrackFile;
+use tracks::TrackRequest;
 
 pub(crate) struct SaveFile {
     pub(crate) title: &'static str,
@@ -19,45 +23,62 @@ pub(crate) fn open(
     crate::platform::open_dialog(app, host, purpose, sender, welcome);
 }
 
-#[derive(Clone, Copy)]
-pub enum Purpose {
+pub(crate) enum Purpose {
     Media,
     MediaAlternative,
-    Audio,
-    Subtitle,
     Playlist,
     PlaylistFolders,
+    ExternalTrack(TrackRequest),
 }
 
 impl Purpose {
-    pub(crate) fn allows_multiple(self) -> bool {
-        matches!(
-            self,
-            Self::Media | Self::MediaAlternative | Self::Playlist | Self::PlaylistFolders
-        )
-    }
-
-    pub(crate) fn title(self) -> &'static str {
+    pub(crate) fn picker(&self) -> OpenFiles {
         match self {
-            Self::Media | Self::MediaAlternative => "Open File",
-            Self::Audio => "Load External Audio",
-            Self::Subtitle => "Load Subtitle",
-            Self::Playlist => "Add to Playlist",
-            Self::PlaylistFolders => "Add Folders to Playlist",
+            Self::Media | Self::MediaAlternative => OpenFiles::media("Open File"),
+            Self::Playlist => OpenFiles::media("Add to Playlist"),
+            Self::PlaylistFolders => OpenFiles::folders("Add Folders to Playlist", true),
+            Self::ExternalTrack(track) => track.picker(),
+        }
+    }
+}
+
+pub(crate) struct OpenFiles {
+    pub(crate) title: &'static str,
+    pub(crate) mode: SelectionMode,
+}
+
+pub(crate) enum SelectionMode {
+    Media,
+    Folders {
+        multiple: bool,
+    },
+    Track {
+        kind: TrackFile,
+        directory: Option<PathBuf>,
+    },
+}
+
+impl OpenFiles {
+    fn media(title: &'static str) -> Self {
+        Self {
+            title,
+            mode: SelectionMode::Media,
         }
     }
 
-    pub(crate) fn command(self, paths: Vec<String>) -> Option<Command> {
-        if paths.is_empty() {
-            return None;
+    pub(crate) fn folders(title: &'static str, multiple: bool) -> Self {
+        Self {
+            title,
+            mode: SelectionMode::Folders { multiple },
         }
-        Some(match self {
-            Self::Media => Command::OpenFiles(paths),
-            Self::MediaAlternative => return None,
-            Self::Audio => Command::AddAudio(paths[0].clone()),
-            Self::Subtitle => Command::AddSubtitle(paths[0].clone()),
-            Self::Playlist | Self::PlaylistFolders => return None,
-        })
+    }
+
+    #[cfg(target_os = "windows")]
+    pub(crate) fn allows_multiple(&self) -> bool {
+        matches!(
+            self.mode,
+            SelectionMode::Media | SelectionMode::Folders { multiple: true }
+        )
     }
 }
 
@@ -81,9 +102,7 @@ pub(crate) fn dispatch_selection(
         Purpose::Playlist | Purpose::PlaylistFolders => {
             crate::player::playlist_edits::add_files(app, &sender, paths)
         }
-        Purpose::Audio | Purpose::Subtitle => purpose
-            .command(paths)
-            .map_or(Ok(()), |command| sender.send(command).map_err(String::from)),
+        Purpose::ExternalTrack(track) => track.attach(app, paths, &sender),
     }
 }
 

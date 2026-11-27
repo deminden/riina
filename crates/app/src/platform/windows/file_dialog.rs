@@ -1,10 +1,15 @@
 //! The STA owns the Shell dialog; its owner token retains the actual native window.
-use crate::ui_dialogs::SaveFile;
+use crate::ui_dialogs::{OpenFiles, SaveFile, SelectionMode, TrackFile};
 use slint::winit_030::winit::{
     raw_window_handle::{HasWindowHandle, RawWindowHandle},
     window::Window,
 };
-use std::{ffi::OsString, os::windows::ffi::OsStringExt, path::PathBuf, sync::Arc};
+use std::{
+    ffi::OsString,
+    os::windows::ffi::{OsStrExt, OsStringExt},
+    path::{Path, PathBuf},
+    sync::Arc,
+};
 use windows::Win32::{
     Foundation::HWND,
     System::Com::{
@@ -14,7 +19,8 @@ use windows::Win32::{
     UI::Shell::{
         Common::COMDLG_FILTERSPEC, FOS_ALLOWMULTISELECT, FOS_FORCEFILESYSTEM, FOS_OVERWRITEPROMPT,
         FOS_PATHMUSTEXIST, FOS_PICKFOLDERS, FileOpenDialog, FileSaveDialog, IFileDialog,
-        IFileOpenDialog, IFileSaveDialog, IShellItem, SIGDN_FILESYSPATH,
+        IFileOpenDialog, IFileSaveDialog, IShellItem, SHCreateItemFromParsingName,
+        SIGDN_FILESYSPATH,
     },
 };
 use windows::core::PCWSTR;
@@ -59,27 +65,18 @@ pub(super) fn window_enabled(window: &Window) -> bool {
     }
 }
 
-pub fn open_files(owner: &DialogOwner, multiple: bool, title: &str) -> Result<Vec<String>, String> {
-    open_selection(owner, multiple, false, title)
-}
-
-pub(super) fn open_folders(owner: &DialogOwner, title: &str) -> Result<Vec<String>, String> {
-    open_selection(owner, true, true, title)
-}
-
 pub fn pick_folder(owner: &DialogOwner) -> Result<Option<String>, String> {
-    Ok(
-        open_selection(owner, false, true, "Choose screenshot save path")?
-            .into_iter()
-            .next(),
-    )
+    Ok(open_selection(
+        owner,
+        &OpenFiles::folders("Choose screenshot save path", false),
+    )?
+    .into_iter()
+    .next())
 }
 
-fn open_selection(
+pub(super) fn open_selection(
     owner: &DialogOwner,
-    multiple: bool,
-    folders: bool,
-    title: &str,
+    picker: &OpenFiles,
 ) -> Result<Vec<String>, String> {
     let _apartment = Apartment::enter()?;
     // SAFETY: the apartment and retained owner outlive the dialog and its results.
@@ -88,19 +85,22 @@ fn open_selection(
             .map_err(|e| e.to_string())?;
         let mut options =
             dialog.GetOptions().map_err(|error| error.to_string())? | FOS_FORCEFILESYSTEM;
-        if multiple {
+        if picker.allows_multiple() {
             options |= FOS_ALLOWMULTISELECT;
         }
-        if folders {
+        if matches!(picker.mode, SelectionMode::Folders { .. }) {
             options |= FOS_PICKFOLDERS;
         }
         dialog
             .SetOptions(options)
             .map_err(|error| error.to_string())?;
-        let title: Vec<u16> = title.encode_utf16().chain(Some(0)).collect();
+        let title = wide_string(picker.title);
         dialog
             .SetTitle(PCWSTR(title.as_ptr()))
             .map_err(|error| error.to_string())?;
+        if let SelectionMode::Track { kind, directory } = &picker.mode {
+            configure_track_picker(&dialog, *kind, directory.as_deref())?;
+        }
         if !show(&dialog, owner)? {
             return Ok(Vec::new());
         }
@@ -117,6 +117,43 @@ fn open_selection(
         }
         Ok(result)
     }
+}
+
+fn configure_track_picker(
+    dialog: &IFileDialog,
+    kind: TrackFile,
+    directory: Option<&Path>,
+) -> Result<(), String> {
+    let name = wide_string(kind.filter_name());
+    let patterns = kind
+        .extensions()
+        .map(|ext| format!("*.{ext}"))
+        .collect::<Vec<_>>();
+    let patterns = wide_string(&patterns.join(";"));
+    // SAFETY: this runs in the dialog's apartment and the filter strings
+    // remain live during the shell call.
+    unsafe {
+        dialog
+            .SetFileTypes(&[COMDLG_FILTERSPEC {
+                pszName: PCWSTR(name.as_ptr()),
+                pszSpec: PCWSTR(patterns.as_ptr()),
+            }])
+            .map_err(|error| error.to_string())?;
+        if let Some(directory) = directory {
+            let path = directory
+                .as_os_str()
+                .encode_wide()
+                .chain(Some(0))
+                .collect::<Vec<_>>();
+            // The current clip's folder takes precedence over the last picker location.
+            if let Ok(folder) =
+                SHCreateItemFromParsingName::<_, _, IShellItem>(PCWSTR(path.as_ptr()), None)
+            {
+                let _ = dialog.SetFolder(&folder);
+            }
+        }
+    }
+    Ok(())
 }
 
 pub(crate) fn save_destination(

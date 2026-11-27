@@ -773,6 +773,14 @@ presenters. The controller also lists the engine's loaded subtitle tracks.
 Each player allows one manual folder scan at a time. It shares candidate
 discovery with subtitle auto-loading and delivers the result only while the
 same media, open request, preferences and source control still apply.
+
+The manual Audio and Subtitle file pickers use the active decoder entry's
+local parent folder. The same extension sets drive the native picker filters
+and validate the selection. A video container can supply either kind of track.
+The picker captures the open request and decoder generation. The player checks
+both before dispatch and the worker checks the generation again before adding
+the track. On Windows the Shell applies the current file's folder over the
+previous picker location. [IFileDialog folder selection](https://learn.microsoft.com/en-us/windows/win32/api/shobjidl_core/nf-shobjidl_core-ifiledialog-setfolder)
 Selections go through the owning player's media-scoped command channel.
 
 ### Plugin input
