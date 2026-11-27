@@ -209,7 +209,7 @@ mod tests {
     #[test]
     fn load_preserves_corrupt_bytes_and_keeps_valid_preferences() {
         for original in [
-            br#"{"volume":"bad","dark":false}"#.as_slice(),
+            br#"{"volume":"bad","theme_material":"light"}"#.as_slice(),
             b"[]",
             b"\xff\xfe",
         ] {
@@ -227,7 +227,12 @@ mod tests {
                     .notice()
                     .contains(backup.file_name().unwrap().to_str().unwrap())
             );
-            assert_eq!(loaded.preferences.dark, !original.starts_with(b"{"));
+            let theme = if original.starts_with(b"{") {
+                riina_core::ThemeMaterial::Light
+            } else {
+                riina_core::ThemeMaterial::Dark
+            };
+            assert_eq!(loaded.preferences.theme_material, theme);
             assert_eq!(loaded.preferences.volume, Preferences::default().volume);
         }
     }

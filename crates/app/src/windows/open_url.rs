@@ -111,7 +111,6 @@ impl ApplicationOpenUrl {
     pub(crate) fn show_from_application(
         self: &Rc<Self>,
         theme: riina_core::ThemeMaterial,
-        fallback_dark: bool,
     ) -> Result<(), slint::PlatformError> {
         let window = self.window_for(None, None)?;
         self.begin_editing(
@@ -121,13 +120,11 @@ impl ApplicationOpenUrl {
                 mode: StreamMode::Manual,
             },
         );
-        Self::reveal(&window, theme.dark_for(fallback_dark))?;
-        window.window().with_winit_window(|host| {
-            let dark = host.theme().map_or(fallback_dark, |theme| {
-                theme == slint::winit_030::winit::window::Theme::Dark
-            });
-            window.set_dark_theme(theme.dark_for(dark));
-        });
+        Self::reveal(&window, theme.dark_for(true))?;
+        window.set_dark_theme(crate::appearance_preferences::window_is_dark(
+            window.window(),
+            theme,
+        ));
         Ok(())
     }
 
@@ -476,7 +473,7 @@ mod tests {
             observed.set(3);
             Ok(())
         });
-        open_url.show_from_application(riina_core::ThemeMaterial::Dark, false)?;
+        open_url.show_from_application(riina_core::ThemeMaterial::Dark)?;
         assert!(window.window().is_visible());
         assert!(window.get_dark_theme());
         assert!(window.get_address().is_empty());

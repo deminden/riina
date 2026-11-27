@@ -67,8 +67,9 @@ pub(super) fn project(
     player_preferences.set_disable_animations(saved.disable_animations);
     app.global::<riina_ui::PlayerAppearance>()
         .set_appearance_mode(saved.theme_material.index());
+    let dark = crate::appearance_preferences::window_is_dark(app.window(), saved.theme_material);
     app.global::<riina_ui::PlayerAppearance>()
-        .set_dark_theme(saved.theme_material.dark_for(saved.dark));
+        .set_dark_theme(dark);
     model.write_player::<Osd>(app);
     let previous_controller = crate::osc_preferences::player_controller_options(app);
     model.write_player::<riina_core::osc_preferences::Settings>(app);

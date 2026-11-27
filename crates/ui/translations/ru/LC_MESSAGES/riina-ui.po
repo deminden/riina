@@ -1719,6 +1719,18 @@ msgstr "Фон"
 msgid "Border"
 msgstr "Контур"
 
+msgid "Border Style"
+msgstr "Стиль обводки"
+
+msgid "Outline and Shadow"
+msgstr "Обводка и тень"
+
+msgid "Opaque Box"
+msgstr "Подложка для каждой строки"
+
+msgid "Background Box"
+msgstr "Общая подложка"
+
 msgid "Shadow"
 msgstr "Тень"
 

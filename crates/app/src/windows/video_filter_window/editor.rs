@@ -197,21 +197,11 @@ impl Editor {
 
     fn refresh(&self, window: &VideoFiltersWindow, profile: &Profile) {
         let target = self.active(profile);
-        let (theme, fallback_dark) = profile.theme();
         let dark = target
             .as_ref()
             .and_then(|target| target.app.upgrade())
             .map_or_else(
-                || {
-                    let system_dark = window
-                        .window()
-                        .with_winit_window(|host| host.theme())
-                        .flatten()
-                        .map_or(fallback_dark, |theme| {
-                            theme == slint::winit_030::winit::window::Theme::Dark
-                        });
-                    theme.dark_for(system_dark)
-                },
+                || crate::appearance_preferences::window_is_dark(window.window(), profile.theme()),
                 |app| app.global::<riina_ui::PlayerAppearance>().get_dark_theme(),
             );
         window.set_dark_theme(dark);

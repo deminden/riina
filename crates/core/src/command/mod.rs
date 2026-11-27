@@ -168,7 +168,6 @@ pub enum Command {
     VideoThreads(u32),
     SetToneMapping(hdr_preferences::Settings),
     SetIccProfileAuto(bool),
-    SetHdrEnabled(bool),
     SetHdrEnabledWithIcc {
         enabled: bool,
         load_icc_profile: bool,
@@ -276,6 +275,7 @@ pub enum Command {
     SubtitleFontSize(f64),
     SubtitleFont(String),
     SubtitleOutlineSize(f64),
+    SubtitleBorderStyle(subtitle_controls::BorderStyle),
     SubtitleTextColor(subtitle_color::SubtitleColor),
     SubtitleBorderColor(subtitle_color::SubtitleColor),
     SubtitleShadowColor(subtitle_color::SubtitleColor),

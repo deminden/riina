@@ -56,6 +56,7 @@ impl Command {
             Self::SubtitleOutlineSize(value) if value.is_finite() && *value >= 0.0 => {
                 set("sub-outline-size", value.to_string())
             }
+            Self::SubtitleBorderStyle(style) => set("sub-border-style", style.mpv_value()),
             Self::SubtitleFontSize(value) if value.is_finite() && *value > 0.0 => {
                 set("sub-font-size", value.to_string())
             }

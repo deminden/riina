@@ -13,12 +13,13 @@ use crate::{PlayerWindow, PreferencesWindow, preferences::model::PreferenceModel
 #[cfg(test)]
 use riina_core::Command;
 use riina_core::audio_preferences::ReplayGainOptions;
-use riina_core::subtitle_controls::AutoLoadPreferences;
+use riina_core::subtitle_controls::{AutoLoadPreferences, BorderStyle};
 use slint::ComponentHandle;
 
 pub(super) struct CommittedEdit<'a> {
     pub(super) replay_gain: Option<ReplayGainOptions>,
     pub(super) subtitle_font: Option<&'a str>,
+    pub(super) subtitle_border_style: Option<BorderStyle>,
     pub(super) subtitle_auto_load: Option<&'a AutoLoadPreferences>,
     pub(super) key_bindings: Option<&'a riina_core::key_bindings::Settings>,
 }
@@ -86,10 +87,6 @@ fn connect_with_credentials(
         let Some(display) = display::Draft::read(&app, &window, &model) else {
             return;
         };
-        let previous_volume = app.global::<riina_ui::PlaybackAudioState>().get_volume();
-        let previous_decoder = app
-            .global::<riina_ui::PlayerPreferences>()
-            .get_hardware_decoder_index();
         let Some(subtitles) = subtitles::Draft::read(&app, &window, &model, &saved) else {
             return;
         };
@@ -114,11 +111,7 @@ fn connect_with_credentials(
                 &app,
                 &window,
                 &decoder_player,
-                DecoderState {
-                    boost: display.previous_volume_boost,
-                    volume: previous_volume,
-                    decoder_index: previous_decoder,
-                },
+                display.previous_volume_boost,
             ),
             &app,
             &window,
@@ -170,6 +163,9 @@ fn connect_with_credentials(
                     replay_gain: playback.committed_replay_gain(&playback_changes),
                     subtitle_font: (saved.subtitle_font != applied_subtitles.font)
                         .then_some(applied_subtitles.font.as_str()),
+                    subtitle_border_style: (saved.subtitle_text_style.border_style
+                        != current.subtitle_text_style.border_style)
+                        .then_some(current.subtitle_text_style.border_style),
                     subtitle_auto_load: subtitles.project_tracks(&app, &saved.subtitle_auto_load),
                     key_bindings: (saved.key_bindings != current.key_bindings)
                         .then_some(&current.key_bindings),
@@ -216,7 +212,7 @@ fn apply_decoder_edit(
     app: &PlayerWindow,
     window: &PreferencesWindow,
     sender: &riina_mpv::CommandSender,
-    previous: DecoderState,
+    previous_boost: bool,
 ) -> Result<
     (
         riina_core::video_controls::HardwareDecoder,
@@ -227,6 +223,13 @@ fn apply_decoder_edit(
     let index = window.get_hardware_decoder_index();
     let decoder = crate::codec_preferences::hardware_decoder(index)
         .ok_or_else(|| "Invalid hardware decoder selection".to_owned())?;
+    let previous = DecoderState {
+        boost: previous_boost,
+        volume: app.global::<riina_ui::PlaybackAudioState>().get_volume(),
+        decoder_index: app
+            .global::<riina_ui::PlayerPreferences>()
+            .get_hardware_decoder_index(),
+    };
     let applied = AppliedDecoderSettings::apply(
         app,
         sender,

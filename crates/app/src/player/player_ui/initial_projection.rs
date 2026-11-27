@@ -139,8 +139,9 @@ fn install_layout(app: &PlayerWindow, prefs: &Preferences, prefs_path: &Path) ->
         .set_appearance_mode(appearance.index());
     app.global::<riina_ui::PlayerAppearance>()
         .set_surface_material_title(crate::platform::surface_material_title().into());
-    app.global::<riina_ui::PlayerAppearance>()
-        .set_dark_theme(appearance.dark_for(prefs.dark));
+    app.global::<riina_ui::PlayerAppearance>().set_dark_theme(
+        crate::appearance_preferences::window_is_dark(app.window(), appearance),
+    );
     let appearance_timer = crate::appearance_preferences::connect(app);
     app.global::<riina_ui::PlayerLayoutState>()
         .set_osc_position(i32::from(prefs.osc_position));

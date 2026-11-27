@@ -51,6 +51,9 @@ impl ApplicationServices {
             if let Some(font) = changes.subtitle_font {
                 profile.adopt_application_font(&profile_path, &font);
             }
+            if let Some(style) = changes.subtitle_border_style {
+                profile.adopt_application_subtitle_border_style(&profile_path, style);
+            }
             if let Some(settings) = changes.subtitle_auto_load {
                 profile.adopt_application_subtitle_auto_load(&profile_path, &settings);
             }

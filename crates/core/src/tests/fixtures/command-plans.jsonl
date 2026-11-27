@@ -65,7 +65,6 @@
 {"command":"VideoThreads","mpv":[["set","vd-lavc-threads","8"]],"resume_on_load":false}
 {"command":"SetToneMapping","mpv":[["set","target-peak","auto"],["set","tone-mapping","auto"],["set","tone-mapping-param","default"]],"resume_on_load":false}
 {"command":"SetIccProfileAuto","mpv":[["set","icc-profile-auto","yes"]],"resume_on_load":false}
-{"command":"SetHdrEnabled","error":"HDR output is available only for a recognized HDR source"}
 {"command":"SetHdrEnabledWithIcc","error":"HDR output is available only for a recognized HDR source"}
 {"command":"SubtitleAssOverride","mpv":[["set","secondary-sub-ass-override","force"]],"resume_on_load":false}
 {"command":"SubtitleAlignX","mpv":[["set","sub-align-x","left"]],"resume_on_load":false}
@@ -125,6 +124,7 @@
 {"command":"SubtitleFontSize","mpv":[["set","sub-font-size","48"]],"resume_on_load":false}
 {"command":"SubtitleFont","mpv":[["set","sub-font","Sans Serif"]],"resume_on_load":false}
 {"command":"SubtitleOutlineSize","mpv":[["set","sub-outline-size","2.5"]],"resume_on_load":false}
+{"command":"SubtitleBorderStyle","mpv":[["set","sub-border-style","opaque-box"]],"resume_on_load":false}
 {"command":"SubtitleTextColor","mpv":[["set","sub-color","0.25/0.5/0.75/1"]],"resume_on_load":false}
 {"command":"SubtitleBorderColor","mpv":[["set","sub-outline-color","0.25/0.5/0.75/1"]],"resume_on_load":false}
 {"command":"SubtitleShadowColor","mpv":[["set","sub-back-color","0.25/0.5/0.75/1"]],"resume_on_load":false}

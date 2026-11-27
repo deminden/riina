@@ -31,7 +31,7 @@ pub(crate) struct ApplicationUpdates {
     consent_due: Cell<bool>,
     running: Cell<Option<check::Running>>,
     pub(crate) closed: crate::windows::close_observer::CloseObserver,
-    application_theme: Cell<Option<(riina_core::ThemeMaterial, bool)>>,
+    application_theme: Cell<Option<riina_core::ThemeMaterial>>,
     install: InstallFlow,
 }
 
@@ -91,8 +91,7 @@ impl ApplicationUpdates {
         preferences_path: &Path,
         preferences: &riina_core::Preferences,
     ) {
-        self.application_theme
-            .set(Some((preferences.theme_material, preferences.dark)));
+        self.application_theme.set(Some(preferences.theme_material));
         self.initialize_schedule(preferences_path);
     }
 
@@ -312,19 +311,14 @@ impl ApplicationUpdates {
             .is_none()
             .then_some(self.application_theme.get())
             .flatten();
-        if let Some((theme, dark)) = application_theme {
-            window.set_dark_theme(theme.dark_for(dark));
-        }
         if !window.window().is_visible() {
             crate::platform::show_window(window)?;
         }
-        if let Some((theme, fallback_dark)) = application_theme {
-            window.window().with_winit_window(|host| {
-                let dark = host.theme().map_or(fallback_dark, |theme| {
-                    theme == slint::winit_030::winit::window::Theme::Dark
-                });
-                window.set_dark_theme(theme.dark_for(dark));
-            });
+        if let Some(theme) = application_theme {
+            window.set_dark_theme(crate::appearance_preferences::window_is_dark(
+                window.window(),
+                theme,
+            ));
         }
         Ok(())
     }

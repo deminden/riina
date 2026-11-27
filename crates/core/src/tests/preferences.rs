@@ -138,7 +138,6 @@ fn layout_preferences_keep_reference_defaults_and_reject_unknown_controller_posi
     assert!(legacy.edge_to_edge_video);
     assert!(!legacy.docked_controls);
     assert!(!legacy.unlock_window_aspect_ratio);
-    assert!(legacy.dark);
     assert!(!legacy.always_float_on_top);
     assert!(!legacy.always_show_on_top_icon);
     assert_eq!(legacy.window_resize, window_resize::Settings::default());
@@ -156,10 +155,9 @@ fn layout_preferences_keep_reference_defaults_and_reject_unknown_controller_posi
     assert_eq!(restored_positioned.control_bar_position_vertical, 0.25);
     assert!(Preferences::parse(r#"{"control_bar_position_horizontal":1.1}"#).is_err());
     assert!(Preferences::parse(r#"{"control_bar_position_vertical":-0.1}"#).is_err());
-    let light = Preferences::parse(r#"{"theme_material":"light","dark":false}"#).unwrap();
-    assert!(!light.dark);
+    let light = Preferences::parse(r#"{"theme_material":"light"}"#).unwrap();
     assert_eq!(light.theme_material, ThemeMaterial::Light);
-    let system = Preferences::parse(r#"{"theme_material":"system","dark":false}"#).unwrap();
+    let system = Preferences::parse(r#"{"theme_material":"system"}"#).unwrap();
     assert_eq!(system.theme_material, ThemeMaterial::System);
     let restored_system = Preferences::parse(&serde_json::to_string(&system).unwrap()).unwrap();
     assert_eq!(restored_system.theme_material, ThemeMaterial::System);
@@ -311,10 +309,8 @@ fn hdr_output_preference_defaults_on_and_round_trips() {
 
 #[test]
 fn legacy_preferences_keep_osd_defaults_and_customization_round_trips() {
-    let old = Preferences::parse(
-        r#"{"schema_version":1,"volume":37,"volume_boost":false,"dark":true,"compact":false}"#,
-    )
-    .unwrap();
+    let old =
+        Preferences::parse(r#"{"schema_version":1,"volume":37,"volume_boost":false}"#).unwrap();
     assert!(old.enable_osd);
     assert!(!old.disable_osd_file_start);
     assert!(!old.disable_osd_pause_resume);
@@ -754,7 +750,12 @@ fn subtitle_text_preferences_keep_legacy_defaults_and_fractional_sizes() {
 
 #[test]
 fn subtitle_text_style_options_validate_and_round_trip() {
-    use subtitle_controls::TextStylePreferences;
+    use subtitle_controls::{BorderStyle, TextStylePreferences};
+
+    assert_eq!(
+        TextStylePreferences::default().border_style,
+        BorderStyle::OutlineAndShadow
+    );
 
     let configured = Preferences {
         subtitle_text_style: TextStylePreferences {
@@ -762,6 +763,7 @@ fn subtitle_text_style_options_validate_and_round_trip() {
             italic: true,
             blur: 1.25,
             spacing: -0.5,
+            border_style: BorderStyle::BackgroundBox,
             outline_size: 4.5,
             shadow_offset: 2.25,
             text_color: subtitle_color::SubtitleColor::from_rgba([0.25, 0.5, 0.75, 1.0]).unwrap(),
@@ -775,6 +777,7 @@ fn subtitle_text_style_options_validate_and_round_trip() {
     for invalid in [
         r#"{"subtitle_text_style":{"blur":20.001}}"#,
         r#"{"subtitle_text_style":{"spacing":"wide"}}"#,
+        r#"{"subtitle_text_style":{"border_style":"wide"}}"#,
         r#"{"subtitle_text_style":{"outline_size":-0.1}}"#,
         r#"{"subtitle_text_style":{"shadow_offset":-1}}"#,
         r#"{"subtitle_text_style":{"text_color":[2,0,0,1]}}"#,

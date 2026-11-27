@@ -1722,6 +1722,18 @@ msgstr "الخلفية"
 msgid "Border"
 msgstr "الحدود"
 
+msgid "Border Style"
+msgstr "نمط الحدود"
+
+msgid "Outline and Shadow"
+msgstr "حدود وظل"
+
+msgid "Opaque Box"
+msgstr "مربع معتم"
+
+msgid "Background Box"
+msgstr "مربع خلفية"
+
 msgid "Shadow"
 msgstr "الظل"
 

@@ -23,7 +23,6 @@ fn temp() -> (riina_test_support::TempDir, PathBuf) {
 fn settings_changes_before_playback_merge_with_an_independent_save() {
     let (_directory, path) = temp();
     let mut original = Preferences {
-        dark: false,
         video_threads: 6,
         ..Preferences::default()
     };

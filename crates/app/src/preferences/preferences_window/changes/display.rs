@@ -33,7 +33,6 @@ pub(super) struct Draft {
     material: liquid_glass::SurfaceSettings,
     theme: ThemeMaterial,
     resize: window_resize::Settings,
-    dark: bool,
 }
 
 impl Draft {
@@ -89,7 +88,6 @@ impl Draft {
             app,
             window,
         )?;
-        let dark = theme.dark_for(app.global::<riina_ui::PlayerAppearance>().get_dark_theme());
         Some(Self {
             previous_osd,
             osd,
@@ -104,7 +102,6 @@ impl Draft {
             material,
             theme,
             resize,
-            dark,
         })
     }
 
@@ -136,7 +133,6 @@ impl Draft {
         self.control_bar.put(preferences);
         self.resize.put(preferences);
         preferences.theme_material = self.theme;
-        preferences.dark = self.dark;
     }
 
     pub(super) fn restore(&self, app: &PlayerWindow) {

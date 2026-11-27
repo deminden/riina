@@ -23,6 +23,8 @@ pub(crate) struct ProfileChanges {
     pub(crate) replay_gain: Option<ReplayGainOptions>,
     pub(crate) subtitle_font: Option<String>,
     #[cfg(target_os = "macos")]
+    pub(crate) subtitle_border_style: Option<riina_core::subtitle_controls::BorderStyle>,
+    #[cfg(target_os = "macos")]
     pub(crate) subtitle_auto_load: Option<riina_core::subtitle_controls::AutoLoadPreferences>,
     pub(crate) key_bindings: Option<riina_core::key_bindings::Settings>,
 }
@@ -120,6 +122,10 @@ impl Profile {
             replay_gain: (gain != self.displayed.audio.replay_gain_options()).then_some(gain),
             subtitle_font: (edit.subtitle_font != self.displayed.subtitle_font)
                 .then(|| edit.subtitle_font.clone()),
+            #[cfg(target_os = "macos")]
+            subtitle_border_style: (edit.subtitle_text_style.border_style
+                != self.displayed.subtitle_text_style.border_style)
+                .then_some(edit.subtitle_text_style.border_style),
             #[cfg(target_os = "macos")]
             subtitle_auto_load: (edit.subtitle_auto_load != self.displayed.subtitle_auto_load)
                 .then(|| edit.subtitle_auto_load.clone()),

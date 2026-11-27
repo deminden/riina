@@ -113,6 +113,54 @@ fn temporary_player_font_survives_other_settings_edits_and_never_becomes_the_def
 }
 
 #[test]
+fn appearance_saves_only_the_selected_mode() {
+    use riina_core::ThemeMaterial;
+
+    let transaction = Transaction::new();
+    let app = &transaction.player.app;
+    let appearance = app.global::<riina_ui::PlayerAppearance>();
+    for (theme, dark) in [(ThemeMaterial::Light, false), (ThemeMaterial::Dark, true)] {
+        transaction.window.set_appearance_index(theme.index());
+        assert!(transaction.apply().is_empty());
+        assert_eq!(appearance.get_dark_theme(), dark);
+        assert_eq!(transaction.profile.read().theme_material, theme);
+        transaction.player.session.save(app).unwrap();
+        let saved: serde_json::Value = serde_json::from_slice(&transaction.bytes()).unwrap();
+        assert_eq!(
+            saved["theme_material"],
+            serde_json::to_value(theme).unwrap()
+        );
+        assert!(saved.get("dark").is_none());
+    }
+}
+
+#[test]
+fn subtitle_border_style_reaches_the_decoder_and_rolls_back_an_unsaved_edit() {
+    use riina_core::subtitle_controls::BorderStyle;
+
+    let transaction = Transaction::new();
+    let form = transaction.window.global::<crate::SubtitleSettingsState>();
+    let saved = BorderStyle::BackgroundBox;
+    form.set_subtitle_border_style_index(saved.index());
+    assert_eq!(transaction.apply(), [Command::SubtitleBorderStyle(saved)]);
+    assert_eq!(
+        transaction.profile.read().subtitle_text_style.border_style,
+        saved
+    );
+
+    std::fs::remove_file(&transaction.profile.file).unwrap();
+    std::fs::create_dir(&transaction.profile.file).unwrap();
+    form.set_subtitle_border_style_index(BorderStyle::OpaqueBox.index());
+    let commands = transaction.apply();
+    assert_eq!(
+        commands.first(),
+        Some(&Command::SubtitleBorderStyle(BorderStyle::OpaqueBox))
+    );
+    assert!(commands.contains(&Command::SubtitleBorderStyle(saved)));
+    assert_eq!(form.get_subtitle_border_style_index(), saved.index());
+}
+
+#[test]
 fn replay_gain_edits_reach_the_live_decoder_and_persist_without_a_restart() {
     use riina_core::audio_preferences::{ReplayGain, ReplayGainOptions};
 

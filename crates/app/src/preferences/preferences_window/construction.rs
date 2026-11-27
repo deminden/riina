@@ -70,6 +70,9 @@ pub(super) fn create(
             if let Some(font) = edit.subtitle_font {
                 profile.publish_subtitle_font(font);
             }
+            if let Some(style) = edit.subtitle_border_style {
+                profile.publish_subtitle_border_style(style);
+            }
             if let Some(settings) = edit.subtitle_auto_load {
                 profile.publish_subtitle_auto_load(settings);
             }

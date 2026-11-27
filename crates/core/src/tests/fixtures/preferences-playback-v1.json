@@ -201,6 +201,7 @@
     "italic": false,
     "blur": 0.0,
     "spacing": 0.0,
+    "border_style": "outline_and_shadow",
     "outline_size": 3.0,
     "outline_color": [
       0.0,
@@ -217,7 +218,6 @@
     ]
   },
   "theme_material": "dark",
-  "dark": true,
   "enable_osd": true,
   "disable_osd_file_start": false,
   "disable_osd_pause_resume": false,

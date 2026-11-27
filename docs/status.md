@@ -313,6 +313,9 @@ Implementation does not imply every state or platform is verified.
   current playback session. Settings opens the same chooser with the saved
   default and shares a committed change with players using that profile.
   The chooser retains its filter and sample across openings.
+- **Subtitle border styles:** Text Subtitles offers Outline and Shadow,
+  Opaque Box, and Background Box. The default is Outline and Shadow.
+  A saved change applies to open players using the same profile.
 - **Utilities:** Settings owns the confirmations for alerts, saved progress,
   history and thumbnails. Cache sizes refresh when the page opens or data is cleared.
 - **Russian and Arabic labels** are bundled for Welcome, Open URL, Playback

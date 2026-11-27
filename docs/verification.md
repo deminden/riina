@@ -7758,3 +7758,30 @@ The Windows locked build, full source gate and all 85 native null-output tests
 passed. The Linux application build, Clippy and six native seek tests passed.
 Intel and Apple Silicon macOS source checks passed. The Touch Bar still needs
 native macOS testing.
+
+### Subtitle border styles and Settings cleanup 2026-11-27
+
+Text Subtitles offers the three IINA v1.5.0 border styles. The profile and
+live edit use the same typed value. Outline and Shadow is the default.
+Appearance saves the selected mode, while the live window owns its palette.
+Settings search routes results through the live section layout.
+
+The Windows and Linux native subtitle tests verified all three values with
+the selected text track, colors, and pause state preserved. The Windows
+transaction tests exercised the saved appearance and a rejected subtitle
+edit. The profile test checked that a committed style reaches the other
+player and Settings form using that profile.
+
+The full Windows source gate passed with 737 application unit tests. The
+standalone software-rendered comparison passed after updating the one Subtitles
+baseline. Its 10 changed pixels were at the bottom of the scroll thumb for the
+taller page.
+
+The locked Windows build and all 85 native playback tests passed. In a
+private Windows desktop session, choosing Opaque Box and Background Box in
+Settings updated the decoder and saved both selections while the same clip
+and subtitles stayed paused. Saving removed the obsolete `dark` field from
+the test profile. The exact test player exited normally. The executable hash
+was `9dcc475c49f2089b9758386574d4965426b054a3276ba6d1d5fde68e94ac7c2d`.
+The focused Linux native subtitle suite passed all nine tests. Native macOS
+interaction remains open.

@@ -7,8 +7,8 @@ pub use action_error::InputActionError;
 mod mpv_input;
 pub(crate) use mpv_input::mpv_action_native_commands;
 pub use mpv_input::{
-    InputCommand, mpv_action_commands, mpv_action_native_args, mpv_command_prefix_len,
-    mpv_command_suppresses_osd, parse_mpv_input,
+    InputCommand, mpv_action_commands, mpv_command_prefix_len, mpv_command_suppresses_osd,
+    parse_mpv_input,
 };
 
 mod builder;

@@ -59,7 +59,7 @@ pub(super) fn present(id: u64, request: DialogRequest) {
                 let dark = crate::platform::preferences_path()
                     .ok()
                     .and_then(|path| crate::preference_load::read_valid(&path).ok().flatten())
-                    .is_some_and(|prefs| prefs.theme_material.dark_for(prefs.dark));
+                    .is_none_or(|prefs| prefs.theme_material.dark_for(true));
                 let response = interaction::interact(None, None, dark, &dialog).await;
                 dialog.finish(response);
             }

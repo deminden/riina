@@ -652,6 +652,13 @@ const ENTRIES: &[Entry] = &[
         page_index: 4,
         page: "Subtitles",
         section: "Text Subtitles",
+        title: "Border Style",
+        terms: "outline and shadow opaque box background box",
+    },
+    Entry {
+        page_index: 4,
+        page: "Subtitles",
+        section: "Text Subtitles",
         title: "Border",
         terms: "outline size color",
     },
@@ -1022,45 +1029,6 @@ fn page_icon(page_index: i32) -> Image {
     Image::load_from_svg_data(data).unwrap_or_default()
 }
 
-// These default offsets label search entries; activation reads live Slint targets
-// so expanding preference details never leaves search with stale coordinates.
-fn anchor_y(entry: &Entry) -> i32 {
-    match (entry.page_index, entry.section, entry.title) {
-        (0, "Behavior", "When media is opened") => 60,
-        (0, "Behavior", _) => 80,
-        (0, "Screenshots", "Save to") => 160,
-        (0, "Screenshots", "Format") => 188,
-        (0, "Screenshots", "Copy to clipboard") => 212,
-        (0, "Screenshots", "Include subtitles") => 268,
-        (0, "Screenshots", _) => 292,
-        (0, "History", _) => 334,
-        (0, "Playlist", _) => 720,
-        (1, "Appearance", _) => 0,
-        (1, "Window", _) => 207,
-        (1, "On-Screen Controller", _) => 619,
-        (1, "On-Screen Display", _) => 769,
-        (1, "Thumbnail Preview", _) => 877,
-        (1, "Picture-in-Picture", _) => 973,
-        (1, "Accessibility", _) => 1069,
-        (2, "Decoding", "Number of threads") => 80,
-        (2, "Decoding", _) => 145,
-        (2, "Live Text", _) => 378,
-        (2, "Color and HDR", _) => 420,
-        (3, _, _) => 52,
-        (4, "Auto Load", _) => 52,
-        (4, "ASS Subtitles", _) => 180,
-        (4, "Text Subtitles", _) => 580,
-        (4, "Position", _) => 870,
-        (4, "Online Subtitles", _) => 1164,
-        (4, "Other", _) => 1454,
-        (5, "Cache", _) | (5, "Network", _) => 80,
-        (6, "Mouse", _) => 174,
-        (6, "Scroll", _) => 418,
-        (6, "Scrolling sensitivity", _) => 538,
-        _ => 0,
-    }
-}
-
 fn normalized_query(query: &str) -> String {
     query
         .replace('　', " ")
@@ -1113,7 +1081,6 @@ fn build_index(labels: &SearchLabels) -> Vec<IndexedEntry> {
                     page_name: translated(labels, source.page).into(),
                     section_name: translated(labels, source.section).into(),
                     title: title.into(),
-                    anchor_y: anchor_y(source),
                     ..Default::default()
                 },
                 // Page and section labels organize results. Titles and aliases match queries.
@@ -1174,7 +1141,6 @@ fn localized_results_for_query(
                 page_name: item.row.page_name.clone(),
                 is_header: true,
                 icon: page_icon(source.page_index),
-                anchor_y: -1,
                 ..Default::default()
             });
         }
@@ -1497,17 +1463,16 @@ mod tests {
 
     #[test]
     fn video_preferences_search_into_decoding_and_color_sections() {
-        for (query, section, anchor) in [
-            ("hardware decoder", "Decoding", 145),
-            ("video threads", "Decoding", 80),
-            ("OCR frame", "Live Text", 378),
-            ("hdr bt2390", "Color and HDR", 420),
+        for (query, section) in [
+            ("hardware decoder", "Decoding"),
+            ("video threads", "Decoding"),
+            ("OCR frame", "Live Text"),
+            ("hdr bt2390", "Color and HDR"),
         ] {
             let result = item_results(query);
             assert_eq!(result.len(), 1, "query: {query}");
             assert_eq!(result[0].page_name, "Video");
             assert_eq!(result[0].section_name, section);
-            assert_eq!(result[0].anchor_y, anchor);
         }
     }
 
@@ -1670,39 +1635,30 @@ mod tests {
     }
 
     #[test]
-    fn interface_search_results_use_the_captured_subsection_scroll_anchors() {
-        for (query, section, anchor) in [
-            ("system appearance", "Appearance", 0),
-            ("liquid glass", "Appearance", 0),
-            ("compact interface", "Appearance", 0),
-            ("initial window size", "Window", 207),
-            ("initial window position", "Window", 207),
-            ("video size", "Window", 207),
-            ("physical resolution", "Window", 207),
-            ("stay above other windows", "Window", 207),
-            ("title bar pin status", "Window", 207),
-            ("osc position", "On-Screen Controller", 619),
-            ("auto hide controls", "On-Screen Controller", 619),
-            (
-                "chapter position in progress bar",
-                "On-Screen Controller",
-                619,
-            ),
-            ("overlay display messages", "On-Screen Display", 769),
-            ("pip minimize main window", "Picture-in-Picture", 973),
-            (
-                "automatically pause playback pip",
-                "Picture-in-Picture",
-                973,
-            ),
-            ("toggle by minimizing window", "Picture-in-Picture", 973),
-            ("only for video files pip", "Picture-in-Picture", 973),
+    fn interface_preferences_search_into_their_matching_sections() {
+        for (query, section) in [
+            ("system appearance", "Appearance"),
+            ("liquid glass", "Appearance"),
+            ("compact interface", "Appearance"),
+            ("initial window size", "Window"),
+            ("initial window position", "Window"),
+            ("video size", "Window"),
+            ("physical resolution", "Window"),
+            ("stay above other windows", "Window"),
+            ("title bar pin status", "Window"),
+            ("osc position", "On-Screen Controller"),
+            ("auto hide controls", "On-Screen Controller"),
+            ("chapter position in progress bar", "On-Screen Controller"),
+            ("overlay display messages", "On-Screen Display"),
+            ("pip minimize main window", "Picture-in-Picture"),
+            ("automatically pause playback pip", "Picture-in-Picture"),
+            ("toggle by minimizing window", "Picture-in-Picture"),
+            ("only for video files pip", "Picture-in-Picture"),
         ] {
             let result = item_results(query);
             assert_eq!(result.len(), 1, "query: {query}");
             assert_eq!(result[0].page_name, "Interface");
             assert_eq!(result[0].section_name, section);
-            assert_eq!(result[0].anchor_y, anchor);
         }
     }
 
@@ -1850,7 +1806,6 @@ mod tests {
         assert_eq!(results[0].page_name, "Network");
         assert_eq!(results[0].section_name, "Cache");
         assert_eq!(results[0].title, "Buffer before starting playback");
-        assert_eq!(results[0].anchor_y, 80);
     }
 
     #[test]
@@ -1860,7 +1815,6 @@ mod tests {
         assert_eq!(result[0].page_name, "Network");
         assert_eq!(result[0].section_name, "Network");
         assert_eq!(result[0].title, "RTSP transport");
-        assert_eq!(result[0].anchor_y, 80);
     }
 
     #[test]
@@ -1931,16 +1885,25 @@ mod tests {
     }
 
     #[test]
-    fn subtitle_search_results_retain_their_visible_scroll_anchor() {
+    fn subtitle_preferences_search_into_their_matching_sections() {
         let border = item_results("border");
-        assert_eq!(border.len(), 1);
-        assert_eq!(border[0].anchor_y, 580);
-
-        let auto_load = item_results("priority keywords");
-        assert_eq!(auto_load.len(), 1);
-        assert_eq!(auto_load[0].anchor_y, 52);
-        assert_eq!(item_results("search paths")[0].anchor_y, 52);
-        assert_eq!(item_results("vertical position")[0].anchor_y, 870);
+        assert_eq!(border.len(), 2);
+        assert_eq!(border[0].title, "Border");
+        assert_eq!(border[1].title, "Border Style");
+        assert!(
+            border
+                .iter()
+                .all(|row| row.section_name == "Text Subtitles")
+        );
+        for (query, section) in [
+            ("priority keywords", "Auto Load"),
+            ("search paths", "Auto Load"),
+            ("vertical position", "Position"),
+        ] {
+            let result = item_results(query);
+            assert_eq!(result.len(), 1, "query: {query}");
+            assert_eq!(result[0].section_name, section);
+        }
     }
 
     #[test]

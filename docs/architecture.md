@@ -1024,6 +1024,9 @@ copy of invalid input and loads recoverable fields. `PreferenceModel` holds the
 committed settings on the UI thread and delegates persistence to
 `preference_store::Writer`. Section bindings read and validate their controls and
 project the saved settings into the Settings form and `PlayerPreferences`.
+The profile stores a single appearance mode. System appearance reads the
+native window theme when available and uses the dark palette until the system
+reports a theme.
 The Settings form initializes from the saved profile before the player attaches
 its live state and actions. General playback preferences and screenshot controls
 use the same form projection when they refresh from a player. Screenshot edits
@@ -1045,9 +1048,10 @@ The player sets mpv's subtitle auto-load default at startup. Riina's matcher
 owns discovery mode, priority keywords and search paths. A successful Settings
 save projects those values into each open player and form for the same profile.
 Unrelated edits leave the decoder's subtitle options alone. Placement,
-language and encoding changes send only the required live commands. On
-failure the transaction queues restoration for the accepted decoder changes
-and refreshes the form.
+language and encoding changes send only the required live commands. The
+text border style maps to libmpv's `sub-border-style` and applies to players
+using the same profile. On failure the transaction queues restoration for the
+accepted decoder changes and refreshes the form.
 Key Bindings, Advanced and Utilities search share the scroll positions of
 their visible controls. The Plugins page scrolls the entire installed list
 while its modal dialogs remain attached to the Settings window. Plugin

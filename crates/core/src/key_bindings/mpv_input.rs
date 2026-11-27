@@ -86,10 +86,6 @@ pub fn mpv_command_suppresses_osd(prefixes: &[String]) -> bool {
         .is_some_and(|flag| flag == "no-osd")
 }
 
-pub fn mpv_action_native_args(action: &str) -> Result<Vec<String>, InputActionError> {
-    parse_command(action).map(InputCommand::into_native)
-}
-
 pub(crate) fn mpv_action_native_commands(
     action: &str,
 ) -> Result<Vec<Vec<String>>, InputActionError> {
@@ -292,17 +288,17 @@ mod tests {
             ]
         );
         assert_eq!(
-            mpv_action_native_args("show-text '${filename}; Ready'").unwrap(),
-            [
+            mpv_action_native_commands("show-text '${filename}; Ready'").unwrap(),
+            [[
                 "osd-auto",
                 "expand-properties",
                 "show-text",
                 "${filename}; Ready"
-            ]
+            ]]
         );
         assert_eq!(
-            mpv_action_native_args("raw show-text '${filename}'").unwrap(),
-            ["osd-auto", "raw", "show-text", "${filename}"]
+            mpv_action_native_commands("raw show-text '${filename}'").unwrap(),
+            [["osd-auto", "raw", "show-text", "${filename}"]]
         );
         assert_eq!(
             parse_mpv_input("no-osd seek 1; async subprocess forbidden"),

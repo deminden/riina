@@ -524,7 +524,11 @@ fn hdr_output_intent_requires_recognized_hdr_metadata() {
         video: Some(source),
         ..Playback::default()
     };
-    let plan = Command::SetHdrEnabled(true).plan(&state).unwrap();
+    let hdr = |enabled| Command::SetHdrEnabledWithIcc {
+        enabled,
+        load_icc_profile: false,
+    };
+    let plan = hdr(true).plan(&state).unwrap();
     assert_eq!(plan.commands[2], ["set", "target-prim", "bt.2020"]);
     assert_eq!(plan.commands[3], ["set", "target-trc", "pq"]);
 
@@ -535,8 +539,9 @@ fn hdr_output_intent_requires_recognized_hdr_metadata() {
         }),
         ..Playback::default()
     };
-    assert!(Command::SetHdrEnabled(true).plan(&sdr_state).is_err());
-    assert!(Command::SetHdrEnabled(false).plan(&sdr_state).is_ok());
+    assert!(hdr(true).plan(&sdr_state).is_err());
+    let reset = hdr(false).plan(&sdr_state).unwrap();
+    assert_eq!(reset.commands[0], ["set", "icc-profile-auto", "no"]);
 }
 
 #[test]

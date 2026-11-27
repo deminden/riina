@@ -136,7 +136,6 @@ fn capture_window_state(app: &PlayerWindow, preferences: Preferences) -> io::Res
         always_float_on_top: layout.get_always_float_on_top(),
         theme_material: riina_core::ThemeMaterial::from_index(appearance.get_appearance_mode())
             .ok_or_else(|| io::Error::other("Invalid appearance selection"))?,
-        dark: appearance.get_dark_theme(),
         leading_sidebar_width: sidebar.get_leading_sidebar_width() as u32,
         trailing_sidebar_width: sidebar.get_trailing_sidebar_width() as u32,
         settings_at_leading: sidebar.get_settings_at_leading(),

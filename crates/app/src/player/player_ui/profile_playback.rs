@@ -7,7 +7,7 @@ use riina_core::{
     audio_preferences::ReplayGainOptions,
     key_bindings::Settings as KeyBindings,
     osc_preferences::{ControllerOptions, TimePrecision},
-    subtitle_controls::AutoLoadPreferences,
+    subtitle_controls::{AutoLoadPreferences, BorderStyle},
 };
 use riina_ui::{PlaybackTimelineState, PlayerControlActions};
 use slint::ComponentHandle;
@@ -31,28 +31,38 @@ struct PlayerPreferences {
     form: RefCell<slint::Weak<PreferencesWindow>>,
     retry_gain: slint::Timer,
     retry_font: slint::Timer,
+    retry_border_style: slint::Timer,
+}
+
+#[derive(Clone)]
+enum SubtitleEdit {
+    Font(String),
+    BorderStyle(BorderStyle),
 }
 
 impl PlayerPreferences {
-    fn apply_font(self: &Rc<Self>, font: String) {
-        self.retry_font.stop();
+    fn apply_subtitle(self: &Rc<Self>, edit: SubtitleEdit) {
+        let (timer, command) = match &edit {
+            SubtitleEdit::Font(font) => (&self.retry_font, Command::SubtitleFont(font.clone())),
+            SubtitleEdit::BorderStyle(style) => (
+                &self.retry_border_style,
+                Command::SubtitleBorderStyle(*style),
+            ),
+        };
+        timer.stop();
         if self.context.app().is_none() {
             return;
         }
-        match self
-            .context
-            .commands()
-            .send(Command::SubtitleFont(font.clone()))
-        {
+        match self.context.commands().send(command) {
             Ok(()) => {}
             Err(riina_mpv::EngineError::QueueFull) => {
                 let player = Rc::downgrade(self);
-                self.retry_font.start(
+                timer.start(
                     slint::TimerMode::SingleShot,
                     Duration::from_millis(50),
                     move || {
                         if let Some(player) = player.upgrade() {
-                            player.apply_font(font.clone());
+                            player.apply_subtitle(edit.clone());
                         }
                     },
                 );
@@ -122,6 +132,15 @@ impl ProfilePlaybackBinding {
             self.player.context.preferences_path(),
             Some(&self.player),
             font,
+        );
+    }
+
+    pub(crate) fn publish_subtitle_border_style(&self, style: BorderStyle) {
+        self.player.retry_border_style.stop();
+        self.profile.publish_subtitle_border_style(
+            self.player.context.preferences_path(),
+            Some(&self.player),
+            style,
         );
     }
 
@@ -214,6 +233,7 @@ impl ProfilePlayback {
             form: RefCell::default(),
             retry_gain: slint::Timer::default(),
             retry_font: slint::Timer::default(),
+            retry_border_style: slint::Timer::default(),
         });
         let mut players = self.players.borrow_mut();
         players.retain(|target| target.strong_count() > 0);
@@ -298,7 +318,35 @@ impl ProfilePlayback {
                 form.global::<crate::SubtitleSettingsState>()
                     .set_subtitle_font(font.into());
             }
-            player.apply_font(font.to_owned());
+            player.apply_subtitle(SubtitleEdit::Font(font.to_owned()));
+        });
+    }
+
+    #[cfg(target_os = "macos")]
+    pub(super) fn adopt_application_subtitle_border_style(&self, path: &Path, style: BorderStyle) {
+        self.publish_subtitle_border_style(path, None, style);
+    }
+
+    fn publish_subtitle_border_style(
+        &self,
+        path: &Path,
+        source: Option<&Rc<PlayerPreferences>>,
+        style: BorderStyle,
+    ) {
+        self.for_each_player(path, |player, app| {
+            if source.is_some_and(|source| Rc::ptr_eq(source, player)) {
+                return;
+            }
+            player.context.preferences().adopt_committed(|saved| {
+                saved.subtitle_text_style.border_style = style;
+            });
+            app.global::<riina_ui::PlayerPreferences>()
+                .set_subtitle_border_style_index(style.index());
+            if let Some(form) = player.form.borrow().upgrade() {
+                form.global::<crate::SubtitleSettingsState>()
+                    .set_subtitle_border_style_index(style.index());
+            }
+            player.apply_subtitle(SubtitleEdit::BorderStyle(style));
         });
     }
 
@@ -405,6 +453,16 @@ mod tests {
     use crate::preferences::model::PreferenceModel;
     use std::sync::{Arc, Mutex};
 
+    fn assert_subtitle_border_style(
+        model: &PreferenceModel,
+        form: &PreferencesWindow,
+        style: BorderStyle,
+    ) {
+        assert_eq!(model.snapshot().subtitle_text_style.border_style, style);
+        let subtitles = form.global::<crate::SubtitleSettingsState>();
+        assert_eq!(subtitles.get_subtitle_border_style_index(), style.index());
+    }
+
     #[test]
     fn audio_and_subtitle_defaults_reach_peer_players_and_forms_on_the_same_profile()
     -> Result<(), Box<dyn std::error::Error>> {
@@ -477,6 +535,17 @@ mod tests {
             "Test family"
         );
         assert_eq!(other_engine.commands.try_recv(), Err(TryRecvError::Empty));
+
+        let style = BorderStyle::BackgroundBox;
+        let mut selected = source_model.snapshot();
+        selected.subtitle_text_style.border_style = style;
+        source_model.save(selected)?;
+        source.publish_subtitle_border_style(style);
+        assert_eq!(
+            peer_engine.commands.try_recv(),
+            Ok(Command::SubtitleBorderStyle(style))
+        );
+        assert_subtitle_border_style(&peer_model, &peer_form, style);
 
         let discovery = AutoLoadPreferences {
             mode: AutoLoadMode::Filename,

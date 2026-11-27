@@ -280,6 +280,7 @@ pub struct TextStylePreferences {
     pub italic: bool,
     pub blur: f64,
     pub spacing: f64,
+    pub border_style: BorderStyle,
     pub outline_size: f64,
     pub outline_color: crate::subtitle_color::SubtitleColor,
     pub shadow_offset: f64,
@@ -294,10 +295,40 @@ impl Default for TextStylePreferences {
             italic: false,
             blur: 0.0,
             spacing: 0.0,
+            border_style: BorderStyle::default(),
             outline_size: 3.0,
             outline_color: crate::subtitle_color::SubtitleColor::BLACK,
             shadow_offset: 0.0,
             shadow_color: crate::subtitle_color::SubtitleColor::CLEAR,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum BorderStyle {
+    #[default]
+    OutlineAndShadow,
+    OpaqueBox,
+    BackgroundBox,
+}
+
+impl BorderStyle {
+    const ALL: [Self; 3] = [Self::OutlineAndShadow, Self::OpaqueBox, Self::BackgroundBox];
+
+    pub const fn index(self) -> i32 {
+        self as i32
+    }
+
+    pub fn from_index(index: i32) -> Option<Self> {
+        Self::ALL.get(usize::try_from(index).ok()?).copied()
+    }
+
+    pub const fn mpv_value(self) -> &'static str {
+        match self {
+            Self::OutlineAndShadow => "outline-and-shadow",
+            Self::OpaqueBox => "opaque-box",
+            Self::BackgroundBox => "background-box",
         }
     }
 }

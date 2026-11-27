@@ -37,10 +37,8 @@ fn read_general(window: &PreferencesWindow, prefs: &mut Preferences) -> Result<(
 }
 
 fn read_display(window: &PreferencesWindow, prefs: &mut Preferences) -> Result<(), String> {
-    let theme = ThemeMaterial::from_index(window.get_appearance_index())
+    prefs.theme_material = ThemeMaterial::from_index(window.get_appearance_index())
         .ok_or("Choose a valid appearance")?;
-    prefs.theme_material = theme;
-    prefs.dark = theme.dark_for(prefs.dark);
     prefs.always_float_on_top = window.get_always_float_on_top();
     prefs.always_show_on_top_icon = window.get_always_show_on_top_icon();
     prefs.compact_ui = window.get_compact_ui();

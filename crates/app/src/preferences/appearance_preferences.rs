@@ -19,6 +19,15 @@ where
         .set_system_font_family(family.into());
 }
 
+pub(crate) fn window_is_dark(window: &slint::Window, mode: ThemeMaterial) -> bool {
+    let system_is_dark = mode != ThemeMaterial::System
+        || window
+            .with_winit_window(|native| native.theme())
+            .flatten()
+            .is_none_or(|theme| theme == Theme::Dark);
+    mode.dark_for(system_is_dark)
+}
+
 /// Apply explicit themes on choice changes, and refresh native appearance and
 /// motion preferences while following system changes.
 pub(crate) fn connect(app: &PlayerWindow) -> Rc<slint::Timer> {

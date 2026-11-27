@@ -58,7 +58,7 @@ fn invalid_sections_reset_independently_and_preserve_every_other_value() {
             "volume": 149,
             "volume_boost": true,
             "video_threads": 8,
-            "dark": false,
+            "theme_material": "light",
             "record_recent_files": false,
             "future_settings": {"value":true},
         });
@@ -86,7 +86,7 @@ fn malformed_documents_use_defaults_and_report_one_document_rejection() {
     for input in [
         "",
         "{",
-        r#"{"dark":false,"volume":"#,
+        r#"{"theme_material":"light","volume":"#,
         "[]",
         "[1, 2]",
         "null",
@@ -100,19 +100,13 @@ fn malformed_documents_use_defaults_and_report_one_document_rejection() {
 
 #[test]
 fn missing_or_invalid_theme_uses_the_default_appearance() {
-    let (prefs, rejected) =
-        Preferences::parse_lenient(r#"{"dark":false,"theme_material":"custom"}"#);
+    let (prefs, rejected) = Preferences::parse_lenient(r#"{"theme_material":"custom"}"#);
     assert_eq!(rejected.len(), 1);
     assert_eq!(rejected[0].key, "theme_material");
-    assert_eq!(prefs.theme_material, Preferences::default().theme_material);
-    assert!(!prefs.dark);
-    let expected = Preferences {
-        dark: false,
-        ..Preferences::default()
-    };
+    let expected = Preferences::default();
     assert_strict_round_trip(&prefs, &expected);
 
-    let (missing, rejected) = Preferences::parse_lenient(r#"{"dark":false}"#);
+    let (missing, rejected) = Preferences::parse_lenient("{}");
     assert!(rejected.is_empty());
     assert_strict_round_trip(&missing, &expected);
 }

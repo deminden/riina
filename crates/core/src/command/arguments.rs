@@ -1,15 +1,11 @@
 use super::Command;
 use super::CommandError;
-use crate::key_bindings;
 
 const REQUIRES_PLAN: &str = "This intent requires a command plan";
 
 impl Command {
     pub fn mpv_args(&self) -> Result<Vec<String>, CommandError> {
         Ok(match self {
-            Self::MpvInputAction(action) => {
-                key_bindings::mpv_action_native_args(action).map_err(CommandError::InputBinding)?
-            }
             Self::PluginMpv(command) => command.arguments(),
             Self::ObserveMpvProperty(_) | Self::MpvScriptKeys { .. } => {
                 return invalid_state("This intent is handled by the mpv worker");
@@ -77,6 +73,7 @@ impl Command {
             | Self::SubtitleBorderColor(_)
             | Self::SubtitleShadowColor(_)
             | Self::SubtitleOutlineSize(_)
+            | Self::SubtitleBorderStyle(_)
             | Self::SubtitleFontSize(_)
             | Self::SubtitleScale(_)
             | Self::SecondarySubtitleDelay(_)
@@ -93,7 +90,8 @@ impl Command {
             | Self::AdjustSubtitleScale(_)
             | Self::AdjustSubtitlePosition(_)
             | Self::SubtitleSeek(_) => self.subtitles_args()?,
-            Self::OpenFiles(_)
+            Self::MpvInputAction(_)
+            | Self::OpenFiles(_)
             | Self::OpenPlaylist(_)
             | Self::OpenShuffledPlaylist(_)
             | Self::OpenMediaLink(_)
@@ -141,7 +139,6 @@ impl Command {
             | Self::SetAbLoopPoint { .. }
             | Self::SetToneMapping(_)
             | Self::SetIccProfileAuto(_)
-            | Self::SetHdrEnabled(_)
             | Self::SetHdrEnabledWithIcc { .. }
             | Self::VideoThreads(_)
             | Self::SelectPlaylistId(_)

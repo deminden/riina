@@ -73,10 +73,9 @@ impl PlayerManager {
         }
         let result = (|| -> Result<(), Box<dyn std::error::Error>> {
             let loaded = preference_load::load(&crate::platform::preferences_path()?)?;
-            self.services().open_url.show_from_application(
-                loaded.preferences.theme_material,
-                loaded.preferences.dark,
-            )?;
+            self.services()
+                .open_url
+                .show_from_application(loaded.preferences.theme_material)?;
             Ok(())
         })();
         if let Err(error) = result {

@@ -1,5 +1,14 @@
 use super::*;
 
+const SUBTITLE_BORDER_STYLE: &str = "sub-border-style";
+
+fn subtitle_border_style(state: &Playback) -> Option<&str> {
+    state
+        .observed_mpv_properties
+        .get(SUBTITLE_BORDER_STYLE)
+        .and_then(serde_json::Value::as_str)
+}
+
 #[test]
 #[ignore = "requires provisioned libmpv; verifies selected last-cue navigation before an automatic loop"]
 fn last_cue_navigation_does_not_label_a_later_automatic_loop() {
@@ -116,14 +125,19 @@ fn no_cue_navigation_does_not_arm_automatic_loop_feedback() {
 #[ignore = "requires provisioned libmpv; verifies independent subtitle color channels and defaults"]
 fn subtitle_colors_preserve_alpha_and_other_style_options() {
     use riina_core::subtitle_color::SubtitleColor;
+    use riina_core::subtitle_controls::BorderStyle;
     let root = fixture_root();
     let harness = Harness::start(&root).unwrap();
+    harness
+        .send(Command::ObserveMpvProperty(SUBTITLE_BORDER_STYLE.into()))
+        .unwrap();
     let defaults = harness.wait(|state| {
         state.subtitle_text_color == Some(SubtitleColor::WHITE)
             && state.subtitle_border_color == Some(SubtitleColor::BLACK)
             && state.subtitle_shadow_color == Some(SubtitleColor::CLEAR)
             && state.subtitle_font_size == Some(55.0)
             && state.subtitle_outline_size == Some(3.0)
+            && subtitle_border_style(state) == Some(BorderStyle::OutlineAndShadow.mpv_value())
             && state.subtitle_bold == Some(false)
             && state.subtitle_italic == Some(false)
             && state.subtitle_blur == Some(0.0)
@@ -183,6 +197,19 @@ fn subtitle_colors_preserve_alpha_and_other_style_options() {
     assert_eq!(selected_track(&shaded, TrackKind::Sub), subtitle_id);
     assert_eq!(shaded.subtitle_delay, 0.0);
     assert_eq!(shaded.error(), None);
+    for style in [
+        BorderStyle::OpaqueBox,
+        BorderStyle::BackgroundBox,
+        BorderStyle::OutlineAndShadow,
+    ] {
+        harness.send(Command::SubtitleBorderStyle(style)).unwrap();
+        let state = harness.wait(|state| subtitle_border_style(state) == Some(style.mpv_value()));
+        assert_eq!(state.generation, shaded.generation);
+        assert!(state.paused);
+        assert_eq!(selected_track(&state, TrackKind::Sub), subtitle_id);
+        assert_eq!(state.subtitle_border_color, Some(border));
+        assert_eq!(state.subtitle_shadow_color, Some(shadow));
+    }
     for command in [
         Command::SubtitleBold(true),
         Command::SubtitleItalic(true),

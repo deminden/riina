@@ -144,9 +144,11 @@ pub(crate) fn show_about(
     let window = about.window_for(None)?;
     about.stop_refresh();
     about.probe.use_application(&window);
-    window.set_dark_theme(preferences.theme_material.dark_for(preferences.dark));
     crate::about_window::reveal(&window)?;
-    window.set_dark_theme(profile_window_theme(window.window(), preferences));
+    window.set_dark_theme(crate::appearance_preferences::window_is_dark(
+        window.window(),
+        preferences.theme_material,
+    ));
     about.probe.request(&window);
     Ok(())
 }
@@ -158,21 +160,13 @@ pub(crate) fn show_highlights(
 ) -> Result<(), slint::PlatformError> {
     use slint::ComponentHandle;
 
-    let dark = preferences.theme_material.dark_for(preferences.dark);
+    let dark = preferences.theme_material.dark_for(true);
     let window = services.highlights.show(None, None, dark)?;
-    window.set_dark_theme(profile_window_theme(window.window(), preferences));
+    window.set_dark_theme(crate::appearance_preferences::window_is_dark(
+        window.window(),
+        preferences.theme_material,
+    ));
     Ok(())
-}
-
-#[cfg(target_os = "macos")]
-fn profile_window_theme(window: &slint::Window, preferences: &riina_core::Preferences) -> bool {
-    use slint::winit_030::{WinitWindowAccessor, winit::window::Theme};
-
-    let dark = window
-        .with_winit_window(slint::winit_030::winit::window::Window::theme)
-        .flatten()
-        .map_or(preferences.dark, |theme| theme == Theme::Dark);
-    preferences.theme_material.dark_for(dark)
 }
 
 #[cfg(test)]

@@ -181,9 +181,8 @@ impl Profile {
         self.windows[kind as usize].show(self, history, kind, anchor)
     }
 
-    pub(super) fn theme(&self) -> (riina_core::ThemeMaterial, bool) {
-        let prefs = self.baseline.borrow();
-        (prefs.theme_material, prefs.dark)
+    pub(super) fn theme(&self) -> riina_core::ThemeMaterial {
+        self.baseline.borrow().theme_material
     }
 
     pub(super) fn edit(&self, kind: Kind, edit: Edit) -> Result<(), String> {

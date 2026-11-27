@@ -100,7 +100,6 @@ command_samples! {
     VideoThreads[8];
     SetToneMapping[hdr_preferences::Settings::default()];
     SetIccProfileAuto[true];
-    SetHdrEnabled[true];
     SetHdrEnabledWithIcc { enabled: true, load_icc_profile: false };
     SubtitleAssOverride {
         lane: subtitle_controls::SubtitleLane::Secondary,
@@ -170,6 +169,7 @@ command_samples! {
     SubtitleFontSize[48.0];
     SubtitleFont["Sans Serif".into()];
     SubtitleOutlineSize[2.5];
+    SubtitleBorderStyle[subtitle_controls::BorderStyle::OpaqueBox];
     SubtitleTextColor[sample_color()];
     SubtitleBorderColor[sample_color()];
     SubtitleShadowColor[sample_color()];

@@ -67,9 +67,6 @@ impl Command {
                 .engine_commands()
                 .map_err(CommandError::Preference)?,
             Self::SetIccProfileAuto(enabled) => vec![set("icc-profile-auto", flag(*enabled))],
-            Self::SetHdrEnabled(enabled) => {
-                hdr_preferences::output_commands(*enabled, video::hdr_primaries(state, *enabled)?)?
-            }
             Self::SetHdrEnabledWithIcc {
                 enabled,
                 load_icc_profile,
