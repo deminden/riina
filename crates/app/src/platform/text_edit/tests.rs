@@ -2,6 +2,7 @@ use super::*;
 use slint::ComponentHandle;
 
 slint::slint! {
+    #[edition = "1.19"]
     export component Editors inherits Window {
         width: 320px;
         height: 120px;

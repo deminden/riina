@@ -493,6 +493,11 @@ erase shared Cargo downloads. Keep references outside `target/`.
    input can restore the engine from an existing published package. It verifies
    the archive checksum, tag/source identity, unchanged `tools/mpv` tree, runtime
    inventory and native notices in the current source manifest format.
+   For a verified local build, stage a native-runtime-only ZIP as a draft
+   release asset and pass its asset ID and SHA-256 to `native_runtime_asset`.
+   The workflow checks the ZIP before extraction and validates the runtime and
+   native source index before running the package gates. Keep this dispatch in
+   candidate mode and publish only its verified package assets.
 3. Run portable packaging tests, assemble the archive, and verify runtime contents,
    notices, hashes and source/build manifests.
 4. Extract the archive and run the actual executable through

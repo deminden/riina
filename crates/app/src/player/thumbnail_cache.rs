@@ -46,15 +46,7 @@ impl SourceKey {
         digest.update(source_length.to_le_bytes());
         digest.update(modified.to_le_bytes());
         digest.update(pixel_width.to_le_bytes());
-        let digest = digest
-            .finalize()
-            .iter()
-            .fold(String::with_capacity(64), |mut text, byte| {
-                use std::fmt::Write as _;
-                // Formatting into a String cannot return an I/O error.
-                let _ = write!(text, "{byte:02x}");
-                text
-            });
+        let digest = crate::hashing::hex(&digest.finalize());
         Ok(Self {
             canonical_path,
             source_length,

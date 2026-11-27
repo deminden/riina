@@ -161,7 +161,7 @@ docs/clipboard-dependencies.json. tree_magic_mini loads the desktop MIME databas
 at runtime; its optional GPL database embedding feature is not enabled. Combined
 distribution and non-Windows runtime remain subject to the existing audit gates.
 
-webpki-roots 1.0.9 contains Mozilla CA root-certificate data derived from the
+webpki-roots 1.0.12 contains Mozilla CA root-certificate data derived from the
 Common CA Database (CCADB), under CDLA-Permissive-2.0. This is a scoped data
 license, not a general GPL-compatible software grant. The Windows package and
 corresponding-source license inventory retain the crate's LICENSE text and a

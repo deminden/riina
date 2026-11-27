@@ -12,7 +12,7 @@ workspace = true
 serde.workspace = true
 serde_json = { workspace = true, features = ["raw_value"] }
 url.workspace = true
-regex = { version = "=1.13.1", default-features = false, features = ["std", "unicode-gencat"] }
+regex = { version = "=1.13.2", default-features = false, features = ["std", "unicode-gencat"] }
 
 [dev-dependencies]
 proptest = { version = "=1.12.0", default-features = false, features = ["std"] }

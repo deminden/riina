@@ -9,6 +9,7 @@ mod file_actions;
 mod file_selection;
 mod file_types;
 mod font_catalog;
+mod hashing;
 mod http;
 mod localized_number;
 mod platform;

@@ -180,10 +180,11 @@ fn unpack_subtitle(file_name: &str, bytes: Vec<u8>) -> Result<(String, Vec<u8>),
         let entry = archive
             .by_index(index)
             .map_err(|_| "Assrt's subtitle archive could not be read.".to_owned())?;
+        let Ok(name) = entry.name() else { continue };
         if entry.is_dir()
             || entry.is_symlink()
             || entry.enclosed_name().is_none()
-            || !supported_subtitle_file(entry.name())
+            || !supported_subtitle_file(&name)
             || entry.size() == 0
             || entry.size() > MAX_SUBTITLE_BYTES
         {

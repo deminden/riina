@@ -125,6 +125,7 @@ mod tests {
     use slint::ComponentHandle;
 
     slint::slint! {
+        #[edition = "1.19"]
         export component NativeEditor inherits Window {
             in-out property <string> value <=> input.text;
             in property <bool> read-only;

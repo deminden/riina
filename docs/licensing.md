@@ -47,13 +47,13 @@ and GPLv3 application package terms.
 | ICU4X locale, display-name and date-time code and compiled Unicode data | Unicode-3.0, notice in third-party-licenses/Unicode-3.0.txt |
 | Native `subrandr` Rust dependency `unicode-ident` 1.0.13 | Unicode-DFS-2016; retain its package notice in the native license inventory |
 | Chrono 0.4.45 and battery 0.7.8 | MIT OR Apache-2.0; Rust dependency notices are generated from Cargo.lock |
-| `webpki-roots` 1.0.9 certificate data | CDLA-Permissive-2.0; retain its crate `LICENSE` and generated `CCADB-ATTRIBUTION.txt` with the Rust license inventory |
+| `webpki-roots` 1.0.12 certificate data | CDLA-Permissive-2.0; retain its crate `LICENSE` and generated `CCADB-ATTRIBUTION.txt` with the Rust license inventory |
 | `trash` 5.2.9 | MIT; the system Trash/Recycle Bin adapter; generated dependency inventory preserves its crate notice |
 | `lofty` 0.25.4 | MIT OR Apache-2.0; reads supported local audio tags for playlist display; generated dependency inventory preserves its crate notice |
 | `plist` 1.10.4 | MIT; reads IINA plugin preference files; generated dependency inventory preserves its crate notice |
 | Development libmpv DLL and native dependencies | Local development input; releases use a separately verified engine build |
 
-`webpki-roots` 1.0.9 is an exact, package-scoped data-license exception in the
+`webpki-roots` 1.0.12 is an exact, package-scoped data-license exception in the
 Rust license collector. The crate describes its root-certificate data as derived
 from the Common CA Database (CCADB); its Cargo license expression identifies
 CDLA-Permissive-2.0 for that data. This does not add CDLA to the general

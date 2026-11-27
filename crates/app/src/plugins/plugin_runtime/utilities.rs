@@ -193,8 +193,11 @@ fn credential_target(identity: &str, service: &str, name: &str) -> Option<(Strin
         .chain_update([0])
         .chain_update(service);
     Some((
-        format!("com.riina.plugin.{:x}", service_hash.finalize()),
-        format!("{:x}", Sha256::digest(name)),
+        format!(
+            "com.riina.plugin.{}",
+            crate::hashing::hex(&service_hash.finalize())
+        ),
+        crate::hashing::hex(&Sha256::digest(name)),
     ))
 }
 

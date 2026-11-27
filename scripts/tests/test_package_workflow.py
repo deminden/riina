@@ -27,6 +27,17 @@ class PackageWorkflowTests(unittest.TestCase):
         tests = named_step(package, "Portable package, license and workflow regressions")
         self.assertIn("python -m unittest discover", tests["run"])
 
+    def test_staged_engine_is_verified_before_package_use(self):
+        readiness = named_step(self.release["release-readiness"], "Check exact candidate verification status")
+        self.assertIn("^[1-9][0-9]*:[a-f0-9]{64}$", readiness["run"])
+        self.assertIn("Staged native assets are for private package verification", readiness["run"])
+        self.assertIn("outputs.native_asset_id == ''", self.release["native-engine"]["if"])
+        self.assertIn("outputs.native_asset_id != ''", self.package["if"])
+        restore = named_step(self.package, "Restore verified engine from a staged asset")
+        self.assertLess(restore["run"].index("Get-FileHash"), restore["run"].index("Expand-Archive"))
+        verify = named_step(self.package, "Verify downloaded native runtime and build identity")
+        self.assertLess(self.package["steps"].index(restore), self.package["steps"].index(verify))
+
     def test_release_checks_the_extracted_application_in_addition_to_engine(self):
         gui = named_step(self.package, "Exercise the extracted application and native controls")
         self.assertIn("smoke-windows-package.ps1 -Executable (Resolve-Path package-smoke/riina.exe).Path", gui["run"])

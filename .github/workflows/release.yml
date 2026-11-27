@@ -17,6 +17,11 @@ on:
         type: string
         required: false
         default: ''
+      native_runtime_asset:
+        description: Reuse a verified native runtime ZIP from this repository as asset ID and SHA-256 separated by a colon
+        type: string
+        required: false
+        default: ''
       publish_release:
         description: Publish this version after package, playback and corresponding-source verification pass
         type: boolean
@@ -36,6 +41,8 @@ jobs:
     outputs:
       native_run_id: ${{ steps.readiness.outputs.native_run_id }}
       native_release_tag: ${{ steps.readiness.outputs.native_release_tag }}
+      native_asset_id: ${{ steps.readiness.outputs.native_asset_id }}
+      native_archive_sha: ${{ steps.readiness.outputs.native_archive_sha }}
       native_build_image: ${{ steps.readiness.outputs.native_build_image }}
       source_sha: ${{ steps.readiness.outputs.source_sha }}
     steps:
@@ -46,6 +53,7 @@ jobs:
         env:
           NATIVE_ARTIFACT_RUN_ID: ${{ inputs.native_artifact_run_id }}
           NATIVE_RELEASE_TAG: ${{ inputs.native_release_tag }}
+          NATIVE_RUNTIME_ASSET: ${{ inputs.native_runtime_asset }}
           PUBLISH_RELEASE: ${{ inputs.publish_release }}
           BUILD_CANDIDATE: ${{ inputs.build_release_candidate }}
           RELEASE_SOURCE_TAG: ${{ inputs.release_source_tag }}
@@ -69,7 +77,18 @@ jobs:
             }
           fi
           echo "source_sha=$source_sha" >> "$GITHUB_OUTPUT"
-          if [[ -n "$NATIVE_RELEASE_TAG" ]]; then
+          if [[ -n "$NATIVE_RUNTIME_ASSET" ]]; then
+            [[ "$NATIVE_RUNTIME_ASSET" =~ ^[1-9][0-9]*:[a-f0-9]{64}$ && -z "$NATIVE_ARTIFACT_RUN_ID" && -z "$NATIVE_RELEASE_TAG" ]] || {
+              echo 'Select one native reuse source and specify its asset ID and SHA-256' >&2
+              exit 1
+            }
+            [[ "$BUILD_CANDIDATE" == true && "$PUBLISH_RELEASE" != true ]] || {
+              echo 'Staged native assets are for private package verification' >&2
+              exit 1
+            }
+            echo "native_asset_id=${NATIVE_RUNTIME_ASSET%:*}" >> "$GITHUB_OUTPUT"
+            echo "native_archive_sha=${NATIVE_RUNTIME_ASSET#*:}" >> "$GITHUB_OUTPUT"
+          elif [[ -n "$NATIVE_RELEASE_TAG" ]]; then
             [[ "$NATIVE_RELEASE_TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ && -z "$NATIVE_ARTIFACT_RUN_ID" ]] || {
               echo 'Select one native reuse source; native_release_tag must be a semantic-version tag' >&2
               exit 1
@@ -88,7 +107,7 @@ jobs:
           fi
 
   native-engine:
-    if: inputs.build_release_candidate && needs.release-readiness.outputs.native_run_id == '' && needs.release-readiness.outputs.native_release_tag == ''
+    if: inputs.build_release_candidate && needs.release-readiness.outputs.native_run_id == '' && needs.release-readiness.outputs.native_release_tag == '' && needs.release-readiness.outputs.native_asset_id == ''
     runs-on: ubuntu-24.04
     needs: release-readiness
     container:
@@ -142,7 +161,7 @@ jobs:
           if-no-files-found: error
           retention-days: 7
   windows-package:
-    if: always() && needs.release-readiness.result == 'success' && inputs.build_release_candidate && (needs.native-engine.result == 'success' || (needs.native-engine.result == 'skipped' && (needs.release-readiness.outputs.native_run_id != '' || needs.release-readiness.outputs.native_release_tag != '')))
+    if: always() && needs.release-readiness.result == 'success' && inputs.build_release_candidate && (needs.native-engine.result == 'success' || (needs.native-engine.result == 'skipped' && (needs.release-readiness.outputs.native_run_id != '' || needs.release-readiness.outputs.native_release_tag != '' || needs.release-readiness.outputs.native_asset_id != '')))
     runs-on: windows-latest
     needs: [release-readiness, native-engine]
     timeout-minutes: 90
@@ -185,6 +204,21 @@ jobs:
             --archive "native-release-input/$archive" --checksums native-release-input/SHA256SUMS.txt `
             --verification native-release-input/RELEASE-VERIFICATION.json --tag $env:NATIVE_RELEASE_TAG `
             --destination native-runtime
+      - name: Restore verified engine from a staged asset
+        if: needs.release-readiness.outputs.native_asset_id != ''
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NATIVE_ASSET_ID: ${{ needs.release-readiness.outputs.native_asset_id }}
+          NATIVE_ARCHIVE_SHA: ${{ needs.release-readiness.outputs.native_archive_sha }}
+        run: |
+          $PSNativeCommandUseErrorActionPreference = $true
+          $archive = Join-Path $env:RUNNER_TEMP 'native-runtime.zip'
+          gh api -H 'Accept: application/octet-stream' "repos/$env:GITHUB_REPOSITORY/releases/assets/$env:NATIVE_ASSET_ID" > $archive
+          if ((Get-FileHash -LiteralPath $archive).Hash.ToLowerInvariant() -cne $env:NATIVE_ARCHIVE_SHA) {
+            throw 'Staged native archive checksum differs'
+          }
+          Expand-Archive -LiteralPath $archive -DestinationPath native-runtime
       - name: Verify downloaded native runtime and build identity
         run: python scripts/check-release-artifacts.py runtime --directory native-runtime
       - name: Pinned Rust toolchain

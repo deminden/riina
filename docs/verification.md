@@ -7906,3 +7906,12 @@ for local paths. The audio caption test selects the system default driver
 explicitly so the saved device fixture also works on macOS.
 The shared preferences serialization test checks macOS's Core Audio
 default against the same byte-for-byte fixture used on Windows and Linux.
+
+### 0.5.1 dependency update (2026-11-27)
+
+The RustSec audit of the updated lockfile reports one vulnerability, down
+from twenty. The remaining advisory, RUSTSEC-2021-0119, is on the `nix`
+version selected by `battery` for FreeBSD and DragonFly BSD. Windows, macOS
+and Linux application dependency graphs exclude that version of `nix`.
+The application builds retain `windows-core` 0.62.2 to share the same COM
+types as the `windows` and WebView bindings.

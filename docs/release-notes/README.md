@@ -5,6 +5,7 @@ have since changed. Use [current status](../status.md) for the development state
 and [GitHub Releases](https://github.com/deminden/riina/releases) for published
 source releases and packages.
 
+- [0.5.1](0.5.1.md)
 - [0.5.0](0.5.0.md) (source release)
 - [4.2.1](4.2.1.md)
 - [4.2.0](4.2.0.md)

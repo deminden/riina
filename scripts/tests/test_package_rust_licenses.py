@@ -88,7 +88,7 @@ class LicenseSelectionTests(unittest.TestCase):
                 "workspace_members": ["app"],
                 "packages": [
                     {"id": "app", "name": "riina", "source": None},
-                    {"id": "roots", "name": "webpki-roots", "version": "1.0.9",
+                    {"id": "roots", "name": "webpki-roots", "version": "1.0.12",
                      "source": "registry", "license": "CDLA-Permissive-2.0",
                      "manifest_path": str(package / "Cargo.toml")},
                 ],

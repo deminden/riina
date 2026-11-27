@@ -295,9 +295,12 @@ def verify_package(binary, source, version):
     files, repositories = verify_native_source_index(binary, source)
     binary_notices = binary / "THIRD_PARTY_LICENSES/RUST"
     rust_inventory = json.loads((binary_notices / "RUST-LICENSES.json").read_text(encoding="utf-8"))
+    lock = tomllib.loads((source / "Cargo.lock").read_text(encoding="utf-8"))
+    locked_roots = {package["version"] for package in lock["package"]
+                    if package["name"] == "webpki-roots"}
     webpki_roots = [
         package for package in rust_inventory["packages"]
-        if package.get("name") == "webpki-roots" and package.get("version") == "1.0.9"
+        if package.get("name") == "webpki-roots" and package.get("version") in locked_roots
     ]
     if len(webpki_roots) != 1 or webpki_roots[0].get("selected_license") != "CDLA-Permissive-2.0":
         raise ValueError("Rust license inventory is missing the reviewed webpki-roots data grant")
@@ -308,9 +311,10 @@ def verify_package(binary, source, version):
     attribution_file = binary_notices.joinpath(*attribution_relative.parts)
     if not attribution_file.is_file() or "Common CA Database (CCADB)" not in attribution_file.read_text(encoding="utf-8"):
         raise ValueError("Application package is missing the webpki-roots CCADB attribution")
-    if not any(
-        item.get("path", "").startswith("packages/webpki-roots-1.0.9/")
-        and Path(item["path"]).name.casefold() == "license"
+    license_relative = f"packages/webpki-roots-{webpki_roots[0]['version']}/LICENSE"
+    license_file = binary_notices / license_relative
+    if not license_file.is_file() or not any(
+        item.get("path") == license_relative and item.get("sha256") == digest(license_file)
         for item in webpki_roots[0].get("license_files", [])
     ):
         raise ValueError("Rust license inventory is missing the original webpki-roots LICENSE")

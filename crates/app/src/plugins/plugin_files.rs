@@ -703,7 +703,10 @@ pub(crate) fn safe_identifier(identifier: &str) -> String {
     // occur in a preserved identifier; uppercase names also need hashing on
     // case-insensitive filesystems. Keep ordinary existing storage paths stable.
     use sha2::{Digest, Sha256};
-    format!("~{:x}", Sha256::digest(identifier.as_bytes()))
+    format!(
+        "~{}",
+        crate::hashing::hex(&Sha256::digest(identifier.as_bytes()))
+    )
 }
 
 #[cfg(test)]

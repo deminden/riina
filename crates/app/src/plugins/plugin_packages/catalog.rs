@@ -79,8 +79,8 @@ pub(crate) fn discover(directory: &Path, locale: Option<&str>) -> Catalog {
         // Keep a second copy's grants, settings and runtime separate. The
         // installed filename is stable across refreshes and player lifetimes.
         let name = plugin.directory.file_name().unwrap_or_default();
-        let digest = Sha256::digest(name.as_encoded_bytes());
-        let mut identifier = format!("{}.duplicate-{digest:x}", plugin.declared_identifier);
+        let digest = crate::hashing::hex(&Sha256::digest(name.as_encoded_bytes()));
+        let mut identifier = format!("{}.duplicate-{digest}", plugin.declared_identifier);
         while !reserved.insert(identifier.clone()) {
             identifier.push('x');
         }

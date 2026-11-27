@@ -221,13 +221,13 @@ mod tests {
     use super::*;
 
     fn fixture(data: &[u8]) -> Package {
-        let digest = Sha256::digest(data);
+        let digest = crate::hashing::hex(&Sha256::digest(data));
         Package::select(
             vec![Asset {
                 name: "riina-5.0.0-beta.2-windows-x86_64-setup.exe".into(),
                 state: Some("uploaded".into()),
                 size: data.len() as u64,
-                digest: Some(format!("sha256:{digest:x}")),
+                digest: Some(format!("sha256:{digest}")),
             }],
             "v5.0.0-beta.2",
             &Version::parse("5.0.0-beta.2").unwrap(),

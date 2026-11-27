@@ -491,23 +491,24 @@ fn extract_validate<R: Read + Seek>(source: R, stage: &Path) -> Result<PathBuf, 
         let mut entry = archive
             .by_index(index)
             .map_err(|error| format!("Could not read plugin archive entry: {error}"))?;
+        let name = entry
+            .name()
+            .map_err(|error| format!("Could not read plugin archive entry name: {error}"))?
+            .into_owned();
         let enclosed = entry
             .enclosed_name()
-            .ok_or_else(|| format!("Unsafe path in plugin archive: {}", entry.name()))?;
+            .ok_or_else(|| format!("Unsafe path in plugin archive: {name}"))?;
         if enclosed
             .components()
             .any(|part| !matches!(part, Component::Normal(_)))
         {
-            return Err(format!("Unsafe path in plugin archive: {}", entry.name()));
+            return Err(format!("Unsafe path in plugin archive: {name}"));
         }
         if entry
             .unix_mode()
             .is_some_and(|mode| mode & 0o170000 == 0o120000)
         {
-            return Err(format!(
-                "Plugin archive may not contain symlinks: {}",
-                entry.name()
-            ));
+            return Err(format!("Plugin archive may not contain symlinks: {name}"));
         }
         let declared = entry.size();
         declared_total = declared_total
@@ -532,10 +533,7 @@ fn extract_validate<R: Read + Seek>(source: R, stage: &Path) -> Result<PathBuf, 
         let written = copy_with_budget(&mut entry, &mut output, remaining)?;
         output.flush().map_err(|error| error.to_string())?;
         if written != declared {
-            return Err(format!(
-                "Plugin archive entry {} was truncated",
-                entry.name()
-            ));
+            return Err(format!("Plugin archive entry {name} was truncated"));
         }
         written_total += written;
     }

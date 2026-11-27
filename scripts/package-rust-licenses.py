@@ -23,7 +23,7 @@ GPLV3_COMPATIBLE_GRANTS = {
     "Unicode-DFS-2016", "Unlicense", "Zlib",
 }
 REVIEWED_DATA_GRANTS = {
-    ("webpki-roots", "1.0.9", "CDLA-Permissive-2.0"): {
+    ("webpki-roots", "1.0.12", "CDLA-Permissive-2.0"): {
         "classification": "third-party data license",
         "rationale": (
             "This crate distributes derived Mozilla CA root certificate data from CCADB. "
@@ -293,7 +293,8 @@ def collect(metadata, output, root_name="riina", target_platform="x86_64-pc-wind
             ):
                 raise ValueError("webpki-roots LICENSE does not contain the reviewed CDLA text")
 
-            notice_path = output / "packages" / "webpki-roots-1.0.9" / "CCADB-ATTRIBUTION.txt"
+            folder = f"{record['name']}-{record['version']}"
+            notice_path = output / "packages" / folder / "CCADB-ATTRIBUTION.txt"
             notice_path.parent.mkdir(parents=True, exist_ok=True)
             notice_path.write_text(exception["attribution"] + "\n", encoding="utf-8", newline="\n")
             record["reviewed_data_license_exception"] = {

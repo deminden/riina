@@ -104,7 +104,7 @@ impl Editor {
                 Edit::Undo => input.undo(&adapter, &item),
                 Edit::Redo => input.redo(&adapter, &item),
                 Edit::Cut => input.cut(&adapter, &item),
-                Edit::Copy => input.copy(&adapter, &item),
+                Edit::Copy => input.copy(&adapter),
                 Edit::Paste => input.paste(&adapter, &item),
                 Edit::Delete => {
                     input.delete_selection(&adapter, &item, TextChangeNotify::TriggerCallbacks);

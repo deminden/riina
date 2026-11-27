@@ -1,6 +1,6 @@
 # Current status
 
-Updated 2026-11-27. Source version **0.5.0**. Windows package **4.2.1**.
+Updated 2026-11-27. Source version and Windows package **0.5.1**.
 Reference **IINA v1.5.0** at `fbcff4df7183b335880396af0655f6bb89d46442`.
 
 Riina is a functioning media player. Full feature, behavior and visual parity
