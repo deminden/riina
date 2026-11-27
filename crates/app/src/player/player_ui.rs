@@ -465,7 +465,6 @@ fn configure_with_engine(
         .inspect_err(|error| app.set_status(error.clone().into()))
         .map_err(std::io::Error::other)?;
     startup::apply_player_preferences(&command_sender, prefs, media.launch.pause)?;
-    observer_state.bind_end(latest_playback.clone(), command_sender.clone());
     if let Some(host) = &mut session.plugin_host {
         host.attach_player(command_sender.clone());
     }
@@ -540,6 +539,7 @@ fn configure_with_engine(
         opening_volume,
         startup::InitialOpen {
             media,
+            playback: latest_playback.clone(),
             plugins: session.plugin_host_handle.clone(),
             observer: observer_state.id(),
         },

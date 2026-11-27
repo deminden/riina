@@ -7315,4 +7315,25 @@ passed with the rebuilt Windows engine and strict field-order checks. The new
 native case checks that an older file generation cannot clear the current
 queue and that the final file's idle queue can be cleared. Strict macOS
 cross-Clippy passed for Intel and Apple Silicon. Native macOS window behavior
-and an EOF reached during a native dialog still need live checks.
+still needs live checks.
+
+The locked Linux application build, strict Clippy, 31 focused application
+tests and the native EOF regression passed. In an isolated X11 session the
+same playback window advanced to the second file, then closed and returned
+to Welcome. Closing Welcome ended the original process.
+
+In a Windows follow-up, an open file picker held its player frame visible
+for five seconds after mpv became idle. Canceling the picker closed the
+finished player, returned to Welcome and allowed the original process to
+exit normally. Selecting a third file from that picker resumed playback in
+the original frame and returned to Welcome when the replacement finished.
+The workspace gate and locked Windows build passed after the dialog change.
+Strict macOS cross-Clippy passed for Intel and Apple Silicon.
+The locked Linux application build, strict Clippy and 31 focused tests passed.
+The two-file playback and Welcome shutdown probe passed on the updated Linux
+build in an isolated X11 session.
+
+The next opening baseline used a deliberately invalid `.mkv` selected from
+Welcome. Windows displayed `unrecognized file format` in the playback frame.
+The frame stayed open until closed manually. The pinned reference closes the
+failed player and presents an opening error separately.

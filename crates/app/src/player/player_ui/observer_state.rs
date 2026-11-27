@@ -195,6 +195,31 @@ impl ObserverId {
         }
     }
 
+    pub(super) fn bind_end(
+        self,
+        app: &crate::PlayerWindow,
+        latest: crate::PlaybackStore,
+        commands: riina_mpv::CommandSender,
+    ) {
+        OBSERVERS.with(|observers| {
+            if let Some(observer) = observers.borrow_mut().get_mut(&self.0) {
+                observer.end = Some(EndOfFile {
+                    latest,
+                    commands,
+                    superseded_through: 0,
+                    submitted: None,
+                });
+            }
+        });
+        let weak = app.as_weak();
+        app.global::<riina_ui::PlayerDialogState>()
+            .on_dialog_closed(move || {
+                if let Some(app) = weak.upgrade() {
+                    self.dialog_closed(&app);
+                }
+            });
+    }
+
     pub(super) fn eof_stop_superseded(self, generation: u64, request: u32) -> bool {
         OBSERVERS.with(|observers| {
             observers
@@ -257,7 +282,12 @@ impl ObserverId {
 
     pub(super) fn notify_stopped(self, app: &crate::PlayerWindow, playback: &Playback) {
         let request = app.get_media_request_generation().cast_unsigned();
-        if !playback.confirmed_stop(request) || !app.get_player_manager_ready() {
+        if !playback.confirmed_stop(request)
+            || !app.get_player_manager_ready()
+            || app
+                .global::<riina_ui::PlayerDialogState>()
+                .get_dialog_open()
+        {
             return;
         }
         let callback = OBSERVERS.with(|observers| {
@@ -268,6 +298,21 @@ impl ObserverId {
         });
         if let Some(callback) = callback {
             callback(request);
+        }
+    }
+
+    fn dialog_closed(self, app: &crate::PlayerWindow) {
+        let latest = OBSERVERS.with(|observers| {
+            let mut observers = observers.borrow_mut();
+            let observer = observers.get_mut(&self.0)?;
+            let end = observer.end.as_ref()?;
+            // A newly opened dialog can preempt the manager's deferred close.
+            observer.delivered_stop = None;
+            Some(riina_core::sync::lock(&end.latest).clone())
+        });
+        if let Some(playback) = latest {
+            self.finish_at_end(app, &playback);
+            self.notify_stopped(app, &playback);
         }
     }
 
@@ -345,23 +390,6 @@ impl ObserverRegistration {
         OBSERVERS.with(|observers| {
             if let Some(observer) = observers.borrow_mut().get_mut(&self.id.0) {
                 observer.stopped = Some(Rc::new(callback));
-            }
-        });
-    }
-
-    pub(super) fn bind_end(
-        &self,
-        latest: crate::PlaybackStore,
-        commands: riina_mpv::CommandSender,
-    ) {
-        OBSERVERS.with(|observers| {
-            if let Some(observer) = observers.borrow_mut().get_mut(&self.id.0) {
-                observer.end = Some(EndOfFile {
-                    latest,
-                    commands,
-                    superseded_through: 0,
-                    submitted: None,
-                });
             }
         });
     }
@@ -472,7 +500,7 @@ mod tests {
         };
         let latest = crate::PlaybackStore::default();
         let (commands, engine) = riina_mpv::CommandSender::recording(4);
-        observer.bind_end(latest.clone(), commands);
+        id.bind_end(&app, latest.clone(), commands);
         id.finish_at_end(&app, &ended);
         assert!(engine.commands.try_recv().is_err());
 
@@ -484,13 +512,33 @@ mod tests {
 
         ended.generation = 2;
         *riina_core::sync::lock(&latest) = Arc::new(ended.clone());
+        let dialog = app.global::<riina_ui::PlayerDialogState>();
+        dialog.set_dialog_open(true);
         id.finish_at_end(&app, &ended);
-        id.finish_at_end(&app, &ended);
+        assert!(engine.commands.try_recv().is_err());
+
+        dialog.set_dialog_open(false);
+        dialog.invoke_dialog_closed();
         assert_eq!(
             engine.commands.try_recv(),
             Ok(riina_core::Command::Stop(Some(1)))
         );
+        id.finish_at_end(&app, &ended);
         assert!(engine.commands.try_recv().is_err());
+
+        let stopped = Rc::new(Cell::new(None));
+        let observed = stopped.clone();
+        observer.bind_stop(move |request| observed.set(Some(request)));
+        ended.phase = Phase::Stopped;
+        ended.stopped_by = Some(1);
+        *riina_core::sync::lock(&latest) = Arc::new(ended.clone());
+        dialog.set_dialog_open(true);
+        id.notify_stopped(&app, &ended);
+        assert_eq!(stopped.get(), None);
+        dialog.set_dialog_open(false);
+        dialog.invoke_dialog_closed();
+        assert_eq!(stopped.get(), Some(1));
+
         id.supersede_media();
         assert!(id.eof_stop_superseded(2, 1));
         assert!(!id.eof_stop_superseded(2, 2));

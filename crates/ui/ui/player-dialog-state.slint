@@ -11,4 +11,6 @@ export global PlayerDialogState {
 
     callback append-playlist-url(string) -> bool;
     callback jump-to-time(string);
+    callback dialog-closed();
+    changed dialog-open => { if !self.dialog-open { self.dialog-closed(); } }
 }

@@ -317,6 +317,7 @@ impl InitialMedia {
 
 pub(super) struct InitialOpen {
     pub(super) media: InitialMedia,
+    pub(super) playback: crate::PlaybackStore,
     pub(super) plugins: Option<PluginHostHandle>,
     pub(super) observer: super::observer_state::ObserverId,
 }
@@ -330,6 +331,7 @@ impl InitialOpen {
             media,
             plugins,
             observer,
+            ..
         } = self;
         let presents_window = media.external_stream().is_some();
         let open = move |app: &PlayerWindow| open_initial_media(app, media, sender, observer);
@@ -404,6 +406,11 @@ pub(super) fn activate_output(
     picture_in_picture: &crate::platform::PictureInPictureSession,
 ) -> Result<(), Box<dyn std::error::Error>> {
     use super::idle_media::Availability;
+    if opening.media.managed.is_none() {
+        opening
+            .observer
+            .bind_end(app, opening.playback.clone(), command_sender.clone());
+    }
     if opening.media.reusable_engine() {
         let available = if opening.media.requests_playback() {
             Availability::Unavailable
