@@ -221,15 +221,6 @@ pub(super) fn open_files(
             what: "No valid files were supplied",
         });
     }
-    if let Command::OpenFilesWithSubtitles { subtitles, .. } = command
-        && (subtitles.is_empty()
-            || subtitles.len() > 64
-            || subtitles.iter().any(|path| !valid_path(path)))
-    {
-        return Err(CommandError::InvalidArgument {
-            what: "Invalid dropped subtitle files were supplied",
-        });
-    }
     let mut commands: Vec<Vec<String>> = paths
         .iter()
         .map(|path| vec!["loadfile".into(), path.clone(), "append".into()])
@@ -243,10 +234,7 @@ pub(super) fn open_files(
         start.extend([shuffle_command(true), cmd(["playlist-play-index", "0"])]);
         return Ok(start);
     }
-    if matches!(
-        command,
-        Command::OpenFiles(_) | Command::OpenPlaylist(_) | Command::OpenFilesWithSubtitles { .. }
-    ) {
+    if matches!(command, Command::OpenFiles(_) | Command::OpenPlaylist(_)) {
         // PlayerCore.openURLs opens the first playable item, then appends
         // the remainder. Validate everything before replacing old media.
         commands[0][2] = "replace".into();

@@ -52,10 +52,6 @@ pub enum Command {
     OpenPlaylist(Vec<String>),
     OpenShuffledPlaylist(Vec<String>),
     OpenMediaLink(MediaLink),
-    OpenFilesWithSubtitles {
-        paths: Vec<String>,
-        subtitles: Vec<String>,
-    },
     SetPauseWhenOpen(bool),
     SetPlaybackEndPolicy {
         keep_open_on_file_end: bool,
@@ -336,7 +332,6 @@ impl Command {
                 | Self::OpenPlaylist(_)
                 | Self::OpenShuffledPlaylist(_)
                 | Self::OpenMediaLink(MediaLink { append: false, .. })
-                | Self::OpenFilesWithSubtitles { .. }
                 | Self::Stop(_)
         ) || matches!(self, Self::PluginMpv(command) if command.name() == "stop")
     }

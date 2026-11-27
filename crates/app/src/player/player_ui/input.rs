@@ -119,12 +119,13 @@ fn install_window_events(
     let weak_app = app.as_weak();
     let drop_app = weak_app.clone();
     let timer_player = player.clone();
+    let drop_playback = playback.clone();
     let (timer, file_drop) = platform::batched_file_drops(
         move |window| {
             drop_app
                 .upgrade()
-                .map_or(Ok(playlist_drop::Target::Player), |app| {
-                    playlist_drop::target(&app, window)
+                .map_or(Ok(playlist_drop::Target::Player(None)), |app| {
+                    playlist_drop::target(&app, window, &drop_playback)
                 })
         },
         move |target, paths| {
@@ -145,7 +146,12 @@ fn install_window_events(
     let event_trackpad_pause_generation = trackpad_pause_generation;
     let event_focused = Rc::downgrade(&focused);
     let playlist_hover = Rc::new(PlaylistHover::new(app));
-    let native_drop = playlist_drop::register_desktop(app, &event_player, playlist_hover.clone());
+    let native_drop = playlist_drop::register_desktop(
+        app,
+        &event_player,
+        event_playback.clone(),
+        playlist_hover.clone(),
+    );
     native_drop.attach_owner(native_host);
     let mut script_keys = embedded_input::WindowKeys::default();
     app.window().on_winit_window_event(move |window, event| {

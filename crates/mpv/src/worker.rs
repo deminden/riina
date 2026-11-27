@@ -284,7 +284,6 @@ struct WorkerState {
     volume_boost: bool,
     speed_from_arrow: bool,
     adjusted_volume_read: Option<(u64, u64)>,
-    pending_drop_subtitles: Vec<String>,
     folder_discovery: folder_discovery::FolderDiscovery,
     playlist_end_pause: playlist_end_pause::EndPause,
     load_resume: Resume,
@@ -577,9 +576,6 @@ impl WorkerState {
         stream: Option<stream::StreamLoad>,
         playlist_edit: Option<Edit>,
     ) {
-        if command.replaces_media() {
-            self.pending_drop_subtitles.clear();
-        }
         let shuffled = self
             .playlist_shuffle
             .expected(self.playback.playlist_shuffled);
@@ -648,8 +644,6 @@ impl WorkerState {
             ) {
                 self.finish_frame_request();
             }
-        } else if let Command::OpenFilesWithSubtitles { subtitles, .. } = command {
-            self.pending_drop_subtitles = subtitles;
         }
     }
 
@@ -1034,7 +1028,7 @@ impl WorkerState {
                     self.hooks.receive(handle, id, slot, wake);
                 }
             } else if event.id() == event_id::FILE_LOADED {
-                self.on_file_loaded(handle);
+                self.on_file_loaded();
             } else if event.id() == event_id::PLAYBACK_RESTART {
                 self.on_playback_restarted(handle);
             } else if event.id() == event_id::QUEUE_OVERFLOW {
@@ -1279,17 +1273,10 @@ impl WorkerState {
         self.playback.ab_loop_b = None;
     }
 
-    fn on_file_loaded(&mut self, handle: &Handle) {
+    fn on_file_loaded(&mut self) {
         self.complete_open_stream();
         self.playback.phase = Phase::Playing;
         self.load_resume.file_loaded(self.playback.generation);
-        for path in std::mem::take(&mut self.pending_drop_subtitles) {
-            let args = ["sub-add".into(), path, "auto".into()];
-            if let Err(error) = self.issue(handle, &args, ReplyKind::Plain) {
-                record_notice(&mut self.playback, NoticeSeverity::Error, error);
-                break;
-            }
-        }
     }
 
     fn on_playback_restarted(&mut self, handle: &Handle) {

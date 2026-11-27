@@ -4,6 +4,22 @@ This table tracks findings from the November 17 review. The command and settings
 golden tests use the repository's frozen IINA v1.5.0 behavior and preference
 format. See [Verification](verification.md) for the scope of the runtime checks.
 
+## 0.5.0 code review
+
+Desktop drop preparation now lives with the player opening code in
+`player/media_open/desktop_drop.rs`. It reuses the live playback snapshot
+and the existing media-bound subtitle command. The obsolete mixed-drop
+command and delayed worker attachment were removed.
+
+The next refactoring candidates are the 1,703-line mpv worker and the
+1,923-line Settings search module. The worker still handles native event
+dispatch and reply processing in its main file. Settings search keeps
+its static catalog, matching rules and tests together. Extract those
+responsibilities when changing them, with the existing lifecycle and
+search tests as coverage. File lengths include their in-file tests.
+
+## Review findings
+
 From `906296f` to `0887a00`, the app's Rust sources went from 29 to 21
 `TimerMode::Repeated` sites. The nine Slint timer declarations have
 interaction-bound lifetimes. The application now creates production threads

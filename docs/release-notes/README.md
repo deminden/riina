@@ -3,8 +3,9 @@
 These documents describe individual versions and may include limitations that
 have since changed. Use [current status](../status.md) for the development state
 and [GitHub Releases](https://github.com/deminden/riina/releases) for published
-binaries; a local notes file alone is not proof of publication.
+source releases and packages.
 
+- [0.5.0](0.5.0.md) (source release)
 - [4.2.1](4.2.1.md)
 - [4.2.0](4.2.0.md)
 - [4.1.0](4.1.0.md)

@@ -100,8 +100,7 @@ impl Command {
             Self::OpenFiles(paths)
             | Self::OpenPlaylist(paths)
             | Self::OpenShuffledPlaylist(paths)
-            | Self::AppendFiles(paths)
-            | Self::OpenFilesWithSubtitles { paths, .. } => playlist::open_files(self, paths)?,
+            | Self::AppendFiles(paths) => playlist::open_files(self, paths)?,
             Self::InsertPlaylistFiles { paths, index } => {
                 playlist::insert_files(state, paths, *index)?
             }

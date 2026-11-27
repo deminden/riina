@@ -5244,7 +5244,7 @@ dependencies = [
 
 [[package]]
 name = "riina"
-version = "4.2.1"
+version = "0.5.0"
 dependencies = [
  "arboard",
  "base64 0.23.1",
@@ -5331,7 +5331,7 @@ dependencies = [
 
 [[package]]
 name = "riina-core"
-version = "4.2.1"
+version = "0.5.0"
 dependencies = [
  "proptest",
  "regex",
@@ -5343,7 +5343,7 @@ dependencies = [
 
 [[package]]
 name = "riina-mpv"
-version = "4.2.1"
+version = "0.5.0"
 dependencies = [
  "glow",
  "image",
@@ -5356,11 +5356,11 @@ dependencies = [
 
 [[package]]
 name = "riina-test-support"
-version = "4.2.1"
+version = "0.5.0"
 
 [[package]]
 name = "riina-ui"
-version = "4.2.1"
+version = "0.5.0"
 dependencies = [
  "i-slint-renderer-software",
  "image",
@@ -8166,7 +8166,7 @@ checksum = "ec7a2a501ed189703dba8b08142f057e887dfc4b2cc4db2d343ac6376ba3e0b9"
 
 [[package]]
 name = "xtask"
-version = "4.2.1"
+version = "0.5.0"
 dependencies = [
  "serde",
  "serde_json",

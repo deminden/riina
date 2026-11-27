@@ -13,9 +13,10 @@ Riina follows the interface and behavior of **IINA 1.5.0**, with libmpv for
 playback and Slint for the interface. Windows 11 x64 is the supported platform;
 macOS and Linux application ports are in development.
 
-[![Latest release](https://img.shields.io/github/v/release/deminden/riina)](https://github.com/deminden/riina/releases/latest)
+[![Windows release](https://img.shields.io/github/v/release/deminden/riina)](https://github.com/deminden/riina/releases/tag/v4.2.1)
 
-[**Download for Windows**](https://github.com/deminden/riina/releases/latest) ·
+[**Download for Windows**](https://github.com/deminden/riina/releases/tag/v4.2.1) ·
+[0.5.0 source release](https://github.com/deminden/riina/releases/tag/v0.5.0) ·
 [What's working](docs/status.md) ·
 [Build from source](#build-from-source) ·
 [Documentation](docs/README.md)
@@ -41,7 +42,7 @@ for individual requirements and limitations.
 
 ## Download and run
 
-1. Open the [latest release](https://github.com/deminden/riina/releases/latest).
+1. Open the [4.2.1 Windows release](https://github.com/deminden/riina/releases/tag/v4.2.1).
 2. Choose **Windows x86_64 Setup EXE** to install Riina, or the **portable ZIP**.
 3. Run Setup and open Riina from Start, or extract the whole ZIP and run `riina.exe`.
 4. Open a media file through the player or drag it onto the window.
@@ -67,8 +68,9 @@ including while paused. Idle playback hides the pointer with the controls.
 Keyboard shortcuts, fullscreen transitions, preference saving and plugin storage
 also have reliability fixes.
 
-See the [4.2.1 release notes](docs/release-notes/4.2.1.md) for the complete changes;
-[GitHub Releases](https://github.com/deminden/riina/releases) shows published packages.
+The [0.5.0 source release notes](docs/release-notes/0.5.0.md) cover the latest
+development changes, including file opening, playlist transitions and subtitle drops.
+See the [4.2.1 Windows release notes](docs/release-notes/4.2.1.md) for the packaged build.
 
 ## Where the project stands
 

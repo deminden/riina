@@ -25,11 +25,7 @@ impl Edit {
 
     pub(super) fn for_open(command: &Command) -> Option<Self> {
         match command {
-            Command::OpenFiles(paths)
-            | Command::OpenPlaylist(paths)
-            | Command::OpenFilesWithSubtitles { paths, .. }
-                if paths.len() > 1 =>
-            {
+            Command::OpenFiles(paths) | Command::OpenPlaylist(paths) if paths.len() > 1 => {
                 Some(Self::OpenGroup)
             }
             _ => None,

@@ -775,6 +775,12 @@ including the filename array used by IINA, and does not split a native item
 at a newline. X11 and Wayland copy mixed selections as both an ordered URI
 list and plain text. Percent-encoded file URIs preserve filename line breaks.
 
+The playback surface classifies a drop off the interface thread. Playable files
+use the regular opening route. If no playable file is available, supported
+subtitle files use a media-bound track command with the generation captured at
+drop time. That command leaves an outstanding media request alone. Starting
+another open or closing the player cancels any unfinished drop preparation.
+
 The player builds localized titles from the displayed filename or selection
 count. It supplies section headings as distinct entries without actions.
 AppKit uses native section headers on macOS 14 and later. Older AppKit menus,

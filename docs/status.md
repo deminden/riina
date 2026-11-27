@@ -1,7 +1,7 @@
 # Current status
 
-Updated 2026-11-27. Published release: **4.2.1**. Reference: **IINA v1.5.0**
-at `fbcff4df7183b335880396af0655f6bb89d46442`.
+Updated 2026-11-27. Source version **0.5.0**. Windows package **4.2.1**.
+Reference **IINA v1.5.0** at `fbcff4df7183b335880396af0655f6bb89d46442`.
 
 Riina is a functioning media player. Full feature, behavior and visual parity
 remain active goals; the [requirement inventory](parity.csv) is incomplete.
@@ -51,6 +51,9 @@ Implementation does not imply every state or platform is verified.
   URI lists and supported local paths. A dropped stream address supports
   Unicode hostnames and filenames and preserves existing query escapes.
   The macOS drop adapter reads mixed file and stream items in pasteboard order.
+  A mixed media and subtitle drop opens the playable items and lets normal
+  subtitle discovery run. A subtitle-only drop adds or reloads tracks on the
+  video or audio file that was active when the drop was accepted.
 - **macOS Touch Bar:** the player defines customizable native playback controls,
   time displays, and a scrubber with cached thumbnails. The second clock has
   its own saved mode. AppKit supplies the customization menu on supported Macs.

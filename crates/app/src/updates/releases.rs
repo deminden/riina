@@ -8,10 +8,15 @@ use semver::Version;
 use serde::Deserialize;
 use std::{cmp::Ordering, time::Duration};
 
-const LATEST: &str = "https://api.github.com/repos/deminden/riina/releases/latest";
 const RECENT: &str = "https://api.github.com/repos/deminden/riina/releases?per_page=30";
 const TAG_PAGE: &str = "https://github.com/deminden/riina/releases/tag/";
 const METADATA_LIMIT: u64 = 2 * 1024 * 1024;
+const SOURCE_BASELINE: Version = Version::new(0, 5, 0);
+const RETIRED_VERSIONS: [Version; 3] = [
+    Version::new(4, 1, 0),
+    Version::new(4, 2, 0),
+    Version::new(4, 2, 1),
+];
 
 #[derive(Deserialize)]
 struct Record {
@@ -35,19 +40,16 @@ pub(super) enum Outcome {
 
 pub(super) fn check(channel: Channel) -> Result<Outcome, String> {
     let installed = Version::parse(env!("CARGO_PKG_VERSION")).map_err(|error| error.to_string())?;
-    check_for_version(channel, &installed)
+    compare(&fetch_release_data(RECENT)?, &installed, channel)
 }
 
-fn check_for_version(channel: Channel, installed: &Version) -> Result<Outcome, String> {
+fn fetch_release_data(url: &str) -> Result<Vec<u8>, String> {
     let mut response = agent_config(
         Duration::from_secs(12),
         RequestPolicy::HttpsWithoutRedirects,
     )
     .new_agent()
-    .get(match channel {
-        Channel::Stable => LATEST,
-        Channel::Prereleases => RECENT,
-    })
+    .get(url)
     .header("Accept", "application/vnd.github+json")
     .call()
     .map_err(|error| {
@@ -61,13 +63,12 @@ fn check_for_version(channel: Channel, installed: &Version) -> Result<Outcome, S
             ],
         )
     })?;
-    let data = response
+    response
         .body_mut()
         .with_config()
         .limit(METADATA_LIMIT)
         .read_to_vec()
-        .map_err(|error| format!("Could not read release information: {error}"))?;
-    compare(&data, installed, channel)
+        .map_err(|error| format!("Could not read release information: {error}"))
 }
 
 impl Record {
@@ -89,18 +90,17 @@ impl Record {
 }
 
 fn compare(data: &[u8], installed: &Version, channel: Channel) -> Result<Outcome, String> {
-    let invalid = |_| "GitHub returned invalid release information.".to_owned();
-    let release = match channel {
-        Channel::Stable => serde_json::from_slice::<Record>(data)
-            .map_err(invalid)?
-            .release(channel),
-        Channel::Prereleases => serde_json::from_slice::<Vec<Record>>(data)
-            .map_err(invalid)?
-            .into_iter()
-            .filter_map(|record| record.release(channel))
-            .max_by(|left, right| left.version.cmp_precedence(&right.version)),
-    }
-    .ok_or("GitHub did not return a supported release for this channel.")?;
+    let release = serde_json::from_slice::<Vec<Record>>(data)
+        .map_err(|_| "GitHub returned invalid release information.".to_owned())?
+        .into_iter()
+        .filter_map(|record| record.release(channel))
+        // 0.5.0 resumes the original version series after the 4.x releases.
+        .filter(|release| {
+            release.version.cmp_precedence(&SOURCE_BASELINE) != Ordering::Less
+                && !RETIRED_VERSIONS.contains(&release.version)
+        })
+        .max_by(|left, right| left.version.cmp_precedence(&right.version))
+        .ok_or("GitHub did not return a supported release for this channel.")?;
     Ok(
         if release.version.cmp_precedence(installed) == Ordering::Greater {
             Outcome::Available(release)
@@ -118,11 +118,13 @@ mod tests {
     #[test]
     #[ignore = "downloads the current published Windows installer without running it"]
     fn verifies_the_live_windows_installer() {
-        let Outcome::Available(release) =
-            check_for_version(Channel::Stable, &Version::new(0, 0, 0)).unwrap()
-        else {
-            panic!("A published release is required");
-        };
+        let data =
+            fetch_release_data("https://api.github.com/repos/deminden/riina/releases/latest")
+                .unwrap();
+        let release = serde_json::from_slice::<Record>(&data)
+            .unwrap()
+            .release(Channel::Stable)
+            .unwrap();
         let downloaded = release
             .installer
             .expect("Published release has no verified installer offer")
@@ -131,21 +133,20 @@ mod tests {
         downloaded.lock_verified().unwrap();
     }
 
-    fn record(tag: &str, draft: bool, prerelease: bool) -> Vec<u8> {
-        serde_json::to_vec(&serde_json::json!({
+    fn record(tag: &str, draft: bool, prerelease: bool) -> serde_json::Value {
+        serde_json::json!({
             "tag_name": tag,
             "draft": draft,
             "prerelease": prerelease,
             "html_url": "https://example.invalid/elsewhere"
-        }))
-        .unwrap()
+        })
     }
 
     #[test]
     fn compares_version_precedence_and_only_links_to_the_project() {
         let installed = Version::parse("4.2.9").unwrap();
         let Outcome::Available(release) = compare(
-            &record("v4.2.10", false, false),
+            &serde_json::to_vec(&[record("v4.2.10", false, false)]).unwrap(),
             &installed,
             Channel::Stable,
         )
@@ -156,7 +157,11 @@ mod tests {
         assert_eq!(release.url, format!("{TAG_PAGE}v4.2.10"));
         for tag in ["v4.2.8", "4.2.9+build.2"] {
             assert!(matches!(
-                compare(&record(tag, false, false), &installed, Channel::Stable),
+                compare(
+                    &serde_json::to_vec(&[record(tag, false, false)]).unwrap(),
+                    &installed,
+                    Channel::Stable
+                ),
                 Ok(Outcome::Current(_))
             ));
         }
@@ -171,7 +176,8 @@ mod tests {
             ("v5.0.0-beta.1", false, false),
             ("v5.0.0/other", false, false),
         ] {
-            assert!(compare(&record(tag, draft, beta), &installed, Channel::Stable).is_err());
+            let data = serde_json::to_vec(&[record(tag, draft, beta)]).unwrap();
+            assert!(compare(&data, &installed, Channel::Stable).is_err());
         }
     }
 
@@ -183,10 +189,7 @@ mod tests {
             record("v5.0.0-beta.2", false, true),
             record("v4.2.3", false, false),
             record("v5.0.0-beta.10", false, true),
-        ]
-        .iter()
-        .map(|item| serde_json::from_slice::<serde_json::Value>(item).unwrap())
-        .collect::<Vec<_>>();
+        ];
         let data = serde_json::to_vec(&recent).unwrap();
         let Outcome::Available(release) =
             compare(&data, &Version::new(4, 2, 1), Channel::Prereleases).unwrap()
@@ -198,6 +201,27 @@ mod tests {
         assert!(matches!(
             compare(&data, &Version::new(5, 0, 0), Channel::Prereleases),
             Ok(Outcome::Current(_))
+        ));
+    }
+
+    #[test]
+    fn reset_version_series_excludes_the_previous_windows_releases() {
+        let data = serde_json::to_vec(&[
+            record("v4.2.1", false, false),
+            record("v4.2.0", false, false),
+            record("v4.1.0", false, false),
+            record("v0.5.0", false, false),
+            record("v0.5.1-beta.1", false, true),
+        ])
+        .unwrap();
+        assert!(matches!(
+            compare(&data, &SOURCE_BASELINE, Channel::Stable),
+            Ok(Outcome::Current(version)) if version == SOURCE_BASELINE
+        ));
+        assert!(matches!(
+            compare(&data, &SOURCE_BASELINE, Channel::Prereleases),
+            Ok(Outcome::Available(release))
+                if release.version == Version::parse("0.5.1-beta.1").unwrap()
         ));
     }
 }

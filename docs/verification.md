@@ -7873,3 +7873,28 @@ interaction remains open.
 
 - Windows executable SHA-256 `902ae97cb008f7cbaf30b7f093644264f0269ec7f07b47a8e01804e8e0ec0afe`
 - Linux executable SHA-256 `bc8b955340320e3ee197d5ed872d92a791dbb9280d0a8803a7223241e560f717`
+
+### Subtitle drop ownership (2026-11-27)
+
+IINA v1.5.0's drop handler tries the playable selection first. It attaches
+supported subtitles to the receiving player only when the selection has no
+playable media. Riina now follows that order. Normal subtitle discovery can
+still match files beside a video opened by a mixed drop.
+
+For the 0.5.0 source release, the Windows workspace gate, locked build and
+86 native playback tests passed with the pinned prebuilt engine. The drop
+regression checks that a subtitle can be added with playback paused and that
+a queued attachment for that generation cannot affect a replacement video.
+The private Windows desktop smoke passed playback, fullscreen, minimize
+and restore, and normal shutdown. Intel and Apple Silicon application and
+test targets passed strict cross-Clippy. Native macOS desktop interaction
+remains open.
+
+The locked Linux application build, strict app Clippy and 25 focused tests
+passed. On an isolated X11 desktop, a subtitle-only drop kept the paused
+video and playlist, a mixed drop opened the new video without the unrelated
+subtitle, and a delayed subtitle payload was ignored after the video changed.
+The application closed normally.
+
+- Windows executable SHA-256 `6b27aa054f294f84fce7ef4a41ce56c15d90f934b6873721e27839861c2f79d3`
+- Linux executable SHA-256 `f2d998101e6a60b00a8ab4bf5c514fe2e8ad54f0e20bb691e0d7f15efdb33050`

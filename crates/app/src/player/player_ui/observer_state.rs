@@ -26,6 +26,7 @@ struct Observer {
     window: slint::Weak<crate::PlayerWindow>,
     state: Weak<RefCell<UiObserverState>>,
     discovery: SyncWeak<AtomicBool>,
+    drop_preparation: SyncWeak<AtomicBool>,
     playlist_edits: Rc<RefCell<playlist_edits::Queue>>,
     idle_media: Option<Rc<Cell<Availability>>>,
     parked: Rc<Cell<bool>>,
@@ -56,6 +57,13 @@ impl IdleClose {
 impl Observer {
     fn cancel_discovery(&self) {
         if let Some(cancelled) = self.discovery.upgrade() {
+            cancelled.store(true, Ordering::Relaxed);
+        }
+        self.cancel_drop_preparation();
+    }
+
+    fn cancel_drop_preparation(&self) {
+        if let Some(cancelled) = self.drop_preparation.upgrade() {
             cancelled.store(true, Ordering::Relaxed);
         }
     }
@@ -187,6 +195,17 @@ impl ObserverId {
                 observer.cancel_discovery();
             }
         });
+    }
+
+    pub(in crate::player) fn begin_drop_preparation(self) -> Arc<AtomicBool> {
+        let cancelled = Arc::<AtomicBool>::default();
+        OBSERVERS.with(|observers| {
+            if let Some(observer) = observers.borrow_mut().get_mut(&self.0) {
+                observer.cancel_drop_preparation();
+                observer.drop_preparation = Arc::downgrade(&cancelled);
+            }
+        });
+        cancelled
     }
 
     pub(in crate::player) fn supersede_media(self) {
@@ -419,6 +438,7 @@ impl ObserverRegistration {
                     window: app.as_weak(),
                     state: Rc::downgrade(&state),
                     discovery: SyncWeak::new(),
+                    drop_preparation: SyncWeak::new(),
                     playlist_edits: Rc::default(),
                     idle_media: None,
                     parked: parked.clone(),
@@ -525,13 +545,20 @@ mod tests {
         let second_id = ObserverId::for_window(&second_app).unwrap();
         let first_scan = first_id.begin_discovery();
         let second_scan = second_id.begin_discovery();
+        let before_drop = first_id.begin_drop_preparation();
+        let latest_drop = first_id.begin_drop_preparation();
+        assert!(before_drop.load(Ordering::Relaxed));
+        assert!(!first_scan.load(Ordering::Relaxed));
         assert_eq!(crate::media_open::invalidate(&first_app), 1);
+        assert!(latest_drop.load(Ordering::Relaxed));
         assert!(first_scan.load(Ordering::Relaxed));
         assert!(!second_scan.load(Ordering::Relaxed));
         let replacement_scan = first_id.begin_discovery();
+        let last_drop = first_id.begin_drop_preparation();
         first_id.lookup().unwrap().borrow_mut().displayed = Some(Arc::default());
         assert!(second.id().lookup().unwrap().borrow().displayed.is_none());
         drop(first);
+        assert!(last_drop.load(Ordering::Relaxed));
         assert!(replacement_scan.load(Ordering::Relaxed));
         assert!(!second_scan.load(Ordering::Relaxed));
         assert!(ObserverId::for_window(&first_app).is_none());

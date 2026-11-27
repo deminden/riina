@@ -91,8 +91,7 @@ pub(super) fn resume_on_open(command: &Command) -> Option<LoadResume> {
         | Command::LoadAtPosition { .. }
         | Command::OpenFiles(_)
         | Command::OpenPlaylist(_)
-        | Command::OpenShuffledPlaylist(_)
-        | Command::OpenFilesWithSubtitles { .. } => Some(LoadResume::FollowPreference),
+        | Command::OpenShuffledPlaylist(_) => Some(LoadResume::FollowPreference),
         Command::OpenMediaLink(MediaLink {
             append: false,
             pause,

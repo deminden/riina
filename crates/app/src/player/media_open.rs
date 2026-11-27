@@ -1,15 +1,17 @@
 //! Filesystem preparation never runs inside a rendering callback or GUI event.
+mod desktop_drop;
 mod routing;
 
 use super::{player_ui::ObserverId, playlist_edits, surface::PlayerDisplay};
 use crate::{PlayerWindow, file_selection};
+pub(crate) use desktop_drop::dropped;
 use riina_core::Command;
 use riina_mpv::CommandSender;
 pub(in crate::player) use routing::PlayerSelection;
 pub(crate) use routing::duplicate_player;
 use routing::prepare_new_players;
 use slint::{ComponentHandle, Model, ModelRc, SharedString, VecModel};
-use std::{ffi::OsString, path::Path, sync::atomic::Ordering};
+use std::{ffi::OsString, sync::atomic::Ordering};
 
 pub(crate) fn apply_manual_open_repeat(
     app: &PlayerWindow,
@@ -268,27 +270,6 @@ pub(crate) fn stream_in_new_player(app: &PlayerWindow, alternative: bool) -> Res
     Ok(has_playlist(app) && (preferences_for_open()?.allow_multiple_windows != alternative))
 }
 
-pub fn dropped(app: &PlayerWindow, paths: Vec<OsString>, sender: CommandSender) {
-    if let Some(filter) = dropped_lut(&paths) {
-        if let Err(error) = filter.and_then(|filter| {
-            sender
-                .send(Command::AddVideoFilter(filter))
-                .map_err(|error| error.to_string())
-        }) {
-            crate::diagnostics::report(app, error);
-        }
-        return;
-    }
-    startup_selection(
-        app,
-        paths,
-        None,
-        sender,
-        SelectionSource::DesktopDrop,
-        ObserverId::for_window(app),
-    );
-}
-
 pub(crate) struct WelcomeDrop {
     command: Command,
     new_players: Vec<PlayerSelection>,
@@ -304,8 +285,7 @@ impl WelcomeDrop {
             .map(OsString::into_string)
             .collect::<Result<Vec<_>, _>>()
             .map_err(|_| "A media path contains invalid Unicode".to_owned())?;
-        let subtitles = dropped_subtitles(&paths);
-        if subtitles.is_empty() && preferences.allow_multiple_windows {
+        if preferences.allow_multiple_windows {
             let mut players = prepare_new_players(paths, preferences, || false)?.into_iter();
             let first = players
                 .next()
@@ -319,13 +299,8 @@ impl WelcomeDrop {
         if paths.is_empty() {
             return Err("Drop a playable file or folder to open it.".into());
         }
-        let command = if subtitles.is_empty() {
-            Command::OpenFiles(paths)
-        } else {
-            Command::OpenFilesWithSubtitles { paths, subtitles }
-        };
         Ok(Self {
-            command,
+            command: Command::OpenFiles(paths),
             new_players: Vec::new(),
         })
     }
@@ -347,30 +322,6 @@ impl WelcomeDrop {
             app.set_status(error.into());
         }
     }
-}
-
-fn dropped_lut(paths: &[OsString]) -> Option<Result<String, String>> {
-    let [path] = paths else { return None };
-    if path
-        .to_str()
-        .is_some_and(riina_core::media_reference::is_network_url_candidate)
-    {
-        return None;
-    }
-    let extension = Path::new(path).extension()?;
-    if !["3dl", "cube", "dat", "m3d"]
-        .iter()
-        .any(|expected| extension.eq_ignore_ascii_case(expected))
-    {
-        return None;
-    }
-    Some(
-        path.to_str()
-            .ok_or_else(|| "The 3D LUT path contains invalid Unicode".into())
-            .and_then(|path| {
-                riina_core::video_filters::quick_lut_filter(path).map_err(|e| e.to_string())
-            }),
-    )
 }
 
 pub(super) fn startup_at(
@@ -410,7 +361,6 @@ pub(crate) fn startup_stdin(app: &PlayerWindow, sender: &CommandSender) {
 enum SelectionSource {
     Replace,
     StartupShuffled,
-    DesktopDrop,
     ExplicitPlaylist,
     Plugin,
 }
@@ -569,8 +519,8 @@ fn selection_at(
         }
         let result = prepared
             .unwrap_or_else(|_| Err("Could not prepare media".into()))
-            .and_then(|prepared: PreparedSelection| {
-                prepared.open(&app, &commands, grouped_stream, generation)
+            .and_then(|command: Command| {
+                open_prepared_command(&app, &commands, command, grouped_stream, generation)
             });
         if let Err(error) = result {
             app.set_status(error.into());
@@ -598,30 +548,14 @@ fn prepare_selection(
     resume_position: Option<f64>,
     source: SelectionSource,
     cancelled: impl Fn() -> bool,
-) -> Result<PreparedSelection, String> {
-    let desktop_drop = source == SelectionSource::DesktopDrop;
-    let subtitles = if desktop_drop {
-        dropped_subtitles(&paths)
-    } else {
-        Vec::new()
-    };
+) -> Result<Command, String> {
     let paths = if source == SelectionSource::Plugin {
         file_selection::prepare_plugin_sources(paths, cancelled)?
     } else {
         file_selection::prepare_cancellable(paths, true, cancelled)?
     };
     if paths.is_empty() {
-        return if subtitles.is_empty() {
-            Err("No playable files were found".into())
-        } else {
-            Ok(PreparedSelection::Subtitles(subtitles))
-        };
-    }
-    if !subtitles.is_empty() {
-        // Dropped subtitles travel with their media to the same player.
-        return Ok(PreparedSelection::Command(
-            Command::OpenFilesWithSubtitles { paths, subtitles },
-        ));
+        return Err("No playable files were found".into());
     }
     let command = if source == SelectionSource::StartupShuffled {
         Command::OpenShuffledPlaylist(paths)
@@ -638,40 +572,7 @@ fn prepare_selection(
     } else {
         Command::OpenFiles(paths)
     };
-    Ok(PreparedSelection::Command(command))
-}
-
-enum PreparedSelection {
-    Command(Command),
-    Subtitles(Vec<String>),
-}
-
-impl PreparedSelection {
-    fn open(
-        self,
-        app: &PlayerWindow,
-        sender: &CommandSender,
-        grouped_stream: Option<ObserverId>,
-        generation: i32,
-    ) -> Result<(), String> {
-        match self {
-            Self::Subtitles(paths) => {
-                let count = paths.len();
-                for path in paths {
-                    sender.send(Command::AddSubtitle(path))?;
-                }
-                app.set_status(if count == 1 {
-                    "Added dropped subtitle file".into()
-                } else {
-                    format!("Added {count} dropped subtitle files").into()
-                });
-                Ok(())
-            }
-            Self::Command(command) => {
-                open_prepared_command(app, sender, command, grouped_stream, generation)
-            }
-        }
-    }
+    Ok(command)
 }
 
 #[cfg(any(target_os = "linux", target_os = "macos"))]
@@ -720,15 +621,6 @@ fn grouped_stream_paths(command: &Command) -> Option<(&str, &[String], bool)> {
         following,
         matches!(command, Command::OpenPlaylist(_)),
     ))
-}
-
-fn dropped_subtitles(paths: &[String]) -> Vec<String> {
-    paths
-        .iter()
-        .filter(|path| !riina_core::media_reference::is_network_url_candidate(path))
-        .map(|path| crate::platform::resolve_alias_path(path))
-        .filter(|path| riina_core::file_selection::is_supported_subtitle(path))
-        .collect()
 }
 
 #[cfg(test)]
@@ -818,7 +710,7 @@ mod tests {
 
     #[test]
     fn grouped_startup_tracks_only_an_open_with_a_network_lead() {
-        use super::{PreparedSelection, SelectionSource, grouped_stream_paths, prepare_selection};
+        use super::{SelectionSource, grouped_stream_paths, prepare_selection};
 
         let address = "https://media.example/opening.avi";
         let second = "https://media.example/closing.avi";
@@ -834,10 +726,7 @@ mod tests {
             || false,
         )
         .unwrap();
-        let PreparedSelection::Command(command) = prepared else {
-            panic!("An explicit playlist should prepare one playback command");
-        };
-        let (first, following, explicit) = grouped_stream_paths(&command).unwrap();
+        let (first, following, explicit) = grouped_stream_paths(&prepared).unwrap();
         assert_eq!(first, address);
         assert_eq!(following, ["part2.avi", "part10.avi", second]);
         assert!(explicit);
@@ -849,9 +738,7 @@ mod tests {
 
     #[test]
     fn history_actions_keep_the_selection_in_one_explicit_playlist() {
-        use super::{
-            PreparedSelection, SelectionSource, prepare_explicit_player, prepare_selection,
-        };
+        use super::{SelectionSource, prepare_explicit_player, prepare_selection};
 
         let paths = vec!["clip10.mkv".into(), "clip2.mkv".into()];
         let expected = ["clip2.mkv", "clip10.mkv"];
@@ -861,9 +748,7 @@ mod tests {
             SelectionSource::ExplicitPlaylist,
             || false,
         );
-        assert!(
-            matches!(current, Ok(PreparedSelection::Command(Command::OpenPlaylist(paths))) if paths == expected)
-        );
+        assert!(matches!(current, Ok(Command::OpenPlaylist(paths)) if paths == expected));
 
         let new = prepare_explicit_player(paths).unwrap();
         let [player] = new.as_slice() else {
@@ -872,23 +757,6 @@ mod tests {
         assert_eq!(player.paths, expected);
         assert!(player.explicit_playlist);
         assert!(player.duplicate_reference.is_none());
-    }
-
-    #[test]
-    fn a_player_surface_drop_opens_files_and_links_in_its_own_session() {
-        use super::{PreparedSelection, SelectionSource, prepare_selection};
-
-        for paths in [
-            vec!["Café 2.mkv".to_owned()],
-            vec!["https://example.test/live".to_owned()],
-            vec!["Café 2.mkv".to_owned(), "Café 10.mkv".to_owned()],
-        ] {
-            let result =
-                prepare_selection(paths.clone(), None, SelectionSource::DesktopDrop, || false);
-            assert!(
-                matches!(result, Ok(PreparedSelection::Command(Command::OpenFiles(open))) if open == paths)
-            );
-        }
     }
 
     #[test]
@@ -923,49 +791,23 @@ mod tests {
     }
 
     #[test]
-    fn welcome_drops_require_media_and_keep_its_dropped_subtitles() {
+    fn welcome_drops_require_playable_media_even_when_subtitles_are_present() {
         use super::WelcomeDrop;
         use riina_core::Preferences;
 
-        let prefs = Preferences::default();
+        let prefs = Preferences {
+            allow_multiple_windows: true,
+            ..Preferences::default()
+        };
         assert!(WelcomeDrop::prepare(vec!["subtitles.srt".into()], &prefs).is_err());
         let mixed = WelcomeDrop::prepare(
             vec!["a.mkv".into(), "b.mkv".into(), "subtitles.srt".into()],
             &prefs,
         )
         .unwrap();
-        assert_eq!(
-            mixed.command,
-            Command::OpenFilesWithSubtitles {
-                paths: vec!["a.mkv".into(), "b.mkv".into()],
-                subtitles: vec!["subtitles.srt".into()],
-            }
-        );
-        assert!(mixed.new_players.is_empty());
-    }
-
-    #[test]
-    fn a_single_lut_drop_builds_a_filter_without_replacing_media() {
-        use super::{CommandSender, OsString, PlayerWindow, dropped, dropped_lut};
-
-        i_slint_backend_testing::init_no_event_loop();
-        let app = PlayerWindow::new().unwrap();
-        let (sender, commands) = CommandSender::recording(2);
-        let drop = OsString::from("Filter [café], tint.CUBE");
-        let before = app.get_media_request_generation();
-        dropped(&app, vec![drop.clone()], sender);
-        assert_eq!(app.get_media_request_generation(), before);
-        assert_eq!(
-            commands.commands.try_recv(),
-            Ok(Command::AddVideoFilter(
-                riina_core::video_filters::quick_lut_filter(drop.to_str().unwrap()).unwrap()
-            ))
-        );
-        assert!(commands.commands.try_recv().is_err());
-        assert!(dropped_lut(&[drop, "video.mkv".into()]).is_none());
-        for path in ["look.3dl", "look.dat", "look.m3d"] {
-            assert!(dropped_lut(&[path.into()]).is_some_and(|filter| filter.is_ok()));
-        }
+        assert_eq!(mixed.command, Command::OpenFiles(vec!["a.mkv".into()]));
+        assert_eq!(mixed.new_players.len(), 1);
+        assert_eq!(mixed.new_players[0].paths, ["b.mkv"]);
     }
 
     #[test]

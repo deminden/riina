@@ -456,17 +456,25 @@ fn resume_last_position_saves_on_stop_and_restores_only_when_enabled() {
 }
 
 #[test]
-#[ignore = "requires provisioned libmpv; verifies dropped subtitles attach after media loads"]
-fn opening_dropped_media_with_subtitles_attaches_them_to_the_new_file() {
+#[ignore = "requires provisioned libmpv; verifies subtitle-only drops stay with their media"]
+fn a_subtitle_drop_attaches_to_its_loaded_media_and_never_to_a_replacement() {
     let root = fixture_root();
     let media = root.join("tests/fixtures/catalog.mkv");
     let subtitle = root.join("tests/fixtures/manual-captions.srt");
     let harness = Harness::start(&root).unwrap();
+    harness.send(Command::SetPauseWhenOpen(true)).unwrap();
     harness
-        .send(Command::OpenFilesWithSubtitles {
-            paths: vec![media.to_string_lossy().into_owned()],
-            subtitles: vec![subtitle.to_string_lossy().into_owned()],
-        })
+        .send(Command::Load(media.to_string_lossy().into_owned()))
+        .unwrap();
+    let current = harness.wait(|state| state.phase.has_loaded_file() && state.paused);
+    let original_generation = current.generation;
+    let sender = harness.player.command_sender();
+    let attachment = Command::AddSubtitlesForMedia {
+        generation: original_generation,
+        paths: vec![subtitle.to_string_lossy().into_owned()],
+    };
+    sender
+        .send_for_media(original_generation, attachment.clone())
         .unwrap();
     let loaded = harness.wait(|state| {
         state.error().is_some()
@@ -477,6 +485,8 @@ fn opening_dropped_media_with_subtitles_attaches_them_to_the_new_file() {
             })
     });
     assert_eq!(loaded.error(), None);
+    assert_eq!(loaded.generation, original_generation);
+    assert!(loaded.paused);
     assert!(loaded.tracks.iter().any(|track| {
         track.kind == TrackKind::Sub
             && track.external
@@ -485,6 +495,30 @@ fn opening_dropped_media_with_subtitles_attaches_them_to_the_new_file() {
                 .as_deref()
                 .is_some_and(|filename| filename.ends_with("manual-captions.srt"))
     }));
+
+    let replacement = root.join("tests/fixtures/moving-square.avi");
+    harness
+        .send(Command::Load(replacement.to_string_lossy().into_owned()))
+        .unwrap();
+    let next = harness.wait(|state| {
+        state.generation != original_generation && state.phase.has_loaded_file() && state.paused
+    });
+    sender
+        .send_for_media(original_generation, attachment)
+        .unwrap();
+    harness.send(Command::SetPaused(false)).unwrap();
+    let running = harness.wait(|state| {
+        state.generation == next.generation
+            && !state.paused
+            && state.position.is_some_and(|position| position > 0.15)
+    });
+    assert_eq!(running.error(), None);
+    assert!(
+        !running
+            .tracks
+            .iter()
+            .any(|track| track.kind == TrackKind::Sub && track.external)
+    );
 }
 
 #[test]

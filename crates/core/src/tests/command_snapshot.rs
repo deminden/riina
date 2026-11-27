@@ -30,7 +30,6 @@ command_samples! {
         path: "https://example.test/media.mkv".into(), append: false,
         start: Some(5.0), pause: Some(true), volume: Some(40.0), speed: Some(1.25), mute: Some(false),
     }];
-    OpenFilesWithSubtitles { paths: vec!["first.mkv".into()], subtitles: vec!["dialogue.srt".into()] };
     SetPauseWhenOpen[true];
     SetPlaybackEndPolicy { keep_open_on_file_end: true, playlist_auto_play_next: false };
     SetResumeLastPosition[true];
@@ -323,7 +322,6 @@ fn worker_routes_every_command_to_the_expected_lifecycle() {
         "OpenPlaylist",
         "OpenShuffledPlaylist",
         "OpenMediaLink",
-        "OpenFilesWithSubtitles",
         "Stop",
     ];
     let decoder_changes = [

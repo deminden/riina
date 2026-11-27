@@ -12,11 +12,7 @@ impl FolderDiscovery {
         *self = Self::default();
         let path = match command {
             Command::Load(path) | Command::LoadAtPosition { path, .. } => path,
-            Command::OpenFiles(paths) | Command::OpenFilesWithSubtitles { paths, .. }
-                if paths.len() == 1 =>
-            {
-                &paths[0]
-            }
+            Command::OpenFiles(paths) if paths.len() == 1 => &paths[0],
             _ => return,
         };
         if !media_reference::is_network_url_candidate(path)
