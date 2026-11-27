@@ -138,13 +138,16 @@ impl Session {
         drop(state);
         app.global::<PlayerControlsState>()
             .set_controller_arrow_pressed(pressed);
-        if let Some(speed) = speed {
-            if speed.to_bits() != previous || start {
-                self.send(media, Command::Speed(speed));
-            }
-            if start && playback.paused {
-                self.send(media, Command::SetPaused(false));
-            }
+        if let Some(speed) = speed
+            && (speed.to_bits() != previous || start)
+        {
+            self.send(
+                media,
+                Command::ControllerSpeed {
+                    speed,
+                    resume: start && playback.paused,
+                },
+            );
         }
     }
 
@@ -164,7 +167,13 @@ impl Session {
             && origin == media(app, playback)
             && has_active_media(playback)
         {
-            self.send(origin, Command::Speed(1.0));
+            self.send(
+                origin,
+                Command::ControllerSpeed {
+                    speed: 1.0,
+                    resume: false,
+                },
+            );
         }
     }
 
@@ -184,7 +193,13 @@ impl Session {
         let speed = state.speed.pressure(stage);
         drop(state);
         if let Some(speed) = speed {
-            self.send(media, Command::Speed(speed));
+            self.send(
+                media,
+                Command::ControllerSpeed {
+                    speed,
+                    resume: false,
+                },
+            );
         }
         true
     }

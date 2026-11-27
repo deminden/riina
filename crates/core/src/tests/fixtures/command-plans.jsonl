@@ -26,6 +26,7 @@
 {"command":"ToggleMute","mpv":[["cycle","mute"]],"resume_on_load":false}
 {"command":"SetMuted","mpv":[["set","mute","yes"]],"resume_on_load":false}
 {"command":"Speed","mpv":[["set","speed","1.5"]],"resume_on_load":false}
+{"command":"ControllerSpeed","mpv":[["set","speed","2"],["set","pause","no"]],"resume_on_load":false}
 {"command":"MultiplySpeed","mpv":[["multiply","speed","1.25"]],"resume_on_load":false}
 {"command":"FrameStep","mpv":[["frame-step"]],"resume_on_load":false}
 {"command":"FrameBackStep","mpv":[["frame-back-step"]],"resume_on_load":false}

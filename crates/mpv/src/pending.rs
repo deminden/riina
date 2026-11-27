@@ -14,6 +14,7 @@ pub(super) enum ReplyKind {
     Plain,
     RememberVolume(f64),
     RememberAdjustedVolume,
+    SpeedWrite { from_arrow: bool },
     PlaylistEdit { batch: u64, lead: bool },
     ChapterSelection { index: usize, start: f64 },
     FilterEdit(FilterChange),

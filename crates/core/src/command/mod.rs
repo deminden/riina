@@ -95,6 +95,11 @@ pub enum Command {
     ToggleMute,
     SetMuted(bool),
     Speed(f64),
+    /// A player-arrow gesture can change rate and resume as one media intent.
+    ControllerSpeed {
+        speed: f64,
+        resume: bool,
+    },
     MultiplySpeed(f64),
     FrameStep,
     FrameBackStep,

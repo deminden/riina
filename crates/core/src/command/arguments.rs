@@ -100,6 +100,7 @@ impl Command {
             | Self::OpenFilesWithSubtitles { .. }
             | Self::SetPauseWhenOpen(_)
             | Self::SetResumeLastPosition(_)
+            | Self::ControllerSpeed { .. }
             | Self::Screenshot { .. }
             | Self::ScreenshotBinding { .. }
             | Self::VideoCrop(_)

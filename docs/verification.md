@@ -7717,3 +7717,24 @@ Each test player exited normally. The Windows locked build, full source gate
 and all 84 native null-output tests passed. The Linux application build, Clippy
 and 13 native playlist tests passed. Intel and Apple Silicon macOS application
 source checks passed. Native macOS interaction remains open.
+
+### Controller arrow speed and Play/Pause 2026-11-27
+
+IINA v1.5.0 uses the Playback menu and main play button to return an
+arrow-selected speed to 1×. Riina handles the rate and any resume from a
+paused or ended clip as one media intent. The worker checks the source of
+the current rate before adding a reset to Play/Pause.
+
+On a private Windows desktop, the accessible right arrow resumed a paused
+clip at 2×, and Playback > Pause returned it to 1×. The Quick Settings slider
+set 1.19×, which survived the on-screen Play and Pause buttons. On isolated
+Linux X11, a pointer click resumed at 2×, the on-screen Pause accessibility
+action restored 1×, and releasing a long press restored 1× while playback
+continued. Both tested players exited normally.
+
+The Windows locked build, full source gate and 85 native null-output tests
+passed. The native regression covers a direct speed edit queued before Pause
+and a rejected speed request before Play. The Linux application build, Clippy
+and 11 native video tests passed. Intel and Apple Silicon macOS application
+source checks passed. Physical pressure input and native macOS interaction
+remain open.

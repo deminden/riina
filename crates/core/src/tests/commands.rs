@@ -39,6 +39,20 @@ fn play_from_end_seeks_to_start_then_unpauses() {
         Command::TogglePause.plan(&ended).unwrap().commands,
         [["seek", "0", "absolute+exact"], ["set", "pause", "no"],]
     );
+    assert_eq!(
+        Command::ControllerSpeed {
+            speed: 2.0,
+            resume: true
+        }
+        .plan(&ended)
+        .unwrap()
+        .commands,
+        [
+            ["set", "speed", "2"],
+            ["seek", "0", "absolute+exact"],
+            ["set", "pause", "no"],
+        ]
+    );
 
     let playing = Playback {
         phase: Phase::Playing,

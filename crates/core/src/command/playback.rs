@@ -93,6 +93,22 @@ pub(super) fn replay_from_eof() -> Vec<Vec<String>> {
     vec![cmd(["seek", "0", "absolute+exact"]), set("pause", "no")]
 }
 
+pub(super) fn controller_speed(
+    state: &Playback,
+    speed: f64,
+    resume: bool,
+) -> Result<Vec<Vec<String>>, CommandError> {
+    let mut commands = vec![Command::Speed(speed).mpv_args()?];
+    if resume {
+        if state.phase == Phase::Ended {
+            commands.extend(replay_from_eof());
+        } else {
+            commands.push(set("pause", "no"));
+        }
+    }
+    Ok(commands)
+}
+
 pub(super) fn save_resume_positions(enabled: bool) -> Vec<Vec<String>> {
     let value = flag(enabled);
     vec![

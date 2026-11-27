@@ -193,6 +193,10 @@ action. A held speed arrow keeps the controller visible and applies speed change
 to the media that received the press. AppKit pressure events for an active arrow
 gesture reach that session before the general Force Touch action. Playlist and
 seek modes use the existing transport commands.
+The speed gesture sends its rate and any required resume to the same media
+generation. The worker tracks successful rate changes so Play/Pause returns
+an arrow-selected rate to 1×. A successful direct speed edit takes ownership
+of the rate and survives Play/Pause.
 
 Linux publishes one MPRIS service per application with an eligible player.
 It follows the focused player while retaining the last focus when such

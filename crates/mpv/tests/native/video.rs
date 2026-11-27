@@ -387,6 +387,45 @@ fn speed_controls_preserve_pause_volume_and_custom_precision() {
 }
 
 #[test]
+#[ignore = "requires provisioned libmpv; compares controller and manual speed through Play/Pause"]
+fn play_pause_resets_only_the_rate_selected_by_controller_arrows() {
+    let root = fixture_root();
+    let harness = Harness::start(&root).unwrap();
+    harness.send(Command::SetPauseWhenOpen(true)).unwrap();
+    harness
+        .send(Command::Load(
+            root.join("tests/fixtures/catalog.mkv")
+                .to_string_lossy()
+                .into_owned(),
+        ))
+        .unwrap();
+    harness.wait(|state| state.phase == Phase::Paused);
+
+    let arrow = |speed, resume| Command::ControllerSpeed { speed, resume };
+    let play_pause = || harness.send(Command::TogglePause).unwrap();
+    harness.send(arrow(2.0, true)).unwrap();
+    harness.wait(|state| state.phase == Phase::Playing && state.speed == 2.0);
+    play_pause();
+    harness.wait(|state| state.phase == Phase::Paused && state.speed == 1.0);
+
+    harness.send(Command::Speed(1.5)).unwrap();
+    play_pause();
+    harness.wait(|state| state.phase == Phase::Playing && state.speed == 1.5);
+    harness.send(arrow(0.5, false)).unwrap();
+    harness.send(Command::Speed(1.25)).unwrap();
+    play_pause();
+    harness.wait(|state| state.phase == Phase::Paused && state.speed == 1.25);
+
+    // A failed manual change must leave the live arrow rate eligible for reset.
+    harness.send(arrow(0.5, false)).unwrap();
+    harness.wait(|state| state.paused && state.speed == 0.5);
+    harness.send(Command::Speed(1_000.0)).unwrap();
+    harness.wait(|state| state.error().is_some());
+    play_pause();
+    harness.wait(|state| state.phase == Phase::Playing && state.speed == 1.0);
+}
+
+#[test]
 #[ignore = "requires provisioned libmpv; verifies configured decoding independently of codec fallback"]
 fn hardware_decoding_policy_survives_fallback_and_file_replacement() {
     use riina_core::video_controls::HardwareDecoder;

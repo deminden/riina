@@ -282,6 +282,7 @@ struct WorkerState {
     hooks: hooks::Hooks,
     script_input: script_input::Watch,
     volume_boost: bool,
+    speed_from_arrow: bool,
     adjusted_volume_read: Option<(u64, u64)>,
     pending_drop_subtitles: Vec<String>,
     folder_discovery: folder_discovery::FolderDiscovery,
@@ -599,6 +600,13 @@ impl WorkerState {
         if self.retain_subtitle_cycles(&mut plan.commands) {
             return;
         }
+        if matches!(command, Command::TogglePause)
+            && self.media_generation_is_current(self.playback.generation)
+            && self.expects_arrow_speed()
+        {
+            plan.commands
+                .insert(0, ["set", "speed", "1"].map(str::to_owned).into());
+        }
         if let Command::SetPauseWhenOpen(pause) = &command
             && self.playback.pause_when_open != *pause
         {
@@ -615,17 +623,15 @@ impl WorkerState {
             self.playback.aspect_requests = self.playback.aspect_requests.wrapping_add(1);
             self.mark_changed();
         }
-        if matches!(command, Command::TogglePause | Command::SetPaused(_)) {
+        let changes_pause = changes_pause(&command);
+        if changes_pause {
             self.seek_feedback.playback_transition();
         }
         let resume_after_navigation = plan.resume_on_load;
         if command.replaces_media() || resume_after_navigation {
             self.stream = None;
         }
-        if resume_after_navigation
-            || command.replaces_media()
-            || matches!(command, Command::TogglePause | Command::SetPaused(_))
-        {
+        if resume_after_navigation || command.replaces_media() || changes_pause {
             self.playlist_resume = PlaylistResume::Idle;
         }
         let playlist_edit = playlist_edit.or_else(|| Edit::for_open(&command));
@@ -658,6 +664,7 @@ impl WorkerState {
         playlist_edit: Option<Edit>,
     ) -> Result<(), String> {
         let playlist_batch = self.next_id + 1;
+        let changes_pause = changes_pause(command);
         let is_auto_seek = matches!(
             command,
             Command::SeekWithType {
@@ -700,6 +707,11 @@ impl WorkerState {
                 self.auto_seek.interrupt_measurement();
             }
             let (prefixes, action) = args.split_at(prefix_len);
+            if writes_speed(action) {
+                reply = ReplyKind::SpeedWrite {
+                    from_arrow: matches!(command, Command::ControllerSpeed { speed, .. } if *speed != 1.0),
+                };
+            }
             let reporting_edit =
                 playlist_edit.filter(|edit| action.first().is_some_and(|verb| edit.tracks(verb)));
             let replaces_file = is_replacement(action);
@@ -746,7 +758,7 @@ impl WorkerState {
                 self.playlist_edits
                     .track(playlist_batch, edit, self.playback.generation);
             }
-            if changes_media || matches!(command, Command::SetPaused(_) | Command::TogglePause) {
+            if changes_media || changes_pause {
                 self.playlist_end_pause.disarm();
             }
             if command.replaces_media() && replaces_file {
@@ -845,6 +857,23 @@ impl WorkerState {
 
     fn volume_limit(&self) -> f64 {
         if self.volume_boost { 200.0 } else { 100.0 }
+    }
+
+    fn expects_arrow_speed(&self) -> bool {
+        // A second control can arrive before libmpv replies to the previous speed write.
+        self.pending
+            .iter()
+            .filter_map(|(&id, pending)| {
+                if let ReplyKind::SpeedWrite { from_arrow } = pending.kind
+                    && pending.generation == self.playback.generation
+                {
+                    Some((id, from_arrow))
+                } else {
+                    None
+                }
+            })
+            .max_by_key(|&(id, _)| id)
+            .map_or(self.speed_from_arrow, |(_, from_arrow)| from_arrow)
     }
 
     fn request_client(&mut self, handle: &Handle, mut request: Request) {
@@ -1052,6 +1081,7 @@ impl WorkerState {
             }
             event_id::START_FILE => {
                 self.subtitle_reload = None;
+                self.speed_from_arrow = false;
                 self.active_entry = event.started_entry();
                 self.playlist_edits.file_started(self.active_entry);
                 self.stream_auth.public_address = None;
@@ -1094,6 +1124,7 @@ impl WorkerState {
                     .retain(|_, reply| !matches!(reply.kind, ReplyKind::PlaylistEdit { .. }));
                 self.adjusted_volume_read = None;
                 self.pending_audio_change = None;
+                self.speed_from_arrow = false;
                 self.playlist_resume = PlaylistResume::Idle;
                 self.playlist_shuffle = playlist_shuffle::PlaylistShuffle::default();
                 self.playback.playlist_shuffled = false;
@@ -1334,6 +1365,7 @@ impl WorkerState {
             | ReplyKind::PlaylistEdit { .. }
             | ReplyKind::TrackAttachment(_)
             | ReplyKind::MatchedSubtitle => {}
+            ReplyKind::SpeedWrite { from_arrow } => self.speed_from_arrow = from_arrow,
             ReplyKind::ChapterSelection { index, start } => {
                 self.publish_chapter_feedback(event.userdata(), index, start);
             }
@@ -1459,6 +1491,7 @@ impl WorkerState {
             ReplyKind::Plain
             | ReplyKind::RememberVolume(_)
             | ReplyKind::RememberAdjustedVolume
+            | ReplyKind::SpeedWrite { .. }
             | ReplyKind::PlaylistEdit { .. }
             | ReplyKind::ChapterSelection { .. }
             | ReplyKind::FilterEdit(_)
@@ -1531,6 +1564,7 @@ impl WorkerState {
             ReplyKind::Plain
             | ReplyKind::RememberVolume(_)
             | ReplyKind::RememberAdjustedVolume
+            | ReplyKind::SpeedWrite { .. }
             | ReplyKind::PlaylistEdit { .. }
             | ReplyKind::ChapterSelection { .. }
             | ReplyKind::FilterEdit(_)
@@ -1562,6 +1596,24 @@ fn changes_media(args: &[String]) -> bool {
         Some("set") => names.next() == Some("playlist-pos"),
         _ => false,
     }
+}
+
+fn changes_pause(command: &Command) -> bool {
+    matches!(
+        command,
+        Command::TogglePause
+            | Command::SetPaused(_)
+            | Command::ControllerSpeed { resume: true, .. }
+    )
+}
+
+fn writes_speed(args: &[String]) -> bool {
+    matches!(
+        args,
+        [verb, property, ..]
+            if property == "speed"
+                && matches!(verb.as_str(), "set" | "add" | "multiply" | "cycle" | "cycle-values")
+    )
 }
 
 fn command_label(args: &[CString]) -> String {

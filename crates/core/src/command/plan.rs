@@ -39,6 +39,9 @@ impl Command {
             Self::TogglePause | Self::SetPaused(false) if state.phase == Phase::Ended => {
                 playback::replay_from_eof()
             }
+            Self::ControllerSpeed { speed, resume } => {
+                playback::controller_speed(state, *speed, *resume)?
+            }
             Self::NetworkCache(preferences) => {
                 preferences.commands().map_err(CommandError::Preference)?
             }

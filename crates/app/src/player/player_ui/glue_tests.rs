@@ -1367,8 +1367,10 @@ fn exercise_controller_arrows(harness: &Harness) {
         ArrowAction::Speed.index()
     );
     actions.invoke_controller_arrow(true, ControllerArrowPhase::Pressed);
-    assert_eq!(harness.engine.commands.try_recv(), Ok(Command::Speed(0.5)));
-    harness.expect(Command::SetPaused(false));
+    harness.expect(Command::ControllerSpeed {
+        speed: 0.5,
+        resume: true,
+    });
     assert!(controls.get_control_bar_interaction_held());
     actions.invoke_controller_arrow(true, ControllerArrowPhase::Released);
     harness.expect_idle();

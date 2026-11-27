@@ -52,6 +52,7 @@ command_samples! {
     ToggleMute;
     SetMuted[true];
     Speed[1.5];
+    ControllerSpeed { speed: 2.0, resume: true };
     MultiplySpeed[1.25];
     FrameStep;
     FrameBackStep;

@@ -57,6 +57,8 @@ Implementation does not imply every state or platform is verified.
 - **Controller arrows:** Interface Settings selects playback speed, playlist
   navigation, or a 10-second seek. The main controller and Touch Bar use the
   selected action. The Music Mode arrows navigate the playlist.
+  Play/Pause restores an arrow-selected speed to 1×. Speed edits made directly
+  in Quick Settings remain active through Play/Pause.
 - **Audio startup and ReplayGain:** a new player uses the configured initial
   volume when enabled and the saved volume otherwise. An explicit launch
   volume takes precedence, within the active 100% or 200% limit. A deliberate
