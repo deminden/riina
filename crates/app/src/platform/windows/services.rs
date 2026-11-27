@@ -303,17 +303,9 @@ fn open_command_value(executable: &[u16]) -> Vec<u16> {
 pub fn preferences_path() -> std::io::Result<PathBuf> {
     let data = std::env::var_os("LOCALAPPDATA")
         .ok_or_else(|| std::io::Error::other("LOCALAPPDATA is unavailable"))?;
-    let data = PathBuf::from(data);
-    let directory = data.join("riina");
+    let directory = PathBuf::from(data).join("riina");
     std::fs::create_dir_all(&directory)?;
-    let path = directory.join("preferences.json");
-    let legacy = data.join("wiina").join("preferences.json");
-    // Preserve the first installation's settings without overwriting riina's own
-    // preferences or moving the legacy file out from under an older executable.
-    if !path.exists() && legacy.is_file() {
-        save_preferences(&path, &std::fs::read_to_string(legacy)?)?;
-    }
-    Ok(path)
+    Ok(directory.join("preferences.json"))
 }
 
 pub fn save_preferences(path: &Path, contents: &str) -> std::io::Result<()> {

@@ -18,8 +18,7 @@ Replacement files are created exclusively with a process/sequence name so
 concurrent sessions cannot truncate each other's pending writes. A cleanup guard
 removes only the file successfully created by that save if replacement fails.
 Native tests cover simultaneous Unicode saves and failed destination replacement.
-Windows keeps its existing atomic replacement and legacy migration behavior.
-No preference migration from IINA is implied.
+Windows saves the current Riina preferences with atomic replacement.
 
 libmpv discovery checks adjacent versioned libraries, macOS bundle Frameworks and
 standard Homebrew library directories, then the platform loader's versioned name.
