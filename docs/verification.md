@@ -7785,3 +7785,30 @@ the test profile. The exact test player exited normally. The executable hash
 was `9dcc475c49f2089b9758386574d4965426b054a3276ba6d1d5fde68e94ac7c2d`.
 The focused Linux native subtitle suite passed all nine tests. Native macOS
 interaction remains open.
+
+### Manual open playback startup 2026-11-27
+
+Manual file opens now use the same native readiness event as playlist
+navigation. A libmpv `on_load` hook holds each test file before initialization
+and confirms that the engine is paused. The test covers an open with appended
+entries, explicit play and pause on a browser command, and a separate pause
+issued while an audio file is loading. The resume state also rejects stale
+command replies, entry IDs and media generations.
+A separate regression opens a playlist with an unreadable first entry and
+checks that its playable successor advances with the default policy. The same
+test verifies the paused policy and end-of-queue failure cleanup.
+
+The full Windows workspace gate, locked build and all 86 native playback
+tests passed. On a private Windows desktop, a default open resumed and the
+next playlist item advanced automatically. Pause When Open kept a separate
+run paused. An explicit `--mpv-pause=no` overrode the saved Pause When Open
+selection in a third run. All three test players exited normally.
+
+The 21 focused Linux loading and playlist tests passed. The updated unreadable
+entry regression also passed on Linux. The final Linux build reached active
+video playback in an isolated X11 session and exited normally. Intel and Apple
+Silicon macOS application source checks passed. Native macOS playback remains
+open.
+
+- Windows executable SHA-256 `7a75e6108eab8129c2a200ea4ebe08ceecfff9618360b9866575949e82124f0b`
+- Linux X11 executable SHA-256 `3e467897e7a6c1fe052ce2a2ec95d27cb4d601e0b08a71485bd9e7d7877548ae`

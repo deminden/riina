@@ -101,9 +101,7 @@ impl Command {
             | Self::OpenPlaylist(paths)
             | Self::OpenShuffledPlaylist(paths)
             | Self::AppendFiles(paths)
-            | Self::OpenFilesWithSubtitles { paths, .. } => {
-                playlist::open_files(state, self, paths)?
-            }
+            | Self::OpenFilesWithSubtitles { paths, .. } => playlist::open_files(self, paths)?,
             Self::InsertPlaylistFiles { paths, index } => {
                 playlist::insert_files(state, paths, *index)?
             }
@@ -122,8 +120,8 @@ impl Command {
             Self::InsertPlaylistFilesAroundCurrent { before, after } => {
                 playlist::insert_files_around_current(state, before, after)?
             }
-            Self::Load(_) | Self::LoadAtPosition { .. } => playback::load(state, self)?,
-            Self::OpenMediaLink(link) => super::media_link::plan(state, link)?,
+            Self::Load(_) | Self::LoadAtPosition { .. } => playback::load(self)?,
+            Self::OpenMediaLink(link) => super::media_link::plan(link)?,
             Self::SelectChapter(index) | Self::ActivateChapter { index, .. } => {
                 seek::select_chapter(state, *index, self)?
             }
@@ -147,7 +145,7 @@ impl Command {
         };
         Ok(CommandPlan {
             commands,
-            resume_on_load: false,
+            resume_on_load: playback::resume_on_open(self),
         })
     }
 }

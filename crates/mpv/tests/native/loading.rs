@@ -1,4 +1,69 @@
 use super::*;
+use riina_mpv::{EngineError, MpvPropertyFormat};
+
+#[test]
+#[ignore = "requires provisioned libmpv; holds media opens at the native on_load hook"]
+fn manual_opens_wait_for_initial_output_and_honor_explicit_pause() -> Result<(), EngineError> {
+    let root = fixture_root();
+    let harness = Harness::start(&root)?;
+    let commands = harness.player.command_sender();
+    let (send, receive) = mpsc::channel();
+    let timeout = Duration::from_secs(4);
+    let _hook =
+        commands.register_mpv_hook("on_load", 0, Instant::now() + timeout, move |next| {
+            _ = send.send(next);
+        })?;
+    let path = |name: &str| {
+        root.join("tests/fixtures")
+            .join(name)
+            .to_string_lossy()
+            .into_owned()
+    };
+    let video = path("catalog.mkv");
+    let audio = path("external-tone.wav");
+    let link = |pause| {
+        Command::OpenMediaLink(riina_core::MediaLink {
+            path: video.clone(),
+            pause: Some(pause),
+            ..Default::default()
+        })
+    };
+    let cases = [
+        (
+            Command::OpenFiles(vec![video.clone(), audio.clone()]),
+            false,
+            false,
+            false,
+        ),
+        (link(false), true, false, false),
+        (link(true), false, false, true),
+        (Command::Load(audio), false, true, true),
+    ];
+    let mut generation = 0;
+    for (open, default_pause, explicit_command, final_pause) in cases {
+        harness.send(Command::SetPauseWhenOpen(default_pause))?;
+        harness.send(open)?;
+        let continuation = receive.recv_timeout(timeout).unwrap();
+        let pause = commands.read_mpv_property(
+            "pause",
+            MpvPropertyFormat::Flag,
+            Instant::now() + timeout,
+        )?;
+        assert_eq!(pause, true);
+        if explicit_command {
+            commands.run_plugin_command(Command::SetPaused(true), Instant::now() + timeout)?;
+        }
+        continuation.finish();
+        let playback = harness.wait(|state| {
+            state.generation > generation
+                && matches!(state.file_feedback, riina_core::FileFeedback::Restarted(_))
+                && state.paused == final_pause
+        });
+        assert_eq!(playback.error(), None);
+        generation = playback.generation;
+    }
+    Ok(())
+}
 
 #[test]
 #[ignore = "requires provisioned libmpv; verifies live pause-on-open policy without pausing current media"]

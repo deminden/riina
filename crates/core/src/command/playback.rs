@@ -1,4 +1,4 @@
-use super::{Command, CommandError, cmd, flag, set};
+use super::{Command, CommandError, LoadResume, MediaLink, cmd, flag, set};
 use crate::{LoopMode, Phase, Playback, hdr_preferences};
 use crate::{playlist_end_policy, valid_path};
 
@@ -79,13 +79,31 @@ pub(super) fn stop(state: &Playback) -> Vec<Vec<String>> {
     commands
 }
 
-pub(super) fn load(state: &Playback, intent: &Command) -> Result<Vec<Vec<String>>, CommandError> {
+pub(super) fn load(intent: &Command) -> Result<Vec<Vec<String>>, CommandError> {
     let mut commands = hdr_preferences::output_commands(false, None)?;
-    commands.extend([
-        set("pause", flag(state.pause_when_open)),
-        intent.mpv_args()?,
-    ]);
+    commands.extend([set("pause", "yes"), intent.mpv_args()?]);
     Ok(commands)
+}
+
+pub(super) fn resume_on_open(command: &Command) -> Option<LoadResume> {
+    match command {
+        Command::Load(_)
+        | Command::LoadAtPosition { .. }
+        | Command::OpenFiles(_)
+        | Command::OpenPlaylist(_)
+        | Command::OpenShuffledPlaylist(_)
+        | Command::OpenFilesWithSubtitles { .. } => Some(LoadResume::FollowPreference),
+        Command::OpenMediaLink(MediaLink {
+            append: false,
+            pause,
+            ..
+        }) => match pause {
+            None => Some(LoadResume::FollowPreference),
+            Some(false) => Some(LoadResume::Play),
+            Some(true) => None,
+        },
+        _ => None,
+    }
 }
 
 pub(super) fn replay_from_eof() -> Vec<Vec<String>> {

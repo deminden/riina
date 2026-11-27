@@ -209,13 +209,18 @@ file have distinct identities. The service keeps its name while the selected
 window loads another track. An insertion that also selects the new track uses
 the entry ID returned by libmpv and waits for it to appear in the observed queue.
 
-Manual playlist navigation applies a temporary pause. The worker associates it
-with the native command reply and the media generation that starts next. It
-checks the current pause-on-open preference when mpv reports playback ready
-after initialization. With normal latency settings, mpv waits for its video
-output to finish the first frame before that event. Audio-only entries reach
-the same event. An explicit pause or play command retires the temporary pause's
-automatic resume.
+Manual file opens and playlist navigation start paused. The worker records the
+native opening command, even when the same request appends more entries or
+sets other options. For `loadfile`, the reply identifies the entry expected to
+start. The worker also checks that loading and the first playback restart
+belong to that media generation. With normal latency settings, mpv waits for
+its video output to finish the first frame before that event. Audio-only
+entries reach the same event. The saved Pause When Open setting is evaluated
+at that point unless the open request specifies play or pause. An explicit
+playback pause or play action retires the automatic resume. Automatic playlist
+advancement keeps its existing gapless and Pause When Open policies.
+An unreadable entry or redirect carries the pending resume to the engine's
+fallback entry. A failed open that settles idle retires it.
 
 Single-file folder discovery belongs to the native entry returned by the open
 command. Its result carries the playback generation back to the worker, where

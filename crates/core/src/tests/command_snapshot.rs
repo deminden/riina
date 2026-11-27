@@ -306,7 +306,7 @@ fn every_command_variant_keeps_its_native_plan() {
             Ok(plan) => serde_json::json!({
                 "command": name,
                 "mpv": plan.commands,
-                "resume_on_load": plan.resume_on_load,
+                "resume_on_load": plan.resume_on_load.is_some(),
             }),
             Err(error) => serde_json::json!({ "command": name, "error": error.to_string() }),
         };

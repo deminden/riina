@@ -5,9 +5,9 @@ pub(crate) mod filter_edits;
 mod folder_discovery;
 mod handle;
 mod hooks;
+mod load_resume;
 mod local_probe;
 mod playlist_end_pause;
-mod playlist_resume;
 mod playlist_shuffle;
 mod screenshot_decode;
 mod script_input;
@@ -20,7 +20,7 @@ pub use screenshot_decode::decode_screenshot;
 pub use version_probe::{EngineVersions, read_engine_versions};
 
 use self::handle::{EventRef, Handle};
-use self::playlist_resume::PlaylistResume;
+use self::load_resume::Resume;
 use super::{Message, WakeupContext, diag, record_notice, trace_shutdown};
 use crate::{
     EngineError, MpvPropertyFormat, StartupOptions,
@@ -287,7 +287,7 @@ struct WorkerState {
     pending_drop_subtitles: Vec<String>,
     folder_discovery: folder_discovery::FolderDiscovery,
     playlist_end_pause: playlist_end_pause::EndPause,
-    playlist_resume: PlaylistResume,
+    load_resume: Resume,
     playlist_shuffle: playlist_shuffle::PlaylistShuffle,
     playlist_insertion: Option<PlaylistInsertion>,
     seek_pending: bool,
@@ -627,12 +627,12 @@ impl WorkerState {
         if changes_pause {
             self.seek_feedback.playback_transition();
         }
-        let resume_after_navigation = plan.resume_on_load;
-        if command.replaces_media() || resume_after_navigation {
+        let starts_media = command.replaces_media() || plan.resume_on_load.is_some();
+        if starts_media {
             self.stream = None;
         }
-        if resume_after_navigation || command.replaces_media() || changes_pause {
-            self.playlist_resume = PlaylistResume::Idle;
+        if starts_media || changes_pause {
+            self.load_resume.cancel();
         }
         let playlist_edit = playlist_edit.or_else(|| Edit::for_open(&command));
         if let Err(error) = self.issue_plan(handle, &command, plan, stream, playlist_edit) {
@@ -650,8 +650,6 @@ impl WorkerState {
             }
         } else if let Command::OpenFilesWithSubtitles { subtitles, .. } = command {
             self.pending_drop_subtitles = subtitles;
-        } else if resume_after_navigation {
-            self.playlist_resume = PlaylistResume::Submitted(self.next_id);
         }
     }
 
@@ -707,7 +705,7 @@ impl WorkerState {
                 self.auto_seek.interrupt_measurement();
             }
             let (prefixes, action) = args.split_at(prefix_len);
-            if writes_speed(action) {
+            if writes_property(action, "speed") {
                 reply = ReplyKind::SpeedWrite {
                     from_arrow: matches!(command, Command::ControllerSpeed { speed, .. } if *speed != 1.0),
                 };
@@ -750,6 +748,21 @@ impl WorkerState {
                 self.pending_audio_change = Some((self.next_id, device.clone()));
             }
             let changes_media = changes_media(action);
+            if changes_media {
+                if let Some(policy) = plan.resume_on_load.filter(|_| {
+                    replaces_file
+                        || matches!(
+                            action[0].as_str(),
+                            "playlist-play-index" | "playlist-next" | "playlist-prev"
+                        )
+                }) {
+                    self.load_resume.submit(self.next_id, policy);
+                } else {
+                    self.load_resume.cancel();
+                }
+            } else if writes_property(action, "pause") {
+                self.load_resume.cancel();
+            }
             if changes_media || action.first().is_some_and(|verb| verb == "playlist-clear") {
                 self.playlist_edits.retire_open();
                 self.playlist_insertion = None;
@@ -931,6 +944,9 @@ impl WorkerState {
         }
         self.next_id += 1;
         handle.request_property(self.next_id, &operation)?;
+        if matches!(&operation, Operation::Write { name, .. } if name.as_c_str() == c"pause") {
+            self.load_resume.cancel();
+        }
         Ok(Some(self.next_id))
     }
 
@@ -1099,7 +1115,8 @@ impl WorkerState {
                 self.playlist_insertion = None;
                 self.playback.folder_discovery_allowed =
                     self.folder_discovery.take_for(self.active_entry);
-                self.playlist_resume.file_started(self.playback.generation);
+                self.load_resume
+                    .file_started(self.playback.generation, self.active_entry);
             }
             event_id::END_FILE => self.on_end_file(event),
             event_id::SEEK => {
@@ -1125,7 +1142,7 @@ impl WorkerState {
                 self.adjusted_volume_read = None;
                 self.pending_audio_change = None;
                 self.speed_from_arrow = false;
-                self.playlist_resume = PlaylistResume::Idle;
+                self.load_resume.cancel();
                 self.playlist_shuffle = playlist_shuffle::PlaylistShuffle::default();
                 self.playback.playlist_shuffled = false;
                 self.playlist_insertion = None;
@@ -1166,6 +1183,9 @@ impl WorkerState {
 
         let console_open = self.playback.mpv_console_open;
         event.apply_property(&mut self.playback);
+        if self.playback.idle_active && self.playback.phase == Phase::Failed {
+            self.load_resume.became_idle();
+        }
         if console_open != self.playback.mpv_console_open {
             self.script_input.schedule();
         }
@@ -1245,8 +1265,12 @@ impl WorkerState {
         {
             record_notice(&mut self.playback, NoticeSeverity::Error, message);
         }
-        self.playlist_resume
-            .file_ended(self.playback.generation, end.reason == end_reason::REDIRECT);
+        // A manual open may skip an unreadable entry or redirect to a playlist.
+        // Its temporary pause still belongs to the first playable successor.
+        let continues =
+            cancelled.is_none() && matches!(end.reason, end_reason::REDIRECT | end_reason::ERROR);
+        self.load_resume
+            .file_ended(self.playback.generation, continues);
     }
 
     fn clear_active_file(&mut self) {
@@ -1258,7 +1282,7 @@ impl WorkerState {
     fn on_file_loaded(&mut self, handle: &Handle) {
         self.complete_open_stream();
         self.playback.phase = Phase::Playing;
-        self.playlist_resume.file_loaded(self.playback.generation);
+        self.load_resume.file_loaded(self.playback.generation);
         for path in std::mem::take(&mut self.pending_drop_subtitles) {
             let args = ["sub-add".into(), path, "auto".into()];
             if let Err(error) = self.issue(handle, &args, ReplyKind::Plain) {
@@ -1286,9 +1310,8 @@ impl WorkerState {
         // With normal latency settings, mpv waits for the initial video frame
         // at its output before emitting this event. Audio-only media also emits it.
         if self
-            .playlist_resume
-            .playback_restarted(self.playback.generation)
-            && !self.playback.pause_when_open
+            .load_resume
+            .playback_restarted(self.playback.generation, self.playback.pause_when_open)
         {
             let args = ["set".into(), "pause".into(), "no".into()];
             if let Err(error) = self.issue(handle, &args, ReplyKind::Plain) {
@@ -1324,8 +1347,13 @@ impl WorkerState {
                 self.playback.folder_discovery_allowed = true;
             }
         }
-        self.playlist_resume
-            .command_replied(event.userdata(), failed);
+        if self.load_resume.awaits_reply(event.userdata()) {
+            self.load_resume.replied(if failed {
+                Err(())
+            } else {
+                Ok(event.loaded_entry())
+            });
+        }
         self.seek_feedback.replied(event.userdata(), failed);
         if failed {
             self.auto_seek.failed(event.userdata());
@@ -1607,11 +1635,11 @@ fn changes_pause(command: &Command) -> bool {
     )
 }
 
-fn writes_speed(args: &[String]) -> bool {
+fn writes_property(args: &[String], name: &str) -> bool {
     matches!(
         args,
         [verb, property, ..]
-            if property == "speed"
+            if property == name
                 && matches!(verb.as_str(), "set" | "add" | "multiply" | "cycle" | "cycle-values")
     )
 }

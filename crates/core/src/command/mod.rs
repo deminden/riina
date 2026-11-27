@@ -315,9 +315,14 @@ pub enum AbLoopPoint {
 
 pub struct CommandPlan {
     pub commands: Vec<Vec<String>>,
-    /// Resume when mpv initializes playback for the final navigation command.
-    /// The worker checks the current pause-on-open preference at that point.
-    pub resume_on_load: bool,
+    /// Resume after mpv initializes the manually selected source.
+    pub resume_on_load: Option<LoadResume>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum LoadResume {
+    FollowPreference,
+    Play,
 }
 
 impl Command {

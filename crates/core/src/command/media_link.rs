@@ -1,5 +1,5 @@
-use super::{Command, CommandError, cmd, flag, playback, set};
-use crate::{Playback, valid_path};
+use super::{Command, CommandError, flag, playback, set};
+use crate::valid_path;
 
 /// Only playback controls that can be represented as typed values cross the
 /// browser boundary. In particular, links cannot supply arbitrary mpv options.
@@ -14,7 +14,7 @@ pub struct MediaLink {
     pub mute: Option<bool>,
 }
 
-pub(super) fn plan(state: &Playback, link: &MediaLink) -> Result<Vec<Vec<String>>, CommandError> {
+pub(super) fn plan(link: &MediaLink) -> Result<Vec<Vec<String>>, CommandError> {
     if !valid_path(&link.path)
         || link
             .start
@@ -45,18 +45,12 @@ pub(super) fn plan(state: &Playback, link: &MediaLink) -> Result<Vec<Vec<String>
         } else {
             Command::Load(link.path.clone())
         };
-        playback::load(state, &load)?
+        playback::load(&load)?
     };
-    if let Some(pause) = link.pause {
-        if !link.append
-            && let Some(entry) = plan
-                .iter_mut()
-                .find(|entry| entry.starts_with(&cmd(["set", "pause"])))
-        {
-            *entry = set("pause", flag(pause));
-        } else {
-            plan.push(set("pause", flag(pause)));
-        }
+    if link.append
+        && let Some(pause) = link.pause
+    {
+        plan.push(set("pause", flag(pause)));
     }
     plan.extend(link.volume.map(|value| set("volume", value.to_string())));
     plan.extend(link.speed.map(|value| set("speed", value.to_string())));

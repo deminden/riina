@@ -612,7 +612,8 @@ fn resume_load_uses_native_start_option_and_rejects_invalid_positions() {
         ]
     );
     let plan = command.plan(&Playback::default()).unwrap();
-    assert_eq!(plan.commands[4], ["set", "pause", "no"]);
+    assert_eq!(plan.commands[4], ["set", "pause", "yes"]);
+    assert_eq!(plan.resume_on_load, Some(LoadResume::FollowPreference));
     assert_eq!(plan.commands[5][4], "start=42.5");
     for position in [-1.0, f64::NAN, f64::INFINITY] {
         assert!(
@@ -805,7 +806,7 @@ fn chapter_selection_resumes_and_playlist_ids_resolve_after_reorder() {
     );
     let selected = Command::SelectPlaylistId(40).plan(&state).unwrap();
     assert_eq!(selected.commands[1], vec!["playlist-play-index", "1"]);
-    assert!(selected.resume_on_load);
+    assert_eq!(selected.resume_on_load, Some(LoadResume::FollowPreference));
     assert!(Command::SelectPlaylistId(99).plan(&state).is_err());
     assert_eq!(
         Command::MovePlaylistId {
@@ -847,7 +848,7 @@ fn playlist_insertion_resolves_the_target_id_at_execution() {
             vec!["loadfile", "two.mkv", "insert-at", "2"],
         ]
     );
-    assert!(!plan.resume_on_load);
+    assert_eq!(plan.resume_on_load, None);
     assert!(insert(Some(99)).plan(&state).is_err());
     assert_eq!(
         insert(None).plan(&state).unwrap().commands,

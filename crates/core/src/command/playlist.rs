@@ -1,5 +1,5 @@
 use super::{Command, CommandError, cmd};
-use super::{CommandPlan, flag, set};
+use super::{CommandPlan, LoadResume, set};
 use crate::{
     Playback, PlaylistEntry, PlaylistFileReference, hdr_preferences, playlist, valid_path,
 };
@@ -213,7 +213,6 @@ pub(super) fn shuffle_command(enabled: bool) -> Vec<String> {
 }
 
 pub(super) fn open_files(
-    state: &Playback,
     command: &Command,
     paths: &[String],
 ) -> Result<Vec<Vec<String>>, CommandError> {
@@ -239,7 +238,7 @@ pub(super) fn open_files(
         let mut start = hdr_preferences::output_commands(false, None)?;
         // Populate the idle playlist before choosing its first file. No decoder
         // can briefly start the original first entry while the shuffle runs.
-        start.extend([cmd(["stop"]), set("pause", flag(state.pause_when_open))]);
+        start.extend([cmd(["stop"]), set("pause", "yes")]);
         start.append(&mut commands);
         start.extend([shuffle_command(true), cmd(["playlist-play-index", "0"])]);
         return Ok(start);
@@ -251,7 +250,7 @@ pub(super) fn open_files(
         // PlayerCore.openURLs opens the first playable item, then appends
         // the remainder. Validate everything before replacing old media.
         commands[0][2] = "replace".into();
-        commands.insert(0, set("pause", flag(state.pause_when_open)));
+        commands.insert(0, set("pause", "yes"));
         // HDR overrides target the current source's primaries. Clear
         // them before replacement so the next source inherits auto/ICC.
         let hdr_reset = hdr_preferences::output_commands(false, None)?;
@@ -395,7 +394,7 @@ impl Command {
         &self,
         state: &Playback,
     ) -> Result<CommandPlan, CommandError> {
-        let mut resume_on_load = false;
+        let mut resume_on_load = None;
         let commands = match self {
             Self::SelectPlaylistEntry(index) => {
                 if *index >= state.playlist.len() {
@@ -403,14 +402,14 @@ impl Command {
                         what: "The playlist entry is no longer available",
                     });
                 }
-                resume_on_load = true;
+                resume_on_load = Some(LoadResume::FollowPreference);
                 vec![set("pause", "yes"), self.mpv_args()?]
             }
             Self::PlaylistPrevious if state.playlist.first().is_some_and(|entry| entry.current) => {
                 vec![cmd(["seek", "0", "absolute"])]
             }
             Self::PlaylistNext | Self::PlaylistPrevious => {
-                resume_on_load = true;
+                resume_on_load = Some(LoadResume::FollowPreference);
                 vec![set("pause", "yes"), self.mpv_args()?]
             }
             Self::RemovePlaylistEntry(index) if *index >= state.playlist.len() => {

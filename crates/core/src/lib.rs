@@ -55,7 +55,7 @@ mod preferences;
 
 pub use captured_frame::{CapturedFrame, FrameError};
 pub use command::{
-    AbLoopPoint, Command, CommandError, CommandPlan, MAX_PLUGIN_MPV_ARGUMENT_BYTES,
+    AbLoopPoint, Command, CommandError, CommandPlan, LoadResume, MAX_PLUGIN_MPV_ARGUMENT_BYTES,
     MAX_PLUGIN_MPV_ARGUMENTS, MediaLink, PluginMpvCommand, validate_plugin_mpv_arguments,
 };
 pub use loop_mode::{DefaultRepeatMode, LoopMode};

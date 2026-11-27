@@ -364,6 +364,17 @@ fn failed_playlist_opens_skip_to_playable_media_and_finalize_only_when_idle() {
             .into_owned()
     };
     let missing = fixture("unavailable-file.mkv");
+    harness
+        .send(Command::OpenPlaylist(vec![
+            missing.clone(),
+            fixture("catalog.mkv"),
+        ]))
+        .unwrap();
+    let playing = harness.wait(|state| {
+        state.generation >= 2 && !state.paused && state.position.is_some_and(|time| time > 0.1)
+    });
+    assert_eq!(playing.error(), None);
+
     harness.send(Command::SetPauseWhenOpen(true)).unwrap();
     harness
         .send(Command::OpenPlaylist(vec![
@@ -372,7 +383,8 @@ fn failed_playlist_opens_skip_to_playable_media_and_finalize_only_when_idle() {
             missing,
         ]))
         .unwrap();
-    let playable = harness.wait(|state| state.generation >= 2 && state.phase == Phase::Paused);
+    let playable = harness
+        .wait(|state| state.generation > playing.generation + 1 && state.phase == Phase::Paused);
     assert_eq!(playable.error(), None);
     assert!(!playable.idle_for_finalization());
     harness.send(Command::PlaylistNext).unwrap();

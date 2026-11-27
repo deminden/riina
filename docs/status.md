@@ -24,6 +24,9 @@ Implementation does not imply every state or platform is verified.
 
 - **Playback:** files, folders and URLs; play/pause, seeking, volume/mute, speed,
   frame stepping, loops, chapters, playlist editing, history and resume.
+  Manually opened files and playlist entries hold playback until mpv
+  initializes the new output. An explicit play or pause on a browser link
+  overrides Pause When Open for that load.
   Pause When Open also applies when the playlist automatically advances.
   Shuffle reflects confirmed playlist changes. Adding, removing or moving
   entries clears its selection while leaving the edited order in place.
