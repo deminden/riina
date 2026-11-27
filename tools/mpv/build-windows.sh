@@ -6,6 +6,8 @@ set -Eeuo pipefail
 readonly BUILDER_REVISION='b2856ee6deed6957380b32465f359e67f67fafd8'
 readonly BUILD_IMAGE='ghcr.io/shinchiro/archlinux@sha256:eb6fa66bafe02c19ce52a3464342130b1210176ac6aff49265d9aef1772994eb'
 readonly MPV_REVISION='36abaa32d00a7229ee206aae12dc0e97e7962dca'
+# This libvpl revision includes the MinGW string fix required by the builder.
+readonly LIBVPL_REVISION='ec718e8ede859f16d29c3cdeba3a3025031bc83d'
 readonly OPENSSL_REVISION='d8bf6cdd4849925c30e4f1911c7acb49cb34b702'
 readonly CURL_REVISION='01346829096c61b372692f6dc43ffa778c6caccd' # curl 8.22.0
 readonly REPO_ROOT="$PWD"
@@ -71,6 +73,7 @@ cmake \
   -DMINGW_INSTALL_PREFIX="$BUILDER/build_x86_64/x86_64-w64-mingw32" \
   -DSINGLE_SOURCE_LOCATION="$BUILDER/src_packages" \
   -DRUSTUP_LOCATION="$BUILDER/clang_root/install_rustup" \
+  -DRIINA_LIBVPL_REVISION="$LIBVPL_REVISION" \
   -DENABLE_CCACHE=ON \
   -DCLANG_PACKAGES_LTO=ON \
   -G Ninja --fresh -B build_x86_64 -S .
@@ -87,6 +90,7 @@ test -d "$BUILDER/src_packages/curl/.git"
 test -d "$BUILDER/src_packages/libsixel/.git"
 test "$(git -C "$BUILDER/src_packages/curl" remote get-url origin)" = 'https://github.com/curl/curl.git'
 test "$(git -C "$BUILDER/src_packages/curl" rev-parse HEAD)" = "$CURL_REVISION"
+test "$(git -C "$BUILDER/src_packages/libvpl" rev-parse HEAD)" = "$LIBVPL_REVISION"
 
 # Fetch toolchain sources before restoring a captured source set. Otherwise the
 # rebuild would compile a fresh toolchain before checking its locked revisions.
@@ -103,11 +107,12 @@ if [[ -n "${RIINA_NATIVE_SOURCE_ROOT:-}" ]]; then
       source_revision)
         # The archive records the original revision but omits redundant Git
         # history. Recreate a local snapshot repo so pinned patch steps work.
-        repository="$BUILDER/${first#src_packages/}"
+        repository="$BUILDER/$first"
         test -d "$repository"
         if [[ "$first" == 'src_packages/curl' ]]; then test "$third" = "$CURL_REVISION"; fi
         if [[ "$first" == 'src_packages/openssl' ]]; then test "$third" = "$OPENSSL_REVISION"; fi
         if [[ "$first" == 'src_packages/mpv' ]]; then test "$third" = "$MPV_REVISION"; fi
+        if [[ "$first" == 'src_packages/libvpl' ]]; then test "$third" = "$LIBVPL_REVISION"; fi
         git init -q "$repository"
         git -C "$repository" config user.name 'Riina source snapshot'
         git -C "$repository" config user.email 'source-snapshot@riina.invalid'

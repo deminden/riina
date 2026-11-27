@@ -7112,3 +7112,17 @@ the controller marker with absent and unrelated profile log entries and with
 the marker present. The freshly rebuilt Windows executable passed playback,
 preference writes, fullscreen and minimize/restore using `catalog.mkv` on an
 isolated desktop in 9.08 seconds. Its process exited normally.
+
+### Windows native libvpl source pin (2026-11-27)
+
+The native Windows build completed LLVM and the MinGW toolchain, then stopped
+at the builder's libvpl patch. The cloned source already included the MinGW
+string macro fix in commit `412c5cf`. The recipe now pins libvpl to
+`ec718e8ede859f16d29c3cdeba3a3025031bc83d` and disables that patch step. The
+release verifier checks libvpl's recorded source revision alongside mpv's.
+The source snapshot restore also initializes each repository under the
+captured `src_packages` path.
+
+The recipe passed Bash syntax validation, its libvpl hunk applied against the
+exact builder checkout, and all ten release artifact tests passed. The rebuilt
+Windows DLL and its package checks remain pending.

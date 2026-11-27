@@ -24,3 +24,14 @@ diff --git a/toolchain/rustup.cmake b/toolchain/rustup.cmake
 +        sh -s -- -y --default-toolchain nightly-2026-10-10 --target aarch64-pc-windows-gnullvm,x86_64-pc-windows-gnullvm,i686-pc-windows-gnullvm,x86_64-pc-windows-gnu,i686-pc-windows-gnu --no-modify-path --profile minimal
 +    BUILD_COMMAND ${EXEC} rustup run nightly-2026-10-10 rustc --version
      INSTALL_COMMAND ""
+diff --git a/packages/libvpl.cmake b/packages/libvpl.cmake
+--- a/packages/libvpl.cmake
++++ b/packages/libvpl.cmake
+@@ -5,5 +5,5 @@
+     GIT_REMOTE_NAME origin
+-    GIT_TAG main
++    GIT_TAG ${RIINA_LIBVPL_REVISION}
+     UPDATE_COMMAND ""
+-    PATCH_COMMAND ${EXEC} git am --3way ${CMAKE_CURRENT_SOURCE_DIR}/libvpl-*.patch
++    PATCH_COMMAND ""
+     CONFIGURE_COMMAND ${EXEC} CONF=1 cmake -H<SOURCE_DIR> -B<BINARY_DIR>

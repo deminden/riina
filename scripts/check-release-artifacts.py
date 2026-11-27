@@ -253,8 +253,9 @@ def verify_native_source_index(binary, source):
     for constant, field in (
         ("BUILDER_REVISION", "builder_revision"), ("CURL_REVISION", "curl_revision"),
         ("MPV_REVISION", "src_packages/mpv"), ("BUILD_IMAGE", "container_image"),
+        ("LIBVPL_REVISION", "src_packages/libvpl"),
     ):
-        if pinned_setting(build_script, constant) != records[field]:
+        if pinned_setting(build_script, constant) != records.get(field):
             raise ValueError(f"Native source index does not match {constant}")
     for field, filename in patches.items():
         if digest(tools / filename) != records[field]:
