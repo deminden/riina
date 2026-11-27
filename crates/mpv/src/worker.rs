@@ -317,6 +317,7 @@ struct WorkerState {
     observers: BTreeMap<u64, String>,
     next_observer: u64,
     pending: HashMap<u64, PendingCommand>,
+    pending_stop: Option<(u64, u32)>,
     playlist_edits: PendingEdits,
     filter_edits: filter_edits::Queue,
     subtitle_reload: Option<subtitle_reload::Reload>,
@@ -663,6 +664,11 @@ impl WorkerState {
                 };
             }
             self.issue(handle, &args, reply)?;
+            if let Command::Stop(Some(request)) = command
+                && action.first().is_some_and(|verb| verb == "stop")
+            {
+                self.pending_stop = Some((self.next_id, *request));
+            }
             if action.first().is_some_and(|verb| verb == "loadfile")
                 && matches!(
                     command,
@@ -775,6 +781,13 @@ impl WorkerState {
         handle
             .command(self.next_id, &args)
             .map_err(|error| format!("mpv {label}: {error}"))?;
+        if changes_media
+            || command
+                .first()
+                .is_some_and(|verb| matches!(verb.as_str(), "loadfile" | "loadlist"))
+        {
+            self.retire_stop();
+        }
         if let [action, property, value] = &args[prefix_len..]
             && action.as_c_str() == c"set"
             && property.as_c_str() == c"volume-max"
@@ -1020,6 +1033,7 @@ impl WorkerState {
                 self.apply_property_event(event);
             }
             event_id::QUEUE_OVERFLOW => {
+                self.retire_stop();
                 self.script_input.recover();
                 self.stream = None;
                 self.folder_discovery = folder_discovery::FolderDiscovery::default();
@@ -1181,6 +1195,15 @@ impl WorkerState {
     fn on_command_reply(&mut self, event: &EventRef<'_>) -> Option<u64> {
         static NEXT_VOLUME_REVISION: AtomicU64 = AtomicU64::new(1);
         let failed = event.failed();
+        if let Some((id, request)) = self.pending_stop
+            && id == event.userdata()
+        {
+            self.pending_stop = None;
+            if !failed {
+                self.playback.stopped_by = Some(request);
+                self.mark_changed();
+            }
+        }
         if self.folder_discovery.awaits(event.userdata()) {
             self.folder_discovery
                 .replied((!failed).then(|| event.loaded_entry()).flatten());
@@ -1262,6 +1285,13 @@ impl WorkerState {
             kind => self.on_capture_reply(event, kind, pending.generation),
         }
         None
+    }
+
+    fn retire_stop(&mut self) {
+        self.pending_stop = None;
+        if self.playback.stopped_by.take().is_some() {
+            self.mark_changed();
+        }
     }
 
     fn publish_open_feedback(&mut self) {

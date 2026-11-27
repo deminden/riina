@@ -1,12 +1,12 @@
 //! Snapshot projection state belongs to the UI thread for each player session.
-use super::features::PlaybackTimers;
+use super::{features::PlaybackTimers, idle_media::Availability};
 use crate::player::playlist_edits;
 use crate::windows::open_url::ApplicationOpenUrl;
 use crate::{seek_osd::SeekOsd, video_osd::VideoOsd};
 use riina_core::Playback;
 use slint::ComponentHandle;
 use std::{
-    cell::RefCell,
+    cell::{Cell, RefCell},
     collections::BTreeMap,
     rc::{Rc, Weak},
     sync::{
@@ -24,6 +24,7 @@ struct Observer {
     state: Weak<RefCell<UiObserverState>>,
     discovery: SyncWeak<AtomicBool>,
     playlist_edits: Rc<RefCell<playlist_edits::Queue>>,
+    idle_media: Option<Rc<Cell<Availability>>>,
 }
 
 impl Observer {
@@ -162,6 +163,30 @@ impl ObserverId {
         });
     }
 
+    pub(in crate::player) fn retire_idle_media(self) {
+        if let Some(available) = self.idle_media() {
+            available.set(Availability::Unavailable);
+        }
+    }
+
+    pub(in crate::player) fn arm_idle_after_stop(self, request: u32) {
+        if let Some(available) = self.idle_media() {
+            available.set(Availability::AfterStop(request));
+        }
+    }
+
+    pub(super) fn idle_media(self) -> Option<Rc<Cell<Availability>>> {
+        OBSERVERS.with(|observers| observers.borrow().get(&self.0)?.idle_media.clone())
+    }
+
+    pub(super) fn enable_idle_media(self, initial: Availability) {
+        OBSERVERS.with(|observers| {
+            if let Some(observer) = observers.borrow_mut().get_mut(&self.0) {
+                observer.idle_media = Some(Rc::new(Cell::new(initial)));
+            }
+        });
+    }
+
     pub(in crate::player) fn open_url(self) -> Option<Rc<ApplicationOpenUrl>> {
         self.lookup()?.borrow().open_url.upgrade()
     }
@@ -203,6 +228,7 @@ impl ObserverRegistration {
                     state: Rc::downgrade(&state),
                     discovery: SyncWeak::new(),
                     playlist_edits: Rc::default(),
+                    idle_media: None,
                 },
             );
         });

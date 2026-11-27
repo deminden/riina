@@ -461,7 +461,9 @@ fn player_glue_worker() -> Result<(), Box<dyn std::error::Error>> {
         .app
         .global::<PlayerMenuActions>()
         .invoke_close_player();
-    capture.expect(Command::Stop);
+    capture.expect(Command::Stop(Some(
+        capture.app.get_media_request_generation().cast_unsigned(),
+    )));
     Ok(())
 }
 
@@ -732,7 +734,9 @@ fn exercise_transport_and_tracks(harness: &Harness) {
     app.global::<PlayerMenuActions>().invoke_toggle_pause();
     harness.expect(Command::TogglePause);
     app.global::<PlayerMenuActions>().invoke_stop();
-    harness.expect(Command::Stop);
+    harness.expect(Command::Stop(Some(
+        app.get_media_request_generation().cast_unsigned(),
+    )));
     app.global::<PlayerMenuActions>().invoke_seek(17.5);
     harness.expect(Command::Seek {
         seconds: 17.5,

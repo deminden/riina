@@ -209,7 +209,6 @@ pub(crate) struct UiSession {
     // Native callbacks retain senders only. Field order keeps the target alive
     // until this sole native player owner has joined its decoder worker.
     player: Option<SessionResource<Player>>,
-    idle_media_available: Option<Rc<std::cell::Cell<bool>>>,
     platform_extras: platform::SessionExtras,
     _plugins: plugins::RuntimeSession,
     application: ApplicationServices,
@@ -536,7 +535,7 @@ fn configure_with_engine(
     );
     application.connect_media_actions(app, native.as_ref(), welcome, &session, &command_sender);
     observer_state.bind_open_url(&application.open_url);
-    let idle_media_available = startup::activate_output(
+    startup::activate_output(
         app,
         native.is_some(),
         player.as_ref(),
@@ -564,7 +563,6 @@ fn configure_with_engine(
     );
     Ok(UiSession {
         player: player.map(SessionResource::Live),
-        idle_media_available,
         platform_extras,
         _plugins: plugin_runtime,
         application,

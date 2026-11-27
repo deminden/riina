@@ -234,13 +234,13 @@ fn stop_saves_active_resume_position_before_stopping_when_enabled() {
         ..Playback::default()
     };
     assert_eq!(
-        Command::Stop.plan(&state).unwrap().commands,
+        Command::Stop(None).plan(&state).unwrap().commands,
         [vec!["write-watch-later-config"], vec!["stop"]]
     );
 
     state.phase = Phase::Paused;
     assert_eq!(
-        Command::Stop.plan(&state).unwrap().commands,
+        Command::Stop(None).plan(&state).unwrap().commands,
         [vec!["write-watch-later-config"], vec!["stop"]]
     );
 }
@@ -252,11 +252,17 @@ fn stop_does_not_write_resume_position_when_disabled_or_inactive() {
         save_position_on_quit: Some(false),
         ..Playback::default()
     };
-    assert_eq!(Command::Stop.plan(&state).unwrap().commands, [vec!["stop"]]);
+    assert_eq!(
+        Command::Stop(None).plan(&state).unwrap().commands,
+        [vec!["stop"]]
+    );
 
     state.save_position_on_quit = Some(true);
     state.phase = Phase::Loading;
-    assert_eq!(Command::Stop.plan(&state).unwrap().commands, [vec!["stop"]]);
+    assert_eq!(
+        Command::Stop(None).plan(&state).unwrap().commands,
+        [vec!["stop"]]
+    );
 }
 
 #[test]

@@ -139,13 +139,12 @@ pub(super) fn install_stop_and_steps(
     subtitle_assignments: Assignments,
 ) {
     bind!(context, app.global::<PlayerMenuActions>(), on_stop, |ctx| {
-        if let Some(app) = ctx.app() {
-            app.global::<riina_ui::PlayerControlActions>()
-                .invoke_activity();
-            crate::media_open::invalidate(&app);
-        }
+        let Some(app) = ctx.app() else { return };
+        app.global::<riina_ui::PlayerControlActions>()
+            .invoke_activity();
         subtitle_assignments.reset();
-        ctx.send_with_osd(Command::Stop, crate::video_osd::ActionFeedback::Stop, true);
+        let command = crate::media_open::stop_command(&app);
+        ctx.send_with_osd(command, crate::video_osd::ActionFeedback::Stop, true);
     });
     bind!(
         context,

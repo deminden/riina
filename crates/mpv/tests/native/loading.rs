@@ -309,7 +309,7 @@ fn resume_last_position_saves_on_stop_and_restores_only_when_enabled() {
     assert_eq!(deleted.generation, saved.generation);
     assert!(!saved_path.exists());
 
-    player.send(Command::Stop).unwrap();
+    player.send(Command::Stop(None)).unwrap();
     wait_for(&receiver, |state| {
         state.phase == Phase::Stopped
             && state.watch_later_revision > deleted.watch_later_revision
@@ -357,7 +357,7 @@ fn resume_last_position_saves_on_stop_and_restores_only_when_enabled() {
     wait_for(&receiver, |state| {
         state.phase == Phase::Playing && state.position.is_some_and(|position| position >= 1.0)
     });
-    player.send(Command::Stop).unwrap();
+    player.send(Command::Stop(None)).unwrap();
     wait_for(&receiver, |state| {
         state.phase == Phase::Stopped && state.save_position_on_quit == Some(false)
     });

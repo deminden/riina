@@ -122,14 +122,22 @@ pub(super) fn submit(
     sender: &CommandSender,
     command: Command,
 ) -> Result<(), String> {
-    if let Some(queue) = queue(app) {
+    let observer = ObserverId::for_window(app);
+    if let Some(queue) = observer.and_then(ObserverId::playlist_edits) {
         let mut queue = queue.borrow_mut();
         if queue.replacing_media || !queue.slots.is_empty() {
             queue.reserve(Some(Ok(command)))?;
+            if let Some(observer) = observer {
+                observer.retire_idle_media();
+            }
             return Ok(());
         }
     }
-    sender.send_playlist_edit(command).map_err(String::from)
+    sender.send_playlist_edit(command).map_err(String::from)?;
+    if let Some(observer) = observer {
+        observer.retire_idle_media();
+    }
+    Ok(())
 }
 
 pub(crate) fn add_files(
@@ -149,11 +157,13 @@ pub(super) fn prepare(
     insertion: Insertion,
     references: impl FnOnce() -> Result<Vec<String>, String> + Send + 'static,
 ) -> Result<(), String> {
-    let queue = queue(app).ok_or("The player is closed")?;
+    let observer = ObserverId::for_window(app).ok_or("The player is closed")?;
+    let queue = observer.playlist_edits().ok_or("The player is closed")?;
     let (id, retired) = {
         let mut queue = queue.borrow_mut();
         (queue.reserve(None)?, queue.retired.clone())
     };
+    observer.retire_idle_media();
     let window = app.as_weak();
     let (ready, result) = tokio::sync::oneshot::channel();
     let commands = sender.clone();

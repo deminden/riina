@@ -85,7 +85,7 @@ fn remaining_clocks_follow_speed_while_paused_and_clear_on_stop() -> Result<(), 
     });
     assert_eq!(paused.error(), None);
 
-    harness.send(Command::Stop)?;
+    harness.send(Command::Stop(None))?;
     harness.wait(|state| {
         state.phase == Phase::Stopped
             && state.remaining_time.is_none()

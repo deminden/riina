@@ -71,7 +71,7 @@ fn install_transport(
     for (name, command) in [
         ("pause", Command::SetPaused(true)),
         ("resume", Command::SetPaused(false)),
-        ("stop", Command::Stop),
+        ("stop", Command::Stop(None)),
     ] {
         let command_events = events.clone();
         core_api.set(

@@ -90,6 +90,8 @@ pub struct Playback {
     pub folder_discovery_allowed: bool,
     pub generation: u64,
     pub phase: Phase,
+    /// Successful native reply for the latest application stop request.
+    pub stopped_by: Option<u32>,
     pub file_feedback: FileFeedback,
     /// Version string from the loaded libmpv runtime, when that property is available.
     pub mpv_version: Option<String>,
@@ -485,6 +487,7 @@ impl Playback {
         self.generation += 1;
         self.incoming_transition_started_at = Some(Instant::now());
         self.phase = Phase::Loading;
+        self.stopped_by = None;
         self.active_playlist_entry = None;
         self.file_feedback = FileFeedback::Loading;
         self.position = None;

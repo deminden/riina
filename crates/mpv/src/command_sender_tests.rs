@@ -226,7 +226,9 @@ fn native_wake_notifications_share_one_queued_message() {
 #[test]
 fn full_intent_queue_does_not_leave_wakeup_permanently_armed() {
     let (sender, receiver) = mpsc::sync_channel(1);
-    sender.try_send(Message::Intent(Command::Stop)).unwrap();
+    sender
+        .try_send(Message::Intent(Command::Stop(None)))
+        .unwrap();
     let wakeup = WakeupContext {
         sender,
         queued: std::sync::atomic::AtomicBool::new(false),
@@ -235,7 +237,7 @@ fn full_intent_queue_does_not_leave_wakeup_permanently_armed() {
     assert!(!wakeup.queued.load(Ordering::Acquire));
     assert!(matches!(
         receiver.recv(),
-        Ok(Message::Intent(Command::Stop))
+        Ok(Message::Intent(Command::Stop(None)))
     ));
 
     wakeup.signal();
@@ -256,10 +258,10 @@ fn public_shutdown_is_rejected_without_consuming_a_command_slot() {
             .to_string()
             .contains("final owner")
     );
-    commands.send(Command::Stop).unwrap();
+    commands.send(Command::Stop(None)).unwrap();
     assert!(matches!(
         receiver.try_recv(),
-        Ok(Message::Intent(Command::Stop))
+        Ok(Message::Intent(Command::Stop(None)))
     ));
     assert!(matches!(
         receiver.try_recv(),
@@ -288,5 +290,5 @@ fn only_the_final_owner_delivers_shutdown_even_when_command_senders_survive() {
     drop(renderer_owner);
     assert!(matches!(receiver.try_recv(), Ok(Message::Shutdown)));
     drop(receiver);
-    assert!(commands.send(Command::Stop).is_err());
+    assert!(commands.send(Command::Stop(None)).is_err());
 }

@@ -80,7 +80,7 @@ fn typed_playback(name: &str, args: &[String]) -> Option<Command> {
             _ => None,
         },
         ("sub-seek", [direction]) => Some(Command::SubtitleSeek(direction.parse().ok()?)),
-        ("stop", []) => Some(Command::Stop),
+        ("stop", []) => Some(Command::Stop(None)),
         ("frame-step", []) => Some(Command::FrameStep),
         ("frame-back-step", []) => Some(Command::FrameBackStep),
         ("ab-loop", []) => Some(Command::CycleAbLoop),

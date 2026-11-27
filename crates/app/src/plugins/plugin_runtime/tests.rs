@@ -342,7 +342,7 @@ fn core_playback_methods_emit_typed_player_commands() {
         [
             HostEvent::Ui(UiEffect::CoreCommand(Command::SetPaused(true))),
             HostEvent::Ui(UiEffect::CoreCommand(Command::SetPaused(false))),
-            HostEvent::Ui(UiEffect::CoreCommand(Command::Stop)),
+            HostEvent::Ui(UiEffect::CoreCommand(Command::Stop(None))),
             HostEvent::Ui(UiEffect::CoreCommand(Command::SeekWithType {
                 seconds: -4.5,
                 seek_type: SeekType::Exact,

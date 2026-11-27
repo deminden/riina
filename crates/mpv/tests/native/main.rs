@@ -236,9 +236,14 @@ fn playback_pause_seek_stop_failure_and_shutdown() {
             absolute: true,
         })
         .unwrap();
-    wait_for(&receiver, |state| state.phase == Phase::Ended);
-    player.send(Command::Stop).unwrap();
-    wait_for(&receiver, |state| state.phase == Phase::Stopped);
+    let ended = wait_for(&receiver, |state| state.phase == Phase::Ended);
+    assert_eq!(ended.stopped_by, None);
+    player.send(Command::Stop(Some(24))).unwrap();
+    wait_for(&receiver, |state| {
+        state.phase == Phase::Stopped && state.stopped_by == Some(24) && state.playlist.is_empty()
+    });
+    player.send(Command::Stop(Some(25))).unwrap();
+    wait_for(&receiver, |state| state.stopped_by == Some(25));
     player
         .send(Command::Load(
             root.join("tests/fixtures/does-not-exist.mkv")
@@ -247,9 +252,10 @@ fn playback_pause_seek_stop_failure_and_shutdown() {
                 .into(),
         ))
         .unwrap();
-    wait_for(&receiver, |state| {
+    let failed = wait_for(&receiver, |state| {
         state.phase == Phase::Failed && state.error().is_some()
     });
+    assert_eq!(failed.stopped_by, None);
     player
         .send(Command::Load(
             root.join("tests/fixtures/moving-square.avi")

@@ -7239,3 +7239,17 @@ fixed Start menu group when a local test supplied a different group. The test
 now checks for the default installed executable as well as the uninstall
 registration and existing shortcuts. The preflight rejected this installed
 profile without changing either shortcut or the installed executable.
+
+### Opening media in a stopped player (2026-11-27)
+
+The Windows native file picker opened a second clip in a new player. Stop and
+Clear Playlists left that frame visible. Opening a third clip from the original
+player reused the exact stopped frame. The original frame kept its first clip.
+Closing both frames ended the isolated application process normally.
+
+The locked Windows build and workspace gate passed with 727 application unit
+tests, 88 widget cases and the headless pixel comparison. All 77 native tests
+passed with the rebuilt Windows engine and strict field-order checks. The
+native Stop regression verified the reply after EOF, a second Stop while
+already idle, and retirement of the old reply on a following failed load.
+Strict macOS cross-Clippy passed for Intel and Apple Silicon.

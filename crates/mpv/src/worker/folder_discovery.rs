@@ -65,7 +65,7 @@ mod tests {
             Command::OpenPlaylist(vec!["a.avi".into()]),
             Command::OpenFiles(vec!["list.m3u8".into()]),
             Command::Load("https://example.invalid/video.mkv".into()),
-            Command::Stop,
+            Command::Stop(None),
         ] {
             open.submitted(3, &command);
             assert!(!open.awaits(3), "{command:?}");

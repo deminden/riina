@@ -337,6 +337,10 @@ pub(super) fn install_mpv_input_action(app: &PlayerWindow, context: &super::Play
         on_execute_mpv_input_action,
         |ctx, action| {
             let Some(app) = ctx.app() else { return };
+            if action.trim() == "stop" {
+                app.global::<PlayerMenuActions>().invoke_stop();
+                return;
+            }
             app.global::<riina_ui::PlayerControlActions>()
                 .invoke_activity();
             ctx.send(Command::MpvInputAction(action.to_string()));

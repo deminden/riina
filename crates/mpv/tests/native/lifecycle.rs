@@ -29,7 +29,7 @@ fn a_panicking_observer_reports_failure_then_joins_on_final_owner_drop() {
         failed.error(),
         Some("The playback engine stopped unexpectedly; reopen the file")
     );
-    let error = commands.send(Command::Stop).unwrap_err();
+    let error = commands.send(Command::Stop(None)).unwrap_err();
     assert!(matches!(error, riina_mpv::EngineError::Stopped));
     assert_eq!(error.to_string(), "The playback engine has stopped");
     drop(player);

@@ -60,7 +60,7 @@ mod tests {
     fn recording_preserves_fifo_full_and_closed_results() {
         let (sender, engine) = CommandSender::recording(2);
         assert!(sender.send(Command::TogglePause).is_ok());
-        assert!(sender.send(Command::Stop).is_ok());
+        assert!(sender.send(Command::Stop(None)).is_ok());
         let full = sender.send(Command::Volume(50.0));
         assert!(matches!(full, Err(EngineError::QueueFull)));
         assert_eq!(
@@ -72,10 +72,10 @@ mod tests {
             Err(EngineError::ReservedShutdown),
         ));
         assert_eq!(engine.commands.try_recv(), Ok(Command::TogglePause));
-        assert_eq!(engine.commands.try_recv(), Ok(Command::Stop));
+        assert_eq!(engine.commands.try_recv(), Ok(Command::Stop(None)));
         drop(engine);
         assert!(matches!(
-            sender.send(Command::Stop),
+            sender.send(Command::Stop(None)),
             Err(EngineError::Stopped)
         ));
     }

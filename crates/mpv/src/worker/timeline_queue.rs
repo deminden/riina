@@ -46,7 +46,7 @@ mod tests {
         for message in [
             seek(7, 0.3),
             seek(7, 0.5),
-            Message::Intent(Command::Stop),
+            Message::Intent(Command::Stop(None)),
             seek(7, 0.8),
             seek(8, 0.1),
             Message::Shutdown,
@@ -61,7 +61,7 @@ mod tests {
                 command: Command::SeekTimeline(0.5),
             }
         ));
-        assert!(matches!(next, Some(Message::Intent(Command::Stop))));
+        assert!(matches!(next, Some(Message::Intent(Command::Stop(None)))));
         let (message, next) = latest(inbox.recv()?, &inbox);
         assert!(matches!(
             message,

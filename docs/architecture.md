@@ -1148,11 +1148,12 @@ and any resume position to that manager. Beginning close retires the window's
 ability to forward requests, including those queued during media discovery.
 Windows computes monitor placement from the owning window in the manager.
 
-An ordinary media request can use a visible, unused player or Welcome window
-that is still waiting for its first file. The manager reserves it before
-revealing the playback frame, then uses the regular open path. In a separate
-selection the next file needs another available player. Startup-specific
-engine options and plugin-managed windows use their own sessions.
+An ordinary media request can use an unused player or a visible player that
+has finished stopping. A stopped player needs the matching native reply and
+an empty playlist. A new media request or playlist addition withdraws reuse
+eligibility. The manager reserves the session before revealing its frame.
+Startup-specific engine options and plugin-managed windows use their own
+sessions.
 
 macOS registers the Open Documents, Reopen, Quit and URL Apple events alongside
 Winit's application delegate. Finder groups short bursts of documents before

@@ -71,7 +71,8 @@ pub enum Command {
         keys: Vec<String>,
     },
     PluginMpv(PluginMpvCommand),
-    Stop,
+    /// The optional request identifies the application stop that can release a player.
+    Stop(Option<u32>),
     Seek {
         seconds: f64,
         absolute: bool,
@@ -324,7 +325,7 @@ impl Command {
                 | Self::OpenShuffledPlaylist(_)
                 | Self::OpenMediaLink(MediaLink { append: false, .. })
                 | Self::OpenFilesWithSubtitles { .. }
-                | Self::Stop
+                | Self::Stop(_)
         ) || matches!(self, Self::PluginMpv(command) if command.name() == "stop")
     }
 

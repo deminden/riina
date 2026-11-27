@@ -268,9 +268,11 @@ impl InitialMedia {
     }
 
     pub(crate) fn can_use_open_engine(&self) -> bool {
-        self.managed.is_none()
-            && self.requests_playback()
-            && self.launch == crate::startup_arguments::LaunchOptions::default()
+        self.requests_playback() && self.reusable_engine()
+    }
+
+    fn reusable_engine(&self) -> bool {
+        self.managed.is_none() && self.launch == crate::startup_arguments::LaunchOptions::default()
     }
 
     fn external_stream(&self) -> Option<&str> {
@@ -400,10 +402,16 @@ pub(super) fn activate_output(
     volume: f64,
     opening: InitialOpen,
     picture_in_picture: &crate::platform::PictureInPictureSession,
-) -> Result<Option<Rc<Cell<bool>>>, Box<dyn std::error::Error>> {
-    let idle_media_available = (!opening.media.requests_playback()
-        && opening.media.managed.is_none())
-    .then(|| Rc::new(Cell::new(true)));
+) -> Result<(), Box<dyn std::error::Error>> {
+    use super::idle_media::Availability;
+    if opening.media.reusable_engine() {
+        let available = if opening.media.requests_playback() {
+            Availability::Unavailable
+        } else {
+            Availability::Unused
+        };
+        opening.observer.enable_idle_media(available);
+    }
     crate::fullscreen_info::connect(app);
     if native_presentation {
         app.set_engine_ready(true);
@@ -420,7 +428,7 @@ pub(super) fn activate_output(
             picture_in_picture.render_extras(),
         )?;
     }
-    Ok(idle_media_available)
+    Ok(())
 }
 
 pub(super) fn initial_volume(

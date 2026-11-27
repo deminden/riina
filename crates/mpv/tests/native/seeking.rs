@@ -409,7 +409,7 @@ fn ab_repeat_resets_on_replacement_and_stop() {
         })
         .unwrap();
     harness.wait(|state| state.ab_loop_a.is_some() && state.ab_loop_b.is_some());
-    harness.send(Command::Stop).unwrap();
+    harness.send(Command::Stop(None)).unwrap();
     let stopped = harness.wait(|state| state.phase == Phase::Stopped);
     assert!(stopped.ab_loop_a.is_none() && stopped.ab_loop_b.is_none());
     harness.send(load("catalog.mkv")).unwrap();

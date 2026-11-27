@@ -34,6 +34,19 @@ impl PluginEffects {
                 app.set_status(text.into());
             }
             PluginHostMessage::PlayerCommand(command) => {
+                let command = if matches!(command, Command::Stop(_)) {
+                    crate::media_open::stop_command(app)
+                } else if command.replaces_media() {
+                    crate::media_open::invalidate(app);
+                    command
+                } else {
+                    if matches!(command, Command::AppendFiles(_))
+                        && let Some(observer) = super::super::ObserverId::for_window(app)
+                    {
+                        observer.retire_idle_media();
+                    }
+                    command
+                };
                 self.send(app, command, "Plugin player command failed");
             }
             PluginHostMessage::ObserveMpvProperty(property) => {

@@ -651,7 +651,7 @@ fn hdr_metadata_replacement_and_stop() {
             assert!(loaded.duration.is_some_and(|d| (d - 3.0).abs() < 0.1));
         }
     }
-    harness.send(Command::Stop).unwrap();
+    harness.send(Command::Stop(None)).unwrap();
     let stopped = harness.wait(|state| state.phase == Phase::Stopped && state.video.is_none());
     assert_eq!(stopped.error(), None);
     drop(harness);

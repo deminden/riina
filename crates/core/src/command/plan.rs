@@ -48,7 +48,7 @@ impl Command {
             Self::AdjustVolume { delta, boost } => audio::adjust_volume(*delta, *boost)?,
             Self::SetVolumeBoost(boost) => audio::volume_adjustment(0.0, *boost),
             Self::SetPauseWhenOpen(_) => Vec::new(),
-            Self::Stop => playback::stop(state),
+            Self::Stop(_) => playback::stop(state),
             Self::SetResumeLastPosition(enabled) => playback::save_resume_positions(*enabled),
             Self::SetAbLoop { a, b } => seek::set_loop_points(*a, *b)?,
             Self::SetAbLoopPoint { point, value } => seek::set_loop_point(*point, *value)?,

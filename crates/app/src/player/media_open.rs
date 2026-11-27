@@ -479,11 +479,20 @@ pub fn validate_url(value: &str) -> Result<&str, riina_core::media_reference::Ne
 pub fn invalidate(app: &PlayerWindow) -> i32 {
     if let Some(observer) = ObserverId::for_window(app) {
         observer.cancel_discovery();
+        observer.retire_idle_media();
     }
     playlist_edits::retire_media(app);
     let generation = app.get_media_request_generation().wrapping_add(1);
     app.set_media_request_generation(generation);
     generation
+}
+
+pub(super) fn stop_command(app: &PlayerWindow) -> Command {
+    let request = invalidate(app).cast_unsigned();
+    if let Some(observer) = ObserverId::for_window(app) {
+        observer.arm_idle_after_stop(request);
+    }
+    Command::Stop(Some(request))
 }
 
 pub(crate) fn file_dialog_selection(

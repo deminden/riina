@@ -38,7 +38,7 @@ impl Command {
                 "keep-open",
                 playlist_end_policy(*keep_open_on_file_end, *playlist_auto_play_next),
             ),
-            Self::Stop => cmd(["stop"]),
+            Self::Stop(_) => cmd(["stop"]),
             // The reference's custom field has no upper bound. Submit finite
             // requests above the engine limit so native rejection remains an
             // observed failure instead of inventing a narrower input contract.

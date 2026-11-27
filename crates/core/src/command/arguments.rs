@@ -19,7 +19,7 @@ impl Command {
             | Self::SetPaused(_)
             | Self::TogglePause
             | Self::SetPlaybackEndPolicy { .. }
-            | Self::Stop
+            | Self::Stop(_)
             | Self::Speed(_)
             | Self::MultiplySpeed(_)
             | Self::FrameStep
