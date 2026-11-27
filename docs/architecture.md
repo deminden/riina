@@ -418,8 +418,8 @@ saved progress through the recorded key. Native file changes invalidate
 in-flight reads. The visible History window coalesces changes and requests a
 background read. Opening History also reads the current files. Rows without a
 key stay visible and gain one when played again. The standalone archive owns
-the rows, independently of Settings. Resume positions are read from mpv and
-kept in memory.
+the metadata rows, independently of Settings, and ignores extra row fields.
+Resume positions are read from mpv and kept in memory.
 Moving a file to Trash refreshes availability and keeps its record available
 for separate removal. Clear, remove and trash confirmations belong to the
 History window. It holds one pending action, defaults focus to Cancel and

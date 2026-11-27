@@ -111,8 +111,9 @@
       0.0,
       0.0
     ],
-    "selected_profile": "custom",
-    "selected_profile_is_user": false,
+    "selected_profile": {
+      "kind": "manual"
+    },
     "user_profiles": {}
   },
   "video_filters": {

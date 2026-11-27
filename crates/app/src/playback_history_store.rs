@@ -189,7 +189,7 @@ mod tests {
         assert!(load(&path).unwrap_err().contains("Unsupported"));
         std::fs::write(
             &path,
-            r#"{"schema_version":1,"entries":[{"path":"","date_ms":0,"progress":null,"duration":0.0}]}"#,
+            r#"{"schema_version":1,"entries":[{"path":"","date_ms":0,"duration":0.0}]}"#,
         )
         .unwrap();
         assert!(load(&path).unwrap_err().contains("invalid"));
@@ -201,7 +201,7 @@ mod tests {
         let path = directory.path().join("history.json");
         let mut document = serde_json::json!({
             "schema_version": 1,
-            "entries": [{"path": "sample.mkv", "date_ms": 1, "progress": 35.0, "duration": 90.0}]
+            "entries": [{"path": "sample.mkv", "date_ms": 1, "duration": 90.0}]
         });
         std::fs::write(&path, document.to_string()).unwrap();
         let loaded = load(&path).unwrap();

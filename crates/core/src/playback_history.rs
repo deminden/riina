@@ -1,9 +1,8 @@
 //! Persistent playback-history entries, separate from the bounded resume list.
 
-use serde::{Deserialize, Deserializer, Serialize, de::IgnoredAny};
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
 pub struct Entry {
     pub path: String,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -14,15 +13,9 @@ pub struct Entry {
     /// Unix epoch milliseconds, matching the JavaScript `Date` value exposed to plugins.
     pub date_ms: u64,
     /// Live position read from mpv's watch-later file.
-    #[serde(default, skip_serializing, deserialize_with = "discard_saved_progress")]
+    #[serde(skip)]
     pub progress: Option<f64>,
     pub duration: f64,
-}
-
-fn discard_saved_progress<'de, D: Deserializer<'de>>(input: D) -> Result<Option<f64>, D::Error> {
-    // Keep the history rows when an archive contains cached positions.
-    IgnoredAny::deserialize(input)?;
-    Ok(None)
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]

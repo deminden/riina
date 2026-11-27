@@ -7680,3 +7680,22 @@ tests, 89 widget tests and the player and Settings pixel comparison. The
 Linux locked application build and focused widget test passed. Intel and
 Apple Silicon macOS source checks passed. Native macOS alert behavior and
 matched visual comparison remain open.
+
+### Equalizer settings and History persistence cleanup 2026-11-27
+
+Equalizer settings store Manual, built-in preset and user profile selections
+as distinct values. Save and Rename share name validation. The selected
+profile controls both Rename and Remove. The old name-and-flag section
+uses normal Settings recovery, which restores equalizer defaults and
+retains other valid settings. Playback History skips the in-memory position
+when reading or writing rows, and obtains current positions from mpv.
+
+The Windows locked build, full source gate and 83 native null-output tests
+passed. On a private Windows desktop, the player loaded a named Unicode
+profile from the current format and applied its gains to the native filter.
+The accessible 32 Hz fader selected Manual, changed the native gain and
+persisted the edit on normal exit while preserving the saved profile.
+The private-desktop probe could not activate the preset popup item by
+injected keystrokes. Save, Rename, and Remove were covered by automated
+tests. Linux application Clippy and 43 focused tests passed. Intel and
+Apple Silicon macOS application source checks passed.
