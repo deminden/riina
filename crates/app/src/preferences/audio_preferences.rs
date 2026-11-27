@@ -304,6 +304,7 @@ mod tests {
         let window = PreferencesWindow::new()?;
         let audio = window.global::<AudioSettingsState>();
         let preferences = Settings {
+            driver: Driver::Default,
             device: "fixture/missing-device".into(),
             device_description: "Fixture speakers".into(),
             replay_gain: ReplayGain::Album,

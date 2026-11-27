@@ -521,6 +521,13 @@ fn document_paths(list: &NSAppleEventDescriptor) -> Result<Vec<String>, &'static
         .map(|index| {
             let url = list
                 .descriptorAtIndex(index)
+                // Foundation can also coerce text into a local file URL.
+                .filter(|item| {
+                    matches!(
+                        &item.descriptorType().to_be_bytes(),
+                        b"furl" | b"alis" | b"fsrf"
+                    )
+                })
                 .and_then(|item| item.fileURLValue())
                 .ok_or("The event contains a non-file reference")?;
             crate::platform::macos::file_panel::file_path(&url)

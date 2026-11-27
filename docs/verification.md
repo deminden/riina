@@ -7898,3 +7898,9 @@ The application closed normally.
 
 - Windows executable SHA-256 `6b27aa054f294f84fce7ef4a41ce56c15d90f934b6873721e27839861c2f79d3`
 - Linux executable SHA-256 `f2d998101e6a60b00a8ab4bf5c514fe2e8ad54f0e20bb691e0d7f15efdb33050`
+
+Hosted macOS checks exposed Foundation's coercion of text descriptors into
+file URLs. Finder document handling now accepts only file descriptor types.
+The pasteboard test uses URL items for signed streams and a filename array
+for local paths. The audio caption test selects the system default driver
+explicitly so the saved device fixture also works on macOS.

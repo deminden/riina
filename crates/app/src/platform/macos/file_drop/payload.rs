@@ -81,7 +81,7 @@ mod tests {
     use objc2_app_kit::NSPasteboardItem;
 
     #[test]
-    fn mixed_pasteboard_items_and_the_iina_filename_array_keep_their_order() {
+    fn mixed_pasteboard_items_and_legacy_file_arrays_keep_their_order() {
         let board = NSPasteboard::pasteboardWithUniqueName();
         let [file_url, filenames, url, ..] = types();
         let link = "https://example.test/片 one.mkv?sig=A%2fb+Z";
@@ -98,10 +98,9 @@ mod tests {
         assert_eq!(read(&board), [encoded, "/tmp/a\nb.mkv"]);
 
         board.clearContents();
-        let paths = NSArray::from_retained_slice(&[
-            NSString::from_str("/tmp/a\nb.mkv"),
-            NSString::from_str(link),
-        ]);
+        // AppKit interprets this format as filenames and can re-encode URLs.
+        let names = ["/tmp/a\nb.mkv", "/tmp/山 clip.mkv"];
+        let paths = NSArray::from_retained_slice(&names.map(NSString::from_str));
         // SAFETY: the private board declares a valid format with no deferred owner.
         let declared =
             unsafe { board.declareTypes_owner(&NSArray::from_slice(&[filenames]), None) };
@@ -110,7 +109,7 @@ mod tests {
         assert!(unsafe {
             board.setPropertyList_forType(&paths.into_super().into_super(), filenames)
         });
-        assert_eq!(read(&board), ["/tmp/a\nb.mkv", encoded]);
+        assert_eq!(read(&board), names);
         board.clearContents();
     }
 }
