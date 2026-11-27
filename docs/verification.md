@@ -7172,3 +7172,21 @@ one of two players left the other open. History kept the process alive after the
 last player closed, then returned to Welcome. Closing Welcome exited normally.
 Strict macOS cross-Clippy passed for Intel and Apple Silicon with the idle
 New Window action preserved.
+
+### Rebuilt Windows playback engine (2026-11-27)
+
+The candidate build resumed on disk-backed storage after the temporary
+filesystem filled during linking. FFmpeg and mpv compiled, and the corrected
+builder cleanup completed with mpv on the pinned detached revision. The
+already-linked DLL kept its SHA-256 through the cleanup and packaging.
+
+The complete runtime inventory, imports, notices and source manifest passed.
+All 77 native Windows tests passed in 12.44 seconds with
+`RIINA_REQUIRE_FIELD_ORDER=1`, including the field flags, cadence and 72 saved
+frames from the four raw and MPEG-2 interlaced fixtures. The exact staged
+application passed playback, fullscreen, preference writes and shutdown on an
+isolated desktop in 9.13 seconds. This run used the development application
+binary. Portable release and installer verification have their own checks.
+
+- Windows libmpv SHA-256 `08b95b3edfa98b1f95a1d3eeebadb4d59ea2f4236464b480eb2235775cb0d934`
+- Windows application SHA-256 `895ec6a34b8d0b66b2d1fa166c18189472db9c9837f4ffadd837776f73912701`
