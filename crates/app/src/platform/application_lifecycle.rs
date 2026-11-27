@@ -35,10 +35,11 @@ pub(crate) const fn last_window_action(
 }
 
 pub(crate) fn bind_auxiliary_close(services: &ApplicationServices, callback: Rc<dyn Fn()>) {
+    services.open_url.closed.bind(callback.clone());
+    services.open_errors.closed.bind(callback.clone());
     if HAS_IDLE_MENU {
         services.about.closed.bind(callback.clone());
         services.logs.closed.bind(callback.clone());
-        services.open_url.closed.bind(callback.clone());
         services.updates.closed.bind(callback.clone());
         services.highlights.closed.bind(callback.clone());
         #[cfg(target_os = "macos")]
@@ -51,13 +52,16 @@ pub(crate) fn bind_auxiliary_close(services: &ApplicationServices, callback: Rc<
 }
 
 pub(crate) fn auxiliary_is_visible(services: &ApplicationServices) -> bool {
-    if services.history.is_visible() || services.filters.is_visible() {
+    if services.history.is_visible()
+        || services.filters.is_visible()
+        || services.open_url.is_visible()
+        || services.open_errors.is_active()
+    {
         return true;
     }
     if HAS_IDLE_MENU
         && (services.about.is_visible()
             || services.logs.is_visible()
-            || services.open_url.is_visible()
             || services.updates.is_visible()
             || services.highlights.is_visible())
     {
@@ -74,10 +78,10 @@ pub(crate) fn auxiliary_is_visible(services: &ApplicationServices) -> bool {
 pub(crate) fn hide_auxiliary_tools(services: &ApplicationServices) {
     services.history.hide();
     services.filters.hide();
+    services.open_url.hide_for_quit();
     if HAS_IDLE_MENU {
         services.about.hide();
         services.logs.hide();
-        services.open_url.hide_for_quit();
         services.updates.hide_for_quit();
         services.highlights.hide();
         #[cfg(target_os = "macos")]
@@ -86,6 +90,23 @@ pub(crate) fn hide_auxiliary_tools(services: &ApplicationServices) {
             services.plugins.hide_for_quit();
         }
     }
+}
+
+pub(crate) fn report_failed_open(
+    services: &ApplicationServices,
+    app: &crate::PlayerWindow,
+    stream_attempt: Option<u64>,
+    detail: String,
+) {
+    use slint::ComponentHandle;
+
+    if stream_attempt.is_some_and(|id| services.open_url.recover_failed_player(app, id)) {
+        return;
+    }
+    services.open_errors.report(
+        detail,
+        app.global::<riina_ui::PlayerAppearance>().get_dark_theme(),
+    );
 }
 
 pub(crate) fn after_last_player_closed(services: &ApplicationServices) {

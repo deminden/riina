@@ -1,0 +1,46 @@
+import { NativeTypography } from "shared-controls.slint";
+import { Theme } from "theme.slint";
+import { JumpDialogButton } from "player-chrome-controls.slint";
+
+export component MediaOpenErrorWindow inherits Window {
+    title: @tr("Cannot open this file or stream.");
+    default-font-family: NativeTypography.system-font-family;
+    preferred-width: 400px;
+    min-width: 300px;
+    preferred-height: 125px;
+    min-height: 108px;
+    background: Theme.player-dialog-surface(root.dark-theme);
+    in property <bool> dark-theme;
+    in property <string> detail;
+    callback dismiss();
+    public function focus-default() { button.focus(); }
+
+    FocusScope {
+        key-pressed(event) => {
+            if event.text == Key.Escape {
+                root.dismiss();
+                return accept;
+            }
+            return reject;
+        }
+        VerticalLayout {
+            padding: 16px;
+            spacing: 10px;
+            Text {
+                text: root.detail;
+                wrap: word-wrap;
+                color: Theme.player-dialog-title(root.dark-theme);
+            }
+            HorizontalLayout {
+                alignment: end;
+                button := JumpDialogButton {
+                    width: 76px;
+                    height: 28px;
+                    label: @tr("OK");
+                    dark-theme: root.dark-theme;
+                    activated => { root.dismiss(); }
+                }
+            }
+        }
+    }
+}

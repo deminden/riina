@@ -102,6 +102,9 @@ Implementation does not imply every state or platform is verified.
   When automatic advance is on and Keep Window Open is off, the last file
   closes the player after mpv reaches idle. With automatic advance off, mpv
   holds the current file at its final frame.
+  An unreadable file closes its player once the failed open leaves mpv idle.
+  A separate alert reports local failures. Open URL keeps the address available
+  for retry, and a playlist can still advance to a playable entry.
 - **Playlist editing:** the sidebar and Music Mode share the playlist
   controls. Add opens the file and URL choices, with a separate folder choice
   on Windows and Linux. Sort opens the four filename and path orders.

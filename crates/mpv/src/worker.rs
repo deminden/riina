@@ -148,12 +148,12 @@ impl<N: Fn(Arc<Playback>)> Start<N> {
                         generation,
                         command,
                     ),
-                    Message::StopAtEnd {
+                    Message::FinalizeIdleMedia {
                         generation,
                         command,
                     } => {
                         state.drain_events(&mut handle, &callback_sender);
-                        state.stop_at_end(&handle, generation, command);
+                        state.finalize_idle_media(&handle, generation, command);
                     }
                     Message::FilterEdit(request) => state.enqueue_filter_edit(request),
                     Message::OpenStream(command, source, attempt) => {
@@ -344,10 +344,10 @@ enum PlaylistInsertion {
 }
 
 impl WorkerState {
-    fn stop_at_end(&mut self, handle: &Handle, generation: u64, command: Command) {
+    fn finalize_idle_media(&mut self, handle: &Handle, generation: u64, command: Command) {
         if self.pending_stop.is_none()
-            && self.accepts_media_intent(generation)
-            && self.playback.ended_idle()
+            && self.media_generation_is_current(generation)
+            && self.playback.idle_for_finalization()
         {
             self.handle_intent(handle, command);
         }
@@ -519,11 +519,15 @@ impl WorkerState {
     }
 
     fn accepts_media_intent(&self, generation: u64) -> bool {
-        self.playback.generation == generation
+        self.media_generation_is_current(generation)
             && !matches!(
                 self.playback.phase,
                 Phase::Loading | Phase::Stopped | Phase::Failed
             )
+    }
+
+    fn media_generation_is_current(&self, generation: u64) -> bool {
+        self.playback.generation == generation
             && !self
                 .pending
                 .values()
@@ -1139,11 +1143,14 @@ impl WorkerState {
             return;
         };
         self.playlist_edits.file_ended(end);
-        if self.stream.as_mut().is_some_and(|load| load.end(end)) {
-            self.stream = None;
-        }
+        let stream = self.stream.take_if(|load| load.end(end));
         if self.active_entry != Some(end.playlist_entry_id) {
             return;
+        }
+        if end.reason == end_reason::ERROR && self.playback.phase == Phase::Loading {
+            self.playback.file_feedback = riina_core::FileFeedback::OpenFailed {
+                stream_attempt: stream.as_ref().map(stream::StreamLoad::attempt_id),
+            };
         }
         self.subtitle_reload = None;
         self.arm_end_pause(end.reason);
@@ -1225,8 +1232,8 @@ impl WorkerState {
         {
             self.pending_stop = None;
             if !failed {
-                // A core already idle after EOF has no file left to emit END_FILE.
-                if self.playback.ended_idle() {
+                // An idle core has no file left to emit END_FILE after the clear.
+                if self.playback.idle_for_finalization() {
                     self.playback.phase = Phase::Stopped;
                     self.clear_active_file();
                 }

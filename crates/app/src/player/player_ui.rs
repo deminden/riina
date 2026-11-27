@@ -22,6 +22,7 @@ pub(crate) mod glue_tests;
 mod hdr_output;
 mod history_session;
 mod idle_media;
+pub(crate) use idle_media::StopDisposition;
 pub(crate) mod lifecycle;
 mod live_text;
 mod media_actions;
@@ -325,6 +326,7 @@ pub(crate) struct ApplicationServices {
     window_menu: platform::window_menu::Application,
     pub(crate) highlights: Rc<crate::windows::release_highlights::ReleaseHighlights>,
     pub(crate) open_url: Rc<crate::windows::open_url::ApplicationOpenUrl>,
+    pub(crate) open_errors: Rc<crate::windows::media_open_error::OpenErrors>,
     pub(crate) about: Rc<crate::about_window::ApplicationAbout>,
     recents: Rc<recent_activity::ApplicationRecents>,
     pub(crate) updates: Rc<crate::updates::ApplicationUpdates>,

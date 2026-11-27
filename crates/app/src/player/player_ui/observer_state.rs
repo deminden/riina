@@ -1,9 +1,12 @@
 //! Snapshot projection state belongs to the UI thread for each player session.
-use super::{features::PlaybackTimers, idle_media::Availability};
+use super::{
+    features::PlaybackTimers,
+    idle_media::{Availability, StopDisposition},
+};
 use crate::player::playlist_edits;
 use crate::windows::open_url::ApplicationOpenUrl;
 use crate::{seek_osd::SeekOsd, video_osd::VideoOsd};
-use riina_core::Playback;
+use riina_core::{FileFeedback, Playback};
 use slint::ComponentHandle;
 use std::{
     cell::{Cell, RefCell},
@@ -28,10 +31,10 @@ struct Observer {
     parked: Rc<Cell<bool>>,
     stopped: Option<Rc<dyn Fn(u32)>>,
     delivered_stop: Option<u32>,
-    end: Option<EndOfFile>,
+    idle_close: Option<IdleClose>,
 }
 
-struct EndOfFile {
+struct IdleClose {
     latest: crate::PlaybackStore,
     commands: riina_mpv::CommandSender,
     superseded_through: u64,
@@ -183,8 +186,8 @@ impl ObserverId {
             if let Some(available) = &observer.idle_media {
                 available.set(Availability::Unavailable);
             }
-            if let Some(end) = observer.end.as_mut() {
-                end.superseded_through = riina_core::sync::lock(&end.latest).generation;
+            if let Some(close) = observer.idle_close.as_mut() {
+                close.superseded_through = riina_core::sync::lock(&close.latest).generation;
             }
         });
     }
@@ -195,7 +198,7 @@ impl ObserverId {
         }
     }
 
-    pub(super) fn bind_end(
+    pub(super) fn bind_idle_close(
         self,
         app: &crate::PlayerWindow,
         latest: crate::PlaybackStore,
@@ -203,7 +206,7 @@ impl ObserverId {
     ) {
         OBSERVERS.with(|observers| {
             if let Some(observer) = observers.borrow_mut().get_mut(&self.0) {
-                observer.end = Some(EndOfFile {
+                observer.idle_close = Some(IdleClose {
                     latest,
                     commands,
                     superseded_through: 0,
@@ -220,21 +223,34 @@ impl ObserverId {
             });
     }
 
-    pub(super) fn eof_stop_superseded(self, generation: u64, request: u32) -> bool {
+    pub(super) fn stop_disposition(
+        self,
+        playback: &Playback,
+        request: u32,
+    ) -> Option<StopDisposition> {
         OBSERVERS.with(|observers| {
-            observers
-                .borrow()
+            let observers = observers.borrow();
+            if let Some(close) = observers
                 .get(&self.0)
-                .and_then(|observer| observer.end.as_ref())
-                .is_some_and(|end| {
-                    end.submitted == Some((generation, request))
-                        && generation <= end.superseded_through
-                })
+                .and_then(|observer| observer.idle_close.as_ref())
+                .filter(|close| close.submitted == Some((playback.generation, request)))
+            {
+                if playback.generation <= close.superseded_through {
+                    return None;
+                }
+                if let FileFeedback::OpenFailed { stream_attempt } = playback.file_feedback {
+                    return Some(StopDisposition::OpenFailed {
+                        stream_attempt,
+                        detail: playback.error().unwrap_or_default().to_owned(),
+                    });
+                }
+            }
+            Some(StopDisposition::Finished)
         })
     }
 
-    pub(super) fn finish_at_end(self, app: &crate::PlayerWindow, playback: &Playback) {
-        if !playback.ended_idle()
+    pub(super) fn finalize_idle_media(self, app: &crate::PlayerWindow, playback: &Playback) {
+        if !playback.idle_for_finalization()
             || !app.get_player_manager_ready()
             || app
                 .global::<riina_ui::PlayerDialogState>()
@@ -246,17 +262,21 @@ impl ObserverId {
         let result = OBSERVERS.with(|observers| {
             let mut observers = observers.borrow_mut();
             let observer = observers.get_mut(&self.0)?;
-            let end = observer.end.as_mut()?;
-            if playback.generation <= end.superseded_through
-                || end.submitted == Some((playback.generation, request))
+            let close = observer.idle_close.as_mut()?;
+            if playback.generation <= close.superseded_through
+                || close.submitted == Some((playback.generation, request))
                 || observer.playlist_edits.borrow().has_pending_media()
             {
                 return None;
             }
-            let result = end.commands.stop_at_end(playback.generation, request);
+            let result = close
+                .commands
+                .finalize_idle_media(playback.generation, request);
             if result.is_ok() {
-                end.submitted = Some((playback.generation, request));
-                if let Some(available) = &observer.idle_media {
+                close.submitted = Some((playback.generation, request));
+                if playback.ended_idle()
+                    && let Some(available) = &observer.idle_media
+                {
                     available.set(Availability::AfterStop(request));
                 }
             }
@@ -305,13 +325,13 @@ impl ObserverId {
         let latest = OBSERVERS.with(|observers| {
             let mut observers = observers.borrow_mut();
             let observer = observers.get_mut(&self.0)?;
-            let end = observer.end.as_ref()?;
+            let close = observer.idle_close.as_ref()?;
             // A newly opened dialog can preempt the manager's deferred close.
             observer.delivered_stop = None;
-            Some(riina_core::sync::lock(&end.latest).clone())
+            Some(riina_core::sync::lock(&close.latest).clone())
         });
         if let Some(playback) = latest {
-            self.finish_at_end(app, &playback);
+            self.finalize_idle_media(app, &playback);
             self.notify_stopped(app, &playback);
         }
     }
@@ -371,7 +391,7 @@ impl ObserverRegistration {
                     parked: parked.clone(),
                     stopped: None,
                     delivered_stop: None,
-                    end: None,
+                    idle_close: None,
                 },
             );
         });
@@ -500,21 +520,21 @@ mod tests {
         };
         let latest = crate::PlaybackStore::default();
         let (commands, engine) = riina_mpv::CommandSender::recording(4);
-        id.bind_end(&app, latest.clone(), commands);
-        id.finish_at_end(&app, &ended);
+        id.bind_idle_close(&app, latest.clone(), commands);
+        id.finalize_idle_media(&app, &ended);
         assert!(engine.commands.try_recv().is_err());
 
         ended.idle_active = true;
         *riina_core::sync::lock(&latest) = Arc::new(ended.clone());
         assert_eq!(crate::media_open::invalidate(&app), 1);
-        id.finish_at_end(&app, &ended);
+        id.finalize_idle_media(&app, &ended);
         assert!(engine.commands.try_recv().is_err());
 
         ended.generation = 2;
         *riina_core::sync::lock(&latest) = Arc::new(ended.clone());
         let dialog = app.global::<riina_ui::PlayerDialogState>();
         dialog.set_dialog_open(true);
-        id.finish_at_end(&app, &ended);
+        id.finalize_idle_media(&app, &ended);
         assert!(engine.commands.try_recv().is_err());
 
         dialog.set_dialog_open(false);
@@ -523,7 +543,7 @@ mod tests {
             engine.commands.try_recv(),
             Ok(riina_core::Command::Stop(Some(1)))
         );
-        id.finish_at_end(&app, &ended);
+        id.finalize_idle_media(&app, &ended);
         assert!(engine.commands.try_recv().is_err());
 
         let stopped = Rc::new(Cell::new(None));
@@ -540,8 +560,11 @@ mod tests {
         assert_eq!(stopped.get(), Some(1));
 
         id.supersede_media();
-        assert!(id.eof_stop_superseded(2, 1));
-        assert!(!id.eof_stop_superseded(2, 2));
+        assert!(id.stop_disposition(&ended, 1).is_none());
+        assert!(matches!(
+            id.stop_disposition(&ended, 2),
+            Some(StopDisposition::Finished)
+        ));
     }
 
     #[test]

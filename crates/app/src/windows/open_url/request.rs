@@ -9,6 +9,10 @@ pub(crate) struct RunningStream {
 }
 
 impl RunningStream {
+    pub(super) fn id(&self) -> u64 {
+        self.attempt.id()
+    }
+
     pub(super) fn status(&self) -> StreamStatus {
         self.attempt.status()
     }

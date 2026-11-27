@@ -29,12 +29,15 @@ pub enum FileFeedback {
     Idle,
     Loading,
     Restarted(Instant),
+    OpenFailed {
+        stream_attempt: Option<u64>,
+    },
 }
 
 impl FileFeedback {
     pub fn suppresses_changes(self, now: Instant) -> bool {
         match self {
-            Self::Idle => false,
+            Self::Idle | Self::OpenFailed { .. } => false,
             Self::Loading => true,
             Self::Restarted(at) => {
                 now.saturating_duration_since(at) < std::time::Duration::from_millis(200)
@@ -494,6 +497,13 @@ impl Playback {
 
     pub fn ended_idle(&self) -> bool {
         self.phase == Phase::Ended && self.idle_active
+    }
+
+    pub fn idle_for_finalization(&self) -> bool {
+        self.ended_idle()
+            || (self.idle_active
+                && self.phase == Phase::Failed
+                && matches!(self.file_feedback, FileFeedback::OpenFailed { .. }))
     }
 
     pub fn begin_load(&mut self) {

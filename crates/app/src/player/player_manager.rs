@@ -7,7 +7,7 @@ use self::lifecycle::{EmptyAction, WindowLifecycle};
 use crate::{
     PlayerWindow, WelcomeWindow,
     platform::application_lifecycle::{self, ClosedWindow, LastWindowAction},
-    player_ui::{ApplicationServices, InitialMedia, UiSession},
+    player_ui::{ApplicationServices, InitialMedia, StopDisposition, UiSession},
     preference_load::LoadedPreferences,
 };
 use riina_ui::PlayerMenuActions;
@@ -586,7 +586,18 @@ fn finish_stop(state: &Rc<RefCell<ManagerState>>, id: u64, request: u32) {
                 .any(|other| other.id != id && !other.session.is_parked());
         (player.clone(), retain)
     };
-    if !player.session.stop_is_current(&player.app, request) {
+    let Some(disposition) = player.session.completed_stop(&player.app, request) else {
+        return;
+    };
+    if let StopDisposition::OpenFailed {
+        stream_attempt,
+        detail,
+    } = disposition
+    {
+        let services = state.borrow().services.clone();
+        application_lifecycle::report_failed_open(&services, &player.app, stream_attempt, detail);
+        drop(player);
+        close_player(state, id, PlayerClose::Player { was_visible: true });
         return;
     }
     let display = super::surface::PlayerDisplay {

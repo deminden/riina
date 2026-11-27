@@ -1,5 +1,8 @@
 //! A cancellable open belongs to one native playlist entry.
-use std::sync::{Arc, Mutex};
+use std::sync::{
+    Arc, Mutex,
+    atomic::{AtomicU64, Ordering},
+};
 
 use crate::{CommandQueue, CommandSender, EngineError, Message, send_error};
 use riina_core::{Command, MediaLink, sync::lock};
@@ -13,12 +16,29 @@ pub enum StreamStatus {
     Cancelled,
 }
 
-#[derive(Clone, Default)]
-pub struct StreamAttempt(Arc<Mutex<StreamStatus>>);
+#[derive(Clone)]
+pub struct StreamAttempt {
+    id: u64,
+    status: Arc<Mutex<StreamStatus>>,
+}
+
+impl Default for StreamAttempt {
+    fn default() -> Self {
+        static NEXT_ID: AtomicU64 = AtomicU64::new(1);
+        Self {
+            id: NEXT_ID.fetch_add(1, Ordering::Relaxed),
+            status: Arc::default(),
+        }
+    }
+}
 
 impl StreamAttempt {
+    pub fn id(&self) -> u64 {
+        self.id
+    }
+
     pub fn status(&self) -> StreamStatus {
-        *lock(&self.0)
+        *lock(&self.status)
     }
 
     pub fn mark_failed(&self) {
@@ -30,7 +50,7 @@ impl StreamAttempt {
     }
 
     pub(crate) fn finish(&self, result: StreamStatus) -> bool {
-        let mut status = lock(&self.0);
+        let mut status = lock(&self.status);
         if *status == StreamStatus::Loading {
             *status = result;
             true

@@ -5,6 +5,14 @@ use riina_mpv::CommandSender;
 use slint::ComponentHandle;
 use std::{cell::Cell, rc::Rc};
 
+pub(crate) enum StopDisposition {
+    Finished,
+    OpenFailed {
+        stream_attempt: Option<u64>,
+        detail: String,
+    },
+}
+
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub(super) enum Availability {
     Unused,
@@ -45,22 +53,26 @@ impl UiSession {
         self.observer_state.parked.get()
     }
 
-    pub(crate) fn stop_is_current(&self, app: &PlayerWindow, request: u32) -> bool {
+    pub(crate) fn completed_stop(
+        &self,
+        app: &PlayerWindow,
+        request: u32,
+    ) -> Option<StopDisposition> {
         if !app.get_player_manager_ready()
             || app.get_media_request_generation().cast_unsigned() != request
             || app
                 .global::<riina_ui::PlayerDialogState>()
                 .get_dialog_open()
         {
-            return false;
+            return None;
         }
         let playback = riina_core::sync::lock(&self.preference_state.latest_playback);
-        playback.generation != 0
-            && playback.confirmed_stop(request)
-            && !self
-                .observer_state
-                .id()
-                .eof_stop_superseded(playback.generation, request)
+        if playback.generation == 0 || !playback.confirmed_stop(request) {
+            return None;
+        }
+        self.observer_state
+            .id()
+            .stop_disposition(&playback, request)
     }
 
     pub(crate) fn park_after_stop(&self, app: &PlayerWindow, display: &PlayerDisplay) -> bool {

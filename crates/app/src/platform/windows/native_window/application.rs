@@ -1,7 +1,9 @@
 //! One Windows event loop owns the native player frames in this application.
 use super::{NativeLaunch, NativePlayer};
-use crate::platform::application_lifecycle::{ClosedWindow, LastWindowAction, last_window_action};
-use crate::player_ui::InitialMedia;
+use crate::platform::application_lifecycle::{
+    self, ClosedWindow, LastWindowAction, last_window_action,
+};
+use crate::player_ui::{InitialMedia, StopDisposition};
 use crate::plugins::plugin_players::Ticket;
 use crate::{PlayerWindow, media_open, preference_load};
 use riina_core::{Preferences, ThemeMaterial, sync::lock};
@@ -131,12 +133,15 @@ pub(super) fn run(
             .map_err(|error| error.to_string())
     });
     let closed = owner.clone();
-    let filters_closed = owner.clone();
-    application.services.filters.closed.bind(Rc::new(move || {
-        if let Some(application) = filters_closed.upgrade() {
-            application.finish_when_empty();
-        }
-    }));
+    let tool_closed = owner.clone();
+    application_lifecycle::bind_auxiliary_close(
+        &application.services,
+        Rc::new(move || {
+            if let Some(application) = tool_closed.upgrade() {
+                application.finish_when_empty();
+            }
+        }),
+    );
     application.services.history.bind(
         move |window, mut media| {
             let application = owner.upgrade().ok_or("Riina is closing")?;
@@ -366,11 +371,26 @@ impl Application {
             let (Some(app), Some(session)) = (app.as_ref(), session.as_ref()) else {
                 return;
             };
-            if !session.stop_is_current(app, request) {
+            let Some(disposition) = session.completed_stop(app, request) else {
                 return;
-            }
-            if retain && session.park_after_stop(app, &player.display()) {
-                return;
+            };
+            match disposition {
+                StopDisposition::OpenFailed {
+                    stream_attempt,
+                    detail,
+                } => {
+                    application_lifecycle::report_failed_open(
+                        &self.services,
+                        app,
+                        stream_attempt,
+                        detail,
+                    );
+                }
+                StopDisposition::Finished => {
+                    if retain && session.park_after_stop(app, &player.display()) {
+                        return;
+                    }
+                }
             }
         }
         self.close(player, ClosedWindow::Player);
@@ -386,8 +406,7 @@ impl Application {
     fn finish(&self) {
         self.quitting.set(true);
         self.pending_close.set(None);
-        self.services.history.hide();
-        self.services.filters.hide();
+        application_lifecycle::hide_auxiliary_tools(&self.services);
         let players = std::mem::take(&mut *self.players.borrow_mut());
         for player in players {
             player.finish();
@@ -404,8 +423,7 @@ impl Application {
     fn finish_when_empty(self: &Rc<Self>) {
         if self.quitting.get()
             || self.has_open_players()
-            || self.services.history.is_visible()
-            || self.services.filters.is_visible()
+            || application_lifecycle::auxiliary_is_visible(&self.services)
         {
             return;
         }

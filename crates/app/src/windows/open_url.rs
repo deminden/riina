@@ -15,7 +15,7 @@ use slint::{
     CloseRequestResponse, ComponentHandle, Timer, TimerMode, winit_030::WinitWindowAccessor,
 };
 use std::{
-    cell::RefCell,
+    cell::{Cell, RefCell},
     rc::{Rc, Weak},
     time::Duration,
 };
@@ -44,6 +44,7 @@ pub(crate) struct ApplicationOpenUrl {
     window: RefCell<Option<OpenUrlWindow>>,
     destination: RefCell<Option<Destination>>,
     running: RefCell<Option<RunningStream>>,
+    settled_attempt: Cell<Option<u64>>,
     launch_new: RefCell<Option<Rc<Launch>>>,
     credential_origin: RefCell<Option<Origin>>,
     credential_timer: Timer,
@@ -217,6 +218,7 @@ impl ApplicationOpenUrl {
     fn stop(&self, window: &OpenUrlWindow) {
         self.progress.stop();
         if let Some(running) = self.running.take() {
+            self.settled_attempt.set(Some(running.id()));
             running.cancel();
         }
         window.set_loading(false);
@@ -242,6 +244,31 @@ impl ApplicationOpenUrl {
         if let Some(window) = self.window.borrow().as_ref() {
             self.hide(window);
         }
+    }
+
+    pub(crate) fn recover_failed_player(&self, app: &PlayerWindow, attempt: u64) -> bool {
+        let owns_progress = self
+            .running
+            .borrow()
+            .as_ref()
+            .is_some_and(|running| running.id() == attempt);
+        if !owns_progress && self.settled_attempt.get() != Some(attempt) {
+            return false;
+        }
+        if let Some(destination) = self.destination.borrow_mut().as_mut()
+            && destination
+                .player
+                .as_ref()
+                .and_then(|target| target.player.upgrade())
+                .is_some_and(|owner| std::ptr::eq(owner.window(), app.window()))
+        {
+            // A retry needs a new player after the failed core is retired.
+            destination.player = None;
+        }
+        if owns_progress && let Some(window) = self.window.borrow().as_ref() {
+            self.observe_progress(window);
+        }
+        true
     }
 
     fn address_changed(self: &Rc<Self>, window: &OpenUrlWindow) {
@@ -420,11 +447,23 @@ mod tests {
         window.invoke_submit();
         assert_eq!(selected.get(), 2);
         assert!(window.get_loading());
+        let failed = open_url.running.borrow().as_ref().unwrap().id();
         // The fake receiver drops the request, like a window closing before launch.
         open_url.observe_progress(&window);
         assert!(!window.get_loading());
         assert_eq!(window.get_address(), "media.example:8000/movie.avi");
         assert!(!window.get_message().is_empty());
+        assert!(!open_url.recover_failed_player(&second, failed + 1));
+        assert!(open_url.recover_failed_player(&second, failed));
+        assert!(
+            open_url
+                .destination
+                .borrow()
+                .as_ref()
+                .unwrap()
+                .player
+                .is_none()
+        );
         window.invoke_cancel();
         assert!(!window.window().is_visible());
         welcome.hide()?;

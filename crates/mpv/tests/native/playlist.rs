@@ -340,16 +340,56 @@ fn playlist_end_finalization_ignores_an_older_file_and_clears_the_exhausted_queu
     assert_eq!(last.playlist.len(), 2);
 
     let commands = harness.player.command_sender();
-    commands.stop_at_end(first.generation, 7).unwrap();
+    commands.finalize_idle_media(first.generation, 7).unwrap();
     harness.send(Command::SetMuted(true)).unwrap();
     let unchanged = harness.wait(|state| state.muted);
     assert!(unchanged.ended_idle());
     assert_eq!(unchanged.stopped_by, None);
 
-    commands.stop_at_end(last.generation, 8).unwrap();
+    commands.finalize_idle_media(last.generation, 8).unwrap();
     let stopped = harness.wait(|state| state.confirmed_stop(8));
     assert_eq!(stopped.generation, last.generation);
     assert_eq!(stopped.error(), None);
+}
+
+#[test]
+#[ignore = "requires provisioned libmpv; verifies playlist continuation and a failed final open"]
+fn failed_playlist_opens_skip_to_playable_media_and_finalize_only_when_idle() {
+    let root = fixture_root();
+    let harness = Harness::start(&root).unwrap();
+    let fixture = |name: &str| {
+        root.join("tests/fixtures")
+            .join(name)
+            .to_string_lossy()
+            .into_owned()
+    };
+    let missing = fixture("unavailable-file.mkv");
+    harness.send(Command::SetPauseWhenOpen(true)).unwrap();
+    harness
+        .send(Command::OpenPlaylist(vec![
+            missing.clone(),
+            fixture("catalog.mkv"),
+            missing,
+        ]))
+        .unwrap();
+    let playable = harness.wait(|state| state.generation >= 2 && state.phase == Phase::Paused);
+    assert_eq!(playable.error(), None);
+    assert!(!playable.idle_for_finalization());
+    harness.send(Command::PlaylistNext).unwrap();
+    let failed = harness
+        .wait(|state| state.generation > playable.generation && state.idle_for_finalization());
+    assert_eq!(failed.phase, Phase::Failed);
+    assert_eq!(
+        failed.file_feedback,
+        riina_core::FileFeedback::OpenFailed {
+            stream_attempt: None
+        }
+    );
+    let commands = harness.player.command_sender();
+    commands.finalize_idle_media(failed.generation, 9).unwrap();
+    let stopped = harness.wait(|state| state.confirmed_stop(9));
+    assert_eq!(stopped.generation, failed.generation);
+    assert_eq!(stopped.file_feedback, failed.file_feedback);
 }
 
 #[test]

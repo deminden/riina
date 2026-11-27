@@ -19,6 +19,10 @@ pub(super) struct StreamLoad {
 }
 
 impl StreamLoad {
+    pub(super) fn attempt_id(&self) -> u64 {
+        self.attempt.id()
+    }
+
     pub(super) fn for_reply(mut self, reply: u64) -> Self {
         self.reply = Some(reply);
         self

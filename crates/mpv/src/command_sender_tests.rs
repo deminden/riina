@@ -122,7 +122,7 @@ fn mixed_intents_and_wakes_match_bounded_fifo_model() {
                         } => Expected::Intent(Some(generation), command),
                         Message::Wake => Expected::Wake,
                         Message::Client(_)
-                        | Message::StopAtEnd { .. }
+                        | Message::FinalizeIdleMedia { .. }
                         | Message::FilterEdit(_)
                         | Message::OpenStream(..)
                         | Message::PlaylistEdit(_)
@@ -190,7 +190,7 @@ fn full_queue_rejects_pause_promptly_and_preserves_accepted_order() {
             Message::Client(_)
             | Message::OpenStream(..)
             | Message::MediaIntent { .. }
-            | Message::StopAtEnd { .. }
+            | Message::FinalizeIdleMedia { .. }
             | Message::FilterEdit(_)
             | Message::PlaylistEdit(_)
             | Message::RenderingReady => {

@@ -1155,8 +1155,13 @@ The manager rechecks the request before closing so a new selection can take
 over. When mpv keeps the final frame active, the playback window stays open.
 An open dialog defers the close. Dismissing it rechecks the latest native
 playback state even when the engine has stopped sending updates.
-An unused player or a retained stopped player
-can handle an ordinary open. The manager reserves it before revealing its
+An unreadable file follows this close path only when the native core is idle
+before completing the open. A playable successor owns the next generation.
+The Open URL window recovers the matching stream attempt and can retry with a
+new player. Other failures use a separate alert. The alert and Open URL window
+keep the application alive until dismissal or retry.
+An unused player or a retained stopped player can handle an ordinary open.
+The manager reserves it before revealing its
 frame. A retained player stays out of window switching and History
 destinations.
 

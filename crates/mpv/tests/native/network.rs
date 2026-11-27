@@ -65,7 +65,14 @@ fn stream_open_tracks_authentication_failure_and_cancellation() {
         attempt
     };
     let rejected = open("auth.avi", false);
-    harness.wait(|state| state.phase == Phase::Failed && rejected.status() == StreamStatus::Failed);
+    let failure = harness
+        .wait(|state| state.idle_for_finalization() && rejected.status() == StreamStatus::Failed);
+    assert_eq!(
+        failure.file_feedback,
+        riina_core::FileFeedback::OpenFailed {
+            stream_attempt: Some(rejected.id()),
+        }
+    );
     let accepted = open("auth.avi", true);
     let playing = harness.wait(|state| {
         accepted.status() == StreamStatus::Opened && state.position.is_some_and(|p| p >= 0.1)

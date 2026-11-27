@@ -409,7 +409,7 @@ pub(super) fn activate_output(
     if opening.media.managed.is_none() {
         opening
             .observer
-            .bind_end(app, opening.playback.clone(), command_sender.clone());
+            .bind_idle_close(app, opening.playback.clone(), command_sender.clone());
     }
     if opening.media.reusable_engine() {
         let available = if opening.media.requests_playback() {

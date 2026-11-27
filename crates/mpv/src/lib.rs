@@ -69,7 +69,7 @@ enum Message {
     Intent(Command),
     PlaylistEdit(Command),
     MediaIntent { generation: u64, command: Command },
-    StopAtEnd { generation: u64, command: Command },
+    FinalizeIdleMedia { generation: u64, command: Command },
     FilterEdit(worker::filter_edits::Request),
     OpenStream(Command, StreamSource, StreamAttempt),
     Client(client_request::Request),
@@ -81,7 +81,7 @@ enum Message {
 enum IntentRoute {
     Global,
     Media(u64),
-    End(u64),
+    IdleMedia(u64),
     PlaylistEdit,
     FilterEdit(worker::filter_edits::Target),
 }
@@ -171,9 +171,12 @@ impl CommandSender {
         self.enqueue(command, IntentRoute::Media(generation))
     }
 
-    /// Clear the exhausted playlist only if this generation is still idle at EOF.
-    pub fn stop_at_end(&self, generation: u64, request: u32) -> Result<(), EngineError> {
-        self.enqueue(Command::Stop(Some(request)), IntentRoute::End(generation))
+    /// Clear the idle queue only if the same file still owns its terminal state.
+    pub fn finalize_idle_media(&self, generation: u64, request: u32) -> Result<(), EngineError> {
+        self.enqueue(
+            Command::Stop(Some(request)),
+            IntentRoute::IdleMedia(generation),
+        )
     }
 
     /// Report successful user filter edits through the requesting playback session.
@@ -213,7 +216,7 @@ impl CommandSender {
                         generation,
                         command,
                     },
-                    IntentRoute::End(generation) => Message::StopAtEnd {
+                    IntentRoute::IdleMedia(generation) => Message::FinalizeIdleMedia {
                         generation,
                         command,
                     },

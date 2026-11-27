@@ -7337,3 +7337,30 @@ The next opening baseline used a deliberately invalid `.mkv` selected from
 Welcome. Windows displayed `unrecognized file format` in the playback frame.
 The frame stayed open until closed manually. The pinned reference closes the
 failed player and presents an opening error separately.
+
+### Failed local opens and URL retry (2026-11-27)
+
+The Windows workspace gate passed with 727 application tests, 88 widget cases
+and the software player and Settings pixel comparison. All 79 Windows native
+tests passed with the rebuilt engine and strict field-order checks. The native
+suite tested playlist continuation after a failed entry, cleanup of the idle
+queue after the last entry failed, and the identity of the failed HTTP attempt.
+
+On an isolated Windows desktop, a grouped file selection advanced from an
+unreadable entry to a playable clip without an alert. A loopback HTTP 404
+closed its player and left the error in Open URL. Editing the address there
+played a new stream, dismissed Open URL and allowed normal shutdown.
+Opening the unreadable file by itself closed its playback frame and showed a
+separate native error. Dismissing the alert returned to Welcome, which closed
+normally in the same process. With automatic quit enabled, dismissal ended
+the process directly.
+
+The locked Linux application build, strict Clippy and 34 focused tests passed.
+In an isolated X11 session, opening an unreadable file from the command line
+closed the player and showed a separate alert. Dismissing it returned to
+Welcome, which closed normally. Strict macOS cross-Clippy passed for Intel
+and Apple Silicon. Native macOS alert and retry behavior still needs live
+verification.
+
+A separate Windows baseline sent Stop directly to libmpv while a local clip
+was paused. The engine became idle and the player frame remained visible.
