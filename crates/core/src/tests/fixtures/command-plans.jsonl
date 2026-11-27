@@ -75,7 +75,6 @@
 {"command":"SubtitleMarginY","mpv":[["set","sub-margin-y","25"]],"resume_on_load":false}
 {"command":"SubtitlePreferredLanguages","mpv":[["set","slang","eng,fra"]],"resume_on_load":false}
 {"command":"SubtitleEncoding","mpv":[["set","sub-codepage","SHIFT-JIS"]],"resume_on_load":false}
-{"command":"SubtitleAutoLoad","mpv":[["set","sub-auto","no"]],"resume_on_load":false}
 {"command":"NetworkCache","mpv":[["set","cache","yes"],["set","cache-pause-initial","no"],["set","cache-pause-wait","1"],["set","cache-secs","36000"],["set","demuxer-max-bytes","153600KiB"]],"resume_on_load":false}
 {"command":"NetworkOnlineVideos","mpv":[["set","ytdl","yes"],["set","ytdl-raw-options",""]],"resume_on_load":false}
 {"command":"VideoEqualizer","mpv":[["set","brightness","12"]],"resume_on_load":false}

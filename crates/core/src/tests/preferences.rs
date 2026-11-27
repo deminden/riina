@@ -704,13 +704,6 @@ fn subtitle_auto_load_preferences_keep_reference_choices_and_defaults() {
     };
     let restored = Preferences::parse(&serde_json::to_string(&configured).unwrap()).unwrap();
     assert_eq!(restored.subtitle_auto_load, configured.subtitle_auto_load);
-    assert_eq!(
-        Command::SubtitleAutoLoad(configured.subtitle_auto_load.clone())
-            .plan(&Playback::default())
-            .unwrap()
-            .commands,
-        [["set", "sub-auto", "no"].map(str::to_owned).to_vec()]
-    );
     for invalid in [
         r#"{"subtitle_auto_load":{"priority_keywords":"eng\nforced"}}"#,
         r#"{"subtitle_auto_load":{"search_paths":"subs\u0000"}}"#,

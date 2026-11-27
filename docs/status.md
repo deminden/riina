@@ -267,6 +267,10 @@ Implementation does not imply every state or platform is verified.
   search paths. The controller's optional subtitle button also lists loaded
   tracks and offers None for the primary subtitle. Nearby files remain
   available when automatic subtitle loading is disabled.
+- **Subtitle discovery settings:** the mode, priority keywords and search
+  paths update open players using the same profile. Settings changes that
+  only affect the application can save while the playback command queue is
+  full. Unrelated edits leave native subtitle options alone.
 - **Subtitle encoding:** changing the decoder encoding reloads external
   subtitles and restores the primary and secondary choices independently.
   Track cycling from a menu or a standalone profile binding waits for the

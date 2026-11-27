@@ -63,10 +63,6 @@ impl Transaction {
         std::fs::read(&self.profile.file).unwrap()
     }
 
-    fn expected_subtitle_reload(&self) -> Command {
-        Command::SubtitleAutoLoad(self.profile.read().subtitle_auto_load)
-    }
-
     fn saturate(&self) -> Vec<Command> {
         let queued = std::iter::from_fn(|| {
             self.player
@@ -132,13 +128,7 @@ fn replay_gain_edits_reach_the_live_decoder_and_persist_without_a_restart() {
         clip: true,
         fallback: -4.0,
     };
-    assert_eq!(
-        transaction.apply(),
-        [
-            transaction.expected_subtitle_reload(),
-            Command::SetReplayGain(selected)
-        ]
-    );
+    assert_eq!(transaction.apply(), [Command::SetReplayGain(selected)]);
     assert_eq!(transaction.committed_gain.get(), Some(selected));
     assert_eq!(
         transaction.profile.read().audio.replay_gain_options(),
@@ -153,20 +143,13 @@ fn replay_gain_save_failure_restores_the_decoder_and_form() {
 
     let transaction = Transaction::new();
     let previous = transaction.profile.read().audio.replay_gain_options();
-    let subtitle_reload = transaction.expected_subtitle_reload();
     let form = transaction.window.global::<riina_ui::AudioSettingsState>();
     form.set_audio_replay_gain_index(1);
     std::fs::remove_file(&transaction.profile.file).unwrap();
     std::fs::create_dir(&transaction.profile.file).unwrap();
 
-    let commands = transaction.apply();
-    assert_eq!(commands.first(), Some(&subtitle_reload));
     assert_eq!(
-        commands
-            .iter()
-            .filter(|command| matches!(command, Command::SetReplayGain(_)))
-            .cloned()
-            .collect::<Vec<_>>(),
+        transaction.apply(),
         [
             Command::SetReplayGain(ReplayGainOptions {
                 mode: ReplayGain::Track,
@@ -191,7 +174,7 @@ macro_rules! checkbox_cases {
                 $(let form = form.global::<$form>();)?
                 let target = !form.$window_get();
                 form.$window_set(target);
-                assert_eq!(transaction.apply(), [transaction.expected_subtitle_reload()]);
+                assert!(transaction.apply().is_empty());
                 assert_eq!(($saved)(&transaction.profile.read()), target);
                 let projected = &transaction.player.app;
                 $(let projected = projected.global::<$projected>();)?
@@ -358,16 +341,10 @@ invalid_values! {
 }
 
 #[test]
-fn volume_boost_sends_its_command_before_subtitle_reload() {
+fn volume_boost_updates_the_engine_once() {
     let transaction = Transaction::new();
     transaction.window.set_volume_boost(true);
-    assert_eq!(
-        transaction.apply(),
-        [
-            Command::SetVolumeBoost(true),
-            transaction.expected_subtitle_reload()
-        ]
-    );
+    assert_eq!(transaction.apply(), [Command::SetVolumeBoost(true),]);
     assert!(transaction.profile.read().volume_boost);
     assert!(
         transaction
@@ -396,10 +373,7 @@ fn pause_when_open_callback_observes_the_persisted_edit_and_fires_once() {
         .window
         .global::<riina_ui::GeneralSettingsState>()
         .set_pause_when_open(true);
-    assert_eq!(
-        transaction.apply(),
-        [transaction.expected_subtitle_reload()]
-    );
+    assert!(transaction.apply().is_empty());
     assert!(
         transaction
             .player
@@ -408,10 +382,7 @@ fn pause_when_open_callback_observes_the_persisted_edit_and_fires_once() {
             .get_pause_when_open()
     );
     assert_eq!(observed.get(), 1);
-    assert_eq!(
-        transaction.apply(),
-        [transaction.expected_subtitle_reload()]
-    );
+    assert!(transaction.apply().is_empty());
     assert_eq!(observed.get(), 1);
 }
 
@@ -428,10 +399,7 @@ fn resume_policy_sends_its_command_only_when_changed() {
         .set_resume_last_position(target);
     assert_eq!(
         transaction.apply(),
-        [
-            transaction.expected_subtitle_reload(),
-            Command::SetResumeLastPosition(target)
-        ]
+        [Command::SetResumeLastPosition(target)]
     );
     assert_eq!(transaction.profile.read().resume_last_position, target);
     assert_eq!(
@@ -442,10 +410,7 @@ fn resume_policy_sends_its_command_only_when_changed() {
             .get_resume_last_position(),
         target
     );
-    assert_eq!(
-        transaction.apply(),
-        [transaction.expected_subtitle_reload()]
-    );
+    assert!(transaction.apply().is_empty());
 }
 
 #[test]
@@ -466,10 +431,7 @@ fn record_history_callback_fires_after_the_file_changes_and_only_once() {
         .window
         .global::<riina_ui::GeneralSettingsState>()
         .set_record_playback_history(false);
-    assert_eq!(
-        transaction.apply(),
-        [transaction.expected_subtitle_reload()]
-    );
+    assert!(transaction.apply().is_empty());
     assert!(
         !transaction
             .player
@@ -478,10 +440,7 @@ fn record_history_callback_fires_after_the_file_changes_and_only_once() {
             .get_record_playback_history()
     );
     assert_eq!(observed.get(), 1);
-    assert_eq!(
-        transaction.apply(),
-        [transaction.expected_subtitle_reload()]
-    );
+    assert!(transaction.apply().is_empty());
     assert_eq!(observed.get(), 1);
 }
 
@@ -492,10 +451,7 @@ fn advanced_edits_report_that_the_player_must_restart() {
         .window
         .global::<crate::AdvancedSettingsState>()
         .set_advanced_enabled(true);
-    assert_eq!(
-        transaction.apply(),
-        [transaction.expected_subtitle_reload()]
-    );
+    assert!(transaction.apply().is_empty());
     assert!(transaction.profile.read().advanced.enabled);
     assert_eq!(
         transaction.player.app.get_status(),
@@ -510,10 +466,7 @@ fn audio_engine_edits_report_that_the_player_must_restart() {
         .window
         .global::<crate::AudioSettingsState>()
         .set_audio_threads_text("3".into());
-    assert_eq!(
-        transaction.apply(),
-        [transaction.expected_subtitle_reload()]
-    );
+    assert!(transaction.apply().is_empty());
     assert_eq!(transaction.profile.read().audio.audio_threads, 3);
     assert_eq!(
         transaction.player.app.get_status(),
@@ -540,29 +493,75 @@ fn rejected_volume_boost_restores_the_setting_without_writing() {
 }
 
 #[test]
-fn rejected_subtitle_reload_restores_an_independent_live_setting() {
+fn app_only_settings_commit_when_the_decoder_queue_is_full() {
+    use riina_core::subtitle_controls::AutoLoadMode;
+
     let transaction = Transaction::new();
-    let before = transaction.bytes();
     let queued = transaction.saturate();
     transaction
         .window
         .global::<riina_ui::GeneralSettingsState>()
         .set_fullscreen_when_open(true);
+    transaction
+        .window
+        .global::<crate::SubtitleSettingsState>()
+        .set_subtitle_auto_load_mode_index(AutoLoadMode::Disabled.index());
     assert_eq!(transaction.apply(), queued);
-    assert_eq!(transaction.bytes(), before);
-    assert!(
-        !transaction
-            .window
-            .global::<riina_ui::GeneralSettingsState>()
-            .get_fullscreen_when_open()
+    let saved = transaction.profile.read();
+    assert!(saved.fullscreen_when_open);
+    assert_eq!(saved.subtitle_auto_load.mode, AutoLoadMode::Disabled);
+    let preferences = transaction.player.app.global::<PlayerPreferences>();
+    assert!(preferences.get_fullscreen_when_open());
+    assert_eq!(
+        preferences.get_subtitle_auto_load_mode_index(),
+        AutoLoadMode::Disabled.index()
     );
-    assert!(
-        !transaction
-            .player
-            .app
-            .global::<PlayerPreferences>()
-            .get_fullscreen_when_open()
+    assert!(transaction.apply().is_empty());
+}
+
+#[test]
+fn a_failed_save_restores_the_encoding_and_keeps_subtitle_discovery_unchanged() {
+    use riina_core::subtitle_controls::{AutoLoadMode, SUBTITLE_ENCODING_CHOICES};
+
+    let transaction = Transaction::new();
+    let previous = transaction.profile.read();
+    let form = transaction.window.global::<crate::SubtitleSettingsState>();
+    let encoding_index = SUBTITLE_ENCODING_CHOICES
+        .iter()
+        .position(|(_, code)| *code == "UTF-8")
+        .unwrap() as i32;
+    let edit = || {
+        form.set_subtitle_encoding_index(encoding_index);
+        form.set_subtitle_auto_load_mode_index(AutoLoadMode::Disabled.index());
+    };
+    let path = &transaction.profile.file;
+    std::fs::remove_file(path).unwrap();
+    std::fs::create_dir(path).unwrap();
+    edit();
+    assert_eq!(
+        transaction.apply(),
+        [
+            Command::SubtitleEncoding("UTF-8".into()),
+            Command::SubtitleEncoding(previous.subtitle_other.default_encoding.clone()),
+        ]
     );
+    assert_eq!(
+        form.get_subtitle_auto_load_mode_index(),
+        previous.subtitle_auto_load.mode.index()
+    );
+    assert_eq!(
+        crate::subtitle_auto_load_preferences::current_player(&transaction.player.app).unwrap(),
+        previous.subtitle_auto_load
+    );
+    std::fs::remove_dir(path).unwrap();
+    edit();
+    assert_eq!(
+        transaction.apply(),
+        [Command::SubtitleEncoding("UTF-8".into())]
+    );
+    let saved = transaction.profile.read();
+    assert_eq!(saved.subtitle_other.default_encoding, "UTF-8");
+    assert_eq!(saved.subtitle_auto_load.mode, AutoLoadMode::Disabled);
 }
 
 #[test]
@@ -588,10 +587,7 @@ fn music_mode_callback_reads_the_updated_preference_file() {
         .window
         .global::<riina_ui::GeneralSettingsState>()
         .set_auto_switch_to_music_mode(target);
-    assert_eq!(
-        transaction.apply(),
-        [transaction.expected_subtitle_reload()]
-    );
+    assert!(transaction.apply().is_empty());
     i_slint_backend_testing::mock_elapsed_time(std::time::Duration::ZERO);
     assert_eq!(observed.get(), Some(target));
 }
@@ -612,10 +608,7 @@ fn opensubtitles_storage_failure_keeps_the_prior_key_and_omits_secrets_from_json
         .window
         .global::<crate::SubtitleSettingsState>()
         .set_open_subtitles_api_key("candidate-api-key".into());
-    assert_eq!(
-        transaction.apply(),
-        [transaction.expected_subtitle_reload()]
-    );
+    assert!(transaction.apply().is_empty());
     assert_eq!(
         app.global::<PlayerPreferences>()
             .get_open_subtitles_api_key(),
@@ -657,10 +650,7 @@ fn assrt_storage_failure_keeps_the_prior_token_and_omits_secrets_from_json() {
         .window
         .global::<crate::SubtitleSettingsState>()
         .set_assrt_token("candidate-assrt-token".into());
-    assert_eq!(
-        transaction.apply(),
-        [transaction.expected_subtitle_reload()]
-    );
+    assert!(transaction.apply().is_empty());
     assert_eq!(
         app.global::<PlayerPreferences>().get_assrt_token(),
         "existing-assrt-token"
@@ -692,22 +682,13 @@ fn assrt_storage_failure_keeps_the_prior_token_and_omits_secrets_from_json() {
 fn valid_video_thread_count_reaches_the_engine_and_file_once() {
     let transaction = Transaction::new();
     transaction.window.set_video_threads_text("3".into());
-    assert_eq!(
-        transaction.apply(),
-        [
-            transaction.expected_subtitle_reload(),
-            Command::VideoThreads(3)
-        ]
-    );
+    assert_eq!(transaction.apply(), [Command::VideoThreads(3)]);
     assert_eq!(transaction.profile.read().video_threads, 3);
-    assert_eq!(
-        transaction.apply(),
-        [transaction.expected_subtitle_reload()]
-    );
+    assert!(transaction.apply().is_empty());
 }
 
 #[test]
-fn cache_edits_apply_the_saved_policy_after_subtitle_reload() {
+fn cache_edits_apply_only_the_saved_cache_policy() {
     let transaction = Transaction::new();
     let enabled = !transaction
         .window
@@ -728,13 +709,7 @@ fn cache_edits_apply_the_saved_policy_after_subtitle_reload() {
             .get_network_cache_enabled(),
         enabled
     );
-    assert_eq!(
-        commands,
-        [
-            Command::SubtitleAutoLoad(saved.subtitle_auto_load),
-            Command::NetworkCache(saved.network_cache)
-        ]
-    );
+    assert_eq!(commands, [Command::NetworkCache(saved.network_cache)]);
 }
 
 #[test]
@@ -743,10 +718,7 @@ fn stream_indicator_edits_apply_without_reconfiguring_the_playback_cache() {
     let network = transaction.window.global::<crate::NetworkSettingsState>();
     network.set_network_show_buffering_throbber(false);
     network.set_network_show_seeking_throbber(false);
-    assert_eq!(
-        transaction.apply(),
-        [transaction.expected_subtitle_reload()]
-    );
+    assert!(transaction.apply().is_empty());
     let saved = transaction.profile.read();
     assert!(!saved.network_cache.show_buffering_throbber);
     assert!(!saved.network_cache.show_seeking_throbber);
@@ -820,10 +792,7 @@ fn screenshot_settings_select_avif_and_preserve_the_custom_template() {
     general.set_copy_to_clipboard(true);
     general.set_show_preview(false);
 
-    assert_eq!(
-        transaction.apply(),
-        [transaction.expected_subtitle_reload()]
-    );
+    assert!(transaction.apply().is_empty());
     screenshot.encoding.format = Format::Avif;
     screenshot.destinations.save_to_file = false;
     screenshot.destinations.copy_to_clipboard = true;
@@ -845,10 +814,7 @@ fn saving_a_session_retains_committed_preferences_without_storing_startup_volume
         .global::<crate::AudioSettingsState>()
         .set_audio_threads_text("3".into());
     transaction.window.set_thumbnail_preview_enabled(false);
-    assert_eq!(
-        transaction.apply(),
-        [transaction.expected_subtitle_reload()]
-    );
+    assert!(transaction.apply().is_empty());
     transaction
         .player
         .app

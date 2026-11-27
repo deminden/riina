@@ -113,7 +113,6 @@ command_samples! {
     SubtitleMarginY[25.0];
     SubtitlePreferredLanguages["eng,fra".into()];
     SubtitleEncoding["SHIFT-JIS".into()];
-    SubtitleAutoLoad[subtitle_controls::AutoLoadPreferences::default()];
     NetworkCache[network_preferences::Cache::default()];
     NetworkOnlineVideos[network_preferences::OnlineVideos::default()];
     VideoEqualizer { option: video_controls::Equalizer::Brightness, value: 12 };

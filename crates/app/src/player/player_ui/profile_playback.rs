@@ -7,6 +7,7 @@ use riina_core::{
     audio_preferences::ReplayGainOptions,
     key_bindings::Settings as KeyBindings,
     osc_preferences::{ControllerOptions, TimePrecision},
+    subtitle_controls::AutoLoadPreferences,
 };
 use riina_ui::{PlaybackTimelineState, PlayerControlActions};
 use slint::ComponentHandle;
@@ -121,6 +122,14 @@ impl ProfilePlaybackBinding {
             self.player.context.preferences_path(),
             Some(&self.player),
             font,
+        );
+    }
+
+    pub(crate) fn publish_subtitle_auto_load(&self, settings: &AutoLoadPreferences) {
+        self.profile.publish_subtitle_auto_load(
+            self.player.context.preferences_path(),
+            Some(&self.player),
+            settings,
         );
     }
 }
@@ -293,6 +302,35 @@ impl ProfilePlayback {
         });
     }
 
+    #[cfg(target_os = "macos")]
+    pub(super) fn adopt_application_subtitle_auto_load(
+        &self,
+        path: &Path,
+        settings: &AutoLoadPreferences,
+    ) {
+        self.publish_subtitle_auto_load(path, None, settings);
+    }
+
+    fn publish_subtitle_auto_load(
+        &self,
+        path: &Path,
+        source: Option<&Rc<PlayerPreferences>>,
+        settings: &AutoLoadPreferences,
+    ) {
+        self.for_each_player(path, |player, app| {
+            if source.is_some_and(|source| Rc::ptr_eq(source, player)) {
+                return;
+            }
+            player.context.preferences().adopt_committed(|saved| {
+                saved.subtitle_auto_load.clone_from(settings);
+            });
+            crate::subtitle_auto_load_preferences::install_player(app, settings);
+            if let Some(form) = player.form.borrow().upgrade() {
+                crate::subtitle_auto_load_preferences::install_window(&form, settings);
+            }
+        });
+    }
+
     pub(super) fn publish(&self, path: &Path, options: ControllerOptions) {
         self.publish_players(path, options);
         self.form.publish(path, options);
@@ -370,7 +408,7 @@ mod tests {
     #[test]
     fn audio_and_subtitle_defaults_reach_peer_players_and_forms_on_the_same_profile()
     -> Result<(), Box<dyn std::error::Error>> {
-        use riina_core::audio_preferences::ReplayGain;
+        use riina_core::{audio_preferences::ReplayGain, subtitle_controls::AutoLoadMode};
         use std::sync::mpsc::TryRecvError;
 
         i_slint_backend_testing::init_no_event_loop();
@@ -439,6 +477,31 @@ mod tests {
             "Test family"
         );
         assert_eq!(other_engine.commands.try_recv(), Err(TryRecvError::Empty));
+
+        let discovery = AutoLoadPreferences {
+            mode: AutoLoadMode::Filename,
+            priority_keywords: "forced".into(),
+            search_paths: "./captions".into(),
+        };
+        let mut selected = source_model.snapshot();
+        selected.subtitle_auto_load = discovery.clone();
+        source_model.save(selected)?;
+        source.publish_subtitle_auto_load(&discovery);
+        assert_eq!(peer_model.snapshot().subtitle_auto_load, discovery);
+        assert_eq!(
+            crate::subtitle_auto_load_preferences::current_player(&peer)?,
+            discovery
+        );
+        assert_eq!(
+            crate::subtitle_auto_load_preferences::current_window(&peer_form)?,
+            discovery
+        );
+        assert_eq!(
+            other_model.snapshot().subtitle_auto_load,
+            AutoLoadPreferences::default()
+        );
+        assert_eq!(source_engine.commands.try_recv(), Err(TryRecvError::Empty));
+        assert_eq!(peer_engine.commands.try_recv(), Err(TryRecvError::Empty));
 
         let settings = KeyBindings {
             current_profile: "Movist Default".into(),

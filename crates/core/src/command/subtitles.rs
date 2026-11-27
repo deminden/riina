@@ -141,14 +141,6 @@ pub(super) fn encoding(encoding: &str) -> Result<Vec<Vec<String>>, CommandError>
     Ok(vec![set("sub-codepage", encoding)])
 }
 
-pub(super) fn auto_load(
-    preferences: &subtitle_controls::AutoLoadPreferences,
-) -> Result<Vec<Vec<String>>, CommandError> {
-    preferences.validate().map_err(CommandError::Preference)?;
-    // The session matcher owns automatic associations, including their removal.
-    Ok(vec![set("sub-auto", "no")])
-}
-
 pub(super) fn load(state: &Playback, intent: &Command) -> Result<Vec<Vec<String>>, CommandError> {
     match intent {
         Command::AddSubtitle(path) => add(state, path),

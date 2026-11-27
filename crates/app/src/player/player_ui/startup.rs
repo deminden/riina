@@ -173,6 +173,7 @@ pub(super) fn resume_engine_options(
         ("save-position-on-quit".into(), enabled.clone()),
         ("resume-playback".into(), enabled),
     ];
+    // Riina discovers linked subtitles. An explicit advanced option can override this default.
     options.push(("sub-auto".into(), "no".into()));
     options.extend(network.engine_options()?);
     options.extend(network_cache.engine_options()?);

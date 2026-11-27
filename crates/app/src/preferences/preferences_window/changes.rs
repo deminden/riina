@@ -13,11 +13,13 @@ use crate::{PlayerWindow, PreferencesWindow, preferences::model::PreferenceModel
 #[cfg(test)]
 use riina_core::Command;
 use riina_core::audio_preferences::ReplayGainOptions;
+use riina_core::subtitle_controls::AutoLoadPreferences;
 use slint::ComponentHandle;
 
 pub(super) struct CommittedEdit<'a> {
     pub(super) replay_gain: Option<ReplayGainOptions>,
     pub(super) subtitle_font: Option<&'a str>,
+    pub(super) subtitle_auto_load: Option<&'a AutoLoadPreferences>,
     pub(super) key_bindings: Option<&'a riina_core::key_bindings::Settings>,
 }
 
@@ -139,13 +141,11 @@ fn connect_with_credentials(
         display.project_before_save(&app, &window);
         let restart_notice = playback.restart_notice();
         let mut playback_changes = playback_settings::Applied::default();
-        let result = subtitles
-            .apply_tracks(&decoder_player)
+        let apply_tracks = subtitles.apply_tracks(&decoder_player);
+        let tracks_applied = apply_tracks.is_ok();
+        let result = apply_tracks
             .and_then(|()| playback.apply(&app, &decoder_player, &general, &mut playback_changes))
-            .and_then(|()| {
-                subtitles.project_tracks(&app);
-                crate::screenshot_preferences::read_window(&window, &previous)
-            })
+            .and_then(|()| crate::screenshot_preferences::read_window(&window, &previous))
             .and_then(|screenshot| {
                 let mut preferences = capture_preferences(
                     &app,
@@ -170,6 +170,7 @@ fn connect_with_credentials(
                     replay_gain: playback.committed_replay_gain(&playback_changes),
                     subtitle_font: (saved.subtitle_font != applied_subtitles.font)
                         .then_some(applied_subtitles.font.as_str()),
+                    subtitle_auto_load: subtitles.project_tracks(&app, &saved.subtitle_auto_load),
                     key_bindings: (saved.key_bindings != current.key_bindings)
                         .then_some(&current.key_bindings),
                 });
@@ -190,7 +191,9 @@ fn connect_with_credentials(
             Err(error) => {
                 general::install_open_policy(&window, &saved);
                 playback.restore(&app, &window, &decoder_player, &general, &playback_changes);
-                subtitles.restore_tracks(&app, &decoder_player);
+                if tracks_applied {
+                    subtitles.restore_tracks(&decoder_player);
+                }
                 applied_subtitles.restore(&app, &decoder_player, &subtitles);
                 applied_decoder.restore(&app, &decoder_player);
                 general.previous.restore(&app);

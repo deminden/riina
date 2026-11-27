@@ -7566,3 +7566,30 @@ comparison. All three focused Windows native screenshot tests passed.
 The locked Linux application build, strict Clippy and 12 focused tests passed.
 Strict macOS source checks passed for Intel and Apple Silicon. Native macOS
 screenshot interaction still needs desktop verification.
+
+### Shared subtitle discovery settings (2026-11-27)
+
+An isolated Windows player started with the advanced mpv option
+`sub-auto=exact`. Searching Settings for AVIF and changing the format and
+file-saving option preserved that value. The player captured the paused
+frame and closed normally.
+
+Regression tests confirm that fullscreen-at-open and subtitle discovery
+settings save even when all 64 decoder queue slots are occupied. They also
+confirm that a failed save restores the previous encoding and leaves the
+discovery policy unchanged, and that a committed policy reaches peers and
+their Settings forms on the same profile.
+
+In an isolated Linux X11 session, two paused players using the same profile
+started with discovery disabled and no external subtitle tracks. Enabling
+filename matching in one Settings window attached each video's own caption
+without changing either player's native setting. Disabling matching retained
+both attached tracks and prevented discovery on the next file. Closing the
+last player ended the tested process normally.
+
+The locked Windows workspace build and full source gate passed with 734
+application tests, 88 widget tests and the software player and Settings pixel
+comparison. All 12 focused Windows native subtitle tests passed. The locked
+Linux application build, strict Clippy and 85 focused tests passed. Strict
+macOS source checks passed for Intel and Apple Silicon. Native macOS Settings
+and playback interaction still need desktop verification.

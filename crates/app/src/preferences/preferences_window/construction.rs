@@ -70,6 +70,9 @@ pub(super) fn create(
             if let Some(font) = edit.subtitle_font {
                 profile.publish_subtitle_font(font);
             }
+            if let Some(settings) = edit.subtitle_auto_load {
+                profile.publish_subtitle_auto_load(settings);
+            }
             if let Some(settings) = edit.key_bindings {
                 profile.publish_key_bindings(settings);
             }

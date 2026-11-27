@@ -133,7 +133,6 @@ impl Command {
             | Self::InsertPlaylistFilesBefore { .. }
             | Self::SubtitleLetterboxMargins(_)
             | Self::SubtitleEncoding(_)
-            | Self::SubtitleAutoLoad(_)
             | Self::CycleLoop
             | Self::ToggleLoopMode(_)
             | Self::SetLoopMode(_)

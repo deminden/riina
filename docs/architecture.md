@@ -1006,6 +1006,13 @@ because text recognition can become available after the window opens.
 Subtitles search opens the relevant disclosure, and Network and Control
 search scroll the matching groups into view. The localizable subtitle
 encoding menu uses the portable ordered encoding table for the mpv values.
+The player sets mpv's subtitle auto-load default at startup. Riina's matcher
+owns discovery mode, priority keywords and search paths. A successful Settings
+save projects those values into each open player and form for the same profile.
+Unrelated edits leave the decoder's subtitle options alone. Placement,
+language and encoding changes send only the required live commands. On
+failure the transaction queues restoration for the accepted decoder changes
+and refreshes the form.
 Key Bindings, Advanced and Utilities search share the scroll positions of
 their visible controls. The Plugins page scrolls the entire installed list
 while its modal dialogs remain attached to the Settings window. Plugin

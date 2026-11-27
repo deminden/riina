@@ -11,7 +11,7 @@ use crate::{
     },
 };
 use riina_core::{
-    Command, Preferences,
+    Preferences,
     subtitle_controls::{
         AssOverrideLevel, AutoLoadPreferences, OtherPreferences, PositionPreferences,
         TextStylePreferences,
@@ -29,7 +29,6 @@ pub(super) struct Draft {
     position: PositionPreferences,
     previous_other: OtherPreferences,
     other: OtherPreferences,
-    previous_auto_load: AutoLoadPreferences,
     auto_load: AutoLoadPreferences,
 }
 
@@ -84,11 +83,6 @@ impl Draft {
                 window,
             )?,
             other: read_or_refresh(model.read_section::<OtherPreferences>(window), app, window)?,
-            previous_auto_load: read_or_refresh(
-                crate::subtitle_auto_load_preferences::current_player(app),
-                app,
-                window,
-            )?,
             auto_load: read_or_refresh(
                 model.read_section::<AutoLoadPreferences>(window),
                 app,
@@ -173,16 +167,26 @@ impl Draft {
 
     pub(super) fn apply_tracks(&self, sender: &CommandSender) -> Result<(), String> {
         crate::subtitle_position_preferences::apply(sender, self.previous_position, self.position)?;
-        crate::subtitle_other_preferences::apply(sender, &self.previous_other, &self.other)?;
-        sender
-            .send(Command::SubtitleAutoLoad(self.auto_load.clone()))
-            .map_err(String::from)
+        crate::subtitle_other_preferences::apply(sender, &self.previous_other, &self.other)
+            .inspect_err(|_| self.restore_position(sender))
     }
 
-    pub(super) fn project_tracks(&self, app: &PlayerWindow) {
-        self.position.write_player(app);
-        self.other.write_player(app);
+    pub(super) fn project_tracks(
+        &self,
+        app: &PlayerWindow,
+        previous_auto_load: &AutoLoadPreferences,
+    ) -> Option<&AutoLoadPreferences> {
+        if self.position != self.previous_position {
+            self.position.write_player(app);
+        }
+        if self.other != self.previous_other {
+            self.other.write_player(app);
+        }
+        if &self.auto_load == previous_auto_load {
+            return None;
+        }
         self.auto_load.write_player(app);
+        Some(&self.auto_load)
     }
 
     pub(super) fn put_tracks(&self, preferences: &mut Preferences) {
@@ -191,18 +195,16 @@ impl Draft {
         self.position.put(preferences);
     }
 
-    pub(super) fn restore_tracks(&self, app: &PlayerWindow, sender: &CommandSender) {
-        crate::preferences::restore_playback(
-            sender,
-            Command::SubtitleAutoLoad(self.previous_auto_load.clone()),
-        );
+    pub(super) fn restore_tracks(&self, sender: &CommandSender) {
         if let Err(error) =
             crate::subtitle_other_preferences::apply(sender, &self.other, &self.previous_other)
         {
             crate::diagnostics::warn!("Could not restore the previous subtitle settings: {error}");
         }
-        self.previous_other.write_player(app);
-        self.previous_auto_load.write_player(app);
+        self.restore_position(sender);
+    }
+
+    fn restore_position(&self, sender: &CommandSender) {
         if let Err(error) = crate::subtitle_position_preferences::apply(
             sender,
             self.position,
@@ -210,7 +212,6 @@ impl Draft {
         ) {
             crate::diagnostics::warn!("Could not restore the previous subtitle position: {error}");
         }
-        self.previous_position.write_player(app);
     }
 }
 

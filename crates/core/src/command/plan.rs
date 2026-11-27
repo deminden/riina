@@ -27,7 +27,6 @@ impl Command {
                 ]
             }
             Self::SubtitleEncoding(encoding) => subtitles::encoding(encoding)?,
-            Self::SubtitleAutoLoad(preferences) => subtitles::auto_load(preferences)?,
             Self::TogglePause | Self::SetPaused(false) if state.phase == Phase::Ended => {
                 playback::replay_from_eof()
             }

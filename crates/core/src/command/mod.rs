@@ -177,7 +177,6 @@ pub enum Command {
     SubtitleMarginY(f64),
     SubtitlePreferredLanguages(String),
     SubtitleEncoding(String),
-    SubtitleAutoLoad(subtitle_controls::AutoLoadPreferences),
     NetworkCache(network_preferences::Cache),
     NetworkOnlineVideos(network_preferences::OnlineVideos),
     VideoEqualizer {

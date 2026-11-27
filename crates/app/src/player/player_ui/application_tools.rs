@@ -51,6 +51,9 @@ impl ApplicationServices {
             if let Some(font) = changes.subtitle_font {
                 profile.adopt_application_font(&profile_path, &font);
             }
+            if let Some(settings) = changes.subtitle_auto_load {
+                profile.adopt_application_subtitle_auto_load(&profile_path, &settings);
+            }
             if let Some(settings) = changes.key_bindings {
                 profile.publish_key_bindings(&profile_path, &settings);
             }
