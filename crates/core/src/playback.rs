@@ -103,6 +103,8 @@ pub struct Playback {
     pub ignore_path_in_watch_later_config: Option<bool>,
     /// Observed save-on-stop/quit policy; Stop writes watch-later only when enabled.
     pub save_position_on_quit: Option<bool>,
+    /// Native commands or a completed load may have changed the saved position files.
+    pub watch_later_revision: u64,
     pub position: Option<f64>,
     pub duration: Option<f64>,
     pub remaining_time: Option<f64>,

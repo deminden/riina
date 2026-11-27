@@ -240,11 +240,13 @@ playlist withdraws its queued requests and cancels probes that other windows
 no longer need. The current player's observed duration takes precedence.
 Each player reads saved resume positions for its visible playlist in one
 background job. The read uses the profile's watch-later directory and the
-decoder's observed filename policy. A media change or stop refreshes saved
-positions even when the playlist contains the same files. Row ordering and
+decoder's observed filename policy. Native save and delete replies and initial
+playback restart signal a possible change to the profile's files. Playlists in
+that profile refresh even when their filenames stay the same. Row ordering and
 playback clock ticks reuse completed lookups. Hiding the playlist withdraws
-pending reads. Clearing saved playback progress invalidates the displayed
-positions and supersedes any read still in flight.
+pending reads. Clearing saved playback progress supersedes any read in flight.
+On close the engine worker completes the configured save before destroying
+the native client, then signals the profile so other windows can read it.
 Folder discovery also supplies common series filename prefixes to the
 player's playlist. The grouping rules are shared with subtitle matching.
 The row keeps its full title for accessibility and folds the shared part
@@ -388,9 +390,11 @@ anchors across group changes and refreshes.
 Each new entry keeps the resume filename chosen by mpv at the time of playback.
 Matching keys replace earlier visits and read the same saved position after a
 path-policy change. Stream keys preserve the original address. History reads
-saved progress through the recorded key. Rows without a key stay visible and
-gain one when played again. The standalone archive owns the rows, independently
-of Settings.
+saved progress through the recorded key. Native file changes invalidate
+in-flight reads. The visible History window coalesces changes and requests a
+background read. Opening History also reads the current files. Rows without a
+key stay visible and gain one when played again. The standalone archive owns
+the rows, independently of Settings.
 Moving a file to Trash refreshes availability and keeps its record available
 for separate removal. Clear, remove and trash confirmations belong to the
 History window. It holds one pending action, defaults focus to Cancel and

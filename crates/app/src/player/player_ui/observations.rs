@@ -6,7 +6,6 @@ use super::{
 use crate::{
     PlayerWindow, platform,
     player::presentation::playback_osd_allowed,
-    playlist_metadata::resume::PlaybackState,
     seek_osd::{self, Change},
 };
 use riina_core::{Phase, Playback, TrackKind};
@@ -71,7 +70,6 @@ pub(super) fn update_ui(
     } else if displayed.as_ref().is_some_and(|old| {
         old.duration != state.duration
             || old.ignore_path_in_watch_later_config != state.ignore_path_in_watch_later_config
-            || PlaybackState::from(old.as_ref()) != PlaybackState::from(state.as_ref())
     }) {
         app.invoke_refresh_playlist_metadata();
     }

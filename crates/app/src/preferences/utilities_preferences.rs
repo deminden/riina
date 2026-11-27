@@ -136,7 +136,7 @@ fn install_cache_and_history_actions(
                     &preferences_path,
                     cleared.is_ok(),
                 );
-                crate::player_ui::refresh_playlist_resume_positions();
+                crate::playlist_metadata::resume::files_changed(&watch_later);
                 settings.set_utilities_progress_size(display_size(&watch_later).into());
                 match cleared {
                     Ok(bytes) => settings.invoke_progress_cleared(format_size(bytes).into()),

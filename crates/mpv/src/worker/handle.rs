@@ -164,6 +164,14 @@ impl Handle {
         })
     }
 
+    pub(super) fn write_watch_later(&self) -> Result<(), EngineError> {
+        let args = [c"write-watch-later-config".as_ptr(), ptr::null()];
+        // SAFETY: the live core reads this NUL-terminated command during the call.
+        self.api.check("write-watch-later-config", unsafe {
+            (self.api.command_sync)(self.raw.as_ptr(), args.as_ptr())
+        })
+    }
+
     pub(super) fn stop_after_panic(&self) {
         let stop = [c"stop".as_ptr(), ptr::null()];
         // SAFETY: the core is live and the command array and its only string are terminated.

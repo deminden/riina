@@ -13,6 +13,7 @@ type Archive = Arc<Mutex<PlaybackHistoryState>>;
 #[derive(Debug, Default)]
 pub(super) struct Refresh {
     epoch: u64,
+    dirty: bool,
     pending: bool,
     running: bool,
     replaced: HashSet<String>,
@@ -21,6 +22,7 @@ pub(super) struct Refresh {
 impl Refresh {
     pub(super) fn cancel(&mut self) {
         self.epoch = self.epoch.wrapping_add(1);
+        self.dirty = false;
         self.pending = false;
         self.replaced.clear();
     }
@@ -39,7 +41,18 @@ impl Refresh {
 }
 
 pub(crate) fn refresh_on_open(archive: &Archive) {
-    let _ = request(archive);
+    let _ = request(archive, false);
+}
+
+pub(crate) fn refresh_if_changed(archive: &Archive) {
+    let _ = request(archive, true);
+}
+
+pub(crate) fn files_changed(archive: &Archive) {
+    let mut state = lock(archive);
+    // A scan begun before the edit may already have read an obsolete position.
+    state.progress.cancel();
+    state.progress.dirty = true;
 }
 
 pub(crate) fn files_cleared(preferences_path: &Path, all_removed: bool) {
@@ -50,7 +63,7 @@ pub(crate) fn files_cleared(preferences_path: &Path, all_removed: bool) {
     let archive = lock(histories).get(&key).cloned();
     let Some(archive) = archive else { return };
     if !all_removed {
-        let _ = request(&archive);
+        files_changed(&archive);
         return;
     }
     let mut state = lock(&archive);
@@ -64,8 +77,12 @@ pub(crate) fn files_cleared(preferences_path: &Path, all_removed: bool) {
     }
 }
 
-fn request(archive: &Archive) -> Option<background::TaskHandle<()>> {
+fn request(archive: &Archive, only_if_dirty: bool) -> Option<background::TaskHandle<()>> {
     let mut state = lock(archive);
+    let dirty = std::mem::take(&mut state.progress.dirty);
+    if only_if_dirty && !dirty {
+        return None;
+    }
     let directory = state.watch_later_directory.clone()?;
     if state
         .entries
@@ -191,12 +208,12 @@ mod tests {
 
         for position in [42.25, 58.0] {
             std::fs::write(&saved, format!("start={position}\n")).unwrap();
-            request(&archive).unwrap().join().unwrap();
+            request(&archive, false).unwrap().join().unwrap();
             assert_eq!(lock(&archive).entries()[0].progress, Some(position));
         }
 
         std::fs::remove_file(saved).unwrap();
-        request(&archive).unwrap().join().unwrap();
+        request(&archive, false).unwrap().join().unwrap();
         assert_eq!(lock(&archive).entries()[0].progress, None);
         assert_eq!(
             playback_history_store::load(&archive_path).unwrap(),
@@ -225,7 +242,7 @@ mod tests {
             None,
             Some(directory.into()),
         )));
-        request(&archive).unwrap().join().unwrap();
+        request(&archive, false).unwrap().join().unwrap();
         let history = lock(&archive);
         assert_eq!(history.entries()[0].progress, None);
         assert_eq!(history.entries()[1].progress, Some(12.0));
@@ -257,5 +274,41 @@ mod tests {
         assert_eq!(lock(&archive).entries()[0].progress, None);
         assert_eq!(lock(&archive).entries()[0].path, media);
         assert!(Scan::take(&archive).is_none());
+    }
+
+    #[test]
+    fn native_edits_coalesce_until_visible_refresh_and_discard_an_inflight_read() {
+        let temp = TempDir::new("history-native-edit").unwrap();
+        let directory = temp.path();
+        let media = "https://media.example/clip.mkv";
+        let key = playback_history_store::watch_later_key(media, false).unwrap();
+        let saved = directory.join(key.as_str());
+        let archive = Arc::new(Mutex::new(PlaybackHistoryState::with_persistence(
+            vec![Entry {
+                watch_later_key: Some(key),
+                ..entry(media.into())
+            }],
+            None,
+            Some(directory.into()),
+        )));
+        assert!(request(&archive, true).is_none());
+        assert!(lock(&archive).progress.schedule());
+        let old_scan = Scan::take(&archive).unwrap();
+        std::fs::write(&saved, "start=27\n").unwrap();
+        files_changed(&archive);
+        std::fs::write(&saved, "start=41\n").unwrap();
+        files_changed(&archive);
+        old_scan.publish(&archive, &HashMap::from([(media, Some(12.0))]));
+        assert_eq!(lock(&archive).entries()[0].progress, None);
+        assert!(Scan::take(&archive).is_none());
+
+        request(&archive, true).unwrap().join().unwrap();
+        assert_eq!(lock(&archive).entries()[0].progress, Some(41.0));
+        assert!(request(&archive, true).is_none());
+
+        std::fs::remove_file(saved).unwrap();
+        files_changed(&archive);
+        request(&archive, true).unwrap().join().unwrap();
+        assert_eq!(lock(&archive).entries()[0].progress, None);
     }
 }

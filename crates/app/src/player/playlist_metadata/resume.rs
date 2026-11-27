@@ -1,27 +1,35 @@
 //! A visible playlist reads saved resume positions from its own profile.
 
 use crate::{PlayerWindow, background, playback_history_store};
-use riina_core::{FileFeedback, Phase, Playback, PlaylistEntry, sync::lock};
+use riina_core::{Playback, PlaylistEntry, sync::lock};
 use slint::ComponentHandle;
 use std::{
     collections::{HashMap, HashSet},
     path::{Path, PathBuf},
     sync::{
-        Arc, Mutex,
+        Arc, Mutex, OnceLock, Weak,
         atomic::{AtomicU64, Ordering},
     },
 };
 
 pub(crate) type Positions = HashMap<String, f64>;
 
-static REVISION: AtomicU64 = AtomicU64::new(0);
+type Revisions = Mutex<HashMap<PathBuf, Weak<AtomicU64>>>;
+static REVISIONS: OnceLock<Revisions> = OnceLock::new();
 
-pub(crate) fn invalidate() {
-    REVISION.fetch_add(1, Ordering::AcqRel);
+pub(crate) fn files_changed(directory: &Path) {
+    if let Some(revision) = REVISIONS
+        .get()
+        .and_then(|profiles| lock(profiles).get(directory).and_then(Weak::upgrade))
+    {
+        revision.fetch_add(1, Ordering::AcqRel);
+        super::notify_listeners();
+    }
 }
 
 pub(crate) struct Reader {
     directory: PathBuf,
+    revision: Arc<AtomicU64>,
     state: Arc<Mutex<State>>,
 }
 
@@ -37,70 +45,57 @@ struct State {
 struct Request {
     filenames: HashSet<String>,
     policy: PathPolicy,
-    playback: PlaybackState,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(crate) struct PlaybackState {
-    generation: u64,
-    loading: bool,
-    stopped: bool,
-}
-
-impl From<&Playback> for PlaybackState {
-    fn from(playback: &Playback) -> Self {
-        // Loading a file can consume its saved position. Replacing or
-        // stopping playback can write the position of the previous file.
-        Self {
-            generation: playback.generation,
-            loading: playback.file_feedback == FileFeedback::Loading,
-            stopped: playback.phase == Phase::Stopped,
-        }
-    }
-}
-
-#[derive(Clone, Copy, PartialEq, Eq)]
 struct PathPolicy {
     ignore_path: bool,
     revision: u64,
 }
 
-impl PathPolicy {
-    fn observed(playback: &Playback) -> Option<Self> {
-        Some(Self {
-            ignore_path: playback.ignore_path_in_watch_later_config?,
-            revision: REVISION.load(Ordering::Acquire),
-        })
-    }
-}
-
 impl Reader {
     pub(crate) fn new(directory: PathBuf) -> Self {
+        let mut profiles = lock(REVISIONS.get_or_init(Mutex::default));
+        profiles.retain(|_, revision| revision.strong_count() > 0);
+        let registered = profiles.entry(directory.clone()).or_default();
+        let revision = registered.upgrade().unwrap_or_else(|| {
+            let revision = Arc::new(AtomicU64::new(0));
+            *registered = Arc::downgrade(&revision);
+            revision
+        });
         Self {
             directory,
+            revision,
             state: Arc::default(),
         }
+    }
+
+    fn policy(&self, playback: &Playback) -> Option<PathPolicy> {
+        Some(PathPolicy {
+            ignore_path: playback.ignore_path_in_watch_later_config?,
+            revision: self.revision.load(Ordering::Acquire),
+        })
     }
 
     pub(crate) fn positions(&self, playback: &Playback) -> Option<Arc<Positions>> {
         let state = lock(&self.state);
         let (policy, positions) = state.saved.as_ref()?;
-        (*policy == PathPolicy::observed(playback)?).then(|| positions.clone())
+        (*policy == self.policy(playback)?).then(|| positions.clone())
     }
 
     pub(crate) fn refresh(&self, app: &PlayerWindow, playback: &Playback) {
         let mut state = lock(&self.state);
-        let Some(policy) = PathPolicy::observed(playback)
+        let Some(policy) = self
+            .policy(playback)
             .filter(|_| app.get_prefetch_playlist_durations() && !playback.playlist.is_empty())
         else {
             state.clear();
             return;
         };
-        let media = PlaybackState::from(playback);
         if state
             .request
             .as_ref()
-            .is_some_and(|previous| previous.policy == policy && previous.playback == media)
+            .is_some_and(|previous| previous.policy == policy)
             && state
                 .playlist
                 .as_ref()
@@ -116,7 +111,6 @@ impl Reader {
                 .map(|entry| entry.filename.clone())
                 .collect(),
             policy,
-            playback: media,
         };
         if state.request.as_deref() == Some(&request) {
             return;
@@ -128,9 +122,10 @@ impl Reader {
         state.running = true;
         let shared = self.state.clone();
         let directory = self.directory.clone();
+        let revision = self.revision.clone();
         let weak = app.as_weak();
         if let Err(error) = background::spawn_named("riina-playlist-resume", move || {
-            if read_latest(&shared, &directory) {
+            if read_latest(&shared, &directory, &revision) {
                 let _ = background::to_ui(weak, |app| app.invoke_refresh_playlist_metadata());
             }
         }) {
@@ -153,22 +148,22 @@ impl State {
         self.playlist = None;
     }
 
-    fn is_current(&self, request: &Arc<Request>) -> bool {
+    fn is_current(&self, request: &Arc<Request>, revision: &AtomicU64) -> bool {
         self.request
             .as_ref()
             .is_some_and(|current| Arc::ptr_eq(current, request))
-            && request.policy.revision == REVISION.load(Ordering::Acquire)
+            && request.policy.revision == revision.load(Ordering::Acquire)
     }
 }
 
-fn read_latest(shared: &Mutex<State>, directory: &Path) -> bool {
+fn read_latest(shared: &Mutex<State>, directory: &Path, revision: &AtomicU64) -> bool {
     loop {
         let request = {
             let mut state = lock(shared);
             let Some(request) = state
                 .request
                 .clone()
-                .filter(|request| state.is_current(request))
+                .filter(|request| state.is_current(request, revision))
             else {
                 state.running = false;
                 return false;
@@ -177,7 +172,7 @@ fn read_latest(shared: &Mutex<State>, directory: &Path) -> bool {
         };
         let mut positions = Positions::new();
         for filename in &request.filenames {
-            if !lock(shared).is_current(&request) {
+            if !lock(shared).is_current(&request, revision) {
                 break;
             }
             if let Some(position) = playback_history_store::progress_from_watch_later(
@@ -189,7 +184,7 @@ fn read_latest(shared: &Mutex<State>, directory: &Path) -> bool {
             }
         }
         let mut state = lock(shared);
-        if state.is_current(&request) {
+        if state.is_current(&request, revision) {
             state.saved = Some((request.policy, Arc::new(positions)));
             state.running = false;
             return true;
@@ -214,13 +209,13 @@ mod tests {
         let stream_key = playback_history_store::watch_later_key(stream, true).unwrap();
         let stream_path = directory.join(stream_key.as_str());
         std::fs::write(stream_path, "# video.mkv\nstart=15\n").unwrap();
+        let revision = AtomicU64::new(0);
         let request = Arc::new(Request {
             filenames: HashSet::from([filename.into(), stream.into(), "missing.mkv".into()]),
             policy: PathPolicy {
                 ignore_path: true,
-                revision: REVISION.load(Ordering::Acquire),
+                revision: 0,
             },
-            playback: PlaybackState::from(&Playback::default()),
         });
         let shared = Mutex::new(State {
             request: Some(request.clone()),
@@ -231,7 +226,7 @@ mod tests {
             running: true,
             ..State::default()
         });
-        assert!(read_latest(&shared, directory));
+        assert!(read_latest(&shared, directory, &revision));
         assert_eq!(
             lock(&shared).saved.as_ref().unwrap().1.as_ref(),
             &Positions::from([(filename.into(), 7.5), (stream.into(), 15.0)])
@@ -240,33 +235,35 @@ mod tests {
 
         let mut state = lock(&shared);
         state.clear();
-        assert!(!state.is_current(&request));
+        assert!(!state.is_current(&request, &revision));
         assert!(state.saved.is_some());
     }
 
     #[test]
-    fn the_same_playlist_can_refresh_after_reopening_or_stopping_a_file() {
-        let mut playback = Playback {
-            generation: 1,
-            phase: Phase::Playing,
+    fn a_file_change_invalidates_old_results_only_for_the_shared_profile() {
+        let temp = TempDir::new("playlist-resume-profile").unwrap();
+        let directory = temp.path().join("one");
+        let peer = Reader::new(directory.clone());
+        let reader = Reader::new(directory.clone());
+        let other = Reader::new(temp.path().join("two"));
+        let playback = Playback {
+            ignore_path_in_watch_later_config: Some(false),
             ..Playback::default()
         };
-        let playing = PlaybackState::from(&playback);
-        playback.position = Some(37.0);
-        playback.phase = Phase::Paused;
-        assert_eq!(PlaybackState::from(&playback), playing);
-        playback.phase = Phase::Stopped;
-        assert_ne!(PlaybackState::from(&playback), playing);
-        playback.phase = Phase::Loading;
-        playback.generation += 1;
-        playback.file_feedback = FileFeedback::Loading;
-        let loading = PlaybackState::from(&playback);
-        assert_ne!(loading, playing);
-        // Slow loads can outlast the playlist timer. Playback restart is
-        // after mpv has finished applying and removing the resume file.
-        playback.phase = Phase::Playing;
-        assert_eq!(PlaybackState::from(&playback), loading);
-        playback.file_feedback = FileFeedback::Restarted(std::time::Instant::now());
-        assert_ne!(PlaybackState::from(&playback), loading);
+        let request = Arc::new(Request {
+            filenames: HashSet::from(["movie.mkv".into()]),
+            policy: reader.policy(&playback).unwrap(),
+        });
+        for reader in [&reader, &other] {
+            let mut state = lock(&reader.state);
+            state.request = Some(request.clone());
+            state.saved = Some((request.policy, Arc::default()));
+        }
+        assert!(reader.positions(&playback).is_some());
+        files_changed(&directory);
+        assert!(reader.positions(&playback).is_none());
+        assert_eq!(peer.policy(&playback), reader.policy(&playback));
+        assert!(!read_latest(&reader.state, &directory, &reader.revision));
+        assert!(other.positions(&playback).is_some());
     }
 }

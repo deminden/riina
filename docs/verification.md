@@ -6869,3 +6869,30 @@ Silicon and Intel.
 History stored only in old Settings files is outside the standalone archive.
 Subtitle credentials load from the system store. The settings parser uses the
 current names for the new-window shortcut and seek amount.
+
+### Live saved positions and player close (2026-11-27)
+
+The locked Windows workspace gate and build passed, including strict Clippy,
+722 application unit tests and the Windows software-rendered pixel baselines.
+The saved-position tests cover coalescing edits in History, rejecting reads
+started before an edit, and isolating playlist invalidation by profile.
+Windows Settings now opens the current Riina profile directly.
+
+All 75 native Windows tests passed in 12.01 seconds with the pinned DLL and
+null output. The resume test writes and deletes the file while paused in the
+same media generation. It also checks Save on Stop, resume from a moved file,
+consumption of the old position, and close-time saving with the preference
+enabled and disabled.
+
+On a private Windows desktop, the locked debug executable passed playback,
+volume, fullscreen, minimize/restore, preference saving and shutdown checks.
+After the exact process exited, its disposable profile contained a saved
+position of 3.0 seconds for the verified fixture. Native video material
+capture fell back to mpv sampling on that desktop. History and Playlist
+presentation, physical display output and HDR remain separate acceptance checks.
+
+- Windows executable SHA-256 `d2aad338e43b7f08aa8c7a5443bbcccc5379f5112a79cf73fa965763cc83f2bc`
+
+All 36 focused Linux application tests passed. The native resume scenario
+also passed with the local backported Linux libmpv build and null output.
+Strict workspace cross-Clippy passed for Apple Silicon and Intel.

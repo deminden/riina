@@ -22,6 +22,7 @@ use riina_ui::PlayerMenuActions;
 use slint::{ComponentHandle, winit_030::WinitWindowAccessor};
 use std::{
     cell::RefCell,
+    path::PathBuf,
     rc::Rc,
     sync::{
         Arc, Mutex,
@@ -156,6 +157,8 @@ pub(super) struct HistoryObservation {
     pub(super) session_id: u64,
     pub(super) plugin: Option<PluginHostHandle>,
     pub(super) last_plugin_context: Mutex<PluginPlayerFileContext>,
+    pub(super) watch_later_directory: PathBuf,
+    pub(super) watch_later_revision: AtomicU64,
 }
 
 impl HistoryObservation {
@@ -168,6 +171,14 @@ impl HistoryObservation {
             self.session_id,
             self.plugin.is_some(),
         );
+        if self
+            .watch_later_revision
+            .swap(state.watch_later_revision, Ordering::Relaxed)
+            != state.watch_later_revision
+        {
+            crate::playback_history::progress::files_changed(&self.history);
+            crate::playlist_metadata::resume::files_changed(&self.watch_later_directory);
+        }
         if let Some(error) = history_error {
             // The result has no recipient once its window or event loop closes.
             let _ = crate::background::to_ui(app.clone(), move |app| {

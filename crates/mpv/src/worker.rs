@@ -206,9 +206,7 @@ impl<N: Fn(Arc<Playback>)> Start<N> {
                 break;
             }
         }
-        state.hooks.continue_all(&handle);
-        state.continue_stream_auth(&handle);
-        state.release_end_pause_hook(&handle);
+        state.finish_shutdown(&handle, &notify);
     }
 }
 
@@ -347,6 +345,34 @@ enum PlaylistInsertion {
 }
 
 impl WorkerState {
+    fn finish_shutdown(&mut self, handle: &Handle, notify: &impl Fn(Arc<Playback>)) {
+        self.hooks.continue_all(handle);
+        self.continue_stream_auth(handle);
+        self.release_end_pause_hook(handle);
+        if self.playback.save_position_on_quit != Some(true)
+            || !matches!(
+                self.playback.phase,
+                Phase::Playing | Phase::Paused | Phase::Buffering | Phase::Seeking
+            )
+        {
+            return;
+        }
+        // Destroying a libmpv client skips the native quit command's save step.
+        if let Err(error) = handle.write_watch_later() {
+            diag(&format!(
+                "Could not save playback position on close: {error}"
+            ));
+            return;
+        }
+        self.watch_later_changed();
+        let _ = catch_unwind(AssertUnwindSafe(|| self.publish(notify)));
+    }
+
+    fn watch_later_changed(&mut self) {
+        self.playback.watch_later_revision = self.playback.watch_later_revision.wrapping_add(1);
+        self.mark_changed();
+    }
+
     fn next_deadline(&self) -> Option<Instant> {
         self.script_input
             .deadline()
@@ -708,7 +734,18 @@ impl WorkerState {
 
     fn issue(&mut self, handle: &Handle, args: &[String], kind: ReplyKind) -> Result<(), String> {
         let prefix_len = mpv_command_prefix_len(args);
-        let changes_media = changes_media(&args[prefix_len..]);
+        let command = &args[prefix_len..];
+        let changes_media = changes_media(command);
+        let changes_watch_later = match command.first().map(String::as_str) {
+            Some("write-watch-later-config" | "delete-watch-later-config") => true,
+            // Native replacement saves the outgoing file according to mpv's policy.
+            Some("loadfile") => {
+                self.active_entry.is_some()
+                    && self.playback.save_position_on_quit != Some(false)
+                    && command.get(2).is_none_or(|mode| mode == "replace")
+            }
+            _ => false,
+        };
         let args: Vec<_> = args
             .iter()
             .map(|arg| CString::new(arg.as_str()))
@@ -733,6 +770,7 @@ impl WorkerState {
                 label,
                 kind,
                 changes_media,
+                changes_watch_later,
             },
         );
         Ok(())
@@ -1077,6 +1115,8 @@ impl WorkerState {
     fn on_playback_restarted(&mut self, handle: &Handle) {
         if self.playback.file_feedback == riina_core::FileFeedback::Loading {
             self.playback.file_feedback = riina_core::FileFeedback::Restarted(Instant::now());
+            // mpv may remove a consumed resume file after FILE_LOADED.
+            self.watch_later_changed();
         }
         // Only a preceding native SEEK distinguishes this from initial playback.
         if std::mem::take(&mut self.seek_pending) {
@@ -1118,6 +1158,11 @@ impl WorkerState {
             self.auto_seek.failed(event.userdata());
         }
         let pending = self.pending.remove(&event.userdata())?;
+        if pending.changes_watch_later && !failed {
+            // The file effect survives a media change. A reply confirms the
+            // attempt completed, so readers still need to check the disk.
+            self.watch_later_changed();
+        }
         if let ReplyKind::PlaylistEdit { batch, lead } = pending.kind {
             let reply = if lead {
                 EditReply::Lead((!failed).then(|| event.loaded_entry()).flatten())
@@ -1388,6 +1433,7 @@ mod tests {
                     label: "loadfile".into(),
                     kind: ReplyKind::Plain,
                     changes_media: changes_media(&args),
+                    changes_watch_later: false,
                 },
             );
             assert_eq!(worker.accepts_media_intent(4), accepts);

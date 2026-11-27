@@ -55,17 +55,19 @@ impl LoadedHistory {
         recent_documents: RecentDocuments,
     ) -> Tracking {
         let session_id = playback_history::next_history_session_id();
+        let watch_later_directory = prefs_path.with_file_name("watch-later");
         let state = playback_history::shared_playback_history_state(
             self.path,
             self.entries,
             self.write_path,
-            Some(prefs_path.with_file_name("watch-later")),
+            Some(watch_later_directory.clone()),
         );
         Tracking {
             state,
             recording: Arc::new(AtomicBool::new(prefs.record_playback_history)),
             recent_documents,
             session_id,
+            watch_later_directory,
         }
     }
 }
@@ -77,6 +79,7 @@ pub(super) struct Tracking {
     pub(super) recording: Arc<AtomicBool>,
     recent_documents: RecentDocuments,
     session_id: u64,
+    watch_later_directory: PathBuf,
 }
 
 impl Tracking {
@@ -88,6 +91,8 @@ impl Tracking {
             session_id: self.session_id,
             plugin,
             last_plugin_context: Default::default(),
+            watch_later_directory: self.watch_later_directory.clone(),
+            watch_later_revision: Default::default(),
         }
     }
 

@@ -283,17 +283,40 @@ fn resume_last_position_saves_on_stop_and_restores_only_when_enabled() {
     let Harness { player, receiver } =
         Harness::with_options(&root, options(&enabled_watch_later, true)).unwrap();
     player.send(Command::Load(media.clone())).unwrap();
-    let saved = wait_for(&receiver, |state| {
+    wait_for(&receiver, |state| {
         state.phase == Phase::Playing && state.position.is_some_and(|position| position >= 2.0)
     });
+    player.send(Command::SetPaused(true)).unwrap();
+    let saved = wait_for(&receiver, |state| state.phase == Phase::Paused);
+    let saved_path = enabled_watch_later.join("F6DD685BF8BFA5FBF8DE30C06C6575D3");
+    player
+        .send(Command::MpvInputAction(
+            "no-osd write-watch-later-config".into(),
+        ))
+        .unwrap();
+    let written = wait_for(&receiver, |state| {
+        state.watch_later_revision > saved.watch_later_revision
+    });
+    assert_eq!(written.generation, saved.generation);
+    assert!(saved_path.is_file());
+
+    player
+        .send(Command::MpvInputAction("delete-watch-later-config".into()))
+        .unwrap();
+    let deleted = wait_for(&receiver, |state| {
+        state.watch_later_revision > written.watch_later_revision
+    });
+    assert_eq!(deleted.generation, saved.generation);
+    assert!(!saved_path.exists());
+
     player.send(Command::Stop).unwrap();
     wait_for(&receiver, |state| {
         state.phase == Phase::Stopped
+            && state.watch_later_revision > deleted.watch_later_revision
             && state.save_position_on_quit == Some(true)
             && state.ignore_path_in_watch_later_config == Some(true)
     });
-    let saved_path = enabled_watch_later.join("F6DD685BF8BFA5FBF8DE30C06C6575D3");
-    let bytes = std::fs::read(saved_path).unwrap();
+    let bytes = std::fs::read(&saved_path).unwrap();
     let mut lines = bytes.split(|byte| *byte == b'\n');
     assert!(
         lines.next() == Some(b"# catalog.mkv".as_slice())
@@ -309,12 +332,24 @@ fn resume_last_position_saves_on_stop_and_restores_only_when_enabled() {
         .unwrap();
     let restored = wait_for(&receiver, |state| {
         state.phase == Phase::Playing
+            && state.watch_later_revision > 0
             && state
                 .position
                 .is_some_and(|position| position >= saved.position.unwrap() - 0.5)
     });
     assert!(restored.position.unwrap() >= saved.position.unwrap() - 0.5);
+    assert!(!saved_path.exists());
+    player.send(Command::SetPaused(true)).unwrap();
+    let paused = wait_for(&receiver, |state| state.phase == Phase::Paused);
     drop(player);
+    let closing = wait_for(&receiver, |state| {
+        state.watch_later_revision > paused.watch_later_revision
+    });
+    assert_eq!(closing.generation, paused.generation);
+    assert!(
+        saved_path.is_file(),
+        "normal close must save the restored position"
+    );
 
     let Harness { player, receiver } =
         Harness::with_options(&root, options(&disabled_watch_later, false)).unwrap();
@@ -334,13 +369,6 @@ fn resume_last_position_saves_on_stop_and_restores_only_when_enabled() {
         "explicit Stop must not create a watch-later file when resume is disabled"
     );
     drop(player);
-    assert!(
-        std::fs::read_dir(&disabled_watch_later)
-            .unwrap()
-            .next()
-            .is_none(),
-        "disabled resume must not create a watch-later file"
-    );
 
     let Harness { player, receiver } =
         Harness::with_options(&root, options(&disabled_watch_later, false)).unwrap();
@@ -353,6 +381,13 @@ fn resume_last_position_saves_on_stop_and_restores_only_when_enabled() {
         "disabled resume must start from the beginning: {from_start:?}"
     );
     drop(player);
+    assert!(
+        std::fs::read_dir(&disabled_watch_later)
+            .unwrap()
+            .next()
+            .is_none(),
+        "normal close must honor the disabled resume preference"
+    );
 }
 
 #[test]

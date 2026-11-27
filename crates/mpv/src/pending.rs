@@ -6,6 +6,7 @@ pub(super) struct PendingCommand {
     pub(super) label: String,
     pub(super) kind: ReplyKind,
     pub(super) changes_media: bool,
+    pub(super) changes_watch_later: bool,
 }
 
 #[derive(Debug, PartialEq)]
@@ -116,6 +117,7 @@ mod tests {
             label: "screenshot-raw".into(),
             kind: ReplyKind::FrameCapture,
             changes_media: false,
+            changes_watch_later: false,
         };
         assert!(!reply.belongs_to(&state));
         reply.kind = ReplyKind::IncomingTransitionCapture;

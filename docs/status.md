@@ -176,10 +176,12 @@ Implementation does not imply every state or platform is verified.
   saved window and resume settings. The row menu is reachable from the keyboard.
   History and Playlist display saved positions from mpv, including files with
   the optional filename comment. History keeps the original stream address
-  and refreshes its displayed positions when opened. Playlist refreshes them
-  when media changes or stops. Reopening a history row uses the position mpv
-  finds when it loads the file. New History visits retain the saved-position
-  key used at playback. With mpv's filename-only setting, playing a same-named
+  and refreshes its displayed positions when opened. While open, History and
+  Playlist refresh when mpv saves, deletes or consumes a resume file.
+  Closing the player saves its position when Resume Last Position is enabled.
+  Reopening a history row uses the position mpv finds when it loads the file.
+  New History visits retain the saved-position key used at playback.
+  With mpv's filename-only setting, playing a same-named
   file in a different folder updates the existing row to the newer location.
   History loads the standalone archive. A row without a saved-position key
   remains visible and gains a key the next time its media plays.

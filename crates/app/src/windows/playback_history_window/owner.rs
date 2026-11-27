@@ -395,6 +395,7 @@ impl ApplicationHistory {
             &self.timer,
             Duration::from_millis(500),
             move |window| {
+                crate::playback_history::progress::refresh_if_changed(&history);
                 if let Some(owner) = owner.upgrade() {
                     owner.refresh_destinations(window);
                     if let Some(layout) = owner.layout.borrow_mut().as_mut() {
