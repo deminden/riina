@@ -277,6 +277,10 @@ Implementation does not imply every state or platform is verified.
   open beside the active local clip. Both accept video containers with
   embedded tracks. Audio also lists audio files, and Subtitles lists
   subtitle files. A picker result belongs to the clip that opened it.
+- **External track errors:** a rejected manual audio, subtitle or video
+  attachment shows a track-specific alert in the requesting player.
+  A file change dismisses alerts for the previous clip. Automatic subtitle
+  matching logs decoder rejections without interrupting the player.
 - **Subtitle discovery settings:** the mode, priority keywords and search
   paths update open players using the same profile. Settings changes that
   only affect the application can save while the playback command queue is

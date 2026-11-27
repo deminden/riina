@@ -1,8 +1,9 @@
 import { Theme } from "theme.slint";
-import { PlayerDialogState } from "player-dialog-state.slint";
+import { PlayerDialogState, TrackAttachmentError } from "player-dialog-state.slint";
 import { PlayerAppearance } from "player-appearance.slint";
 import { JumpDialogButton } from "player-chrome-controls.slint";
 import { JumpTimeDialog } from "jump-time-dialog.slint";
+import { TrackAttachmentAlert } from "track-attachment-alert.slint";
 
 export component PlayerEntryDialogs inherits Rectangle {
     callback restore-player-focus();
@@ -17,6 +18,15 @@ export component PlayerEntryDialogs inherits Rectangle {
     changed url-dialog-visible => {
         PlayerDialogState.dialog-open = jump-time-dialog-visible || url-dialog-visible;
         if url-dialog-visible { url-input.focus(); }
+    }
+
+    TrackAttachmentAlert {
+        visible: PlayerDialogState.track-error != TrackAttachmentError.none;
+        width: parent.width; height: parent.height;
+        changed visible => {
+            if self.visible { self.focus-default(); }
+            else if !PlayerDialogState.dialog-open { root.restore-player-focus(); }
+        }
     }
 
     jump-time-dialog := JumpTimeDialog {

@@ -566,6 +566,15 @@ msgstr "Аудиодорожка"
 msgid "Load External Audio…"
 msgstr "Загрузить внешнюю аудиодорожку…"
 
+msgid "Unsupported external audio file."
+msgstr "Внешний аудиофайл не поддерживается."
+
+msgid "Unsupported external video file."
+msgstr "Внешний видеофайл не поддерживается."
+
+msgid "Unsupported external subtitle."
+msgstr "Внешние субтитры не поддерживаются."
+
 msgid "Volume: {}"
 msgstr "Громкость: {}"
 

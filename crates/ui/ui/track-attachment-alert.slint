@@ -1,0 +1,54 @@
+import { PlayerAppearance } from "player-appearance.slint";
+import { PlayerDialogState, TrackAttachmentError } from "player-dialog-state.slint";
+import { JumpDialogButton } from "player-chrome-controls.slint";
+import { Theme } from "theme.slint";
+
+export component TrackAttachmentAlert inherits FocusScope {
+    private property <bool> dark-theme: PlayerAppearance.dark-theme;
+    private property <string> message: PlayerDialogState.track-error == TrackAttachmentError.audio
+        ? @tr("Unsupported external audio file.")
+        : PlayerDialogState.track-error == TrackAttachmentError.video
+            ? @tr("Unsupported external video file.")
+            : @tr("Unsupported external subtitle.");
+
+    public function focus-default() { ok.focus(); }
+
+    key-pressed(event) => {
+        if event.text == Key.Escape {
+            PlayerDialogState.dismiss-track-error();
+        }
+        return accept;
+    }
+
+    Rectangle { width: parent.width; height: parent.height; background: Theme.player-dialog-scrim; }
+    TouchArea { width: parent.width; height: parent.height; scroll-event(_) => { return accept; } }
+    Rectangle {
+        width: min(350px, max(0px, parent.width - 16px));
+        height: min(104px, max(0px, parent.height - 8px));
+        x: (parent.width - self.width) / 2;
+        y: (parent.height - self.height) / 2;
+        border-radius: 9px;
+        border-width: 1px;
+        border-color: Theme.player-dialog-border(root.dark-theme);
+        background: Theme.player-dialog-surface(root.dark-theme);
+        Text {
+            x: 12px; y: 7px;
+            width: parent.width - 24px;
+            height: max(0px, ok.y - self.y - 3px);
+            text: root.message;
+            font-size: 14px;
+            font-weight: 600;
+            wrap: word-wrap;
+            vertical-alignment: center;
+            color: Theme.player-dialog-title(root.dark-theme);
+        }
+        ok := JumpDialogButton {
+            x: parent.width - self.width - 12px;
+            y: parent.height - self.height - 8px;
+            dark-theme: root.dark-theme;
+            label: @tr("OK");
+            accessible-description: root.message;
+            activated => { PlayerDialogState.dismiss-track-error(); }
+        }
+    }
+}

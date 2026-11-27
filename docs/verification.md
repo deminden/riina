@@ -7652,3 +7652,31 @@ the active entry's directory and the absence of a local folder for streams.
 Linux passed the locked application build, strict Clippy and the picker
 regression. Intel and Apple Silicon macOS source checks passed. Native macOS
 picker interaction remains open.
+
+### Rejected external track attachments (2026-11-27)
+
+An isolated Windows native-video player selected an invalid Matroska file
+from its Audio and Subtitles pickers. The file chooser closed before each
+track-specific alert appeared. The audio alert exposed an accessible OK
+action. Loading a new clip retired the subtitle alert, and attaching a valid
+audio track afterward succeeded without another alert. Playback stayed paused
+and the tested process exited normally.
+
+On isolated Linux X11 the same failure path used a test FileChooser portal.
+The alert's accessible OK button exposed the track-specific description.
+The pause shortcut stayed blocked while the alert owned focus, and Return
+closed the audio alert. Replacing the file retired the subtitle alert.
+A valid audio attachment on the next paused clip succeeded, and the player
+exited normally.
+
+The native null-output suite passed all 83 tests. The new native regression
+rejects manual audio, subtitle and video attachments while checking that
+track selection, the current clip and pause state stay unchanged.
+Rejected automatic matches leave the player alert and status clear.
+The widget regression covers deferring until another dialog closes, blocking
+playback shortcuts, and dismissing by keyboard or the accessible OK action.
+The Windows locked build and full source gate passed with 735 application
+tests, 89 widget tests and the player and Settings pixel comparison. The
+Linux locked application build and focused widget test passed. Intel and
+Apple Silicon macOS source checks passed. Native macOS alert behavior and
+matched visual comparison remain open.

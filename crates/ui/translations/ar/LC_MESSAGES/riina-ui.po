@@ -569,6 +569,15 @@ msgstr "مسار الصوت"
 msgid "Load External Audio…"
 msgstr "تحميل مسار صوت خارجي…"
 
+msgid "Unsupported external audio file."
+msgstr "ملف الصوت الخارجي غير مدعوم."
+
+msgid "Unsupported external video file."
+msgstr "ملف الفيديو الخارجي غير مدعوم."
+
+msgid "Unsupported external subtitle."
+msgstr "الترجمة الخارجية غير مدعومة."
+
 msgid "Volume: {}"
 msgstr "مستوى الصوت: {}"
 

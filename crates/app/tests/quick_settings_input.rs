@@ -325,6 +325,45 @@ fn player_entry_dialogs_focus_the_field_and_keep_keyboard_actions() {
 }
 
 #[test]
+fn external_track_alert_waits_for_the_picker_and_keeps_player_shortcuts_out() {
+    let app = player(0);
+    let dialog = app.global::<PlayerDialogState>();
+    let invoked = Rc::new(RefCell::new(false));
+    let transport = invoked.clone();
+    app.global::<PlayerMenuActions>()
+        .on_toggle_pause(move || *transport.borrow_mut() = true);
+
+    dialog.set_dialog_open(true);
+    dialog.invoke_report_track_error(TrackAttachmentError::Audio);
+    flush();
+    assert_eq!(dialog.get_track_error(), TrackAttachmentError::None);
+    dialog.set_dialog_open(false);
+    flush();
+    assert_eq!(dialog.get_track_error(), TrackAttachmentError::Audio);
+    assert!(dialog.get_dialog_open());
+    key(&app, "p");
+    assert!(!*invoked.borrow());
+    key(&app, Key::Return);
+    assert_eq!(dialog.get_track_error(), TrackAttachmentError::None);
+    assert!(!dialog.get_dialog_open());
+
+    dialog.invoke_report_track_error(TrackAttachmentError::Subtitle);
+    flush();
+    button(&app, "OK").invoke_accessible_default_action();
+    flush();
+    assert!(!dialog.get_dialog_open());
+
+    dialog.set_dialog_open(true);
+    dialog.invoke_report_track_error(TrackAttachmentError::Video);
+    dialog.invoke_clear_track_errors();
+    dialog.set_dialog_open(false);
+    flush();
+    assert_eq!(dialog.get_track_error(), TrackAttachmentError::None);
+    key(&app, "p");
+    assert!(*invoked.borrow());
+}
+
+#[test]
 fn controller_hide_keeps_delay_focus_and_return_submits_once() {
     let app = player(1);
     let submissions = delay_submissions(&app);

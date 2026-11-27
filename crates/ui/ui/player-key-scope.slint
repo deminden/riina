@@ -1,4 +1,4 @@
-import { PlayerDialogState } from "player-dialog-state.slint";
+import { PlayerDialogState, TrackAttachmentError } from "player-dialog-state.slint";
 import { PlayerControlActions } from "player-control-actions.slint";
 import { PlayerCropState } from "player-crop-state.slint";
 import { PlayerControlsState } from "player-controls-state.slint";
@@ -86,6 +86,10 @@ export component PlayerKeyScope inherits FocusScope {
             menu-alternates-visible = event.modifiers.alt;
         }
         if PlayerCropState.crop-editing { if event.text == Key.Escape { PlayerCropState.finish-custom-crop(false); } if event.text == Key.Tab { return reject; } return accept; }
+        if PlayerDialogState.track-error != TrackAttachmentError.none {
+            if event.text == Key.Escape || event.text == Key.Return { PlayerDialogState.dismiss-track-error(); }
+            return accept;
+        }
         if PlayerDialogState.jump-time-dialog-visible {
             if event.text == Key.Escape { PlayerDialogState.close-jump-time(); }
             return accept;

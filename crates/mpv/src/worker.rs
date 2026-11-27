@@ -1334,7 +1334,10 @@ impl WorkerState {
             return None;
         }
         match pending.kind {
-            ReplyKind::Plain | ReplyKind::PlaylistEdit { .. } => {}
+            ReplyKind::Plain
+            | ReplyKind::PlaylistEdit { .. }
+            | ReplyKind::TrackAttachment(_)
+            | ReplyKind::MatchedSubtitle => {}
             ReplyKind::ChapterSelection { index, start } => {
                 self.publish_chapter_feedback(event.userdata(), index, start);
             }
@@ -1432,6 +1435,22 @@ impl WorkerState {
 
     fn on_failed_reply(&mut self, event: &EventRef<'_>, pending: PendingCommand) {
         match pending.kind {
+            ReplyKind::TrackAttachment(_) | ReplyKind::MatchedSubtitle => {
+                if let ReplyKind::TrackAttachment(kind) = pending.kind
+                    && self.accepts_media_intent(pending.generation)
+                    && !self.playback.idle_active
+                {
+                    self.playback.track_attachment_failure =
+                        Some(riina_core::TrackAttachmentFailure {
+                            sequence: event.userdata(),
+                            kind,
+                        });
+                }
+                // The alert owns visible manual feedback. Automatic matching is diagnostic only.
+                if let Some(error) = event.error() {
+                    diagnostic!("mpv {}: {error}", pending.label);
+                }
+            }
             ReplyKind::MaterialCapture => {
                 let reason = event
                     .error()
@@ -1519,6 +1538,8 @@ impl WorkerState {
             | ReplyKind::PlaylistEdit { .. }
             | ReplyKind::ChapterSelection { .. }
             | ReplyKind::FilterEdit(_)
+            | ReplyKind::TrackAttachment(_)
+            | ReplyKind::MatchedSubtitle
             | ReplyKind::Screenshot { .. } => {}
         }
     }

@@ -1,4 +1,6 @@
 // Entry drafts and native modal exclusion belong to the player.
+export enum TrackAttachmentError { none, audio, subtitle, video }
+
 export global PlayerDialogState {
     in-out property <bool> dialog-open: false;
     in-out property <bool> plugin-interaction-visible: false;
@@ -9,6 +11,8 @@ export global PlayerDialogState {
     in-out property <bool> url-dialog-visible: false;
     in-out property <string> url-dialog-draft: "";
     in-out property <string> url-dialog-error: "";
+    out property <TrackAttachmentError> track-error: TrackAttachmentError.none;
+    private property <TrackAttachmentError> pending-track-error: TrackAttachmentError.none;
 
     callback append-playlist-url(string) -> bool;
     callback jump-to-time(string);
@@ -18,5 +22,31 @@ export global PlayerDialogState {
         self.jump-time-error = "";
         self.jump-time-invalid = false;
     }
-    changed dialog-open => { if !self.dialog-open { self.dialog-closed(); } }
+    public function report-track-error(kind: TrackAttachmentError) {
+        self.pending-track-error = kind;
+        self.present-track-error();
+    }
+    public function dismiss-track-error() {
+        if self.track-error != TrackAttachmentError.none {
+            self.track-error = TrackAttachmentError.none;
+            self.dialog-open = false;
+        }
+    }
+    public function clear-track-errors() {
+        self.pending-track-error = TrackAttachmentError.none;
+        self.dismiss-track-error();
+    }
+    function present-track-error() {
+        if !self.dialog-open && self.pending-track-error != TrackAttachmentError.none {
+            self.track-error = self.pending-track-error;
+            self.pending-track-error = TrackAttachmentError.none;
+            self.dialog-open = true;
+        }
+    }
+    changed dialog-open => {
+        if !self.dialog-open {
+            self.dialog-closed();
+            self.present-track-error();
+        }
+    }
 }

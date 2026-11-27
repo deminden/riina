@@ -99,6 +99,12 @@ pub struct FilterFeedback {
     pub change: FilterChange,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct TrackAttachmentFailure {
+    pub sequence: u64,
+    pub kind: TrackKind,
+}
+
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct PlaybackCache {
     pub fill_percent: Option<u8>,
@@ -222,6 +228,8 @@ pub struct Playback {
     pub filter_feedback: Option<FilterFeedback>,
     pub chapter_performer: Option<String>,
     pub playlist: Arc<Vec<PlaylistEntry>>,
+    /// Rejected explicit external track attachment for this media generation.
+    pub track_attachment_failure: Option<TrackAttachmentFailure>,
     /// ID from the decoder's start event, independent of playlist observation order.
     pub active_playlist_entry: Option<i64>,
     /// Latest completed user playlist edit for the player's transient OSD.
@@ -565,6 +573,7 @@ impl Playback {
         // Track IDs belong to one file; never offer a stale selector during replacement.
         self.tracks = Arc::default();
         self.track_list_observed = false;
+        self.track_attachment_failure = None;
         self.chapters = Arc::default();
         self.chapter_index = None;
         self.chapter_feedback = None;

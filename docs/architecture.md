@@ -781,6 +781,14 @@ The picker captures the open request and decoder generation. The player checks
 both before dispatch and the worker checks the generation again before adding
 the track. On Windows the Shell applies the current file's folder over the
 previous picker location. [IFileDialog folder selection](https://learn.microsoft.com/en-us/windows/win32/api/shobjidl_core/nf-shobjidl_core-ifiledialog-setfolder)
+
+The playback worker distinguishes rejected explicit track additions from
+automatic subtitle matching. Its snapshot carries the latest rejection for
+the current media generation. The player defers the alert while a picker or
+another dialog owns input, places focus on OK with the message as its
+accessible description, and clears the alert and any deferred rejection
+when the media changes. Explicit rejections use the alert and the native
+diagnostic log. Rejected automatic matches stay in the diagnostic log.
 Selections go through the owning player's media-scoped command channel.
 
 ### Plugin input

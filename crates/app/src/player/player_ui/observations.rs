@@ -80,6 +80,7 @@ pub(super) fn update_ui(
             Phase::Playing | Phase::Paused | Phase::Buffering | Phase::Ended
         );
     let resize_for_media = update_playback_phase(app, state, previous_generation);
+    super::dialogs::update_track_attachment_error(app, state, displayed.as_deref());
     if first_loaded {
         notify_media_loaded(app, state);
     }

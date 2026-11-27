@@ -3,9 +3,9 @@ use crate::{
     NativeVideoHost, PlayerWindow,
     ui_dialogs::{self, Purpose, TrackFile},
 };
-use riina_core::{Command, Phase, Playback, osc_preferences::TimePrecision, sync::lock};
+use riina_core::{Command, Phase, Playback, TrackKind, osc_preferences::TimePrecision, sync::lock};
 use riina_mpv::CommandSender;
-use riina_ui::{PlayerDialogState, PlayerMenuActions};
+use riina_ui::{PlayerDialogState, PlayerMenuActions, TrackAttachmentError};
 use slint::ComponentHandle;
 use std::{cell::Cell, rc::Rc};
 
@@ -48,7 +48,7 @@ pub(super) fn install_jump_time(app: &PlayerWindow, context: &PlayerContext) {
                 return;
             }
             let state = lock(ctx.playback()).clone();
-            if jump_is_available(&state) {
+            if media_is_active(&state) {
                 opening.set(state.generation);
                 dialog.set_jump_time_draft(jump_draft(&state).into());
                 dialog.set_jump_time_dialog_visible(true);
@@ -67,7 +67,7 @@ pub(super) fn install_jump_time(app: &PlayerWindow, context: &PlayerContext) {
             }
             let generation = target.get();
             let state = lock(ctx.playback()).clone();
-            if state.generation != generation || !jump_is_available(&state) {
+            if state.generation != generation || !media_is_active(&state) {
                 dialog.invoke_close_jump_time();
                 return;
             }
@@ -94,7 +94,7 @@ pub(super) fn install_jump_time(app: &PlayerWindow, context: &PlayerContext) {
     );
 }
 
-fn jump_is_available(state: &Playback) -> bool {
+fn media_is_active(state: &Playback) -> bool {
     state.phase.has_loaded_file() && !state.idle_active && !state.engine_shutdown
 }
 
@@ -114,12 +114,41 @@ fn jump_draft(state: &Playback) -> String {
     TimePrecision::Milliseconds.elapsed_label(Some(position))
 }
 
+pub(super) fn update_track_attachment_error(
+    app: &PlayerWindow,
+    state: &Playback,
+    previous: Option<&Playback>,
+) {
+    let dialogs = app.global::<PlayerDialogState>();
+    if previous.is_some_and(|old| old.generation != state.generation) || !media_is_active(state) {
+        dialogs.invoke_clear_track_errors();
+    }
+    let Some(failure) = state
+        .track_attachment_failure
+        .filter(|_| media_is_active(state))
+    else {
+        return;
+    };
+    if previous.is_none_or(|old| {
+        old.generation != state.generation || old.track_attachment_failure != Some(failure)
+    }) {
+        dialogs.invoke_report_track_error(match failure.kind {
+            TrackKind::Audio => TrackAttachmentError::Audio,
+            TrackKind::Video => TrackAttachmentError::Video,
+            TrackKind::Sub => TrackAttachmentError::Subtitle,
+        });
+    }
+}
+
 pub(super) fn install_playlist_url(app: &PlayerWindow, command_sender: &CommandSender) {
     let weak = app.as_weak();
     app.global::<PlayerMenuActions>()
         .on_open_playlist_url_dialog(move || {
             if let Some(app) = weak.upgrade() {
                 let dialog = app.global::<PlayerDialogState>();
+                if dialog.get_dialog_open() {
+                    return;
+                }
                 dialog.set_url_dialog_draft("".into());
                 dialog.set_url_dialog_error("".into());
                 dialog.set_url_dialog_visible(true);

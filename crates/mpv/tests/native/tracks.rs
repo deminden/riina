@@ -1,6 +1,59 @@
 use super::*;
 
 #[test]
+#[ignore = "requires provisioned libmpv; verifies external attachment replies"]
+fn failed_manual_tracks_report_their_kind_without_replacing_media() {
+    let root = fixture_root();
+    let harness = Harness::start(&root).unwrap();
+    let media = root.join("tests/fixtures/moving-square.avi");
+    let command = Command::Load(media.to_string_lossy().into_owned());
+    harness.send(command.clone()).unwrap();
+    harness.wait(|state| state.phase == Phase::Playing);
+    harness.send(Command::SetPaused(true)).unwrap();
+    let paused = harness.wait(|state| state.phase == Phase::Paused);
+    let scratch = riina_test_support::TempDir::new("external-track-failures").unwrap();
+    let missing = |name| scratch.path().join(name).to_string_lossy().into_owned();
+
+    let mut sequence = 0;
+    for (command, kind) in [
+        (Command::AddAudio(missing("audio.wav")), TrackKind::Audio),
+        (
+            Command::AddSubtitle(missing("captions.srt")),
+            TrackKind::Sub,
+        ),
+        (Command::AddVideo(missing("video.mkv")), TrackKind::Video),
+    ] {
+        harness.send(command).unwrap();
+        let failed = harness.wait(|state| {
+            state
+                .track_attachment_failure
+                .is_some_and(|failure| failure.sequence > sequence && failure.kind == kind)
+        });
+        sequence = failed.track_attachment_failure.unwrap().sequence;
+        assert_eq!(failed.generation, paused.generation);
+        assert_eq!(failed.tracks, paused.tracks);
+        assert!(failed.paused);
+        assert_eq!(failed.error(), paused.error());
+    }
+
+    harness.send(command).unwrap();
+    let next =
+        harness.wait(|state| state.phase.has_loaded_file() && state.generation > paused.generation);
+    assert!(next.track_attachment_failure.is_none());
+    harness
+        .send(Command::AddMatchedSubtitles {
+            generation: next.generation,
+            paths: vec![missing("automatic.srt")],
+            select_first: false,
+        })
+        .unwrap();
+    harness.send(Command::SubtitleDelay(0.25)).unwrap();
+    let failed_match = harness.wait(|state| state.subtitle_delay.to_bits() == 0.25_f64.to_bits());
+    assert!(failed_match.track_attachment_failure.is_none());
+    assert_eq!(failed_match.error(), next.error());
+}
+
+#[test]
 #[ignore = "requires provisioned libmpv; verifies real ISO and BCP 47 track metadata"]
 fn multilingual_tracks_preserve_language_metadata_across_subtitle_lanes() {
     let root = fixture_root();
