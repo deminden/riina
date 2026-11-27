@@ -8,8 +8,8 @@ and the Settings UI. The same section handles later edits and reopening.
 
 1. Add the field and its default to the persisted section in
    [`crates/core/src/advanced_preferences.rs`](../../crates/core/src/advanced_preferences.rs).
-   The Advanced section uses serde defaults so old version 1 files still load.
-   Keep existing serialized field names.
+   The Advanced section uses serde defaults so a partial profile fills in
+   unspecified settings.
 
    ```diff
    +    pub use_mpv_osd: bool,

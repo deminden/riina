@@ -67,16 +67,10 @@ struct Visit {
 
 impl PlaybackHistoryState {
     pub(crate) fn with_persistence(
-        mut entries: Vec<Entry>,
+        entries: Vec<Entry>,
         path: Option<PathBuf>,
         watch_later_directory: Option<PathBuf>,
     ) -> Self {
-        if watch_later_directory.is_some() {
-            // The archive may contain older cached positions. mpv owns their current values.
-            for entry in &mut entries {
-                entry.progress = None;
-            }
-        }
         Self {
             entries,
             revision: 1,

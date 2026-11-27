@@ -17,7 +17,10 @@ $record = Get-Content -LiteralPath $Inventory -Raw | ConvertFrom-Json
 if ((Get-FileHash -LiteralPath $Installer).Hash.ToLower() -ne $record.installer_sha256) { throw 'Installer checksum differs' }
 if (Test-Path -LiteralPath $ReportPath) { throw 'Refusing a stale installer report' }
 $uninstallKey = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Uninstall\{575C5AEC-C763-49F6-BF2A-0D34BB908A94}_is1'
-if (Test-Path -LiteralPath $uninstallKey) { throw 'An installed Riina already exists; do not replace the user installation in a smoke test' }
+$installedApp = Join-Path $env:LOCALAPPDATA 'Programs\Riina\riina.exe'
+if ((Test-Path -LiteralPath $uninstallKey) -or (Test-Path -LiteralPath $installedApp)) {
+    throw 'An installed Riina already exists. Installer verification requires a separate Windows profile.'
+}
 $root = Join-Path ([IO.Path]::GetTempPath()) ('riina-installer-' + [guid]::NewGuid())
 $destination = Join-Path $root 'Unicode test é\Riina player'
 $group = 'Riina'
@@ -49,7 +52,7 @@ New-Item -ItemType Directory -Path $root -Force | Out-Null
 function Run-Setup([string]$Stage, [string]$Tasks = '') {
     $process = Start-Process -FilePath $Installer -WindowStyle Hidden -PassThru -ArgumentList @(
         '/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/SP-',
-        ('/DIR="' + $destination + '"'),('/GROUP="' + $group + '"'),
+        ('/DIR="' + $destination + '"'),
         ('/TASKS="' + $Tasks + '"'),('/LOG="' + (Join-Path $root ($Stage + '.log')) + '"'))
     $setupHandle = $process.Handle
     if (!$process.WaitForExit(90000)) { Stop-Process -Id $process.Id; throw 'Installer timed out' }

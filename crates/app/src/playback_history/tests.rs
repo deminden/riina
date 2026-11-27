@@ -167,9 +167,13 @@ fn playback_history_fills_late_metadata_without_resetting_visit_or_progress() {
     assert_eq!(history.entries()[0].progress, Some(30.0));
     assert_eq!(history.entries()[0].date_ms, date);
     assert_eq!(history.revision(), revision + 1);
+    let saved = crate::playback_history_store::load(&path).unwrap();
     assert_eq!(
-        crate::playback_history_store::load(&path).unwrap(),
-        history.entries()
+        saved,
+        [Entry {
+            progress: None,
+            ..history.entries()[0].clone()
+        }]
     );
     for duration in [60.0, 0.0, -1.0, f64::NAN, f64::INFINITY] {
         playback.duration = Some(duration);

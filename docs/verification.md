@@ -7208,3 +7208,34 @@ duplicate selection reused the existing file window, and both processes
 exited normally. The full Windows workspace gate and locked build passed,
 including 726 application tests and 88 widget cases. Strict macOS cross-Clippy
 passed for Intel and Apple Silicon.
+
+The locked Linux application build, strict Clippy and 32 focused application
+tests passed. In an isolated X11 session, closing the last paused player opened
+Welcome in the same process. Closing Welcome exited that process. This check
+used the Linux application at `93e486ee`.
+
+### Playback History and plugin storage cleanup (2026-11-27)
+
+The Windows workspace gate passed with strict Clippy and the software-rendered
+player and Settings pixel test. History tests verify that late metadata updates
+preserve the live position while omitting it from the archive. An archive
+containing a cached position retains its history row. Reopening History reads
+the current position from mpv's saved file.
+
+The plugin preferences test still imports IINA's binary property list using
+the exact identifier and checks case-sensitive package identity. A property
+list named after Riina's JSON store is ignored. Current Riina JSON files retain
+the existing shared write and retry behavior.
+
+### Local Windows package with the rebuilt engine (2026-11-27)
+
+The portable ZIP and setup executable were assembled from source `73f3efa6`
+and the rebuilt native runtime. The package passed notice, manifest and import
+checks. The extracted release executable passed playback, native controls,
+fullscreen, preference writes and shutdown on an isolated desktop in 9.03 seconds.
+
+The live installer test requires a separate Windows profile. Inno used the
+fixed Start menu group when a local test supplied a different group. The test
+now checks for the default installed executable as well as the uninstall
+registration and existing shortcuts. The preflight rejected this installed
+profile without changing either shortcut or the installed executable.

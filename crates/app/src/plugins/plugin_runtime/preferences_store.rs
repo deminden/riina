@@ -26,7 +26,7 @@ pub(super) struct Store {
 
 struct Files {
     json: PathBuf,
-    legacy_name: String,
+    iina_filename: String,
 }
 
 impl Store {
@@ -55,7 +55,7 @@ impl Store {
             .or_insert_with(|| {
                 Arc::new(Self::new(Some(Files {
                     json: path,
-                    legacy_name: format!("{identifier}.plist"),
+                    iina_filename: format!("{identifier}.plist"),
                 })))
             })
             .clone())
@@ -139,7 +139,7 @@ impl Files {
             return serde_json::from_slice(&contents)
                 .map_err(|error| format!("Could not read plugin preferences: {error}"));
         }
-        let Some(path) = self.legacy_path()? else {
+        let Some(path) = self.iina_path()? else {
             return Ok(Values::new());
         };
         read_file(&path)?
@@ -148,7 +148,7 @@ impl Files {
             .map(Option::unwrap_or_default)
     }
 
-    fn legacy_path(&self) -> Result<Option<PathBuf>, String> {
+    fn iina_path(&self) -> Result<Option<PathBuf>, String> {
         let directory = directory(&self.json)?;
         let entries = match fs::read_dir(directory) {
             Ok(entries) => entries,
@@ -156,21 +156,15 @@ impl Files {
             Err(error) => return Err(error.to_string()),
         };
         verify_directory(directory)?;
-        let portable = self.json.with_extension("plist");
-        let mut fallback = None;
         // Match the on-disk spelling so different IINA identifiers remain
         // separate even on case-insensitive volumes.
         for entry in entries {
             let entry = entry.map_err(|error| error.to_string())?;
-            let name = entry.file_name();
-            if name == self.legacy_name.as_str() {
+            if entry.file_name() == self.iina_filename.as_str() {
                 return Ok(Some(entry.path()));
             }
-            if Some(name.as_os_str()) == portable.file_name() {
-                fallback = Some(entry.path());
-            }
         }
-        Ok(fallback)
+        Ok(None)
     }
 }
 
@@ -235,7 +229,7 @@ mod tests {
         fs::write(&path, r#"{"retained":1}"#).unwrap();
         let files = || Files {
             json: path.clone(),
-            legacy_name: "state.plist".into(),
+            iina_filename: "state.plist".into(),
         };
         let first = Store::new(Some(files()));
         let second = Store::new(Some(files()));
@@ -287,6 +281,15 @@ mod tests {
             .into_iter()
             .collect(),
         );
+        let portable_identifier = "org.example.PANEL";
+        old.to_file_binary(directory.join(format!(
+            "{}.plist",
+            crate::plugin_files::safe_identifier(portable_identifier)
+        )))
+        .unwrap();
+        let portable = Store::for_package(&package, portable_identifier).unwrap();
+        assert_eq!(portable.get("pinned").unwrap(), None);
+
         old.to_file_binary(&original).unwrap();
         let before = fs::read(&original).unwrap();
 

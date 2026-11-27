@@ -11,9 +11,9 @@ const SCHEMA_VERSION: u32 = 1;
 
 #[derive(Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-struct Archive {
+struct Archive<'a> {
     schema_version: u32,
-    entries: Vec<Entry>,
+    entries: Cow<'a, [Entry]>,
 }
 
 pub(crate) fn path_for_preferences(preferences_path: &Path) -> PathBuf {
@@ -121,7 +121,7 @@ pub(crate) fn load(path: &Path) -> Result<Vec<Entry>, String> {
     if archive.entries.iter().any(|entry| !entry.is_valid()) {
         return Err("Playback history contains invalid entries".into());
     }
-    Ok(archive.entries)
+    Ok(archive.entries.into_owned())
 }
 
 pub(super) fn clear(path: &Path) -> Result<usize, String> {
@@ -138,7 +138,7 @@ pub(crate) fn save(path: &Path, entries: &[Entry]) -> Result<(), String> {
     }
     let archive = Archive {
         schema_version: SCHEMA_VERSION,
-        entries: entries.to_vec(),
+        entries: Cow::Borrowed(entries),
     };
     let text = serde_json::to_string_pretty(&archive).map_err(|error| error.to_string())?;
     crate::platform::save_preferences(path, &text).map_err(|error| error.to_string())
@@ -201,10 +201,12 @@ mod tests {
         let path = directory.path().join("history.json");
         let mut document = serde_json::json!({
             "schema_version": 1,
-            "entries": [{"path": "sample.mkv", "date_ms": 1, "progress": null, "duration": 90.0}]
+            "entries": [{"path": "sample.mkv", "date_ms": 1, "progress": 35.0, "duration": 90.0}]
         });
         std::fs::write(&path, document.to_string()).unwrap();
-        assert!(load(&path).unwrap()[0].watch_later_key.is_none());
+        let loaded = load(&path).unwrap();
+        assert!(loaded[0].watch_later_key.is_none());
+        assert!(loaded[0].progress.is_none());
 
         document["entries"][0]["watch_later_key"] = "5d41402abc4b2a76b9719d911017c592".into();
         std::fs::write(&path, document.to_string()).unwrap();

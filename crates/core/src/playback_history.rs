@@ -1,20 +1,28 @@
 //! Persistent playback-history entries, separate from the bounded resume list.
 
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize, de::IgnoredAny};
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Entry {
     pub path: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub title: Option<String>,
     /// The resume filename chosen by mpv's policy when this media was played.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub watch_later_key: Option<WatchLaterKey>,
     /// Unix epoch milliseconds, matching the JavaScript `Date` value exposed to plugins.
     pub date_ms: u64,
+    /// Live position read from mpv's watch-later file.
+    #[serde(default, skip_serializing, deserialize_with = "discard_saved_progress")]
     pub progress: Option<f64>,
     pub duration: f64,
+}
+
+fn discard_saved_progress<'de, D: Deserializer<'de>>(input: D) -> Result<Option<f64>, D::Error> {
+    // Keep the history rows when an archive contains cached positions.
+    IgnoredAny::deserialize(input)?;
+    Ok(None)
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -56,9 +64,6 @@ impl Entry {
             && self.date_ms <= 8_640_000_000_000_000
             && self.duration.is_finite()
             && self.duration >= 0.0
-            && self
-                .progress
-                .is_none_or(|progress| progress.is_finite() && progress >= 0.0)
     }
 }
 
@@ -67,7 +72,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn history_entries_round_trip_with_and_without_a_resume_key() {
+    fn history_entries_save_metadata_and_resume_keys_without_caching_positions() {
         let first = Entry {
             path: "clip.mkv".into(),
             title: Some("A Clip".into()),
@@ -84,8 +89,10 @@ mod tests {
             progress: None,
             duration: 0.0,
         };
-        let history = vec![first, second];
+        let mut history = vec![first, second];
         let encoded = serde_json::to_string(&history).unwrap();
+        assert!(!encoded.contains("\"progress\""));
+        history[0].progress = None;
         assert_eq!(
             serde_json::from_str::<Vec<Entry>>(&encoded).unwrap(),
             history
@@ -94,19 +101,13 @@ mod tests {
 
     #[test]
     fn invalid_history_values_are_rejected() {
-        for (path, progress, duration) in [
-            ("", None, 1.0),
-            ("clip.mkv", Some(f64::NAN), 1.0),
-            ("clip.mkv", Some(-1.0), 1.0),
-            ("clip.mkv", None, f64::INFINITY),
-            ("clip.mkv", None, -1.0),
-        ] {
+        for (path, duration) in [("", 1.0), ("clip.mkv", f64::INFINITY), ("clip.mkv", -1.0)] {
             let entry = Entry {
                 path: path.into(),
                 title: None,
                 watch_later_key: None,
                 date_ms: 1,
-                progress,
+                progress: None,
                 duration,
             };
             assert!(!entry.is_valid());

@@ -180,7 +180,7 @@ mod tests {
             title: None,
             watch_later_key: None,
             date_ms: 1,
-            progress: Some(99.0),
+            progress: None,
             duration: 90.0,
         }
     }
@@ -200,7 +200,7 @@ mod tests {
         }];
         playback_history_store::save(&archive_path, &history).unwrap();
         let archive = Arc::new(Mutex::new(PlaybackHistoryState::with_persistence(
-            history.to_vec(),
+            playback_history_store::load(&archive_path).unwrap(),
             Some(archive_path.clone()),
             Some(directory.to_path_buf()),
         )));

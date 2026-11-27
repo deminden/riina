@@ -11,8 +11,10 @@ use std::{
     cell::{Cell, RefCell},
     rc::Rc,
 };
+#[cfg(debug_assertions)]
+use windows::Win32::{Foundation::RECT, UI::WindowsAndMessaging::GetWindowRect};
 use windows::Win32::{
-    Foundation::{HWND, LPARAM, RECT},
+    Foundation::{HWND, LPARAM},
     Graphics::{
         Dwm::{
             DWM_BB_BLURREGION, DWM_BB_ENABLE, DWM_BB_TRANSITIONONMAXIMIZED, DWM_BLURBEHIND,
@@ -23,8 +25,8 @@ use windows::Win32::{
     UI::{
         Controls::MARGINS,
         WindowsAndMessaging::{
-            GWL_EXSTYLE, GWL_STYLE, GetWindowLongPtrW, GetWindowRect, SWP_FRAMECHANGED,
-            SWP_NOACTIVATE, SWP_NOMOVE, SWP_NOOWNERZORDER, SWP_NOSIZE, SWP_NOZORDER, SendMessageW,
+            GWL_EXSTYLE, GWL_STYLE, GetWindowLongPtrW, SWP_FRAMECHANGED, SWP_NOACTIVATE,
+            SWP_NOMOVE, SWP_NOOWNERZORDER, SWP_NOSIZE, SWP_NOZORDER, SendMessageW,
             SetWindowLongPtrW, SetWindowPos, WS_CAPTION, WS_EX_LAYERED, WS_EX_TRANSPARENT,
             WS_MAXIMIZEBOX, WS_MINIMIZEBOX, WS_SYSMENU, WS_THICKFRAME,
         },
