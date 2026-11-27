@@ -75,6 +75,7 @@ cmake \
   -DMINGW_INSTALL_PREFIX="$BUILDER/build_x86_64/x86_64-w64-mingw32" \
   -DSINGLE_SOURCE_LOCATION="$BUILDER/src_packages" \
   -DRUSTUP_LOCATION="$BUILDER/clang_root/install_rustup" \
+  -DRIINA_MPV_REVISION="$MPV_REVISION" \
   -DRIINA_FFMPEG_REVISION="$FFMPEG_REVISION" \
   -DRIINA_LIBVPL_REVISION="$LIBVPL_REVISION" \
   -DRIINA_FONTCONFIG_REVISION="$FONTCONFIG_REVISION" \
@@ -85,7 +86,7 @@ run_ninja -C build_x86_64 download
 run_ninja -C build_x86_64 update
 mpv_source="$BUILDER/src_packages/mpv"
 test "$(git -C "$mpv_source" remote get-url origin)" = 'https://github.com/mpv-player/mpv.git'
-git -C "$mpv_source" checkout --detach "$MPV_REVISION"
+test "$(git -C "$mpv_source" rev-parse HEAD)" = "$MPV_REVISION"
 
 # Both dependencies are used by mpv but omitted from upstream's download/update
 # aggregate. The bootstrap patch fetches them before source capture. Require a
