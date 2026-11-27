@@ -276,6 +276,22 @@ def verify_native_source_index(binary, source):
     return len(source_files), sum(name.startswith("src_packages/") for name in records)
 
 
+def verify_slint_agreements(notices, inventory, lock):
+    grant = "LicenseRef-Slint-Royalty-free-2.0"
+    for crate in ("slint", "slint-build"):
+        versions = {entry["version"] for entry in lock["package"] if entry["name"] == crate}
+        records = [entry for entry in inventory["packages"]
+                   if entry.get("name") == crate and entry.get("version") in versions]
+        if len(records) != 1 or records[0].get("selected_license") != grant:
+            raise ValueError(f"Rust license inventory is missing the locked {crate} grant")
+        agreement = f"packages/{crate}-{records[0]['version']}/LICENSES/{grant}.md"
+        if not (notices / agreement).is_file() or not any(
+            entry.get("path") == agreement and entry.get("sha256") == digest(notices / agreement)
+            for entry in records[0].get("license_files", [])
+        ):
+            raise ValueError(f"Application package is missing the original {crate} agreement")
+
+
 def verify_package(binary, source, version):
     verify_runtime(binary, application=True)
     actual_version = tomllib.loads((source / "Cargo.toml").read_text(encoding="utf-8"))["workspace"]["package"]["version"]
@@ -296,6 +312,7 @@ def verify_package(binary, source, version):
     binary_notices = binary / "THIRD_PARTY_LICENSES/RUST"
     rust_inventory = json.loads((binary_notices / "RUST-LICENSES.json").read_text(encoding="utf-8"))
     lock = tomllib.loads((source / "Cargo.lock").read_text(encoding="utf-8"))
+    verify_slint_agreements(binary_notices, rust_inventory, lock)
     locked_roots = {package["version"] for package in lock["package"]
                     if package["name"] == "webpki-roots"}
     webpki_roots = [

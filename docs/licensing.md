@@ -43,7 +43,7 @@ and GPLv3 application package terms.
 | mpv ABI definitions | Retained ISC notice in THIRD_PARTY_NOTICES.md |
 | Original synthetic fixture bytes | CC0-1.0, fixture README and manifest |
 | Excluded IINA reference | Existing GPL terms, outside the MIT grant |
-| Slint 1.18.1 and slint-build | Royalty-free 2.0, public README badge, section 2(b) |
+| Slint 1.19.1 and slint-build | Royalty-free 2.0, public README badge, section 2(b). The package preserves the agreement text from the checksum-pinned crates in its Rust license inventory. |
 | ICU4X locale, display-name and date-time code and compiled Unicode data | Unicode-3.0, notice in third-party-licenses/Unicode-3.0.txt |
 | Native `subrandr` Rust dependency `unicode-ident` 1.0.13 | Unicode-DFS-2016; retain its package notice in the native license inventory |
 | Chrono 0.4.45 and battery 0.7.8 | MIT OR Apache-2.0; Rust dependency notices are generated from Cargo.lock |

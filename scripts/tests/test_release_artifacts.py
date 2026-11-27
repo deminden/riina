@@ -17,6 +17,25 @@ spec.loader.exec_module(release)
 
 
 class ReleaseArtifactTests(unittest.TestCase):
+    def test_locked_slint_agreement_bytes_are_required(self):
+        with tempfile.TemporaryDirectory() as directory:
+            notices = Path(directory)
+            grant = "LicenseRef-Slint-Royalty-free-2.0"
+            packages = [{"name": crate, "version": "1.19.1"} for crate in ("slint", "slint-build")]
+            inventory = {"packages": []}
+            for package in packages:
+                relative = f"packages/{package['name']}-1.19.1/LICENSES/{grant}.md"
+                agreement = notices / relative
+                agreement.parent.mkdir(parents=True)
+                agreement.write_text("Original agreement\n", encoding="utf-8")
+                inventory["packages"].append({**package, "selected_license": grant, "license_files": [
+                    {"path": relative, "sha256": release.digest(agreement)},
+                ]})
+            release.verify_slint_agreements(notices, inventory, {"package": packages})
+            agreement.write_text("Changed agreement\n", encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "original slint-build agreement"):
+                release.verify_slint_agreements(notices, inventory, {"package": packages})
+
     def release_archive(self, root, extra=None, manifest_override=None):
         archive = root / "riina-0.3.8-windows-x86_64.zip"
         content = {"libmpv-2.dll": b"engine", "SOURCE-MANIFEST.tsv": b"pinned native sources"}

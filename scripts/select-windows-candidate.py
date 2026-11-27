@@ -8,9 +8,10 @@ import urllib.request
 
 REQUIRED_STEPS = {
     "Packaging regressions for the exact selected source",
-    "Verify downloaded native runtime hashes",
+    "Verify downloaded native runtime and build identity",
     "Native playback and lifecycle tests",
     "Lint and unit tests",
+    "Compile Windows application for the release",
     "Build and assemble portable package",
 }
 

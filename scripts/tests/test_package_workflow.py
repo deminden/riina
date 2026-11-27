@@ -68,12 +68,14 @@ class PackageWorkflowTests(unittest.TestCase):
         self.assertIn("needs.package-verification.result == 'success'", publication["if"])
         self.assertIn("inputs.publish_release", publication["if"])
 
-    def test_successful_compiler_outputs_survive_later_gui_failure(self):
+    def test_successful_compiler_outputs_survive_later_packaging_failure(self):
         restore = named_step(self.package, "Restore Rust dependency and compiler outputs")
         self.assertEqual(restore["id"], "rust-cache")
         self.assertTrue(restore["uses"].startswith("actions/cache/restore@"))
-        save = named_step(self.package, "Preserve successful compiler outputs even after a GUI failure")
-        self.assertIn("always() && steps.package-build.outcome == 'success'", save["if"])
+        build = named_step(self.package, "Compile Windows application for the release")
+        self.assertEqual(build["id"], "release-build")
+        save = named_step(self.package, "Preserve successful compiler outputs")
+        self.assertIn("always() && steps.release-build.outcome == 'success'", save["if"])
         self.assertTrue(save["uses"].startswith("actions/cache/save@"))
         self.assertEqual(save["with"]["key"], "${{ steps.rust-cache.outputs.cache-primary-key }}")
 

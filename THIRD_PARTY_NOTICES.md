@@ -42,11 +42,10 @@ follow PlayerCore.openURLs (lhc, 2016), DraggingDetect.getPlayableFiles (Yuze Ji
 Explorer natural comparison replaces Foundation's localized comparison; directory
 expansion and alias resolution remain incomplete.
 
-Slint 1.18.1/slint-build 1.18.1: select LicenseRef-Slint-Royalty-free-2.0 from
-the crate's offered licenses. This Windows desktop application uses its section
-2(b) attribution option: the official Slint badge is displayed in the public
-repository README. Slint itself is not relicensed as MIT. The badge is linked
-from the pinned v1.18.1 upstream resource rather than copied into riina assets.
+Slint 1.19.1 and slint-build 1.19.1 use the offered LicenseRef-Slint-Royalty-free-2.0.
+The Windows package preserves the agreement text included in the locked crates.
+The official Slint badge in the public repository README provides attribution
+under section 2(b). The README displays the badge hosted by the Slint project.
 OpenGL example source by SixtyFPS GmbH is MIT; inspected as interop guidance. Our
 renderer implementation is independently written with mpv ABI declarations.
 glow 0.18.0: MIT/Apache-2.0/Zlib; libloading 0.9.0: ISC;

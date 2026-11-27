@@ -330,6 +330,14 @@ jobs:
           $PSNativeCommandUseErrorActionPreference = $true
           cargo clippy --workspace --all-targets --locked -- -D warnings
           cargo test --workspace --locked
+      - name: Compile Windows application for the release
+        id: release-build
+        shell: pwsh
+        env:
+          CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_RUSTFLAGS: '-C target-feature=+crt-static'
+        run: |
+          $PSNativeCommandUseErrorActionPreference = $true
+          cargo build -p riina --release --locked --target x86_64-pc-windows-msvc
       - name: Build and assemble portable package
         id: package-build
         shell: pwsh
@@ -337,7 +345,6 @@ jobs:
           CARGO_TARGET_X86_64_PC_WINDOWS_MSVC_RUSTFLAGS: '-C target-feature=+crt-static'
         run: |
           $PSNativeCommandUseErrorActionPreference = $true
-          cargo build -p riina --release --locked --target x86_64-pc-windows-msvc
           $version = (Select-String -Path Cargo.toml -Pattern '^version = "([^"]+)"' | Select-Object -First 1).Matches.Groups[1].Value
           $dist = Join-Path $PWD "dist/riina-$version-windows-x86_64"
           New-Item -ItemType Directory -Force $dist | Out-Null
@@ -352,10 +359,6 @@ jobs:
           python scripts/check-windows-runtime.py --package "$dist"
           if ($LASTEXITCODE -ne 0) { throw 'Portable package has unresolved Windows imports.' }
           python scripts/package-rust-licenses.py --output "$dist/THIRD_PARTY_LICENSES/RUST"
-          $slintLicense = Join-Path $env:RUNNER_TEMP 'SLINT-ROYALTY-FREE-2.0.pdf'
-          Invoke-WebRequest -Uri 'https://slint.dev/agreements/slint-royalty-free-license.pdf' -OutFile $slintLicense
-          if ((Get-FileHash $slintLicense -Algorithm SHA256).Hash.ToLower() -ne '934fbcbccbda12c24ae04869128dd6cb89fdca45b93e437176ab667da437b60d') { throw 'Pinned Slint license agreement hash changed.' }
-          Copy-Item $slintLicense "$dist/THIRD_PARTY_LICENSES/SLINT-ROYALTY-FREE-2.0.pdf"
           @"
           Riina $version for Windows x86_64
 
@@ -439,8 +442,8 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
-      - name: Preserve successful compiler outputs even after a GUI failure
-        if: always() && steps.package-build.outcome == 'success' && steps.rust-cache.outputs.cache-hit != 'true'
+      - name: Preserve successful compiler outputs
+        if: always() && steps.release-build.outcome == 'success' && steps.rust-cache.outputs.cache-hit != 'true'
         uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9
         with:
           path: |
