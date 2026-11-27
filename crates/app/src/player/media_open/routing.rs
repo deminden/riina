@@ -30,6 +30,7 @@ pub(super) fn prepare_new_players(
         if cancelled() {
             return Err("Media selection was cancelled".into());
         }
+        let reference = file_selection::resolve_reference(reference)?;
         if !preferences.allow_duplicate_players
             && players.iter().any(|player| {
                 player
@@ -40,7 +41,7 @@ pub(super) fn prepare_new_players(
         {
             continue;
         }
-        let paths = file_selection::prepare_cancellable(vec![reference.clone()], true, &cancelled)?;
+        let paths = file_selection::prepare_resolved(vec![reference.clone()], true, &cancelled)?;
         if !paths.is_empty() {
             players.push(PlayerSelection {
                 paths,
@@ -136,5 +137,31 @@ mod tests {
         assert_eq!(duplicate_player("clip.avi", false, open()), Some(1));
         assert_eq!(duplicate_player("clip.avi", true, open()), None);
         assert_eq!(duplicate_player("", false, open()), None);
+    }
+
+    #[test]
+    fn shortcuts_share_their_stream_identity_with_direct_opens() {
+        let scratch = riina_test_support::TempDir::new("open-shortcut-groups").unwrap();
+        let url = "https://example.test/clip%20one.mkv?key=%2f+Z";
+        let shortcut = |name| {
+            let path = scratch.path().join(name);
+            std::fs::write(&path, format!("[InternetShortcut]\r\nURL={url}\r\n")).unwrap();
+            path.into_os_string().into_string().unwrap()
+        };
+        let paths = vec![
+            shortcut("first.url"),
+            "https://example.test/clip one.mkv?key=%2f+Z".into(),
+            shortcut("second.url"),
+        ];
+        let mut preferences = Preferences::default();
+        let players = prepare_new_players(paths.clone(), &preferences, || false).unwrap();
+        assert_eq!(players.len(), 1);
+        assert_eq!(players[0].duplicate_reference.as_deref(), Some(url));
+        assert_eq!(players[0].paths, [url]);
+
+        preferences.allow_duplicate_players = true;
+        let players = prepare_new_players(paths, &preferences, || false).unwrap();
+        assert_eq!(players.len(), 3);
+        assert!(players.iter().all(|player| player.paths == [url]));
     }
 }

@@ -305,7 +305,6 @@ impl WelcomeDrop {
             .collect::<Result<Vec<_>, _>>()
             .map_err(|_| "A media path contains invalid Unicode".to_owned())?;
         let subtitles = dropped_subtitles(&paths);
-        let paths = resolve_dropped_url_shortcuts(paths)?;
         if subtitles.is_empty() && preferences.allow_multiple_windows {
             let mut players = prepare_new_players(paths, preferences, || false)?.into_iter();
             let first = players
@@ -386,7 +385,9 @@ pub(super) fn startup_at(
         media.files,
         media.resume_position,
         sender,
-        if media.launch.shuffle {
+        if media.managed.is_some() {
+            SelectionSource::Plugin
+        } else if media.launch.shuffle {
             SelectionSource::StartupShuffled
         } else if media.explicit_playlist {
             SelectionSource::ExplicitPlaylist
@@ -411,6 +412,7 @@ enum SelectionSource {
     StartupShuffled,
     DesktopDrop,
     ExplicitPlaylist,
+    Plugin,
 }
 
 fn startup_selection(
@@ -458,6 +460,10 @@ pub fn open_recent(
     resume_last_position: bool,
     sender: CommandSender,
 ) {
+    if file_selection::is_shortcut_reference(&media.path) {
+        file_dialog_selection(app, vec![media.path], false, sender);
+        return;
+    }
     if resume_last_position {
         resume(app, media, sender);
         return;
@@ -599,12 +605,11 @@ fn prepare_selection(
     } else {
         Vec::new()
     };
-    let paths = if desktop_drop {
-        resolve_url_shortcuts(paths, &cancelled)?
+    let paths = if source == SelectionSource::Plugin {
+        file_selection::prepare_plugin_sources(paths, cancelled)?
     } else {
-        paths
+        file_selection::prepare_cancellable(paths, true, cancelled)?
     };
-    let paths = file_selection::prepare_cancellable(paths, true, cancelled)?;
     if paths.is_empty() {
         return if subtitles.is_empty() {
             Err("No playable files were found".into())
@@ -726,61 +731,9 @@ fn dropped_subtitles(paths: &[String]) -> Vec<String> {
         .collect()
 }
 
-pub(super) fn resolve_dropped_url_shortcuts(paths: Vec<String>) -> Result<Vec<String>, String> {
-    resolve_url_shortcuts(paths, || false)
-}
-
-pub(super) fn resolve_url_shortcuts(
-    paths: Vec<String>,
-    cancelled: impl Fn() -> bool,
-) -> Result<Vec<String>, String> {
-    paths
-        .into_iter()
-        .map(|path| {
-            if cancelled() {
-                return Err("Media selection was cancelled".to_owned());
-            }
-            if riina_core::media_reference::is_network_url_candidate(&path)
-                || !std::path::Path::new(&path)
-                    .extension()
-                    .is_some_and(|extension| extension.eq_ignore_ascii_case("url"))
-            {
-                return Ok(path);
-            }
-            let metadata = std::fs::metadata(&path).map_err(|error| error.to_string())?;
-            if !metadata.is_file() || metadata.len() > 16 * 1024 {
-                return Err("The dropped internet shortcut is not a small regular file".into());
-            }
-            let contents = std::fs::read_to_string(&path).map_err(|error| error.to_string())?;
-            parse_internet_shortcut(&contents).map(str::to_owned)
-        })
-        .collect()
-}
-
-fn parse_internet_shortcut(contents: &str) -> Result<&str, String> {
-    let mut in_internet_shortcut = false;
-    let mut url = None;
-    for line in contents.lines().map(str::trim) {
-        if line.starts_with('[') && line.ends_with(']') {
-            in_internet_shortcut = line.eq_ignore_ascii_case("[InternetShortcut]");
-            continue;
-        }
-        if in_internet_shortcut
-            && let Some((key, value)) = line.split_once('=')
-            && key.trim().eq_ignore_ascii_case("URL")
-        {
-            url = Some(value.trim());
-            break;
-        }
-    }
-    let url = url.ok_or_else(|| "The dropped internet shortcut has no URL".to_owned())?;
-    validate_url(url).map_err(|error| error.to_string())
-}
-
 #[cfg(test)]
 mod tests {
-    use super::manual_open_repeat_command;
-    use super::{parse_internet_shortcut, validate_url};
+    use super::{manual_open_repeat_command, validate_url};
     use riina_core::{Command, LoopMode};
 
     #[test]
@@ -1036,25 +989,6 @@ mod tests {
     fn invalid_manual_repeat_mode_is_rejected_only_when_enabled() {
         assert!(manual_open_repeat_command(false, 99).is_ok());
         assert!(manual_open_repeat_command(true, 99).is_err());
-    }
-
-    #[test]
-    fn internet_shortcuts_resolve_only_validated_network_urls() {
-        assert_eq!(
-            parse_internet_shortcut(
-                "[Other]\nURL=https://ignored.test/\n[InternetShortcut]\nURL=RTSP://camera.test/live\n"
-            )
-            .unwrap(),
-            "RTSP://camera.test/live"
-        );
-        for contents in [
-            "URL=https://outside-section.test/\n",
-            "[InternetShortcut]\nURL=file:///secret\n",
-            "[InternetShortcut]\nURL=https://bad host/\n",
-            "[InternetShortcut]\nIconFile=shortcut.ico\n",
-        ] {
-            assert!(parse_internet_shortcut(contents).is_err());
-        }
     }
 
     #[test]

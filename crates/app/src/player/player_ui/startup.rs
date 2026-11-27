@@ -276,7 +276,7 @@ impl InitialMedia {
         self.managed.is_none() && self.launch == crate::startup_arguments::LaunchOptions::default()
     }
 
-    fn external_stream(&self) -> Option<&str> {
+    fn external_stream_input(&self) -> Option<&str> {
         if self.explicit_playlist
             || self.launch.shuffle
             || self.launch.stdin
@@ -287,7 +287,8 @@ impl InitialMedia {
         let [file] = self.files.as_slice() else {
             return None;
         };
-        crate::media_open::validate_url(file.to_str()?).ok()
+        let address = file.to_str()?;
+        riina_core::media_reference::is_network_url_candidate(address).then_some(address)
     }
 
     pub(super) fn startup_context<'a>(
@@ -334,7 +335,7 @@ impl InitialOpen {
             observer,
             ..
         } = self;
-        let presents_window = media.external_stream().is_some();
+        let presents_window = media.external_stream_input().is_some();
         let open = move |app: &PlayerWindow| open_initial_media(app, media, sender, observer);
         if plugins.is_none() && !presents_window {
             open(app);
@@ -371,11 +372,13 @@ pub(super) fn open_initial_media(
         stream.start(app, &sender);
     } else if media.launch.stdin {
         crate::media_open::startup_stdin(app, &sender);
-    } else if let Some(address) = media.external_stream()
+    } else if let Some(address) = media
+        .external_stream_input()
+        .and_then(riina_core::stream_address::explicit_stream_url)
         && let Some(open_url) = observer.open_url()
     {
         if let Err(error) =
-            open_url.open_initial_stream(app, &sender, address, media.resume_position)
+            open_url.open_initial_stream(app, &sender, &address, media.resume_position)
         {
             crate::diagnostics::report(app, error);
         }

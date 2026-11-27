@@ -1,5 +1,5 @@
 //! Publish playlist additions in submission order, with one queue per player.
-use super::{media_open, player_ui::ObserverId};
+use super::player_ui::ObserverId;
 use crate::{PlayerWindow, background, diagnostics, file_selection};
 use riina_core::Command;
 use riina_mpv::CommandSender;
@@ -202,7 +202,6 @@ fn prepare_command(
     insertion: Insertion,
     cancelled: impl Fn() -> bool,
 ) -> Prepared {
-    let paths = media_open::resolve_url_shortcuts(paths, &cancelled)?;
     let paths = file_selection::prepare_cancellable(paths, false, cancelled)?;
     if paths.is_empty() {
         return Err("No playable files were found for the playlist".into());
@@ -226,7 +225,7 @@ fn publish(app: &PlayerWindow, sender: &CommandSender, ready: Vec<Prepared>) {
 #[cfg(test)]
 pub(in crate::player) mod tests {
     use super::*;
-    use crate::{player_ui::glue_tests::Harness, ui_dialogs};
+    use crate::{media_open, player_ui::glue_tests::Harness, ui_dialogs};
     use riina_test_support::TempDir;
     use riina_ui::{PlayerDialogState, PlayerMenuActions};
 
@@ -252,6 +251,24 @@ pub(in crate::player) mod tests {
             })
         );
         assert!(prepare_command(paths, Insertion::Append, || true).is_err());
+
+        let shortcut = directory.path().join("stream.url");
+        std::fs::write(
+            &shortcut,
+            "[InternetShortcut]\r\nURL=https://example.test/片 one.mkv?token=%2f+Z\r\n",
+        )
+        .unwrap();
+        assert_eq!(
+            prepare_command(
+                vec![shortcut.into_os_string().into_string().unwrap()],
+                Insertion::Before(Some(42)),
+                || false
+            ),
+            Ok(Command::InsertPlaylistFilesBefore {
+                paths: vec!["https://example.test/%E7%89%87%20one.mkv?token=%2f+Z".into()],
+                before_id: Some(42),
+            })
+        );
     }
 
     pub(in crate::player) fn exercise_playlist_edit_order(

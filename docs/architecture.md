@@ -1188,6 +1188,13 @@ The typed address parser converts international hostnames to ASCII and percent
 encodes raw URL text. It keeps delimiters, existing escapes and the order and
 spelling of query tokens so signed URLs reach the engine intact.
 
+User selection resolves native aliases before shared discovery. A selected
+internet shortcut yields its explicit stream URL from a bounded text read.
+The same decoder accepts UTF-8 and UTF-16 and preserves existing query bytes.
+New-player routing compares the resolved reference, so a shortcut and its
+stream can reuse the same player. Plugin startup retains the source reference
+that passed its permission review. [Windows Internet Shortcuts](https://learn.microsoft.com/en-us/windows/win32/lwef/internet-shortcuts)
+
 Network-first startup groups and immediate browser opens use the same stream
 attempt. A group keeps the prepared file order and submits the leading load and
 playlist tail through one native command plan. Discovery and the first load

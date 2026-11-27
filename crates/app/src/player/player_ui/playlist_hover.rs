@@ -218,12 +218,15 @@ impl Drag {
         result.scanning.store(true, Ordering::Release);
         let started = background::spawn_named("playlist-drag-hover", move || {
             let cancelled = || result.cancelled.load(Ordering::Relaxed);
-            let playable = paths.iter().filter_map(|path| path.to_str()).any(|path| {
-                !cancelled()
-                    && riina_core::file_selection::can_add_to_playlist(
-                        &platform::resolve_alias_path(path),
-                        cancelled,
-                    )
+            let playable = paths.into_iter().any(|path| {
+                if !cancelled()
+                    && let Ok(path) = path.into_os_string().into_string()
+                    && let Ok(reference) = crate::file_selection::resolve_reference(path)
+                {
+                    riina_core::file_selection::can_add_to_playlist(&reference, cancelled)
+                } else {
+                    false
+                }
             });
             result.playable.store(playable, Ordering::Release);
             result.scanning.store(false, Ordering::Release);

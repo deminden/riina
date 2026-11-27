@@ -123,6 +123,10 @@ Implementation does not imply every state or platform is verified.
   A replacement request or a closing player cancels its folder scan.
   New windows open through the current application. A closing window stops
   forwarding delayed new-window requests.
+  File selection, startup, drops, Open Recent and playlist additions resolve
+  internet shortcuts to their stream URLs. UTF-8 and UTF-16 shortcut files
+  preserve existing query escapes. Two shortcuts for the same address share
+  the player's duplicate detection.
   The Windows picker reuses the initial player behind Welcome. Stop closes
   the playback frame after mpv becomes idle. On Windows, a subsequent open
   reused the exact stopped frame while another player stayed open.

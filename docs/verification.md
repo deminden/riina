@@ -7852,3 +7852,24 @@ exited normally.
 
 - Windows executable SHA-256 `1d0d5ec51a259d86207c99fd188ba928cb0404e8c3bfbf0dbe7e4e86b0f3795d`
 - Linux executable SHA-256 `6965ce3fd7cc6dab756fae3e601548bbcc0e16e6e433711b12cde1adb9a8338c`
+
+### Opening internet shortcuts (2026-11-27)
+
+The Windows workspace gate, locked build and 86 native playback tests passed.
+Shared tests covered UTF-8 and UTF-16 shortcuts, malformed targets, bounded
+reads, resolved duplicate identity and playlist insertion by existing entry ID.
+Plugin startup kept the reviewed file source. Strict Linux Clippy, the locked
+Linux application build and nine focused selection tests passed. Intel and
+Apple Silicon app and test targets passed strict cross-Clippy.
+
+On a private Windows desktop, startup opened a UTF-16 internet shortcut, a
+Shell link to it, and a raw Unicode URL in separate runs. The native file
+picker and Open Recent opened the same shortcut in a fourth run. Opening it
+again through Open in New Window reused the existing player. An isolated
+X11 application also opened the UTF-16 shortcut from startup. All five runs
+loaded paused video and exited normally. Both loopback servers received the
+encoded filename with the original signed query bytes. Native macOS
+interaction remains open.
+
+- Windows executable SHA-256 `902ae97cb008f7cbaf30b7f093644264f0269ec7f07b47a8e01804e8e0ec0afe`
+- Linux executable SHA-256 `bc8b955340320e3ee197d5ed872d92a791dbb9280d0a8803a7223241e560f717`
