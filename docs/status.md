@@ -229,8 +229,9 @@ Implementation does not imply every state or platform is verified.
   available when automatic subtitle loading is disabled.
 - **Subtitle encoding:** changing the decoder encoding reloads external
   subtitles and restores the primary and secondary choices independently.
-  A Next Subtitle action received during reload runs against the restored
-  tracks. A later explicit primary choice takes precedence.
+  Track cycling from a menu or a standalone profile binding waits for the
+  restored lanes. An explicit choice takes precedence over queued cycles
+  for that lane.
 - **Online subtitle downloads:** built-in and plugin providers keep results
   tied to the requesting media. Canceling or replacing a search retires its
   pending replies. Save Downloaded Subtitle exports the selected cached

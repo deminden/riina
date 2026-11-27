@@ -421,6 +421,140 @@ fn encoding_reload_preserves_both_selected_subtitle_files() {
 }
 
 #[test]
+#[ignore = "requires provisioned libmpv; verifies profile cycle direction during encoding reload"]
+fn encoding_reload_preserves_reverse_cycles_in_both_subtitle_lanes() {
+    let root = fixture_root();
+    let harness = Harness::start(&root).unwrap();
+    let media = root.join("tests/fixtures/catalog.mkv");
+    harness
+        .send(Command::Load(media.to_string_lossy().into_owned()))
+        .unwrap();
+    harness.wait(|state| state.phase == Phase::Playing);
+    harness.send(Command::SetPaused(true)).unwrap();
+    harness.wait(|state| state.paused);
+
+    let scratch = riina_test_support::TempDir::new("subtitle-cycle-direction").unwrap();
+    let write = |name: &str, text: &str| {
+        let path = scratch.path().join(format!("{name}.srt"));
+        std::fs::write(&path, format!("1\n00:00:00,000 --> 00:00:04,000\n{text}\n")).unwrap();
+        path.to_string_lossy().into_owned()
+    };
+    for name in ["a", "b", "c"] {
+        harness
+            .send(Command::AddSubtitle(write(name, "Original cue")))
+            .unwrap();
+    }
+    let loaded = harness.wait(|state| {
+        state
+            .tracks
+            .iter()
+            .filter(|item| item.kind == TrackKind::Sub)
+            .count()
+            == 3
+            && selected_track(state, TrackKind::Sub).is_some()
+    });
+    let secondary_id = loaded
+        .tracks
+        .iter()
+        .find(|track| {
+            track.kind == TrackKind::Sub
+                && track
+                    .external_filename
+                    .as_ref()
+                    .is_some_and(|path| path.ends_with("b.srt"))
+        })
+        .unwrap()
+        .id;
+    harness
+        .send(Command::SelectTrack {
+            kind: TrackKind::Sub,
+            id: None,
+        })
+        .unwrap();
+    harness
+        .send(Command::SelectSecondarySubtitle(Some(secondary_id)))
+        .unwrap();
+    harness.wait(|state| {
+        state.tracks.iter().all(|track| {
+            track.kind != TrackKind::Sub
+                || track.selected == (track.id == secondary_id)
+                    && (!track.selected || track.main_selection == Some(1))
+        })
+    });
+
+    let reload_and_cycle = |action: &str, time| {
+        for command in [
+            Command::SubtitleEncoding("auto".into()),
+            Command::SubtitleEncoding("UTF-8".into()),
+            Command::MpvInputAction(action.into()),
+            Command::Seek {
+                seconds: time,
+                absolute: true,
+            },
+        ] {
+            harness.send(command).unwrap();
+        }
+    };
+    let was_last_eligible = |state: &Playback, lane| {
+        state
+            .tracks
+            .iter()
+            .rev()
+            .find(|track| track.kind == TrackKind::Sub && track.main_selection != Some(1 - lane))
+            .is_some_and(|track| track.selected && track.main_selection == Some(lane))
+    };
+    write("a", "Primary A");
+    write("b", "Restored secondary — café");
+    write("c", "Primary C");
+    reload_and_cycle("no-osd cycle sub down; cycle sid up; cycle sub down", 0.8);
+    let previous = harness.wait(|state| {
+        state.secondary_subtitle_text.as_deref() == Some("Restored secondary — café")
+            && matches!(
+                state.subtitle_text.as_deref(),
+                Some("Primary A" | "Primary C")
+            )
+            && was_last_eligible(state, 0)
+    });
+    assert_eq!(previous.error(), None);
+
+    let primary_text = previous.subtitle_text.as_deref().unwrap();
+    let primary_file = if primary_text == "Primary A" {
+        "a"
+    } else {
+        "c"
+    };
+    harness
+        .send(Command::SelectSecondarySubtitle(None))
+        .unwrap();
+    harness.wait(|state| {
+        state
+            .tracks
+            .iter()
+            .all(|track| track.kind != TrackKind::Sub || track.main_selection != Some(1))
+    });
+    for name in ["a", "b", "c"] {
+        write(
+            name,
+            if name == primary_file {
+                "Restored primary — crème"
+            } else {
+                "Cycled secondary — voilà"
+            },
+        );
+    }
+    reload_and_cycle("no-osd cycle secondary-sid down", 1.2);
+    let previous = harness.wait(|state| {
+        state.subtitle_text.as_deref() == Some("Restored primary — crème")
+            && state.secondary_subtitle_text.as_deref() == Some("Cycled secondary — voilà")
+            && was_last_eligible(state, 1)
+    });
+    assert!(previous.paused);
+    assert_eq!(previous.generation, loaded.generation);
+    assert_eq!(previous.tracks.len(), loaded.tracks.len());
+    assert_eq!(previous.error(), None);
+}
+
+#[test]
 #[ignore = "requires provisioned libmpv; verifies selected ASS warning across subtitle lanes"]
 fn subtitle_style_warning_follows_selected_ass_lanes() {
     let root = fixture_root();

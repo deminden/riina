@@ -7085,3 +7085,17 @@ The Windows workspace gate, locked build and strict Apple cross-Clippy for
 both architectures passed. All 76 pinned Windows native tests passed in
 10.87 seconds. All eight focused Linux subtitle tests passed with the locally
 patched libmpv build and null output.
+
+### Reverse and secondary subtitle cycles during encoding reload (2026-11-27)
+
+The native regression exercises a chained reverse, forward, and reverse
+profile binding and a reverse secondary binding across encoding changes. The
+worker waits for libmpv to report both restored selections before cycling. Each
+cycle follows the current native track order, and the other lane keeps its
+refreshed cue.
+
+The Windows workspace gate, locked build, and strict Apple cross-Clippy for
+Intel and Apple Silicon passed. All 77 pinned Windows native tests passed in
+10.84 seconds. With the exact patched Linux libmpv build and null output, all
+nine subtitle tests passed, and the reverse-cycle regression passed three
+additional runs.

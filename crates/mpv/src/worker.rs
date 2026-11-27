@@ -380,6 +380,11 @@ impl WorkerState {
             .deadline()
             .into_iter()
             .chain(self.filter_edits.deadline())
+            .chain(
+                self.subtitle_reload
+                    .as_ref()
+                    .and_then(subtitle_reload::Reload::deadline),
+            )
             .min()
     }
 
@@ -529,7 +534,7 @@ impl WorkerState {
         if command.replaces_media() {
             self.pending_drop_subtitles.clear();
         }
-        let plan = match command.plan(&self.playback) {
+        let mut plan = match command.plan(&self.playback) {
             Ok(plan) => plan,
             Err(error) => {
                 if matches!(
@@ -543,6 +548,9 @@ impl WorkerState {
                 return;
             }
         };
+        if self.retain_subtitle_cycles(&mut plan.commands) {
+            return;
+        }
         if let Command::SetPauseWhenOpen(pause) = &command
             && self.playback.pause_when_open != *pause
         {
@@ -931,7 +939,8 @@ impl WorkerState {
             } else {
                 let command_reply =
                     (event.id() == event_id::COMMAND_REPLY).then(|| event.userdata());
-                if event.failed()
+                let failed = event.failed();
+                if failed
                     && self
                         .pending_audio_change
                         .as_ref()
@@ -946,7 +955,7 @@ impl WorkerState {
                 if let Some(id) = command_reply {
                     self.filter_edits.edit_replied(id);
                     if let Some(reload) = &mut self.subtitle_reload {
-                        reload.replied(id);
+                        reload.replied(id, failed);
                     }
                     self.finish_end_pause(handle, id);
                 }

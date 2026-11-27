@@ -446,10 +446,11 @@ The playback worker owns subtitle encoding changes. It reloads external
 subtitle tracks, waits for the native replies, and reads the refreshed track
 list. It restores the primary and secondary choices by external path or
 embedded track ID because a native reload may assign a new ID and select
-the replacement as primary. Next Subtitle waits for both restored selections
-so the decoder can cycle through its current track order. A later explicit
-primary choice supersedes queued cycles. Replacing the media retires the
-pending reload and selections.
+the replacement as primary. The worker waits for the selected IDs in a new
+track-list observation before submitting queued cycles. This preserves the
+native order and command options for forward and reverse profile bindings.
+A later explicit choice supersedes queued cycles for its lane. Replacing
+the media retires the pending reload and selections.
 
 The desktop drop adapters publish the position of a playable offer to the same
 scroll view. X11 samples the native cursor after Winit reports the file list.
