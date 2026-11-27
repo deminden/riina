@@ -30,7 +30,11 @@ pub(super) fn install_session(
         &prefs.key_bindings,
         latest_playback.clone(),
     );
-    let system_media = crate::platform::SystemMediaSession::new(app, latest_playback.clone());
+    let system_media = crate::platform::SystemMediaSession::new(
+        app,
+        latest_playback.clone(),
+        native.map(|presentation| presentation.host()),
+    );
     install_media(app, prefs);
     let appearance_timer = install_layout(app, prefs, prefs_path);
     SessionProjection {

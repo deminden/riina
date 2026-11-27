@@ -524,6 +524,15 @@ and routes `PrepareForSleep(true)` to its open players on the UI thread.
 macOS uses its existing Workspace notification and shares the pause policy.
 Idle and shutting-down engines receive no pause request. [Windows suspend notifications](https://learn.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-registersuspendresumenotification) · [logind suspend signals](https://www.freedesktop.org/software/systemd/man/latest/org.freedesktop.login1.html#Signals)
 
+On Windows and Linux, Winit focus events feed an application-wide focus
+tracker. A short UI timer lets paired focus events settle before the tracker
+decides which player lost focus and where it moved. The Windows video frame
+and its controls identify the same player. Auxiliary windows and open player
+file choosers preserve playback. macOS supplies the focus changes through
+AppKit. An automatic pause belongs to one player and is scoped to both the
+open request and the native media generation. Focus returning during a
+replacement open leaves the new request's playback state alone.
+
 Media discovery chooses destination players from the original selection before
 enumerating folders or filtering files. A folder stays with its assigned player,
 and a standalone playlist goes to mpv as a single reference. The Windows and

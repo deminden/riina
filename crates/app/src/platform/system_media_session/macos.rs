@@ -10,10 +10,10 @@ use crate::{
         MediaEvent, SystemActivity, SystemMediaControls, active_poll::ActivePoll,
         player_input::some_player_window_is_focused, player_thumbnails::Samples,
     },
-    player_ui::lifecycle::AutomaticPause,
+    player_ui::lifecycle::{InactivePause, apply_inactive_pause},
 };
 use riina_core::{Phase, sync::lock};
-use riina_ui::{PlayerControlActions, PlayerPreferences};
+use riina_ui::PlayerPreferences;
 use slint::{ComponentHandle, Weak, winit_030::WinitWindowAccessor};
 use std::{
     cell::{Cell, RefCell},
@@ -40,35 +40,16 @@ struct Route {
     sender: RefCell<Option<CommandSender>>,
     timeline: RefCell<Option<Samples>>,
     focused: Cell<bool>,
-    automatic_pause: RefCell<AutomaticPause>,
+    automatic_pause: RefCell<InactivePause>,
 }
 
 impl Route {
     fn set_focus(&self, app: &PlayerWindow, focused: bool, another_player_focused: bool) {
-        self.focused.set(focused);
+        let was_focused = self.focused.replace(focused);
         if !app.global::<PlayerPreferences>().get_pause_when_inactive() {
             self.automatic_pause.borrow_mut().cancel();
-        } else if focused {
-            let resume = self
-                .automatic_pause
-                .borrow_mut()
-                .resume(&lock(&self.playback));
-            if resume {
-                app.global::<PlayerControlActions>()
-                    .invoke_set_paused(false);
-            }
-        } else if another_player_focused {
-            self.pause_for_focus(app);
-        }
-    }
-
-    fn pause_for_focus(&self, app: &PlayerWindow) {
-        let pause = self
-            .automatic_pause
-            .borrow_mut()
-            .pause(&lock(&self.playback));
-        if pause {
-            app.global::<PlayerControlActions>().invoke_set_paused(true);
+        } else if focused || (was_focused && another_player_focused) {
+            apply_inactive_pause(&self.automatic_pause, app, &self.playback, focused);
         }
     }
 
@@ -78,7 +59,7 @@ impl Route {
             SystemActivity::Inactive
                 if self.focused.get() && preferences.get_pause_when_inactive() =>
             {
-                self.pause_for_focus(app);
+                apply_inactive_pause(&self.automatic_pause, app, &self.playback, false);
             }
             SystemActivity::Sleep => super::pause_for_suspend(app, &self.playback),
             _ => {}
@@ -304,7 +285,11 @@ pub(crate) struct SystemMediaSession {
 }
 
 impl SystemMediaSession {
-    pub(crate) fn new(app: &PlayerWindow, playback: PlaybackStore) -> Self {
+    pub(crate) fn new(
+        app: &PlayerWindow,
+        playback: PlaybackStore,
+        _: Option<Weak<NativeVideoHost>>,
+    ) -> Self {
         let application = Application::shared();
         let id = application.next_id.get();
         application.next_id.set(id + 1);
@@ -322,7 +307,7 @@ impl SystemMediaSession {
         Self { application, route }
     }
 
-    pub(crate) fn bind(&self, sender: &CommandSender, _: Option<Weak<NativeVideoHost>>) {
+    pub(crate) fn bind(&self, sender: &CommandSender) {
         self.route.sender.replace(Some(sender.clone()));
         self.application.wake();
     }

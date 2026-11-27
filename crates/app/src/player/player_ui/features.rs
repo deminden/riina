@@ -190,7 +190,7 @@ pub(super) fn install(app: &PlayerWindow, inputs: Inputs<'_>) -> Installed {
     );
     let video_materials =
         platform::video_materials::Monitor::install(app, native, commands, playback);
-    system_media.bind(commands, native.map(platform::NativePresentation::host));
+    system_media.bind(commands);
     live_text::install_actions(app, prefs_path);
     super::startup::install_toolbar_order(app);
     let live_text_timer = live_text::install(app, commands.clone(), playback.clone());

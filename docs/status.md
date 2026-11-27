@@ -29,6 +29,11 @@ Implementation does not imply every state or platform is verified.
   Windows or a Linux logind session prepares to suspend. The preference is
   enabled by default and each player reads the current selection. A system
   wake notification leaves the player's pause state alone.
+- **Pause when inactive:** General Settings can pause playback when a player
+  loses focus to another player or app. Returning to that player resumes
+  playback if the setting paused the same open request. The setting is off
+  by default. Moving focus to Settings or between the Windows video frame and
+  its controls preserves playback.
 - **Desktop drops** open media in the receiving player or insert it at the
   captured playlist position. Welcome and the File menu follow the
   window-opening preferences. On Linux, X11 and Wayland accept media URLs,

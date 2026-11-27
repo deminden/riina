@@ -7,6 +7,7 @@ mod suspend;
 mod track_list;
 
 use super::{CommandSender, NativeVideoHost, PlaybackStore, PlayerWindow, pause_for_suspend};
+use crate::platform::inactive_playback;
 use interface::Request;
 use projection::Snapshot;
 use riina_core::sync::lock;
@@ -217,10 +218,16 @@ fn next_id() -> u64 {
 pub(crate) struct SystemMediaSession {
     application: Rc<Application>,
     route: u64,
+    focus: RefCell<Option<inactive_playback::Registration>>,
 }
 
 impl SystemMediaSession {
-    pub(crate) fn new(app: &PlayerWindow, playback: PlaybackStore) -> Self {
+    pub(crate) fn new(
+        app: &PlayerWindow,
+        playback: PlaybackStore,
+        owner: Option<Weak<NativeVideoHost>>,
+    ) -> Self {
+        let focus = inactive_playback::Registration::new(app, owner, playback.clone());
         let application = Application::shared();
         let route = next_id();
         application.routes.borrow_mut().push(Route {
@@ -229,10 +236,14 @@ impl SystemMediaSession {
             playback,
             sender: None,
         });
-        Self { application, route }
+        Self {
+            application,
+            route,
+            focus: RefCell::new(Some(focus)),
+        }
     }
 
-    pub(crate) fn bind(&self, sender: &CommandSender, _: Option<Weak<NativeVideoHost>>) {
+    pub(crate) fn bind(&self, sender: &CommandSender) {
         if let Some(route) = self
             .application
             .routes
@@ -247,6 +258,7 @@ impl SystemMediaSession {
     }
 
     pub(crate) fn prepare_to_close(&self) {
+        self.focus.borrow_mut().take();
         self.application
             .routes
             .borrow_mut()

@@ -34,10 +34,14 @@ pub(crate) struct SystemMediaSession;
 
 #[cfg(not(any(target_os = "linux", target_os = "macos", target_os = "windows")))]
 impl SystemMediaSession {
-    pub(crate) fn new(_: &PlayerWindow, _: PlaybackStore) -> Self {
+    pub(crate) fn new(
+        _: &PlayerWindow,
+        _: PlaybackStore,
+        _: Option<slint::Weak<NativeVideoHost>>,
+    ) -> Self {
         Self
     }
-    pub(crate) fn bind(&self, _: &CommandSender, _: Option<slint::Weak<NativeVideoHost>>) {}
+    pub(crate) fn bind(&self, _: &CommandSender) {}
     pub(crate) fn prepare_to_close(&self) {}
 }
 

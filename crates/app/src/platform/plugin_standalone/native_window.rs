@@ -46,6 +46,8 @@ impl CustomApplicationHandler for Events {
         _: Option<&slint::Window>,
         event: &WindowEvent,
     ) -> EventResult {
+        #[cfg(target_os = "windows")]
+        crate::platform::inactive_playback::window_event(id, event);
         if !matches!(event, WindowEvent::CloseRequested) {
             return EventResult::Propagate;
         }

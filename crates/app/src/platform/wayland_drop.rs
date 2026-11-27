@@ -133,6 +133,7 @@ impl CustomApplicationHandler for Handler {
         window: Option<&slint::Window>,
         event: &WindowEvent,
     ) -> EventResult {
+        super::inactive_playback::window_event(id, event);
         if let Some(receiver) = self.0.as_ref() {
             receiver
                 .state

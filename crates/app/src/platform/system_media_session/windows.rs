@@ -4,6 +4,7 @@ mod registration;
 mod suspend;
 
 use super::{CommandSender, NativeVideoHost, PlaybackStore, PlayerWindow, pause_for_suspend};
+use crate::platform::inactive_playback;
 use ::windows::Win32::Foundation::HWND;
 use registration::Registration;
 use riina_core::sync::lock;
@@ -20,24 +21,37 @@ use std::{cell::RefCell, rc::Rc, time::Duration};
 pub(crate) struct SystemMediaSession {
     app: Weak<PlayerWindow>,
     latest: PlaybackStore,
+    native_host: Option<Weak<NativeVideoHost>>,
+    focus: RefCell<Option<inactive_playback::Registration>>,
     timer: slint::Timer,
     registration: Rc<RefCell<Option<Registration>>>,
     suspend: Rc<RefCell<Option<suspend::Registration>>>,
 }
 
 impl SystemMediaSession {
-    pub(crate) fn new(app: &PlayerWindow, latest: PlaybackStore) -> Self {
+    pub(crate) fn new(
+        app: &PlayerWindow,
+        latest: PlaybackStore,
+        native_host: Option<Weak<NativeVideoHost>>,
+    ) -> Self {
         Self {
             app: app.as_weak(),
+            focus: RefCell::new(Some(inactive_playback::Registration::new(
+                app,
+                native_host.clone(),
+                latest.clone(),
+            ))),
             latest,
+            native_host,
             timer: slint::Timer::default(),
             registration: Rc::default(),
             suspend: Rc::default(),
         }
     }
 
-    pub(crate) fn bind(&self, _: &CommandSender, native_host: Option<Weak<NativeVideoHost>>) {
+    pub(crate) fn bind(&self, _: &CommandSender) {
         let app = self.app.clone();
+        let native_host = self.native_host.clone();
         let state = self.registration.clone();
         let latest = self.latest.clone();
         let suspend = self.suspend.clone();
@@ -103,6 +117,7 @@ impl SystemMediaSession {
         self.timer.stop();
         self.registration.borrow_mut().take();
         self.suspend.borrow_mut().take();
+        self.focus.borrow_mut().take();
     }
 }
 

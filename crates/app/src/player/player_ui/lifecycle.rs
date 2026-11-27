@@ -40,6 +40,69 @@ impl AutomaticPause {
     }
 }
 
+#[cfg(any(target_os = "linux", target_os = "macos", target_os = "windows", test))]
+#[derive(Default)]
+pub(crate) struct InactivePause {
+    pause: AutomaticPause,
+    request: Option<i32>,
+}
+
+#[cfg(any(target_os = "linux", target_os = "macos", target_os = "windows", test))]
+impl InactivePause {
+    pub(crate) fn focus_changed(
+        &mut self,
+        app: &PlayerWindow,
+        playback: &crate::PlaybackStore,
+        focused: bool,
+    ) -> Option<bool> {
+        let request = app.get_media_request_generation();
+        if !app
+            .global::<riina_ui::PlayerPreferences>()
+            .get_pause_when_inactive()
+        {
+            self.cancel();
+            return None;
+        }
+        let state = riina_core::sync::lock(playback);
+        if focused {
+            // A newer open can be queued before mpv publishes its new generation.
+            let owns_request = self.request == Some(request);
+            let resume = self.pause.resume(&state);
+            self.request = None;
+            (owns_request && resume).then_some(false)
+        } else {
+            if self.request != Some(request) {
+                self.cancel();
+            }
+            if self.pause.pause(&state) {
+                self.request = Some(request);
+                Some(true)
+            } else {
+                None
+            }
+        }
+    }
+
+    pub(crate) fn cancel(&mut self) {
+        self.pause.cancel();
+        self.request = None;
+    }
+}
+
+#[cfg(any(target_os = "linux", target_os = "macos", target_os = "windows"))]
+pub(crate) fn apply_inactive_pause(
+    policy: &RefCell<InactivePause>,
+    app: &PlayerWindow,
+    playback: &crate::PlaybackStore,
+    focused: bool,
+) {
+    let action = policy.borrow_mut().focus_changed(app, playback, focused);
+    if let Some(paused) = action {
+        app.global::<riina_ui::PlayerControlActions>()
+            .invoke_set_paused(paused);
+    }
+}
+
 pub(super) fn install_pause_on_minimize(
     app: &PlayerWindow,
     native_host: Option<slint::Weak<crate::NativeVideoHost>>,
@@ -156,6 +219,26 @@ mod tests {
         let mut policy = AutomaticPause::default();
         assert!(policy.pause(&playing()));
         assert!(policy.resume(&playing()));
+    }
+
+    #[test]
+    fn focus_resume_cannot_overtake_a_replacement_open() -> Result<(), slint::PlatformError> {
+        i_slint_backend_testing::init_no_event_loop();
+        let app = PlayerWindow::new()?;
+        let latest = crate::PlaybackStore::default();
+        *riina_core::sync::lock(&latest) = std::sync::Arc::new(playing());
+        let preferences = app.global::<riina_ui::PlayerPreferences>();
+        let mut policy = InactivePause::default();
+        assert_eq!(policy.focus_changed(&app, &latest, false), None);
+        preferences.set_pause_when_inactive(true);
+        assert_eq!(policy.focus_changed(&app, &latest, false), Some(true));
+        assert_eq!(policy.focus_changed(&app, &latest, true), Some(false));
+        assert_eq!(policy.focus_changed(&app, &latest, false), Some(true));
+
+        app.set_media_request_generation(1);
+        assert_eq!(policy.focus_changed(&app, &latest, true), None);
+        assert_eq!(policy.focus_changed(&app, &latest, true), None);
+        Ok(())
     }
 
     #[test]

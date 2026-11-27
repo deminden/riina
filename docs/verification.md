@@ -7493,3 +7493,30 @@ disabled player kept playing. Both processes closed via Welcome.
 
 Strict macOS cross-Clippy passed on Intel and Apple Silicon targets. Physical
 suspend and wake timing and the macOS desktop workflow still need verification.
+
+### Pause playback when inactive (2026-11-27)
+
+Isolated Windows tests sent focus and activation messages to the playback
+windows on a private desktop. The enabled preference paused and resumed the
+first engine when focus left the application or moved to a second player.
+Settings and the video frame-to-controls handoff kept playback running.
+A manual pause survived focus loss and return. A separate run confirmed the
+disabled preference kept playback running. Both processes closed normally.
+
+On an isolated X11 desktop, moving focus between two playback windows paused
+and resumed their respective engines. A separate X11 client caused the same
+pause and resume, while Settings preserved playback and a manual pause
+survived the focus round trip. Closing Welcome ended the original process.
+
+On an isolated native Wayland session with XWayland disabled, moving focus to
+a separate application paused playback and returning focus resumed it.
+Settings preserved playback through its focus handoff. Closing the player
+ended the same process normally.
+
+The locked Windows build and workspace gate passed with 733 application
+tests, 88 widget tests and the software player and Settings comparison.
+The locked Linux application build, strict Clippy and 15 focused tests passed.
+The application tests cover routing between players and auxiliary windows,
+and returning focus before a replacement open reaches the engine. Strict
+macOS cross-Clippy passed for Intel and Apple Silicon. Native macOS focus
+behavior still needs a desktop run.
