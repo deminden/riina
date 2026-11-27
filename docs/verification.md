@@ -7071,3 +7071,17 @@ exercise ran the workflow's source-selection shell step with separate tagged
 and dispatch commits, verified the older tag selected its own image, and
 checked both explicit reuse inputs and rejection of conflicting inputs.
 The hosted release workflow remains unverified for this change.
+
+### Subtitle track cycling during encoding reload (2026-11-27)
+
+The Windows native regression reproduced a lost Next Subtitle action during
+two consecutive encoding changes. The secondary cue returned with the primary
+lane still off. The updated worker waits for both restored selections before
+cycling. The regression checks that the refreshed primary cue appears, the
+secondary cue stays in its lane, and a later explicit primary choice takes
+precedence over an earlier cycle.
+
+The Windows workspace gate, locked build and strict Apple cross-Clippy for
+both architectures passed. All 76 pinned Windows native tests passed in
+10.87 seconds. All eight focused Linux subtitle tests passed with the locally
+patched libmpv build and null output.

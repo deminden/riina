@@ -52,6 +52,7 @@ pub(super) struct Reload {
     generation: u64,
     original: Arc<Vec<Track>>,
     selection: [Option<TrackIdentity>; 2],
+    primary_cycles: usize,
     pending: HashSet<u64>,
     catalog_request: Option<u64>,
     reload_again: bool,
@@ -73,6 +74,7 @@ impl Reload {
             generation,
             original,
             selection,
+            primary_cycles: 0,
             pending: HashSet::new(),
             catalog_request: None,
             reload_again: false,
@@ -144,19 +146,24 @@ impl WorkerState {
     }
 
     pub(super) fn retain_subtitle_selection(&mut self, command: &Command) -> bool {
+        let can_select = self
+            .subtitle_reload
+            .as_ref()
+            .is_some_and(|reload| self.accepts_media_intent(reload.generation));
+        let Some(reload) = self.subtitle_reload.as_mut().filter(|_| can_select) else {
+            return false;
+        };
         let (lane, id) = match command {
+            Command::CycleTrack(TrackKind::Sub) => {
+                reload.primary_cycles = reload.primary_cycles.saturating_add(1);
+                return true;
+            }
             Command::SelectTrack {
                 kind: TrackKind::Sub,
                 id,
             } => (0, id),
             Command::SelectSecondarySubtitle(id) => (1, id),
             _ => return false,
-        };
-        if !self.accepts_media_intent(self.playback.generation) {
-            return false;
-        }
-        let Some(reload) = &mut self.subtitle_reload else {
-            return false;
         };
         let identity = if let Some(id) = id {
             let find = |catalog: &[Track]| {
@@ -174,6 +181,9 @@ impl WorkerState {
             None
         };
         reload.selection[lane] = identity;
+        if lane == 0 {
+            reload.primary_cycles = 0;
+        }
         true
     }
 
@@ -220,7 +230,12 @@ impl WorkerState {
                 reload.catalog_request = None;
                 return self.submit_subtitle_reloads(handle, reload, &tracks);
             }
-            self.restore_subtitle_lanes(handle, &tracks, &reload.selection)
+            self.restore_subtitle_lanes(handle, &tracks, &reload.selection)?;
+            // Keep native ordering and its disabled choice after both lanes are restored.
+            for _ in 0..reload.primary_cycles {
+                self.handle_intent(handle, Command::CycleTrack(TrackKind::Sub));
+            }
+            Ok(())
         });
         if let Err(error) = result {
             self.report_subtitle_reload_error(error);

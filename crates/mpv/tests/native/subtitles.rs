@@ -381,6 +381,7 @@ fn encoding_reload_preserves_both_selected_subtitle_files() {
     for command in [
         Command::SubtitleEncoding("auto".into()),
         Command::SubtitleEncoding("UTF-8".into()),
+        Command::CycleTrack(TrackKind::Sub),
         Command::SelectTrack {
             kind: TrackKind::Sub,
             id: None,
@@ -395,6 +396,28 @@ fn encoding_reload_preserves_both_selected_subtitle_files() {
     });
     assert_eq!(reloaded.tracks.len(), original.tracks.len());
     assert_eq!(reloaded.error(), None);
+
+    write(&primary, "Cycled primary — crème");
+    write(&secondary, "Retained secondary — voilà");
+    for command in [
+        Command::SubtitleEncoding("auto".into()),
+        Command::SubtitleEncoding("UTF-8".into()),
+        Command::CycleTrack(TrackKind::Sub),
+    ] {
+        harness.send(command).unwrap();
+    }
+    seek(1.2);
+    let cycled = harness.wait(|state| {
+        cues(
+            state,
+            "Cycled primary — crème",
+            "Retained secondary — voilà",
+        )
+    });
+    assert!(cycled.paused);
+    assert_eq!(cycled.generation, original.generation);
+    assert_eq!(cycled.tracks.len(), original.tracks.len());
+    assert_eq!(cycled.error(), None);
 }
 
 #[test]
