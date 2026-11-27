@@ -17,7 +17,7 @@ pub(crate) enum Presentation {
     PictureInPicture,
 }
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub(crate) struct LaunchOptions {
     pub(crate) stdin: bool,
     pub(crate) presentation: Option<Presentation>,

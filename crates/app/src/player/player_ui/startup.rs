@@ -267,6 +267,12 @@ impl InitialMedia {
         !self.files.is_empty() || self.stream.is_some() || self.launch.stdin
     }
 
+    pub(crate) fn can_use_open_engine(&self) -> bool {
+        self.managed.is_none()
+            && self.requests_playback()
+            && self.launch == crate::startup_arguments::LaunchOptions::default()
+    }
+
     fn external_stream(&self) -> Option<&str> {
         if self.explicit_playlist
             || self.launch.shuffle
@@ -348,7 +354,7 @@ impl InitialOpen {
     }
 }
 
-fn open_initial_media(
+pub(super) fn open_initial_media(
     app: &PlayerWindow,
     mut media: InitialMedia,
     sender: CommandSender,
@@ -394,7 +400,10 @@ pub(super) fn activate_output(
     volume: f64,
     opening: InitialOpen,
     picture_in_picture: &crate::platform::PictureInPictureSession,
-) -> Result<(), Box<dyn std::error::Error>> {
+) -> Result<Option<Rc<Cell<bool>>>, Box<dyn std::error::Error>> {
+    let idle_media_available = (!opening.media.requests_playback()
+        && opening.media.managed.is_none())
+    .then(|| Rc::new(Cell::new(true)));
     crate::fullscreen_info::connect(app);
     if native_presentation {
         app.set_engine_ready(true);
@@ -411,7 +420,7 @@ pub(super) fn activate_output(
             picture_in_picture.render_extras(),
         )?;
     }
-    Ok(())
+    Ok(idle_media_available)
 }
 
 pub(super) fn initial_volume(
@@ -524,6 +533,7 @@ pub(super) fn prepare(
         activity,
     };
     let history = history.start_tracking(&prefs_path, &prefs, recent.activity.documents().clone());
+    history.install_recording_action(app);
     recent
         .activity
         .bind_history(&startup.application.history, &history.state);
@@ -575,8 +585,25 @@ pub(super) fn prepare(
 }
 
 #[cfg(test)]
-mod volume_tests {
+mod tests {
     use super::*;
+
+    #[test]
+    fn media_reuse_requires_playback_and_default_startup_options() {
+        let mut media = InitialMedia::default();
+        assert!(!media.can_use_open_engine());
+
+        media.files = vec!["clip.mkv".into()];
+        media.resume_position = Some(3.5);
+        media.explicit_playlist = true;
+        assert!(media.can_use_open_engine());
+
+        media.launch.engine.push(("speed".into(), "1.5".into()));
+        assert!(!media.can_use_open_engine());
+        media.launch.engine.clear();
+        media.launch.presentation = Some(crate::startup_arguments::Presentation::Fullscreen);
+        assert!(!media.can_use_open_engine());
+    }
 
     #[test]
     fn initial_volume_uses_the_profile_or_explicit_override_with_the_active_cap() {

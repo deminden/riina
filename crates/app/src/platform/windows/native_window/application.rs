@@ -235,6 +235,28 @@ impl Application {
         if self.quitting.get() {
             return Err("Riina is closing".into());
         }
+        if launch.media.can_use_open_engine() {
+            let idle = self.players.borrow().iter().find_map(|player| {
+                let app = player.chrome.borrow();
+                let session = player.session.borrow();
+                let display = crate::player::surface::PlayerDisplay {
+                    welcome: player
+                        .welcome_window
+                        .borrow()
+                        .as_ref()
+                        .map(ComponentHandle::as_weak),
+                    host: Some(player.host.as_weak()),
+                };
+                let target = session
+                    .as_ref()?
+                    .idle_media_target(app.as_ref()?, display)?;
+                Some((player.clone(), target))
+            });
+            if let Some((player, target)) = idle {
+                target.open(launch.media)?;
+                return Ok(player);
+            }
+        }
         self.backend.set_theme(&launch.loaded.preferences);
         let player = Rc::new(NativePlayer::create_host()?);
         let actions = WindowActions {

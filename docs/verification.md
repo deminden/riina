@@ -7190,3 +7190,21 @@ binary. Portable release and installer verification have their own checks.
 
 - Windows libmpv SHA-256 `08b95b3edfa98b1f95a1d3eeebadb4d59ea2f4236464b480eb2235775cb0d934`
 - Windows application SHA-256 `895ec6a34b8d0b66b2d1fa166c18189472db9c9837f4ffadd837776f73912701`
+
+### Reuse of an idle Welcome player (2026-11-27)
+
+New file requests with default startup options can use a visible session still
+waiting for its first file. The request reserves that session before revealing
+its playback frame. The focused startup test covers plain and explicit
+playlist selections with a resume point and selections with engine options.
+
+Isolated Windows picker tests recorded the hidden Welcome player's window
+handle and verified that it became the playback frame for the first selected
+file. Grouped opening kept both clips in that player. Separate opening reused
+it for the first clip and created another frame for the second clip. The
+separate probe changed the grouping preference after opening Welcome and
+before starting the picker. The original frame retained its identity, a
+duplicate selection reused the existing file window, and both processes
+exited normally. The full Windows workspace gate and locked build passed,
+including 726 application tests and 88 widget cases. Strict macOS cross-Clippy
+passed for Intel and Apple Silicon.

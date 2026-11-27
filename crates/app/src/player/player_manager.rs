@@ -385,6 +385,20 @@ fn open_new_player<Owner: ComponentHandle + 'static>(
     if state.borrow().quitting {
         return Err("Riina is closing".into());
     }
+    if media.can_use_open_engine() {
+        let idle = state.borrow().players.iter().find_map(|player| {
+            let display = super::surface::PlayerDisplay {
+                welcome: player.welcome.as_ref().map(ComponentHandle::as_weak),
+                host: None,
+            };
+            let target = player.session.idle_media_target(&player.app, display)?;
+            Some((player.id, target))
+        });
+        if let Some((id, target)) = idle {
+            target.open(media)?;
+            return Ok(id);
+        }
+    }
     let hidden = media.managed.is_some() && media.files.is_empty();
     let disable_animation = media
         .managed
