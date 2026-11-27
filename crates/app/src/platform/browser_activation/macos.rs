@@ -6,8 +6,8 @@ mod plugin_shortcuts;
 
 use crate::platform::macos::menu_labels::MenuLabels;
 use crate::{
-    browser_links::{Inbox, Link},
-    player_manager::{PlayerManager, launch::OpenGuard},
+    browser_links::{Delivery, Inbox, Link},
+    player_manager::{PlayerManager, document_open::OpenGuard},
 };
 use block2::RcBlock;
 use objc2::{
@@ -184,7 +184,7 @@ define_class!(
             }
             match Link::parse(&text.to_string()) {
                 Ok(link) => {
-                    if launch.browser.push(link) {
+                    if launch.browser.push(Delivery::Link(link)) {
                         launch.default_action.take();
                     }
                 }

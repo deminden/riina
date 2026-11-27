@@ -7520,3 +7520,27 @@ The application tests cover routing between players and auxiliary windows,
 and returning focus before a replacement open reaches the engine. Strict
 macOS cross-Clippy passed for Intel and Apple Silicon. Native macOS focus
 behavior still needs a desktop run.
+
+### Linux desktop document opens (2026-11-27)
+
+On isolated X11, Utilities registered the generated launcher for video only.
+GIO reported Riina as the AVI default while WAV did not gain a default.
+With an existing player open, GIO launched two files in their submitted order
+into the same window, process and mpv playlist. One filename contained spaces,
+a percent sign and Japanese characters. The executable was in a folder with
+spaces and a dollar sign. Opening another AVI through the registered default
+reused the same player. A cold launch with separate windows enabled opened
+two players in one process. Each process exited normally after its last
+player closed.
+
+In isolated native Wayland with XWayland disabled, a cold desktop request
+started playback. GIO then sent a two-file selection to the existing window
+and playlist. The application exited normally on close.
+
+The locked Linux application build, strict Clippy and 17 focused tests passed.
+The tests cover ordered activation packets, paths that resemble options, the
+launcher with no arguments and the shared document and window lifecycle.
+The locked Windows workspace build and full gate passed with 733 app tests,
+88 widget tests and the software player and Settings pixel comparison.
+Strict macOS source checks passed for Intel and Apple Silicon. Finder runtime
+behavior still needs native macOS verification.

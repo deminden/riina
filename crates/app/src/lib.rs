@@ -99,19 +99,20 @@ unsafe fn run() -> Result<(), Box<dyn std::error::Error>> {
     let loaded = preference_load::load(&preferences_path)?;
     // SAFETY: the application is still in single-threaded process startup.
     unsafe { prepare_online_video_path(&loaded.preferences) }?;
-    let (arguments, browser_link) = StartupArguments::invocation(std::env::args_os().skip(1))?;
-    let activation = match platform::browser_activation::Activation::prepare(
-        &preferences_path,
-        browser_link.as_deref(),
-    ) {
-        Ok(Some(activation)) => activation,
-        Ok(None) => return Ok(()),
-        Err(error) if browser_link.is_none() => {
-            diagnostics::warn!("Browser links are unavailable for this application: {error}");
-            Default::default()
-        }
-        Err(error) => return Err(error.into()),
-    };
+    let (arguments, request) = StartupArguments::invocation(std::env::args_os().skip(1))?;
+    let interactive_launch = request.is_none();
+    let activation =
+        match platform::browser_activation::Activation::prepare(&preferences_path, request) {
+            Ok(Some(activation)) => activation,
+            Ok(None) => return Ok(()),
+            Err(error) if interactive_launch => {
+                diagnostics::warn!(
+                    "Desktop activation is unavailable for this application: {error}"
+                );
+                Default::default()
+            }
+            Err(error) => return Err(error.into()),
+        };
     platform::startup::run_player(arguments, loaded, &activation.inbox)
 }
 
@@ -119,13 +120,14 @@ fn run_shared_player(
     mut players: impl Iterator<Item = InitialMedia>,
     loaded: preference_load::LoadedPreferences,
     browser: &browser_links::Inbox,
+    desktop_documents: bool,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let media = players.next().ok_or("Missing initial player")?;
     platform::startup::select_shared_backend(&loaded.preferences)?;
     let player_manager = player_manager::PlayerManager::new();
     platform::startup::prepare_application(&player_manager, &loaded.preferences);
     let application_menu = platform::startup::ApplicationMenu::new();
-    let _browser = player_manager.register_browser_links(browser);
+    let _activation = player_manager.register_activation(browser);
     let requests_playback = media.requests_playback();
     let application = platform::startup::ApplicationRegistration::new(
         &player_manager,
@@ -134,7 +136,9 @@ fn run_shared_player(
         (!requests_playback).then_some(loaded.preferences.action_after_launch),
         &loaded.preferences,
     );
-    if platform::startup::ApplicationRegistration::needs_initial_player(requests_playback) {
+    if !desktop_documents
+        && platform::startup::ApplicationRegistration::needs_initial_player(requests_playback)
+    {
         start_shared_player(&player_manager, &application_menu, media, players, loaded)?;
     }
     application.run()?;

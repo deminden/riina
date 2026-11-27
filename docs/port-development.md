@@ -73,6 +73,13 @@ Clearing Open Recent removes Riina's registration from each bookmark and
 retains media registered by another application. Updates reread the store
 when GIO detects a simultaneous change. [GLib desktop bookmarks](https://docs.gtk.org/glib/struct.BookmarkFile.html)
 
+In **Settings → Utilities**, **Set Riina as the Default Application** writes
+the desktop launcher and sets the selected Video, Audio and Playlist types
+through GIO. Opening from that launcher follows the saved window and grouping
+preferences. A file manager can send several local files as one selection.
+Riina delivers it to the running application for the same profile or starts a
+player if needed.
+
 Live Text on Linux uses the installed Tesseract 5 library and language data.
 Riina looks for `libtesseract.so.5`, prefers a model for the desktop language,
 and includes English when its model is available. `TESSDATA_PREFIX` can point

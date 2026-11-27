@@ -84,7 +84,21 @@ impl Endpoint {
     }
 
     pub(super) async fn connect(&self) -> io::Result<UnixStream> {
-        let stream = UnixStream::connect(&self.socket).await?;
+        let stream = loop {
+            match UnixStream::connect(&self.socket).await {
+                Ok(stream) => break stream,
+                // The owner acquires the lock before publishing the socket.
+                Err(error)
+                    if matches!(
+                        error.kind(),
+                        io::ErrorKind::NotFound | io::ErrorKind::ConnectionRefused
+                    ) =>
+                {
+                    tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+                }
+                Err(error) => return Err(error),
+            }
+        };
         if stream.peer_cred()?.uid() != self.uid {
             return Err(io::Error::new(
                 io::ErrorKind::PermissionDenied,

@@ -54,19 +54,22 @@ impl WindowLifecycle {
     }
 }
 
-#[cfg(any(target_os = "macos", test))]
+#[cfg(any(target_os = "linux", target_os = "macos", test))]
 #[derive(Clone, Copy)]
 pub(super) enum OpenWork {
     Documents,
+    #[cfg(any(target_os = "macos", test))]
     FilePicker,
 }
 
-#[cfg(any(target_os = "macos", test))]
+#[cfg(any(target_os = "linux", target_os = "macos", test))]
 impl WindowLifecycle {
     pub(super) fn begin_open(&mut self, work: OpenWork) -> bool {
         match work {
             OpenWork::Documents => self.documents += 1,
+            #[cfg(any(target_os = "macos", test))]
             OpenWork::FilePicker if self.picker => return false,
+            #[cfg(any(target_os = "macos", test))]
             OpenWork::FilePicker => self.picker = true,
         }
         true
@@ -75,6 +78,7 @@ impl WindowLifecycle {
     pub(super) fn finish_open(&mut self, work: OpenWork) -> bool {
         match work {
             OpenWork::Documents => self.documents -= 1,
+            #[cfg(any(target_os = "macos", test))]
             OpenWork::FilePicker => self.picker = false,
         }
         self.deferred_close.is_some() && !self.opening()

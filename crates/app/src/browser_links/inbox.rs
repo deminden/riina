@@ -11,7 +11,13 @@ use std::{
     },
 };
 
-type Handler = Rc<dyn Fn(Link)>;
+pub(crate) enum Delivery {
+    Link(Link),
+    #[cfg(target_os = "linux")]
+    Documents(Vec<String>),
+}
+
+type Handler = Rc<dyn Fn(Delivery)>;
 
 thread_local! {
     static HANDLER: RefCell<Option<Handler>> = RefCell::default();
@@ -19,19 +25,19 @@ thread_local! {
 
 #[derive(Clone, Default)]
 pub(crate) struct Inbox {
-    pending: Arc<Mutex<VecDeque<Link>>>,
+    pending: Arc<Mutex<VecDeque<Delivery>>>,
     delivery: CoalescedUiCallback,
     ready: Arc<AtomicBool>,
 }
 
 impl Inbox {
-    pub(crate) fn push(&self, link: Link) -> bool {
+    pub(crate) fn push(&self, delivery: Delivery) -> bool {
         {
             let mut pending = lock(&self.pending);
             if pending.len() >= 16 {
                 return false;
             }
-            pending.push_back(link);
+            pending.push_back(delivery);
         }
         if self.ready.load(Ordering::Acquire) {
             self.schedule();
@@ -39,7 +45,7 @@ impl Inbox {
         true
     }
 
-    pub(crate) fn register(&self, handler: impl Fn(Link) + 'static) -> Registration {
+    pub(crate) fn register(&self, handler: impl Fn(Delivery) + 'static) -> Registration {
         HANDLER.with(|slot| slot.replace(Some(Rc::new(handler))));
         self.ready.store(true, Ordering::Release);
         self.schedule();
@@ -52,8 +58,8 @@ impl Inbox {
             move || {
                 if let Some(handler) = HANDLER.with(|slot| slot.borrow().clone()) {
                     let batch = std::mem::take(&mut *lock(&pending));
-                    for link in batch {
-                        handler(link);
+                    for delivery in batch {
+                        handler(delivery);
                     }
                 }
             }

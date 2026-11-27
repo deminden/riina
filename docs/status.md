@@ -152,6 +152,9 @@ Implementation does not imply every state or platform is verified.
   Direct browser links and groups that begin with a network URL share
   its loading and retry controls. Retrying the first stream preserves the
   remaining playlist.
+- **Linux desktop opens:** Utilities can register Riina for the selected media
+  types. The launcher forwards a file manager's selection to the running
+  application. A cold launch uses the same grouping and window preferences.
 - **Stream feedback:** the player shows when it is opening a stream, buffering
   or seeking. Network Settings controls the buffering and seeking indicators
   independently. The card shows cache fill during a native cache pause and

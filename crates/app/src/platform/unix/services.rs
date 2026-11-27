@@ -120,6 +120,8 @@ pub fn register_default_file_types(
     audio: bool,
     playlists: bool,
 ) -> std::io::Result<usize> {
+    use gtk::gio::{DesktopAppInfo, prelude::AppInfoExt};
+    use gtk::glib::KeyFile;
     use std::collections::BTreeSet;
 
     const DESKTOP_ID: &str = "org.riina.player.desktop";
@@ -152,26 +154,41 @@ pub fn register_default_file_types(
         .ok_or_else(|| std::io::Error::other("The user data directory is unavailable"))?;
     let applications = data_directory.join("applications");
     std::fs::create_dir_all(&applications)?;
-    // The desktop entry declares all capabilities; only the selected categories
-    // below change the user's defaults.
-    let desktop_entry = format!(
-        "[Desktop Entry]\nType=Application\nName=Riina\nComment=Play video and audio\nExec={} %F\nTerminal=false\nCategories=AudioVideo;Player;\nMimeType={};\n",
-        desktop_exec_argument(&executable.to_string_lossy()),
-        supported_mime_types
-            .iter()
-            .map(|mime| format!("{mime};"))
-            .collect::<String>()
+    let executable = executable.to_str().ok_or_else(|| {
+        std::io::Error::other("The Riina executable path cannot be written as UTF-8")
+    })?;
+    let entry = KeyFile::new();
+    let group = "Desktop Entry";
+    entry.set_string(group, "Type", "Application");
+    entry.set_string(group, "Name", "Riina");
+    entry.set_string(group, "Comment", "Play video and audio");
+    entry.set_string(
+        group,
+        "Exec",
+        &format!(
+            "{} {} %F",
+            desktop_exec_argument(executable),
+            crate::platform::browser_activation::Request::DESKTOP_OPEN,
+        ),
     );
-    super::super::settings_file::save(&applications.join(DESKTOP_ID), &desktop_entry)?;
+    entry.set_boolean(group, "Terminal", false);
+    entry.set_value(group, "Categories", "AudioVideo;Player;");
+    // The launcher advertises all capabilities. Only selected types become defaults.
+    let mime_list = supported_mime_types
+        .iter()
+        .map(|mime| format!("{mime};"))
+        .collect::<String>();
+    entry.set_value(group, "MimeType", &mime_list);
+    let entry_path = applications.join(DESKTOP_ID);
+    super::super::settings_file::save(&entry_path, &entry.to_data())?;
+    let desktop_app = DesktopAppInfo::from_filename(&entry_path)
+        .ok_or_else(|| std::io::Error::other("The desktop could not read Riina's launcher"))?;
 
     let mut registered = 0;
     for mime_type in &selected_mime_types {
-        let result = std::process::Command::new("xdg-mime")
-            .args(["default", DESKTOP_ID, mime_type])
-            .status()?;
-        if !result.success() {
+        if let Err(error) = desktop_app.set_as_default_for_type(mime_type) {
             return Err(std::io::Error::other(format!(
-                "xdg-mime registered {registered} of {} media types, then failed for {mime_type} (status {result})",
+                "The desktop registered {registered} of {} media types, then failed for {mime_type}: {error}",
                 selected_mime_types.len()
             )));
         }

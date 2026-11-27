@@ -1,6 +1,6 @@
 //! Browser activations have a separate parser and never enter the raw CLI option path.
 mod inbox;
-pub(crate) use inbox::{Inbox, Registration};
+pub(crate) use inbox::{Delivery, Inbox, Registration};
 
 use crate::startup_arguments::{LaunchOptions, Presentation};
 use std::{collections::BTreeSet, path::Path};

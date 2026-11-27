@@ -1,4 +1,6 @@
 //! Own independent shared-renderer player windows for the application lifetime.
+#[cfg(any(target_os = "linux", target_os = "macos"))]
+pub(crate) mod document_open;
 #[cfg(target_os = "macos")]
 pub(crate) mod launch;
 mod lifecycle;
@@ -173,16 +175,24 @@ impl PlayerManager {
         Ok(())
     }
 
-    pub(crate) fn register_browser_links(
+    pub(crate) fn register_activation(
         &self,
         inbox: &crate::browser_links::Inbox,
     ) -> crate::browser_links::Registration {
         let state = Rc::downgrade(&self.state);
-        inbox.register(move |link| {
-            if let Some(state) = state.upgrade()
-                && let Err(error) = open_browser_link(&state, link)
-            {
-                crate::diagnostics::warn!("Could not open browser link: {error}");
+        inbox.register(move |activation| {
+            use crate::browser_links::Delivery;
+
+            let Some(state) = state.upgrade() else { return };
+            match activation {
+                Delivery::Link(link) => {
+                    if let Err(error) = open_browser_link(&state, link) {
+                        crate::diagnostics::warn!("Could not open browser link: {error}");
+                    }
+                }
+                #[cfg(target_os = "linux")]
+                Delivery::Documents(paths) => PlayerManager { state }
+                    .open_application_selection(paths, document_open::ApplicationOpen::Desktop),
             }
         })
     }

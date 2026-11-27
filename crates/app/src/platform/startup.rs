@@ -39,7 +39,8 @@ pub(crate) fn run_player(
     if renderer == RendererRequest::NativeWindow {
         return Err("Native video presentation is currently available on Windows; use --shared-gl on this platform".into());
     }
-    crate::run_shared_player(arguments.players(), loaded, browser)
+    let desktop_documents = arguments.starts_with_desktop_documents();
+    crate::run_shared_player(arguments.players(), loaded, browser, desktop_documents)
 }
 
 pub(crate) fn select_shared_backend(preferences: &Preferences) -> Result<(), PlatformError> {

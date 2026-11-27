@@ -540,8 +540,12 @@ shared player managers use each player's current media for duplicate checks on
 separate opens. An explicit grouped selection opens together even when only one
 playable item remains after filtering. The player cancels its active
 selection scan when a new request replaces it or the session closes. macOS
-document opens keep the original duplicate reference through asynchronous
-preparation and resolve the current destination when the files are ready.
+Finder and Linux desktop opens share the application document route. It keeps
+the original duplicate reference through asynchronous preparation and
+resolves the current destination when the files are ready. Linux passes each
+desktop file selection as one bounded request to the profile's local listener.
+If no listener owns the profile, the newly started process opens the selection
+with the same window policy.
 The native worker reports an opened group after playback restarts on the
 lead file and the playlist additions settle. Playback observations update the
 feedback baseline quietly during loading and for 200 ms after the first

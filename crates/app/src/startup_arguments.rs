@@ -1,5 +1,5 @@
 //! Turn the process command line into independent player launches.
-use crate::player_ui::InitialMedia;
+use crate::{platform::browser_activation::Request, player_ui::InitialMedia};
 use std::ffi::OsString;
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -35,13 +35,27 @@ pub(crate) struct StartupArguments {
     separate_windows: bool,
     keep_running: bool,
     launch: LaunchOptions,
+    #[cfg(target_os = "linux")]
+    desktop_open: bool,
 }
 
 impl StartupArguments {
     pub(crate) fn invocation(
         args: impl Iterator<Item = OsString>,
-    ) -> Result<(Self, Option<String>), String> {
+    ) -> Result<(Self, Option<Request>), String> {
         let mut args = args.peekable();
+        #[cfg(target_os = "linux")]
+        if args.peek().is_some_and(|arg| arg == Request::DESKTOP_OPEN) {
+            args.next();
+            let request = Request::documents(args)?;
+            return Ok((
+                Self {
+                    desktop_open: request.is_some(),
+                    ..Self::default()
+                },
+                request,
+            ));
+        }
         if args
             .peek()
             .is_some_and(|arg| arg == crate::browser_links::FLAG)
@@ -66,7 +80,7 @@ impl StartupArguments {
                 launch,
                 ..Default::default()
             };
-            return Ok((arguments, Some(raw)));
+            return Ok((arguments, Some(Request::Browser(raw))));
         }
         Self::parse(args, crate::platform::startup_input::buffered).map(|args| (args, None))
     }
@@ -124,6 +138,13 @@ impl StartupArguments {
 
     pub(crate) fn reads_stdin(&self) -> bool {
         self.launch.stdin
+    }
+
+    pub(crate) fn starts_with_desktop_documents(&self) -> bool {
+        #[cfg(target_os = "linux")]
+        return self.desktop_open;
+        #[cfg(not(target_os = "linux"))]
+        false
     }
 
     pub(crate) fn waits_for_player(&self) -> bool {
@@ -239,7 +260,7 @@ mod tests {
             .into_iter()
             .map(OsString::from);
         let (arguments, raw) = StartupArguments::invocation(browser.clone()).unwrap();
-        assert_eq!(raw.as_deref(), Some(uri));
+        assert!(matches!(raw, Some(Request::Browser(raw)) if raw == uri));
         let media = arguments.players().next().unwrap();
         assert_eq!(media.launch.volume, Some(24.0));
         assert_eq!(media.resume_position, Some(3.5));
@@ -249,6 +270,24 @@ mod tests {
             )
             .is_err()
         );
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn desktop_launcher_with_no_selection_opens_normally_without_stdin() {
+        let (arguments, request) =
+            StartupArguments::invocation([Request::DESKTOP_OPEN.into()].into_iter()).unwrap();
+        assert!(request.is_none());
+        assert!(!arguments.starts_with_desktop_documents());
+        assert!(!arguments.reads_stdin());
+        let (arguments, request) = StartupArguments::invocation(
+            [Request::DESKTOP_OPEN, "/media/clip.mkv"]
+                .into_iter()
+                .map(Into::into),
+        )
+        .unwrap();
+        assert!(matches!(request, Some(Request::Documents(_))));
+        assert!(arguments.starts_with_desktop_documents());
     }
 
     #[test]

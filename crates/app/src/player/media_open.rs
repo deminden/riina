@@ -145,7 +145,7 @@ fn prepare_explicit_player(paths: Vec<String>) -> Result<Vec<PlayerSelection>, S
         .collect())
 }
 
-#[cfg(any(test, target_os = "macos"))]
+#[cfg(any(test, target_os = "linux", target_os = "macos"))]
 pub(super) fn prepare_application_documents(
     paths: Vec<String>,
     preferences: &riina_core::Preferences,
@@ -669,7 +669,7 @@ impl PreparedSelection {
     }
 }
 
-#[cfg(target_os = "macos")]
+#[cfg(any(target_os = "linux", target_os = "macos"))]
 pub(super) fn prepared_documents(
     app: &PlayerWindow,
     paths: Vec<String>,

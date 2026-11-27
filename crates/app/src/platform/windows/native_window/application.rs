@@ -174,7 +174,7 @@ pub(super) fn run(
         }
     }
     let owner = Rc::downgrade(&application);
-    let _browser = browser.register(move |link| {
+    let _browser = browser.register(move |crate::browser_links::Delivery::Link(link)| {
         if let Some(application) = owner.upgrade()
             && let Err(error) = application.open_browser_link(link)
         {
