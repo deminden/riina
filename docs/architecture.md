@@ -1141,6 +1141,12 @@ modality, clipboard access, window document identity, file associations, and OS
 media integration belong to platform services. `SessionExtras` keeps each
 platform's input and auxiliary presentation alive through decoder shutdown.
 
+New Window and separate media opens use the player manager in the running
+application. An attached player routes prepared media, duplicate identification
+and any resume position to that manager. Beginning close retires the window's
+ability to forward requests, including those queued during media discovery.
+Windows computes monitor placement from the owning window in the manager.
+
 macOS registers the Open Documents, Reopen, Quit and URL Apple events alongside
 Winit's application delegate. Finder groups short bursts of documents before
 opening them. Explicit playback requests bypass the deferred default launch

@@ -675,30 +675,23 @@ pub(crate) fn center_player_window_for_owner(
     let _ = (window, owner, initial_position_configured);
 }
 
-/// Return the owning window's screen-space center for a child player process.
+/// Return the owning window's screen-space center for a new native player.
+#[cfg(target_os = "windows")]
 pub(crate) fn player_window_center(window: &slint::Window) -> Option<(i32, i32)> {
-    #[cfg(target_os = "windows")]
-    {
-        window
-            .with_winit_window(|native| {
-                let origin = native.outer_position().ok()?;
-                let size = native.outer_size();
-                Some((
-                    origin
-                        .x
-                        .saturating_add(i32::try_from(size.width / 2).unwrap_or(i32::MAX)),
-                    origin
-                        .y
-                        .saturating_add(i32::try_from(size.height / 2).unwrap_or(i32::MAX)),
-                ))
-            })
-            .flatten()
-    }
-    #[cfg(not(target_os = "windows"))]
-    {
-        let _ = window;
-        None
-    }
+    window
+        .with_winit_window(|native| {
+            let origin = native.outer_position().ok()?;
+            let size = native.outer_size();
+            Some((
+                origin
+                    .x
+                    .saturating_add(i32::try_from(size.width / 2).unwrap_or(i32::MAX)),
+                origin
+                    .y
+                    .saturating_add(i32::try_from(size.height / 2).unwrap_or(i32::MAX)),
+            ))
+        })
+        .flatten()
 }
 
 /// Read the taskbar-free monitor bounds for the native window on Windows.

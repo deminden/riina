@@ -34,6 +34,7 @@ enum PlayerClose {
 
 impl ManagedPlayer {
     fn hide_windows(&self) {
+        self.app.set_player_manager_ready(false);
         self.app.invoke_window_will_close();
         self.app
             .global::<riina_ui::PlayerSidebarActions>()
@@ -206,12 +207,14 @@ impl PlayerManager {
             id
         };
 
-        app.set_in_process_player_manager(true);
         let state = Rc::downgrade(&self.state);
         let owner = app.as_weak();
         app.on_open_player_requested(move |paths, reference, position, explicit_playlist| {
             let Some(state) = state.upgrade() else { return };
             let Some(owner) = owner.upgrade() else { return };
+            if !owner.get_player_manager_ready() || state.borrow().quitting {
+                return;
+            }
             let paths = paths
                 .iter()
                 .map(|path| OsString::from(path.as_str()))
@@ -260,6 +263,7 @@ impl PlayerManager {
                 CloseRequestResponse::HideWindow
             });
         }
+        app.set_player_manager_ready(true);
         id
     }
 
@@ -431,6 +435,18 @@ fn show_opened_player(
 }
 
 fn schedule_close(state: Weak<RefCell<ManagerState>>, id: u64, source: PlayerClose) {
+    // Discovery may return before the event loop runs deferred teardown.
+    if let Some(owner) = state.upgrade() {
+        let app = owner
+            .borrow()
+            .players
+            .iter()
+            .find(|player| player.id == id)
+            .map(|player| player.app.clone_strong());
+        if let Some(app) = app {
+            app.set_player_manager_ready(false);
+        }
+    }
     let scheduled = slint::spawn_local(async move {
         if let Some(state) = state.upgrade() {
             close_player(&state, id, source);
@@ -443,11 +459,17 @@ fn schedule_close(state: Weak<RefCell<ManagerState>>, id: u64, source: PlayerClo
 
 fn schedule_welcome(state: Weak<RefCell<ManagerState>>, owner: Option<slint::Weak<PlayerWindow>>) {
     if let Err(error) = slint::spawn_local(async move {
-        if let Some(state) = state.upgrade() {
-            let owner = owner.as_ref().and_then(slint::Weak::upgrade);
-            if let Err(error) = show_welcome(&state, owner.as_ref()) {
-                crate::diagnostics::warn!("Could not open a new Welcome window: {error}");
-            }
+        let Some(state) = state.upgrade() else { return };
+        let window = owner.as_ref().and_then(slint::Weak::upgrade);
+        if owner.is_some()
+            && window
+                .as_ref()
+                .is_none_or(|app| !app.get_player_manager_ready())
+        {
+            return;
+        }
+        if let Err(error) = show_welcome(&state, window.as_ref()) {
+            crate::diagnostics::warn!("Could not open a new Welcome window: {error}");
         }
     }) {
         crate::diagnostics::warn!("Could not schedule a new Welcome window: {error}");

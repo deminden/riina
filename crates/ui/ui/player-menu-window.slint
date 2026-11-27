@@ -41,7 +41,7 @@ export component PlayerMenuWindow inherits Window {
     in property <bool> menu-value-delogo-enabled;
     in property <bool> menu-value-downloaded-subtitle-save-available;
     in property <bool> menu-value-fullscreen;
-    in property <bool> menu-value-in-process-player-manager;
+    in property <bool> menu-value-player-manager-ready;
     in property <bool> menu-value-live-text-available;
     in property <bool> menu-value-live-text-enabled;
     in property <bool> menu-value-loaded;
@@ -616,7 +616,7 @@ export component PlayerMenuWindow inherits Window {
             }
             MenuSeparator {}
             MenuItem { title: ApplicationMenuText.bring-to-front;
-                enabled: root.menu-value-in-process-player-manager;
+                enabled: root.menu-value-player-manager-ready;
                 activated => { PlayerMenuActions.bring-all-to-front(); }
             }
             if PlayerCatalogState.window-menu-rows.length > 0 : MenuSeparator {}

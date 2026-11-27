@@ -33,20 +33,11 @@ pub(crate) fn run_player(
     // Native D3D11 preserves the Windows HDR presentation path. Its control
     // overlay restores compositor alpha after Slint realizes the window.
     if renderer != RendererRequest::SharedGl {
-        let owner_center = arguments.owner_center;
-        return super::windows::native_window::run(
-            arguments.players(),
-            owner_center,
-            loaded,
-            browser,
-        );
+        return super::windows::native_window::run(arguments.players(), loaded, browser);
     }
     #[cfg(not(target_os = "windows"))]
-    {
-        let _ = arguments.owner_center;
-        if renderer == RendererRequest::NativeWindow {
-            return Err("Native video presentation is currently available on Windows; use --shared-gl on this platform".into());
-        }
+    if renderer == RendererRequest::NativeWindow {
+        return Err("Native video presentation is currently available on Windows; use --shared-gl on this platform".into());
     }
     crate::run_shared_player(arguments.players(), loaded, browser)
 }

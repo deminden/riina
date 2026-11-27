@@ -7156,3 +7156,19 @@ pins the FFmpeg source used by the candidate to
 configuration passed in the pinned build image with the existing dependencies.
 The release verifier now checks the pinned FFmpeg revision. All ten release
 artifact tests passed. Compilation and the engine playback checks remain open.
+
+### Opening and closing player windows in one process (2026-11-27)
+
+The obsolete process-launch fallback and its private arguments are gone. The
+player-manager regression checks readiness before opening media and after
+retirement, plus the transfer of Unicode paths, resume time and playlist intent.
+The browser launch test checks that a link still carries its requested start time.
+
+The full Windows workspace gate, locked build and 88 widget cases passed. On an
+isolated desktop, the native picker opened grouped and separate selections in the
+existing process, kept the original player, and reused an already-open file. The
+grouped probe passed after it waited for the new frame's Playback menu. Closing
+one of two players left the other open. History kept the process alive after the
+last player closed, then returned to Welcome. Closing Welcome exited normally.
+Strict macOS cross-Clippy passed for Intel and Apple Silicon with the idle
+New Window action preserved.

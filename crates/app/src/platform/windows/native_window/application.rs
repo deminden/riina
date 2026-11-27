@@ -453,6 +453,7 @@ impl WindowActions {
             let (application, owner) = (application.clone(), welcome_owner.clone());
             schedule(move || {
                 if let (Some(application), Some(owner)) = (application.upgrade(), owner.upgrade())
+                    && owner.get_player_manager_ready()
                     && let Err(error) = application.open_welcome(&owner)
                 {
                     crate::diagnostics::report(&owner, error.to_string());
@@ -469,7 +470,6 @@ impl WindowActions {
             });
         });
 
-        app.set_in_process_player_manager(true);
         let owner = app.as_weak();
         let application = self.application.clone();
         let player = self.player.clone();
@@ -480,6 +480,8 @@ impl WindowActions {
             schedule(move || {
                 if let (Some(application), Some(owner), Some(player)) =
                     (application.upgrade(), owner.upgrade(), player.upgrade())
+                    && owner.get_player_manager_ready()
+                    && !application.quitting.get()
                     && application.owns(&player)
                 {
                     let paths = paths
@@ -500,6 +502,7 @@ impl WindowActions {
                 }
             });
         });
+        app.set_player_manager_ready(true);
     }
 
     pub(super) fn close(&self) {
@@ -511,6 +514,11 @@ impl WindowActions {
     }
 
     fn close_for(&self, closed: ClosedWindow) {
+        if let Some(player) = self.player.upgrade()
+            && let Some(app) = player.chrome.borrow().as_ref()
+        {
+            app.set_player_manager_ready(false);
+        }
         let application = self.application.clone();
         let player = self.player.clone();
         let managed = self.managed.clone();

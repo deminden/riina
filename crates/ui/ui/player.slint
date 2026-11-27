@@ -157,7 +157,7 @@ export component PlayerWindow inherits PlayerMenuWindow {
     menu-value-delogo-enabled: root.delogo-enabled;
     menu-value-downloaded-subtitle-save-available: root.downloaded-subtitle-save-available;
     menu-value-fullscreen: root.fullscreen;
-    menu-value-in-process-player-manager: root.in-process-player-manager;
+    menu-value-player-manager-ready: root.player-manager-ready;
     menu-value-live-text-available: root.live-text-available;
     menu-value-live-text-enabled: root.live-text-enabled;
     menu-value-loaded: root.loaded;
@@ -240,7 +240,7 @@ export component PlayerWindow inherits PlayerMenuWindow {
     callback window-mode-confirmed(PlayerWindowMode, bool);
     callback history-player-activated();
     callback inspector-player-activated();
-    in-out property <bool> in-process-player-manager: false;
+    in-out property <bool> player-manager-ready: false;
     callback open-player-requested([string], string, float, bool);
     callback music-mode-changed();
     callback music-mode-resize-finished();

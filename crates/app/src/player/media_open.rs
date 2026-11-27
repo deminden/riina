@@ -189,50 +189,22 @@ fn open_player(
     if paths.is_empty() {
         return Ok(());
     }
+    if !app.get_player_manager_ready() {
+        return Err("The player window is unavailable".into());
+    }
     app.set_status("Opening in a new player…".into());
-    if app.get_in_process_player_manager() {
-        app.invoke_open_player_requested(
-            ModelRc::new(VecModel::from(
-                paths
-                    .iter()
-                    .cloned()
-                    .map(SharedString::from)
-                    .collect::<Vec<_>>(),
-            )),
-            duplicate_reference.unwrap_or_default().into(),
-            resume_position.map_or(-1.0, |position| position as f32),
-            explicit_playlist,
-        );
-    } else if !explicit_playlist {
-        spawn_player(app, paths, resume_position)?;
-    } else {
-        return Err("The player window is still starting".into());
-    }
+    app.invoke_open_player_requested(
+        ModelRc::new(VecModel::from(
+            paths
+                .iter()
+                .map(|path| SharedString::from(path.as_str()))
+                .collect::<Vec<_>>(),
+        )),
+        duplicate_reference.unwrap_or_default().into(),
+        resume_position.map_or(-1.0, |position| position as f32),
+        explicit_playlist,
+    );
     Ok(())
-}
-
-fn spawn_player(
-    app: &PlayerWindow,
-    paths: &[String],
-    resume_position: Option<f64>,
-) -> Result<(), String> {
-    let executable = std::env::current_exe().map_err(|error| error.to_string())?;
-    let mut process = std::process::Command::new(executable);
-    if let Some((x, y)) = crate::platform::player_window_center(app.window()) {
-        process
-            .arg("--riina-owner-center")
-            .arg(x.to_string())
-            .arg(y.to_string());
-    }
-    if let Some(position) = resume_position.filter(|value| value.is_finite() && *value >= 0.0) {
-        process.arg("--riina-resume-at").arg(position.to_string());
-    }
-    process
-        .stdin(std::process::Stdio::null())
-        .args(paths)
-        .spawn()
-        .map(|_| ())
-        .map_err(|error| error.to_string())
 }
 
 pub(crate) fn same_media(left: &str, right: &str) -> bool {
@@ -807,6 +779,49 @@ mod tests {
     use super::manual_open_repeat_command;
     use super::{parse_internet_shortcut, validate_url};
     use riina_core::{Command, LoopMode};
+
+    #[test]
+    fn new_player_requests_require_a_live_manager_and_keep_the_media_intent()
+    -> Result<(), Box<dyn std::error::Error>> {
+        use super::open_player;
+        use slint::Model;
+        use std::{cell::RefCell, rc::Rc};
+
+        i_slint_backend_testing::init_no_event_loop();
+        let app = crate::PlayerWindow::new()?;
+        let requests = Rc::new(RefCell::new(Vec::new()));
+        let delivered = requests.clone();
+        app.on_open_player_requested(move |paths, reference, position, explicit_playlist| {
+            delivered.borrow_mut().push((
+                paths
+                    .iter()
+                    .map(|path| path.to_string())
+                    .collect::<Vec<_>>(),
+                reference.to_string(),
+                position,
+                explicit_playlist,
+            ));
+        });
+        let paths = ["First Clip.mkv".to_owned(), "字幕.mkv".to_owned()];
+
+        assert!(open_player(&app, &paths[..1], Some(&paths[0]), Some(3.5), false).is_err());
+        assert!(requests.borrow().is_empty());
+
+        app.set_player_manager_ready(true);
+        open_player(&app, &paths[..1], Some(&paths[0]), Some(3.5), false)?;
+        open_player(&app, &paths, None, None, true)?;
+
+        app.set_player_manager_ready(false);
+        assert!(open_player(&app, &paths, None, None, true).is_err());
+        assert_eq!(
+            *requests.borrow(),
+            [
+                (vec![paths[0].clone()], paths[0].clone(), 3.5, false),
+                (paths.to_vec(), String::new(), -1.0, true),
+            ]
+        );
+        Ok(())
+    }
 
     #[test]
     fn windowless_document_opens_follow_the_saved_window_and_grouping_preferences() {

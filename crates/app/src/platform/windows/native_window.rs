@@ -27,13 +27,12 @@ use std::{
 use surfaces::{align, enable_video_transparency};
 pub(crate) fn run(
     players: impl Iterator<Item = InitialMedia>,
-    owner_center: Option<(i32, i32)>,
     loaded: LoadedPreferences,
     browser: &crate::browser_links::Inbox,
 ) -> Result<(), Box<dyn std::error::Error>> {
     let launches = players.map(|media| NativeLaunch {
         media,
-        owner_center,
+        owner_center: None,
         loaded: loaded.clone(),
     });
     application::run(launches, browser)
@@ -297,6 +296,9 @@ impl NativePlayer {
         self.hdr_display_timer.stop();
         drop(self.menu_lifecycle.borrow_mut().take());
         let app = self.chrome.borrow_mut().take();
+        if let Some(app) = &app {
+            app.set_player_manager_ready(false);
+        }
         close(&self.session, &self.pip_controller, app.as_ref());
         if let Some(welcome) = self.welcome_window.borrow_mut().take() {
             let _ = welcome.hide();

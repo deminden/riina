@@ -30,7 +30,6 @@ pub(crate) struct LaunchOptions {
 #[derive(Default)]
 pub(crate) struct StartupArguments {
     pub(crate) renderer: RendererRequest,
-    pub(crate) owner_center: Option<(i32, i32)>,
     media: Vec<OsString>,
     resume_position: Option<f64>,
     separate_windows: bool,
@@ -73,17 +72,16 @@ impl StartupArguments {
     }
 
     fn parse(
-        mut args: impl Iterator<Item = OsString>,
+        args: impl Iterator<Item = OsString>,
         buffered_input: impl FnOnce() -> bool,
     ) -> Result<Self, String> {
         let mut parsed = Self::default();
         let mut stdin = None;
-        let mut internal_launch = false;
         let mut mpv_tail = false;
         let mut music = false;
         let mut pip = false;
         let mut fullscreen = false;
-        while let Some(argument) = args.next() {
+        for argument in args {
             let Some(flag) = argument.to_str() else {
                 parsed.media.push(argument);
                 continue;
@@ -92,21 +90,6 @@ impl StartupArguments {
                 "--" => mpv_tail = true,
                 flag if mpv_tail && flag.starts_with("--") => {
                     fullscreen = parsed.launch.set_mpv(&flag[2..])?.unwrap_or(fullscreen);
-                }
-                "--riina-resume-at" => {
-                    internal_launch = true;
-                    let position = read_value::<f64>(&mut args, "resume position")?;
-                    if !position.is_finite() || position < 0.0 {
-                        return Err("Resume position must be a finite non-negative number".into());
-                    }
-                    parsed.resume_position = Some(position);
-                }
-                "--riina-owner-center" => {
-                    internal_launch = true;
-                    parsed.owner_center = Some((
-                        read_value(&mut args, "owner-center x coordinate")?,
-                        read_value(&mut args, "owner-center y coordinate")?,
-                    ));
                 }
                 "--shared-gl" if parsed.media.is_empty() => {
                     parsed.renderer = RendererRequest::SharedGl;
@@ -135,8 +118,7 @@ impl StartupArguments {
             (false, false, true) => Some(Presentation::Fullscreen),
             (false, false, false) => None,
         };
-        // Window relaunches carry an explicit media request from another player.
-        parsed.launch.stdin = stdin.unwrap_or_else(|| !internal_launch && buffered_input());
+        parsed.launch.stdin = stdin.unwrap_or_else(buffered_input);
         Ok(parsed)
     }
 
@@ -218,17 +200,6 @@ fn parse_volume(value: &str) -> Result<f64, String> {
         .ok_or_else(|| "The mpv volume option expects a number between 0 and 200".into())
 }
 
-fn read_value<T: std::str::FromStr>(
-    args: &mut impl Iterator<Item = OsString>,
-    label: &str,
-) -> Result<T, String> {
-    let value = args.next().ok_or_else(|| format!("Missing {label}"))?;
-    value
-        .to_str()
-        .and_then(|value| value.parse().ok())
-        .ok_or_else(|| format!("Invalid {label}"))
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -238,23 +209,18 @@ mod tests {
     }
 
     #[test]
-    fn buffered_input_is_used_only_for_implicit_user_launches() {
+    fn buffered_input_is_probed_only_when_input_is_unspecified() {
         let args = StartupArguments::parse(["movie.mkv"].into_iter().map(OsString::from), || true)
             .unwrap();
         assert!(args.waits_for_player());
         assert_eq!(args.players().next().unwrap().files, [OsString::from("-")]);
 
-        for flags in [
-            &["--stdin"][..],
-            &["--no-stdin"],
-            &["--riina-resume-at", "4", "movie.mkv"],
-            &["--riina-owner-center", "200", "300", "movie.mkv"],
-        ] {
-            let args = StartupArguments::parse(flags.iter().map(OsString::from), || {
-                panic!("Unexpected stdin probe for {flags:?}")
+        for (flag, reads_stdin) in [("--stdin", true), ("--no-stdin", false)] {
+            let args = StartupArguments::parse([OsString::from(flag)].into_iter(), || {
+                panic!("Unexpected stdin probe for {flag}")
             })
             .unwrap();
-            assert_eq!(args.reads_stdin(), flags == ["--stdin"]);
+            assert_eq!(args.reads_stdin(), reads_stdin);
         }
     }
 
@@ -268,16 +234,15 @@ mod tests {
 
     #[test]
     fn browser_activation_cannot_supply_raw_command_line_switches() {
-        let uri = "riina://open?url=https://example.test/movie.mkv&mpv_volume=24";
+        let uri = "riina://open?url=https://example.test/movie.mkv&mpv_volume=24&mpv_start=3.5";
         let browser = [crate::browser_links::FLAG, uri]
             .into_iter()
             .map(OsString::from);
         let (arguments, raw) = StartupArguments::invocation(browser.clone()).unwrap();
         assert_eq!(raw.as_deref(), Some(uri));
-        assert_eq!(
-            arguments.players().next().unwrap().launch.volume,
-            Some(24.0)
-        );
+        let media = arguments.players().next().unwrap();
+        assert_eq!(media.launch.volume, Some(24.0));
+        assert_eq!(media.resume_position, Some(3.5));
         assert!(
             StartupArguments::invocation(
                 browser.chain([OsString::from("--mpv-script=untrusted.lua")])
@@ -313,25 +278,6 @@ mod tests {
             players[0].files,
             ["a file.mkv", "https://example.net/b.mkv"].map(OsString::from)
         );
-    }
-
-    #[test]
-    fn child_player_keeps_owner_monitor_hint_out_of_media_arguments() {
-        let args = parse(&[
-            "--riina-owner-center",
-            "1440",
-            "520",
-            "--shared-gl",
-            "--riina-resume-at",
-            "3.5",
-            "movie.mkv",
-        ])
-        .unwrap();
-        assert_eq!(args.renderer, RendererRequest::SharedGl);
-        assert_eq!(args.owner_center, Some((1440, 520)));
-        let player = args.players().next().unwrap();
-        assert_eq!(player.files, [OsString::from("movie.mkv")]);
-        assert_eq!(player.resume_position, Some(3.5));
     }
 
     #[test]
@@ -395,7 +341,6 @@ mod tests {
             &["--mpv-pause=wrong"],
             &["--mpv-wid=123"],
             &["--mpv-"],
-            &["--riina-resume-at", "-3"],
         ] {
             assert!(parse(args).is_err());
         }

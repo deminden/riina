@@ -94,6 +94,8 @@ Implementation does not imply every state or platform is verified.
   of an existing player when duplicate players are disabled. Queued group
   feedback follows the first loaded file and reports accepted entries.
   A replacement request or a closing player cancels its folder scan.
+  New windows open through the current application. A closing window stops
+  forwarding delayed new-window requests.
 - **Playlist editing:** the sidebar and Music Mode share the playlist
   controls. Add opens the file and URL choices, with a separate folder choice
   on Windows and Linux. Sort opens the four filename and path orders.
